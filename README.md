@@ -1,6 +1,14 @@
 # rpccgo
 write cgo like rpc
 
+```mermaid
+flowchart TD
+    A[CGO gen code] -->|call | B(Adaptor gen code)
+    B --> |get impl| C{GlobalRegister}
+    C -->| grpc server | D[grpc method impl]
+    C -->| connect server | E[connect method impl]
+```
+
 ## Runtime：错误信息注册表（Error Registry）
 
 本仓库实现了一个可复用的运行时能力：把“错误信息文本/字节”与一个整型 `errorId` 绑定，使得 CGO 导出函数只需要返回 `errorId != 0`，C 侧即可通过稳定 ABI 拉取错误信息。
