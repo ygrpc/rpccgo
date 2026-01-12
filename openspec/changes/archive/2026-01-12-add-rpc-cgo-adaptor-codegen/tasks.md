@@ -3,7 +3,7 @@
 ## 1. Specs
 - [x] Add new capability spec delta: `rpc-cgo-adaptor`.
 - [x] Add spec delta for `rpc-dispatch` to standardize protocol constants and usage.
-- [ ] Validate with `openspec validate add-rpc-cgo-adaptor-codegen --strict`.
+- [x] Validate with `openspec validate add-rpc-cgo-adaptor-codegen --strict`.
 
 ## 2. Codegen: `protoc-gen-rpc-cgo-adaptor`
 - [x] Add minimal protoc plugin harness using `google.golang.org/protobuf/compiler/protogen`.
