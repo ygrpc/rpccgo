@@ -21,10 +21,20 @@ if ! protoc-gen-connect-go --version | grep -q "v1.19.0"; then
     go install connectrpc.com/connect/cmd/protoc-gen-connect-go@v1.19.0
 fi
 
+if ! command -v protoc-gen-rpc-cgo-adaptor >/dev/null 2>&1; then
+    echo "Installing protoc-gen-rpc-cgo-adaptor..."
+    (cd .. && go install ./cmd/protoc-gen-rpc-cgo-adaptor)
+fi
+
 
 mkdir -p ./connect
 
 # 生成 Connect 代码，放在 ./connect 目录下
 protoc  -Iproto --go_out=./connect --go_opt=paths=source_relative \
- --connect-go_out=./connect --connect-go_opt=package_suffix="",paths=source_relative,simple \
- ./proto/test.proto ./proto/test2.proto
+ --connect-go_out=./connect --connect-go_opt=package_suffix="",paths=source_relative,simple=true \
+ ./proto/unary.proto ./proto/stream.proto
+
+# 生成 CGO adaptor 代码
+protoc -Iproto --rpc-cgo-adaptor_out=./connect \
+ --rpc-cgo-adaptor_opt=paths=source_relative,framework=connectrpc \
+ ./proto/unary.proto ./proto/stream.proto

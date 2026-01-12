@@ -17,8 +17,17 @@ if ! command -v protoc-gen-go-grpc >/dev/null 2>&1; then
     go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 fi
 
+if ! command -v protoc-gen-rpc-cgo-adaptor >/dev/null 2>&1; then
+    echo "Installing protoc-gen-rpc-cgo-adaptor..."
+    (cd .. && go install ./cmd/protoc-gen-rpc-cgo-adaptor)
+fi
+
 mkdir -p ./grpc
 
 protoc  -Iproto --go_out=./grpc --go_opt=paths=source_relative \
  --go-grpc_out=./grpc --go-grpc_opt=paths=source_relative \
- ./proto/test.proto ./proto/test2.proto
+ ./proto/unary.proto ./proto/stream.proto
+
+protoc -Iproto --rpc-cgo-adaptor_out=./grpc \
+ --rpc-cgo-adaptor_opt=paths=source_relative,framework=grpc \
+ ./proto/unary.proto ./proto/stream.proto
