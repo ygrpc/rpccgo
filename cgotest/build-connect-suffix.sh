@@ -30,11 +30,11 @@ mkdir -p ./connect_suffix
 find ./connect_suffix -mindepth 1 -maxdepth 1 -type f ! -name 'adaptor_test.go' -delete
 find ./connect_suffix -mindepth 1 -maxdepth 1 -type d -exec rm -rf '{}' '+'
 
-GO_PKG_CONNECT_SUFFIX="Munary.proto=github.com/ygrpc/rpccgo/cgotest/connect_suffix;cgotest_connect_suffix"
+GO_PKG_CONNECT_SUFFIX="Munary.proto=github.com/ygrpc/rpccgo/cgotest/connect_suffix;cgotest_connect_suffix,Mstream.proto=github.com/ygrpc/rpccgo/cgotest/connect_suffix;cgotest_connect_suffix"
 
 protoc -Iproto \
   --go_out=./connect_suffix --go_opt=paths=source_relative,${GO_PKG_CONNECT_SUFFIX} \
   --connect-go_out=./connect_suffix --connect-go_opt=paths=source_relative,simple=true,${GO_PKG_CONNECT_SUFFIX} \
   --rpc-cgo-adaptor_out=./connect_suffix \
   --rpc-cgo-adaptor_opt=paths=source_relative,protocol=connectrpc,connect_package_suffix=connect,${GO_PKG_CONNECT_SUFFIX} \
-  ./proto/unary.proto
+    ./proto/unary.proto ./proto/stream.proto
