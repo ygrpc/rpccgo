@@ -2,42 +2,73 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"go/token"
+	"os"
 	"strings"
+
+	_ "embed"
 
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-// FrameworkOption controls which framework adaptor code to generate.
-type FrameworkOption int
+//go:embed version.txt
+var version string
+
+// ProtocolOption controls which protocol adaptor code to generate.
+//
+// Note: this is codegen-only; runtime protocol identifiers live in rpcruntime.Protocol.
+type ProtocolOption string
 
 const (
-	// FrameworkConnectRPC generates adaptor code only for connectrpc.
-	FrameworkConnectRPC FrameworkOption = iota
-	// FrameworkGrpc generates adaptor code only for grpc.
-	FrameworkGrpc
+	ProtocolOptionConnectRPC ProtocolOption = "connectrpc"
+	ProtocolOptionGrpc       ProtocolOption = "grpc"
 )
 
 // GeneratorOptions holds all options for code generation.
 type GeneratorOptions struct {
-	Framework FrameworkOption
+	Protocols            []ProtocolOption
+	ConnectPackageSuffix string
 }
 
 func main() {
-	var flags flag.FlagSet
-	frameworkFlag := flags.String("framework", "connectrpc", "Framework to generate: connectrpc or grpc")
-	// Note: Connect framework only supports Simple API mode.
-	opts := protogen.Options{ParamFunc: flags.Set}
+	if len(os.Args) == 2 && (os.Args[1] == "--version" || os.Args[1] == "-version" || os.Args[1] == "-v") {
+		fmt.Fprintln(os.Stdout, version)
+		os.Exit(0)
+	}
 
-	opts.Run(func(gen *protogen.Plugin) error {
+	var flags flag.FlagSet
+
+	connectPackageSuffixFlag := flags.String(
+		"connect_package_suffix",
+		"",
+		"connect-go package_suffix; when set, connect handler interface is assumed to be in <import-path>/<go-package-name><suffix>",
+	)
+
+	protocolFlag := flags.String(
+		"protocol",
+		"",
+		"protocols to generate support for; use ';' to separate multiple protocols (e.g. protocol=grpc;connectrpc); default is connectrpc",
+	)
+
+	protogen.Options{
+		ParamFunc: flags.Set,
+	}.Run(func(gen *protogen.Plugin) error {
+		suffix, err := parseConnectPackageSuffix(*connectPackageSuffixFlag)
+		if err != nil {
+			return err
+		}
+		protocols, err := parseProtocolToken(*protocolFlag)
+		if err != nil {
+			return err
+		}
 		genOpts := GeneratorOptions{
-			Framework: parseFrameworkOption(*frameworkFlag),
+			Protocols:            protocols,
+			ConnectPackageSuffix: suffix,
 		}
 
 		for _, f := range gen.Files {
-			if !f.Generate {
-				continue
-			}
-			if len(f.Services) == 0 {
+			if !f.Generate || len(f.Services) == 0 {
 				continue
 			}
 			generateFile(gen, f, genOpts)
@@ -47,11 +78,66 @@ func main() {
 	})
 }
 
-func parseFrameworkOption(s string) FrameworkOption {
-	switch strings.ToLower(strings.TrimSpace(s)) {
-	case "grpc":
-		return FrameworkGrpc
-	default:
-		return FrameworkConnectRPC
+func parseProtocolToken(raw string) ([]ProtocolOption, error) {
+	trimmedRaw := strings.TrimSpace(raw)
+	if trimmedRaw == "" {
+		return []ProtocolOption{ProtocolOptionConnectRPC}, nil
 	}
+	seen := make(map[ProtocolOption]bool, 2)
+	var out []ProtocolOption
+
+	if strings.Contains(trimmedRaw, ",") {
+		return nil, fmt.Errorf(
+			"invalid protocol value %q: use ';' to separate multiple protocols (e.g. protocol=grpc;connectrpc); commas are reserved to separate protoc plugin options",
+			trimmedRaw,
+		)
+	}
+
+	parts := strings.Split(trimmedRaw, ";")
+	for _, part := range parts {
+		token := strings.ToLower(strings.TrimSpace(part))
+		if token == "" {
+			continue
+		}
+		var p ProtocolOption
+		switch token {
+		case string(ProtocolOptionGrpc):
+			p = ProtocolOptionGrpc
+		case string(ProtocolOptionConnectRPC):
+			p = ProtocolOptionConnectRPC
+		default:
+			return nil, fmt.Errorf("invalid protocol option %q (allowed: grpc, connectrpc)", token)
+		}
+
+		if !seen[p] {
+			seen[p] = true
+			out = append(out, p)
+		}
+	}
+
+	if len(out) == 0 {
+		return []ProtocolOption{ProtocolOptionConnectRPC}, nil
+	} else {
+		return out, nil
+	}
+}
+
+func parseConnectPackageSuffix(s string) (string, error) {
+	trimmed := strings.TrimSpace(s)
+	if trimmed == "" {
+		return "", nil
+	} else if token.IsIdentifier(trimmed) {
+		return trimmed, nil
+	} else {
+		return "", fmt.Errorf("invalid connect_package_suffix %q (must be a Go identifier)", trimmed)
+	}
+}
+
+func supportsProtocol(protocols []ProtocolOption, p ProtocolOption) bool {
+	for _, got := range protocols {
+		if got == p {
+			return true
+		}
+	}
+	return false
 }
