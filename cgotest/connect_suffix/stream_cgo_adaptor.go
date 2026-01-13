@@ -38,31 +38,26 @@ func StreamService_lookupHandler(ctx context.Context) (rpcruntime.Protocol, any,
 		return protocol, h, nil
 	}
 
-	// Fallback: try protocols in configured order.
-	if h, ok := rpcruntime.LookupConnectHandler(StreamService_ServiceName); ok {
-		return rpcruntime.ProtocolConnectRPC, h, nil
+	h, ok := rpcruntime.LookupConnectHandler(StreamService_ServiceName)
+	if !ok {
+		return "", nil, rpcruntime.ErrServiceNotRegistered
 	}
-	return "", nil, rpcruntime.ErrServiceNotRegistered
+	return rpcruntime.ProtocolConnectRPC, h, nil
 }
 
 // StreamService_UnaryCall calls cgotest.StreamService.UnaryCall via the registered handler.
 func StreamService_UnaryCall(ctx context.Context, req *StreamRequest) (*StreamResponse, error) {
-	protocol, h, err := StreamService_lookupHandler(ctx)
+	_, h, err := StreamService_lookupHandler(ctx)
 	if err != nil {
 		return nil, err
 	}
-	switch protocol {
-	case rpcruntime.ProtocolConnectRPC:
-		svc, ok := h.(interface {
-			UnaryCall(context.Context, *StreamRequest) (*StreamResponse, error)
-		})
-		if !ok {
-			return nil, rpcruntime.ErrHandlerTypeMismatch
-		}
-		return svc.UnaryCall(ctx, req)
-	default:
-		return nil, rpcruntime.ErrUnknownProtocol
+	svc, ok := h.(interface {
+		UnaryCall(context.Context, *StreamRequest) (*StreamResponse, error)
+	})
+	if !ok {
+		return nil, rpcruntime.ErrHandlerTypeMismatch
 	}
+	return svc.UnaryCall(ctx, req)
 }
 
 // StreamService_ClientStreamCall client-streaming adaptor functions.
@@ -80,22 +75,18 @@ func StreamService_ClientStreamCallStart(ctx context.Context) (uint64, error) {
 		return 0, rpcruntime.ErrInvalidStreamHandle
 	}
 
-	if protocol == rpcruntime.ProtocolConnectRPC {
-		svc, ok := h.(interface {
-			ClientStreamCall(context.Context, *connect.ClientStream[StreamRequest]) (*StreamResponse, error)
-		})
-		if !ok {
-			return 0, rpcruntime.ErrHandlerTypeMismatch
-		}
-		conn := rpcruntime.NewConnectStreamConn(session)
-		connectStream := rpcruntime.NewClientStream[StreamRequest](conn)
-		go func() {
-			resp, err := svc.ClientStreamCall(childCtx, connectStream)
-			rpcruntime.CompleteClientStream(handle, resp, err)
-		}()
-	} else {
-		return 0, rpcruntime.ErrUnknownProtocol
+	svc, ok := h.(interface {
+		ClientStreamCall(context.Context, *connect.ClientStream[StreamRequest]) (*StreamResponse, error)
+	})
+	if !ok {
+		return 0, rpcruntime.ErrHandlerTypeMismatch
 	}
+	conn := rpcruntime.NewConnectStreamConn(session)
+	connectStream := rpcruntime.NewClientStream[StreamRequest](conn)
+	go func() {
+		resp, err := svc.ClientStreamCall(childCtx, connectStream)
+		rpcruntime.CompleteClientStream(handle, resp, err)
+	}()
 
 	_ = childCtx // Used in goroutine
 	return uint64(handle), nil
@@ -137,26 +128,20 @@ func StreamService_ServerStreamCall(ctx context.Context, req *StreamRequest, onR
 	}
 	session.SetCallbacks(func(resp any) bool { return onRead(resp.(*StreamResponse)) }, onDone)
 
-	if protocol == rpcruntime.ProtocolConnectRPC {
-		svc, ok := h.(interface {
-			ServerStreamCall(context.Context, *StreamRequest, *connect.ServerStream[StreamResponse]) error
-		})
-		if !ok {
-			rpcruntime.FinishStreamHandle(handle)
-			onDone(rpcruntime.ErrHandlerTypeMismatch)
-			return rpcruntime.ErrHandlerTypeMismatch
-		}
-		conn := rpcruntime.NewConnectStreamConn(session)
-		connectStream := rpcruntime.NewServerStream[StreamResponse](conn)
-		err := svc.ServerStreamCall(ctx, req, connectStream)
+	svc, ok := h.(interface {
+		ServerStreamCall(context.Context, *StreamRequest, *connect.ServerStream[StreamResponse]) error
+	})
+	if !ok {
 		rpcruntime.FinishStreamHandle(handle)
-		onDone(err)
-		return err
-	} else {
-		rpcruntime.FinishStreamHandle(handle)
-		onDone(rpcruntime.ErrUnknownProtocol)
-		return rpcruntime.ErrUnknownProtocol
+		onDone(rpcruntime.ErrHandlerTypeMismatch)
+		return rpcruntime.ErrHandlerTypeMismatch
 	}
+	conn := rpcruntime.NewConnectStreamConn(session)
+	connectStream := rpcruntime.NewServerStream[StreamResponse](conn)
+	err = svc.ServerStreamCall(ctx, req, connectStream)
+	rpcruntime.FinishStreamHandle(handle)
+	onDone(err)
+	return err
 }
 
 // StreamService_BidiStreamCall bidi-streaming adaptor functions.
@@ -176,26 +161,22 @@ func StreamService_BidiStreamCallStart(ctx context.Context, onRead func(*StreamR
 	}
 	session.SetCallbacks(func(resp any) bool { return onRead(resp.(*StreamResponse)) }, onDone)
 
-	if protocol == rpcruntime.ProtocolConnectRPC {
-		svc, ok := h.(interface {
-			BidiStreamCall(context.Context, *connect.BidiStream[StreamRequest, StreamResponse]) error
-		})
-		if !ok {
-			return 0, rpcruntime.ErrHandlerTypeMismatch
-		}
-		conn := rpcruntime.NewConnectStreamConn(session)
-		connectStream := rpcruntime.NewBidiStream[StreamRequest, StreamResponse](conn)
-		session.SetHandlerState(connectStream)
-		go func() {
-			err := svc.BidiStreamCall(childCtx, connectStream)
-			if cb := session.OnDone(); cb != nil {
-				cb(err)
-			}
-			rpcruntime.FinishStreamHandle(handle)
-		}()
-	} else {
-		return 0, rpcruntime.ErrUnknownProtocol
+	svc, ok := h.(interface {
+		BidiStreamCall(context.Context, *connect.BidiStream[StreamRequest, StreamResponse]) error
+	})
+	if !ok {
+		return 0, rpcruntime.ErrHandlerTypeMismatch
 	}
+	conn := rpcruntime.NewConnectStreamConn(session)
+	connectStream := rpcruntime.NewBidiStream[StreamRequest, StreamResponse](conn)
+	session.SetHandlerState(connectStream)
+	go func() {
+		err := svc.BidiStreamCall(childCtx, connectStream)
+		if cb := session.OnDone(); cb != nil {
+			cb(err)
+		}
+		rpcruntime.FinishStreamHandle(handle)
+	}()
 
 	_ = childCtx // Used in goroutine
 	return uint64(handle), nil

@@ -359,7 +359,7 @@ func StreamService_ServerStreamCall(ctx context.Context, req *StreamRequest, onR
 			return rpcruntime.ErrHandlerTypeMismatch
 		}
 		adaptorStream := &streamService_ServerStreamCallServerAdaptor{session: session}
-		err := svc.ServerStreamCall(req, adaptorStream)
+		err = svc.ServerStreamCall(req, adaptorStream)
 		rpcruntime.FinishStreamHandle(handle)
 		onDone(err)
 		return err
@@ -374,7 +374,7 @@ func StreamService_ServerStreamCall(ctx context.Context, req *StreamRequest, onR
 		}
 		conn := rpcruntime.NewConnectStreamConn(session)
 		connectStream := rpcruntime.NewServerStream[StreamResponse](conn)
-		err := svc.ServerStreamCall(ctx, req, connectStream)
+		err = svc.ServerStreamCall(ctx, req, connectStream)
 		rpcruntime.FinishStreamHandle(handle)
 		onDone(err)
 		return err
