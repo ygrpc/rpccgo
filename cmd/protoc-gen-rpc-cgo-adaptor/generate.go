@@ -216,39 +216,41 @@ func generateServiceLookupHelper(
 		g.QualifiedGoIdent(rpcRuntimePkg.Ident("Protocol")),
 		", any, error) {",
 	)
-	g.P("    protocol, hasProtocol := ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolFromContext")), "(ctx)")
-	g.P("    if hasProtocol {")
 	if len(opts.Protocols) == 1 {
 		only := opts.Protocols[0]
 		if only == ProtocolOptionGrpc {
-			g.P("        if protocol != ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolGrpc")), " {")
-			g.P("            return protocol, nil, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrUnknownProtocol")))
-			g.P("        }")
+			g.P("    protocol, hasProtocol := ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolFromContext")), "(ctx)")
+			g.P("    if hasProtocol && protocol != ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolGrpc")), " {")
+			g.P("        return protocol, nil, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrUnknownProtocol")))
+			g.P("    }")
 			g.P(
-				"        h, ok := ",
+				"    h, ok := ",
 				g.QualifiedGoIdent(rpcRuntimePkg.Ident("LookupGrpcHandler")),
 				"(",
 				serviceConstName,
 				")",
 			)
-			g.P("        if !ok {")
-			g.P(
-				"            return protocol, nil, ",
-				g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrServiceNotRegistered")),
-			)
-			g.P("        }")
-			g.P("        return protocol, h, nil")
+			g.P("    if !ok {")
+			g.P("        return \"\", nil, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrServiceNotRegistered")))
+			g.P("    }")
+			g.P("    return ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolGrpc")), ", h, nil")
 		} else {
-			g.P("        if protocol != ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolConnectRPC")), " {")
-			g.P("            return protocol, nil, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrUnknownProtocol")))
-			g.P("        }")
-			g.P("        h, ok := ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("LookupConnectHandler")), "(", serviceConstName, ")")
-			g.P("        if !ok {")
-			g.P("            return protocol, nil, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrServiceNotRegistered")))
-			g.P("        }")
-			g.P("        return protocol, h, nil")
+			g.P("    protocol, hasProtocol := ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolFromContext")), "(ctx)")
+			g.P("    if hasProtocol && protocol != ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolConnectRPC")), " {")
+			g.P("        return protocol, nil, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrUnknownProtocol")))
+			g.P("    }")
+			g.P("    h, ok := ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("LookupConnectHandler")), "(", serviceConstName, ")")
+			g.P("    if !ok {")
+			g.P("        return \"\", nil, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrServiceNotRegistered")))
+			g.P("    }")
+			g.P("    return ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolConnectRPC")), ", h, nil")
 		}
+		g.P("}")
+		g.P()
+		return
 	} else {
+		g.P("    protocol, hasProtocol := ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolFromContext")), "(ctx)")
+		g.P("    if hasProtocol {")
 		g.P("        switch protocol {")
 		if supportsProtocol(opts.Protocols, ProtocolOptionGrpc) {
 			g.P("        case ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolGrpc")), ":")
@@ -272,28 +274,7 @@ func generateServiceLookupHelper(
 	}
 	g.P("    }")
 	g.P()
-	if len(opts.Protocols) == 1 {
-		only := opts.Protocols[0]
-		if only == ProtocolOptionGrpc {
-			g.P(
-				"    h, ok := ",
-				g.QualifiedGoIdent(rpcRuntimePkg.Ident("LookupGrpcHandler")),
-				"(",
-				serviceConstName,
-				")",
-			)
-			g.P("    if !ok {")
-			g.P("        return \"\", nil, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrServiceNotRegistered")))
-			g.P("    }")
-			g.P("    return ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolGrpc")), ", h, nil")
-		} else {
-			g.P("    h, ok := ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("LookupConnectHandler")), "(", serviceConstName, ")")
-			g.P("    if !ok {")
-			g.P("        return \"\", nil, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrServiceNotRegistered")))
-			g.P("    }")
-			g.P("    return ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolConnectRPC")), ", h, nil")
-		}
-	} else {
+	{
 		g.P("    // Fallback: try protocols in configured order.")
 		for _, p := range opts.Protocols {
 			if p == ProtocolOptionGrpc {

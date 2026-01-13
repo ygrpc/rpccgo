@@ -28,17 +28,9 @@ const (
 // - Otherwise, protocols are tried in the configured order: grpc
 func StreamService_lookupHandler(ctx context.Context) (rpcruntime.Protocol, any, error) {
 	protocol, hasProtocol := rpcruntime.ProtocolFromContext(ctx)
-	if hasProtocol {
-		if protocol != rpcruntime.ProtocolGrpc {
-			return protocol, nil, rpcruntime.ErrUnknownProtocol
-		}
-		h, ok := rpcruntime.LookupGrpcHandler(StreamService_ServiceName)
-		if !ok {
-			return protocol, nil, rpcruntime.ErrServiceNotRegistered
-		}
-		return protocol, h, nil
+	if hasProtocol && protocol != rpcruntime.ProtocolGrpc {
+		return protocol, nil, rpcruntime.ErrUnknownProtocol
 	}
-
 	h, ok := rpcruntime.LookupGrpcHandler(StreamService_ServiceName)
 	if !ok {
 		return "", nil, rpcruntime.ErrServiceNotRegistered

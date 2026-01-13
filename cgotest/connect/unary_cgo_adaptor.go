@@ -26,17 +26,9 @@ const (
 // - Otherwise, protocols are tried in the configured order: connectrpc
 func TestService_lookupHandler(ctx context.Context) (rpcruntime.Protocol, any, error) {
 	protocol, hasProtocol := rpcruntime.ProtocolFromContext(ctx)
-	if hasProtocol {
-		if protocol != rpcruntime.ProtocolConnectRPC {
-			return protocol, nil, rpcruntime.ErrUnknownProtocol
-		}
-		h, ok := rpcruntime.LookupConnectHandler(TestService_ServiceName)
-		if !ok {
-			return protocol, nil, rpcruntime.ErrServiceNotRegistered
-		}
-		return protocol, h, nil
+	if hasProtocol && protocol != rpcruntime.ProtocolConnectRPC {
+		return protocol, nil, rpcruntime.ErrUnknownProtocol
 	}
-
 	h, ok := rpcruntime.LookupConnectHandler(TestService_ServiceName)
 	if !ok {
 		return "", nil, rpcruntime.ErrServiceNotRegistered
