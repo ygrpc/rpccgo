@@ -20,6 +20,17 @@ func (m *mockTestServiceServer) Ping(ctx context.Context, req *PingRequest) (*Pi
 	return &PingResponse{Msg: "pong: " + req.GetMsg()}, nil
 }
 
+type mockConnectHandler struct {
+	called *bool
+}
+
+func (m *mockConnectHandler) Ping(context.Context, *PingRequest) (*PingResponse, error) {
+	if m.called != nil {
+		*m.called = true
+	}
+	return &PingResponse{Msg: "should-not-happen"}, nil
+}
+
 
 func TestGrpcAdaptor(t *testing.T) {
 	t.Run("ServiceNotRegistered", func(t *testing.T) {
@@ -29,6 +40,22 @@ func TestGrpcAdaptor(t *testing.T) {
 		_, err := TestService_Ping(ctx, req)
 		if err != rpcruntime.ErrServiceNotRegistered {
 			t.Fatalf("expected ErrServiceNotRegistered, got %v", err)
+		}
+	})
+
+	t.Run("SingleProtocolGrpc_IgnoresConnectHandler", func(t *testing.T) {
+		connectCalled := false
+		_, err := rpcruntime.RegisterConnectHandler(TestService_ServiceName, &mockConnectHandler{called: &connectCalled})
+		if err != nil {
+			t.Fatalf("RegisterConnectHandler failed: %v", err)
+		}
+
+		_, callErr := TestService_Ping(context.Background(), &PingRequest{Msg: "hello"})
+		if callErr != rpcruntime.ErrServiceNotRegistered {
+			t.Fatalf("expected ErrServiceNotRegistered, got %v", callErr)
+		}
+		if connectCalled {
+			t.Fatalf("expected connect handler not to be called")
 		}
 	})
 

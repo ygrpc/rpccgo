@@ -3,7 +3,7 @@
 // source: unary.proto
 // protocols: connectrpc
 
-package cgotest_connect
+package cgotest_connect_suffix
 
 import (
 	context "context"

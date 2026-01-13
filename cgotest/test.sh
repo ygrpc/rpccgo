@@ -7,12 +7,11 @@ cd "$(dirname "$0")/"
 echo "=== Building test packages ==="
 
 echo ""
-echo ">>> Building ConnectRPC test package..."
-./build-connectrpc.sh
-
-echo ""
-echo ">>> Building gRPC test package..."
+echo ">>> Building all test packages..."
+./build-connect.sh
 ./build-grpc.sh
+./build-connect-suffix.sh
+./build-mix.sh
 
 echo ""
 echo "=== Running all tests ==="
@@ -24,6 +23,14 @@ echo ">>> Testing ConnectRPC..."
 echo ""
 echo ">>> Testing gRPC..."
 (cd grpc && go test -v ./)
+
+echo ""
+echo ">>> Testing mix (grpc+connectrpc)..."
+(cd mix && go test -v ./)
+
+echo ""
+echo ">>> Testing connect_suffix (connectrpc)..."
+(cd connect_suffix && go test -v ./)
 
 echo ""
 echo "=== All tests completed ==="

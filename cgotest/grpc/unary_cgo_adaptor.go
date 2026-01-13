@@ -19,122 +19,99 @@ const (
 	TestService_NonFlat_FullMethod  = "/cgotest.TestService/NonFlat"
 )
 
-// TestService_Ping calls cgotest.TestService.Ping via the registered handler.
-// Protocol selection: explicit via context, or fallback order: grpc
-func TestService_Ping(ctx context.Context, req *PingRequest) (*PingResponse, error) {
+// TestService_lookupHandler selects a protocol and looks up the registered handler.
+//
+// Selection rules:
+// - If ctx explicitly carries a protocol, only that protocol is attempted (no fallback).
+// - Otherwise, protocols are tried in the configured order: grpc
+func TestService_lookupHandler(ctx context.Context) (rpcruntime.Protocol, any, error) {
 	protocol, hasProtocol := rpcruntime.ProtocolFromContext(ctx)
 	if hasProtocol {
-		switch protocol {
-		case rpcruntime.ProtocolGrpc:
-			h, ok := rpcruntime.LookupGrpcHandler("cgotest.TestService")
-			if !ok {
-				return nil, rpcruntime.ErrServiceNotRegistered
-			}
-			svc, ok := h.(TestServiceServer)
-			if !ok {
-				return nil, rpcruntime.ErrHandlerTypeMismatch
-			}
-			return svc.Ping(ctx, req)
-		default:
-			return nil, rpcruntime.ErrUnknownProtocol
+		if protocol != rpcruntime.ProtocolGrpc {
+			return protocol, nil, rpcruntime.ErrUnknownProtocol
 		}
+		h, ok := rpcruntime.LookupGrpcHandler(TestService_ServiceName)
+		if !ok {
+			return protocol, nil, rpcruntime.ErrServiceNotRegistered
+		}
+		return protocol, h, nil
 	}
 
 	// Fallback: try protocols in configured order.
-	if h, ok := rpcruntime.LookupGrpcHandler("cgotest.TestService"); ok {
-		if svc, ok := h.(TestServiceServer); ok {
-			return svc.Ping(ctx, req)
-		}
+	if h, ok := rpcruntime.LookupGrpcHandler(TestService_ServiceName); ok {
+		return rpcruntime.ProtocolGrpc, h, nil
 	}
-	return nil, rpcruntime.ErrServiceNotRegistered
+	return "", nil, rpcruntime.ErrServiceNotRegistered
+}
+
+// TestService_Ping calls cgotest.TestService.Ping via the registered handler.
+func TestService_Ping(ctx context.Context, req *PingRequest) (*PingResponse, error) {
+	protocol, h, err := TestService_lookupHandler(ctx)
+	if err != nil {
+		return nil, err
+	}
+	switch protocol {
+	case rpcruntime.ProtocolGrpc:
+		svc, ok := h.(TestServiceServer)
+		if !ok {
+			return nil, rpcruntime.ErrHandlerTypeMismatch
+		}
+		return svc.Ping(ctx, req)
+	default:
+		return nil, rpcruntime.ErrUnknownProtocol
+	}
 }
 
 // TestService_PingOpt1 calls cgotest.TestService.PingOpt1 via the registered handler.
-// Protocol selection: explicit via context, or fallback order: grpc
 func TestService_PingOpt1(ctx context.Context, req *PingRequestOpt1) (*PingResponse, error) {
-	protocol, hasProtocol := rpcruntime.ProtocolFromContext(ctx)
-	if hasProtocol {
-		switch protocol {
-		case rpcruntime.ProtocolGrpc:
-			h, ok := rpcruntime.LookupGrpcHandler("cgotest.TestService")
-			if !ok {
-				return nil, rpcruntime.ErrServiceNotRegistered
-			}
-			svc, ok := h.(TestServiceServer)
-			if !ok {
-				return nil, rpcruntime.ErrHandlerTypeMismatch
-			}
-			return svc.PingOpt1(ctx, req)
-		default:
-			return nil, rpcruntime.ErrUnknownProtocol
-		}
+	protocol, h, err := TestService_lookupHandler(ctx)
+	if err != nil {
+		return nil, err
 	}
-
-	// Fallback: try protocols in configured order.
-	if h, ok := rpcruntime.LookupGrpcHandler("cgotest.TestService"); ok {
-		if svc, ok := h.(TestServiceServer); ok {
-			return svc.PingOpt1(ctx, req)
+	switch protocol {
+	case rpcruntime.ProtocolGrpc:
+		svc, ok := h.(TestServiceServer)
+		if !ok {
+			return nil, rpcruntime.ErrHandlerTypeMismatch
 		}
+		return svc.PingOpt1(ctx, req)
+	default:
+		return nil, rpcruntime.ErrUnknownProtocol
 	}
-	return nil, rpcruntime.ErrServiceNotRegistered
 }
 
 // TestService_PingOpt2 calls cgotest.TestService.PingOpt2 via the registered handler.
-// Protocol selection: explicit via context, or fallback order: grpc
 func TestService_PingOpt2(ctx context.Context, req *PingRequestOpt2) (*PingResponse, error) {
-	protocol, hasProtocol := rpcruntime.ProtocolFromContext(ctx)
-	if hasProtocol {
-		switch protocol {
-		case rpcruntime.ProtocolGrpc:
-			h, ok := rpcruntime.LookupGrpcHandler("cgotest.TestService")
-			if !ok {
-				return nil, rpcruntime.ErrServiceNotRegistered
-			}
-			svc, ok := h.(TestServiceServer)
-			if !ok {
-				return nil, rpcruntime.ErrHandlerTypeMismatch
-			}
-			return svc.PingOpt2(ctx, req)
-		default:
-			return nil, rpcruntime.ErrUnknownProtocol
-		}
+	protocol, h, err := TestService_lookupHandler(ctx)
+	if err != nil {
+		return nil, err
 	}
-
-	// Fallback: try protocols in configured order.
-	if h, ok := rpcruntime.LookupGrpcHandler("cgotest.TestService"); ok {
-		if svc, ok := h.(TestServiceServer); ok {
-			return svc.PingOpt2(ctx, req)
+	switch protocol {
+	case rpcruntime.ProtocolGrpc:
+		svc, ok := h.(TestServiceServer)
+		if !ok {
+			return nil, rpcruntime.ErrHandlerTypeMismatch
 		}
+		return svc.PingOpt2(ctx, req)
+	default:
+		return nil, rpcruntime.ErrUnknownProtocol
 	}
-	return nil, rpcruntime.ErrServiceNotRegistered
 }
 
 // TestService_NonFlat calls cgotest.TestService.NonFlat via the registered handler.
-// Protocol selection: explicit via context, or fallback order: grpc
 func TestService_NonFlat(ctx context.Context, req *NonFlatRequest) (*PingResponse, error) {
-	protocol, hasProtocol := rpcruntime.ProtocolFromContext(ctx)
-	if hasProtocol {
-		switch protocol {
-		case rpcruntime.ProtocolGrpc:
-			h, ok := rpcruntime.LookupGrpcHandler("cgotest.TestService")
-			if !ok {
-				return nil, rpcruntime.ErrServiceNotRegistered
-			}
-			svc, ok := h.(TestServiceServer)
-			if !ok {
-				return nil, rpcruntime.ErrHandlerTypeMismatch
-			}
-			return svc.NonFlat(ctx, req)
-		default:
-			return nil, rpcruntime.ErrUnknownProtocol
-		}
+	protocol, h, err := TestService_lookupHandler(ctx)
+	if err != nil {
+		return nil, err
 	}
-
-	// Fallback: try protocols in configured order.
-	if h, ok := rpcruntime.LookupGrpcHandler("cgotest.TestService"); ok {
-		if svc, ok := h.(TestServiceServer); ok {
-			return svc.NonFlat(ctx, req)
+	switch protocol {
+	case rpcruntime.ProtocolGrpc:
+		svc, ok := h.(TestServiceServer)
+		if !ok {
+			return nil, rpcruntime.ErrHandlerTypeMismatch
 		}
+		return svc.NonFlat(ctx, req)
+	default:
+		return nil, rpcruntime.ErrUnknownProtocol
 	}
-	return nil, rpcruntime.ErrServiceNotRegistered
 }
