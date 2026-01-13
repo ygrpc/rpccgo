@@ -22,8 +22,9 @@ const (
 // TestService_lookupHandler selects a protocol and looks up the registered handler.
 //
 // Selection rules:
-// - If ctx explicitly carries a protocol, only that protocol is attempted (no fallback).
-// - Otherwise, protocols are tried in the configured order: connectrpc
+// - Supported protocol: connectrpc
+// - If ctx explicitly carries a protocol, it must match the supported protocol.
+// - Otherwise, the supported protocol is used.
 func TestService_lookupHandler(ctx context.Context) (rpcruntime.Protocol, any, error) {
 	protocol, hasProtocol := rpcruntime.ProtocolFromContext(ctx)
 	if hasProtocol && protocol != rpcruntime.ProtocolConnectRPC {

@@ -167,22 +167,30 @@ func generateUnaryDispatch(
 	g.P("    }")
 	g.P("    switch protocol {")
 
-	if supportsProtocol(opts.Protocols, ProtocolOptionGrpc) {
+	supportsGrpc := supportsProtocol(opts.Protocols, ProtocolOptionGrpc)
+	supportsConnect := supportsProtocol(opts.Protocols, ProtocolOptionConnectRPC)
+	switch {
+	case supportsGrpc:
 		g.P("    case ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolGrpc")), ":")
 		g.P("        svc, ok := h.(", grpcServerIface, ")")
 		g.P("        if !ok {")
 		g.P("            return nil, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrHandlerTypeMismatch")))
 		g.P("        }")
 		g.P("        return svc.", method.GoName, "(ctx, req)")
+	default:
+		// No-op: grpc not enabled
 	}
 
-	if supportsProtocol(opts.Protocols, ProtocolOptionConnectRPC) {
+	switch {
+	case supportsConnect:
 		g.P("    case ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolConnectRPC")), ":")
 		g.P("        svc, ok := h.(", connectHandlerIface, ")")
 		g.P("        if !ok {")
 		g.P("            return nil, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrHandlerTypeMismatch")))
 		g.P("        }")
 		g.P("        return svc.", method.GoName, "(ctx, req)")
+	default:
+		// No-op: connectrpc not enabled
 	}
 
 	g.P("    default:")
@@ -202,11 +210,18 @@ func generateServiceLookupHelper(
 	g.P("// ", lookupFuncName, " selects a protocol and looks up the registered handler.")
 	g.P("//")
 	g.P("// Selection rules:")
-	g.P("// - If ctx explicitly carries a protocol, only that protocol is attempted (no fallback).")
-	g.P(
-		"// - Otherwise, protocols are tried in the configured order: ",
-		strings.Join(protocolOptionStrings(opts.Protocols), ","),
-	)
+	if len(opts.Protocols) == 1 {
+		only := opts.Protocols[0]
+		g.P("// - Supported protocol: ", string(only))
+		g.P("// - If ctx explicitly carries a protocol, it must match the supported protocol.")
+		g.P("// - Otherwise, the supported protocol is used.")
+	} else {
+		g.P("// - If ctx explicitly carries a protocol, only that protocol is attempted (no fallback).")
+		g.P(
+			"// - Otherwise, protocols are tried in the configured order: ",
+			strings.Join(protocolOptionStrings(opts.Protocols), ","),
+		)
+	}
 	g.P(
 		"func ",
 		lookupFuncName,
@@ -219,7 +234,11 @@ func generateServiceLookupHelper(
 	if len(opts.Protocols) == 1 {
 		only := opts.Protocols[0]
 		if only == ProtocolOptionGrpc {
-			g.P("    protocol, hasProtocol := ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolFromContext")), "(ctx)")
+			g.P(
+				"    protocol, hasProtocol := ",
+				g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolFromContext")),
+				"(ctx)",
+			)
 			g.P("    if hasProtocol && protocol != ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolGrpc")), " {")
 			g.P("        return protocol, nil, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrUnknownProtocol")))
 			g.P("    }")
@@ -407,8 +426,10 @@ func generateClientStreamingMethod(
 	g.P("    }")
 	g.P()
 
-	if supportsProtocol(opts.Protocols, ProtocolOptionGrpc) &&
-		supportsProtocol(opts.Protocols, ProtocolOptionConnectRPC) {
+	supportsGrpc := supportsProtocol(opts.Protocols, ProtocolOptionGrpc)
+	supportsConnect := supportsProtocol(opts.Protocols, ProtocolOptionConnectRPC)
+	switch {
+	case supportsGrpc && supportsConnect:
 		g.P("    if protocol == ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolGrpc")), " {")
 		g.P("        svc, ok := h.(", grpcServerIface, ")")
 		g.P("        if !ok {")
@@ -448,7 +469,7 @@ func generateClientStreamingMethod(
 		g.P("    } else {")
 		g.P("        return 0, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrUnknownProtocol")))
 		g.P("    }")
-	} else if supportsProtocol(opts.Protocols, ProtocolOptionGrpc) {
+	case supportsGrpc:
 		g.P("    svc, ok := h.(", grpcServerIface, ")")
 		g.P("    if !ok {")
 		g.P("        return 0, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrHandlerTypeMismatch")))
@@ -457,15 +478,25 @@ func generateClientStreamingMethod(
 		g.P("    session.SetHandlerState(adaptorStream)")
 		g.P("    go func() {")
 		g.P("        err := svc.", method.GoName, "(adaptorStream)")
-		g.P("        ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("CompleteClientStream")), "(handle, adaptorStream.lastResp, err)")
+		g.P(
+			"        ",
+			g.QualifiedGoIdent(rpcRuntimePkg.Ident("CompleteClientStream")),
+			"(handle, adaptorStream.lastResp, err)",
+		)
 		g.P("    }()")
-	} else {
+	default:
 		g.P("    svc, ok := h.(", connectHandlerIface, ")")
 		g.P("    if !ok {")
 		g.P("        return 0, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrHandlerTypeMismatch")))
 		g.P("    }")
 		g.P("    conn := ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("NewConnectStreamConn")), "(session)")
-		g.P("    connectStream := ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("NewClientStream")), "[", reqType, "](conn)")
+		g.P(
+			"    connectStream := ",
+			g.QualifiedGoIdent(rpcRuntimePkg.Ident("NewClientStream")),
+			"[",
+			reqType,
+			"](conn)",
+		)
 		g.P("    go func() {")
 		g.P("        resp, err := svc.", method.GoName, "(childCtx, connectStream)")
 		g.P("        ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("CompleteClientStream")), "(handle, resp, err)")
@@ -571,8 +602,10 @@ func generateServerStreamingMethod(
 
 	streamIface := service.GoName + "_" + method.GoName + "Server"
 
-	if supportsProtocol(opts.Protocols, ProtocolOptionGrpc) &&
-		supportsProtocol(opts.Protocols, ProtocolOptionConnectRPC) {
+	supportsGrpc := supportsProtocol(opts.Protocols, ProtocolOptionGrpc)
+	supportsConnect := supportsProtocol(opts.Protocols, ProtocolOptionConnectRPC)
+	switch {
+	case supportsGrpc && supportsConnect:
 		g.P("    if protocol == ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolGrpc")), " {")
 		g.P("        svc, ok := h.(", grpcServerIface, ")")
 		g.P("        if !ok {")
@@ -609,7 +642,7 @@ func generateServerStreamingMethod(
 		g.P("        onDone(", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrUnknownProtocol")), ")")
 		g.P("        return ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrUnknownProtocol")))
 		g.P("    }")
-	} else if supportsProtocol(opts.Protocols, ProtocolOptionGrpc) {
+	case supportsGrpc:
 		g.P("    svc, ok := h.(", grpcServerIface, ")")
 		g.P("    if !ok {")
 		g.P("        ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("FinishStreamHandle")), "(handle)")
@@ -621,7 +654,7 @@ func generateServerStreamingMethod(
 		g.P("    ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("FinishStreamHandle")), "(handle)")
 		g.P("    onDone(err)")
 		g.P("    return err")
-	} else {
+	default:
 		g.P("    svc, ok := h.(", connectHandlerIface, ")")
 		g.P("    if !ok {")
 		g.P("        ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("FinishStreamHandle")), "(handle)")
@@ -629,7 +662,13 @@ func generateServerStreamingMethod(
 		g.P("        return ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrHandlerTypeMismatch")))
 		g.P("    }")
 		g.P("    conn := ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("NewConnectStreamConn")), "(session)")
-		g.P("    connectStream := ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("NewServerStream")), "[", respType, "](conn)")
+		g.P(
+			"    connectStream := ",
+			g.QualifiedGoIdent(rpcRuntimePkg.Ident("NewServerStream")),
+			"[",
+			respType,
+			"](conn)",
+		)
 		g.P("    err = svc.", method.GoName, "(ctx, req, connectStream)")
 		g.P("    ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("FinishStreamHandle")), "(handle)")
 		g.P("    onDone(err)")
@@ -697,8 +736,10 @@ func generateBidiStreamingMethod(
 
 	streamIface := service.GoName + "_" + method.GoName + "Server"
 
-	if supportsProtocol(opts.Protocols, ProtocolOptionGrpc) &&
-		supportsProtocol(opts.Protocols, ProtocolOptionConnectRPC) {
+	supportsGrpc := supportsProtocol(opts.Protocols, ProtocolOptionGrpc)
+	supportsConnect := supportsProtocol(opts.Protocols, ProtocolOptionConnectRPC)
+	switch {
+	case supportsGrpc && supportsConnect:
 		g.P("    if protocol == ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ProtocolGrpc")), " {")
 		g.P("        svc, ok := h.(", grpcServerIface, ")")
 		g.P("        if !ok {")
@@ -739,7 +780,7 @@ func generateBidiStreamingMethod(
 		g.P("    } else {")
 		g.P("        return 0, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrUnknownProtocol")))
 		g.P("    }")
-	} else if supportsProtocol(opts.Protocols, ProtocolOptionGrpc) {
+	case supportsGrpc:
 		g.P("    svc, ok := h.(", grpcServerIface, ")")
 		g.P("    if !ok {")
 		g.P("        return 0, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrHandlerTypeMismatch")))
@@ -753,13 +794,21 @@ func generateBidiStreamingMethod(
 		g.P("        }")
 		g.P("        ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("FinishStreamHandle")), "(handle)")
 		g.P("    }()")
-	} else {
+	default:
 		g.P("    svc, ok := h.(", connectHandlerIface, ")")
 		g.P("    if !ok {")
 		g.P("        return 0, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("ErrHandlerTypeMismatch")))
 		g.P("    }")
 		g.P("    conn := ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("NewConnectStreamConn")), "(session)")
-		g.P("    connectStream := ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("NewBidiStream")), "[", reqType, ", ", respType, "](conn)")
+		g.P(
+			"    connectStream := ",
+			g.QualifiedGoIdent(rpcRuntimePkg.Ident("NewBidiStream")),
+			"[",
+			reqType,
+			", ",
+			respType,
+			"](conn)",
+		)
 		g.P("    session.SetHandlerState(connectStream)")
 		g.P("    go func() {")
 		g.P("        err := svc.", method.GoName, "(childCtx, connectStream)")
