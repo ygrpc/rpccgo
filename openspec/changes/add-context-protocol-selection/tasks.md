@@ -4,9 +4,16 @@
 - [ ] 1.3 运行 `openspec validate add-context-protocol-selection --strict`
 
 ## 2. Implementation（批准后执行）
-- [ ] 2.1 扩展插件参数解析：`protocol` 支持逗号分隔列表，默认 `connectrpc`
-- [ ] 2.2 生成按 protocol 分文件的 adaptor：文件名使用 protocol 后缀
-- [ ] 2.3 生成通用 adaptor `*_cgo_adaptor.go`：根据 `ctx` 选择 protocol，未指定则按列表顺序 fallback
+- [ ] 2.1 扩展插件参数解析：新增 `protocol`（逗号分隔、有序列表，默认 `connectrpc`）
+- [ ] 2.1.1 扩展插件参数解析：新增可选 `connect_package_suffix`（默认空字符串；非空时 connect handler interface 位于 `<current-import-path>/<current-go-package-name><suffix>`）
+- [ ] 2.2 生成通用 adaptor `*_cgo_adaptor.go`：按 `protocol` 选项生成不同的 dispatch 逻辑（单协议仅查该协议；多协议支持 ctx 指定与 fallback）
+- [ ] 2.3 更新 `cgotest/` 下的 build 脚本：把 `--rpc-cgo-adaptor_opt=framework=...` 迁移为 `--rpc-cgo-adaptor_opt=protocol=...`
 - [ ] 2.4 在 `rpcruntime` 增加 protocol 选择相关 context key + helper functions
-- [ ] 2.5 更新/补充 `test/` 下的生成物与测试：覆盖 grpc/connectrpc 以及混合注册场景
-- [ ] 2.6 运行 `go test ./...`
+- [ ] 2.5 在 `cgotest/all/` 增加混合注册测试：验证 ctx 指定与 fallback 行为
+	- 覆盖：ctx 指定 grpc 但仅注册 connectrpc → 期望错误（不 fallback）
+	- 覆盖：ctx 不指定 + 注册 connectrpc → 期望 fallback 命中 connectrpc
+	- 覆盖：单协议 `protocol=grpc` + 注册 connectrpc → 期望错误（不 lookup connectrpc）
+- [ ] 2.5.1 `cgotest/all/` 生成策略：base 包生成 messages + go-grpc + adaptor；connect-go 生成到独立子包（默认 package_suffix），并通过 adaptor 选项 `connect_package_suffix` 指向该子包
+- [ ] 2.5.2 新增 `cgotest/connect_suffix/` 测试：connect-go 使用非空 package_suffix 输出到独立子包，adaptor 使用 `connect_package_suffix` 验证可调用
+- [ ] 2.6 在 `cgotest/` 增加 `build-all.sh`：一键生成 grpc/connectrpc/all 三套测试生成物（用于 CI/本地快速验证）
+- [ ] 2.7 运行 `go test ./...`

@@ -21,6 +21,28 @@ protoc 插件 SHALL 支持一个选项，用于控制生成哪些 protocol 对�
 
 ---
 
+### Requirement: Connect handler package is configurable
+当生成 `connectrpc` 相关 adaptor 代码时，如果 connect 的 service/handler 接口类型不在当前 Go package 内（例如 `protoc-gen-connect-go` 生成到独立 package，或配置了非空 `package_suffix`），插件 SHALL 支持一个可选参数用于指定 connect-go 的 `package_suffix`，以推导 connect handler interface 的 Go import path。
+
+- Option name: `connect_package_suffix`
+- Default value is empty string.
+- If empty, the adaptor SHALL assume the connect handler interface type is in the current Go package.
+- If non-empty, the adaptor SHALL assume the connect handler interface type is in the connect-go generated sub-package whose import path is `<current-import-path>/<current-go-package-name><connect_package_suffix>`.
+
+Notes:
+- `current-go-package-name` refers to the Go package name of the generated adaptor file (i.e. the base package where `*.pb.go` is generated).
+- A concrete derivation that matches `protoc-gen-connect-go` behavior is:
+	- `connectSubpackageName = <current-go-package-name> + <connect_package_suffix>`
+	- `connectHandlerImportPath = <current-import-path> + "/" + connectSubpackageName`
+
+#### Scenario: connect_package_suffix enables connect-go suffix packages
+- **GIVEN** `protoc-gen-connect-go` is configured to generate connect code into a separate Go package
+- **AND** `protoc-gen-rpc-cgo-adaptor` is invoked with `protocol=connectrpc`
+- **WHEN** `protoc-gen-rpc-cgo-adaptor` is invoked with `connect_package_suffix=connect`
+- **THEN** the generated adaptor code SHALL reference the connect handler interface type from `<current-import-path>/<current-go-package-name>connect`
+
+---
+
 ### Requirement: Dispatch via global registry using protocol selection
 在运行时，生成的 adaptor 函数 SHALL 根据传入的 `ctx` 中携带的 `protocol` 值来选择 dispatch lookup 路径。
 
@@ -52,6 +74,16 @@ protoc 插件 SHALL 支持一个选项，用于控制生成哪些 protocol 对�
 - **THEN** it SHALL attempt grpc lookup first
 - **AND** it SHALL then attempt connectrpc lookup
 - **AND** it SHALL call the connectrpc service method implementation
+
+#### Scenario: Single protocol list attempts only that protocol
+- **GIVEN** `ctx` does not carry a protocol value
+- **AND** the generated adaptor is configured with `protocol=grpc`
+- **AND** no grpc handler is registered for `serviceName`
+- **AND** a connectrpc handler is registered for `serviceName`
+- **WHEN** the generated adaptor function is invoked
+- **THEN** it SHALL attempt grpc lookup
+- **AND** it SHALL NOT attempt connectrpc lookup
+- **AND** it SHALL return a non-nil error
 
 ---
 
