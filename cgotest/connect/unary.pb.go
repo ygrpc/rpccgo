@@ -7,9 +7,9 @@
 package cgotest_connect
 
 import (
+	_ "github.com/ygrpc/rpccgo/proto/ygrpc/cgo"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	descriptorpb "google.golang.org/protobuf/types/descriptorpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -250,62 +250,11 @@ func (x *NonFlatRequest) GetIds() []int32 {
 	return nil
 }
 
-var file_unary_proto_extTypes = []protoimpl.ExtensionInfo{
-	{
-		ExtendedType:  (*descriptorpb.FileOptions)(nil),
-		ExtensionType: (*int32)(nil),
-		Field:         50001,
-		Name:          "cgotest.ygrpc_cgo_req_free_default",
-		Tag:           "varint,50001,opt,name=ygrpc_cgo_req_free_default",
-		Filename:      "unary.proto",
-	},
-	{
-		ExtendedType:  (*descriptorpb.FileOptions)(nil),
-		ExtensionType: (*int32)(nil),
-		Field:         50002,
-		Name:          "cgotest.ygrpc_cgo_native_default",
-		Tag:           "varint,50002,opt,name=ygrpc_cgo_native_default",
-		Filename:      "unary.proto",
-	},
-	{
-		ExtendedType:  (*descriptorpb.MethodOptions)(nil),
-		ExtensionType: (*int32)(nil),
-		Field:         50001,
-		Name:          "cgotest.ygrpc_cgo_req_free_method",
-		Tag:           "varint,50001,opt,name=ygrpc_cgo_req_free_method",
-		Filename:      "unary.proto",
-	},
-	{
-		ExtendedType:  (*descriptorpb.MethodOptions)(nil),
-		ExtensionType: (*int32)(nil),
-		Field:         50002,
-		Name:          "cgotest.ygrpc_cgo_native",
-		Tag:           "varint,50002,opt,name=ygrpc_cgo_native",
-		Filename:      "unary.proto",
-	},
-}
-
-// Extension fields to descriptorpb.FileOptions.
-var (
-	// optional int32 ygrpc_cgo_req_free_default = 50001;
-	E_YgrpcCgoReqFreeDefault = &file_unary_proto_extTypes[0]
-	// optional int32 ygrpc_cgo_native_default = 50002;
-	E_YgrpcCgoNativeDefault = &file_unary_proto_extTypes[1]
-)
-
-// Extension fields to descriptorpb.MethodOptions.
-var (
-	// optional int32 ygrpc_cgo_req_free_method = 50001;
-	E_YgrpcCgoReqFreeMethod = &file_unary_proto_extTypes[2]
-	// optional int32 ygrpc_cgo_native = 50002;
-	E_YgrpcCgoNative = &file_unary_proto_extTypes[3]
-)
-
 var File_unary_proto protoreflect.FileDescriptor
 
 const file_unary_proto_rawDesc = "" +
 	"\n" +
-	"\vunary.proto\x12\acgotest\x1a google/protobuf/descriptor.proto\"\x1f\n" +
+	"\vunary.proto\x12\acgotest\x1a\x17ygrpc/cgo/options.proto\"\x1f\n" +
 	"\vPingRequest\x12\x10\n" +
 	"\x03msg\x18\x01 \x01(\tR\x03msg\"#\n" +
 	"\x0fPingRequestOpt1\x12\x10\n" +
@@ -318,14 +267,10 @@ const file_unary_proto_rawDesc = "" +
 	"\x0eNonFlatRequest\x12\x10\n" +
 	"\x03ids\x18\x01 \x03(\x05R\x03ids2\x8d\x02\n" +
 	"\vTestService\x129\n" +
-	"\x04Ping\x12\x14.cgotest.PingRequest\x1a\x15.cgotest.PingResponse\"\x04\x90\xb5\x18\x01\x12A\n" +
-	"\bPingOpt1\x12\x18.cgotest.PingRequestOpt1\x1a\x15.cgotest.PingResponse\"\x04\x88\xb5\x18\x01\x12E\n" +
-	"\bPingOpt2\x12\x18.cgotest.PingRequestOpt2\x1a\x15.cgotest.PingResponse\"\b\x88\xb5\x18\x00\x90\xb5\x18\x00\x129\n" +
-	"\aNonFlat\x12\x17.cgotest.NonFlatRequest\x1a\x15.cgotest.PingResponse:Z\n" +
-	"\x1aygrpc_cgo_req_free_default\x12\x1c.google.protobuf.FileOptions\x18ц\x03 \x01(\x05R\x16ygrpcCgoReqFreeDefault:W\n" +
-	"\x18ygrpc_cgo_native_default\x12\x1c.google.protobuf.FileOptions\x18҆\x03 \x01(\x05R\x15ygrpcCgoNativeDefault:Z\n" +
-	"\x19ygrpc_cgo_req_free_method\x12\x1e.google.protobuf.MethodOptions\x18ц\x03 \x01(\x05R\x15ygrpcCgoReqFreeMethod:J\n" +
-	"\x10ygrpc_cgo_native\x12\x1e.google.protobuf.MethodOptions\x18҆\x03 \x01(\x05R\x0eygrpcCgoNativeB1\x88\xb5\x18\x02\x90\xb5\x18\x01Z'github.com/ygrpc/rpccgo/cgotest;cgotestb\x06proto3"
+	"\x04Ping\x12\x14.cgotest.PingRequest\x1a\x15.cgotest.PingResponse\"\x04\xb8\xbb\x18\x01\x12A\n" +
+	"\bPingOpt1\x12\x18.cgotest.PingRequestOpt1\x1a\x15.cgotest.PingResponse\"\x04\xb0\xbb\x18\x01\x12E\n" +
+	"\bPingOpt2\x12\x18.cgotest.PingRequestOpt2\x1a\x15.cgotest.PingResponse\"\b\xb0\xbb\x18\x00\xb8\xbb\x18\x00\x129\n" +
+	"\aNonFlat\x12\x17.cgotest.NonFlatRequest\x1a\x15.cgotest.PingResponseB1\xa0\xbb\x18\x02\xa8\xbb\x18\x01Z'github.com/ygrpc/rpccgo/cgotest;cgotestb\x06proto3"
 
 var (
 	file_unary_proto_rawDescOnce sync.Once
@@ -341,31 +286,25 @@ func file_unary_proto_rawDescGZIP() []byte {
 
 var file_unary_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_unary_proto_goTypes = []any{
-	(*PingRequest)(nil),                // 0: cgotest.PingRequest
-	(*PingRequestOpt1)(nil),            // 1: cgotest.PingRequestOpt1
-	(*PingRequestOpt2)(nil),            // 2: cgotest.PingRequestOpt2
-	(*PingResponse)(nil),               // 3: cgotest.PingResponse
-	(*NonFlatRequest)(nil),             // 4: cgotest.NonFlatRequest
-	(*descriptorpb.FileOptions)(nil),   // 5: google.protobuf.FileOptions
-	(*descriptorpb.MethodOptions)(nil), // 6: google.protobuf.MethodOptions
+	(*PingRequest)(nil),     // 0: cgotest.PingRequest
+	(*PingRequestOpt1)(nil), // 1: cgotest.PingRequestOpt1
+	(*PingRequestOpt2)(nil), // 2: cgotest.PingRequestOpt2
+	(*PingResponse)(nil),    // 3: cgotest.PingResponse
+	(*NonFlatRequest)(nil),  // 4: cgotest.NonFlatRequest
 }
 var file_unary_proto_depIdxs = []int32{
-	5, // 0: cgotest.ygrpc_cgo_req_free_default:extendee -> google.protobuf.FileOptions
-	5, // 1: cgotest.ygrpc_cgo_native_default:extendee -> google.protobuf.FileOptions
-	6, // 2: cgotest.ygrpc_cgo_req_free_method:extendee -> google.protobuf.MethodOptions
-	6, // 3: cgotest.ygrpc_cgo_native:extendee -> google.protobuf.MethodOptions
-	0, // 4: cgotest.TestService.Ping:input_type -> cgotest.PingRequest
-	1, // 5: cgotest.TestService.PingOpt1:input_type -> cgotest.PingRequestOpt1
-	2, // 6: cgotest.TestService.PingOpt2:input_type -> cgotest.PingRequestOpt2
-	4, // 7: cgotest.TestService.NonFlat:input_type -> cgotest.NonFlatRequest
-	3, // 8: cgotest.TestService.Ping:output_type -> cgotest.PingResponse
-	3, // 9: cgotest.TestService.PingOpt1:output_type -> cgotest.PingResponse
-	3, // 10: cgotest.TestService.PingOpt2:output_type -> cgotest.PingResponse
-	3, // 11: cgotest.TestService.NonFlat:output_type -> cgotest.PingResponse
-	8, // [8:12] is the sub-list for method output_type
-	4, // [4:8] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	0, // [0:4] is the sub-list for extension extendee
+	0, // 0: cgotest.TestService.Ping:input_type -> cgotest.PingRequest
+	1, // 1: cgotest.TestService.PingOpt1:input_type -> cgotest.PingRequestOpt1
+	2, // 2: cgotest.TestService.PingOpt2:input_type -> cgotest.PingRequestOpt2
+	4, // 3: cgotest.TestService.NonFlat:input_type -> cgotest.NonFlatRequest
+	3, // 4: cgotest.TestService.Ping:output_type -> cgotest.PingResponse
+	3, // 5: cgotest.TestService.PingOpt1:output_type -> cgotest.PingResponse
+	3, // 6: cgotest.TestService.PingOpt2:output_type -> cgotest.PingResponse
+	3, // 7: cgotest.TestService.NonFlat:output_type -> cgotest.PingResponse
+	4, // [4:8] is the sub-list for method output_type
+	0, // [0:4] is the sub-list for method input_type
+	0, // [0:0] is the sub-list for extension type_name
+	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
 }
 
@@ -381,13 +320,12 @@ func file_unary_proto_init() {
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_unary_proto_rawDesc), len(file_unary_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   5,
-			NumExtensions: 4,
+			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_unary_proto_goTypes,
 		DependencyIndexes: file_unary_proto_depIdxs,
 		MessageInfos:      file_unary_proto_msgTypes,
-		ExtensionInfos:    file_unary_proto_extTypes,
 	}.Build()
 	File_unary_proto = out.File
 	file_unary_proto_goTypes = nil

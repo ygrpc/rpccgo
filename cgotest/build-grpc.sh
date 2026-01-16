@@ -28,10 +28,10 @@ find ./grpc -mindepth 1 -maxdepth 1 -type d -exec rm -rf '{}' '+'
 # Package mapping for cgotest_grpc
 GO_PKG="Munary.proto=github.com/ygrpc/rpccgo/cgotest/grpc;cgotest_grpc,Mstream.proto=github.com/ygrpc/rpccgo/cgotest/grpc;cgotest_grpc"
 
-protoc  -Iproto --go_out=./grpc --go_opt=paths=source_relative,${GO_PKG} \
+protoc  -Iproto -I../proto --go_out=./grpc --go_opt=paths=source_relative,${GO_PKG} \
  --go-grpc_out=./grpc --go-grpc_opt=paths=source_relative,${GO_PKG} \
  ./proto/unary.proto ./proto/stream.proto
 
-protoc -Iproto --rpc-cgo-adaptor_out=./grpc \
+protoc -Iproto -I../proto --rpc-cgo-adaptor_out=./grpc \
  --rpc-cgo-adaptor_opt=paths=source_relative,protocol=grpc,${GO_PKG} \
  ./proto/unary.proto ./proto/stream.proto

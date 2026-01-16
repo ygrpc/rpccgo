@@ -2,34 +2,24 @@ syntax = "proto3";
 
 package cgotest;
 
-import "google/protobuf/descriptor.proto";
+import "ygrpc/cgo/options.proto";
 
 option go_package = "github.com/ygrpc/rpccgo/cgotest;cgotest";
 
 // File-level defaults (can be overridden by method options).
-option (ygrpc_cgo_native_default) = 1;   // default: disable native
-option (ygrpc_cgo_req_free_default) = 2; // default: generate both + _TakeReq
-
-extend google.protobuf.FileOptions {
-  int32 ygrpc_cgo_req_free_default = 50001;
-  int32 ygrpc_cgo_native_default = 50002;
-}
-
-extend google.protobuf.MethodOptions {
-  int32 ygrpc_cgo_req_free_method = 50001;
-  int32 ygrpc_cgo_native = 50002;
-}
+option (ygrpc.cgo.ygrpc_cgo_native_default) = NATIVE_ENABLE;
+option (ygrpc.cgo.ygrpc_cgo_req_free_default) = REQ_FREE_BOTH;
 
 service TestService {
   rpc Ping(PingRequest) returns (PingResponse) {
-    option (ygrpc_cgo_native) = 1;
+    option (ygrpc.cgo.ygrpc_cgo_native) = NATIVE_ENABLE;
   }
   rpc PingOpt1(PingRequestOpt1) returns (PingResponse) {
-    option (ygrpc_cgo_req_free_method) = 1;
+    option (ygrpc.cgo.ygrpc_cgo_req_free_method) = REQ_FREE_TAKE_REQ;
   }
   rpc PingOpt2(PingRequestOpt2) returns (PingResponse) {
-    option (ygrpc_cgo_native) = 0;
-    option (ygrpc_cgo_req_free_method) = 0;
+    option (ygrpc.cgo.ygrpc_cgo_native) = NATIVE_DISABLE;
+    option (ygrpc.cgo.ygrpc_cgo_req_free_method) = REQ_FREE_NONE;
   }
   rpc NonFlat(NonFlatRequest) returns (PingResponse);
 }

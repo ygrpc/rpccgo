@@ -19,7 +19,7 @@ find ./mix -mindepth 1 -maxdepth 1 -type d -exec rm -rf '{}' '+'
 GO_PKG_mix="Munary.proto=github.com/ygrpc/rpccgo/cgotest/mix;cgotest_mix,Mstream.proto=github.com/ygrpc/rpccgo/cgotest/mix;cgotest_mix"
 ADAPTOR_PROTOCOL="grpc|connectrpc"
 
-protoc -Iproto \
+protoc -Iproto -I../proto \
   --go_out=./mix --go_opt=paths=source_relative,${GO_PKG_mix} \
   --go-grpc_out=./mix --go-grpc_opt=paths=source_relative,${GO_PKG_mix} \
   --connect-go_out=./mix --connect-go_opt=paths=source_relative,simple=true,${GO_PKG_mix} \

@@ -7,6 +7,7 @@
 package cgotest_connect
 
 import (
+	_ "github.com/ygrpc/rpccgo/proto/ygrpc/cgo"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -129,7 +130,7 @@ var File_stream_proto protoreflect.FileDescriptor
 
 const file_stream_proto_rawDesc = "" +
 	"\n" +
-	"\fstream.proto\x12\acgotest\"?\n" +
+	"\fstream.proto\x12\acgotest\x1a\x17ygrpc/cgo/options.proto\"?\n" +
 	"\rStreamRequest\x12\x12\n" +
 	"\x04data\x18\x01 \x01(\tR\x04data\x12\x1a\n" +
 	"\bsequence\x18\x02 \x01(\x05R\bsequence\"D\n" +
@@ -140,7 +141,7 @@ const file_stream_proto_rawDesc = "" +
 	"\tUnaryCall\x12\x16.cgotest.StreamRequest\x1a\x17.cgotest.StreamResponse\x12E\n" +
 	"\x10ClientStreamCall\x12\x16.cgotest.StreamRequest\x1a\x17.cgotest.StreamResponse(\x01\x12E\n" +
 	"\x10ServerStreamCall\x12\x16.cgotest.StreamRequest\x1a\x17.cgotest.StreamResponse0\x01\x12E\n" +
-	"\x0eBidiStreamCall\x12\x16.cgotest.StreamRequest\x1a\x17.cgotest.StreamResponse(\x010\x01B,Z*github.com/ygrpc/protocgen/cgotest;cgotestb\x06proto3"
+	"\x0eBidiStreamCall\x12\x16.cgotest.StreamRequest\x1a\x17.cgotest.StreamResponse(\x010\x01B1\xa0\xbb\x18\x02\xa8\xbb\x18\x01Z'github.com/ygrpc/rpccgo/cgotest;cgotestb\x06proto3"
 
 var (
 	file_stream_proto_rawDescOnce sync.Once

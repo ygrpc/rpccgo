@@ -32,7 +32,7 @@ find ./connect_suffix -mindepth 1 -maxdepth 1 -type d -exec rm -rf '{}' '+'
 
 GO_PKG_CONNECT_SUFFIX="Munary.proto=github.com/ygrpc/rpccgo/cgotest/connect_suffix;cgotest_connect_suffix,Mstream.proto=github.com/ygrpc/rpccgo/cgotest/connect_suffix;cgotest_connect_suffix"
 
-protoc -Iproto \
+protoc -Iproto -I../proto \
   --go_out=./connect_suffix --go_opt=paths=source_relative,${GO_PKG_CONNECT_SUFFIX} \
   --connect-go_out=./connect_suffix --connect-go_opt=paths=source_relative,simple=true,${GO_PKG_CONNECT_SUFFIX} \
   --rpc-cgo-adaptor_out=./connect_suffix \

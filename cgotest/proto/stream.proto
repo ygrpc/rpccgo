@@ -2,7 +2,12 @@ syntax = "proto3";
 
 package cgotest;
 
-option go_package = "github.com/ygrpc/protocgen/cgotest;cgotest";
+import "ygrpc/cgo/options.proto";
+
+option go_package = "github.com/ygrpc/rpccgo/cgotest;cgotest";
+
+option (ygrpc.cgo.ygrpc_cgo_native_default) = NATIVE_ENABLE;
+option (ygrpc.cgo.ygrpc_cgo_req_free_default) = REQ_FREE_BOTH;
 
 // StreamService demonstrates all four RPC streaming patterns.
 service StreamService {
