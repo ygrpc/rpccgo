@@ -17,6 +17,20 @@ sequenceDiagram
     Adaptor-->>C: 返回结果
 ```
 
+## 这是什么？(What & Why)
+
+`rpccgo` 解决的是「**让 C/C++（或任何 FFI 调用方）像调用本地函数一样调用 Go 的 gRPC/Connect 服务实现**」的问题：
+
+- **没有网络开销**：不会起端口/走 TCP，只是在同一进程内做分发与调用。
+- **面向 RPC 的 API**：仍然以 proto/service/method 为中心，保持与 gRPC/Connect 的编程模型一致。
+- **跨语言错误可取回**：通过错误注册表（error id → message）安全跨越 CGO 边界。
+
+### 你会用到的组件
+
+- `rpcruntime`：运行时（处理器注册表、协议选择、流句柄、错误注册表等）。
+- `protoc-gen-rpc-cgo-adaptor`：生成 **Go 侧 adaptor**（在 Go/CGO 层面调度到已注册的处理器）。
+- `protoc-gen-rpc-cgo`：生成 **C ABI 导出代码**（需要 C 端端到端调用时使用；可参考 `cgotest/`）。
+
 ## 快速开始 (Quick Start)
 
 ### 1. 安装插件 (Install the Plugin)
@@ -64,6 +78,8 @@ rpcruntime.RegisterConnectHandler("your.package.TestService", handler)
 ctx := context.Background()
 resp, err := TestService_Ping(ctx, &PingRequest{Message: "hello"})
 ```
+
+如果你希望复制粘贴即可跑通一个最小示例，请直接看下方的「可跟随示例」。
 
 ---
 
@@ -339,18 +355,50 @@ var (
 
 ---
 
-## 完整示例 (Complete Example)
+## 可跟随示例：10 分钟跑通一次本地调用
+
+这个示例演示：
+
+1) 写 proto
+2) 生成 Go + gRPC 代码
+3) 生成 rpccgo adaptor
+4) 注册 gRPC handler
+5) 直接调用生成的 adaptor（不走网络）
+
+> 下面命令默认在一个全新目录执行。你也可以把它集成到现有工程里。
+
+### 0. 准备环境
+
+需要：`protoc`、Go 工具链。
+
+安装所需的 `protoc` 插件：
+
+```bash
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+go install github.com/ygrpc/rpccgo/cmd/protoc-gen-rpc-cgo-adaptor@latest
+```
+
+### 1. 初始化一个 demo module
+
+```bash
+mkdir -p rpccgo-demo && cd rpccgo-demo
+go mod init example.com/rpccgo-demo
+go get github.com/ygrpc/rpccgo/rpcruntime@latest
+mkdir -p proto gen cmd/demo
+```
 
 ### Proto 定义 (Proto Definition)
+
+在 `proto/greeter.proto` 写入：
 
 ```protobuf
 syntax = "proto3";
 package example;
-option go_package = "github.com/yourorg/example";
+option go_package = "example.com/rpccgo-demo/gen;gen";
 
 service Greeter {
   rpc SayHello(HelloRequest) returns (HelloResponse);
-  rpc StreamGreet(stream HelloRequest) returns (HelloResponse);
 }
 
 message HelloRequest {
@@ -365,51 +413,23 @@ message HelloResponse {
 ### 生成代码 (Generate Code)
 
 ```bash
+# 写入 proto/proto/greeter.proto（文件名随意，这里用 greeter.proto）
 # 生成 protobuf & gRPC 代码
-protoc -I. \
-  --go_out=./gen --go_opt=paths=source_relative \
-  --go-grpc_out=./gen --go-grpc_opt=paths=source_relative \
-  greeter.proto
+protoc -I ./proto \
+    --go_out=./gen --go_opt=paths=source_relative \
+    --go-grpc_out=./gen --go-grpc_opt=paths=source_relative \
+    ./proto/greeter.proto
 
 # 生成 CGO 适配器
-protoc -I. \
+protoc -I ./proto \
   --rpc-cgo-adaptor_out=./gen \
   --rpc-cgo-adaptor_opt=paths=source_relative,protocol=grpc \
-  greeter.proto
+  ./proto/greeter.proto
 ```
 
-### 实现处理器 (Implement Handler)
+### 2. 编写并运行 demo
 
-```go
-package example
-
-import "context"
-
-type GreeterServer struct{}
-
-func (s *GreeterServer) SayHello(ctx context.Context, req *HelloRequest) (*HelloResponse, error) {
-    return &HelloResponse{Message: "Hello, " + req.GetName()}, nil
-}
-
-// StreamGreet 客户端流式实现
-func (s *GreeterServer) StreamGreet(stream Greeter_StreamGreetServer) error {
-    var names []string
-    for {
-        req, err := stream.Recv()
-        if err == io.EOF {
-            return stream.SendAndClose(&HelloResponse{
-                Message: "Hello, " + strings.Join(names, ", "),
-            })
-        }
-        if err != nil {
-            return err
-        }
-        names = append(names, req.GetName())
-    }
-}
-```
-
-### 注册并使用 (Register and Use)
+创建 `cmd/demo/main.go`：
 
 ```go
 package main
@@ -419,13 +439,23 @@ import (
     "fmt"
 
     "github.com/ygrpc/rpccgo/rpcruntime"
-    "github.com/yourorg/example/gen"
+    "example.com/rpccgo-demo/gen"
 )
+
+type GreeterServer struct {
+    gen.UnimplementedGreeterServer
+}
+
+func (s *GreeterServer) SayHello(ctx context.Context, req *gen.HelloRequest) (*gen.HelloResponse, error) {
+    return &gen.HelloResponse{Message: "Hello, " + req.GetName()}, nil
+}
 
 func main() {
     // 注册处理器
-    handler := &example.GreeterServer{}
-    rpcruntime.RegisterGrpcHandler("example.Greeter", handler)
+    _, err := rpcruntime.RegisterGrpcHandler("example.Greeter", &GreeterServer{})
+    if err != nil {
+        panic(err)
+    }
 
     // 通过适配器调用
     ctx := context.Background()
@@ -434,12 +464,22 @@ func main() {
         panic(err)
     }
     fmt.Println(resp.GetMessage())  // Hello, World
-
-    // 客户端流式示例
-    handle, _ := gen.Greeter_StreamGreetStart(ctx)
-    gen.Greeter_StreamGreetSend(handle, &gen.HelloRequest{Name: "Alice"})
-    gen.Greeter_StreamGreetSend(handle, &gen.HelloRequest{Name: "Bob"})
-    resp, _ = gen.Greeter_StreamGreetFinish(handle)
-    fmt.Println(resp.GetMessage())  // Hello, Alice, Bob
 }
 ```
+
+运行：
+
+```bash
+go run ./cmd/demo
+```
+
+你会看到输出：
+
+```
+Hello, World
+```
+
+### 3. 下一步：如果你需要给 C/C++ 直接调用
+
+请使用 `protoc-gen-rpc-cgo` 生成 C ABI 导出代码，并用 `-buildmode=c-shared` 构建 `.so` + `.h`。
+仓库里 [cgotest/](cgotest/) 目录提供了完整的端到端脚本与 C 测试样例，可直接参考。
