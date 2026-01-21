@@ -9,8 +9,7 @@
 
 typedef void (*FreeFunc)(void*);
 
-typedef enum
-{
+typedef enum {
     YGRPC_PROTOCOL_UNSET = 0,
     YGRPC_PROTOCOL_GRPC = 1,
     YGRPC_PROTOCOL_CONNECTRPC = 2,
@@ -24,19 +23,15 @@ static inline void call_free_func(FreeFunc fn, void* ptr) {
     if (fn) fn(ptr);
 }
 
-typedef void (*OnReadBytesFunc)(uint64_t call_id, void *resp_ptr, int resp_len, FreeFunc resp_free);
+typedef void (*OnReadBytesFunc)(uint64_t call_id, void* resp_ptr, int resp_len, FreeFunc resp_free);
 typedef void (*OnDoneFunc)(uint64_t call_id, int error_id);
 
-static inline void call_on_read_bytes(void *fn, uint64_t call_id, void *resp_ptr, int resp_len, FreeFunc resp_free)
-{
-    if (fn)
-        ((OnReadBytesFunc)fn)(call_id, resp_ptr, resp_len, resp_free);
+static inline void call_on_read_bytes(void* fn, uint64_t call_id, void* resp_ptr, int resp_len, FreeFunc resp_free) {
+    if(fn) ((OnReadBytesFunc)fn)(call_id, resp_ptr, resp_len, resp_free);
 }
 
-static inline void call_on_done(void *fn, uint64_t call_id, int error_id)
-{
-    if (fn)
-        ((OnDoneFunc)fn)(call_id, error_id);
+static inline void call_on_done(void* fn, uint64_t call_id, int error_id) {
+    if(fn) ((OnDoneFunc)fn)(call_id, error_id);
 }
 
 #endif

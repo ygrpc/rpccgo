@@ -5,12 +5,11 @@
 package main
 
 import (
-	atomic "sync/atomic"
-	unsafe "unsafe"
-
 	grpc "github.com/ygrpc/rpccgo/cgotest/grpc"
 	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 	proto "google.golang.org/protobuf/proto"
+	atomic "sync/atomic"
+	unsafe "unsafe"
 )
 
 /*

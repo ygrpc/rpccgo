@@ -9,7 +9,6 @@ import "C"
 
 import (
 	"unsafe"
-
 	"github.com/ygrpc/rpccgo/rpcruntime"
 )
 
