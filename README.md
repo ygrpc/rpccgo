@@ -5,16 +5,19 @@
 ```mermaid
 sequenceDiagram
     participant C as C/C++ Code
-    participant Adaptor as Generated Adaptor
+    participant Export as C ABI Export (protoc-gen-rpc-cgo)
+    participant Adaptor as Go Adaptor (protoc-gen-rpc-cgo-adaptor)
     participant Runtime as rpcruntime
     participant Handler as gRPC/Connect Handler
 
-    C->>Adaptor: 调用导出的函数
+    C->>Export: 调用导出的 C 函数
+    Export->>Adaptor: 调用 Go adaptor（纯 Go）
     Adaptor->>Runtime: 查找注册的处理器 (Handler)
     Runtime->>Handler: 调用实现
     Handler-->>Runtime: 返回结果
     Runtime-->>Adaptor: 返回结果
-    Adaptor-->>C: 返回结果
+    Adaptor-->>Export: 返回结果
+    Export-->>C: 返回结果
 ```
 
 ## 这是什么？(What & Why)
@@ -28,34 +31,101 @@ sequenceDiagram
 ### 你会用到的组件
 
 - `rpcruntime`：运行时（处理器注册表、协议选择、流句柄、错误注册表等）。
-- `protoc-gen-rpc-cgo-adaptor`：生成 **Go 侧 adaptor**（在 Go/CGO 层面调度到已注册的处理器）。
-- `protoc-gen-rpc-cgo`：生成 **C ABI 导出代码**（需要 C 端端到端调用时使用；可参考 `cgotest/`）。
+- `protoc-gen-rpc-cgo-adaptor`：生成 **Go 侧 adaptor**（文件名通常是 `*_cgo_adaptor.go`，但它本身不导出 C ABI；它负责把调用分发到已注册的 handler）。
+- `protoc-gen-rpc-cgo`：生成 **C ABI 导出代码**（给 C/C++ 直接链接调用的 `.h/.so`）。
 
 ## 快速开始 (Quick Start)
 
-### 1. 安装插件 (Install the Plugin)
+这部分给出两条最常见路径：
+
+1) **仅 Go 侧进程内调用**：生成 pb +（gRPC/Connect）stub + rpccgo adaptor，然后在 Go 里直接调用生成的 `Service_Method(...)`（不涉及 C ABI）。
+2) **给 C/C++ 调用**：在 1) 的基础上，再生成 C ABI 导出层（`.h/.so`），由 C/C++ 链接调用。
+
+> 关键概念：`protoc-gen-rpc-cgo-adaptor` 只生成 **Go adaptor**；它不是 C ABI。要让 C/C++ 调用，你还需要 `protoc-gen-rpc-cgo` 生成 **package main + //export** 的导出层，并把它放在独立目录。
+
+### 0. 前置要求 (Prerequisites)
+
+- 已安装 `protoc` 和 Go 工具链
+- 你选择的协议需要对应的 Go stub：
+    - gRPC：需要 `protoc-gen-go` + `protoc-gen-go-grpc`
+    - ConnectRPC：需要 `protoc-gen-go` + `protoc-gen-connect-go`（且必须 `simple=true`）
+
+### 1. 安装所需插件 (Install Plugins)
 
 ```bash
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+
+# 如果你要用 gRPC：
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+
+# 如果你要用 ConnectRPC(仅支持v1.19.0+)：
+go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
+
+# rpccgo adaptor 生成器（必需）
 go install github.com/ygrpc/rpccgo/cmd/protoc-gen-rpc-cgo-adaptor@latest
+
+# 如果你还要生成 C ABI（给 C/C++ 调用）：
+go install github.com/ygrpc/rpccgo/cmd/protoc-gen-rpc-cgo@latest
 ```
 
-### 2. 生成适配器代码 (Generate Adaptor Code)
+### 2. 生成 Go stub + rpccgo adaptor (Generate Go Stubs + Adaptor)
+
+你需要先生成 **pb + 协议 stub**，再生成 **rpccgo adaptor**。推荐像下方示例一样，显式指定 `M<file>.proto=...` 映射，避免目录/包名与 `go_package` 不一致。
+
+下面用 `./proto` 作为 proto 目录，用 `./gen` 作为生成输出目录示意（你可改成自己的目录）。
+
+#### 2.1 gRPC（推荐先跑通这条路径）
 
 ```bash
-# 使用默认协议 (ConnectRPC) 生成适配器
-protoc -I. --rpc-cgo-adaptor_out=./output \
-  --rpc-cgo-adaptor_opt=paths=source_relative \
-  your_service.proto
+# 例：把 your_service.proto 映射到 example.com/yourmod/gen;yourpb
+GO_PKG="Myour_service.proto=example.com/yourmod/gen;yourpb"
 
-# 仅为 gRPC 生成适配器
-protoc -I. --rpc-cgo-adaptor_out=./output \
-  --rpc-cgo-adaptor_opt=paths=source_relative,protocol=grpc \
-  your_service.proto
+# 1) 生成 pb + gRPC stub
+protoc -Iproto \
+    --go_out=./gen --go_opt=paths=source_relative,${GO_PKG} \
+    --go-grpc_out=./gen --go-grpc_opt=paths=source_relative,${GO_PKG} \
+    ./proto/your_service.proto
 
-# 生成支持 gRPC 和 ConnectRPC 的适配器 (带有回退顺序)
-protoc -I. --rpc-cgo-adaptor_out=./output \
-  --rpc-cgo-adaptor_opt=paths=source_relative,protocol=grpc|connectrpc \
-  your_service.proto
+# 2) 生成 rpccgo adaptor（输出到同一个 Go 包目录里）
+protoc -Iproto \
+    --rpc-cgo-adaptor_out=./gen \
+    --rpc-cgo-adaptor_opt=paths=source_relative,protocol=grpc,${GO_PKG} \
+    ./proto/your_service.proto
+```
+
+#### 2.2 ConnectRPC（需要 Simple API）
+
+```bash
+GO_PKG="Myour_service.proto=example.com/yourmod/gen;yourpb"
+
+# 1) 生成 pb
+protoc -Iproto \
+    --go_out=./gen --go_opt=paths=source_relative,${GO_PKG} \
+    ./proto/your_service.proto
+
+# 2) 生成 connect-go stub（必须 simple=true）
+protoc -Iproto \
+    --connect-go_out=./gen --connect-go_opt=paths=source_relative,${GO_PKG},simple=true \
+    ./proto/your_service.proto
+
+# 3) 生成 rpccgo adaptor
+protoc -Iproto \
+    --rpc-cgo-adaptor_out=./gen \
+    --rpc-cgo-adaptor_opt=paths=source_relative,protocol=connectrpc,${GO_PKG} \
+    ./proto/your_service.proto
+```
+
+#### 2.3 多协议回退（grpc\|connectrpc）
+
+多协议模式要求你把 **两套协议 stub 都生成出来**（gRPC + ConnectRPC），再生成带回退的 adaptor：
+
+```bash
+GO_PKG="Myour_service.proto=example.com/yourmod/gen;yourpb"
+
+protoc -Iproto \
+    --rpc-cgo-adaptor_out=./gen \
+    --rpc-cgo-adaptor_opt=paths=source_relative,protocol=grpc\|connectrpc,${GO_PKG} \
+    ./proto/your_service.proto
 ```
 
 ### 3. 注册你的处理器 (Register Your Handler)
@@ -75,8 +145,25 @@ rpcruntime.RegisterConnectHandler("your.package.TestService", handler)
 ### 4. 通过生成的适配器进行调用 (Call via Generated Adaptor)
 
 ```go
+import pb "example.com/yourmod/gen" // 替换成你的 go_package 对应的导入路径
+
 ctx := context.Background()
-resp, err := TestService_Ping(ctx, &PingRequest{Message: "hello"})
+resp, err := pb.TestService_Ping(ctx, &pb.PingRequest{Message: "hello"})
+```
+
+### 5. （可选）生成 C ABI 导出层给 C/C++ 调用 (Generate C ABI Exports)
+
+`protoc-gen-rpc-cgo` 生成的是 **package main + //export** 的导出代码，必须放在一个独立目录（不要与 `./gen` 这种 pb+adaptor 包混在一起）。
+
+```bash
+GO_PKG="Myour_service.proto=example.com/yourmod/gen;yourpb"
+
+protoc -Iproto \
+    --rpc-cgo_out=./cgo_export \
+    --rpc-cgo_opt=paths=source_relative,${GO_PKG} \
+    ./proto/your_service.proto
+
+go build -buildmode=c-shared -o ./libygrpc.so ./cgo_export
 ```
 
 如果你希望复制粘贴即可跑通一个最小示例，请直接看下方的「可跟随示例」。
@@ -111,16 +198,18 @@ protoc --rpc-cgo-adaptor_opt=protocol=connectrpc ...
 
 ### 带回退机制的多协议模式 (Multi-Protocol Mode with Fallback)
 
-当配置了多种协议 (例如 `protocol=grpc|connectrpc`) 时，适配器支持自动回退：
+当配置了多种协议 (例如 `protocol=grpc\|connectrpc`) 时，适配器支持自动回退：
 
 ```go
+import pb "example.com/yourmod/gen" // 替换成你的 go_package 对应的导入路径
+
 // 不带显式协议：按配置顺序尝试协议
 ctx := context.Background()
-resp, err := TestService_Ping(ctx, req)  // 先尝试 gRPC，失败则尝试 ConnectRPC
+resp, err := pb.TestService_Ping(ctx, req)  // 先尝试 gRPC，失败则尝试 ConnectRPC
 
 // 带有显式协议：仅尝试该协议 (不回退)
 ctx := rpcruntime.WithProtocol(context.Background(), rpcruntime.ProtocolGrpc)
-resp, err := TestService_Ping(ctx, req)  // 仅尝试 gRPC
+resp, err := pb.TestService_Ping(ctx, req)  // 仅尝试 gRPC
 ```
 
 ### 协议上下文 API (Protocol Context API)
@@ -190,20 +279,22 @@ connectServices := rpcruntime.ListConnectServices() // []string
 分阶段 API: `Start` → `Send` (多次) → `Finish`
 
 ```go
+import pb "example.com/yourmod/gen" // 替换成你的 go_package 对应的导入路径
+
 ctx := context.Background()
 
 // 1. 开启流
-handle, err := TestService_ClientStreamCallStart(ctx)
+handle, err := pb.TestService_ClientStreamCallStart(ctx)
 if err != nil {
     return err
 }
 
 // 2. 发送消息
-err = TestService_ClientStreamCallSend(handle, &StreamRequest{Data: "msg1"})
-err = TestService_ClientStreamCallSend(handle, &StreamRequest{Data: "msg2"})
+err = pb.TestService_ClientStreamCallSend(handle, &pb.StreamRequest{Data: "msg1"})
+err = pb.TestService_ClientStreamCallSend(handle, &pb.StreamRequest{Data: "msg2"})
 
 // 3. 完成并获取响应
-resp, err := TestService_ClientStreamCallFinish(handle)
+resp, err := pb.TestService_ClientStreamCallFinish(handle)
 ```
 
 ### 服务端流式 (Server-Streaming)
@@ -211,10 +302,12 @@ resp, err := TestService_ClientStreamCallFinish(handle)
 带有 `onRead` 和 `onDone` 的回调 API：
 
 ```go
+import pb "example.com/yourmod/gen" // 替换成你的 go_package 对应的导入路径
+
 ctx := context.Background()
 
-err := TestService_ServerStreamCall(ctx, req,
-    func(resp *StreamResponse) bool {
+err := pb.TestService_ServerStreamCall(ctx, req,
+    func(resp *pb.StreamResponse) bool {
         fmt.Println("Received:", resp.GetResult())
         return true  // 返回 false 以停止接收
     },
@@ -233,11 +326,13 @@ err := TestService_ServerStreamCall(ctx, req,
 结合了分阶段 API 和回调：
 
 ```go
+import pb "example.com/yourmod/gen" // 替换成你的 go_package 对应的导入路径
+
 ctx := context.Background()
 
 // 1. 开启并设置接收回调
-handle, err := TestService_BidiStreamCallStart(ctx,
-    func(resp *StreamResponse) bool {
+handle, err := pb.TestService_BidiStreamCallStart(ctx,
+    func(resp *pb.StreamResponse) bool {
         fmt.Println("Received:", resp.GetResult())
         return true
     },
@@ -250,11 +345,11 @@ if err != nil {
 }
 
 // 2. 发送消息
-TestService_BidiStreamCallSend(handle, &StreamRequest{Data: "msg1"})
-TestService_BidiStreamCallSend(handle, &StreamRequest{Data: "msg2"})
+pb.TestService_BidiStreamCallSend(handle, &pb.StreamRequest{Data: "msg1"})
+pb.TestService_BidiStreamCallSend(handle, &pb.StreamRequest{Data: "msg2"})
 
 // 3. 关闭发送侧
-TestService_BidiStreamCallCloseSend(handle)
+pb.TestService_BidiStreamCallCloseSend(handle)
 ```
 
 ---
@@ -299,7 +394,7 @@ int Ygrpc_GetErrorMsg(int error_id, void** msg_ptr, int* msg_len, FreeFunc* msg_
 ```
 
 **使用方法**:
-1. 调用适配器函数，失败时获取 `errorId`
+1. 调用导出层函数（或 Go 侧 adaptor），失败时获取 `errorId`
 2. 调用 `Ygrpc_GetErrorMsg(errorId, &ptr, &len, &freeFn)` 检索消息
 3. 使用消息，然后调用 `freeFn(ptr)` 释放内存
 
@@ -328,10 +423,17 @@ var (
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────┐
-│              生成的适配器 (*_cgo_adaptor.go)                │
-│  - C-ABI 友好的函数签名                                     │
-│  - 协议选择与处理器查找                                     │
-│  - 流式会话管理                                             │
+│     C ABI 导出层（protoc-gen-rpc-cgo / package main）       │
+│  - 生成 .h 声明 + //export 导出函数                          │
+│  - 负责跨 CGO 边界的参数/返回值表示                           │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│      Go adaptor（protoc-gen-rpc-cgo-adaptor / *_cgo_*.go）   │
+│  - 纯 Go：协议选择与处理器查找                               │
+│  - 负责把调用分发到 rpcruntime 与已注册 handler               │
+│  - 流式会话管理（Start/Send/Finish 等）                       │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -385,7 +487,7 @@ go install github.com/ygrpc/rpccgo/cmd/protoc-gen-rpc-cgo-adaptor@latest
 mkdir -p rpccgo-demo && cd rpccgo-demo
 go mod init example.com/rpccgo-demo
 go get github.com/ygrpc/rpccgo/rpcruntime@latest
-mkdir -p proto gen cmd/demo
+mkdir -p proto grpc cgo_grpc cmd/demo
 ```
 
 ### Proto 定义 (Proto Definition)
@@ -395,7 +497,7 @@ mkdir -p proto gen cmd/demo
 ```protobuf
 syntax = "proto3";
 package example;
-option go_package = "example.com/rpccgo-demo/gen;gen";
+option go_package = "example.com/rpccgo-demo/grpc;demo_grpc";
 
 service Greeter {
   rpc SayHello(HelloRequest) returns (HelloResponse);
@@ -413,18 +515,21 @@ message HelloResponse {
 ### 生成代码 (Generate Code)
 
 ```bash
-# 写入 proto/proto/greeter.proto（文件名随意，这里用 greeter.proto）
-# 生成 protobuf & gRPC 代码
-protoc -I ./proto \
-    --go_out=./gen --go_opt=paths=source_relative \
-    --go-grpc_out=./gen --go-grpc_opt=paths=source_relative \
+# 写入 proto/greeter.proto（文件名随意，这里用 greeter.proto）
+# 建议像 cgotest 一样显式指定 M<file>.proto 的 Go 包映射，避免目录/包名不一致。
+GO_PKG="Mgreeter.proto=example.com/rpccgo-demo/grpc;demo_grpc"
+
+# 生成 protobuf & gRPC 代码（到 ./grpc 目录）
+protoc -Iproto \
+    --go_out=./grpc --go_opt=paths=source_relative,${GO_PKG} \
+    --go-grpc_out=./grpc --go-grpc_opt=paths=source_relative,${GO_PKG} \
     ./proto/greeter.proto
 
-# 生成 CGO 适配器
-protoc -I ./proto \
-  --rpc-cgo-adaptor_out=./gen \
-  --rpc-cgo-adaptor_opt=paths=source_relative,protocol=grpc \
-  ./proto/greeter.proto
+# 生成 rpccgo adaptor（纯 Go，输出也放到 ./grpc 目录）
+protoc -Iproto \
+    --rpc-cgo-adaptor_out=./grpc \
+    --rpc-cgo-adaptor_opt=paths=source_relative,protocol=grpc,${GO_PKG} \
+    ./proto/greeter.proto
 ```
 
 ### 2. 编写并运行 demo
@@ -439,15 +544,15 @@ import (
     "fmt"
 
     "github.com/ygrpc/rpccgo/rpcruntime"
-    "example.com/rpccgo-demo/gen"
+    grpcpb "example.com/rpccgo-demo/grpc"
 )
 
 type GreeterServer struct {
-    gen.UnimplementedGreeterServer
+    grpcpb.UnimplementedGreeterServer
 }
 
-func (s *GreeterServer) SayHello(ctx context.Context, req *gen.HelloRequest) (*gen.HelloResponse, error) {
-    return &gen.HelloResponse{Message: "Hello, " + req.GetName()}, nil
+func (s *GreeterServer) SayHello(ctx context.Context, req *grpcpb.HelloRequest) (*grpcpb.HelloResponse, error) {
+    return &grpcpb.HelloResponse{Message: "Hello, " + req.GetName()}, nil
 }
 
 func main() {
@@ -459,7 +564,7 @@ func main() {
 
     // 通过适配器调用
     ctx := context.Background()
-    resp, err := gen.Greeter_SayHello(ctx, &gen.HelloRequest{Name: "World"})
+    resp, err := grpcpb.Greeter_SayHello(ctx, &grpcpb.HelloRequest{Name: "World"})
     if err != nil {
         panic(err)
     }
@@ -479,7 +584,21 @@ go run ./cmd/demo
 Hello, World
 ```
 
-### 3. 下一步：如果你需要给 C/C++ 直接调用
+### 3. 下一步：生成 C ABI（注意输出到独立目录）
 
-请使用 `protoc-gen-rpc-cgo` 生成 C ABI 导出代码，并用 `-buildmode=c-shared` 构建 `.so` + `.h`。
-仓库里 [cgotest/](cgotest/) 目录提供了完整的端到端脚本与 C 测试样例，可直接参考。
+`protoc-gen-rpc-cgo` 生成的是 **package main + //export** 形式的导出代码，必须单独放在一个目录（例如 `./cgo_grpc`），不要与 `./grpc`（pb+adaptor）混在同一个 Go 包里。
+
+```bash
+go install github.com/ygrpc/rpccgo/cmd/protoc-gen-rpc-cgo@latest
+
+GO_PKG="Mgreeter.proto=example.com/rpccgo-demo/grpc;demo_grpc"
+
+protoc -Iproto \
+    --rpc-cgo_out=./cgo_grpc \
+    --rpc-cgo_opt=paths=source_relative,${GO_PKG} \
+    ./proto/greeter.proto
+
+go build -buildmode=c-shared -o ./libygrpc.so ./cgo_grpc
+```
+
+更完整的脚本（含 `.h` 拷贝、C 端测试、协议矩阵等）可直接参考 [cgotest/](cgotest/)。
