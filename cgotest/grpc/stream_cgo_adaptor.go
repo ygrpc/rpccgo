@@ -72,20 +72,28 @@ func (a *streamService_ClientStreamCallServerAdaptor) SendMsg(m any) error {
 	return nil
 }
 
+func (a *streamService_ClientStreamCallServerAdaptor) copyRecvMsg(m any, msg any) error {
+	// Copy message to m using proto.Merge to avoid copying mutex
+	if src, ok := msg.(*StreamRequest); ok {
+		if dst, ok := m.(*StreamRequest); ok {
+			proto.Reset(dst)
+			proto.Merge(dst, src)
+		}
+	}
+	return nil
+}
+
 func (a *streamService_ClientStreamCallServerAdaptor) RecvMsg(m any) error {
 	select {
-	case msg, ok := <-a.session.SendCh():
-		if !ok {
+	case msg := <-a.session.SendCh():
+		return a.copyRecvMsg(m, msg)
+	case <-a.session.SendDoneCh():
+		select {
+		case msg := <-a.session.SendCh():
+			return a.copyRecvMsg(m, msg)
+		default:
 			return io.EOF
 		}
-		// Copy message to m using proto.Merge to avoid copying mutex
-		if src, ok := msg.(*StreamRequest); ok {
-			if dst, ok := m.(*StreamRequest); ok {
-				proto.Reset(dst)
-				proto.Merge(dst, src)
-			}
-		}
-		return nil
 	case <-a.session.Context().Done():
 		return a.session.Context().Err()
 	}
@@ -138,20 +146,28 @@ func (a *streamService_ServerStreamCallServerAdaptor) SendMsg(m any) error {
 	return nil
 }
 
+func (a *streamService_ServerStreamCallServerAdaptor) copyRecvMsg(m any, msg any) error {
+	// Copy message to m using proto.Merge to avoid copying mutex
+	if src, ok := msg.(*StreamRequest); ok {
+		if dst, ok := m.(*StreamRequest); ok {
+			proto.Reset(dst)
+			proto.Merge(dst, src)
+		}
+	}
+	return nil
+}
+
 func (a *streamService_ServerStreamCallServerAdaptor) RecvMsg(m any) error {
 	select {
-	case msg, ok := <-a.session.SendCh():
-		if !ok {
+	case msg := <-a.session.SendCh():
+		return a.copyRecvMsg(m, msg)
+	case <-a.session.SendDoneCh():
+		select {
+		case msg := <-a.session.SendCh():
+			return a.copyRecvMsg(m, msg)
+		default:
 			return io.EOF
 		}
-		// Copy message to m using proto.Merge to avoid copying mutex
-		if src, ok := msg.(*StreamRequest); ok {
-			if dst, ok := m.(*StreamRequest); ok {
-				proto.Reset(dst)
-				proto.Merge(dst, src)
-			}
-		}
-		return nil
 	case <-a.session.Context().Done():
 		return a.session.Context().Err()
 	}
@@ -194,20 +210,28 @@ func (a *streamService_BidiStreamCallServerAdaptor) SendMsg(m any) error {
 	return nil
 }
 
+func (a *streamService_BidiStreamCallServerAdaptor) copyRecvMsg(m any, msg any) error {
+	// Copy message to m using proto.Merge to avoid copying mutex
+	if src, ok := msg.(*StreamRequest); ok {
+		if dst, ok := m.(*StreamRequest); ok {
+			proto.Reset(dst)
+			proto.Merge(dst, src)
+		}
+	}
+	return nil
+}
+
 func (a *streamService_BidiStreamCallServerAdaptor) RecvMsg(m any) error {
 	select {
-	case msg, ok := <-a.session.SendCh():
-		if !ok {
+	case msg := <-a.session.SendCh():
+		return a.copyRecvMsg(m, msg)
+	case <-a.session.SendDoneCh():
+		select {
+		case msg := <-a.session.SendCh():
+			return a.copyRecvMsg(m, msg)
+		default:
 			return io.EOF
 		}
-		// Copy message to m using proto.Merge to avoid copying mutex
-		if src, ok := msg.(*StreamRequest); ok {
-			if dst, ok := m.(*StreamRequest); ok {
-				proto.Reset(dst)
-				proto.Merge(dst, src)
-			}
-		}
-		return nil
 	case <-a.session.Context().Done():
 		return a.session.Context().Err()
 	}

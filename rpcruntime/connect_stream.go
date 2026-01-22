@@ -33,15 +33,21 @@ func (c *ConnectStreamConn) Peer() connect.Peer {
 // Receive reads a message from the session's send channel.
 func (c *ConnectStreamConn) Receive(msg any) error {
 	select {
-	case req, ok := <-c.session.SendCh():
-		if !ok {
-			// Channel closed means end of stream.
-			return io.EOF
-		}
+	case req := <-c.session.SendCh():
 		// Copy the received message to msg.
 		// This assumes msg is a pointer to the correct type.
 		copyMessage(req, msg)
 		return nil
+	case <-c.session.SendDoneCh():
+		select {
+		case req := <-c.session.SendCh():
+			// Copy the received message to msg.
+			// This assumes msg is a pointer to the correct type.
+			copyMessage(req, msg)
+			return nil
+		default:
+			return io.EOF
+		}
 	case <-c.session.Context().Done():
 		return c.session.Context().Err()
 	}
@@ -83,6 +89,7 @@ func copyMessage(src, dst any) {
 	if !ok {
 		return
 	}
+	proto.Reset(dstMsg)
 	proto.Merge(dstMsg, srcMsg)
 }
 
