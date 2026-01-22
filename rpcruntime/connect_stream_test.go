@@ -5,6 +5,7 @@ import (
 	"unsafe"
 
 	"connectrpc.com/connect"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
 // TestConnectStreamStructLayout validates that the conn field is at offset 0
@@ -70,6 +71,35 @@ func TestSetStreamConn(t *testing.T) {
 		fields := (*bidiStreamFields)(unsafe.Pointer(stream))
 		if fields.conn != conn {
 			t.Error("SetBidiStreamConn did not set conn correctly")
+		}
+	})
+}
+
+func TestCopyMessage(t *testing.T) {
+	t.Run("TypeMatchCopies", func(t *testing.T) {
+		src := &wrapperspb.StringValue{Value: "hello"}
+		dst := &wrapperspb.StringValue{Value: "stale"}
+
+		if err := copyMessage(src, dst); err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if dst.Value != "hello" {
+			t.Fatalf("expected dst to be updated, got %q", dst.Value)
+		}
+	})
+
+	t.Run("TypeMismatchReturnsError", func(t *testing.T) {
+		src := &wrapperspb.StringValue{Value: "hello"}
+		dst := &wrapperspb.Int32Value{Value: 1}
+
+		if err := copyMessage(src, dst); err == nil {
+			t.Fatal("expected error, got nil")
+		}
+	})
+
+	t.Run("NonProtoReturnsError", func(t *testing.T) {
+		if err := copyMessage("not proto", "also not proto"); err == nil {
+			t.Fatal("expected error, got nil")
 		}
 	})
 }
