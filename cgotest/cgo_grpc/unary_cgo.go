@@ -2,6 +2,8 @@
 //
 // source: unary.proto
 
+//go:build cgo
+
 package main
 
 import (
