@@ -39,8 +39,8 @@ func generateCgoCommonHeader(gen *protogen.Plugin) *protogen.GeneratedFile {
 	h.P()
 
 	h.P("extern void Ygrpc_Free(void* ptr);")
-	h.P("extern int Ygrpc_SetProtocol(int protocol);")
-	h.P("extern int Ygrpc_GetErrorMsg(uint64_t error_id, void** msg_ptr, int* msg_len, FreeFunc* msg_free);")
+	h.P("extern uint64_t Ygrpc_SetProtocol(int protocol);")
+	h.P("extern uint64_t Ygrpc_GetErrorMsg(uint64_t error_id, void** msg_ptr, int* msg_len, FreeFunc* msg_free);")
 	h.P()
 
 	h.P("static inline void call_free_func(FreeFunc fn, void* ptr) {")
@@ -93,30 +93,30 @@ func generateMainFile(gen *protogen.Plugin) *protogen.GeneratedFile {
 	g.P()
 
 	g.P("//export Ygrpc_SetProtocol")
-	g.P("func Ygrpc_SetProtocol(protocol C.int) C.int {")
+	g.P("func Ygrpc_SetProtocol(protocol C.int) C.uint64_t {")
 	g.P("    switch int(protocol) {")
 	g.P("    case 0:")
 	g.P("        rpcruntime.ClearDefaultProtocol()")
 	g.P("        return 0")
 	g.P("    case 1:")
 	g.P("        if err := rpcruntime.SetDefaultProtocol(rpcruntime.ProtocolGrpc); err != nil {")
-	g.P("            return C.int(rpcruntime.StoreError(err))")
+	g.P("            return C.uint64_t(rpcruntime.StoreError(err))")
 	g.P("        }")
 	g.P("        return 0")
 	g.P("    case 2:")
 	g.P("        if err := rpcruntime.SetDefaultProtocol(rpcruntime.ProtocolConnectRPC); err != nil {")
-	g.P("            return C.int(rpcruntime.StoreError(err))")
+	g.P("            return C.uint64_t(rpcruntime.StoreError(err))")
 	g.P("        }")
 	g.P("        return 0")
 	g.P("    default:")
-	g.P("        return C.int(rpcruntime.StoreError(rpcruntime.ErrUnknownProtocol))")
+	g.P("        return C.uint64_t(rpcruntime.StoreError(rpcruntime.ErrUnknownProtocol))")
 	g.P("    }")
 	g.P("}")
 	g.P()
 
 	g.P("//export Ygrpc_GetErrorMsg")
 	g.P(
-		"func Ygrpc_GetErrorMsg(errorID C.uint64_t, msgPtr *unsafe.Pointer, msgLen *C.int, msgFree *C.FreeFunc) C.int {",
+		"func Ygrpc_GetErrorMsg(errorID C.uint64_t, msgPtr *unsafe.Pointer, msgLen *C.int, msgFree *C.FreeFunc) C.uint64_t {",
 	)
 	g.P("    msg, ok := rpcruntime.GetErrorMsgBytes(uint64(errorID))")
 	g.P("    if !ok {")

@@ -479,7 +479,7 @@ msg, found := rpcruntime.GetErrorMsgBytes(id)
 typedef void (*FreeFunc)(void*);
 
 // 如果找到返回 0，如果未找到/已过期返回 1
-int Ygrpc_GetErrorMsg(int error_id, void** msg_ptr, int* msg_len, FreeFunc* msg_free);
+uint64_t Ygrpc_GetErrorMsg(uint64_t error_id, void** msg_ptr, int* msg_len, FreeFunc* msg_free);
 ```
 
 **使用方法**:
@@ -521,7 +521,8 @@ void Ygrpc_Free(void* ptr);
 
 ```c
 // protocol: 0 = 清除, 1 = gRPC, 2 = ConnectRPC
-void Ygrpc_SetProtocol(int protocol);
+// 返回值: 0 = 成功, 非 0 = error_id
+uint64_t Ygrpc_SetProtocol(int protocol);
 ```
 
 ### Ygrpc_GetErrorMsg
@@ -532,7 +533,7 @@ void Ygrpc_SetProtocol(int protocol);
 typedef void (*FreeFunc)(void*);
 
 // 返回值: 0 = 成功, 1 = 未找到/已过期
-int Ygrpc_GetErrorMsg(int error_id, void** msg_ptr, int* msg_len, FreeFunc* msg_free);
+uint64_t Ygrpc_GetErrorMsg(uint64_t error_id, void** msg_ptr, int* msg_len, FreeFunc* msg_free);
 ```
 
 ---

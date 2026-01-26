@@ -18,28 +18,28 @@ func Ygrpc_Free(ptr unsafe.Pointer) {
 }
 
 //export Ygrpc_SetProtocol
-func Ygrpc_SetProtocol(protocol C.int) C.int {
+func Ygrpc_SetProtocol(protocol C.int) C.uint64_t {
 	switch int(protocol) {
 	case 0:
 		rpcruntime.ClearDefaultProtocol()
 		return 0
 	case 1:
 		if err := rpcruntime.SetDefaultProtocol(rpcruntime.ProtocolGrpc); err != nil {
-			return C.int(rpcruntime.StoreError(err))
+			return C.uint64_t(rpcruntime.StoreError(err))
 		}
 		return 0
 	case 2:
 		if err := rpcruntime.SetDefaultProtocol(rpcruntime.ProtocolConnectRPC); err != nil {
-			return C.int(rpcruntime.StoreError(err))
+			return C.uint64_t(rpcruntime.StoreError(err))
 		}
 		return 0
 	default:
-		return C.int(rpcruntime.StoreError(rpcruntime.ErrUnknownProtocol))
+		return C.uint64_t(rpcruntime.StoreError(rpcruntime.ErrUnknownProtocol))
 	}
 }
 
 //export Ygrpc_GetErrorMsg
-func Ygrpc_GetErrorMsg(errorID C.uint64_t, msgPtr *unsafe.Pointer, msgLen *C.int, msgFree *C.FreeFunc) C.int {
+func Ygrpc_GetErrorMsg(errorID C.uint64_t, msgPtr *unsafe.Pointer, msgLen *C.int, msgFree *C.FreeFunc) C.uint64_t {
 	msg, ok := rpcruntime.GetErrorMsgBytes(uint64(errorID))
 	if !ok {
 		return 1

@@ -24,22 +24,22 @@ func Ygrpc_TestService_Ping(
 	respPtr *unsafe.Pointer,
 	respLen *C.int,
 	respFree *C.FreeFunc,
-) C.int {
+) C.uint64_t {
 	reqBytes := C.GoBytes(reqPtr, reqLen)
 	req := &mix.PingRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := mix.TestService_Ping(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	respBytes, err := proto.Marshal(resp)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	buf := C.CBytes(respBytes)
@@ -57,7 +57,7 @@ func Ygrpc_TestService_Ping_TakeReq(
 	respPtr *unsafe.Pointer,
 	respLen *C.int,
 	respFree *C.FreeFunc,
-) C.int {
+) C.uint64_t {
 	reqBytes := C.GoBytes(reqPtr, reqLen)
 	if reqFree != nil {
 		C.call_free_func(reqFree, reqPtr)
@@ -65,18 +65,18 @@ func Ygrpc_TestService_Ping_TakeReq(
 
 	req := &mix.PingRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := mix.TestService_Ping(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	respBytes, err := proto.Marshal(resp)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	buf := C.CBytes(respBytes)
@@ -93,14 +93,14 @@ func Ygrpc_TestService_Ping_Native(
 	resp_msg **C.char,
 	resp_msg_len *C.int,
 	resp_msg_free *C.FreeFunc,
-) C.int {
+) C.uint64_t {
 	req := &mix.PingRequest{}
 	req.Msg = C.GoStringN(req_msg, req_msg_len)
 
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := mix.TestService_Ping(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	if len(resp.Msg) > 0 {
@@ -124,7 +124,7 @@ func Ygrpc_TestService_Ping_Native_TakeReq(
 	resp_msg **C.char,
 	resp_msg_len *C.int,
 	resp_msg_free *C.FreeFunc,
-) C.int {
+) C.uint64_t {
 	req := &mix.PingRequest{}
 	req.Msg = C.GoStringN(req_msg, req_msg_len)
 	if req_msg_free != nil {
@@ -134,7 +134,7 @@ func Ygrpc_TestService_Ping_Native_TakeReq(
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := mix.TestService_Ping(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	if len(resp.Msg) > 0 {
@@ -158,7 +158,7 @@ func Ygrpc_TestService_PingOpt1_TakeReq(
 	respPtr *unsafe.Pointer,
 	respLen *C.int,
 	respFree *C.FreeFunc,
-) C.int {
+) C.uint64_t {
 	reqBytes := C.GoBytes(reqPtr, reqLen)
 	if reqFree != nil {
 		C.call_free_func(reqFree, reqPtr)
@@ -166,18 +166,18 @@ func Ygrpc_TestService_PingOpt1_TakeReq(
 
 	req := &mix.PingRequestOpt1{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := mix.TestService_PingOpt1(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	respBytes, err := proto.Marshal(resp)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	buf := C.CBytes(respBytes)
@@ -195,7 +195,7 @@ func Ygrpc_TestService_PingOpt1_Native_TakeReq(
 	resp_msg **C.char,
 	resp_msg_len *C.int,
 	resp_msg_free *C.FreeFunc,
-) C.int {
+) C.uint64_t {
 	req := &mix.PingRequestOpt1{}
 	req.Msg = C.GoStringN(req_msg, req_msg_len)
 	if req_msg_free != nil {
@@ -205,7 +205,7 @@ func Ygrpc_TestService_PingOpt1_Native_TakeReq(
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := mix.TestService_PingOpt1(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	if len(resp.Msg) > 0 {
@@ -228,22 +228,22 @@ func Ygrpc_TestService_PingOpt2(
 	respPtr *unsafe.Pointer,
 	respLen *C.int,
 	respFree *C.FreeFunc,
-) C.int {
+) C.uint64_t {
 	reqBytes := C.GoBytes(reqPtr, reqLen)
 	req := &mix.PingRequestOpt2{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := mix.TestService_PingOpt2(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	respBytes, err := proto.Marshal(resp)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	buf := C.CBytes(respBytes)
@@ -260,22 +260,22 @@ func Ygrpc_TestService_NonFlat(
 	respPtr *unsafe.Pointer,
 	respLen *C.int,
 	respFree *C.FreeFunc,
-) C.int {
+) C.uint64_t {
 	reqBytes := C.GoBytes(reqPtr, reqLen)
 	req := &mix.NonFlatRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := mix.TestService_NonFlat(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	respBytes, err := proto.Marshal(resp)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	buf := C.CBytes(respBytes)
@@ -293,7 +293,7 @@ func Ygrpc_TestService_NonFlat_TakeReq(
 	respPtr *unsafe.Pointer,
 	respLen *C.int,
 	respFree *C.FreeFunc,
-) C.int {
+) C.uint64_t {
 	reqBytes := C.GoBytes(reqPtr, reqLen)
 	if reqFree != nil {
 		C.call_free_func(reqFree, reqPtr)
@@ -301,18 +301,18 @@ func Ygrpc_TestService_NonFlat_TakeReq(
 
 	req := &mix.NonFlatRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := mix.TestService_NonFlat(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	respBytes, err := proto.Marshal(resp)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	buf := C.CBytes(respBytes)
