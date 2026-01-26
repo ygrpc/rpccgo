@@ -126,12 +126,12 @@ func (c *ConnectStreamConn) Send(msg any) error {
 
 // ResponseHeader returns the response headers.
 func (c *ConnectStreamConn) ResponseHeader() http.Header {
-	return nil
+	return http.Header{}
 }
 
 // ResponseTrailer returns the response trailers.
 func (c *ConnectStreamConn) ResponseTrailer() http.Header {
-	return nil
+	return http.Header{}
 }
 
 // copyMessage copies src to dst using proto.Merge.
@@ -243,7 +243,10 @@ func TrySetServerStreamConn[Res any](stream *connect.ServerStream[Res], conn con
 //
 // Unlike SetBidiStreamConn, this function never panics. It returns an error
 // when the stream is nil or if the underlying reflection-based injection fails.
-func TrySetBidiStreamConn[Req, Res any](stream *connect.BidiStream[Req, Res], conn connect.StreamingHandlerConn) (err error) {
+func TrySetBidiStreamConn[Req, Res any](
+	stream *connect.BidiStream[Req, Res],
+	conn connect.StreamingHandlerConn,
+) (err error) {
 	if stream == nil {
 		return fmt.Errorf("rpcruntime: TrySetBidiStreamConn: nil stream")
 	}
