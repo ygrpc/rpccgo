@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <assert.h>
 #include <inttypes.h>
 #include <stdint.h>
@@ -5,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "test_helpers.h"
 #include "libygrpc.h"
 #include "proto_helpers.h"
 
@@ -54,12 +57,8 @@ static void on_read_native(uint64_t call_id, void *result_ptr, int result_len, F
 }
 
 int main(void) {
-    int rc = Ygrpc_SetProtocol(YGRPC_PROTOCOL_UNSET);
-    if (rc != 0)
-    {
-        fprintf(stderr, "Ygrpc_SetProtocol failed: %d\n", rc);
-        return 1;
-    }
+    uint64_t rc = Ygrpc_SetProtocol(YGRPC_PROTOCOL_UNSET);
+    ygrpc_expect_err0_i64(rc, "Ygrpc_SetProtocol");
 
     // Binary server-streaming
     {
@@ -71,25 +70,14 @@ int main(void) {
         assert(ygrpc_encode_stream_request("test", 4, 7, &req, &req_len) == 0);
 
         uint64_t call_id = (uint64_t)(uintptr_t)&st;
-        int err_id = Ygrpc_StreamService_ServerStreamCall(req, req_len, (void *)on_read_bytes, (void *)on_done, call_id);
+        uint64_t err_id = Ygrpc_StreamService_ServerStreamCall(req, req_len, (void *)on_read_bytes, (void *)on_done, call_id);
         free(req);
 
-        if (err_id != 0) {
-            fprintf(stderr, "ServerStreamCall failed: %d\n", err_id);
-            return 1;
-        }
-        if (!st.done || st.done_error_id != 0) {
-            fprintf(stderr, "expected done with error=0, got done=%d err=%" PRIu64 "\n", st.done, st.done_error_id);
-            return 1;
-        }
-        if (st.count != 3) {
-            fprintf(stderr, "expected 3 responses, got %d\n", st.count);
-            return 1;
-        }
-        if (strcmp(st.results[0], "test-a") != 0 || strcmp(st.results[1], "test-b") != 0 || strcmp(st.results[2], "test-c") != 0) {
-            fprintf(stderr, "unexpected responses: %s, %s, %s\n", st.results[0], st.results[1], st.results[2]);
-            return 1;
-        }
+        ygrpc_expect_err0_i64(err_id, "ServerStreamCall");
+        YGRPC_ASSERTF(st.done && st.done_error_id == 0, "expected done with error=0, got done=%d err=%" PRIu64 "\n", st.done, st.done_error_id);
+        YGRPC_ASSERTF(st.count == 3, "expected 3 responses, got %d\n", st.count);
+        YGRPC_ASSERTF(strcmp(st.results[0], "test-a") == 0 && strcmp(st.results[1], "test-b") == 0 && strcmp(st.results[2], "test-c") == 0, 
+            "unexpected responses: %s, %s, %s\n", st.results[0], st.results[1], st.results[2]);
     }
 
     // Native server-streaming
@@ -97,28 +85,17 @@ int main(void) {
         stream_state st;
         memset(&st, 0, sizeof(st));
 
-        int err_id = Ygrpc_StreamService_ServerStreamCall_Native(
+        uint64_t err_id = Ygrpc_StreamService_ServerStreamCall_Native(
             (char *)"test", 4, (int32_t)7,
             (void *)on_read_native,
             (void *)on_done,
             (uint64_t)(uintptr_t)&st);
 
-        if (err_id != 0) {
-            fprintf(stderr, "ServerStreamCall_Native failed: %d\n", err_id);
-            return 1;
-        }
-        if (!st.done || st.done_error_id != 0) {
-            fprintf(stderr, "expected done with error=0, got done=%d err=%" PRIu64 "\n", st.done, st.done_error_id);
-            return 1;
-        }
-        if (st.count != 3) {
-            fprintf(stderr, "expected 3 responses, got %d\n", st.count);
-            return 1;
-        }
-        if (strcmp(st.results[0], "test-a") != 0 || strcmp(st.results[1], "test-b") != 0 || strcmp(st.results[2], "test-c") != 0) {
-            fprintf(stderr, "unexpected responses: %s, %s, %s\n", st.results[0], st.results[1], st.results[2]);
-            return 1;
-        }
+        ygrpc_expect_err0_i64(err_id, "ServerStreamCall_Native");
+        YGRPC_ASSERTF(st.done && st.done_error_id == 0, "expected done with error=0, got done=%d err=%" PRIu64 "\n", st.done, st.done_error_id);
+        YGRPC_ASSERTF(st.count == 3, "expected 3 responses, got %d\n", st.count);
+        YGRPC_ASSERTF(strcmp(st.results[0], "test-a") == 0 && strcmp(st.results[1], "test-b") == 0 && strcmp(st.results[2], "test-c") == 0,
+            "unexpected responses: %s, %s, %s\n", st.results[0], st.results[1], st.results[2]);
     }
 
     printf("server_stream_test OK\n");
