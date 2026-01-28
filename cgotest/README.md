@@ -2,6 +2,8 @@
 
 这个目录用于验证 `protoc-gen-rpc-cgo` 生成的 CGO C ABI 是否能在真实 C 程序里端到端调用（构建 `.so` + C 代码链接运行）。
 
+> TL;DR: 运行 `test.sh` 脚本即可执行所有测试。
+
 ## 前置条件
 
 - `protoc`
