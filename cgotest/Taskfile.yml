@@ -1,0 +1,49 @@
+version: '3'
+
+tasks:
+  check-deps:
+    internal: true
+    desc: Check if required dependencies are installed
+    cmds:
+      - |
+        #!/usr/bin/env bash
+        set -e
+        missing=""
+        for cmd in protoc protoc-gen-go protoc-gen-go-grpc protoc-gen-connect-go protoc-gen-rpc-cgo-adaptor protoc-gen-rpc-cgo; do
+          if ! command -v "$cmd" >/dev/null 2>&1; then
+            missing="$missing"$'\n'"  - $cmd"
+          fi
+        done
+        if [ -n "$missing" ]; then
+          echo "❌ Missing required dependencies:$missing"
+          echo ""
+          echo "Install with:"
+          echo "  go install google.golang.org/protobuf/cmd/protoc-gen-go@latest"
+          echo "  go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest"
+          echo "  go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest"
+          echo "  go install github.com/ygrpc/rpccgo/cmd/protoc-gen-rpc-cgo-adaptor@latest"
+          echo "  go install github.com/ygrpc/rpccgo/cmd/protoc-gen-rpc-cgo@latest"
+          exit 1
+        fi
+
+  test:
+    desc: Run full test suite (adaptor + C tests)
+    deps: [check-deps]
+    cmds:
+      - ./test.sh
+
+  adaptor-test:
+    desc: Run adaptor tests (default all, or specify protocol)
+    deps: [check-deps]
+    cmds:
+      - ./run-adaptor-tests.sh {{.PROTOCOL | default "all"}}
+    vars:
+      PROTOCOL: '{{.CLI_ARGS}}'
+
+  c-test:
+    desc: Run C end-to-end tests (default all, or specify protocol)
+    deps: [check-deps]
+    cmds:
+      - ./run-c-tests.sh {{.PROTOCOL | default "all"}}
+    vars:
+      PROTOCOL: '{{.CLI_ARGS}}'
