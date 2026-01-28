@@ -61,13 +61,15 @@ func Ygrpc_TestService_Ping_TakeReq(
 	respFree *unsafe.Pointer,
 ) uint64 {
 	reqBytes := unsafe.Slice((*byte)(reqPtr), reqLen)
-	if reqFree != nil {
-		C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
-	}
-
 	req := &connect.PingRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
+		if reqFree != nil {
+			C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
+		}
 		return uint64(rpcruntime.StoreError(err))
+	}
+	if reqFree != nil {
+		C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
 	}
 
 	ctx := rpcruntime.BackgroundContext()
@@ -162,13 +164,15 @@ func Ygrpc_TestService_PingOpt1_TakeReq(
 	respFree *unsafe.Pointer,
 ) uint64 {
 	reqBytes := unsafe.Slice((*byte)(reqPtr), reqLen)
-	if reqFree != nil {
-		C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
-	}
-
 	req := &connect.PingRequestOpt1{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
+		if reqFree != nil {
+			C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
+		}
 		return uint64(rpcruntime.StoreError(err))
+	}
+	if reqFree != nil {
+		C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
 	}
 
 	ctx := rpcruntime.BackgroundContext()
@@ -297,13 +301,15 @@ func Ygrpc_TestService_NonFlat_TakeReq(
 	respFree *unsafe.Pointer,
 ) uint64 {
 	reqBytes := unsafe.Slice((*byte)(reqPtr), reqLen)
-	if reqFree != nil {
-		C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
-	}
-
 	req := &connect.NonFlatRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
+		if reqFree != nil {
+			C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
+		}
 		return uint64(rpcruntime.StoreError(err))
+	}
+	if reqFree != nil {
+		C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
 	}
 
 	ctx := rpcruntime.BackgroundContext()

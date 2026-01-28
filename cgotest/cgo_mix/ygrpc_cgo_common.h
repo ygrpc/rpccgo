@@ -16,8 +16,6 @@ typedef enum {
 } YgrpcProtocol;
 
 extern void Ygrpc_Free(void* ptr);
-extern uint64_t Ygrpc_SetProtocol(int protocol);
-extern uint64_t Ygrpc_GetErrorMsg(uint64_t error_id, void** msg_ptr, int* msg_len, FreeFunc* msg_free);
 
 static inline void call_free_func(FreeFunc fn, void* ptr) {
     if (fn) fn(ptr);

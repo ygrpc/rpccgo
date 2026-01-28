@@ -102,13 +102,15 @@ func Ygrpc_StreamService_UnaryCall_TakeReq(
 	respFree *unsafe.Pointer,
 ) uint64 {
 	reqBytes := unsafe.Slice((*byte)(reqPtr), reqLen)
-	if reqFree != nil {
-		C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
-	}
-
 	req := &connect.StreamRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
+		if reqFree != nil {
+			C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
+		}
 		return uint64(rpcruntime.StoreError(err))
+	}
+	if reqFree != nil {
+		C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
 	}
 
 	ctx := rpcruntime.BackgroundContext()
@@ -408,12 +410,15 @@ func Ygrpc_StreamService_ServerStreamCall_TakeReq(
 	callID uint64,
 ) uint64 {
 	reqBytes := unsafe.Slice((*byte)(reqPtr), reqLen)
-	if reqFree != nil {
-		C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
-	}
 	req := &connect.StreamRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
+		if reqFree != nil {
+			C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
+		}
 		return uint64(rpcruntime.StoreError(err))
+	}
+	if reqFree != nil {
+		C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
 	}
 	ctx := rpcruntime.BackgroundContext()
 	var doneErrId atomic.Uint64
@@ -608,12 +613,15 @@ func Ygrpc_StreamService_BidiStreamCallSend_TakeReq(
 	reqFree unsafe.Pointer,
 ) uint64 {
 	reqBytes := unsafe.Slice((*byte)(reqPtr), reqLen)
-	if reqFree != nil {
-		C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
-	}
 	req := &connect.StreamRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
+		if reqFree != nil {
+			C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
+		}
 		return uint64(rpcruntime.StoreError(err))
+	}
+	if reqFree != nil {
+		C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
 	}
 	if err := connect.StreamService_BidiStreamCallSend(uint64(streamHandle), req); err != nil {
 		return uint64(rpcruntime.StoreError(err))
