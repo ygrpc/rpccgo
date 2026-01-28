@@ -18,13 +18,15 @@ typedef struct {
     char results[16][64];
 } stream_state;
 
-// Thread-local state for validating bidi callbacks
-static __thread stream_state *g_bidi_state = NULL;
-static __thread uint64_t g_bidi_call_id = 0;
+// NOTE: callbacks may be invoked from a different OS thread than main.
+// So we must not rely on thread-local storage here.
+static stream_state *g_bidi_state = NULL;
+static uint64_t g_bidi_call_id = 0;
 
 static void on_read_bytes(uint64_t call_id, void *resp_ptr, int resp_len, FreeFunc resp_free)
 {
-    stream_state *st = (stream_state *)(uintptr_t)call_id;
+    (void)call_id;
+    stream_state *st = g_bidi_state;
 
     if (!g_bidi_state) {
         YGRPC_FAILF("callback before state init\n");
@@ -53,7 +55,8 @@ static void on_read_bytes(uint64_t call_id, void *resp_ptr, int resp_len, FreeFu
 
 static void on_done(uint64_t call_id, uint64_t error_id)
 {
-    stream_state *st = (stream_state *)(uintptr_t)call_id;
+    (void)call_id;
+    stream_state *st = g_bidi_state;
 
     if (!g_bidi_state) {
         YGRPC_FAILF("callback before state init\n");
@@ -72,7 +75,8 @@ static void on_done(uint64_t call_id, uint64_t error_id)
 static void on_read_native(uint64_t call_id, void *result_ptr, int result_len, FreeFunc result_free, int32_t sequence)
 {
     (void)sequence;
-    stream_state *st = (stream_state *)(uintptr_t)call_id;
+    (void)call_id;
+    stream_state *st = g_bidi_state;
     int n = result_len;
     if (n > (int)sizeof(st->results[0]) - 1) n = (int)sizeof(st->results[0]) - 1;
     memcpy(st->results[st->count], result_ptr, (size_t)n);
@@ -115,6 +119,8 @@ int main(void) {
         YGRPC_ASSERTF(st.count == 3, "expected 3 responses, got %d\n", st.count);
         YGRPC_ASSERTF(strcmp(st.results[0], "echo:X") == 0 && strcmp(st.results[1], "echo:Y") == 0 && strcmp(st.results[2], "echo:Z") == 0,
             "unexpected responses: %s, %s, %s\n", st.results[0], st.results[1], st.results[2]);
+
+        g_bidi_state = NULL;
     }
 
     // Native bidi-streaming
