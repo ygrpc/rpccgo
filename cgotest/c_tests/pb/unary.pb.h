@@ -3,9 +3,7 @@
 
 #ifndef PB_CGOTEST_UNARY_PB_H_INCLUDED
 #define PB_CGOTEST_UNARY_PB_H_INCLUDED
-#include "nanopb/pb.h"
-#include "pb_decode.h"
-#include "pb_encode.h"
+#include <pb.h>
 #include "ygrpc/cgo/options.pb.h"
 
 #if PB_PROTO_HEADER_VERSION != 40
