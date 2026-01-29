@@ -20,10 +20,18 @@
 ### nanopb (vendored)
 C 测试使用 nanopb 进行 protobuf 编解码。nanopb 运行时已包含在 `c_tests/nanopb/` 目录中。
 
-如需重新生成 nanopb C 代码：
+**依赖说明**：`task nanopb` 会自动创建 Python 虚拟环境（`cgotest/.venv/`）并安装所需依赖，无需手动安装。
+
+**重要**：当 proto 文件（`proto/unary.proto` 或 `proto/stream.proto`）变更时，需要重新生成 nanopb C 代码：
+
+```bash
+task nanopb
+```
+
+或手动运行：
 ```bash
 cd cgotest
-python3 c_tests/nanopb/generator/nanopb_generator.py \
+.venv/bin/python3 c_tests/nanopb/generator/nanopb_generator.py \
   -I proto -I ../proto -D c_tests/pb proto/unary.proto proto/stream.proto
 ```
 

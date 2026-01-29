@@ -191,3 +191,8 @@ tasks:
     desc: Clean build artifacts (generated code, .so, .h files) but keep hand-written tests
     cmds:
       - ./scripts/clean.sh
+
+  nanopb:
+    desc: Regenerate nanopb C code from proto files
+    cmds:
+      - ./scripts/nanopb.sh
