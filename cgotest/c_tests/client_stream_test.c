@@ -7,7 +7,7 @@
 #include <string.h>
 
 #include "libygrpc.h"
-#include "proto_helpers.h"
+#include "pb/stream.pb.h"
 #include "test_helpers.h"
 
 static int g_free_called = 0;
@@ -34,11 +34,19 @@ int main(void) {
 
         const char* msgs[] = {"A", "B", "C"};
         for (int i = 0; i < 3; i++) {
-            uint8_t* req = NULL;
-            int req_len = 0;
-            assert(ygrpc_encode_stream_request(msgs[i], 1, i, &req, &req_len) == 0);
-            err_id = Ygrpc_StreamService_ClientStreamCallSend(handle, req, req_len);
-            free(req);
+            cgotest_StreamRequest req = cgotest_StreamRequest_init_zero;
+            strncpy(req.data, msgs[i], sizeof(req.data) - 1);
+            req.sequence = (int32_t)i;
+
+            uint8_t req_buf[cgotest_StreamRequest_size];
+            pb_ostream_t ostream = pb_ostream_from_buffer(req_buf, sizeof(req_buf));
+            if (!pb_encode(&ostream, cgotest_StreamRequest_fields, &req)) {
+                fprintf(stderr, "pb_encode StreamRequest failed: %s\n", PB_GET_ERROR(&ostream));
+                return 1;
+            }
+            int req_len = (int)ostream.bytes_written;
+
+            err_id = Ygrpc_StreamService_ClientStreamCallSend(handle, req_buf, req_len);
             if (err_id != 0) {
                 fprintf(stderr, "Send failed: %" PRIu64 "\n", err_id);
                 return 1;
@@ -54,10 +62,13 @@ int main(void) {
             return 1;
         }
 
-        const uint8_t* result_ptr = NULL;
-        int result_len = 0;
-        assert(ygrpc_decode_string_field((const uint8_t*)resp_ptr, (int)resp_len, 1, &result_ptr, &result_len) == 0);
-        ygrpc_expect_eq_str((const char*)result_ptr, result_len, "received:ABC");
+        cgotest_StreamResponse resp = cgotest_StreamResponse_init_zero;
+        pb_istream_t istream = pb_istream_from_buffer((const pb_byte_t*)resp_ptr, (size_t)resp_len);
+        if (!pb_decode(&istream, cgotest_StreamResponse_fields, &resp)) {
+            fprintf(stderr, "pb_decode StreamResponse failed: %s\n", PB_GET_ERROR(&istream));
+            return 1;
+        }
+        ygrpc_expect_eq_str(resp.result, (int)strlen(resp.result), "received:ABC");
         call_free_func((FreeFunc)resp_free, resp_ptr);
     }
 

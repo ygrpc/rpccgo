@@ -9,7 +9,8 @@
 
 #include "test_helpers.h"
 #include "libygrpc.h"
-#include "proto_helpers.h"
+#include "pb/stream.pb.h"
+
 
 typedef struct {
     int done;
@@ -38,14 +39,14 @@ static void on_read_bytes(uint64_t call_id, void *resp_ptr, int resp_len, FreeFu
                 (unsigned long long)call_id, (unsigned long long)g_bidi_call_id);
     }
 
-    const uint8_t* s_ptr = NULL;
-    int s_len = 0;
-    if (ygrpc_decode_string_field((const uint8_t*)resp_ptr, resp_len, 1, &s_ptr, &s_len) != 0) {
+    cgotest_StreamResponse resp = cgotest_StreamResponse_init_zero;
+    pb_istream_t istream = pb_istream_from_buffer((const pb_byte_t*)resp_ptr, (size_t)resp_len);
+    if (!pb_decode(&istream, cgotest_StreamResponse_fields, &resp)) {
         snprintf(st->results[st->count++], sizeof(st->results[0]), "<decode error>");
     } else {
-        int n = s_len;
+        int n = (int)strlen(resp.result);
         if (n > (int)sizeof(st->results[0]) - 1) n = (int)sizeof(st->results[0]) - 1;
-        memcpy(st->results[st->count], s_ptr, (size_t)n);
+        memcpy(st->results[st->count], resp.result, (size_t)n);
         st->results[st->count][n] = 0;
         st->count++;
     }
@@ -103,11 +104,19 @@ int main(void) {
 
         const char* msgs[] = {"X", "Y", "Z"};
         for (int i = 0; i < 3; i++) {
-            uint8_t* req = NULL;
-            int req_len = 0;
-            assert(ygrpc_encode_stream_request(msgs[i], 1, i, &req, &req_len) == 0);
-            err_id = Ygrpc_StreamService_BidiStreamCallSend(handle, req, req_len);
-            free(req);
+            cgotest_StreamRequest req = cgotest_StreamRequest_init_zero;
+            strncpy(req.data, msgs[i], sizeof(req.data) - 1);
+            req.sequence = (int32_t)i;
+
+            uint8_t req_buf[cgotest_StreamRequest_size];
+            pb_ostream_t ostream = pb_ostream_from_buffer(req_buf, sizeof(req_buf));
+            if (!pb_encode(&ostream, cgotest_StreamRequest_fields, &req)) {
+                fprintf(stderr, "pb_encode StreamRequest failed: %s\n", PB_GET_ERROR(&ostream));
+                return 1;
+            }
+            int req_len = (int)ostream.bytes_written;
+
+            err_id = Ygrpc_StreamService_BidiStreamCallSend(handle, req_buf, req_len);
             ygrpc_expect_err0_i64(err_id, "BidiSend");
         }
 
