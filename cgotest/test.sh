@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
+# Run all tests
+# Usage: test.sh
 
 set -euo pipefail
 
-cd "$(dirname "$0")/"
+cd "$(dirname "$0")"
 
-./run-adaptor-tests.sh all
+if [ ! command -v task &> /dev/null ]; then
+    echo "task command not found. try installing it..."
+     go install github.com/go-task/task/v3/cmd/task@latest
+fi
 
-echo ""
-echo "=== Running C end-to-end tests ==="
-
-./run-c-tests.sh all
-
-echo ""
-echo "=== All C tests completed ==="
+task test

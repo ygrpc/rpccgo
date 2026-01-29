@@ -460,7 +460,13 @@ func generateClientStreamingMethod(
 		g.P("        go func() {")
 		g.P("            defer func() {")
 		g.P("                if r := recover(); r != nil {")
-		g.P("                    ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("CompleteClientStream")), "(handle, nil, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("RecoverPanic")), "(r))")
+		g.P(
+			"                    ",
+			g.QualifiedGoIdent(rpcRuntimePkg.Ident("CompleteClientStream")),
+			"(handle, nil, ",
+			g.QualifiedGoIdent(rpcRuntimePkg.Ident("RecoverPanic")),
+			"(r))",
+		)
 		g.P("                }")
 		g.P("            }()")
 		g.P("            err := grpcSvc.", method.GoName, "(adaptorStream)")
@@ -482,7 +488,13 @@ func generateClientStreamingMethod(
 		g.P("        go func() {")
 		g.P("            defer func() {")
 		g.P("                if r := recover(); r != nil {")
-		g.P("                    ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("CompleteClientStream")), "(handle, nil, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("RecoverPanic")), "(r))")
+		g.P(
+			"                    ",
+			g.QualifiedGoIdent(rpcRuntimePkg.Ident("CompleteClientStream")),
+			"(handle, nil, ",
+			g.QualifiedGoIdent(rpcRuntimePkg.Ident("RecoverPanic")),
+			"(r))",
+		)
 		g.P("                }")
 		g.P("            }()")
 		g.P("            resp, err := connectSvc.", method.GoName, "(childCtx, connectStream)")
@@ -514,7 +526,13 @@ func generateClientStreamingMethod(
 		g.P("    go func() {")
 		g.P("        defer func() {")
 		g.P("            if r := recover(); r != nil {")
-		g.P("                ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("CompleteClientStream")), "(handle, nil, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("RecoverPanic")), "(r))")
+		g.P(
+			"                ",
+			g.QualifiedGoIdent(rpcRuntimePkg.Ident("CompleteClientStream")),
+			"(handle, nil, ",
+			g.QualifiedGoIdent(rpcRuntimePkg.Ident("RecoverPanic")),
+			"(r))",
+		)
 		g.P("            }")
 		g.P("        }()")
 		g.P("        err := svc.", method.GoName, "(adaptorStream)")
@@ -555,7 +573,13 @@ func generateClientStreamingMethod(
 		g.P("    go func() {")
 		g.P("        defer func() {")
 		g.P("            if r := recover(); r != nil {")
-		g.P("                ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("CompleteClientStream")), "(handle, nil, ", g.QualifiedGoIdent(rpcRuntimePkg.Ident("RecoverPanic")), "(r))")
+		g.P(
+			"                ",
+			g.QualifiedGoIdent(rpcRuntimePkg.Ident("CompleteClientStream")),
+			"(handle, nil, ",
+			g.QualifiedGoIdent(rpcRuntimePkg.Ident("RecoverPanic")),
+			"(r))",
+		)
 		g.P("            }")
 		g.P("        }()")
 		g.P("        resp, err := svc.", method.GoName, "(childCtx, connectStream)")
@@ -1100,20 +1124,29 @@ func generateGrpcStreamAdaptorType(
 	g.P("}")
 	g.P()
 
+	g.P("func (a *", adaptorName, ") copyRecvMsg(m any, msg any) error {")
+	g.P("    // Copy message to m using proto.Merge to avoid copying mutex")
+	g.P("    if src, ok := msg.(*", reqType, "); ok {")
+	g.P("        if dst, ok := m.(*", reqType, "); ok {")
+	g.P("            ", g.QualifiedGoIdent(protoPackage.Ident("Reset")), "(dst)")
+	g.P("            ", g.QualifiedGoIdent(protoPackage.Ident("Merge")), "(dst, src)")
+	g.P("        }")
+	g.P("    }")
+	g.P("    return nil")
+	g.P("}")
+	g.P()
+
 	g.P("func (a *", adaptorName, ") RecvMsg(m any) error {")
 	g.P("    select {")
-	g.P("    case msg, ok := <-a.session.SendCh():")
-	g.P("        if !ok {")
+	g.P("    case msg := <-a.session.SendCh():")
+	g.P("        return a.copyRecvMsg(m, msg)")
+	g.P("    case <-a.session.SendDoneCh():")
+	g.P("        select {")
+	g.P("        case msg := <-a.session.SendCh():")
+	g.P("            return a.copyRecvMsg(m, msg)")
+	g.P("        default:")
 	g.P("            return ", g.QualifiedGoIdent(protogen.GoImportPath("io").Ident("EOF")))
 	g.P("        }")
-	g.P("        // Copy message to m using proto.Merge to avoid copying mutex")
-	g.P("        if src, ok := msg.(*", reqType, "); ok {")
-	g.P("            if dst, ok := m.(*", reqType, "); ok {")
-	g.P("                ", g.QualifiedGoIdent(protoPackage.Ident("Reset")), "(dst)")
-	g.P("                ", g.QualifiedGoIdent(protoPackage.Ident("Merge")), "(dst, src)")
-	g.P("            }")
-	g.P("        }")
-	g.P("        return nil")
 	g.P("    case <-a.session.Context().Done():")
 	g.P("        return a.session.Context().Err()")
 	g.P("    }")

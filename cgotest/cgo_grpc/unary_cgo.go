@@ -2,6 +2,8 @@
 //
 // source: unary.proto
 
+//go:build cgo
+
 package main
 
 import (
@@ -20,69 +22,71 @@ import "C"
 //export Ygrpc_TestService_Ping
 func Ygrpc_TestService_Ping(
 	reqPtr unsafe.Pointer,
-	reqLen C.int,
+	reqLen int,
 	respPtr *unsafe.Pointer,
-	respLen *C.int,
-	respFree *C.FreeFunc,
-) C.int {
-	reqBytes := C.GoBytes(reqPtr, reqLen)
+	respLen *int,
+	respFree *unsafe.Pointer,
+) uint64 {
+	reqBytes := unsafe.Slice((*byte)(reqPtr), reqLen)
 	req := &grpc.PingRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := grpc.TestService_Ping(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	respBytes, err := proto.Marshal(resp)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	buf := C.CBytes(respBytes)
 	*respPtr = buf
-	*respLen = C.int(len(respBytes))
-	*respFree = (C.FreeFunc)(C.Ygrpc_Free)
+	*respLen = len(respBytes)
+	*respFree = (unsafe.Pointer)(C.Ygrpc_Free)
 	return 0
 }
 
 //export Ygrpc_TestService_Ping_TakeReq
 func Ygrpc_TestService_Ping_TakeReq(
 	reqPtr unsafe.Pointer,
-	reqLen C.int,
-	reqFree C.FreeFunc,
+	reqLen int,
+	reqFree unsafe.Pointer,
 	respPtr *unsafe.Pointer,
-	respLen *C.int,
-	respFree *C.FreeFunc,
-) C.int {
-	reqBytes := C.GoBytes(reqPtr, reqLen)
-	if reqFree != nil {
-		C.call_free_func(reqFree, reqPtr)
-	}
-
+	respLen *int,
+	respFree *unsafe.Pointer,
+) uint64 {
+	reqBytes := unsafe.Slice((*byte)(reqPtr), reqLen)
 	req := &grpc.PingRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		if reqFree != nil {
+			C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
+		}
+		return uint64(rpcruntime.StoreError(err))
+	}
+	if reqFree != nil {
+		C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
 	}
 
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := grpc.TestService_Ping(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	respBytes, err := proto.Marshal(resp)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	buf := C.CBytes(respBytes)
 	*respPtr = buf
-	*respLen = C.int(len(respBytes))
-	*respFree = (C.FreeFunc)(C.Ygrpc_Free)
+	*respLen = len(respBytes)
+	*respFree = (unsafe.Pointer)(C.Ygrpc_Free)
 	return 0
 }
 
@@ -93,14 +97,14 @@ func Ygrpc_TestService_Ping_Native(
 	resp_msg **C.char,
 	resp_msg_len *C.int,
 	resp_msg_free *C.FreeFunc,
-) C.int {
+) C.uint64_t {
 	req := &grpc.PingRequest{}
 	req.Msg = C.GoStringN(req_msg, req_msg_len)
 
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := grpc.TestService_Ping(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	if len(resp.Msg) > 0 {
@@ -124,7 +128,7 @@ func Ygrpc_TestService_Ping_Native_TakeReq(
 	resp_msg **C.char,
 	resp_msg_len *C.int,
 	resp_msg_free *C.FreeFunc,
-) C.int {
+) C.uint64_t {
 	req := &grpc.PingRequest{}
 	req.Msg = C.GoStringN(req_msg, req_msg_len)
 	if req_msg_free != nil {
@@ -134,7 +138,7 @@ func Ygrpc_TestService_Ping_Native_TakeReq(
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := grpc.TestService_Ping(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	if len(resp.Msg) > 0 {
@@ -153,37 +157,39 @@ func Ygrpc_TestService_Ping_Native_TakeReq(
 //export Ygrpc_TestService_PingOpt1_TakeReq
 func Ygrpc_TestService_PingOpt1_TakeReq(
 	reqPtr unsafe.Pointer,
-	reqLen C.int,
-	reqFree C.FreeFunc,
+	reqLen int,
+	reqFree unsafe.Pointer,
 	respPtr *unsafe.Pointer,
-	respLen *C.int,
-	respFree *C.FreeFunc,
-) C.int {
-	reqBytes := C.GoBytes(reqPtr, reqLen)
-	if reqFree != nil {
-		C.call_free_func(reqFree, reqPtr)
-	}
-
+	respLen *int,
+	respFree *unsafe.Pointer,
+) uint64 {
+	reqBytes := unsafe.Slice((*byte)(reqPtr), reqLen)
 	req := &grpc.PingRequestOpt1{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		if reqFree != nil {
+			C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
+		}
+		return uint64(rpcruntime.StoreError(err))
+	}
+	if reqFree != nil {
+		C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
 	}
 
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := grpc.TestService_PingOpt1(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	respBytes, err := proto.Marshal(resp)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	buf := C.CBytes(respBytes)
 	*respPtr = buf
-	*respLen = C.int(len(respBytes))
-	*respFree = (C.FreeFunc)(C.Ygrpc_Free)
+	*respLen = len(respBytes)
+	*respFree = (unsafe.Pointer)(C.Ygrpc_Free)
 	return 0
 }
 
@@ -195,7 +201,7 @@ func Ygrpc_TestService_PingOpt1_Native_TakeReq(
 	resp_msg **C.char,
 	resp_msg_len *C.int,
 	resp_msg_free *C.FreeFunc,
-) C.int {
+) C.uint64_t {
 	req := &grpc.PingRequestOpt1{}
 	req.Msg = C.GoStringN(req_msg, req_msg_len)
 	if req_msg_free != nil {
@@ -205,7 +211,7 @@ func Ygrpc_TestService_PingOpt1_Native_TakeReq(
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := grpc.TestService_PingOpt1(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	if len(resp.Msg) > 0 {
@@ -224,100 +230,102 @@ func Ygrpc_TestService_PingOpt1_Native_TakeReq(
 //export Ygrpc_TestService_PingOpt2
 func Ygrpc_TestService_PingOpt2(
 	reqPtr unsafe.Pointer,
-	reqLen C.int,
+	reqLen int,
 	respPtr *unsafe.Pointer,
-	respLen *C.int,
-	respFree *C.FreeFunc,
-) C.int {
-	reqBytes := C.GoBytes(reqPtr, reqLen)
+	respLen *int,
+	respFree *unsafe.Pointer,
+) uint64 {
+	reqBytes := unsafe.Slice((*byte)(reqPtr), reqLen)
 	req := &grpc.PingRequestOpt2{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := grpc.TestService_PingOpt2(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	respBytes, err := proto.Marshal(resp)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	buf := C.CBytes(respBytes)
 	*respPtr = buf
-	*respLen = C.int(len(respBytes))
-	*respFree = (C.FreeFunc)(C.Ygrpc_Free)
+	*respLen = len(respBytes)
+	*respFree = (unsafe.Pointer)(C.Ygrpc_Free)
 	return 0
 }
 
 //export Ygrpc_TestService_NonFlat
 func Ygrpc_TestService_NonFlat(
 	reqPtr unsafe.Pointer,
-	reqLen C.int,
+	reqLen int,
 	respPtr *unsafe.Pointer,
-	respLen *C.int,
-	respFree *C.FreeFunc,
-) C.int {
-	reqBytes := C.GoBytes(reqPtr, reqLen)
+	respLen *int,
+	respFree *unsafe.Pointer,
+) uint64 {
+	reqBytes := unsafe.Slice((*byte)(reqPtr), reqLen)
 	req := &grpc.NonFlatRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := grpc.TestService_NonFlat(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	respBytes, err := proto.Marshal(resp)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	buf := C.CBytes(respBytes)
 	*respPtr = buf
-	*respLen = C.int(len(respBytes))
-	*respFree = (C.FreeFunc)(C.Ygrpc_Free)
+	*respLen = len(respBytes)
+	*respFree = (unsafe.Pointer)(C.Ygrpc_Free)
 	return 0
 }
 
 //export Ygrpc_TestService_NonFlat_TakeReq
 func Ygrpc_TestService_NonFlat_TakeReq(
 	reqPtr unsafe.Pointer,
-	reqLen C.int,
-	reqFree C.FreeFunc,
+	reqLen int,
+	reqFree unsafe.Pointer,
 	respPtr *unsafe.Pointer,
-	respLen *C.int,
-	respFree *C.FreeFunc,
-) C.int {
-	reqBytes := C.GoBytes(reqPtr, reqLen)
-	if reqFree != nil {
-		C.call_free_func(reqFree, reqPtr)
-	}
-
+	respLen *int,
+	respFree *unsafe.Pointer,
+) uint64 {
+	reqBytes := unsafe.Slice((*byte)(reqPtr), reqLen)
 	req := &grpc.NonFlatRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		if reqFree != nil {
+			C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
+		}
+		return uint64(rpcruntime.StoreError(err))
+	}
+	if reqFree != nil {
+		C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
 	}
 
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := grpc.TestService_NonFlat(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	respBytes, err := proto.Marshal(resp)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	buf := C.CBytes(respBytes)
 	*respPtr = buf
-	*respLen = C.int(len(respBytes))
-	*respFree = (C.FreeFunc)(C.Ygrpc_Free)
+	*respLen = len(respBytes)
+	*respFree = (unsafe.Pointer)(C.Ygrpc_Free)
 	return 0
 }

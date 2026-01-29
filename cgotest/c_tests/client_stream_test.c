@@ -1,10 +1,14 @@
+#define _POSIX_C_SOURCE 200809L
+
 #include <assert.h>
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "libygrpc.h"
-#include "proto_helpers.h"
+#include "pb/stream.pb.h"
+#include "test_helpers.h"
 
 static int g_free_called = 0;
 static void counting_free(void* p) {
@@ -12,66 +16,67 @@ static void counting_free(void* p) {
     free(p);
 }
 
-static void expect_eq_str(const char* got, int got_len, const char* want) {
-    int want_len = (int)strlen(want);
-    if (got_len != want_len || memcmp(got, want, (size_t)want_len) != 0) {
-        fprintf(stderr, "expected '%s' (%d), got '%.*s' (%d)\n", want, want_len, got_len, got, got_len);
-        abort();
-    }
-}
-
 int main(void) {
-    int rc = Ygrpc_SetProtocol(YGRPC_PROTOCOL_UNSET);
+    uint64_t rc = Ygrpc_SetProtocol(YGRPC_PROTOCOL_UNSET);
     if (rc != 0)
     {
-        fprintf(stderr, "Ygrpc_SetProtocol failed: %d\n", rc);
+        fprintf(stderr, "Ygrpc_SetProtocol failed: %" PRIu64 "\n", rc);
         return 1;
     }
 
-    // Binary client-streaming: Start/Send/Finish
     {
-        uint64_t handle = 0;
-        int err_id = Ygrpc_StreamService_ClientStreamCallStart(&handle);
+        GoUint64 handle = 0;
+        uint64_t err_id = Ygrpc_StreamService_ClientStreamCallStart_Native(&handle);
         if (err_id != 0 || handle == 0) {
-            fprintf(stderr, "Start failed: err=%d handle=%llu\n", err_id, (unsigned long long)handle);
+            fprintf(stderr, "Start_Native failed: err=%" PRIu64 " handle=%llu\n", err_id, (unsigned long long)handle);
             return 1;
         }
 
         const char* msgs[] = {"A", "B", "C"};
         for (int i = 0; i < 3; i++) {
-            uint8_t* req = NULL;
-            int req_len = 0;
-            assert(ygrpc_encode_stream_request(msgs[i], 1, i, &req, &req_len) == 0);
-            err_id = Ygrpc_StreamService_ClientStreamCallSend(handle, req, req_len);
-            free(req);
+            cgotest_StreamRequest req = cgotest_StreamRequest_init_zero;
+            strncpy(req.data, msgs[i], sizeof(req.data) - 1);
+            req.sequence = (int32_t)i;
+
+            uint8_t req_buf[cgotest_StreamRequest_size];
+            pb_ostream_t ostream = pb_ostream_from_buffer(req_buf, sizeof(req_buf));
+            if (!pb_encode(&ostream, cgotest_StreamRequest_fields, &req)) {
+                fprintf(stderr, "pb_encode StreamRequest failed: %s\n", PB_GET_ERROR(&ostream));
+                return 1;
+            }
+            int req_len = (int)ostream.bytes_written;
+
+            err_id = Ygrpc_StreamService_ClientStreamCallSend(handle, req_buf, req_len);
             if (err_id != 0) {
-                fprintf(stderr, "Send failed: %d\n", err_id);
+                fprintf(stderr, "Send failed: %" PRIu64 "\n", err_id);
                 return 1;
             }
         }
 
         void* resp_ptr = NULL;
-        int resp_len = 0;
-        FreeFunc resp_free = NULL;
+        GoInt resp_len = 0;
+        void* resp_free = NULL;
         err_id = Ygrpc_StreamService_ClientStreamCallFinish(handle, &resp_ptr, &resp_len, &resp_free);
         if (err_id != 0) {
-            fprintf(stderr, "Finish failed: %d\n", err_id);
+            fprintf(stderr, "Finish failed: %" PRIu64 "\n", err_id);
             return 1;
         }
 
-        const uint8_t* result_ptr = NULL;
-        int result_len = 0;
-        assert(ygrpc_decode_string_field((const uint8_t*)resp_ptr, resp_len, 1, &result_ptr, &result_len) == 0);
-        expect_eq_str((const char*)result_ptr, result_len, "received:ABC");
-        resp_free(resp_ptr);
+        cgotest_StreamResponse resp = cgotest_StreamResponse_init_zero;
+        pb_istream_t istream = pb_istream_from_buffer((const pb_byte_t*)resp_ptr, (size_t)resp_len);
+        if (!pb_decode(&istream, cgotest_StreamResponse_fields, &resp)) {
+            fprintf(stderr, "pb_decode StreamResponse failed: %s\n", PB_GET_ERROR(&istream));
+            return 1;
+        }
+        ygrpc_expect_eq_str(resp.result, (int)strlen(resp.result), "received:ABC");
+        call_free_func((FreeFunc)resp_free, resp_ptr);
     }
 
-    // Native client-streaming
     {
-        uint64_t handle = 0;
-        int err_id = Ygrpc_StreamService_ClientStreamCallStart_Native(&handle);
+        GoUint64 handle = 0;
+        uint64_t err_id = Ygrpc_StreamService_ClientStreamCallStart_Native(&handle);
         if (err_id != 0 || handle == 0) {
-            fprintf(stderr, "Start_Native failed: err=%d handle=%llu\n", err_id, (unsigned long long)handle);
+            fprintf(stderr, "Start_Native failed: err=%" PRIu64 " handle=%llu\n", err_id, (unsigned long long)handle);
             return 1;
         }
 
@@ -79,7 +84,7 @@ int main(void) {
         for (int i = 0; i < 3; i++) {
             err_id = Ygrpc_StreamService_ClientStreamCallSend_Native(handle, (char*)msgs[i], 1, (int32_t)i);
             if (err_id != 0) {
-                fprintf(stderr, "Send_Native failed: %d\n", err_id);
+                fprintf(stderr, "Send_Native failed: %" PRIu64 "\n", err_id);
                 return 1;
             }
         }
@@ -91,20 +96,19 @@ int main(void) {
 
         err_id = Ygrpc_StreamService_ClientStreamCallFinish_Native(handle, &out_result, &out_result_len, &out_result_free, &out_seq);
         if (err_id != 0) {
-            fprintf(stderr, "Finish_Native failed: %d\n", err_id);
+            fprintf(stderr, "Finish_Native failed: %" PRIu64 "\n", err_id);
             return 1;
         }
 
-        expect_eq_str(out_result, out_result_len, "received:ABC");
+        ygrpc_expect_eq_str(out_result, out_result_len, "received:ABC");
         if (out_result_free) out_result_free(out_result);
     }
 
-    // Native client-streaming (TakeReq for string field)
     {
-        uint64_t handle = 0;
-        int err_id = Ygrpc_StreamService_ClientStreamCallStart_Native(&handle);
+        GoUint64 handle = 0;
+        uint64_t err_id = Ygrpc_StreamService_ClientStreamCallStart_Native(&handle);
         if (err_id != 0 || handle == 0) {
-            fprintf(stderr, "Start_Native failed: err=%d handle=%llu\n", err_id, (unsigned long long)handle);
+            fprintf(stderr, "Start_Native failed: err=%" PRIu64 " handle=%llu\n", err_id, (unsigned long long)handle);
             return 1;
         }
 
@@ -114,7 +118,7 @@ int main(void) {
             p[0] = (i == 0) ? 'X' : 'Y';
             err_id = Ygrpc_StreamService_ClientStreamCallSend_Native_TakeReq(handle, p, 1, (FreeFunc)counting_free, (int32_t)i);
             if (err_id != 0) {
-                fprintf(stderr, "Send_Native_TakeReq failed: %d\n", err_id);
+                fprintf(stderr, "Send_Native_TakeReq failed: %" PRIu64 "\n", err_id);
                 return 1;
             }
         }
@@ -129,12 +133,11 @@ int main(void) {
         int32_t out_seq = 0;
         err_id = Ygrpc_StreamService_ClientStreamCallFinish_Native(handle, &out_result, &out_result_len, &out_result_free, &out_seq);
         if (err_id != 0) {
-            fprintf(stderr, "Finish_Native failed: %d\n", err_id);
+            fprintf(stderr, "Finish_Native failed: %" PRIu64 "\n", err_id);
             return 1;
         }
 
-        // Handler concatenates; expect received:XY
-        expect_eq_str(out_result, out_result_len, "received:XY");
+        ygrpc_expect_eq_str(out_result, out_result_len, "received:XY");
         if (out_result_free) out_result_free(out_result);
     }
 

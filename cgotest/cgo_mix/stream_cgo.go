@@ -2,6 +2,8 @@
 //
 // source: stream.proto
 
+//go:build cgo
+
 package main
 
 import (
@@ -61,69 +63,71 @@ import "C"
 //export Ygrpc_StreamService_UnaryCall
 func Ygrpc_StreamService_UnaryCall(
 	reqPtr unsafe.Pointer,
-	reqLen C.int,
+	reqLen int,
 	respPtr *unsafe.Pointer,
-	respLen *C.int,
-	respFree *C.FreeFunc,
-) C.int {
-	reqBytes := C.GoBytes(reqPtr, reqLen)
+	respLen *int,
+	respFree *unsafe.Pointer,
+) uint64 {
+	reqBytes := unsafe.Slice((*byte)(reqPtr), reqLen)
 	req := &mix.StreamRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := mix.StreamService_UnaryCall(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	respBytes, err := proto.Marshal(resp)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	buf := C.CBytes(respBytes)
 	*respPtr = buf
-	*respLen = C.int(len(respBytes))
-	*respFree = (C.FreeFunc)(C.Ygrpc_Free)
+	*respLen = len(respBytes)
+	*respFree = (unsafe.Pointer)(C.Ygrpc_Free)
 	return 0
 }
 
 //export Ygrpc_StreamService_UnaryCall_TakeReq
 func Ygrpc_StreamService_UnaryCall_TakeReq(
 	reqPtr unsafe.Pointer,
-	reqLen C.int,
-	reqFree C.FreeFunc,
+	reqLen int,
+	reqFree unsafe.Pointer,
 	respPtr *unsafe.Pointer,
-	respLen *C.int,
-	respFree *C.FreeFunc,
-) C.int {
-	reqBytes := C.GoBytes(reqPtr, reqLen)
-	if reqFree != nil {
-		C.call_free_func(reqFree, reqPtr)
-	}
-
+	respLen *int,
+	respFree *unsafe.Pointer,
+) uint64 {
+	reqBytes := unsafe.Slice((*byte)(reqPtr), reqLen)
 	req := &mix.StreamRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		if reqFree != nil {
+			C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
+		}
+		return uint64(rpcruntime.StoreError(err))
+	}
+	if reqFree != nil {
+		C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
 	}
 
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := mix.StreamService_UnaryCall(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	respBytes, err := proto.Marshal(resp)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 
 	buf := C.CBytes(respBytes)
 	*respPtr = buf
-	*respLen = C.int(len(respBytes))
-	*respFree = (C.FreeFunc)(C.Ygrpc_Free)
+	*respLen = len(respBytes)
+	*respFree = (unsafe.Pointer)(C.Ygrpc_Free)
 	return 0
 }
 
@@ -136,7 +140,7 @@ func Ygrpc_StreamService_UnaryCall_Native(
 	resp_result_len *C.int,
 	resp_result_free *C.FreeFunc,
 	resp_sequence *C.int32_t,
-) C.int {
+) C.uint64_t {
 	req := &mix.StreamRequest{}
 	req.Data = C.GoStringN(req_data, req_data_len)
 	req.Sequence = int32(req_sequence)
@@ -144,7 +148,7 @@ func Ygrpc_StreamService_UnaryCall_Native(
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := mix.StreamService_UnaryCall(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	if len(resp.Result) > 0 {
@@ -171,7 +175,7 @@ func Ygrpc_StreamService_UnaryCall_Native_TakeReq(
 	resp_result_len *C.int,
 	resp_result_free *C.FreeFunc,
 	resp_sequence *C.int32_t,
-) C.int {
+) C.uint64_t {
 	req := &mix.StreamRequest{}
 	req.Data = C.GoStringN(req_data, req_data_len)
 	if req_data_free != nil {
@@ -182,7 +186,7 @@ func Ygrpc_StreamService_UnaryCall_Native_TakeReq(
 	ctx := rpcruntime.BackgroundContext()
 	resp, err := mix.StreamService_UnaryCall(ctx, req)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 
 	if len(resp.Result) > 0 {
@@ -200,14 +204,14 @@ func Ygrpc_StreamService_UnaryCall_Native_TakeReq(
 }
 
 //export Ygrpc_StreamService_ClientStreamCallStart
-func Ygrpc_StreamService_ClientStreamCallStart(outHandle *C.uint64_t) C.int {
+func Ygrpc_StreamService_ClientStreamCallStart(outHandle *uint64) uint64 {
 	ctx := rpcruntime.BackgroundContext()
 	handle, err := mix.StreamService_ClientStreamCallStart(ctx)
 	if err != nil {
 		*outHandle = 0
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
-	*outHandle = C.uint64_t(handle)
+	*outHandle = uint64(handle)
 	return 0
 }
 
@@ -216,14 +220,14 @@ func Ygrpc_StreamService_ClientStreamCallSend(
 	streamHandle C.uint64_t,
 	reqPtr unsafe.Pointer,
 	reqLen C.int,
-) C.int {
+) C.uint64_t {
 	reqBytes := C.GoBytes(reqPtr, reqLen)
 	req := &mix.StreamRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 	if err := mix.StreamService_ClientStreamCallSend(uint64(streamHandle), req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 	return 0
 }
@@ -234,31 +238,31 @@ func Ygrpc_StreamService_ClientStreamCallSend_TakeReq(
 	reqPtr unsafe.Pointer,
 	reqLen C.int,
 	reqFree C.FreeFunc,
-) C.int {
+) C.uint64_t {
 	reqBytes := C.GoBytes(reqPtr, reqLen)
 	if reqFree != nil {
 		C.call_free_func(reqFree, reqPtr)
 	}
 	req := &mix.StreamRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 	if err := mix.StreamService_ClientStreamCallSend(uint64(streamHandle), req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 	return 0
 }
 
 //export Ygrpc_StreamService_ClientStreamCallFinish
 func Ygrpc_StreamService_ClientStreamCallFinish(
-	streamHandle C.uint64_t,
+	streamHandle uint64,
 	respPtr *unsafe.Pointer,
-	respLen *C.int,
-	respFree *C.FreeFunc,
-) C.int {
+	respLen *int,
+	respFree *unsafe.Pointer,
+) uint64 {
 	resp, err := mix.StreamService_ClientStreamCallFinish(uint64(streamHandle))
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 	if resp == nil {
 		*respPtr = nil
@@ -268,24 +272,24 @@ func Ygrpc_StreamService_ClientStreamCallFinish(
 	}
 	respBytes, err := proto.Marshal(resp)
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 	buf := C.CBytes(respBytes)
 	*respPtr = buf
-	*respLen = C.int(len(respBytes))
-	*respFree = (C.FreeFunc)(C.Ygrpc_Free)
+	*respLen = len(respBytes)
+	*respFree = (unsafe.Pointer)(C.Ygrpc_Free)
 	return 0
 }
 
 //export Ygrpc_StreamService_ClientStreamCallStart_Native
-func Ygrpc_StreamService_ClientStreamCallStart_Native(outHandle *C.uint64_t) C.int {
+func Ygrpc_StreamService_ClientStreamCallStart_Native(outHandle *uint64) uint64 {
 	ctx := rpcruntime.BackgroundContext()
 	handle, err := mix.StreamService_ClientStreamCallStart(ctx)
 	if err != nil {
 		*outHandle = 0
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
-	*outHandle = C.uint64_t(handle)
+	*outHandle = uint64(handle)
 	return 0
 }
 
@@ -295,12 +299,12 @@ func Ygrpc_StreamService_ClientStreamCallSend_Native(
 	req_data *C.char,
 	req_data_len C.int,
 	req_sequence C.int32_t,
-) C.int {
+) C.uint64_t {
 	req := &mix.StreamRequest{}
 	req.Data = C.GoStringN(req_data, req_data_len)
 	req.Sequence = int32(req_sequence)
 	if err := mix.StreamService_ClientStreamCallSend(uint64(streamHandle), req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 	return 0
 }
@@ -312,7 +316,7 @@ func Ygrpc_StreamService_ClientStreamCallSend_Native_TakeReq(
 	req_data_len C.int,
 	req_data_free C.FreeFunc,
 	req_sequence C.int32_t,
-) C.int {
+) C.uint64_t {
 	req := &mix.StreamRequest{}
 	req.Data = C.GoStringN(req_data, req_data_len)
 	if req_data_free != nil {
@@ -320,7 +324,7 @@ func Ygrpc_StreamService_ClientStreamCallSend_Native_TakeReq(
 	}
 	req.Sequence = int32(req_sequence)
 	if err := mix.StreamService_ClientStreamCallSend(uint64(streamHandle), req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 	return 0
 }
@@ -332,10 +336,10 @@ func Ygrpc_StreamService_ClientStreamCallFinish_Native(
 	resp_result_len *C.int,
 	resp_result_free *C.FreeFunc,
 	resp_sequence *C.int32_t,
-) C.int {
+) C.uint64_t {
 	resp, err := mix.StreamService_ClientStreamCallFinish(uint64(streamHandle))
 	if err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 	if resp == nil {
 		resp = &mix.StreamResponse{}
@@ -357,25 +361,25 @@ func Ygrpc_StreamService_ClientStreamCallFinish_Native(
 //export Ygrpc_StreamService_ServerStreamCall
 func Ygrpc_StreamService_ServerStreamCall(
 	reqPtr unsafe.Pointer,
-	reqLen C.int,
+	reqLen int,
 	onReadBytes unsafe.Pointer,
 	onDone unsafe.Pointer,
-	callID C.uint64_t,
-) C.int {
-	reqBytes := C.GoBytes(reqPtr, reqLen)
+	callID uint64,
+) uint64 {
+	reqBytes := unsafe.Slice((*byte)(reqPtr), reqLen)
 	req := &mix.StreamRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 	ctx := rpcruntime.BackgroundContext()
-	var doneErrId atomic.Int64
+	var doneErrId atomic.Uint64
 	onRead := func(resp *mix.StreamResponse) bool {
 		respBytes, err := proto.Marshal(resp)
 		if err != nil {
 			return false
 		}
 		respCopy := C.CBytes(respBytes)
-		C.call_on_read_bytes(onReadBytes, callID, respCopy, C.int(len(respBytes)), (C.FreeFunc)(C.Ygrpc_Free))
+		C.call_on_read_bytes(onReadBytes, C.uint64_t(callID), respCopy, C.int(len(respBytes)), (C.FreeFunc)(C.Ygrpc_Free))
 		return true
 	}
 	onDoneFunc := func(err error) {
@@ -384,14 +388,14 @@ func Ygrpc_StreamService_ServerStreamCall(
 		} else {
 			doneErrId.Store(0)
 		}
-		C.call_on_done(onDone, callID, C.int(doneErrId.Load()))
+		C.call_on_done(onDone, C.uint64_t(callID), C.uint64_t(doneErrId.Load()))
 	}
 	err := mix.StreamService_ServerStreamCall(ctx, req, onRead, onDoneFunc)
 	if err != nil {
 		if doneErrId.Load() == 0 {
 			doneErrId.Store(rpcruntime.StoreError(err))
 		}
-		return C.int(doneErrId.Load())
+		return uint64(doneErrId.Load())
 	}
 	return 0
 }
@@ -399,29 +403,32 @@ func Ygrpc_StreamService_ServerStreamCall(
 //export Ygrpc_StreamService_ServerStreamCall_TakeReq
 func Ygrpc_StreamService_ServerStreamCall_TakeReq(
 	reqPtr unsafe.Pointer,
-	reqLen C.int,
-	reqFree C.FreeFunc,
+	reqLen int,
+	reqFree unsafe.Pointer,
 	onReadBytes unsafe.Pointer,
 	onDone unsafe.Pointer,
-	callID C.uint64_t,
-) C.int {
-	reqBytes := C.GoBytes(reqPtr, reqLen)
-	if reqFree != nil {
-		C.call_free_func(reqFree, reqPtr)
-	}
+	callID uint64,
+) uint64 {
+	reqBytes := unsafe.Slice((*byte)(reqPtr), reqLen)
 	req := &mix.StreamRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		if reqFree != nil {
+			C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
+		}
+		return uint64(rpcruntime.StoreError(err))
+	}
+	if reqFree != nil {
+		C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
 	}
 	ctx := rpcruntime.BackgroundContext()
-	var doneErrId atomic.Int64
+	var doneErrId atomic.Uint64
 	onRead := func(resp *mix.StreamResponse) bool {
 		respBytes, err := proto.Marshal(resp)
 		if err != nil {
 			return false
 		}
 		respCopy := C.CBytes(respBytes)
-		C.call_on_read_bytes(onReadBytes, callID, respCopy, C.int(len(respBytes)), (C.FreeFunc)(C.Ygrpc_Free))
+		C.call_on_read_bytes(onReadBytes, C.uint64_t(callID), respCopy, C.int(len(respBytes)), (C.FreeFunc)(C.Ygrpc_Free))
 		return true
 	}
 	onDoneFunc := func(err error) {
@@ -430,14 +437,14 @@ func Ygrpc_StreamService_ServerStreamCall_TakeReq(
 		} else {
 			doneErrId.Store(0)
 		}
-		C.call_on_done(onDone, callID, C.int(doneErrId.Load()))
+		C.call_on_done(onDone, C.uint64_t(callID), C.uint64_t(doneErrId.Load()))
 	}
 	err := mix.StreamService_ServerStreamCall(ctx, req, onRead, onDoneFunc)
 	if err != nil {
 		if doneErrId.Load() == 0 {
 			doneErrId.Store(rpcruntime.StoreError(err))
 		}
-		return C.int(doneErrId.Load())
+		return uint64(doneErrId.Load())
 	}
 	return 0
 }
@@ -450,12 +457,12 @@ func Ygrpc_StreamService_ServerStreamCall_Native(
 	onReadNative unsafe.Pointer,
 	onDone unsafe.Pointer,
 	callID C.uint64_t,
-) C.int {
+) C.uint64_t {
 	req := &mix.StreamRequest{}
 	req.Data = C.GoStringN(req_data, req_data_len)
 	req.Sequence = int32(req_sequence)
 	ctx := rpcruntime.BackgroundContext()
-	var doneErrId atomic.Int64
+	var doneErrId atomic.Uint64
 	onRead := func(resp *mix.StreamResponse) bool {
 
 		var result_ptr unsafe.Pointer
@@ -479,14 +486,14 @@ func Ygrpc_StreamService_ServerStreamCall_Native(
 		} else {
 			doneErrId.Store(0)
 		}
-		C.call_on_done(onDone, callID, C.int(doneErrId.Load()))
+		C.call_on_done(onDone, callID, C.uint64_t(doneErrId.Load()))
 	}
 	err := mix.StreamService_ServerStreamCall(ctx, req, onRead, onDoneFunc)
 	if err != nil {
 		if doneErrId.Load() == 0 {
 			doneErrId.Store(rpcruntime.StoreError(err))
 		}
-		return C.int(doneErrId.Load())
+		return C.uint64_t(doneErrId.Load())
 	}
 	return 0
 }
@@ -500,7 +507,7 @@ func Ygrpc_StreamService_ServerStreamCall_Native_TakeReq(
 	onReadNative unsafe.Pointer,
 	onDone unsafe.Pointer,
 	callID C.uint64_t,
-) C.int {
+) C.uint64_t {
 	req := &mix.StreamRequest{}
 	req.Data = C.GoStringN(req_data, req_data_len)
 	if req_data_free != nil {
@@ -508,7 +515,7 @@ func Ygrpc_StreamService_ServerStreamCall_Native_TakeReq(
 	}
 	req.Sequence = int32(req_sequence)
 	ctx := rpcruntime.BackgroundContext()
-	var doneErrId atomic.Int64
+	var doneErrId atomic.Uint64
 	onRead := func(resp *mix.StreamResponse) bool {
 		var result_ptr unsafe.Pointer
 		var result_len C.int
@@ -531,14 +538,14 @@ func Ygrpc_StreamService_ServerStreamCall_Native_TakeReq(
 		} else {
 			doneErrId.Store(0)
 		}
-		C.call_on_done(onDone, callID, C.int(doneErrId.Load()))
+		C.call_on_done(onDone, callID, C.uint64_t(doneErrId.Load()))
 	}
 	err := mix.StreamService_ServerStreamCall(ctx, req, onRead, onDoneFunc)
 	if err != nil {
 		if doneErrId.Load() == 0 {
 			doneErrId.Store(rpcruntime.StoreError(err))
 		}
-		return C.int(doneErrId.Load())
+		return C.uint64_t(doneErrId.Load())
 	}
 	return 0
 }
@@ -547,8 +554,8 @@ func Ygrpc_StreamService_ServerStreamCall_Native_TakeReq(
 func Ygrpc_StreamService_BidiStreamCallStart(
 	onReadBytes unsafe.Pointer,
 	onDone unsafe.Pointer,
-	outHandle *C.uint64_t,
-) C.int {
+	outHandle *uint64,
+) uint64 {
 	ctx := rpcruntime.BackgroundContext()
 	handleReady := make(chan struct{})
 	var streamHandle uint64
@@ -564,65 +571,68 @@ func Ygrpc_StreamService_BidiStreamCallStart(
 	}
 	onDoneFunc := func(err error) {
 		<-handleReady
-		errId := int64(0)
+		errId := uint64(0)
 		if err != nil {
 			errId = rpcruntime.StoreError(err)
 		}
-		C.call_on_done(onDone, C.uint64_t(streamHandle), C.int(errId))
+		C.call_on_done(onDone, C.uint64_t(streamHandle), C.uint64_t(errId))
 	}
 	handle, err := mix.StreamService_BidiStreamCallStart(ctx, onRead, onDoneFunc)
 	if err != nil {
 		*outHandle = 0
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 	streamHandle = handle
 	close(handleReady)
-	*outHandle = C.uint64_t(handle)
+	*outHandle = uint64(handle)
 	return 0
 }
 
 //export Ygrpc_StreamService_BidiStreamCallSend
 func Ygrpc_StreamService_BidiStreamCallSend(
-	streamHandle C.uint64_t,
+	streamHandle uint64,
 	reqPtr unsafe.Pointer,
-	reqLen C.int,
-) C.int {
-	reqBytes := C.GoBytes(reqPtr, reqLen)
+	reqLen int,
+) uint64 {
+	reqBytes := unsafe.Slice((*byte)(reqPtr), reqLen)
 	req := &mix.StreamRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 	if err := mix.StreamService_BidiStreamCallSend(uint64(streamHandle), req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 	return 0
 }
 
 //export Ygrpc_StreamService_BidiStreamCallSend_TakeReq
 func Ygrpc_StreamService_BidiStreamCallSend_TakeReq(
-	streamHandle C.uint64_t,
+	streamHandle uint64,
 	reqPtr unsafe.Pointer,
-	reqLen C.int,
-	reqFree C.FreeFunc,
-) C.int {
-	reqBytes := C.GoBytes(reqPtr, reqLen)
-	if reqFree != nil {
-		C.call_free_func(reqFree, reqPtr)
-	}
+	reqLen int,
+	reqFree unsafe.Pointer,
+) uint64 {
+	reqBytes := unsafe.Slice((*byte)(reqPtr), reqLen)
 	req := &mix.StreamRequest{}
 	if err := proto.Unmarshal(reqBytes, req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		if reqFree != nil {
+			C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
+		}
+		return uint64(rpcruntime.StoreError(err))
+	}
+	if reqFree != nil {
+		C.call_free_func((C.FreeFunc)(reqFree), reqPtr)
 	}
 	if err := mix.StreamService_BidiStreamCallSend(uint64(streamHandle), req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 	return 0
 }
 
 //export Ygrpc_StreamService_BidiStreamCallCloseSend
-func Ygrpc_StreamService_BidiStreamCallCloseSend(streamHandle C.uint64_t) C.int {
+func Ygrpc_StreamService_BidiStreamCallCloseSend(streamHandle uint64) uint64 {
 	if err := mix.StreamService_BidiStreamCallCloseSend(uint64(streamHandle)); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 	return 0
 }
@@ -632,7 +642,7 @@ func Ygrpc_StreamService_BidiStreamCallStart_Native(
 	onReadNative unsafe.Pointer,
 	onDone unsafe.Pointer,
 	outHandle *C.uint64_t,
-) C.int {
+) C.uint64_t {
 	ctx := rpcruntime.BackgroundContext()
 	handleReady := make(chan struct{})
 	var streamHandle uint64
@@ -655,16 +665,16 @@ func Ygrpc_StreamService_BidiStreamCallStart_Native(
 	}
 	onDoneFunc := func(err error) {
 		<-handleReady
-		errId := int64(0)
+		errId := uint64(0)
 		if err != nil {
 			errId = rpcruntime.StoreError(err)
 		}
-		C.call_on_done(onDone, C.uint64_t(streamHandle), C.int(errId))
+		C.call_on_done(onDone, C.uint64_t(streamHandle), C.uint64_t(errId))
 	}
 	handle, err := mix.StreamService_BidiStreamCallStart(ctx, onRead, onDoneFunc)
 	if err != nil {
 		*outHandle = 0
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 	streamHandle = handle
 	close(handleReady)
@@ -678,12 +688,12 @@ func Ygrpc_StreamService_BidiStreamCallSend_Native(
 	req_data *C.char,
 	req_data_len C.int,
 	req_sequence C.int32_t,
-) C.int {
+) C.uint64_t {
 	req := &mix.StreamRequest{}
 	req.Data = C.GoStringN(req_data, req_data_len)
 	req.Sequence = int32(req_sequence)
 	if err := mix.StreamService_BidiStreamCallSend(uint64(streamHandle), req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 	return 0
 }
@@ -695,7 +705,7 @@ func Ygrpc_StreamService_BidiStreamCallSend_Native_TakeReq(
 	req_data_len C.int,
 	req_data_free C.FreeFunc,
 	req_sequence C.int32_t,
-) C.int {
+) C.uint64_t {
 	req := &mix.StreamRequest{}
 	req.Data = C.GoStringN(req_data, req_data_len)
 	if req_data_free != nil {
@@ -703,15 +713,15 @@ func Ygrpc_StreamService_BidiStreamCallSend_Native_TakeReq(
 	}
 	req.Sequence = int32(req_sequence)
 	if err := mix.StreamService_BidiStreamCallSend(uint64(streamHandle), req); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return C.uint64_t(rpcruntime.StoreError(err))
 	}
 	return 0
 }
 
 //export Ygrpc_StreamService_BidiStreamCallCloseSend_Native
-func Ygrpc_StreamService_BidiStreamCallCloseSend_Native(streamHandle C.uint64_t) C.int {
+func Ygrpc_StreamService_BidiStreamCallCloseSend_Native(streamHandle uint64) uint64 {
 	if err := mix.StreamService_BidiStreamCallCloseSend(uint64(streamHandle)); err != nil {
-		return C.int(rpcruntime.StoreError(err))
+		return uint64(rpcruntime.StoreError(err))
 	}
 	return 0
 }

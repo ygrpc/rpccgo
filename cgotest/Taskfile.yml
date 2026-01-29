@@ -1,0 +1,198 @@
+version: '3'
+
+tasks:
+  install-plugins:
+    internal: true
+    desc: Install local workspace protoc plugins (run once per session)
+    run: once
+    cmds:
+      - ./scripts/install-plugins.sh
+
+  build:grpc:
+    internal: true
+    desc: Build adaptor code for gRPC protocol
+    deps: [install-plugins]
+    cmds:
+      - ./scripts/build-adaptor.sh grpc
+
+  build:connect:
+    desc: Build adaptor code for ConnectRPC protocol
+    deps: [install-plugins]
+    cmds:
+      - ./scripts/build-adaptor.sh connect
+
+  build:mix:
+    internal: true
+    desc: Build adaptor code for multi-protocol (grpc|connectrpc) with fallback
+    deps: [install-plugins]
+    cmds:
+      - ./scripts/build-adaptor.sh mix
+
+  build:connect_suffix:
+    internal: true
+    desc: Build adaptor code for ConnectRPC protocol with suffix package
+    deps: [install-plugins]
+    cmds:
+      - ./scripts/build-adaptor.sh connect_suffix
+
+  adaptor-test:grpc:
+    internal: true
+    desc: Run Go adaptor test for gRPC
+    deps: [build:grpc]
+    cmds:
+      - ./scripts/adaptor-test.sh grpc
+
+  adaptor-test:connect:
+    internal: true
+    desc: Run Go adaptor test for ConnectRPC
+    deps: [build:connect]
+    cmds:
+      - ./scripts/adaptor-test.sh connect
+
+  adaptor-test:mix:
+    internal: true
+    desc: Run Go adaptor test for multi-protocol
+    deps: [build:mix]
+    cmds:
+      - ./scripts/adaptor-test.sh mix
+
+  adaptor-test:connect_suffix:
+    internal: true
+    desc: Run Go adaptor test for ConnectRPC with suffix
+    deps: [build:connect_suffix]
+    cmds:
+      - ./scripts/adaptor-test.sh connect_suffix
+
+  adaptor-test:all:
+    internal: true
+    desc: Run all Go adaptor tests
+    cmds:
+      - task: adaptor-test:connect
+      - task: adaptor-test:grpc
+      - task: adaptor-test:mix
+      - task: adaptor-test:connect_suffix
+      - echo "=== All adaptor tests completed ==="
+
+  adaptor-test:
+    desc: Run adaptor tests (default all, or specify grpc|connect|mix|connect_suffix)
+    deps: ['adaptor-test:{{.PROTOCOL}}']
+    vars:
+      PROTOCOL: '{{.PROTOCOL | default "all"}}'
+    preconditions:
+      - sh: bash -c '[[ "{{.PROTOCOL}}" =~ ^(all|grpc|connect|mix|connect_suffix)$ ]]'
+        msg: 'Invalid PROTOCOL "{{.PROTOCOL}}". Must be one of: all, grpc, connect, mix, connect_suffix'
+
+  c-test:grpc:
+    internal: true
+    desc: Run C end-to-end tests for gRPC
+    deps: [build-cgo:grpc]
+    cmds:
+      - ./scripts/c-test.sh grpc
+
+  c-test:connect:
+    internal: true
+    desc: Run C end-to-end tests for ConnectRPC
+    deps: [build-cgo:connect]
+    cmds:
+      - ./scripts/c-test.sh connect
+
+  c-test:mix:
+    internal: true
+    desc: Run C end-to-end tests for multi-protocol
+    deps: [build-cgo:mix]
+    cmds:
+      - ./scripts/c-test.sh mix
+
+  c-test:connect_suffix:
+    internal: true
+    desc: Run C end-to-end tests for ConnectRPC with suffix
+    deps: [build-cgo:connect_suffix]
+    cmds:
+      - ./scripts/c-test.sh connect_suffix
+
+  c-test:all:
+    internal: true
+    desc: Run all C end-to-end tests
+    cmds:
+      - task: c-test:connect
+      - echo ""
+      - task: c-test:grpc
+      - echo ""
+      - task: c-test:mix
+      - echo ""
+      - task: c-test:connect_suffix
+
+  c-test:
+    desc: Run C end-to-end tests (default all, or specify grpc|connect|mix|connect_suffix)
+    deps: ['c-test:{{.PROTOCOL}}']
+    vars:
+      PROTOCOL: '{{.PROTOCOL | default "all"}}'
+    preconditions:
+      - sh: bash -c '[[ "{{.PROTOCOL}}" =~ ^(all|grpc|connect|mix|connect_suffix)$ ]]'
+        msg: 'Invalid PROTOCOL "{{.PROTOCOL}}". Must be one of: all, grpc, connect, mix, connect_suffix'
+
+  test:
+    desc: Run full test suite (adaptor + C tests)
+    cmds:
+      - task: adaptor-test:all
+      - echo ""
+      - echo "=== Running C end-to-end tests ==="
+      - task: c-test:all
+      - echo ""
+      - echo "=== All tests completed ==="
+
+  build:
+    desc: Build adaptor code for protocol (default connect, or specify grpc|connect|mix|connect_suffix)
+    deps: ['build:{{.PROTOCOL}}']
+    vars:
+      PROTOCOL: '{{.PROTOCOL | default "connect"}}'
+    preconditions:
+      - sh: bash -c '[[ "{{.PROTOCOL}}" =~ ^(grpc|connect|mix|connect_suffix)$ ]]'
+        msg: 'Invalid PROTOCOL "{{.PROTOCOL}}". Must be one of: grpc, connect, mix, connect_suffix'
+
+  build-cgo:grpc:
+    internal: true
+    desc: Build C ABI export for gRPC protocol
+    deps: [build:grpc, install-plugins]
+    cmds:
+      - ./scripts/build-cgo.sh grpc
+
+  build-cgo:connect:
+    internal: true
+    desc: Build C ABI export for ConnectRPC protocol
+    deps: [build:connect, install-plugins]
+    cmds:
+      - ./scripts/build-cgo.sh connect
+
+  build-cgo:mix:
+    internal: true
+    desc: Build C ABI export for multi-protocol
+    deps: [build:mix, install-plugins]
+    cmds:
+      - ./scripts/build-cgo.sh mix
+
+  build-cgo:connect_suffix:
+    internal: true
+    desc: Build C ABI export for ConnectRPC with suffix
+    deps: [build:connect_suffix, install-plugins]
+    cmds:
+      - ./scripts/build-cgo.sh connect_suffix
+
+  build-cgo:
+    desc: Build C ABI export for protocol (default connect, or specify grpc|connect|mix|connect_suffix)
+    deps: ['build-cgo:{{.PROTOCOL}}']
+    vars:
+      PROTOCOL: '{{.PROTOCOL | default "connect"}}'
+    preconditions:
+      - sh: bash -c '[[ "{{.PROTOCOL}}" =~ ^(grpc|connect|mix|connect_suffix)$ ]]'
+        msg: 'Invalid PROTOCOL "{{.PROTOCOL}}". Must be one of: grpc, connect, mix, connect_suffix'
+
+  clean:
+    desc: Clean build artifacts (generated code, .so, .h files) but keep hand-written tests
+    cmds:
+      - ./scripts/clean.sh
+
+  nanopb:
+    desc: Regenerate nanopb C code from proto files
+    cmds:
+      - ./scripts/nanopb.sh

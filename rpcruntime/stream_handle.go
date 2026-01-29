@@ -16,6 +16,7 @@ type StreamSession interface {
 	Cancel()
 	Protocol() Protocol
 	SendCh() chan any
+	SendDoneCh() <-chan struct{}
 	RespCh() chan streamResult
 	SetHandlerState(state any)
 	HandlerState() any
@@ -32,8 +33,11 @@ type streamSession struct {
 	finished bool
 
 	// For client-streaming and bidi: channel to send requests.
-	sendCh       chan any
-	sendChClosed bool
+	sendCh     chan any
+	sendDone   chan struct{}
+	sendClosed bool
+	sendMu     sync.RWMutex
+	sendOnce   sync.Once
 
 	// For server-streaming and bidi: callbacks.
 	onRead func(any) bool
@@ -67,6 +71,7 @@ func AllocateStreamHandle(ctx context.Context, protocol Protocol) (StreamHandle,
 		cancel:   cancel,
 		protocol: protocol,
 		sendCh:   make(chan any, 16), // Buffered to avoid blocking.
+		sendDone: make(chan struct{}),
 		respCh:   make(chan streamResult, 1),
 	}
 
@@ -103,28 +108,33 @@ func FinishStreamHandle(handle StreamHandle) {
 	if session, ok := streamRegistry[handle]; ok {
 		session.finished = true
 		session.cancel()
-		if !session.sendChClosed {
-			session.sendChClosed = true
-			close(session.sendCh)
-		}
+		session.closeSendLocked()
 		delete(streamRegistry, handle)
 	}
 }
 
 // StreamSession accessors.
-func (s *streamSession) Context() context.Context  { return s.ctx }
-func (s *streamSession) Cancel()                   { s.cancel() }
-func (s *streamSession) Protocol() Protocol        { return s.protocol }
-func (s *streamSession) SendCh() chan any          { return s.sendCh }
-func (s *streamSession) RespCh() chan streamResult { return s.respCh }
-func (s *streamSession) SetHandlerState(state any) { s.handlerState = state }
-func (s *streamSession) HandlerState() any         { return s.handlerState }
+func (s *streamSession) Context() context.Context    { return s.ctx }
+func (s *streamSession) Cancel()                     { s.cancel() }
+func (s *streamSession) Protocol() Protocol          { return s.protocol }
+func (s *streamSession) SendCh() chan any            { return s.sendCh }
+func (s *streamSession) SendDoneCh() <-chan struct{} { return s.sendDone }
+func (s *streamSession) RespCh() chan streamResult   { return s.respCh }
+func (s *streamSession) SetHandlerState(state any)   { s.handlerState = state }
+func (s *streamSession) HandlerState() any           { return s.handlerState }
 func (s *streamSession) SetCallbacks(onRead func(any) bool, onDone func(error)) {
 	s.onRead = onRead
 	s.onDone = onDone
 }
 func (s *streamSession) OnRead() func(any) bool { return s.onRead }
 func (s *streamSession) OnDone() func(error)    { return s.onDone }
+
+func (s *streamSession) closeSendLocked() {
+	s.sendOnce.Do(func() {
+		s.sendClosed = true
+		close(s.sendDone)
+	})
+}
 
 // CloseSendCh safely closes the send channel (called from bidi CloseSend).
 func CloseSendCh(handle StreamHandle) error {
@@ -135,11 +145,9 @@ func CloseSendCh(handle StreamHandle) error {
 	if !ok || session.finished {
 		return ErrInvalidStreamHandle
 	}
-
-	if !session.sendChClosed {
-		session.sendChClosed = true
-		close(session.sendCh)
-	}
+	session.sendMu.Lock()
+	defer session.sendMu.Unlock()
+	session.closeSendLocked()
 	return nil
 }
 
@@ -150,11 +158,18 @@ func SendToStream(handle StreamHandle, msg any) error {
 	if session == nil {
 		return ErrInvalidStreamHandle
 	}
+	session.sendMu.RLock()
+	if session.sendClosed {
+		session.sendMu.RUnlock()
+		return ErrInvalidStreamHandle
+	}
 
 	select {
 	case session.sendCh <- msg:
+		session.sendMu.RUnlock()
 		return nil
 	case <-session.ctx.Done():
+		session.sendMu.RUnlock()
 		return session.ctx.Err()
 	}
 }
@@ -167,13 +182,10 @@ func FinishClientStream(handle StreamHandle) (any, error) {
 		return nil, ErrInvalidStreamHandle
 	}
 
-	// Close send channel to signal end of sending (with lock to prevent double close).
-	streamMu.Lock()
-	if !session.sendChClosed {
-		session.sendChClosed = true
-		close(session.sendCh)
-	}
-	streamMu.Unlock()
+	// Half-close send side without closing sendCh.
+	session.sendMu.Lock()
+	session.closeSendLocked()
+	session.sendMu.Unlock()
 
 	// Wait for response.
 	select {
@@ -207,6 +219,9 @@ func clearStreamRegistry() {
 	defer streamMu.Unlock()
 
 	for id, session := range streamRegistry {
+		session.sendMu.Lock()
+		session.closeSendLocked()
+		session.sendMu.Unlock()
 		session.cancel()
 		delete(streamRegistry, id)
 	}
