@@ -1,0 +1,2 @@
+cgotest.StreamRequest.data max_size:256
+cgotest.StreamResponse.result max_size:256

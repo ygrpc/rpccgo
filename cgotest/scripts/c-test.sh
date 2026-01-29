@@ -28,14 +28,21 @@ esac
 cd "$CGOTEST_DIR"
 
 cc_bin="${CC:-cc}"
-cflags=(-O2 -std=c11 -Wall -Wextra -D_POSIX_C_SOURCE=200809L -I./c_tests)
+cflags=(-O2 -std=c11 -Wall -Wextra -D_POSIX_C_SOURCE=200809L -I./c_tests -I./c_tests/nanopb -I./c_tests/pb)
 ldflags=(-L./c_tests -lygrpc -Wl,-rpath,'$ORIGIN')
+nanopb_src=(
+    ./c_tests/nanopb/pb_encode.c
+    ./c_tests/nanopb/pb_decode.c
+    ./c_tests/nanopb/pb_common.c
+    ./c_tests/pb/unary.pb.c
+    ./c_tests/pb/stream.pb.c
+)
 
 echo "Building C tests ($PROTOCOL)..."
-"${cc_bin}" "${cflags[@]}" ./c_tests/unary_test.c -o ./c_tests/unary_test "${ldflags[@]}"
-"${cc_bin}" "${cflags[@]}" ./c_tests/client_stream_test.c -o ./c_tests/client_stream_test "${ldflags[@]}"
-"${cc_bin}" "${cflags[@]}" ./c_tests/server_stream_test.c -o ./c_tests/server_stream_test "${ldflags[@]}"
-"${cc_bin}" "${cflags[@]}" ./c_tests/bidi_stream_test.c -o ./c_tests/bidi_stream_test "${ldflags[@]}"
+"${cc_bin}" "${cflags[@]}" "${nanopb_src[@]}" ./c_tests/unary_test.c -o ./c_tests/unary_test "${ldflags[@]}"
+"${cc_bin}" "${cflags[@]}" "${nanopb_src[@]}" ./c_tests/client_stream_test.c -o ./c_tests/client_stream_test "${ldflags[@]}"
+"${cc_bin}" "${cflags[@]}" "${nanopb_src[@]}" ./c_tests/server_stream_test.c -o ./c_tests/server_stream_test "${ldflags[@]}"
+"${cc_bin}" "${cflags[@]}" "${nanopb_src[@]}" ./c_tests/bidi_stream_test.c -o ./c_tests/bidi_stream_test "${ldflags[@]}"
 
 echo "Running C tests ($PROTOCOL)..."
 (cd ./c_tests && ./unary_test && ./client_stream_test && ./server_stream_test && ./bidi_stream_test)

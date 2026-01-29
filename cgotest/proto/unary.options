@@ -1,0 +1,5 @@
+cgotest.PingRequest.msg max_size:256
+cgotest.PingRequestOpt1.msg max_size:256
+cgotest.PingRequestOpt2.msg max_size:256
+cgotest.PingResponse.msg max_size:256
+cgotest.NonFlatRequest.ids max_count:64 fixed_count:false
