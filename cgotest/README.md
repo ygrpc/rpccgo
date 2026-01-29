@@ -9,10 +9,23 @@
 - `protoc`
 - C 编译器：`cc`/`gcc`/`clang`
 - Go 工具链
+- Python 3（仅用于重新生成 nanopb 代码）
 
 脚本会自动安装（从当前 workspace）:
 - `protoc-gen-rpc-cgo-adaptor`
 - `protoc-gen-rpc-cgo`
+
+## 依赖
+
+### nanopb (vendored)
+C 测试使用 nanopb 进行 protobuf 编解码。nanopb 运行时已包含在 `c_tests/nanopb/` 目录中。
+
+如需重新生成 nanopb C 代码：
+```bash
+cd cgotest
+python3 c_tests/nanopb/generator/nanopb_generator.py \
+  -I proto -I ../proto -D c_tests/pb proto/unary.proto proto/stream.proto
+```
 
 ## go-task 安装与使用
 
@@ -59,3 +72,12 @@
 
 如果直接运行 `task` 而不指定任务名称，会显示错误。
 请使用 `task --list` 查看所有可用任务，然后明确指定要运行的任务。
+
+## 测试说明
+
+### mix 协议特殊说明
+`mix/` 目录的测试包含两类：
+1. **通用测试**：使用 testutil 统一套件，与其他协议共享逻辑
+2. **协议特定测试**：测试多协议回退行为（如 `TestAllAdaptor_ContextSelection`），仅存在于 mix 目录
+
+这些协议特定测试验证了 `grpc|connectrpc` 回退机制的正确性。
