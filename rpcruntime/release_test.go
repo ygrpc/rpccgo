@@ -1,6 +1,10 @@
 package rpcruntime
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -52,16 +56,29 @@ func TestPinSliceAndRelease(t *testing.T) {
 	}
 }
 
-func TestPinBoolSliceAndRelease(t *testing.T) {
-	ptr, err := PinSlice([]bool{true, false})
-	if err != nil {
-		t.Fatalf("unexpected pin error: %v", err)
+func TestPinBoolSliceDoesNotCompile(t *testing.T) {
+	dir := t.TempDir()
+	source := `package main
+
+import "rpccgo/rpcruntime"
+
+func main() {
+	_, _ = rpcruntime.PinSlice([]bool{true, false})
+}
+`
+	path := filepath.Join(dir, "main.go")
+	if err := os.WriteFile(path, []byte(source), 0o600); err != nil {
+		t.Fatalf("write compile fixture: %v", err)
 	}
-	if ptr == 0 {
-		t.Fatal("expected non-zero pointer")
+
+	cmd := exec.Command("go", "build", path)
+	cmd.Env = append(os.Environ(), "GOWORK=off")
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected PinSlice([]bool) compile failure, got success")
 	}
-	if !Release(ptr) {
-		t.Fatal("expected bool slice release to succeed")
+	if !strings.Contains(string(output), "bool does not satisfy") {
+		t.Fatalf("unexpected compile failure:\n%s", output)
 	}
 }
 
@@ -92,5 +109,79 @@ func TestDuplicatePinSharedBackingStoreReturnsErrorAndKeepsOldRecord(t *testing.
 func TestReleaseUnknownPointer(t *testing.T) {
 	if Release(9999) {
 		t.Fatal("expected unknown pointer release to fail")
+	}
+}
+
+func TestPinEmptyValuesReturnZeroPointerAndDoNotRegister(t *testing.T) {
+	if ptr, err := PinBytes(nil); err != nil || ptr != 0 {
+		t.Fatalf("PinBytes(nil) = (%d, %v), want (0, nil)", ptr, err)
+	}
+	if ptr, err := PinBytes([]byte{}); err != nil || ptr != 0 {
+		t.Fatalf("PinBytes(empty) = (%d, %v), want (0, nil)", ptr, err)
+	}
+
+	data, ptr, err := PinString("")
+	if err != nil || ptr != 0 || data != nil {
+		t.Fatalf("PinString(empty) = (%v, %d, %v), want (nil, 0, nil)", data, ptr, err)
+	}
+
+	if ptr, err := PinSlice([]int32{}); err != nil || ptr != 0 {
+		t.Fatalf("PinSlice(empty) = (%d, %v), want (0, nil)", ptr, err)
+	}
+
+	if Release(0) {
+		t.Fatal("expected zero pointer release to fail")
+	}
+}
+
+func TestReleaseHandlesBytesStringAndSlicePointers(t *testing.T) {
+	bytesPtr, err := PinBytes([]byte("bytes"))
+	if err != nil {
+		t.Fatalf("pin bytes: %v", err)
+	}
+	if !Release(bytesPtr) {
+		t.Fatal("expected bytes pointer release to succeed")
+	}
+
+	_, stringPtr, err := PinString("string")
+	if err != nil {
+		t.Fatalf("pin string: %v", err)
+	}
+	if !Release(stringPtr) {
+		t.Fatal("expected string pointer release to succeed")
+	}
+
+	slicePtr, err := PinSlice([]uint32{1, 2, 3})
+	if err != nil {
+		t.Fatalf("pin slice: %v", err)
+	}
+	if !Release(slicePtr) {
+		t.Fatal("expected slice pointer release to succeed")
+	}
+}
+
+func TestReleaseAfterGCWithoutExternalBytesReference(t *testing.T) {
+	ptr, err := PinBytes([]byte("survives gc"))
+	if err != nil {
+		t.Fatalf("pin bytes: %v", err)
+	}
+
+	runtime.GC()
+
+	if !Release(ptr) {
+		t.Fatal("expected bytes release after GC to succeed")
+	}
+}
+
+func TestReleaseAfterGCWithoutExternalStringReference(t *testing.T) {
+	_, ptr, err := PinString(strings.Repeat("x", 64))
+	if err != nil {
+		t.Fatalf("pin string: %v", err)
+	}
+
+	runtime.GC()
+
+	if !Release(ptr) {
+		t.Fatal("expected string release after GC to succeed")
 	}
 }
