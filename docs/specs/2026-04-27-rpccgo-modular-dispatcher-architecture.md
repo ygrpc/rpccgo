@@ -234,6 +234,52 @@ connect/grpc 监听入口只负责接收标准 RPC 请求并进入 dispatcher。
 
 ## 生成物布局
 
+rpccgo 使用一个 protobuf 插件：`protoc-gen-rpc-cgo`。插件内部按职责拆分 parser、planner 和 renderer，不为不同 server 类型拆成多个 protoc 插件。
+
+单插件负责读取同一个 service 的注释、建立统一 `ServicePlan`，再按 plan 调用不同 renderer。这样可以保证 dispatcher、active server slot、codec、cgo client ABI 和 server adapter 使用同一个 service 视图，避免多个插件重复生成或生成互相不一致的 service runtime。
+
+### Service 生成注释
+
+用户可以在 proto service 前使用 `@rpccgo` 注释选择要生成的 server adapter：
+
+```proto
+// @rpccgo:msg-connect
+service Greeter {}
+
+// @rpccgo:msg-grpc
+service Greeter {}
+
+// @rpccgo:msg-connect|msg-grpc
+service Greeter {}
+
+// @rpccgo:msg-connect|native
+service Greeter {}
+```
+
+没有 `@rpccgo` 注释时，默认等价于：
+
+```proto
+// @rpccgo:msg-connect
+service Greeter {}
+```
+
+支持的 token：
+
+| Token | 生成内容 |
+|---|---|
+| `msg-connect` | connect message server adapter |
+| `msg-grpc` | grpc message server adapter |
+| `native` | go native server adapter 与 cgo native server adapter |
+
+注释规则：
+
+- `native` 单独出现会默认生成msg-connect + native。
+- `msg-connect|msg-grpc|native` 合法。
+- 未知 token 必须报错，并给出合法 token 提示。
+- 常见拼写错误如 `msg-conenct` 必须报错，不能静默忽略。
+
+`@rpccgo` 注释只控制 server adapter 生成。cgo native client 和 cgo message client 的生成策略不由该注释控制。
+
 每个 service 推荐生成以下文件族：
 
 ```text
@@ -254,9 +300,9 @@ connect/grpc 监听入口只负责接收标准 RPC 请求并进入 dispatcher。
 - `codec` 保存 native/message 转换。
 - `client.cgo` 保存 cgo native/message client ABI。
 - `server.cgo` 保存 cgo native/message server callback ABI。
-- `server.native` 保存 Go native server interface 和 adapter。
-- `server.connect` 保存 connect handler adapter。
-- `server.grpc` 保存 grpc server adapter。
+- `server.native` 保存 Go native server interface 和 adapter，仅在 `native` 启用时生成。
+- `server.connect` 保存 connect handler adapter，仅在 `msg-connect` 启用时生成。
+- `server.grpc` 保存 grpc server adapter，仅在 `msg-grpc` 启用时生成。
 - `remote.connect` 保存 connect remote server adapter。
 - `remote.grpc` 保存 grpc remote server adapter。
 

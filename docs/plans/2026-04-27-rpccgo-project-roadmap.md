@@ -32,9 +32,11 @@
 ### 任务
 
 - 实现 protoc 插件输入解析。
+- 解析 service 上的 `@rpccgo` 注释，并建立 server adapter 生成选择。
 - 建立 service、method、field、framework、streaming kind 的 metadata 模型。
 - 建立 native contract、message contract 和生成计划层。
 - 为 unary、client streaming、server streaming、bidi streaming 生成稳定的中间 plan。
+- 保持单插件、多 renderer 架构，不为 connect、grpc、native 拆分多个 protoc 插件。
 
 ### 旧项目可迁移部分
 
@@ -50,6 +52,10 @@
 ### 验收目标
 
 - generator 能从 proto 生成稳定、可测试的中间 plan。
+- 未标注 service 默认生成 `msg-connect`。
+- `msg-connect`、`msg-grpc`、`msg-connect|msg-grpc`、`msg-connect|native`、`msg-connect|msg-grpc|native` 能生成正确 ServicePlan。
+- `native` 单独出现会默认生成msg-connect + native。
+- 未知 token 和拼写错误会报错。
 - unary 和三类 streaming method 都能被正确识别。
 - native/message contract 信息足够支撑后续 dispatcher、converter 和 adapter 生成。
 
