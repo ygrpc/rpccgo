@@ -3,6 +3,7 @@ package rpcruntime
 import (
 	"errors"
 	"fmt"
+	"math"
 	"testing"
 	"time"
 )
@@ -42,6 +43,33 @@ func TestTakeErrorTextUnknownIDReturnsEmpty(t *testing.T) {
 	}
 	if len(data) != 0 || ptr != 0 {
 		t.Fatal("expected zero-value error text result")
+	}
+}
+
+func TestErrorIDUsesSignedInt32RuntimeType(t *testing.T) {
+	var id ErrorID = ErrorID(math.MaxInt32)
+	var signed int32 = int32(id)
+
+	if signed != math.MaxInt32 {
+		t.Fatalf("expected ErrorID to preserve int32 max value, got %d", signed)
+	}
+}
+
+func TestStoreErrorWrapsToOneAfterMaxInt32(t *testing.T) {
+	resetErrorRuntimeStateForTesting(t)
+	errorSeq.Store(math.MaxInt32 - 1)
+
+	first := StoreError(errors.New("last-positive"))
+	second := StoreError(errors.New("wrapped"))
+
+	if first != ErrorID(math.MaxInt32) {
+		t.Fatalf("expected first id at max int32, got %d", first)
+	}
+	if second != 1 {
+		t.Fatalf("expected wrapped id to restart at 1, got %d", second)
+	}
+	if second <= 0 {
+		t.Fatalf("expected generated error id to stay positive, got %d", second)
 	}
 }
 
@@ -135,7 +163,7 @@ func TestErrorStoreExpiredTakeDoesNotCancelWhileHoldingStoreLock(t *testing.T) {
 
 	callbackStarted := make(chan struct{})
 	releaseCallback := make(chan struct{})
-	errorCleanupScheduler.schedule(uint64(id), time.Millisecond, func() {
+	errorCleanupScheduler.schedule(int32(id), time.Millisecond, func() {
 		close(callbackStarted)
 		<-releaseCallback
 		store.delete(id)
@@ -177,7 +205,7 @@ func TestErrorStoreExpiredHasDoesNotCancelWhileHoldingStoreLock(t *testing.T) {
 
 	callbackStarted := make(chan struct{})
 	releaseCallback := make(chan struct{})
-	errorCleanupScheduler.schedule(uint64(id), time.Millisecond, func() {
+	errorCleanupScheduler.schedule(int32(id), time.Millisecond, func() {
 		close(callbackStarted)
 		<-releaseCallback
 		store.delete(id)

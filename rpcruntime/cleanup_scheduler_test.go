@@ -20,6 +20,20 @@ func TestCleanupSchedulerRunsScheduledTaskAfterTickWindow(t *testing.T) {
 	}, "expected scheduled cleanup task to run exactly once")
 }
 
+func TestCleanupSchedulerAcceptsSignedKeys(t *testing.T) {
+	scheduler := newCleanupSchedulerForTesting(5*time.Millisecond, 16)
+	t.Cleanup(scheduler.stop)
+
+	var fired atomic.Int32
+	scheduler.schedule(-1, 5*time.Millisecond, func() {
+		fired.Add(1)
+	})
+
+	waitForCondition(t, 500*time.Millisecond, func() bool {
+		return fired.Load() == 1
+	}, "expected scheduler to accept signed cleanup keys")
+}
+
 func TestCleanupSchedulerCancelPreventsExecution(t *testing.T) {
 	scheduler := newCleanupSchedulerForTesting(5*time.Millisecond, 16)
 	t.Cleanup(scheduler.stop)

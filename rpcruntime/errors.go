@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-type ErrorID uint32
+type ErrorID int32
 
 type errorRecord struct {
 	text      string
@@ -25,7 +25,7 @@ type errorStore struct {
 }
 
 var (
-	errorSeq atomic.Uint32
+	errorSeq atomic.Int32
 	errorTTL = 3 * time.Second
 
 	errorRecords                    = newErrorStore()
@@ -39,10 +39,7 @@ func StoreError(err error) ErrorID {
 		return 0
 	}
 
-	next := errorSeq.Add(1)
-	if next == 0 {
-		next = errorSeq.Add(1)
-	}
+	next := nextErrorID()
 	id := ErrorID(next)
 	store := errorRecords
 	record := errorRecord{
@@ -50,10 +47,23 @@ func StoreError(err error) ErrorID {
 		expiresAt: time.Now().Add(errorTTL),
 	}
 	store.store(id, record)
-	errorCleanupScheduler.schedule(uint64(id), errorTTL, func() {
+	errorCleanupScheduler.schedule(int32(id), errorTTL, func() {
 		store.delete(id)
 	})
 	return id
+}
+
+func nextErrorID() int32 {
+	for {
+		current := errorSeq.Load()
+		next := current + 1
+		if current >= 1<<31-1 || next <= 0 {
+			next = 1
+		}
+		if errorSeq.CompareAndSwap(current, next) {
+			return next
+		}
+	}
 }
 
 func TakeErrorText(id ErrorID) ([]byte, uintptr, bool) {
@@ -121,7 +131,7 @@ func (s *errorStore) takePrepared(id ErrorID, prepare func(errorRecord) (prepare
 		cancelCleanup = true
 		s.mu.Unlock()
 		if cancelCleanup {
-			errorCleanupScheduler.cancel(uint64(id))
+			errorCleanupScheduler.cancel(int32(id))
 		}
 		return preparedErrorText{}, false
 	}
@@ -136,7 +146,7 @@ func (s *errorStore) takePrepared(id ErrorID, prepare func(errorRecord) (prepare
 	cancelCleanup = true
 	s.mu.Unlock()
 	if cancelCleanup {
-		errorCleanupScheduler.cancel(uint64(id))
+		errorCleanupScheduler.cancel(int32(id))
 	}
 	return prepared, true
 }
@@ -154,7 +164,7 @@ func (s *errorStore) has(id ErrorID) bool {
 		cancelCleanup = true
 		s.mu.Unlock()
 		if cancelCleanup {
-			errorCleanupScheduler.cancel(uint64(id))
+			errorCleanupScheduler.cancel(int32(id))
 		}
 		return false
 	}

@@ -9,19 +9,19 @@ import (
 type cleanupCallback func()
 
 type cleanupScheduleRequest struct {
-	key   uint64
+	key   int32
 	delay time.Duration
 	fn    cleanupCallback
 	done  chan struct{}
 }
 
 type cleanupCancelRequest struct {
-	key  uint64
+	key  int32
 	done chan struct{}
 }
 
 type scheduledCleanup struct {
-	key    uint64
+	key    int32
 	slot   int
 	rounds int
 	fn     cleanupCallback
@@ -64,7 +64,7 @@ func newCleanupSchedulerForTesting(tick time.Duration, wheelLen int) *cleanupSch
 	return newCleanupScheduler(tick, wheelLen)
 }
 
-func (s *cleanupScheduler) schedule(key uint64, delay time.Duration, fn cleanupCallback) {
+func (s *cleanupScheduler) schedule(key int32, delay time.Duration, fn cleanupCallback) {
 	if s == nil || fn == nil {
 		return
 	}
@@ -85,7 +85,7 @@ func (s *cleanupScheduler) schedule(key uint64, delay time.Duration, fn cleanupC
 	}
 }
 
-func (s *cleanupScheduler) cancel(key uint64) {
+func (s *cleanupScheduler) cancel(key int32) {
 	if s == nil {
 		return
 	}
@@ -126,10 +126,10 @@ func (s *cleanupScheduler) run() {
 	defer close(s.doneCh)
 
 	currentSlot := 0
-	buckets := make([]map[uint64]*scheduledCleanup, s.wheelLen)
-	entries := make(map[uint64]*scheduledCleanup)
+	buckets := make([]map[int32]*scheduledCleanup, s.wheelLen)
+	entries := make(map[int32]*scheduledCleanup)
 
-	remove := func(key uint64) {
+	remove := func(key int32) {
 		entry, ok := entries[key]
 		if !ok {
 			return
@@ -156,7 +156,7 @@ func (s *cleanupScheduler) run() {
 				fn:     req.fn,
 			}
 			if buckets[slot] == nil {
-				buckets[slot] = make(map[uint64]*scheduledCleanup)
+				buckets[slot] = make(map[int32]*scheduledCleanup)
 			}
 			buckets[slot][req.key] = entry
 			entries[req.key] = entry

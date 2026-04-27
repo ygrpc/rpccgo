@@ -171,7 +171,7 @@ func TestReleaseHandlesBytesStringAndSlicePointers(t *testing.T) {
 		t.Fatal("expected string pointer release to succeed")
 	}
 
-	slicePtr, err := PinSlice([]uint32{1, 2, 3})
+	slicePtr, err := PinSlice([]int32{1, 2, 3})
 	if err != nil {
 		t.Fatalf("pin slice: %v", err)
 	}
