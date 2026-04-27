@@ -109,40 +109,56 @@ func (s *errorStore) store(id ErrorID, record errorRecord) {
 
 func (s *errorStore) takePrepared(id ErrorID, prepare func(errorRecord) (preparedErrorText, error)) (preparedErrorText, bool) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	cancelCleanup := false
 
 	record, ok := s.records[id]
 	if !ok {
+		s.mu.Unlock()
 		return preparedErrorText{}, false
 	}
 	if s.expired(record, time.Now()) {
 		delete(s.records, id)
-		errorCleanupScheduler.cancel(uint64(id))
+		cancelCleanup = true
+		s.mu.Unlock()
+		if cancelCleanup {
+			errorCleanupScheduler.cancel(uint64(id))
+		}
 		return preparedErrorText{}, false
 	}
 
 	prepared, err := prepare(record)
 	if err != nil {
+		s.mu.Unlock()
 		return preparedErrorText{}, false
 	}
 
 	delete(s.records, id)
-	errorCleanupScheduler.cancel(uint64(id))
+	cancelCleanup = true
+	s.mu.Unlock()
+	if cancelCleanup {
+		errorCleanupScheduler.cancel(uint64(id))
+	}
 	return prepared, true
 }
 
 func (s *errorStore) has(id ErrorID) bool {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	cancelCleanup := false
 	record, ok := s.records[id]
 	if !ok {
+		s.mu.Unlock()
 		return false
 	}
 	if s.expired(record, time.Now()) {
 		delete(s.records, id)
-		errorCleanupScheduler.cancel(uint64(id))
+		cancelCleanup = true
+		s.mu.Unlock()
+		if cancelCleanup {
+			errorCleanupScheduler.cancel(uint64(id))
+		}
 		return false
 	}
+	s.mu.Unlock()
 	return true
 }
 

@@ -122,6 +122,86 @@ func TestErrorStoreCancelScheduledCleanupOnTake(t *testing.T) {
 	}, "expected take to cancel scheduled cleanup")
 }
 
+func TestErrorStoreExpiredTakeDoesNotCancelWhileHoldingStoreLock(t *testing.T) {
+	resetErrorRuntimeStateForTesting(t)
+	resetErrorCleanupSchedulerForTesting(t, time.Millisecond, 8)
+
+	store := newErrorStore()
+	id := ErrorID(1)
+	store.store(id, errorRecord{
+		text:      "expired",
+		expiresAt: time.Now().Add(-time.Second),
+	})
+
+	callbackStarted := make(chan struct{})
+	releaseCallback := make(chan struct{})
+	errorCleanupScheduler.schedule(uint64(id), time.Millisecond, func() {
+		close(callbackStarted)
+		<-releaseCallback
+		store.delete(id)
+	})
+
+	select {
+	case <-callbackStarted:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("expected cleanup callback to start")
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		prepared, ok := store.takePrepared(id, func(errorRecord) (preparedErrorText, error) {
+			t.Fatal("expired record should not be prepared")
+			return preparedErrorText{}, nil
+		})
+		if ok || len(prepared.data) != 0 || prepared.ptr != 0 || prepared.length != 0 {
+			t.Fatalf("expected expired take to return empty result, got %#v ok=%v", prepared, ok)
+		}
+	}()
+
+	assertStaysBlocked(t, done, 20*time.Millisecond, "expired take should wait for in-flight cleanup before cancel completes")
+	close(releaseCallback)
+	assertCompletes(t, done, 500*time.Millisecond, "expired take should complete after cleanup callback releases store lock")
+}
+
+func TestErrorStoreExpiredHasDoesNotCancelWhileHoldingStoreLock(t *testing.T) {
+	resetErrorRuntimeStateForTesting(t)
+	resetErrorCleanupSchedulerForTesting(t, time.Millisecond, 8)
+
+	store := newErrorStore()
+	id := ErrorID(1)
+	store.store(id, errorRecord{
+		text:      "expired",
+		expiresAt: time.Now().Add(-time.Second),
+	})
+
+	callbackStarted := make(chan struct{})
+	releaseCallback := make(chan struct{})
+	errorCleanupScheduler.schedule(uint64(id), time.Millisecond, func() {
+		close(callbackStarted)
+		<-releaseCallback
+		store.delete(id)
+	})
+
+	select {
+	case <-callbackStarted:
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("expected cleanup callback to start")
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if store.has(id) {
+			t.Fatal("expected expired record lookup to fail")
+		}
+	}()
+
+	assertStaysBlocked(t, done, 20*time.Millisecond, "expired has should wait for in-flight cleanup before cancel completes")
+	close(releaseCallback)
+	assertCompletes(t, done, 500*time.Millisecond, "expired has should complete after cleanup callback releases store lock")
+}
+
 func TestTakeErrorTextKeepsRecordWhenPinFails(t *testing.T) {
 	resetErrorRuntimeStateForTesting(t)
 
@@ -147,6 +227,53 @@ func TestTakeErrorTextKeepsRecordWhenPinFails(t *testing.T) {
 	}
 	if !Release(ptr) {
 		t.Fatal("expected retry pointer to be releasable")
+	}
+}
+
+func TestTakeErrorTextForExportKeepsRecordAndReleasesPointerWhenLengthFails(t *testing.T) {
+	resetErrorRuntimeStateForTesting(t)
+
+	id := StoreError(errors.New("retry-export"))
+	var pinnedPtr uintptr
+	pinErrorText = func(text string) ([]byte, uintptr, error) {
+		data, ptr, err := PinString(text)
+		pinnedPtr = ptr
+		return data, ptr, err
+	}
+	errorTextLengthToInt32ForExport = func(int) (int32, error) {
+		return 0, fmt.Errorf("length conversion failed")
+	}
+
+	if prepared, ok := takeErrorTextForExport(id); ok || len(prepared.data) != 0 || prepared.ptr != 0 || prepared.length != 0 {
+		t.Fatalf("expected failed length conversion to return empty result, got %#v ok=%v", prepared, ok)
+	}
+	if pinnedPtr == 0 {
+		t.Fatal("expected failed attempt to pin error text before length conversion")
+	}
+	if Release(pinnedPtr) {
+		t.Fatal("expected failed length conversion path to release pinned pointer")
+	}
+
+	pinErrorText = PinString
+	errorTextLengthToInt32ForExport = LengthToInt32
+	prepared, ok := takeErrorTextForExport(id)
+	if !ok {
+		t.Fatal("expected error record to remain available after length conversion failure")
+	}
+	if got, want := string(prepared.data), "retry-export"; got != want {
+		t.Fatalf("unexpected error text after retry: got %q want %q", got, want)
+	}
+	if prepared.ptr == 0 {
+		t.Fatal("expected retry to return pinned pointer")
+	}
+	if got, want := prepared.length, int32(len(prepared.data)); got != want {
+		t.Fatalf("unexpected prepared length: got %d want %d", got, want)
+	}
+	if !Release(prepared.ptr) {
+		t.Fatal("expected retry pointer to be releasable")
+	}
+	if prepared, ok := takeErrorTextForExport(id); ok || len(prepared.data) != 0 || prepared.ptr != 0 || prepared.length != 0 {
+		t.Fatalf("expected successful retry to consume record, got %#v ok=%v", prepared, ok)
 	}
 }
 
@@ -207,4 +334,24 @@ func waitForCondition(t *testing.T, timeout time.Duration, fn func() bool, messa
 		time.Sleep(5 * time.Millisecond)
 	}
 	t.Fatal(message)
+}
+
+func assertStaysBlocked(t *testing.T, done <-chan struct{}, duration time.Duration, message string) {
+	t.Helper()
+
+	select {
+	case <-done:
+		t.Fatal(message)
+	case <-time.After(duration):
+	}
+}
+
+func assertCompletes(t *testing.T, done <-chan struct{}, timeout time.Duration, message string) {
+	t.Helper()
+
+	select {
+	case <-done:
+	case <-time.After(timeout):
+		t.Fatal(message)
+	}
 }
