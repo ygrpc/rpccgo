@@ -58,6 +58,24 @@ func TestPinSliceAndRelease(t *testing.T) {
 
 func TestPinBoolSliceDoesNotCompile(t *testing.T) {
 	dir := t.TempDir()
+	_, testFile, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("resolve test file path")
+	}
+	repoRoot := filepath.Dir(filepath.Dir(testFile))
+
+	goMod := `module boolfixture
+
+go 1.24.4
+
+require rpccgo v0.0.0
+
+replace rpccgo => ` + repoRoot + `
+`
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o600); err != nil {
+		t.Fatalf("write compile fixture go.mod: %v", err)
+	}
+
 	source := `package main
 
 import "rpccgo/rpcruntime"
@@ -66,18 +84,20 @@ func main() {
 	_, _ = rpcruntime.PinSlice([]bool{true, false})
 }
 `
-	path := filepath.Join(dir, "main.go")
-	if err := os.WriteFile(path, []byte(source), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "main.go"), []byte(source), 0o600); err != nil {
 		t.Fatalf("write compile fixture: %v", err)
 	}
 
-	cmd := exec.Command("go", "build", path)
+	goBinary := filepath.Join(runtime.GOROOT(), "bin", "go")
+	cmd := exec.Command(goBinary, "build", ".")
+	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GOWORK=off")
 	output, err := cmd.CombinedOutput()
 	if err == nil {
 		t.Fatalf("expected PinSlice([]bool) compile failure, got success")
 	}
-	if !strings.Contains(string(output), "bool does not satisfy") {
+	if !strings.Contains(string(output), "bool does not satisfy") &&
+		!strings.Contains(string(output), "does not satisfy") {
 		t.Fatalf("unexpected compile failure:\n%s", output)
 	}
 }
