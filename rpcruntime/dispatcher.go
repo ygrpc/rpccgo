@@ -56,3 +56,52 @@ func (d *Dispatcher[T]) StartStream(create func(AdapterSnapshot[T]) (session any
 	}
 	return d.streams.Create(session)
 }
+
+func LoadDispatcherStream[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle) (TSession, bool) {
+	var zero TSession
+	if dispatcher == nil {
+		return zero, false
+	}
+
+	session, ok := dispatcher.streams.Load(handle)
+	if !ok {
+		return zero, false
+	}
+	typed, ok := session.(TSession)
+	if !ok {
+		return zero, false
+	}
+	return typed, true
+}
+
+func TakeDispatcherStream[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle) (TSession, bool) {
+	var zero TSession
+	if dispatcher == nil {
+		return zero, false
+	}
+
+	session, ok := dispatcher.streams.Load(handle)
+	if !ok {
+		return zero, false
+	}
+	if _, ok := session.(TSession); !ok {
+		return zero, false
+	}
+
+	taken, ok := dispatcher.streams.Take(handle)
+	if !ok {
+		return zero, false
+	}
+	typed, ok := taken.(TSession)
+	if !ok {
+		return zero, false
+	}
+	return typed, true
+}
+
+func DeleteDispatcherStream[TAdapter any](dispatcher *Dispatcher[TAdapter], handle StreamHandle) bool {
+	if dispatcher == nil {
+		return false
+	}
+	return dispatcher.streams.Delete(handle)
+}
