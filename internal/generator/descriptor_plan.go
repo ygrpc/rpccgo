@@ -45,13 +45,17 @@ func buildServiceDescriptorPlan(service *protogen.Service) (ServicePlan, error) 
 		Methods:  make([]MethodPlan, 0, len(service.Methods)),
 	}
 	for _, method := range service.Methods {
-		plan.Methods = append(plan.Methods, buildMethodDescriptorPlan(method))
+		methodPlan, err := buildMethodDescriptorPlan(service, method)
+		if err != nil {
+			return ServicePlan{}, err
+		}
+		plan.Methods = append(plan.Methods, methodPlan)
 	}
 	return plan, nil
 }
 
-func buildMethodDescriptorPlan(method *protogen.Method) MethodPlan {
-	return MethodPlan{
+func buildMethodDescriptorPlan(service *protogen.Service, method *protogen.Method) (MethodPlan, error) {
+	plan := MethodPlan{
 		Name:      string(method.Desc.Name()),
 		GoName:    method.GoName,
 		FullName:  string(method.Desc.FullName()),
@@ -67,4 +71,5 @@ func buildMethodDescriptorPlan(method *protogen.Method) MethodPlan {
 			FullName:     string(method.Output.Desc.FullName()),
 		},
 	}
+	return BuildContractPlan(service, method, plan)
 }

@@ -50,16 +50,18 @@ func (p ServicePlan) HasIdentity() bool {
 }
 
 type MethodPlan struct {
-	Name         string
-	GoName       string
-	FullName     string
-	Streaming    StreamingKind
-	Request      MethodIOPlan
-	Response     MethodIOPlan
-	Lifecycle    LifecyclePlan
-	NeedsCodec   bool
-	RequestBody  []FieldPlan
-	ResponseBody []FieldPlan
+	Name            string
+	GoName          string
+	FullName        string
+	Streaming       StreamingKind
+	Request         MethodIOPlan
+	Response        MethodIOPlan
+	NativeContract  NativeContractPlan
+	MessageContract MessageContractPlan
+	Lifecycle       LifecyclePlan
+	NeedsCodec      bool
+	RequestBody     []FieldPlan
+	ResponseBody    []FieldPlan
 }
 
 func (p MethodPlan) HasIdentity() bool {
@@ -67,14 +69,65 @@ func (p MethodPlan) HasIdentity() bool {
 }
 
 type FieldPlan struct {
-	Name       string
-	GoName     string
-	FullName   string
-	Kind       string
-	Repeated   bool
-	Enum       bool
-	Message    bool
-	NativeType string
+	Name     string
+	GoName   string
+	FullName string
+	Kind     FieldKind
+	Repeated bool
+	Enum     bool
+	Message  bool
+	Native   NativeFieldPlan
+}
+
+type FieldKind string
+
+const (
+	FieldKindSignedInt32 FieldKind = "signed_int32"
+	FieldKindSignedInt64 FieldKind = "signed_int64"
+	FieldKindFloat       FieldKind = "float"
+	FieldKindDouble      FieldKind = "double"
+	FieldKindBool        FieldKind = "bool"
+	FieldKindString      FieldKind = "string"
+	FieldKindBytes       FieldKind = "bytes"
+	FieldKindMessage     FieldKind = "message"
+	FieldKindEnum        FieldKind = "enum"
+)
+
+type NativeFieldKind string
+
+const (
+	NativeFieldKindSignedNumeric NativeFieldKind = "signed_numeric"
+	NativeFieldKindFloat         NativeFieldKind = "float"
+	NativeFieldKindBool          NativeFieldKind = "bool"
+	NativeFieldKindString        NativeFieldKind = "string"
+	NativeFieldKindBytes         NativeFieldKind = "bytes"
+	NativeFieldKindMessageBytes  NativeFieldKind = "message_bytes"
+	NativeFieldKindEnum          NativeFieldKind = "enum"
+)
+
+type NativeABIShape string
+
+const (
+	NativeABIShapeScalar                NativeABIShape = "scalar"
+	NativeABIShapeRepeated              NativeABIShape = "repeated"
+	NativeABIShapeBoolByte              NativeABIShape = "bool_byte"
+	NativeABIShapeBoolByteBufferWrapper NativeABIShape = "bool_byte_buffer_wrapper"
+	NativeABIShapeMessageBytes          NativeABIShape = "message_bytes"
+)
+
+type NativeFieldPlan struct {
+	Kind  NativeFieldKind
+	Shape NativeABIShape
+}
+
+type NativeContractPlan struct {
+	RequestFields  []FieldPlan
+	ResponseFields []FieldPlan
+}
+
+type MessageContractPlan struct {
+	RequestType  MethodIOPlan
+	ResponseType MethodIOPlan
 }
 
 type LifecycleTerminalKind string
