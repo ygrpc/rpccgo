@@ -71,5 +71,9 @@ func buildMethodDescriptorPlan(service *protogen.Service, method *protogen.Metho
 			FullName:     string(method.Output.Desc.FullName()),
 		},
 	}
-	return BuildContractPlan(service, method, plan)
+	plan, err := BuildContractPlan(service, method, plan)
+	if err != nil {
+		return MethodPlan{}, err
+	}
+	return BuildStreamingPlan(plan)
 }

@@ -138,11 +138,14 @@ const (
 )
 
 type LifecyclePlan struct {
+	HasStart        bool
 	HasSend         bool
 	HasFinish       bool
 	HasCloseSend    bool
 	HasCancel       bool
 	CancelFinalizes bool
+	HasOnRead       bool
+	HasOnDone       bool
 	TerminalKind    LifecycleTerminalKind
 }
 
