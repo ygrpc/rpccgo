@@ -38,20 +38,27 @@ func buildServiceDescriptorPlan(service *protogen.Service) (ServicePlan, error) 
 	}
 
 	plan := ServicePlan{
-		Name:     string(service.Desc.Name()),
-		GoName:   service.GoName,
-		FullName: string(service.Desc.FullName()),
-		Adapters: adapters,
-		Methods:  make([]MethodPlan, 0, len(service.Methods)),
+		Name:       string(service.Desc.Name()),
+		GoName:     service.GoName,
+		FullName:   string(service.Desc.FullName()),
+		Adapters:   adapters,
+		Methods:    make([]MethodPlan, 0, len(service.Methods)),
+		NeedsCodec: serviceNeedsCodec(adapters),
 	}
 	for _, method := range service.Methods {
 		methodPlan, err := buildMethodDescriptorPlan(service, method)
 		if err != nil {
 			return ServicePlan{}, err
 		}
+		methodPlan.NeedsCodec = plan.NeedsCodec
 		plan.Methods = append(plan.Methods, methodPlan)
 	}
 	return plan, nil
+}
+
+func serviceNeedsCodec(adapters AdapterSelection) bool {
+	return adapters.Has(AdapterTokenNative) &&
+		(adapters.Has(AdapterTokenMessageConnect) || adapters.Has(AdapterTokenMessageGRPC))
 }
 
 func buildMethodDescriptorPlan(service *protogen.Service, method *protogen.Method) (MethodPlan, error) {
