@@ -43,7 +43,7 @@ func buildServiceDescriptorPlan(service *protogen.Service) (ServicePlan, error) 
 		FullName:   string(service.Desc.FullName()),
 		Adapters:   adapters,
 		Methods:    make([]MethodPlan, 0, len(service.Methods)),
-		NeedsCodec: serviceNeedsCodec(adapters),
+		NeedsCodec: serviceNeedsNativeMessageCodec(),
 	}
 	for _, method := range service.Methods {
 		methodPlan, err := buildMethodDescriptorPlan(service, method)
@@ -56,9 +56,8 @@ func buildServiceDescriptorPlan(service *protogen.Service) (ServicePlan, error) 
 	return plan, nil
 }
 
-func serviceNeedsCodec(adapters AdapterSelection) bool {
-	return adapters.Has(AdapterTokenNative) &&
-		(adapters.Has(AdapterTokenMessageConnect) || adapters.Has(AdapterTokenMessageGRPC))
+func serviceNeedsNativeMessageCodec() bool {
+	return true
 }
 
 func buildMethodDescriptorPlan(service *protogen.Service, method *protogen.Method) (MethodPlan, error) {

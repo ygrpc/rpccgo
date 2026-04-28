@@ -32,8 +32,7 @@ func TestStage1AcceptanceBuildsCompleteServicePlans(t *testing.T) {
 	}
 
 	wantServices := map[string]struct {
-		tokens     []AdapterToken
-		needsCodec bool
+		tokens []AdapterToken
 	}{
 		"DefaultService": {
 			tokens: []AdapterToken{AdapterTokenMessageConnect},
@@ -48,16 +47,13 @@ func TestStage1AcceptanceBuildsCompleteServicePlans(t *testing.T) {
 			tokens: []AdapterToken{AdapterTokenMessageConnect, AdapterTokenMessageGRPC},
 		},
 		"ConnectNativeService": {
-			tokens:     []AdapterToken{AdapterTokenMessageConnect, AdapterTokenNative},
-			needsCodec: true,
+			tokens: []AdapterToken{AdapterTokenMessageConnect, AdapterTokenNative},
 		},
 		"AllService": {
-			tokens:     []AdapterToken{AdapterTokenMessageConnect, AdapterTokenMessageGRPC, AdapterTokenNative},
-			needsCodec: true,
+			tokens: []AdapterToken{AdapterTokenMessageConnect, AdapterTokenMessageGRPC, AdapterTokenNative},
 		},
 		"NativeOnlyService": {
-			tokens:     []AdapterToken{AdapterTokenMessageConnect, AdapterTokenNative},
-			needsCodec: true,
+			tokens: []AdapterToken{AdapterTokenMessageConnect, AdapterTokenNative},
 		},
 	}
 
@@ -65,12 +61,12 @@ func TestStage1AcceptanceBuildsCompleteServicePlans(t *testing.T) {
 	for name, want := range wantServices {
 		service := services[name]
 		assertAdapterTokens(t, service.Adapters, want.tokens)
-		if service.NeedsCodec != want.needsCodec {
-			t.Fatalf("%s NeedsCodec = %v, want %v", name, service.NeedsCodec, want.needsCodec)
+		if !service.NeedsCodec {
+			t.Fatalf("%s NeedsCodec = false, want true", name)
 		}
 		for _, method := range service.Methods {
-			if method.NeedsCodec != want.needsCodec {
-				t.Fatalf("%s.%s NeedsCodec = %v, want %v", name, method.Name, method.NeedsCodec, want.needsCodec)
+			if !method.NeedsCodec {
+				t.Fatalf("%s.%s NeedsCodec = false, want true", name, method.Name)
 			}
 			assertStage1ContractsPresent(t, method)
 		}
@@ -127,7 +123,7 @@ func TestStage1AcceptanceRejectsBadServiceTokens(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			file := stage1AcceptanceFile()
-			file.SourceCodeInfo.Location[1].LeadingComments = proto.String(tt.comment)
+			setStage1ServiceComment(t, file, "ConnectService", tt.comment)
 			plugin := newTestPlugin(t, "paths=source_relative", file)
 
 			_, err := Generate(plugin)
@@ -292,4 +288,47 @@ func stage1ServiceComments(comments []string) *descriptorpb.SourceCodeInfo {
 		})
 	}
 	return &descriptorpb.SourceCodeInfo{Location: locations}
+}
+
+func setStage1ServiceComment(t *testing.T, file *descriptorpb.FileDescriptorProto, serviceName, comment string) {
+	t.Helper()
+
+	serviceIndex := -1
+	for index, service := range file.Service {
+		if service.GetName() == serviceName {
+			serviceIndex = index
+			break
+		}
+	}
+	if serviceIndex < 0 {
+		t.Fatalf("service %q not found in stage 1 fixture", serviceName)
+	}
+
+	if file.SourceCodeInfo == nil {
+		file.SourceCodeInfo = &descriptorpb.SourceCodeInfo{}
+	}
+	path := []int32{6, int32(serviceIndex)}
+	for _, location := range file.SourceCodeInfo.Location {
+		if sameSourcePath(location.Path, path) {
+			location.LeadingComments = proto.String(comment)
+			return
+		}
+	}
+	file.SourceCodeInfo.Location = append(file.SourceCodeInfo.Location, &descriptorpb.SourceCodeInfo_Location{
+		Path:            path,
+		Span:            []int32{int32(serviceIndex), 0, int32(serviceIndex), 1},
+		LeadingComments: proto.String(comment),
+	})
+}
+
+func sameSourcePath(got, want []int32) bool {
+	if len(got) != len(want) {
+		return false
+	}
+	for index := range got {
+		if got[index] != want[index] {
+			return false
+		}
+	}
+	return true
 }
