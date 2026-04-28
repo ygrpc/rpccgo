@@ -97,14 +97,14 @@ func (r *StreamRegistry[T]) allocateLocked() (StreamHandle, error) {
 	}
 
 	next := r.next
-	if next <= 0 || next >= limit {
+	if next <= 0 || next > limit {
 		next = 1
 	}
 
 	for scanned := StreamHandle(0); scanned < limit; scanned++ {
 		handle := next
 		next++
-		if next <= 0 || next >= limit {
+		if next <= 0 || next > limit {
 			next = 1
 		}
 		if handle == 0 {

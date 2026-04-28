@@ -9,6 +9,18 @@ type testStreamSession struct {
 	name string
 }
 
+type testStreamSessionInterface interface {
+	sessionName() string
+}
+
+type testStreamSessionPointer struct {
+	name string
+}
+
+func (s *testStreamSessionPointer) sessionName() string {
+	return s.name
+}
+
 func TestStreamRegistryCreateLoadDeleteTake(t *testing.T) {
 	var registry StreamRegistry[testStreamSession]
 
@@ -68,6 +80,13 @@ func TestStreamRegistryRejectsZeroSession(t *testing.T) {
 	if handle, err := pointerRegistry.Create(nil); err == nil {
 		t.Fatalf("Create returned nil error for nil pointer session with handle %d", handle)
 	}
+
+	var typedNil *testStreamSessionPointer
+	var interfaceSession testStreamSessionInterface = typedNil
+	var interfaceRegistry StreamRegistry[testStreamSessionInterface]
+	if handle, err := interfaceRegistry.Create(interfaceSession); err == nil {
+		t.Fatalf("Create returned nil error for typed nil interface session with handle %d", handle)
+	}
 }
 
 func TestStreamRegistryUnknownHandle(t *testing.T) {
@@ -103,13 +122,21 @@ func TestStreamHandleWrapSkipsZeroAndFindsOpenSlot(t *testing.T) {
 
 	handle, err := registry.Create(testStreamSession{name: "wrapped"})
 	if err != nil {
+		t.Fatalf("Create returned error for max handle: %v", err)
+	}
+	if handle != maxStreamHandle {
+		t.Fatalf("Create returned handle %d, want %d", handle, maxStreamHandle)
+	}
+
+	wrapped, err := registry.Create(testStreamSession{name: "after wrap"})
+	if err != nil {
 		t.Fatalf("Create returned error after wrap: %v", err)
 	}
-	if handle == 0 {
+	if wrapped == 0 {
 		t.Fatal("Create returned zero handle after wrap")
 	}
-	if handle != 2 {
-		t.Fatalf("Create returned handle %d after wrap, want 2", handle)
+	if wrapped != 2 {
+		t.Fatalf("Create returned handle %d after wrap, want 2", wrapped)
 	}
 }
 
@@ -125,7 +152,42 @@ func TestStreamHandleWrapReportsExhaustion(t *testing.T) {
 	}
 }
 
-func TestStreamRegistryConcurrentCreateReturnsUniqueNonZeroSignedHandles(t *testing.T) {
+func TestStreamHandleInclusiveMaxIsAllocatable(t *testing.T) {
+	registry := StreamRegistry[testStreamSession]{
+		next: 1,
+		sessions: map[StreamHandle]testStreamSession{
+			1: {name: "first"},
+			2: {name: "second"},
+		},
+		maxHandleForTesting: 3,
+	}
+
+	handle, err := registry.Create(testStreamSession{name: "third"})
+	if err != nil {
+		t.Fatalf("Create returned error before handle space was exhausted: %v", err)
+	}
+	if handle != 3 {
+		t.Fatalf("Create returned handle %d, want 3", handle)
+	}
+}
+
+func TestStreamHandleInclusiveMaxReportsExhaustionOnlyWhenFull(t *testing.T) {
+	registry := StreamRegistry[testStreamSession]{
+		next: 1,
+		sessions: map[StreamHandle]testStreamSession{
+			1: {name: "first"},
+			2: {name: "second"},
+			3: {name: "third"},
+		},
+		maxHandleForTesting: 3,
+	}
+
+	if handle, err := registry.Create(testStreamSession{name: "fourth"}); err == nil {
+		t.Fatalf("Create returned nil error after handle space was exhausted with handle %d", handle)
+	}
+}
+
+func TestStreamRegistryConcurrentCreateReturnsUniqueNonZeroInt32Handles(t *testing.T) {
 	var registry StreamRegistry[testStreamSession]
 	const workers = 8
 	const perWorker = 128
