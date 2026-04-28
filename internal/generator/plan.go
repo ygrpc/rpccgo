@@ -16,6 +16,15 @@ func (s AdapterSelection) HasTokens() bool {
 	return len(s.Tokens) > 0
 }
 
+func (s AdapterSelection) Has(token AdapterToken) bool {
+	for _, current := range s.Tokens {
+		if current == token {
+			return true
+		}
+	}
+	return false
+}
+
 type FilePlan struct {
 	GoPackageName string
 	GoImportPath  string
