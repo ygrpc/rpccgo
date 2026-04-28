@@ -1,7 +1,6 @@
 package rpcruntime
 
 import (
-	"math"
 	"sync"
 	"testing"
 )
@@ -98,7 +97,7 @@ func TestStreamRegistryUnknownHandle(t *testing.T) {
 
 func TestStreamHandleWrapSkipsZeroAndFindsOpenSlot(t *testing.T) {
 	registry := StreamRegistry[testStreamSession]{
-		next:     math.MaxInt64,
+		next:     maxStreamHandle,
 		sessions: map[StreamHandle]testStreamSession{1: {name: "occupied"}},
 	}
 
@@ -116,7 +115,7 @@ func TestStreamHandleWrapSkipsZeroAndFindsOpenSlot(t *testing.T) {
 
 func TestStreamHandleWrapReportsExhaustion(t *testing.T) {
 	registry := StreamRegistry[testStreamSession]{
-		next:     math.MaxInt64,
+		next:     maxStreamHandle,
 		sessions: map[StreamHandle]testStreamSession{1: {name: "occupied"}},
 	}
 	registry.maxHandleForTesting = 1

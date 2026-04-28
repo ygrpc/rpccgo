@@ -35,7 +35,7 @@
 | 旧项目文件或模块 | 本阶段处理 | 作用 | 为什么迁移或参考 |
 |---|---|---|---|
 | `rpcruntime/active_slot.go` | 不迁移实现，只记录结论 | 旧文件为空，没有可复用实现 | 新版 active server slot 必须重建；旧文件只能证明阶段 2 需要补这个 runtime primitive |
-| 旧 generated stream registry runtime | 参考后重写 | 为 generated streaming 调用分配 handle、保存 session、按 handle 查找和删除 | handle/session 表的生命周期思路可复用，但旧实现绑定 generated 输出、旧 handle 类型和旧 native/message 分裂模型，必须按新版 signed handle 与 service-agnostic runtime 重写 |
+| 旧 generated stream registry runtime | 参考后重写 | 为 generated streaming 调用分配 handle、保存 session、按 handle 查找和删除 | handle/session 表的生命周期思路可复用，但旧实现绑定 generated 输出、旧 handle 类型和旧 native/message 分裂模型，必须按新版 `int32` handle 与 service-agnostic runtime 重写 |
 | `internal/generator/message_streaming_render.go` 的 session 状态机片段 | 参考后重写 | 处理 send、close send、cancel、onRead、onDone 的状态转换 | 状态语义有参考价值，但旧代码是 renderer 字符串输出且绑定 connect/grpc 适配细节；阶段 2 只抽取 runtime session 终态和 cancel/finalize 规则 |
 | 旧 streaming lifecycle 测试思路 | 迁移测试思路 | 覆盖 unknown handle、重复 cancel、close send 后 send、terminal cleanup | 这些行为是 runtime foundation 的核心质量门槛，适合用新版 API 重新写测试 |
 | 旧 registry/provider/bootstrap 代码 | 不迁移 | 支撑历史多 provider、多 registry、多 bootstrap 选择 | 与新版单 dispatcher、单 active server slot 约束冲突，不能带入阶段 2 |
@@ -50,7 +50,7 @@
 - `AdapterSnapshot[T]`：保存 server kind、contract、version、adapter。
 - `ActiveServerSlot[T]`：注册并读取当前 active server snapshot。
 - `Dispatcher[T]`：封装 active slot，并提供 snapshot capture 入口。
-- `StreamHandle`：signed stream handle。
+- `StreamHandle`：`int32` stream handle。
 - `StreamRegistry[T]`：分配 handle、保存 session、load、delete、finalize。
 - `StreamSessionState`：标识 active、closed send、finalized、canceled 等状态。
 - `StreamFinalizer` / `CancelFunc` 等通用 callback primitive。
@@ -135,7 +135,7 @@
 - 参考旧 generated stream registry 的 handle 分配、store、load、delete 思路。
 - 不迁旧 generated 代码，因为旧实现绑定 generated 文件、旧 handle 类型和 native/message 双 runtime。
 
-- [ ] 定义 signed `StreamHandle`。
+- [ ] 定义 `int32` `StreamHandle`。
 - [ ] 定义 `StreamRegistry[T any]`。
 - [ ] 实现 `Create(session T) (StreamHandle, error)`，返回非零 handle。
 - [ ] 实现 `Load(handle StreamHandle) (T, bool)`。
@@ -143,9 +143,9 @@
 - [ ] 实现 `Take(handle StreamHandle) (T, bool)`，用于 terminal 操作原子取出 session。
 - [ ] nil session 或 zero session 必须报错。
 - [ ] handle 分配 wrap 时不得返回 zero；如果耗尽，返回明确错误。
-- [ ] 添加测试：create/load/delete/take、unknown handle、重复 delete、并发 create 产生唯一 non-zero signed handle。
+- [ ] 添加测试：create/load/delete/take、unknown handle、重复 delete、并发 create 产生唯一 non-zero `int32` handle。
 - [ ] 运行 `rtk go test ./rpcruntime -run 'TestStreamRegistry|TestStreamHandle' -count=1`。
-- [ ] 验收：stream session table 是 service-agnostic，并使用 signed handle。
+- [ ] 验收：stream session table 是 service-agnostic，并使用 `int32` handle。
 - [ ] 提交：`feat: add stream session registry`
 
 ## Task 5：实现 stream session 状态与 finalization helper
@@ -185,7 +185,7 @@
 - 迁移旧 streaming 测试关注点：Start 时捕获 adapter，后续 handle 操作固定路由到该 snapshot。
 
 - [ ] 在 `Dispatcher[T]` 中提供 `StartStream(create func(AdapterSnapshot[T]) (session any, err error))` 或等价 helper；helper 必须先 capture snapshot，再创建 session。
-- [ ] 将创建出的 session 存入 `StreamRegistry`，返回 signed handle。
+- [ ] 将创建出的 session 存入 `StreamRegistry`，返回 `int32` handle。
 - [ ] 测试：注册 server A，Start stream，注册 server B，随后通过 handle 取出的 session 仍绑定 server A snapshot。
 - [ ] 测试：Start 时没有 active server 返回错误且不分配 handle。
 - [ ] 测试：Start 创建 session 失败时不泄漏 handle。
@@ -241,7 +241,7 @@
 
 - `rpcruntime` 提供 service-agnostic active server slot。
 - `rpcruntime` 提供 dispatcher shell，可以在 unary 调用开始时捕获 active server snapshot。
-- `rpcruntime` 提供 signed stream handle allocator 和 stream session registry。
+- `rpcruntime` 提供 `int32` stream handle allocator 和 stream session registry。
 - stream `Start` 捕获 active server snapshot，后续 handle 操作固定使用该 snapshot。
 - `Cancel`、`Finish`、`CloseSend`、`onDone` 的 terminal/finalize 行为有 runtime helper 和测试覆盖。
 - runtime foundation 不依赖 service-specific protobuf 类型，不 import protobuf、connect、grpc 或 `internal/generator`。

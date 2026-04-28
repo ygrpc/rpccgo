@@ -2,12 +2,13 @@ package rpcruntime
 
 import (
 	"errors"
-	"math"
 	"reflect"
 	"sync"
 )
 
-type StreamHandle int64
+const maxStreamHandle = StreamHandle(1<<31 - 1)
+
+type StreamHandle int32
 
 var (
 	errStreamRegistryZeroSession = errors.New("stream registry requires non-zero session")
@@ -122,7 +123,7 @@ func (r *StreamRegistry[T]) maxHandle() StreamHandle {
 	if r.maxHandleForTesting > 0 {
 		return r.maxHandleForTesting
 	}
-	return StreamHandle(math.MaxInt64)
+	return maxStreamHandle
 }
 
 func hasNonZeroSession[T any](session T) bool {

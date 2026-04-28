@@ -68,7 +68,7 @@ connect client 和 grpc client 属于标准 RPC client，不进入 rpccgo client
 - C ABI 中不要引入 `uint32_t`、`uint64_t`。
 - 文档中不要使用 `u32`、`u64` 作为设计类型。
 - `ErrorID` 使用 `int32`，`0` 表示 no error。
-- runtime handle、scheduler key、error id 等跨语言可见数字类型默认使用 signed 类型。
+- runtime handle、scheduler key、error id 等跨语言可见数字类型默认使用 `int32`。
 - `NativeArrayElem` 不支持 32/64 位 unsigned 类型。
 - repeated bool 不使用 Go `[]bool` 作为 C ABI 表示；使用 byte 编码，由专门 wrapper 处理。
 - `uintptr` 用于 pointer handle 时可以保留。
