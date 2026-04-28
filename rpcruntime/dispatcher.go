@@ -6,12 +6,14 @@ import (
 )
 
 var (
-	errDispatcherNoActiveServer = errors.New("dispatcher has no active server")
-	errDispatcherNilInvoke      = errors.New("dispatcher invoke callback is nil")
+	errDispatcherNoActiveServer  = errors.New("dispatcher has no active server")
+	errDispatcherNilInvoke       = errors.New("dispatcher invoke callback is nil")
+	errDispatcherNilStreamCreate = errors.New("dispatcher stream create callback is nil")
 )
 
 type Dispatcher[T any] struct {
-	slot ActiveServerSlot[T]
+	slot    ActiveServerSlot[T]
+	streams StreamRegistry[any]
 }
 
 func (d *Dispatcher[T]) Register(kind ServerKind, contract ServerContract, adapter T) (AdapterSnapshot[T], error) {
@@ -36,4 +38,21 @@ func (d *Dispatcher[T]) Invoke(ctx context.Context, invoke func(context.Context,
 		return err
 	}
 	return invoke(ctx, snapshot)
+}
+
+func (d *Dispatcher[T]) StartStream(create func(AdapterSnapshot[T]) (session any, err error)) (StreamHandle, error) {
+	if create == nil {
+		return 0, errDispatcherNilStreamCreate
+	}
+
+	snapshot, err := d.Capture()
+	if err != nil {
+		return 0, err
+	}
+
+	session, err := create(snapshot)
+	if err != nil {
+		return 0, err
+	}
+	return d.streams.Create(session)
 }
