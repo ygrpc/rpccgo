@@ -2,6 +2,7 @@ package rpcruntime
 
 import (
 	"errors"
+	"sync"
 	"testing"
 )
 
@@ -122,6 +123,36 @@ func TestStreamSessionOnDoneFinalizes(t *testing.T) {
 	}
 }
 
+func TestStreamSessionCancelAfterRegistryTakeFinalizesHandle(t *testing.T) {
+	var registry StreamRegistry[*StreamLifecycle]
+	lifecycle := &StreamLifecycle{}
+	called := 0
+
+	handle, err := registry.Create(lifecycle)
+	if err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+	cancelLifecycle, ok := registry.Take(handle)
+	if !ok {
+		t.Fatal("Take returned false for cancel")
+	}
+	if err := cancelLifecycle.Cancel(func() error {
+		called++
+		return nil
+	}); err != nil {
+		t.Fatalf("Cancel returned error: %v", err)
+	}
+	if called != 1 {
+		t.Fatalf("cancel callback called %d times, want 1", called)
+	}
+	if _, ok := registry.Load(handle); ok {
+		t.Fatal("Load returned true after cancel Take")
+	}
+	if _, ok := registry.Take(handle); ok {
+		t.Fatal("Take returned true after cancel finalized handle")
+	}
+}
+
 func TestStreamSessionDoubleTerminalOperationOnlySucceedsOnce(t *testing.T) {
 	var lifecycle StreamLifecycle
 	called := 0
@@ -164,5 +195,61 @@ func TestStreamSessionCancelTerminalOperationOnlySucceedsOnce(t *testing.T) {
 	}
 	if lifecycle.Finalize() {
 		t.Fatal("Finalize returned true after Cancel")
+	}
+}
+
+func TestStreamSessionConcurrentCancelAndFinalizeOnlyOneTerminalWins(t *testing.T) {
+	const attempts = 200
+
+	for attempt := 0; attempt < attempts; attempt++ {
+		var lifecycle StreamLifecycle
+		start := make(chan struct{})
+		var wg sync.WaitGroup
+		var callbackMu sync.Mutex
+		callbackCalls := 0
+		var finalizeOK bool
+		var cancelErr error
+
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			<-start
+			finalizeOK = lifecycle.Finalize()
+		}()
+		go func() {
+			defer wg.Done()
+			<-start
+			cancelErr = lifecycle.Cancel(func() error {
+				callbackMu.Lock()
+				defer callbackMu.Unlock()
+				callbackCalls++
+				return nil
+			})
+		}()
+
+		close(start)
+		wg.Wait()
+
+		cancelOK := cancelErr == nil
+		if finalizeOK && cancelOK {
+			t.Fatalf("attempt %d: Finalize and Cancel both succeeded", attempt)
+		}
+		if !finalizeOK && !cancelOK {
+			if !errors.Is(cancelErr, errStreamFinalized) {
+				t.Fatalf("attempt %d: Cancel returned %v, want nil or errStreamFinalized", attempt, cancelErr)
+			}
+		}
+		callbackMu.Lock()
+		calls := callbackCalls
+		callbackMu.Unlock()
+		if calls > 1 {
+			t.Fatalf("attempt %d: cancel callback called %d times, want at most 1", attempt, calls)
+		}
+		if cancelOK && calls != 1 {
+			t.Fatalf("attempt %d: successful Cancel called callback %d times, want 1", attempt, calls)
+		}
+		if !cancelOK && calls != 0 {
+			t.Fatalf("attempt %d: failed Cancel called callback %d times, want 0", attempt, calls)
+		}
 	}
 }
