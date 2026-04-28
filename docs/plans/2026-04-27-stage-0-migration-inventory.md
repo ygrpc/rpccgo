@@ -31,7 +31,7 @@
 ## 明确调整
 
 - `ErrorID` 使用 `int32`，`0` 表示没有 error。
-- runtime、ABI 和测试中不使用 `uint32`、`uint64`、`atomic.Uint32`、`atomic.Uint64`、`uint32_t`、`uint64_t`、`u32`、`u64`。
+- runtime、ABI 和测试中不使用 32/64 位 unsigned integer 类型或对应 C/Rust 风格别名。
 - `NativeArrayElem` 与 `NativeRepeatElem` 不包含 32/64 unsigned 类型。
 - `RpcBoolRepeat` 使用 byte buffer 表示 bool repeated，不使用 Go `[]bool` 底层指针。
 - `TakeErrorTextForExport` 使用 signed `int32` status 和 signed `int32` error id。

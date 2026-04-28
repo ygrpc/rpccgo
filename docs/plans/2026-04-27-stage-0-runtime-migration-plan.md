@@ -200,3 +200,10 @@ docs/specs/
 - 迁移清单明确说明每项旧代码的作用和迁移理由。
 - `active_slot.go`、旧 generator、旧 integration 代码没有被提前迁入。
 - `rtk go test ./...` 通过。
+
+## 阶段 0 验证记录
+
+- `rtk go test ./...`：通过。
+- `rtk git status --short`：干净。
+- `rtk rg -n "dispatcher|adapter|renderer|example|Register.*Server|active slot|active server" --glob '*.go' .`：无匹配，未引入 dispatcher、generator renderer、adapter 或 example 业务代码。
+- 禁用 unsigned ABI token 扫描：无匹配。
