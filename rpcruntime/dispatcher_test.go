@@ -34,6 +34,21 @@ func TestDispatcherInvokeRejectsNilCallback(t *testing.T) {
 	}
 }
 
+func TestDispatcherInvokeRejectsNilCallbackBeforeCapture(t *testing.T) {
+	var dispatcher Dispatcher[*fakeDispatcherAdapter]
+
+	err := dispatcher.Invoke(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected nil callback error")
+	}
+	if !strings.Contains(err.Error(), "invoke") {
+		t.Fatalf("unexpected nil callback error %q, want it to mention invoke", err.Error())
+	}
+	if strings.Contains(err.Error(), "active server") {
+		t.Fatalf("nil callback error should take precedence over active server capture: %q", err.Error())
+	}
+}
+
 func TestDispatcherRegisterAndInvoke(t *testing.T) {
 	var dispatcher Dispatcher[*fakeDispatcherAdapter]
 	adapter := &fakeDispatcherAdapter{name: "first"}
