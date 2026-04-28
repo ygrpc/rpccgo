@@ -13,6 +13,7 @@ var (
 
 type ActiveServerSlot[T any] struct {
 	mu       sync.Mutex
+	// version 从 1 开始递增，0 表示未初始化,用于区分当前 slot 所持有的 adapter 是否有效，以及是否发生过更新。
 	version  int64
 	snapshot AdapterSnapshot[T]
 }
