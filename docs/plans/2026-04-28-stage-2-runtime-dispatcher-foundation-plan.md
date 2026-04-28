@@ -59,6 +59,8 @@
 
 ## Task 1：定义 runtime dispatcher contract primitive
 
+**状态：已完成。**
+
 **Files:**
 
 - Create: `rpcruntime/dispatcher_contract.go`
@@ -69,16 +71,18 @@
 - 不从旧项目直接迁移。旧项目没有独立 dispatcher contract primitive。
 - 从架构文档提取 server kind、contract kind 和 snapshot 语义，作为后续 active slot、dispatcher、stream session 的共同语言。
 
-- [ ] 定义 `ServerContract`，至少包含 native 与 message 两种 contract。
-- [ ] 定义 `ServerKind`，覆盖 go native、cgo native、cgo message、connect handler、grpc server、connect remote、grpc remote。
-- [ ] 定义 `AdapterSnapshot[T any]`，包含 server kind、server contract、version、adapter。
-- [ ] 定义 `HasAdapter()` 或等价方法，确保 zero snapshot 不会被误认为有效 active server。
-- [ ] 添加测试：zero snapshot invalid、native/message contract 可区分、所有 server kind 有稳定字符串表示。
-- [ ] 运行 `rtk go test ./rpcruntime -run 'TestServerContract|TestServerKind|TestAdapterSnapshot' -count=1`。
-- [ ] 验收：runtime contract primitive 不依赖 protobuf、connect、grpc 或 generator。
-- [ ] 提交：`feat: add runtime dispatcher contracts`
+- [x] 定义 `ServerContract`，至少包含 native 与 message 两种 contract。
+- [x] 定义 `ServerKind`，覆盖 go native、cgo native、cgo message、connect handler、grpc server、connect remote、grpc remote。
+- [x] 定义 `AdapterSnapshot[T any]`，包含 server kind、server contract、version、adapter。
+- [x] 定义 `HasAdapter()` 或等价方法，确保 zero snapshot 不会被误认为有效 active server。
+- [x] 添加测试：zero snapshot invalid、native/message contract 可区分、所有 server kind 有稳定字符串表示。
+- [x] 运行 `rtk go test ./rpcruntime -run 'TestServerContract|TestServerKind|TestAdapterSnapshot' -count=1`。
+- [x] 验收：runtime contract primitive 不依赖 protobuf、connect、grpc 或 generator。
+- [x] 提交：`feat: add runtime dispatcher contracts`
 
 ## Task 2：实现 active server slot
+
+**状态：已完成。**
 
 **Files:**
 
@@ -90,18 +94,20 @@
 - 旧 `rpcruntime/active_slot.go` 是空文件，不迁移实现。
 - 参考旧架构中“注册覆盖后续调用”的目标语义，但按新版单 active server slot 重写。
 
-- [ ] 定义 `ActiveServerSlot[T any]`。
-- [ ] 实现 `Store(kind ServerKind, contract ServerContract, adapter T) (AdapterSnapshot[T], error)`。
-- [ ] 实现 `Load() (AdapterSnapshot[T], bool)`。
-- [ ] 每次成功注册递增 signed version，后注册覆盖后续 `Load`。
-- [ ] nil adapter 或 zero adapter 必须报错；错误消息不依赖 service-specific 类型。
-- [ ] `Load` 返回 snapshot value，后续注册不能改变旧 snapshot 中的 adapter 与 version。
-- [ ] 添加并发测试：多 goroutine store/load 不 panic、不返回 zero snapshot；最终 snapshot 是某个成功注册结果。
-- [ ] 运行 `rtk go test ./rpcruntime -run 'TestActiveServerSlot' -count=1`。
-- [ ] 验收：单个 service 可以注册一个 active server，后注册 server 覆盖后续调用，旧 snapshot 保持稳定。
-- [ ] 提交：`feat: add active server slot`
+- [x] 定义 `ActiveServerSlot[T any]`。
+- [x] 实现 `Store(kind ServerKind, contract ServerContract, adapter T) (AdapterSnapshot[T], error)`。
+- [x] 实现 `Load() (AdapterSnapshot[T], bool)`。
+- [x] 每次成功注册递增 signed version，后注册覆盖后续 `Load`。
+- [x] nil adapter 或 zero adapter 必须报错；错误消息不依赖 service-specific 类型。
+- [x] `Load` 返回 snapshot value，后续注册不能改变旧 snapshot 中的 adapter 与 version。
+- [x] 添加并发测试：多 goroutine store/load 不 panic、不返回 zero snapshot；最终 snapshot 是某个成功注册结果。
+- [x] 运行 `rtk go test ./rpcruntime -run 'TestActiveServerSlot' -count=1`。
+- [x] 验收：单个 service 可以注册一个 active server，后注册 server 覆盖后续调用，旧 snapshot 保持稳定。
+- [x] 提交：`feat: add active server slot`
 
 ## Task 3：实现 dispatcher shell
+
+**状态：已完成。**
 
 **Files:**
 
@@ -113,17 +119,19 @@
 - 不迁旧 binding、registry 或 provider bootstrap。
 - 新 dispatcher shell 只封装 active slot 和 snapshot capture，不执行 service-specific converter。
 
-- [ ] 定义 `Dispatcher[T any]`，内部持有 `ActiveServerSlot[T]`。
-- [ ] 实现 `Register(kind ServerKind, contract ServerContract, adapter T) (AdapterSnapshot[T], error)`。
-- [ ] 实现 `Capture() (AdapterSnapshot[T], error)`，没有 active server 时返回明确错误。
-- [ ] 实现 `Invoke(ctx context.Context, invoke func(context.Context, AdapterSnapshot[T]) error) error`，用于 unary 调用捕获 snapshot 后执行 adapter。
-- [ ] 确认 `Invoke` 在调用开始时只 capture 一次；执行期间重新注册不影响当前调用。
-- [ ] 添加测试：未注册时报错、注册后可调用、后注册影响新调用、不影响已 capture 调用。
-- [ ] 运行 `rtk go test ./rpcruntime -run 'TestDispatcher' -count=1`。
-- [ ] 验收：dispatcher primitive 能证明 unary 调用使用启动时捕获的 active server snapshot。
-- [ ] 提交：`feat: add runtime dispatcher shell`
+- [x] 定义 `Dispatcher[T any]`，内部持有 `ActiveServerSlot[T]`。
+- [x] 实现 `Register(kind ServerKind, contract ServerContract, adapter T) (AdapterSnapshot[T], error)`。
+- [x] 实现 `Capture() (AdapterSnapshot[T], error)`，没有 active server 时返回明确错误。
+- [x] 实现 `Invoke(ctx context.Context, invoke func(context.Context, AdapterSnapshot[T]) error) error`，用于 unary 调用捕获 snapshot 后执行 adapter。
+- [x] 确认 `Invoke` 在调用开始时只 capture 一次；执行期间重新注册不影响当前调用。
+- [x] 添加测试：未注册时报错、注册后可调用、后注册影响新调用、不影响已 capture 调用。
+- [x] 运行 `rtk go test ./rpcruntime -run 'TestDispatcher' -count=1`。
+- [x] 验收：dispatcher primitive 能证明 unary 调用使用启动时捕获的 active server snapshot。
+- [x] 提交：`feat: add runtime dispatcher shell`
 
 ## Task 4：实现 stream handle allocator 与 session registry
+
+**状态：已完成。**
 
 **Files:**
 
@@ -135,20 +143,22 @@
 - 参考旧 generated stream registry 的 handle 分配、store、load、delete 思路。
 - 不迁旧 generated 代码，因为旧实现绑定 generated 文件、旧 handle 类型和 native/message 双 runtime。
 
-- [ ] 定义 `int32` `StreamHandle`。
-- [ ] 定义 `StreamRegistry[T any]`。
-- [ ] 实现 `Create(session T) (StreamHandle, error)`，返回非零 handle。
-- [ ] 实现 `Load(handle StreamHandle) (T, bool)`。
-- [ ] 实现 `Delete(handle StreamHandle) bool`。
-- [ ] 实现 `Take(handle StreamHandle) (T, bool)`，用于 terminal 操作原子取出 session。
-- [ ] nil session 或 zero session 必须报错。
-- [ ] handle 分配 wrap 时不得返回 zero；如果耗尽，返回明确错误。
-- [ ] 添加测试：create/load/delete/take、unknown handle、重复 delete、并发 create 产生唯一 non-zero `int32` handle。
-- [ ] 运行 `rtk go test ./rpcruntime -run 'TestStreamRegistry|TestStreamHandle' -count=1`。
-- [ ] 验收：stream session table 是 service-agnostic，并使用 `int32` handle。
-- [ ] 提交：`feat: add stream session registry`
+- [x] 定义 `int32` `StreamHandle`。
+- [x] 定义 `StreamRegistry[T any]`。
+- [x] 实现 `Create(session T) (StreamHandle, error)`，返回非零 handle。
+- [x] 实现 `Load(handle StreamHandle) (T, bool)`。
+- [x] 实现 `Delete(handle StreamHandle) bool`。
+- [x] 实现 `Take(handle StreamHandle) (T, bool)`，用于 terminal 操作原子取出 session。
+- [x] nil session 或 zero session 必须报错。
+- [x] handle 分配 wrap 时不得返回 zero；如果耗尽，返回明确错误。
+- [x] 添加测试：create/load/delete/take、unknown handle、重复 delete、并发 create 产生唯一 non-zero `int32` handle。
+- [x] 运行 `rtk go test ./rpcruntime -run 'TestStreamRegistry|TestStreamHandle' -count=1`。
+- [x] 验收：stream session table 是 service-agnostic，并使用 `int32` handle。
+- [x] 提交：`feat: add stream session registry`
 
 ## Task 5：实现 stream session 状态与 finalization helper
+
+**状态：已完成。**
 
 **Files:**
 
@@ -161,18 +171,20 @@
 - 参考旧 streaming renderer 的 send、close send、cancel、terminal cleanup 测试思路。
 - 重写为 runtime session helper，不绑定 request/response protobuf 类型。
 
-- [ ] 定义 `StreamSession` 或 `StreamLifecycle` helper，管理 active、send closed、finalized、canceled 状态。
-- [ ] 实现 `MarkSendClosed() error`，重复 close send 报错。
-- [ ] 实现 `EnsureCanSend() error`，send closed、finalized、canceled 后报错。
-- [ ] 实现 `Finalize() bool`，只允许第一次 terminal 操作成功。
-- [ ] 实现 `Cancel(cancel func() error) error`，调用 cancel 后进入 terminal 状态。
-- [ ] 将 `StreamRegistry.Take` 与 finalization helper 的使用方式写入测试，证明 terminal 操作后 handle 不再可用。
-- [ ] 添加测试：send after close、double close、cancel finalizes、finish finalizes、onDone finalizes、double terminal 操作只生效一次。
-- [ ] 运行 `rtk go test ./rpcruntime -run 'TestStreamSession|TestStreamRegistry' -count=1`。
-- [ ] 验收：client streaming、server streaming、bidi streaming 的 cancel/finalize 规则可以由同一 runtime helper 表达。
-- [ ] 提交：`feat: add stream session lifecycle helpers`
+- [x] 定义 `StreamSession` 或 `StreamLifecycle` helper，管理 active、send closed、finalized、canceled 状态。
+- [x] 实现 `MarkSendClosed() error`，重复 close send 报错。
+- [x] 实现 `EnsureCanSend() error`，send closed、finalized、canceled 后报错。
+- [x] 实现 `Finalize() bool`，只允许第一次 terminal 操作成功。
+- [x] 实现 `Cancel(cancel func() error) error`，调用 cancel 后进入 terminal 状态。
+- [x] 将 `StreamRegistry.Take` 与 finalization helper 的使用方式写入测试，证明 terminal 操作后 handle 不再可用。
+- [x] 添加测试：send after close、double close、cancel finalizes、finish finalizes、onDone finalizes、double terminal 操作只生效一次。
+- [x] 运行 `rtk go test ./rpcruntime -run 'TestStreamSession|TestStreamRegistry' -count=1`。
+- [x] 验收：client streaming、server streaming、bidi streaming 的 cancel/finalize 规则可以由同一 runtime helper 表达。
+- [x] 提交：`feat: add stream session lifecycle helpers`
 
 ## Task 6：证明 stream Start 捕获 active server snapshot
+
+**状态：已完成。**
 
 **Files:**
 
@@ -184,16 +196,18 @@
 - 不迁旧 generated Start/Send/Finish/Cancel 代码。
 - 迁移旧 streaming 测试关注点：Start 时捕获 adapter，后续 handle 操作固定路由到该 snapshot。
 
-- [ ] 在 `Dispatcher[T]` 中提供 `StartStream(create func(AdapterSnapshot[T]) (session any, err error))` 或等价 helper；helper 必须先 capture snapshot，再创建 session。
-- [ ] 将创建出的 session 存入 `StreamRegistry`，返回 `int32` handle。
-- [ ] 测试：注册 server A，Start stream，注册 server B，随后通过 handle 取出的 session 仍绑定 server A snapshot。
-- [ ] 测试：Start 时没有 active server 返回错误且不分配 handle。
-- [ ] 测试：Start 创建 session 失败时不泄漏 handle。
-- [ ] 运行 `rtk go test ./rpcruntime -run 'TestDispatcherStream' -count=1`。
-- [ ] 验收：已启动 stream 绑定启动时捕获的 server adapter，后续注册只影响新 stream。
-- [ ] 提交：`feat: capture active server for streams`
+- [x] 在 `Dispatcher[T]` 中提供 `StartStream(create func(AdapterSnapshot[T]) (session any, err error))` 或等价 helper；helper 必须先 capture snapshot，再创建 session。
+- [x] 将创建出的 session 存入 `StreamRegistry`，返回 `int32` handle。
+- [x] 测试：注册 server A，Start stream，注册 server B，随后通过 handle 取出的 session 仍绑定 server A snapshot。
+- [x] 测试：Start 时没有 active server 返回错误且不分配 handle。
+- [x] 测试：Start 创建 session 失败时不泄漏 handle。
+- [x] 运行 `rtk go test ./rpcruntime -run 'TestDispatcherStream' -count=1`。
+- [x] 验收：已启动 stream 绑定启动时捕获的 server adapter，后续注册只影响新 stream。
+- [x] 提交：`feat: capture active server for streams`
 
 ## Task 7：runtime foundation acceptance tests
+
+**状态：已完成。**
 
 **Files:**
 
@@ -205,18 +219,20 @@
 - 不迁旧 integration bootstrap。
 - 用新的 runtime primitive 写 service-agnostic acceptance fixture，证明阶段 2 完成标准。
 
-- [ ] 构造 fake adapter 类型，不依赖 protobuf、connect、grpc。
-- [ ] 验证单个 service dispatcher 可以注册一个 active server。
-- [ ] 验证后注册 server 覆盖后续 unary 调用。
-- [ ] 验证已启动 stream 固定使用启动时 snapshot。
-- [ ] 验证 unknown stream handle、double terminal、cancel finalizes 都返回明确错误或稳定 bool。
-- [ ] 验证 runtime foundation package 没有 import protobuf、connect、grpc、internal/generator。
-- [ ] 运行 `rtk go test ./rpcruntime -count=1`。
-- [ ] 运行 `rtk go test ./... -count=1`。
-- [ ] 验收：阶段 2 runtime foundation completion criteria 全部由测试覆盖。
-- [ ] 提交：`test: verify runtime dispatcher foundation`
+- [x] 构造 fake adapter 类型，不依赖 protobuf、connect、grpc。
+- [x] 验证单个 service dispatcher 可以注册一个 active server。
+- [x] 验证后注册 server 覆盖后续 unary 调用。
+- [x] 验证已启动 stream 固定使用启动时 snapshot。
+- [x] 验证 unknown stream handle、double terminal、cancel finalizes 都返回明确错误或稳定 bool。
+- [x] 验证 runtime foundation package 没有 import protobuf、connect、grpc、internal/generator。
+- [x] 运行 `rtk go test ./rpcruntime -count=1`。
+- [x] 运行 `rtk go test ./... -count=1`。
+- [x] 验收：阶段 2 runtime foundation completion criteria 全部由测试覆盖。
+- [x] 提交：`test: verify runtime dispatcher foundation`
 
 ## Task 8：记录阶段 2 迁移清单与验证结果
+
+**状态：已完成。**
 
 **Files:**
 
@@ -228,24 +244,24 @@
 - 阶段 2 会参考旧 stream registry 和 streaming lifecycle 测试思路，同时明确拒绝旧 registry/provider/bootstrap。
 - 迁移清单用于后续 generator renderer 实现时防止旧架构回流。
 
-- [ ] 写入已迁移、参考后重写、不迁移清单。
-- [ ] 明确旧 `active_slot.go` 没有实现可迁移。
-- [ ] 明确旧 stream registry 只能参考 handle/session 语义，不能迁移旧 handle 类型或 generated runtime 文件结构。
-- [ ] 明确旧 binding、provider bootstrap、framework selector 不进入新版 runtime foundation。
-- [ ] 记录验证命令：`rtk go test ./rpcruntime -count=1`、`rtk go test ./... -count=1`、禁止的 unsigned 32/64 token 扫描。
-- [ ] 不记录机器环境处理。
-- [ ] 验收：文档能回答阶段 2 “迁移了什么、为什么迁移、为什么不迁旧架构”。
-- [ ] 提交：`docs: record stage 2 migration inventory`
+- [x] 写入已迁移、参考后重写、不迁移清单。
+- [x] 明确旧 `active_slot.go` 没有实现可迁移。
+- [x] 明确旧 stream registry 只能参考 handle/session 语义，不能迁移旧 handle 类型或 generated runtime 文件结构。
+- [x] 明确旧 binding、provider bootstrap、framework selector 不进入新版 runtime foundation。
+- [x] 记录验证命令：`rtk go test ./rpcruntime -count=1`、`rtk go test ./... -count=1`、禁止的 unsigned 32/64 token 扫描。
+- [x] 不记录机器环境处理。
+- [x] 验收：文档能回答阶段 2 “迁移了什么、为什么迁移、为什么不迁旧架构”。
+- [x] 提交：`docs: record stage 2 migration inventory`
 
 ## 阶段 2 完成标准
 
-- `rpcruntime` 提供 service-agnostic active server slot。
-- `rpcruntime` 提供 dispatcher shell，可以在 unary 调用开始时捕获 active server snapshot。
-- `rpcruntime` 提供 `int32` stream handle allocator 和 stream session registry。
-- stream `Start` 捕获 active server snapshot，后续 handle 操作固定使用该 snapshot。
-- `Cancel`、`Finish`、`CloseSend`、`onDone` 的 terminal/finalize 行为有 runtime helper 和测试覆盖。
-- runtime foundation 不依赖 service-specific protobuf 类型，不 import protobuf、connect、grpc 或 `internal/generator`。
-- 旧多 registry、多 provider bootstrap、framework selector 没有被迁入。
-- `rtk go test ./rpcruntime -count=1` 通过。
-- `rtk go test ./... -count=1` 通过。
-- 禁止的 unsigned 32/64 token 扫描无命中。
+- [x] `rpcruntime` 提供 service-agnostic active server slot。
+- [x] `rpcruntime` 提供 dispatcher shell，可以在 unary 调用开始时捕获 active server snapshot。
+- [x] `rpcruntime` 提供 `int32` stream handle allocator 和 stream session registry。
+- [x] stream `Start` 捕获 active server snapshot，后续 handle 操作固定使用该 snapshot。
+- [x] `Cancel`、`Finish`、`CloseSend`、`onDone` 的 terminal/finalize 行为有 runtime helper 和测试覆盖。
+- [x] runtime foundation 不依赖 service-specific protobuf 类型，不 import protobuf、connect、grpc 或 `internal/generator`。
+- [x] 旧多 registry、多 provider bootstrap、framework selector 没有被迁入。
+- [x] `rtk go test ./rpcruntime -count=1` 通过。
+- [x] `rtk go test ./... -count=1` 通过。
+- [x] 禁止的 unsigned 32/64 token 扫描无命中。
