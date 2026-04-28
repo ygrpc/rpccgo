@@ -24,6 +24,21 @@ func TestAdapterSnapshotNilInterfaceHasNoAdapter(t *testing.T) {
 	}
 }
 
+func TestAdapterSnapshotTypedNilInterfaceHasNoAdapter(t *testing.T) {
+	var impl *fakeDispatcherAdapterWithMethod
+	var adapter fakeDispatcherInterface = impl
+	snapshot := AdapterSnapshot[fakeDispatcherInterface]{
+		Kind:     ServerKindGoNative,
+		Contract: ServerContractNative,
+		Version:  1,
+		Adapter:  adapter,
+	}
+
+	if snapshot.HasAdapter() {
+		t.Fatal("expected typed nil interface adapter to be treated as missing")
+	}
+}
+
 func TestAdapterSnapshotNonZeroAdapterIsPresent(t *testing.T) {
 	snapshot := AdapterSnapshot[*fakeDispatcherAdapter]{
 		Kind:     ServerKindGoNative,
@@ -76,6 +91,10 @@ func TestServerKindStableStringRepresentations(t *testing.T) {
 type fakeDispatcherAdapter struct {
 	name string
 }
+
+type fakeDispatcherAdapterWithMethod struct{}
+
+func (*fakeDispatcherAdapterWithMethod) dispatch() {}
 
 type fakeDispatcherInterface interface {
 	dispatch()
