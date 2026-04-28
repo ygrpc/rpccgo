@@ -2,7 +2,7 @@ package rpcruntime
 
 import (
 	"context"
-	"go/ast"
+	"errors"
 	"go/parser"
 	"go/token"
 	"path/filepath"
@@ -142,8 +142,8 @@ func TestDispatcherFoundationStreamTerminalOperationsAreStable(t *testing.T) {
 	}
 	if err := session.lifecycle.Cancel(nil); err == nil {
 		t.Fatal("cancel after finalize returned nil")
-	} else if !strings.Contains(err.Error(), "finalized") {
-		t.Fatalf("cancel after finalize returned %q, want it to mention finalized", err.Error())
+	} else if !errors.Is(err, errStreamFinalized) {
+		t.Fatalf("cancel after finalize returned %v, want %v", err, errStreamFinalized)
 	}
 
 	cancelHandle, err := dispatcher.StartStream(func(snapshot AdapterSnapshot[*foundationAdapter]) (any, error) {
@@ -177,8 +177,8 @@ func TestDispatcherFoundationStreamTerminalOperationsAreStable(t *testing.T) {
 		return nil
 	}); err == nil {
 		t.Fatal("second cancel returned nil")
-	} else if !strings.Contains(err.Error(), "canceled") {
-		t.Fatalf("second cancel returned %q, want it to mention canceled", err.Error())
+	} else if !errors.Is(err, errStreamCanceled) {
+		t.Fatalf("second cancel returned %v, want %v", err, errStreamCanceled)
 	}
 	if cancelCalls != 1 {
 		t.Fatalf("second cancel called callback; calls=%d, want 1", cancelCalls)
@@ -186,11 +186,10 @@ func TestDispatcherFoundationStreamTerminalOperationsAreStable(t *testing.T) {
 }
 
 func TestRuntimeFoundationPackageHasNoRPCFrameworkImports(t *testing.T) {
-	forbidden := []string{
+	forbiddenRoots := []string{
 		"google.golang.org/protobuf",
 		"connectrpc.com/connect",
 		"google.golang.org/grpc",
-		"internal/generator",
 	}
 
 	matches, err := filepath.Glob("*.go")
@@ -208,24 +207,21 @@ func TestRuntimeFoundationPackageHasNoRPCFrameworkImports(t *testing.T) {
 		}
 		for _, spec := range file.Imports {
 			importPath := strings.Trim(spec.Path.Value, `"`)
-			for _, forbiddenImport := range forbidden {
-				if importPath == forbiddenImport || strings.Contains(importPath, "/"+forbiddenImport) {
+			for _, root := range forbiddenRoots {
+				if importPath == root || strings.HasPrefix(importPath, root+"/") {
 					t.Fatalf("%s imports forbidden runtime foundation dependency %q", path, importPath)
 				}
 			}
-		}
-		if hasRelativeInternalGeneratorImport(file) {
-			t.Fatalf("%s imports internal/generator through a relative path", path)
+			if importsInternalGenerator(importPath) {
+				t.Fatalf("%s imports forbidden runtime foundation dependency %q", path, importPath)
+			}
 		}
 	}
 }
 
-func hasRelativeInternalGeneratorImport(file *ast.File) bool {
-	for _, spec := range file.Imports {
-		importPath := strings.Trim(spec.Path.Value, `"`)
-		if strings.Contains(importPath, "internal/generator") {
-			return true
-		}
-	}
-	return false
+func importsInternalGenerator(importPath string) bool {
+	return importPath == "internal/generator" ||
+		strings.HasPrefix(importPath, "internal/generator/") ||
+		strings.Contains(importPath, "/internal/generator/") ||
+		strings.HasSuffix(importPath, "/internal/generator")
 }
