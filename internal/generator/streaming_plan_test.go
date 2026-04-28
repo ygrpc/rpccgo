@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -83,9 +84,12 @@ func TestBuildStreamingPlanAttachesLifecycleToDescriptorPlan(t *testing.T) {
 		t.Fatalf("BuildDescriptorPlan() error = %v", err)
 	}
 
-	methods := plan.Services[0].Methods
-	assertLifecycle(t, methods[0], LifecyclePlan{})
-	assertLifecycle(t, methods[1], LifecyclePlan{
+	if len(plan.Services) != 1 {
+		t.Fatalf("Services = %d, want 1", len(plan.Services))
+	}
+	methods := methodsByName(t, plan.Services[0].Methods, "Unary", "ClientStream", "ServerStream", "BidiStream")
+	assertLifecycle(t, methods["Unary"], LifecyclePlan{})
+	assertLifecycle(t, methods["ClientStream"], LifecyclePlan{
 		HasStart:        true,
 		HasSend:         true,
 		HasFinish:       true,
@@ -93,7 +97,7 @@ func TestBuildStreamingPlanAttachesLifecycleToDescriptorPlan(t *testing.T) {
 		CancelFinalizes: true,
 		TerminalKind:    LifecycleTerminalFinishResult,
 	})
-	assertLifecycle(t, methods[2], LifecyclePlan{
+	assertLifecycle(t, methods["ServerStream"], LifecyclePlan{
 		HasStart:        true,
 		HasCancel:       true,
 		CancelFinalizes: true,
@@ -101,7 +105,7 @@ func TestBuildStreamingPlanAttachesLifecycleToDescriptorPlan(t *testing.T) {
 		HasOnDone:       true,
 		TerminalKind:    LifecycleTerminalOnDone,
 	})
-	assertLifecycle(t, methods[3], LifecyclePlan{
+	assertLifecycle(t, methods["BidiStream"], LifecyclePlan{
 		HasStart:        true,
 		HasSend:         true,
 		HasCloseSend:    true,
@@ -111,6 +115,106 @@ func TestBuildStreamingPlanAttachesLifecycleToDescriptorPlan(t *testing.T) {
 		HasOnDone:       true,
 		TerminalKind:    LifecycleTerminalOnDone,
 	})
+}
+
+func TestBuildStreamingPlanPreservesMethodPlanMetadata(t *testing.T) {
+	method := MethodPlan{
+		Name:      "Upload",
+		GoName:    "Upload",
+		FullName:  "test.v1.Streamer.Upload",
+		Streaming: StreamingKindClientStreaming,
+		Request: MethodIOPlan{
+			GoName:       "UploadRequest",
+			GoImportPath: "example.com/test/v1",
+			FullName:     "test.v1.UploadRequest",
+		},
+		Response: MethodIOPlan{
+			GoName:       "UploadReply",
+			GoImportPath: "example.com/test/v1",
+			FullName:     "test.v1.UploadReply",
+		},
+		NativeContract: NativeContractPlan{
+			RequestFields: []FieldPlan{
+				{
+					Name:     "payload",
+					GoName:   "Payload",
+					FullName: "test.v1.UploadRequest.payload",
+					Kind:     FieldKindBytes,
+					Native: NativeFieldPlan{
+						Kind:  NativeFieldKindBytes,
+						Shape: NativeABIShapeScalar,
+					},
+				},
+			},
+			ResponseFields: []FieldPlan{
+				{
+					Name:     "accepted",
+					GoName:   "Accepted",
+					FullName: "test.v1.UploadReply.accepted",
+					Kind:     FieldKindBool,
+					Native: NativeFieldPlan{
+						Kind:  NativeFieldKindBool,
+						Shape: NativeABIShapeBoolByte,
+					},
+				},
+			},
+		},
+		MessageContract: MessageContractPlan{
+			RequestType: MethodIOPlan{
+				GoName:       "UploadRequest",
+				GoImportPath: "example.com/test/v1",
+				FullName:     "test.v1.UploadRequest",
+			},
+			ResponseType: MethodIOPlan{
+				GoName:       "UploadReply",
+				GoImportPath: "example.com/test/v1",
+				FullName:     "test.v1.UploadReply",
+			},
+		},
+		NeedsCodec: true,
+		RequestBody: []FieldPlan{
+			{
+				Name:     "payload",
+				GoName:   "Payload",
+				FullName: "test.v1.UploadRequest.payload",
+				Kind:     FieldKindBytes,
+				Native: NativeFieldPlan{
+					Kind:  NativeFieldKindBytes,
+					Shape: NativeABIShapeScalar,
+				},
+			},
+		},
+		ResponseBody: []FieldPlan{
+			{
+				Name:     "accepted",
+				GoName:   "Accepted",
+				FullName: "test.v1.UploadReply.accepted",
+				Kind:     FieldKindBool,
+				Native: NativeFieldPlan{
+					Kind:  NativeFieldKindBool,
+					Shape: NativeABIShapeBoolByte,
+				},
+			},
+		},
+	}
+	want := method
+
+	got, err := BuildStreamingPlan(method)
+	if err != nil {
+		t.Fatalf("BuildStreamingPlan() error = %v", err)
+	}
+
+	want.Lifecycle = LifecyclePlan{
+		HasStart:        true,
+		HasSend:         true,
+		HasFinish:       true,
+		HasCancel:       true,
+		CancelFinalizes: true,
+		TerminalKind:    LifecycleTerminalFinishResult,
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("BuildStreamingPlan() = %#v, want metadata preserved with lifecycle %#v", got, want)
+	}
 }
 
 func TestValidateStreamingLifecyclePlanRejectsInvalidMatrix(t *testing.T) {
@@ -202,10 +306,50 @@ func TestValidateStreamingLifecyclePlanRejectsInvalidMatrix(t *testing.T) {
 	}
 }
 
+func TestBuildStreamingPlanRejectsUnknownStreamingKind(t *testing.T) {
+	method := MethodPlan{
+		Name:      "Mystery",
+		FullName:  "test.v1.Streamer.Mystery",
+		Streaming: StreamingKind(99),
+	}
+
+	_, err := BuildStreamingPlan(method)
+	if err == nil {
+		t.Fatal("BuildStreamingPlan() error = nil, want unknown streaming kind error")
+	}
+	got := err.Error()
+	for _, want := range []string{"test.v1.Streamer.Mystery", "unknown streaming kind 99"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("BuildStreamingPlan() error = %q, want substring %q", got, want)
+		}
+	}
+}
+
 func assertLifecycle(t *testing.T, got MethodPlan, want LifecyclePlan) {
 	t.Helper()
 
 	if got.Lifecycle != want {
 		t.Fatalf("%s Lifecycle = %#v, want %#v", got.Name, got.Lifecycle, want)
 	}
+}
+
+func methodsByName(t *testing.T, methods []MethodPlan, wantNames ...string) map[string]MethodPlan {
+	t.Helper()
+
+	if len(methods) != len(wantNames) {
+		t.Fatalf("Methods = %d, want %d", len(methods), len(wantNames))
+	}
+	byName := make(map[string]MethodPlan, len(methods))
+	for _, method := range methods {
+		if _, exists := byName[method.Name]; exists {
+			t.Fatalf("duplicate method name %q", method.Name)
+		}
+		byName[method.Name] = method
+	}
+	for _, name := range wantNames {
+		if _, exists := byName[name]; !exists {
+			t.Fatalf("method %q not found in descriptor plan", name)
+		}
+	}
+	return byName
 }

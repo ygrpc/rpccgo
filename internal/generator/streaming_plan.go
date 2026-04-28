@@ -3,41 +3,11 @@ package generator
 import "fmt"
 
 func BuildStreamingPlan(method MethodPlan) (MethodPlan, error) {
-	switch method.Streaming {
-	case StreamingKindUnary:
-		method.Lifecycle = LifecyclePlan{}
-	case StreamingKindClientStreaming:
-		method.Lifecycle = LifecyclePlan{
-			HasStart:        true,
-			HasSend:         true,
-			HasFinish:       true,
-			HasCancel:       true,
-			CancelFinalizes: true,
-			TerminalKind:    LifecycleTerminalFinishResult,
-		}
-	case StreamingKindServerStreaming:
-		method.Lifecycle = LifecyclePlan{
-			HasStart:        true,
-			HasCancel:       true,
-			CancelFinalizes: true,
-			HasOnRead:       true,
-			HasOnDone:       true,
-			TerminalKind:    LifecycleTerminalOnDone,
-		}
-	case StreamingKindBidiStreaming:
-		method.Lifecycle = LifecyclePlan{
-			HasStart:        true,
-			HasSend:         true,
-			HasCloseSend:    true,
-			HasCancel:       true,
-			CancelFinalizes: true,
-			HasOnRead:       true,
-			HasOnDone:       true,
-			TerminalKind:    LifecycleTerminalOnDone,
-		}
-	default:
-		return MethodPlan{}, fmt.Errorf("method %s: unknown streaming kind %d", methodPlanName(method), method.Streaming)
+	lifecycle, err := expectedLifecyclePlan(method.Streaming)
+	if err != nil {
+		return MethodPlan{}, fmt.Errorf("method %s: %w", methodPlanName(method), err)
 	}
+	method.Lifecycle = lifecycle
 
 	if err := ValidateStreamingLifecyclePlan(method); err != nil {
 		return MethodPlan{}, err
