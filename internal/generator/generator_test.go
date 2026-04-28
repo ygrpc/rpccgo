@@ -31,11 +31,21 @@ func TestGenerateBuildsBasicFilePlans(t *testing.T) {
 	if plan.GoImportPath != "example.com/test/v1" {
 		t.Fatalf("GoImportPath = %q, want %q", plan.GoImportPath, "example.com/test/v1")
 	}
-	if len(plan.Services) != 0 {
-		t.Fatalf("Services = %d, want 0 during Task 3 parser shell", len(plan.Services))
+	if len(plan.Services) != 1 {
+		t.Fatalf("Services = %d, want 1", len(plan.Services))
+	}
+	service := plan.Services[0]
+	if service.Name != "Greeter" || service.GoName != "Greeter" || service.FullName != "test.v1.Greeter" {
+		t.Fatalf("Service identity = (%q, %q, %q), want Greeter metadata", service.Name, service.GoName, service.FullName)
+	}
+	if !service.Adapters.Has(AdapterTokenMessageConnect) || len(service.Adapters.Tokens) != 1 {
+		t.Fatalf("Service adapters = %#v, want default msg-connect", service.Adapters.Tokens)
+	}
+	if len(service.Methods) != 1 {
+		t.Fatalf("Methods = %d, want 1", len(service.Methods))
 	}
 	if len(plugin.Response().GetFile()) != 0 {
-		t.Fatalf("Generate() must not emit runtime files during Task 3")
+		t.Fatalf("Generate() must not emit runtime files during Stage 1 planning")
 	}
 }
 
@@ -74,6 +84,18 @@ func newTestPlugin(t *testing.T, parameter string, files ...*descriptorpb.FileDe
 	t.Helper()
 
 	request := newTestCodeGeneratorRequest(parameter, files...)
+	plugin, err := ProtogenOptions().New(request)
+	if err != nil {
+		t.Fatalf("protogen.Options.New() error = %v", err)
+	}
+	return plugin
+}
+
+func newTestPluginGenerating(t *testing.T, parameter, fileToGenerate string, files ...*descriptorpb.FileDescriptorProto) *protogen.Plugin {
+	t.Helper()
+
+	request := newTestCodeGeneratorRequest(parameter, files...)
+	request.FileToGenerate = []string{fileToGenerate}
 	plugin, err := ProtogenOptions().New(request)
 	if err != nil {
 		t.Fatalf("protogen.Options.New() error = %v", err)

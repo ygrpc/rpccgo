@@ -94,10 +94,11 @@ type LifecyclePlan struct {
 }
 
 type MethodIOPlan struct {
-	GoIdent  string
-	FullName string
+	GoName       string
+	GoImportPath string
+	FullName     string
 }
 
 func (p MethodIOPlan) HasIdentity() bool {
-	return p.GoIdent != "" && p.FullName != ""
+	return p.GoName != "" && p.FullName != ""
 }

@@ -7,10 +7,6 @@ import (
 )
 
 // Generate parses the protoc plugin request into Stage 1 planning data.
-//
-// Task 3 intentionally stops at file-level planning. Later Stage 1 tasks fill
-// service, method, contract, and lifecycle metadata from the same protogen
-// request without changing the plugin entry contract.
 func Generate(plugin *protogen.Plugin) ([]FilePlan, error) {
 	if plugin == nil {
 		return nil, fmt.Errorf("generator plugin is nil")
@@ -21,11 +17,11 @@ func Generate(plugin *protogen.Plugin) ([]FilePlan, error) {
 		if !file.Generate {
 			continue
 		}
-		plans = append(plans, FilePlan{
-			GoPackageName: string(file.GoPackageName),
-			GoImportPath:  string(file.GoImportPath),
-			ProtoPath:     file.Desc.Path(),
-		})
+		plan, err := BuildDescriptorPlan(file)
+		if err != nil {
+			return nil, err
+		}
+		plans = append(plans, plan)
 	}
 	return plans, nil
 }
