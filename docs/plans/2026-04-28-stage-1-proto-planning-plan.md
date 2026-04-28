@@ -74,13 +74,13 @@
 - 从旧 `namespace.go` 迁移基础命名 helper，避免后续 renderer 重复命名规则。
 - 新建 plan struct，先不依赖 protogen renderer。
 
-- [ ] 定义 `StreamingKind`、`AdapterSelection`、`FilePlan`、`ServicePlan`、`MethodPlan`、`FieldPlan`、`LifecyclePlan`、`MethodIOPlan`。
-- [ ] 定义 adapter token 常量：`msg-connect`、`msg-grpc`、`native`。
-- [ ] 保持 plan 类型不依赖 `rpcruntime`，只依赖 protobuf descriptor/protogen 必要类型。
-- [ ] 添加基础单元测试：streaming kind、命名 helper、plan 零值不可被误认为有效 plan。
-- [ ] 运行 `rtk go test ./internal/generator -run 'TestStreamingKind|TestNames|TestPlan' -count=1`。
-- [ ] 验收：基础 plan 类型和 streaming kind 测试通过。
-- [ ] 提交：`feat: add generator plan primitives`
+- [x] 定义 `StreamingKind`、`AdapterSelection`、`FilePlan`、`ServicePlan`、`MethodPlan`、`FieldPlan`、`LifecyclePlan`、`MethodIOPlan`。
+- [x] 定义 adapter token 常量：`msg-connect`、`msg-grpc`、`native`。
+- [x] 保持 plan 类型不依赖 `rpcruntime`，只依赖 protobuf descriptor/protogen 必要类型。
+- [x] 添加基础单元测试：streaming kind、命名 helper、plan 零值不可被误认为有效 plan。
+- [x] 运行 `rtk go test ./internal/generator -run 'TestStreamingKind|TestNames|TestPlan' -count=1`。
+- [x] 验收：基础 plan 类型和 streaming kind 测试通过。
+- [x] 提交：`feat: add generator plan primitives`
 
 ## Task 2：实现 `@rpccgo` service 注释解析
 
@@ -94,17 +94,17 @@
 - 参考旧 `frameworks.go` 的 token 去重、排序和错误提示方式。
 - 不迁旧 `FrameworkNative` 模型，改成新版 server adapter token。
 
-- [ ] 从 service leading comments 中提取 `@rpccgo:` 指令。
-- [ ] 未标注 service 默认生成 `msg-connect`。
-- [ ] 支持 `msg-connect`、`msg-grpc`、`msg-connect|msg-grpc`、`msg-connect|native`、`msg-connect|msg-grpc|native`。
-- [ ] `native` 单独出现展开为 `msg-connect|native`。
-- [ ] token 去重，并按 canonical order 输出。
-- [ ] unknown token 报错，并包含合法 token 提示。
-- [ ] `msg-conenct` 等拼写错误必须报错。
-- [ ] 空指令、重复冒号、多条互相冲突指令必须报错。
-- [ ] 运行 `rtk go test ./internal/generator -run 'TestParseServiceRPCCGO|TestAdapterSelection' -count=1`。
-- [ ] 验收：注释规则完全匹配架构文档。
-- [ ] 提交：`feat: parse rpccgo service annotations`
+- [x] 从 service leading comments 中提取 `@rpccgo:` 指令。
+- [x] 未标注 service 默认生成 `msg-connect`。
+- [x] 支持 `msg-connect`、`msg-grpc`、`msg-connect|msg-grpc`、`msg-connect|native`、`msg-connect|msg-grpc|native`。
+- [x] `native` 单独出现展开为 `msg-connect|native`。
+- [x] token 去重，并按 canonical order 输出。
+- [x] unknown token 报错，并包含合法 token 提示。
+- [x] `msg-conenct` 等拼写错误必须报错。
+- [x] 空指令、重复冒号、多条互相冲突指令必须报错。
+- [x] 运行 `rtk go test ./internal/generator -run 'TestParseServiceRPCCGO|TestAdapterSelection' -count=1`。
+- [x] 验收：注释规则完全匹配架构文档。
+- [x] 提交：`feat: parse rpccgo service annotations`
 
 ## Task 3：实现 protoc 插件入口与 request 解析壳
 
@@ -119,15 +119,15 @@
 - 参考旧 `generator.go` 的 protogen 调用方式。
 - 不迁旧 options 的 mode/go_role/framework 模型，阶段 1 只保留单插件必要参数。
 
-- [ ] 实现 `protoc-gen-rpc-cgo` main，读取 `protogen.Options` 并调用 generator。
-- [ ] `internal/generator.Generate` 能接收 protogen plugin，并返回 plan 或错误。
-- [ ] 支持 protoc 标准 `paths` 参数透传。
-- [ ] 对未知 rpccgo 参数报错。
-- [ ] 阶段 1 不输出最终 generated runtime 文件；可输出空结果或 plan-only 测试入口。
-- [ ] 构造内存 descriptor fixture 测试 request parsing。
-- [ ] 运行 `rtk go test ./cmd/protoc-gen-rpc-cgo ./internal/generator -run 'TestGenerate|TestPlugin' -count=1`。
-- [ ] 验收：插件入口可编译，request parsing 可测试。
-- [ ] 提交：`feat: add protoc plugin parser shell`
+- [x] 实现 `protoc-gen-rpc-cgo` main，读取 `protogen.Options` 并调用 generator。
+- [x] `internal/generator.Generate` 能接收 protogen plugin，并返回 plan 或错误。
+- [x] 支持 protoc 标准 `paths` 参数透传。
+- [x] 对未知 rpccgo 参数报错。
+- [x] 阶段 1 不输出最终 generated runtime 文件；可输出空结果或 plan-only 测试入口。
+- [x] 构造内存 descriptor fixture 测试 request parsing。
+- [x] 运行 `rtk go test ./cmd/protoc-gen-rpc-cgo ./internal/generator -run 'TestGenerate|TestPlugin' -count=1`。
+- [x] 验收：插件入口可编译，request parsing 可测试。
+- [x] 提交：`feat: add protoc plugin parser shell`
 
 ## Task 4：构建 service/method descriptor metadata
 
@@ -141,15 +141,15 @@
 - 参考旧 `binding.go` 的 `ServiceMethodBinding` 字段命名，但不迁 registry 和 resolver。
 - 复用 Task 1 的 streaming kind。
 
-- [ ] 从 protogen file 构建 `FilePlan`。
-- [ ] 为每个 service 构建 `ServicePlan`。
-- [ ] 为每个 method 构建 `MethodPlan`，包括 request/response Go identifier、proto full name、streaming kind。
-- [ ] 保持 service 顺序和 method 顺序稳定。
-- [ ] 覆盖 unary、client streaming、server streaming、bidi streaming。
-- [ ] 覆盖多 service proto。
-- [ ] 运行 `rtk go test ./internal/generator -run 'TestBuildDescriptorPlan|TestMethodStreamingPlan' -count=1`。
-- [ ] 验收：descriptor metadata 稳定可断言。
-- [ ] 提交：`feat: build descriptor service plans`
+- [x] 从 protogen file 构建 `FilePlan`。
+- [x] 为每个 service 构建 `ServicePlan`。
+- [x] 为每个 method 构建 `MethodPlan`，包括 request/response Go identifier、proto full name、streaming kind。
+- [x] 保持 service 顺序和 method 顺序稳定。
+- [x] 覆盖 unary、client streaming、server streaming、bidi streaming。
+- [x] 覆盖多 service proto。
+- [x] 运行 `rtk go test ./internal/generator -run 'TestBuildDescriptorPlan|TestMethodStreamingPlan' -count=1`。
+- [x] 验收：descriptor metadata 稳定可断言。
+- [x] 提交：`feat: build descriptor service plans`
 
 ## Task 5：构建 native/message contract field plan
 
@@ -164,16 +164,16 @@
 - 重写 native 类型映射，遵守 Stage 0 的跨语言兼容约束，不生成 unsigned 32/64 ABI。
 - message contract 只记录 protobuf message 类型和 marshal/unmarshal 需求。
 
-- [ ] 为 request/response message field 构建 `FieldPlan`。
-- [ ] 字段 plan 记录 proto 名称、Go 名称、kind、是否 repeated、是否 enum、是否 message。
-- [ ] native contract 支持 signed numeric、float、bool byte encoding、string、bytes、message-as-bytes、enum。
-- [ ] 遇到 unsupported native field 时在 plan 构建阶段报错，错误包含 service/method/field。
-- [ ] repeated bool 明确标记为 byte buffer wrapper。
-- [ ] repeated message 若阶段 1 暂不支持，必须给出明确错误。
-- [ ] message contract 记录 request/response protobuf 类型，不做 codegen。
-- [ ] 运行 `rtk go test ./internal/generator -run 'TestBuildContractPlan|TestNativeFieldPlan' -count=1`。
-- [ ] 验收：native/message contract 信息足够支撑后续 converter 和 ABI renderer。
-- [ ] 提交：`feat: build native and message contract plans`
+- [x] 为 request/response message field 构建 `FieldPlan`。
+- [x] 字段 plan 记录 proto 名称、Go 名称、kind、是否 repeated、是否 enum、是否 message。
+- [x] native contract 支持 signed numeric、float、bool byte encoding、string、bytes、message-as-bytes、enum。
+- [x] 遇到 unsupported native field 时在 plan 构建阶段报错，错误包含 service/method/field。
+- [x] repeated bool 明确标记为 byte buffer wrapper。
+- [x] repeated message 若阶段 1 暂不支持，必须给出明确错误。
+- [x] message contract 记录 request/response protobuf 类型，不做 codegen。
+- [x] 运行 `rtk go test ./internal/generator -run 'TestBuildContractPlan|TestNativeFieldPlan' -count=1`。
+- [x] 验收：native/message contract 信息足够支撑后续 converter 和 ABI renderer。
+- [x] 提交：`feat: build native and message contract plans`
 
 ## Task 6：构建 streaming lifecycle plan
 
@@ -187,15 +187,15 @@
 - 从旧 `render_plan.go`、`streaming_plan.go` 迁移 lifecycle 矩阵和验证逻辑。
 - 将旧 native/message 分离的 streaming plan 收敛到 `MethodPlan.Streaming`，保证后续 dispatcher 使用同一生命周期。
 
-- [ ] unary method 不生成 streaming lifecycle。
-- [ ] client streaming 包含 `Start`、`Send`、`Finish`、`Cancel`，终态为 finish result。
-- [ ] server streaming 包含 `Start`、`Cancel`、`onRead`、`onDone`，终态为 onDone。
-- [ ] bidi streaming 包含 `Start`、`Send`、`CloseSend`、`Cancel`、`onRead`、`onDone`，终态为 onDone。
-- [ ] `Cancel` 必须标记为 finalizes。
-- [ ] 验证非法 lifecycle matrix 会报错。
-- [ ] 运行 `rtk go test ./internal/generator -run 'TestBuildStreamingPlan|TestValidateStreamingLifecyclePlan' -count=1`。
-- [ ] 验收：四类 method 的 lifecycle 与架构文档一致。
-- [ ] 提交：`feat: build streaming lifecycle plans`
+- [x] unary method 不生成 streaming lifecycle。
+- [x] client streaming 包含 `Start`、`Send`、`Finish`、`Cancel`，终态为 finish result。
+- [x] server streaming 包含 `Start`、`Cancel`、`onRead`、`onDone`，终态为 onDone。
+- [x] bidi streaming 包含 `Start`、`Send`、`CloseSend`、`Cancel`、`onRead`、`onDone`，终态为 onDone。
+- [x] `Cancel` 必须标记为 finalizes。
+- [x] 验证非法 lifecycle matrix 会报错。
+- [x] 运行 `rtk go test ./internal/generator -run 'TestBuildStreamingPlan|TestValidateStreamingLifecyclePlan' -count=1`。
+- [x] 验收：四类 method 的 lifecycle 与架构文档一致。
+- [x] 提交：`feat: build streaming lifecycle plans`
 
 ## Task 7：整合 ServicePlan 与阶段 1 验收 fixture
 
@@ -212,18 +212,18 @@
 - 参考旧 `generator_generate_test.go` 的 fixture 组织方式。
 - 不迁旧生成 golden，因为阶段 1 验收对象是 plan，不是 rendered Go code。
 
-- [ ] 将 service 注释解析、descriptor metadata、contract plan、streaming lifecycle 汇总成完整 `ServicePlan`。
-- [ ] 覆盖未标注 service 默认 `msg-connect`。
-- [ ] 覆盖 `msg-connect`、`msg-grpc`、两种 message adapter 同开、message + native、message + native 全开。
-- [ ] 覆盖 `native` 单独出现展开默认 message adapter。
-- [ ] 覆盖 unknown token 和拼写错误。
-- [ ] 覆盖 unary 和三类 streaming。
-- [ ] 覆盖 native/message contract 不匹配时后续需要 converter 的标记。
-- [ ] 确认 plan 构建不输出 dispatcher、renderer、adapter 或 example 业务代码。
-- [ ] 运行 `rtk go test ./internal/generator ./cmd/protoc-gen-rpc-cgo`。
-- [ ] 运行 `rtk go test ./...`。
-- [ ] 验收：Stage 1 acceptance tests 全部通过。
-- [ ] 提交：`test: verify stage 1 service planning`
+- [x] 将 service 注释解析、descriptor metadata、contract plan、streaming lifecycle 汇总成完整 `ServicePlan`。
+- [x] 覆盖未标注 service 默认 `msg-connect`。
+- [x] 覆盖 `msg-connect`、`msg-grpc`、两种 message adapter 同开、message + native、message + native 全开。
+- [x] 覆盖 `native` 单独出现展开默认 message adapter。
+- [x] 覆盖 unknown token 和拼写错误。
+- [x] 覆盖 unary 和三类 streaming。
+- [x] 覆盖 native/message contract 不匹配时后续需要 converter 的标记。
+- [x] 确认 plan 构建不输出 dispatcher、renderer、adapter 或 example 业务代码。
+- [x] 运行 `rtk go test ./internal/generator ./cmd/protoc-gen-rpc-cgo`。
+- [x] 运行 `rtk go test ./...`。
+- [x] 验收：Stage 1 acceptance tests 全部通过。
+- [x] 提交：`test: verify stage 1 service planning`
 
 ## Task 8：记录阶段 1 迁移清单与验证结果
 
@@ -237,13 +237,13 @@
 - 阶段 1 会从旧 generator 迁移一批纯 parser/planner 逻辑，也会明确拒绝旧 registry/provider 代码。
 - 迁移清单用于后续阶段防止 renderer 实现时回流旧架构。
 
-- [ ] 写入已迁移、参考后重写、不迁移清单。
-- [ ] 明确旧 `binding.go`、旧 framework registry、旧 provider bootstrap 不进入新版。
-- [ ] 记录验证命令：`rtk go test ./...`。
-- [ ] 记录 forbidden unsigned ABI token 扫描结果。
-- [ ] 运行 `rtk git status --short`。
-- [ ] 验收：文档能回答阶段 1 “迁移了什么、为什么迁移、为什么不迁旧架构”。
-- [ ] 提交：`docs: record stage 1 migration inventory`
+- [x] 写入已迁移、参考后重写、不迁移清单。
+- [x] 明确旧 `binding.go`、旧 framework registry、旧 provider bootstrap 不进入新版。
+- [x] 记录验证命令：`rtk go test ./...`。
+- [x] 记录 forbidden unsigned ABI token 扫描结果。
+- [x] 运行 `rtk git status --short`。
+- [x] 验收：文档能回答阶段 1 “迁移了什么、为什么迁移、为什么不迁旧架构”。
+- [x] 提交：`docs: record stage 1 migration inventory`
 
 ## 阶段 1 完成标准
 
