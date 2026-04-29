@@ -90,6 +90,7 @@ type FieldPlan struct {
 	Repeated bool
 	Enum     bool
 	Message  bool
+	EnumType MethodIOPlan
 	Native   NativeFieldPlan
 }
 

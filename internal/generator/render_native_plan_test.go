@@ -29,7 +29,7 @@ func TestRenderNativeFileFamilyPlanMessageOnlyService(t *testing.T) {
 	assertGeneratedFilePlan(t, got.Runtime, "test/v1/greeter.greeter.runtime.rpccgo.go", true)
 	assertGeneratedFilePlan(t, got.NativeServer, "test/v1/greeter.greeter.server.native.rpccgo.go", false)
 	assertGeneratedFilePlan(t, got.CGONativeServer, "test/v1/greeter.greeter.server.cgo.rpccgo.go", false)
-	assertGeneratedFilePlan(t, got.CGONativeClient, "test/v1/greeter.greeter.client.cgo.rpccgo.go", false)
+	assertGeneratedFilePlan(t, got.CGONativeClient, "test/v1/greeter.greeter.client.cgo.rpccgo.go", true)
 }
 
 func TestRenderNativeFileFamilyPlanUsesGeneratedFilenamePrefix(t *testing.T) {

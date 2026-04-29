@@ -75,6 +75,13 @@ func buildFieldPlan(field *protogen.Field) (FieldPlan, error) {
 		Enum:     field.Desc.Kind() == protoreflect.EnumKind,
 		Message:  field.Desc.Kind() == protoreflect.MessageKind || field.Desc.Kind() == protoreflect.GroupKind,
 	}
+	if field.Enum != nil {
+		plan.EnumType = MethodIOPlan{
+			GoName:       field.Enum.GoIdent.GoName,
+			GoImportPath: string(field.Enum.GoIdent.GoImportPath),
+			FullName:     string(field.Enum.Desc.FullName()),
+		}
+	}
 
 	native, err := nativeFieldPlan(plan)
 	if err != nil {

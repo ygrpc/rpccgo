@@ -51,7 +51,7 @@ func TestGenerateBuildsBasicFilePlans(t *testing.T) {
 	assertGeneratedFilePlan(t, service.NativeFileFamily.Runtime, "test/v1/greeter.greeter.runtime.rpccgo.go", true)
 	assertGeneratedFilePlan(t, service.NativeFileFamily.NativeServer, "test/v1/greeter.greeter.server.native.rpccgo.go", false)
 	assertGeneratedFilePlan(t, service.NativeFileFamily.CGONativeServer, "test/v1/greeter.greeter.server.cgo.rpccgo.go", false)
-	assertGeneratedFilePlan(t, service.NativeFileFamily.CGONativeClient, "test/v1/greeter.greeter.client.cgo.rpccgo.go", false)
+	assertGeneratedFilePlan(t, service.NativeFileFamily.CGONativeClient, "test/v1/greeter.greeter.client.cgo.rpccgo.go", true)
 	if len(plugin.Response().GetFile()) != 0 {
 		t.Fatalf("Generate() may attach file family plans, but must not emit files during plan-only generation")
 	}
@@ -94,10 +94,12 @@ func TestGenerateWithNativeRendererSkipsNativeServerForMessageOnlyService(t *tes
 
 	assertGeneratedFilenames(t, plugin, []string{
 		"test/v1/greeter.greeter.runtime.rpccgo.go",
+		"test/v1/greeter.greeter.client.cgo.rpccgo.go",
 	})
-	assertNoGeneratedFilenameContains(t, plugin, ".server.native.", ".server.cgo.", ".connect.", ".grpc.", ".message.", ".remote.", ".client.cgo.")
-	assertGeneratedContentDoesNotContain(t, plugin, "rpccgo native stage file", "connectrpc.com/connect", "google.golang.org/grpc")
+	assertNoGeneratedFilenameContains(t, plugin, ".server.native.", ".server.cgo.", ".connect.", ".grpc.", ".message.", ".remote.")
+	assertGeneratedContentDoesNotContain(t, plugin, "go native server", "cgo native server", "connectrpc.com/connect", "google.golang.org/grpc")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "rpccgo service runtime stage file for Greeter")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.client.cgo.rpccgo.go", "rpccgo native stage file for Greeter cgo native client")
 }
 
 func TestGenerateWithNativeRendererUsesNonSourceRelativeGeneratedPrefix(t *testing.T) {

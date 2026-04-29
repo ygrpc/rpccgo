@@ -105,6 +105,11 @@ func TestBuildContractPlanBuildsNativeAndMessageFields(t *testing.T) {
 		FullName: "test.v1.ContractRequest.state",
 		Kind:     FieldKindEnum,
 		Enum:     true,
+		EnumType: MethodIOPlan{
+			GoName:       "State",
+			GoImportPath: "example.com/test/v1",
+			FullName:     "test.v1.State",
+		},
 		Native: NativeFieldPlan{
 			Kind:  NativeFieldKindEnum,
 			Shape: NativeABIShapeScalar,
@@ -205,6 +210,9 @@ func assertNativeField(t *testing.T, got FieldPlan, want FieldPlan) {
 	if got.Kind != want.Kind || got.Repeated != want.Repeated || got.Enum != want.Enum || got.Message != want.Message {
 		t.Fatalf("%s metadata = (%q, repeated=%v, enum=%v, message=%v), want (%q, repeated=%v, enum=%v, message=%v)",
 			got.Name, got.Kind, got.Repeated, got.Enum, got.Message, want.Kind, want.Repeated, want.Enum, want.Message)
+	}
+	if got.EnumType != want.EnumType {
+		t.Fatalf("%s EnumType = %#v, want %#v", got.Name, got.EnumType, want.EnumType)
 	}
 	if got.Native != want.Native {
 		t.Fatalf("%s Native = %#v, want %#v", got.Name, got.Native, want.Native)

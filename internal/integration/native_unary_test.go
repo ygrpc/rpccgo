@@ -4,28 +4,125 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"rpccgo/internal/generator"
+
+	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/pluginpb"
 )
 
 func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 	tmp := t.TempDir()
+	plugin := newNativeUnaryTestPlugin(t)
+	if _, err := generator.GenerateWithOptions(plugin, generator.GenerateOptions{RenderNativeStageFiles: true}); err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
 	repoRoot, err := filepath.Abs("../..")
 	if err != nil {
 		t.Fatalf("filepath.Abs() error = %v", err)
 	}
-
 	writeFile(t, filepath.Join(tmp, "go.mod"), "module example.com/nativeunary\n\ngo 1.24.4\n\nrequire rpccgo v0.0.0\n\nreplace rpccgo => "+repoRoot+"\n")
-	writeFile(t, filepath.Join(tmp, "nativeunary/runtime.rpccgo.go"), nativeUnaryRuntimeSource)
-	writeFile(t, filepath.Join(tmp, "nativeunary/server.native.rpccgo.go"), nativeUnaryServerSource)
-	writeFile(t, filepath.Join(tmp, "nativeunary/client.cgo.rpccgo.go"), nativeUnaryClientSource)
-	writeFile(t, filepath.Join(tmp, "nativeunary/native_unary_test.go"), nativeUnaryFixtureTestSource)
+	for _, generated := range plugin.Response().GetFile() {
+		name := generated.GetName()
+		if !strings.Contains(name, ".runtime.rpccgo.go") &&
+			!strings.Contains(name, ".server.native.rpccgo.go") &&
+			!strings.Contains(name, ".client.cgo.rpccgo.go") {
+			continue
+		}
+		writeFile(t, filepath.Join(tmp, name), generated.GetContent())
+	}
+	writeFile(t, filepath.Join(tmp, "test/v1/native_unary_stubs.go"), nativeUnaryStubSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/native_unary_test.go"), nativeUnaryFixtureTestSource)
 
-	cmd := exec.Command("go", "test", "./nativeunary", "-run", "TestNativeUnary", "-count=1")
+	cmd := exec.Command("go", "test", "./test/v1", "-run", "TestNativeUnary", "-count=1")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("native unary fixture failed: %v\n%s", err, out)
 	}
+}
+
+func newNativeUnaryTestPlugin(t *testing.T) *protogen.Plugin {
+	t.Helper()
+	request := &pluginpb.CodeGeneratorRequest{
+		Parameter:      proto.String("paths=source_relative"),
+		FileToGenerate: []string{"test/v1/native_unary.proto"},
+		ProtoFile: []*descriptorpb.FileDescriptorProto{{
+			Name:    proto.String("test/v1/native_unary.proto"),
+			Package: proto.String("test.v1"),
+			Syntax:  proto.String("proto3"),
+			Options: &descriptorpb.FileOptions{
+				GoPackage: proto.String("example.com/nativeunary/test/v1;testv1"),
+			},
+			MessageType: []*descriptorpb.DescriptorProto{
+				{
+					Name: proto.String("HelloRequest"),
+					Field: []*descriptorpb.FieldDescriptorProto{
+						fieldDescriptor("name", 1, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+						fieldDescriptor("payload", 2, descriptorpb.FieldDescriptorProto_TYPE_BYTES, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+						fieldDescriptor("enabled", 3, descriptorpb.FieldDescriptorProto_TYPE_BOOL, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+					},
+				},
+				{
+					Name: proto.String("HelloReply"),
+					Field: []*descriptorpb.FieldDescriptorProto{
+						fieldDescriptor("accepted", 1, descriptorpb.FieldDescriptorProto_TYPE_BOOL, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+						fieldDescriptor("payload", 2, descriptorpb.FieldDescriptorProto_TYPE_BYTES, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+						fieldDescriptor("note", 3, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+					},
+				},
+				{
+					Name: proto.String("UnsupportedReply"),
+					Field: []*descriptorpb.FieldDescriptorProto{
+						fieldDescriptor("payload", 1, descriptorpb.FieldDescriptorProto_TYPE_BYTES, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+						fieldDescriptor("note", 2, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+						fieldDescriptor("unsupported", 4, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".test.v1.Child"),
+					},
+				},
+				{Name: proto.String("Child")},
+			},
+			Service: []*descriptorpb.ServiceDescriptorProto{{
+				Name: proto.String("Greeter"),
+				Method: []*descriptorpb.MethodDescriptorProto{{
+					Name:       proto.String("SayHello"),
+					InputType:  proto.String(".test.v1.HelloRequest"),
+					OutputType: proto.String(".test.v1.HelloReply"),
+				}, {
+					Name:       proto.String("SayUnsupported"),
+					InputType:  proto.String(".test.v1.HelloRequest"),
+					OutputType: proto.String(".test.v1.UnsupportedReply"),
+				}},
+			}},
+			SourceCodeInfo: &descriptorpb.SourceCodeInfo{Location: []*descriptorpb.SourceCodeInfo_Location{{
+				Path:            []int32{6, 0},
+				Span:            []int32{0, 0, 0},
+				LeadingComments: proto.String("@rpccgo: native\n"),
+			}}},
+		}},
+	}
+	plugin, err := generator.ProtogenOptions().New(request)
+	if err != nil {
+		t.Fatalf("protogen.Options.New() error = %v", err)
+	}
+	return plugin
+}
+
+func fieldDescriptor(name string, number int32, fieldType descriptorpb.FieldDescriptorProto_Type, label descriptorpb.FieldDescriptorProto_Label, typeName string) *descriptorpb.FieldDescriptorProto {
+	field := &descriptorpb.FieldDescriptorProto{
+		Name:   proto.String(name),
+		Number: proto.Int32(number),
+		Type:   fieldType.Enum(),
+		Label:  label.Enum(),
+	}
+	if typeName != "" {
+		field.TypeName = proto.String(typeName)
+	}
+	return field
 }
 
 func writeFile(t *testing.T, target, content string) {
@@ -38,134 +135,30 @@ func writeFile(t *testing.T, target, content string) {
 	}
 }
 
-const nativeUnaryRuntimeSource = `package nativeunary
-
-import (
-	context "context"
-	rpcruntime "rpccgo/rpcruntime"
-)
-
-type GreeterNativeAdapter interface {
-	SayHello(ctx context.Context, req *HelloRequest) (*HelloReply, error)
-}
-
-var greeterDispatcher rpcruntime.Dispatcher[GreeterNativeAdapter]
-
-func registerGreeterActiveServer(kind rpcruntime.ServerKind, adapter GreeterNativeAdapter) (rpcruntime.AdapterSnapshot[GreeterNativeAdapter], error) {
-	return greeterDispatcher.Register(kind, rpcruntime.ServerContractNative, adapter)
-}
-`
-
-const nativeUnaryServerSource = `package nativeunary
-
-import (
-	context "context"
-	errors "errors"
-	rpcruntime "rpccgo/rpcruntime"
-)
-
-var greeterNativeRequestBridgeNotImplemented = errors.New("rpccgo: native request bridge is not implemented")
+const nativeUnaryStubSource = `package testv1
 
 type HelloRequest struct {
 	Name string
+	Payload []byte
 	Enabled bool
 }
 
 type HelloReply struct {
 	Accepted bool
 	Payload []byte
+	Note string
 }
 
-type GreeterNativeServer interface {
-	SayHello(ctx context.Context, req *HelloRequest) (*HelloReply, error)
+type UnsupportedReply struct {
+	Payload []byte
+	Note string
+	Unsupported *Child
 }
 
-type greeterGoNativeAdapter struct {
-	server GreeterNativeServer
-}
-
-func (a *greeterGoNativeAdapter) SayHello(ctx context.Context, req *HelloRequest) (*HelloReply, error) {
-	if req == nil {
-		return nil, greeterNativeRequestBridgeNotImplemented
-	}
-	return a.server.SayHello(ctx, req)
-}
-
-func RegisterGreeterGoNativeServer(server GreeterNativeServer) (rpcruntime.AdapterSnapshot[GreeterNativeAdapter], error) {
-	if server == nil {
-		return rpcruntime.AdapterSnapshot[GreeterNativeAdapter]{}, errors.New("rpccgo: Greeter go native server is nil")
-	}
-	return registerGreeterActiveServer(rpcruntime.ServerKindGoNative, &greeterGoNativeAdapter{server: server})
-}
+type Child struct{}
 `
 
-const nativeUnaryClientSource = `package nativeunary
-
-import (
-	context "context"
-	errors "errors"
-	rpcruntime "rpccgo/rpcruntime"
-	unsafe "unsafe"
-)
-
-type GreeterSayHelloNativeUnaryInput struct {
-	NamePtr uintptr
-	NameLen int32
-	NameOwnership int32
-	Enabled int8
-}
-
-type GreeterSayHelloNativeUnaryOutput struct {
-	Accepted int8
-	PayloadPtr uintptr
-	PayloadLen int32
-}
-
-func CallGreeterSayHelloNativeUnary(ctx context.Context, input *GreeterSayHelloNativeUnaryInput, output *GreeterSayHelloNativeUnaryOutput) int32 {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	if input == nil {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: native unary client input is nil")))
-	}
-	if output == nil {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: native unary client output is nil")))
-	}
-	req := &HelloRequest{}
-	req.Name = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0).SafeString()
-	req.Enabled = input.Enabled != 0
-	var resp *HelloReply
-	err := greeterDispatcher.Invoke(ctx, func(ctx context.Context, snapshot rpcruntime.AdapterSnapshot[GreeterNativeAdapter]) error {
-		var callErr error
-		resp, callErr = snapshot.Adapter.SayHello(ctx, req)
-		return callErr
-	})
-	if err != nil {
-		return int32(rpcruntime.StoreError(err))
-	}
-	if resp == nil {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: native unary server returned nil response")))
-	}
-	if resp.Accepted {
-		output.Accepted = 1
-	} else {
-		output.Accepted = 0
-	}
-	ptr, err := rpcruntime.PinBytes(resp.Payload)
-	if err != nil {
-		return int32(rpcruntime.StoreError(err))
-	}
-	length, err := rpcruntime.LengthToInt32(len(resp.Payload))
-	if err != nil {
-		return int32(rpcruntime.StoreError(err))
-	}
-	output.PayloadPtr = ptr
-	output.PayloadLen = length
-	return 0
-}
-`
-
-const nativeUnaryFixtureTestSource = `package nativeunary
+const nativeUnaryFixtureTestSource = `package testv1
 
 import (
 	context "context"
@@ -180,6 +173,7 @@ import (
 type recordingServer struct {
 	called bool
 	err error
+	response *HelloReply
 }
 
 func (s *recordingServer) SayHello(ctx context.Context, req *HelloRequest) (*HelloReply, error) {
@@ -187,10 +181,17 @@ func (s *recordingServer) SayHello(ctx context.Context, req *HelloRequest) (*Hel
 	if s.err != nil {
 		return nil, s.err
 	}
-	if req.Name != "stage3" || !req.Enabled {
+	if req.Name != "stage3" || string(req.Payload) != "bytes" || !req.Enabled {
 		return nil, errors.New("request did not cross native bridge")
 	}
-	return &HelloReply{Accepted: true, Payload: []byte("dispatcher:"+req.Name)}, nil
+	if s.response != nil {
+		return s.response, nil
+	}
+	return &HelloReply{Accepted: true, Payload: []byte("dispatcher:"+req.Name), Note: "ok"}, nil
+}
+
+func (s *recordingServer) SayUnsupported(ctx context.Context, req *HelloRequest) (*UnsupportedReply, error) {
+	return &UnsupportedReply{Payload: []byte("pinned"), Note: "note", Unsupported: &Child{}}, nil
 }
 
 func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
@@ -201,9 +202,12 @@ func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 	}
 
 	name := []byte("stage3")
+	payload := []byte("bytes")
 	input := &GreeterSayHelloNativeUnaryInput{
 		NamePtr: uintptr(unsafe.Pointer(&name[0])),
 		NameLen: int32(len(name)),
+		PayloadPtr: uintptr(unsafe.Pointer(&payload[0])),
+		PayloadLen: int32(len(payload)),
 		Enabled: 1,
 	}
 	output := &GreeterSayHelloNativeUnaryOutput{}
@@ -221,6 +225,84 @@ func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 		t.Fatalf("Payload = %q", got)
 	}
 	rpcruntime.Release(output.PayloadPtr)
+	rpcruntime.Release(output.NotePtr)
+}
+
+func TestNativeUnaryNegativeLengthStoresError(t *testing.T) {
+	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	if _, err := RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
+		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
+	}
+	input := &GreeterSayHelloNativeUnaryInput{NameLen: -1}
+	output := &GreeterSayHelloNativeUnaryOutput{}
+	errID := CallGreeterSayHelloNativeUnary(context.Background(), input, output)
+	if errID == 0 {
+		t.Fatal("negative length returned errID 0")
+	}
+	text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+	if !ok || !strings.Contains(string(text), "cannot be negative") {
+		t.Fatalf("negative length error text = %q, ok=%v", text, ok)
+	}
+}
+
+func TestNativeUnaryOwnedStringAndBytesRelease(t *testing.T) {
+	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	if _, err := RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
+		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
+	}
+	rpcruntime.ResetFreeCallbackForTesting()
+	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
+	var released []uintptr
+	rpcruntime.RegisterFreeCallback(func(ptr unsafe.Pointer) {
+		released = append(released, uintptr(ptr))
+	})
+
+	name := []byte("stage3")
+	payload := []byte("bytes")
+	namePtr := uintptr(unsafe.Pointer(&name[0]))
+	payloadPtr := uintptr(unsafe.Pointer(&payload[0]))
+	input := &GreeterSayHelloNativeUnaryInput{
+		NamePtr: namePtr,
+		NameLen: int32(len(name)),
+		NameOwnership: 1,
+		PayloadPtr: payloadPtr,
+		PayloadLen: int32(len(payload)),
+		PayloadOwnership: 1,
+		Enabled: 1,
+	}
+	output := &GreeterSayHelloNativeUnaryOutput{}
+	if errID := CallGreeterSayHelloNativeUnary(context.Background(), input, output); errID != 0 {
+		t.Fatalf("CallGreeterSayHelloNativeUnary() errID = %d", errID)
+	}
+	if len(released) != 2 || released[0] != namePtr || released[1] != payloadPtr {
+		t.Fatalf("released = %#v, want name then payload", released)
+	}
+	rpcruntime.Release(output.PayloadPtr)
+	rpcruntime.Release(output.NotePtr)
+}
+
+func TestNativeUnaryOwnedReleaseErrorStoresError(t *testing.T) {
+	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	if _, err := RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
+		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
+	}
+	rpcruntime.ResetFreeCallbackForTesting()
+	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
+	name := []byte("stage3")
+	input := &GreeterSayHelloNativeUnaryInput{
+		NamePtr: uintptr(unsafe.Pointer(&name[0])),
+		NameLen: int32(len(name)),
+		NameOwnership: 1,
+	}
+	output := &GreeterSayHelloNativeUnaryOutput{}
+	errID := CallGreeterSayHelloNativeUnary(context.Background(), input, output)
+	if errID == 0 {
+		t.Fatal("owned release error returned errID 0")
+	}
+	text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+	if !ok || !strings.Contains(string(text), "ownership requires registered free func") {
+		t.Fatalf("release error text = %q, ok=%v", text, ok)
+	}
 }
 
 func TestNativeUnaryMissingActiveServerStoresError(t *testing.T) {
@@ -251,6 +333,22 @@ func TestNativeUnaryServerErrorStoresError(t *testing.T) {
 	text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
 	if !ok || !strings.Contains(string(text), "server exploded") {
 		t.Fatalf("server error text = %q, ok=%v", text, ok)
+	}
+}
+
+func TestNativeUnaryOutputStagingLeavesOutputUntouchedOnUnsupportedResponse(t *testing.T) {
+	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	if _, err := RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
+		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
+	}
+	input := &GreeterSayUnsupportedNativeUnaryInput{}
+	output := &GreeterSayUnsupportedNativeUnaryOutput{}
+	errID := CallGreeterSayUnsupportedNativeUnary(context.Background(), input, output)
+	if errID == 0 {
+		t.Fatal("unsupported response returned errID 0")
+	}
+	if output.PayloadPtr != 0 || output.PayloadLen != 0 || output.NotePtr != 0 || output.NoteLen != 0 {
+		t.Fatalf("output was partially committed on error: %#v", output)
 	}
 }
 `
