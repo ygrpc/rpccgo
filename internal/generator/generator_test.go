@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -115,6 +116,24 @@ func TestGenerateWithNativeRendererUsesNonSourceRelativeGeneratedPrefix(t *testi
 		"example.com/test/v1/greeter.greeter.server.native.rpccgo.go",
 		"example.com/test/v1/greeter.greeter.server.cgo.rpccgo.go",
 	})
+}
+
+func TestGenerateWithNativeRendererPropagatesRendererError(t *testing.T) {
+	wantErr := errors.New("renderer failed")
+	original := renderNativeStageFiles
+	renderNativeStageFiles = func(plugin *protogen.Plugin, plan FilePlan) error {
+		return wantErr
+	}
+	t.Cleanup(func() {
+		renderNativeStageFiles = original
+	})
+
+	plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())
+
+	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("GenerateWithOptions() error = %v, want %v", err, wantErr)
+	}
 }
 
 func TestGenerateAllowsStandardPathsParameter(t *testing.T) {
