@@ -31,6 +31,9 @@ func TestGenerateBuildsBasicFilePlans(t *testing.T) {
 	if plan.GoImportPath != "example.com/test/v1" {
 		t.Fatalf("GoImportPath = %q, want %q", plan.GoImportPath, "example.com/test/v1")
 	}
+	if plan.GeneratedFilenamePrefix != "test/v1/greeter" {
+		t.Fatalf("GeneratedFilenamePrefix = %q, want %q", plan.GeneratedFilenamePrefix, "test/v1/greeter")
+	}
 	if len(plan.Services) != 1 {
 		t.Fatalf("Services = %d, want 1", len(plan.Services))
 	}
@@ -44,8 +47,12 @@ func TestGenerateBuildsBasicFilePlans(t *testing.T) {
 	if len(service.Methods) != 1 {
 		t.Fatalf("Methods = %d, want 1", len(service.Methods))
 	}
+	assertGeneratedFilePlan(t, service.NativeFileFamily.Runtime, "test/v1/greeter.greeter.runtime.rpccgo.go", true)
+	assertGeneratedFilePlan(t, service.NativeFileFamily.NativeServer, "test/v1/greeter.greeter.server.native.rpccgo.go", false)
+	assertGeneratedFilePlan(t, service.NativeFileFamily.CGONativeServer, "test/v1/greeter.greeter.server.cgo.rpccgo.go", false)
+	assertGeneratedFilePlan(t, service.NativeFileFamily.CGONativeClient, "test/v1/greeter.greeter.client.cgo.rpccgo.go", false)
 	if len(plugin.Response().GetFile()) != 0 {
-		t.Fatalf("Generate() must not emit runtime files during Stage 1 planning")
+		t.Fatalf("Generate() may attach file family plans, but must not emit files during plan-only generation")
 	}
 }
 
@@ -68,6 +75,10 @@ func TestGenerateWithNativeRendererEmitsNativeStageFiles(t *testing.T) {
 		"test/v1/greeter.greeter.server.cgo.rpccgo.go",
 	})
 	assertNoGeneratedFilenameContains(t, plugin, ".connect.", ".grpc.", ".message.", ".remote.", ".client.cgo.")
+	assertGeneratedContentDoesNotContain(t, plugin, "connectrpc.com/connect", "google.golang.org/grpc")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "rpccgo service runtime stage file for Greeter")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go", "rpccgo native stage file for Greeter go native server")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.cgo.rpccgo.go", "rpccgo native stage file for Greeter cgo native server")
 }
 
 func TestGenerateWithNativeRendererSkipsNativeServerForMessageOnlyService(t *testing.T) {
@@ -82,6 +93,28 @@ func TestGenerateWithNativeRendererSkipsNativeServerForMessageOnlyService(t *tes
 		"test/v1/greeter.greeter.runtime.rpccgo.go",
 	})
 	assertNoGeneratedFilenameContains(t, plugin, ".server.native.", ".server.cgo.", ".connect.", ".grpc.", ".message.", ".remote.", ".client.cgo.")
+	assertGeneratedContentDoesNotContain(t, plugin, "rpccgo native stage file", "connectrpc.com/connect", "google.golang.org/grpc")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "rpccgo service runtime stage file for Greeter")
+}
+
+func TestGenerateWithNativeRendererUsesNonSourceRelativeGeneratedPrefix(t *testing.T) {
+	file := simpleTestFile()
+	setSimpleServiceComment(t, file, "@rpccgo: native\n")
+	plugin := newTestPlugin(t, "", file)
+
+	plans, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	if got, want := plans[0].GeneratedFilenamePrefix, "example.com/test/v1/greeter"; got != want {
+		t.Fatalf("GeneratedFilenamePrefix = %q, want %q", got, want)
+	}
+	assertGeneratedFilenames(t, plugin, []string{
+		"example.com/test/v1/greeter.greeter.runtime.rpccgo.go",
+		"example.com/test/v1/greeter.greeter.server.native.rpccgo.go",
+		"example.com/test/v1/greeter.greeter.server.cgo.rpccgo.go",
+	})
 }
 
 func TestGenerateAllowsStandardPathsParameter(t *testing.T) {
@@ -215,6 +248,33 @@ func assertNoGeneratedFilenameContains(t *testing.T, plugin *protogen.Plugin, fr
 		for _, fragment := range fragments {
 			if strings.Contains(name, fragment) {
 				t.Fatalf("generated filename %q contains forbidden fragment %q; all files: %v", name, fragment, generatedFilenames(plugin))
+			}
+		}
+	}
+}
+
+func assertGeneratedContentContains(t *testing.T, plugin *protogen.Plugin, filename string, fragment string) {
+	t.Helper()
+
+	for _, file := range plugin.Response().GetFile() {
+		if file.GetName() != filename {
+			continue
+		}
+		if !strings.Contains(file.GetContent(), fragment) {
+			t.Fatalf("generated file %q content missing %q: %q", filename, fragment, file.GetContent())
+		}
+		return
+	}
+	t.Fatalf("generated file %q not found; all files: %v", filename, generatedFilenames(plugin))
+}
+
+func assertGeneratedContentDoesNotContain(t *testing.T, plugin *protogen.Plugin, fragments ...string) {
+	t.Helper()
+
+	for _, file := range plugin.Response().GetFile() {
+		for _, fragment := range fragments {
+			if strings.Contains(file.GetContent(), fragment) {
+				t.Fatalf("generated file %q content contains forbidden fragment %q: %q", file.GetName(), fragment, file.GetContent())
 			}
 		}
 	}

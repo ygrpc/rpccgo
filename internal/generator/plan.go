@@ -26,10 +26,11 @@ func (s AdapterSelection) Has(token AdapterToken) bool {
 }
 
 type FilePlan struct {
-	GoPackageName string
-	GoImportPath  string
-	ProtoPath     string
-	Services      []ServicePlan
+	GoPackageName           string
+	GoImportPath            string
+	ProtoPath               string
+	GeneratedFilenamePrefix string
+	Services                []ServicePlan
 }
 
 func (p FilePlan) HasIdentity() bool {

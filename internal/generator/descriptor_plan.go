@@ -12,10 +12,11 @@ func BuildDescriptorPlan(file *protogen.File) (FilePlan, error) {
 	}
 
 	plan := FilePlan{
-		GoPackageName: string(file.GoPackageName),
-		GoImportPath:  string(file.GoImportPath),
-		ProtoPath:     file.Desc.Path(),
-		Services:      make([]ServicePlan, 0, len(file.Services)),
+		GoPackageName:           string(file.GoPackageName),
+		GoImportPath:            string(file.GoImportPath),
+		ProtoPath:               file.Desc.Path(),
+		GeneratedFilenamePrefix: file.GeneratedFilenamePrefix,
+		Services:                make([]ServicePlan, 0, len(file.Services)),
 	}
 	for _, service := range file.Services {
 		servicePlan, err := buildServiceDescriptorPlan(service)

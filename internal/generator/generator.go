@@ -10,8 +10,8 @@ type GenerateOptions struct {
 	RenderNativeStageFiles bool
 }
 
-// Generate parses the protoc plugin request into planning data without
-// emitting generated files.
+// Generate parses the protoc plugin request into planning data, including file
+// family plans, without emitting generated files.
 func Generate(plugin *protogen.Plugin) ([]FilePlan, error) {
 	return GenerateWithOptions(plugin, GenerateOptions{})
 }

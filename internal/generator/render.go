@@ -39,18 +39,16 @@ func renderNativeStageFile(plugin *protogen.Plugin, plan FilePlan, service Servi
 
 func nativeStageMarker(service ServicePlan, file GeneratedFilePlan) string {
 	name := file.Filename
-	parts := []string{"rpccgo native stage file for", service.GoName}
 	switch {
 	case strings.Contains(name, ".runtime.rpccgo.go"):
-		parts = append(parts, "runtime")
+		return strings.Join([]string{"rpccgo service runtime stage file for", service.GoName}, " ")
 	case strings.Contains(name, ".server.native.rpccgo.go"):
-		parts = append(parts, "go native server")
+		return strings.Join([]string{"rpccgo native stage file for", service.GoName, "go native server"}, " ")
 	case strings.Contains(name, ".server.cgo.rpccgo.go"):
-		parts = append(parts, "cgo native server")
+		return strings.Join([]string{"rpccgo native stage file for", service.GoName, "cgo native server"}, " ")
 	case strings.Contains(name, ".client.cgo.rpccgo.go"):
-		parts = append(parts, "cgo native client")
+		return strings.Join([]string{"rpccgo native stage file for", service.GoName, "cgo native client"}, " ")
 	default:
-		parts = append(parts, "unknown")
+		return strings.Join([]string{"rpccgo service stage file for", service.GoName, "unknown"}, " ")
 	}
-	return strings.Join(parts, " ")
 }

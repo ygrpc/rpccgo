@@ -13,7 +13,7 @@ func AttachNativeFileFamilyPlan(file *FilePlan) {
 
 func BuildNativeFileFamilyPlan(file FilePlan, service ServicePlan) NativeFileFamilyPlan {
 	serviceName := lowerSnakeCase(service.GoName)
-	prefix := generatedFilePrefix(file)
+	prefix := file.GeneratedFilenamePrefix
 
 	enabledNativeServer := service.Adapters.Has(AdapterTokenNative)
 	return NativeFileFamilyPlan{
@@ -34,17 +34,4 @@ func BuildNativeFileFamilyPlan(file FilePlan, service ServicePlan) NativeFileFam
 			Enabled:  false,
 		},
 	}
-}
-
-func generatedFilePrefix(file FilePlan) string {
-	prefix := file.ProtoPath
-	if prefix == "" {
-		return "rpccgo"
-	}
-	for _, suffix := range []string{".proto"} {
-		if len(prefix) >= len(suffix) && prefix[len(prefix)-len(suffix):] == suffix {
-			return prefix[:len(prefix)-len(suffix)]
-		}
-	}
-	return prefix
 }
