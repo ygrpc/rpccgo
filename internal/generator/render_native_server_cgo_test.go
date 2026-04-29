@@ -126,6 +126,36 @@ func TestRenderNativeServerCGORejectsGeneratedSymbolCollisions(t *testing.T) {
 	}
 }
 
+func TestRenderNativeServerCGORejectsCallbackFieldCollisions(t *testing.T) {
+	plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())
+	plan := nativeServerCGOCollisionTestFilePlan("Greeter", []MethodPlan{
+		{
+			Name:      "UploadStart",
+			GoName:    "UploadStart",
+			FullName:  "test.v1.Greeter.UploadStart",
+			Streaming: StreamingKindUnary,
+			Request:   MethodIOPlan{GoName: "HelloRequest", GoImportPath: "example.com/test/v1", FullName: "test.v1.HelloRequest"},
+			Response:  MethodIOPlan{GoName: "HelloReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.HelloReply"},
+		},
+		{
+			Name:      "Upload",
+			GoName:    "Upload",
+			FullName:  "test.v1.Greeter.Upload",
+			Streaming: StreamingKindClientStreaming,
+			Request:   MethodIOPlan{GoName: "HelloRequest", GoImportPath: "example.com/test/v1", FullName: "test.v1.HelloRequest"},
+			Response:  MethodIOPlan{GoName: "HelloReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.HelloReply"},
+		},
+	})
+
+	err := RenderNativeStageFiles(plugin, plan)
+	if err == nil {
+		t.Fatal("RenderNativeStageFiles() error = nil, want callback field collision")
+	}
+	if got := err.Error(); !strings.Contains(got, "UploadStart") || !strings.Contains(got, "callback field") || !strings.Contains(got, "collides") {
+		t.Fatalf("RenderNativeStageFiles() error = %q, want callback field collision for UploadStart", got)
+	}
+}
+
 func TestRenderNativeServerCGORejectsPackageAndSiblingSymbolCollisions(t *testing.T) {
 	t.Run("package enum collides with callback table", func(t *testing.T) {
 		plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())

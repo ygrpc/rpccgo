@@ -148,15 +148,17 @@ import (
 )
 
 type uploadGoServer struct {
+	label string
 	stream *uploadGoStream
 }
 
 func (s *uploadGoServer) Upload(ctx context.Context) (GreeterUploadNativeClientStream, error) {
-	s.stream = &uploadGoStream{}
+	s.stream = &uploadGoStream{label: s.label}
 	return s.stream, nil
 }
 
 type uploadGoStream struct {
+	label string
 	names []string
 	payloads []string
 	canceled bool
@@ -169,7 +171,11 @@ func (s *uploadGoStream) Send(ctx context.Context, req *UploadRequest) error {
 }
 
 func (s *uploadGoStream) Finish(ctx context.Context) (*UploadReply, error) {
-	return &UploadReply{Count: int32(len(s.payloads)), Summary: strings.Join(s.names, ",")+":"+strings.Join(s.payloads, "|")}, nil
+	prefix := s.label
+	if prefix != "" {
+		prefix += ":"
+	}
+	return &UploadReply{Count: int32(len(s.payloads)), Summary: prefix+strings.Join(s.names, ",")+":"+strings.Join(s.payloads, "|")}, nil
 }
 
 func (s *uploadGoStream) Cancel(ctx context.Context) error {
@@ -211,6 +217,54 @@ func TestNativeClientStreamingGoServerFinishFinalizesHandle(t *testing.T) {
 	text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
 	if !ok || !strings.Contains(string(text), "native client stream handle is invalid") {
 		t.Fatalf("Send after Finish error text = %q, ok=%v", text, ok)
+	}
+}
+
+func TestNativeClientStreamingGoServerStartCapturesActiveServerSnapshot(t *testing.T) {
+	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	serverA := &uploadGoServer{label: "A"}
+	if _, err := RegisterGreeterGoNativeServer(serverA); err != nil {
+		t.Fatalf("RegisterGreeterGoNativeServer(A) error = %v", err)
+	}
+	handle, errID := StartGreeterUploadNativeClientStream(context.Background())
+	if errID != 0 {
+		t.Fatalf("StartGreeterUploadNativeClientStream() errID = %d", errID)
+	}
+	serverB := &uploadGoServer{label: "B"}
+	if _, err := RegisterGreeterGoNativeServer(serverB); err != nil {
+		t.Fatalf("RegisterGreeterGoNativeServer(B) error = %v", err)
+	}
+
+	sendUpload(t, handle, "first", "aa")
+	output := &GreeterUploadNativeClientStreamOutput{}
+	if errID := FinishGreeterUploadNativeClientStream(context.Background(), handle, output); errID != 0 {
+		t.Fatalf("FinishGreeterUploadNativeClientStream() errID = %d", errID)
+	}
+	summary := unsafe.Slice((*byte)(unsafe.Pointer(output.SummaryPtr)), output.SummaryLen)
+	if string(summary) != "A:first:aa" {
+		t.Fatalf("Summary = %q, want A stream response", summary)
+	}
+	rpcruntime.Release(output.SummaryPtr)
+	if serverA.stream == nil || len(serverA.stream.payloads) != 1 {
+		t.Fatalf("server A stream payloads = %#v", serverA.stream)
+	}
+	if serverB.stream != nil {
+		t.Fatalf("server B unexpectedly received stream: %#v", serverB.stream)
+	}
+}
+
+func TestNativeClientStreamingGoServerStartReportsMissingActiveServer(t *testing.T) {
+	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	handle, errID := StartGreeterUploadNativeClientStream(context.Background())
+	if handle != 0 {
+		t.Fatalf("handle = %d, want 0", handle)
+	}
+	if errID == 0 {
+		t.Fatal("missing active server returned errID 0")
+	}
+	text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+	if !ok || !strings.Contains(string(text), "active server") {
+		t.Fatalf("missing active server error text = %q, ok=%v", text, ok)
 	}
 }
 
@@ -266,7 +320,7 @@ func TestNativeClientStreamingCGOServerFinishFinalizesHandle(t *testing.T) {
 	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
 	rpcruntime.ResetFreeCallbackForTesting()
 	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
-	registerClientStreamCFreeCallback()
+	frees := registerClientStreamCFreeCallback()
 	if err := registerGreeterClientStreamCGONativeServerCallbacks(); err != nil {
 		t.Fatalf("registerGreeterClientStreamCGONativeServerCallbacks() error = %v", err)
 	}
@@ -282,6 +336,9 @@ func TestNativeClientStreamingCGOServerFinishFinalizesHandle(t *testing.T) {
 	if errID := FinishGreeterUploadNativeClientStream(context.Background(), handle, output); errID != 0 {
 		t.Fatalf("FinishGreeterUploadNativeClientStream() errID = %d", errID)
 	}
+	if errID := FinishGreeterUploadNativeClientStream(context.Background(), handle, &GreeterUploadNativeClientStreamOutput{}); errID == 0 {
+		t.Fatal("second Finish returned errID 0")
+	}
 	if output.Count != 2 {
 		t.Fatalf("Count = %d, want 2", output.Count)
 	}
@@ -289,10 +346,96 @@ func TestNativeClientStreamingCGOServerFinishFinalizesHandle(t *testing.T) {
 	if string(summary) != "cgo:2:5" {
 		t.Fatalf("Summary = %q", summary)
 	}
-	rpcruntime.Release(output.SummaryPtr)
+	if got := frees(); got != 1 {
+		t.Fatalf("free count after Finish = %d, want 1", got)
+	}
 
 	if errID := SendGreeterUploadNativeClientStream(context.Background(), handle, &GreeterUploadNativeClientStreamInput{}); errID == 0 {
 		t.Fatal("Send after cgo Finish returned errID 0")
+	}
+}
+
+func TestNativeClientStreamingCGOServerCancelTwiceInvalidatesHandle(t *testing.T) {
+	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	if err := registerGreeterClientStreamCGONativeServerCallbacks(); err != nil {
+		t.Fatalf("registerGreeterClientStreamCGONativeServerCallbacks() error = %v", err)
+	}
+	handle, errID := StartGreeterUploadNativeClientStream(context.Background())
+	if errID != 0 {
+		t.Fatalf("StartGreeterUploadNativeClientStream() errID = %d", errID)
+	}
+	if errID := CancelGreeterUploadNativeClientStream(context.Background(), handle); errID != 0 {
+		t.Fatalf("CancelGreeterUploadNativeClientStream() errID = %d", errID)
+	}
+	if errID := CancelGreeterUploadNativeClientStream(context.Background(), handle); errID == 0 {
+		t.Fatal("second Cancel returned errID 0")
+	}
+	if got := greeterClientStreamCancelCount(); got != 1 {
+		t.Fatalf("cancel count = %d, want 1", got)
+	}
+}
+
+func TestNativeClientStreamingCGOServerCallbackErrorsPropagate(t *testing.T) {
+	tests := []struct {
+		name string
+		mode int32
+		run func(t *testing.T, handle int32) int32
+		want string
+	}{
+		{name: "start", mode: 1, run: func(t *testing.T, handle int32) int32 { return 0 }, want: "forced start error"},
+		{name: "send", mode: 2, run: func(t *testing.T, handle int32) int32 {
+			return sendUploadCGOErr(handle, "one", "ab")
+		}, want: "forced send error"},
+		{name: "finish", mode: 3, run: func(t *testing.T, handle int32) int32 {
+			return FinishGreeterUploadNativeClientStream(context.Background(), handle, &GreeterUploadNativeClientStreamOutput{})
+		}, want: "forced finish error"},
+		{name: "cancel", mode: 4, run: func(t *testing.T, handle int32) int32 {
+			return CancelGreeterUploadNativeClientStream(context.Background(), handle)
+		}, want: "forced cancel error"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+			setGreeterClientStreamErrorMode(tt.mode)
+			t.Cleanup(func() { setGreeterClientStreamErrorMode(0) })
+			if err := registerGreeterClientStreamCGONativeServerCallbacks(); err != nil {
+				t.Fatalf("registerGreeterClientStreamCGONativeServerCallbacks() error = %v", err)
+			}
+			handle, errID := StartGreeterUploadNativeClientStream(context.Background())
+			if tt.name == "start" {
+				assertErrorTextContains(t, errID, tt.want)
+				if handle != 0 {
+					t.Fatalf("handle = %d, want 0", handle)
+				}
+				return
+			}
+			if errID != 0 {
+				t.Fatalf("StartGreeterUploadNativeClientStream() errID = %d", errID)
+			}
+			assertErrorTextContains(t, tt.run(t, handle), tt.want)
+		})
+	}
+}
+
+func TestNativeClientStreamingCGOServerFinishErrorCleansOwnedOutput(t *testing.T) {
+	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	rpcruntime.ResetFreeCallbackForTesting()
+	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
+	frees := registerClientStreamCFreeCallback()
+	setGreeterClientStreamErrorMode(5)
+	t.Cleanup(func() { setGreeterClientStreamErrorMode(0) })
+	if err := registerGreeterClientStreamCGONativeServerCallbacks(); err != nil {
+		t.Fatalf("registerGreeterClientStreamCGONativeServerCallbacks() error = %v", err)
+	}
+	handle, errID := StartGreeterUploadNativeClientStream(context.Background())
+	if errID != 0 {
+		t.Fatalf("StartGreeterUploadNativeClientStream() errID = %d", errID)
+	}
+	output := &GreeterUploadNativeClientStreamOutput{}
+	errID = FinishGreeterUploadNativeClientStream(context.Background(), handle, output)
+	assertErrorTextContains(t, errID, "forced finish output error")
+	if got := frees(); got != 1 {
+		t.Fatalf("free count after Finish error = %d, want 1", got)
 	}
 }
 
@@ -323,6 +466,12 @@ func TestNativeClientStreamingCGOServerCancelFinalizesHandle(t *testing.T) {
 
 func sendUploadCGO(t *testing.T, handle int32, nameValue, payloadValue string) {
 	t.Helper()
+	if errID := sendUploadCGOErr(handle, nameValue, payloadValue); errID != 0 {
+		t.Fatalf("SendGreeterUploadNativeClientStream() errID = %d", errID)
+	}
+}
+
+func sendUploadCGOErr(handle int32, nameValue, payloadValue string) int32 {
 	name := []byte(nameValue)
 	payload := []byte(payloadValue)
 	input := &GreeterUploadNativeClientStreamInput{
@@ -331,8 +480,17 @@ func sendUploadCGO(t *testing.T, handle int32, nameValue, payloadValue string) {
 		PayloadPtr: uintptr(unsafe.Pointer(&payload[0])),
 		PayloadLen: int32(len(payload)),
 	}
-	if errID := SendGreeterUploadNativeClientStream(context.Background(), handle, input); errID != 0 {
-		t.Fatalf("SendGreeterUploadNativeClientStream() errID = %d", errID)
+	return SendGreeterUploadNativeClientStream(context.Background(), handle, input)
+}
+
+func assertErrorTextContains(t *testing.T, errID int32, want string) {
+	t.Helper()
+	if errID == 0 {
+		t.Fatalf("errID = 0, want %q", want)
+	}
+	text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+	if !ok || !strings.Contains(string(text), want) {
+		t.Fatalf("error text = %q, ok=%v, want %q", text, ok, want)
 	}
 }
 `
@@ -342,6 +500,7 @@ const nativeClientStreamingCGOFixtureCallbackSource = `package testv1
 /*
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 extern int32_t StoreGreeterCGONativeServerErrorTextForExport(char* text, int32_t textLen);
 
@@ -375,8 +534,16 @@ static int32_t greeterStreamID;
 static int32_t greeterStreamCount;
 static int32_t greeterStreamBytes;
 static int32_t greeterStreamCancels;
+static int32_t greeterStreamErrorMode;
+
+static int32_t greeterForcedError(const char* text) {
+	return StoreGreeterCGONativeServerErrorTextForExport((char*)text, (int32_t)strlen(text));
+}
 
 static int32_t greeterUploadStart(int32_t* stream) {
+	if (greeterStreamErrorMode == 1) {
+		return greeterForcedError("forced start error");
+	}
 	if (stream == NULL) {
 		char msg[] = "stream output missing";
 		return StoreGreeterCGONativeServerErrorTextForExport(msg, sizeof(msg)-1);
@@ -390,6 +557,9 @@ static int32_t greeterUploadStart(int32_t* stream) {
 }
 
 static int32_t greeterUploadSend(int32_t stream, GreeterUploadCGONativeClientStreamRequest* input) {
+	if (greeterStreamErrorMode == 2) {
+		return greeterForcedError("forced send error");
+	}
 	if (stream != greeterStreamID || input == NULL) {
 		char msg[] = "stream send did not reach cgo callback";
 		return StoreGreeterCGONativeServerErrorTextForExport(msg, sizeof(msg)-1);
@@ -414,10 +584,19 @@ static int32_t greeterUploadFinish(int32_t stream, GreeterUploadCGONativeClientS
 	output->SummaryPtr = (uintptr_t)summary;
 	output->SummaryLen = 7;
 	output->SummaryOwnership = 1;
+	if (greeterStreamErrorMode == 3) {
+		return greeterForcedError("forced finish error");
+	}
+	if (greeterStreamErrorMode == 5) {
+		return greeterForcedError("forced finish output error");
+	}
 	return 0;
 }
 
 static int32_t greeterUploadCancel(int32_t stream) {
+	if (greeterStreamErrorMode == 4) {
+		return greeterForcedError("forced cancel error");
+	}
 	if (stream != greeterStreamID) {
 		char msg[] = "stream cancel did not reach cgo callback";
 		return StoreGreeterCGONativeServerErrorTextForExport(msg, sizeof(msg)-1);
@@ -438,6 +617,10 @@ static GreeterCGONativeServerCallbacks greeterClientStreamCallbacks(void) {
 static int32_t greeterClientStreamCancelCount(void) {
 	return greeterStreamCancels;
 }
+
+static void setGreeterClientStreamErrorMode(int32_t mode) {
+	greeterStreamErrorMode = mode;
+}
 */
 import "C"
 
@@ -456,6 +639,10 @@ func registerGreeterClientStreamCGONativeServerCallbacks() error {
 
 func greeterClientStreamCancelCount() int32 {
 	return int32(C.greeterClientStreamCancelCount())
+}
+
+func setGreeterClientStreamErrorMode(mode int32) {
+	C.setGreeterClientStreamErrorMode(C.int32_t(mode))
 }
 
 func registerClientStreamCFreeCallback() func() int32 {

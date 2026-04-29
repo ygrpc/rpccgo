@@ -40,19 +40,11 @@ func TestRenderRuntimeGlueDefinesServiceDispatcherAndRegistration(t *testing.T) 
 		"type AllServiceNativeAdapter interface {",
 		"Unary(ctx context.Context, req *AllRequest) (*AllReply, error)",
 		"StartClientStream(ctx context.Context) (AllServiceClientStreamNativeStreamSession, error)",
-		"StartServerStream(ctx context.Context) (AllServiceServerStreamNativeStreamSession, error)",
-		"StartBidiStream(ctx context.Context) (AllServiceBidiStreamNativeStreamSession, error)",
+		"StartServerStream(ctx context.Context) (*AllRequest, error)",
+		"StartBidiStream(ctx context.Context) error",
 		"type AllServiceClientStreamNativeStreamSession interface {",
 		"Send(ctx context.Context, req *AllRequest) error",
 		"Finish(ctx context.Context) (*AllReply, error)",
-		"Cancel(ctx context.Context) error",
-		"type AllServiceServerStreamNativeStreamSession interface {",
-		"Recv(ctx context.Context) (*AllReply, error)",
-		"Cancel(ctx context.Context) error",
-		"type AllServiceBidiStreamNativeStreamSession interface {",
-		"Send(ctx context.Context, req *AllRequest) error",
-		"Recv(ctx context.Context) (*AllReply, error)",
-		"CloseSend(ctx context.Context) error",
 		"Cancel(ctx context.Context) error",
 		"var allServiceDispatcher rpcruntime.Dispatcher[AllServiceNativeAdapter]",
 		"func registerAllServiceActiveServer(kind rpcruntime.ServerKind, adapter AllServiceNativeAdapter) (rpcruntime.AdapterSnapshot[AllServiceNativeAdapter], error) {",
@@ -60,6 +52,12 @@ func TestRenderRuntimeGlueDefinesServiceDispatcherAndRegistration(t *testing.T) 
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
+	assertGeneratedContentDoesNotContain(t, plugin,
+		"AllServiceServerStreamNativeStreamSession",
+		"AllServiceBidiStreamNativeStreamSession",
+		"loadAllServiceServerStreamNativeStream",
+		"loadAllServiceBidiStreamNativeStream",
+	)
 }
 
 func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleAndHelpers(t *testing.T) {

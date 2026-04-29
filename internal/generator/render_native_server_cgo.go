@@ -323,6 +323,8 @@ func renderCGONativeServerStreamingFallback(g *protogen.GeneratedFile, adapterNa
 	g.P("func (a *", adapterName, ") ", method.AdapterName, "(ctx context.Context", method.AdapterArgs, ")", method.AdapterResult, " {")
 	if method.Streaming {
 		g.P("return nil, ", errorNames.StreamNotImplemented)
+	} else if method.AdapterResult == " error" {
+		g.P("return ", errorNames.StreamNotImplemented)
 	} else {
 		g.P("return nil, ", errorNames.UnaryCallbackMissing)
 	}
@@ -997,6 +999,35 @@ func validateNativeServerCGOSymbols(plan FilePlan, service ServicePlan) error {
 		}
 		if err := validateNativeClientStructFields(responseName, method.NativeContract.ResponseFields, nativeClientInputFieldSymbols); err != nil {
 			return err
+		}
+	}
+	if err := validateNativeServerCGOCallbackFields(service); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateNativeServerCGOCallbackFields(service ServicePlan) error {
+	seen := make(map[string]string)
+	add := func(field, source string) error {
+		if previous, exists := seen[field]; exists {
+			return fmt.Errorf("native server cgo callback field %s for %s collides with %s", field, source, previous)
+		}
+		seen[field] = source
+		return nil
+	}
+	for _, method := range service.Methods {
+		switch method.Streaming {
+		case StreamingKindUnary:
+			if err := add(method.GoName, method.FullName+" unary callback"); err != nil {
+				return err
+			}
+		case StreamingKindClientStreaming:
+			for _, suffix := range []string{"Start", "Send", "Finish", "Cancel"} {
+				if err := add(method.GoName+suffix, method.FullName+" client stream "+suffix+" callback"); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil

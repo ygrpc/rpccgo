@@ -110,10 +110,16 @@ func runtimeAdapterMethodFor(g *protogen.GeneratedFile, service ServicePlan, met
 		rendered.AdapterName = method.GoName
 		rendered.AdapterArgs = ", req " + requestType
 		rendered.AdapterResult = " (" + responseType + ", error)"
-	case StreamingKindClientStreaming, StreamingKindServerStreaming, StreamingKindBidiStreaming:
+	case StreamingKindClientStreaming:
 		rendered.AdapterName = "Start" + method.GoName
 		rendered.AdapterResult = " (" + sessionName + ", error)"
 		rendered.Streaming = true
+	case StreamingKindServerStreaming:
+		rendered.AdapterName = "Start" + method.GoName
+		rendered.AdapterResult = " (" + requestType + ", error)"
+	case StreamingKindBidiStreaming:
+		rendered.AdapterName = "Start" + method.GoName
+		rendered.AdapterResult = " error"
 	default:
 		return runtimeAdapterMethod{}, fmt.Errorf("%s has unknown streaming kind %d", method.FullName, method.Streaming)
 	}
