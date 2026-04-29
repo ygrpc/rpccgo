@@ -228,6 +228,94 @@ func TestRenderNativeClientCGORejectsSiblingServiceGeneratedSymbolCollisions(t *
 	}
 }
 
+func TestRenderNativeClientCGORejectsPackageLevelMultiFileSymbolCollisions(t *testing.T) {
+	tests := []struct {
+		name      string
+		file      *descriptorpb.FileDescriptorProto
+		otherFile *descriptorpb.FileDescriptorProto
+		wantError string
+	}{
+		{
+			name:      "other file message collides with native input",
+			file:      simpleTestFile(),
+			otherFile: nativeClientPackageCollisionFile("test/v1/other.proto", "example.com/test/v1;testv1", "GreeterSayHelloNativeUnaryInput"),
+			wantError: "GreeterSayHelloNativeUnaryInput",
+		},
+		{
+			name:      "other file enum collides with native call",
+			file:      simpleTestFile(),
+			otherFile: nativeClientPackageCollisionEnumFile("test/v1/other.proto", "example.com/test/v1;testv1", "CallGreeterSayHelloNativeUnary"),
+			wantError: "CallGreeterSayHelloNativeUnary",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			file := tt.file
+			setSimpleServiceComment(t, file, "@rpccgo: native\n")
+			request := newTestCodeGeneratorRequest("paths=source_relative", file, tt.otherFile)
+			request.FileToGenerate = []string{file.GetName(), tt.otherFile.GetName()}
+			plugin, err := ProtogenOptions().New(request)
+			if err != nil {
+				t.Fatalf("protogen.Options.New() error = %v", err)
+			}
+
+			_, err = GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+			if err == nil {
+				t.Fatal("GenerateWithOptions() error = nil, want package-level symbol collision")
+			}
+			if got := err.Error(); !strings.Contains(got, tt.wantError) || !strings.Contains(got, "collides") {
+				t.Fatalf("GenerateWithOptions() error = %q, want collision for %q", got, tt.wantError)
+			}
+		})
+	}
+}
+
+func TestRenderNativeClientCGORejectsNestedPackageLevelSymbolCollisions(t *testing.T) {
+	plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile(), nativeClientPackageCollisionNestedFile("test/v1/other.proto", "example.com/test/v1;testv1", "SayHelloNativeUnaryInput"))
+	plan := nativeClientCollisionTestFilePlan(MethodPlan{
+		Name:      "SayHello",
+		GoName:    "SayHelloNativeUnaryInput",
+		FullName:  "test.v1.Greeter.SayHello",
+		Streaming: StreamingKindUnary,
+		Request:   MethodIOPlan{GoName: "HelloRequest", GoImportPath: "example.com/test/v1", FullName: "test.v1.HelloRequest"},
+		Response:  MethodIOPlan{GoName: "HelloReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.HelloReply"},
+	})
+	plan.Services[0].Name = "Greeter"
+	plan.Services[0].GoName = "Decode"
+	plan.Services[0].FullName = "test.v1.Greeter"
+	plan.Services[0].NativeFileFamily.CGONativeClient.Enabled = true
+	plan.TopLevelSymbols = append(plan.TopLevelSymbols, TopLevelSymbolPlan{
+		GoName:   "DecodeSayHelloNativeUnaryInputNativeUnaryInput",
+		FullName: "test.v1.Parent.Nested",
+		Kind:     TopLevelSymbolKindMessage,
+	})
+
+	err := RenderNativeStageFiles(plugin, plan)
+	if err == nil {
+		t.Fatal("RenderNativeStageFiles() error = nil, want nested protobuf symbol collision")
+	}
+	if got := err.Error(); !strings.Contains(got, "DecodeSayHelloNativeUnaryInputNativeUnaryInput") || !strings.Contains(got, "collides") {
+		t.Fatalf("RenderNativeStageFiles() error = %q, want nested collision for DecodeSayHelloNativeUnaryInputNativeUnaryInput", got)
+	}
+}
+
+func TestRenderNativeClientCGOIgnoresMultiFileSymbolsFromDifferentGoImportPath(t *testing.T) {
+	file := simpleTestFile()
+	setSimpleServiceComment(t, file, "@rpccgo: native\n")
+	otherFile := nativeClientPackageCollisionFile("other/v1/other.proto", "example.com/other/v1;otherv1", "GreeterSayHelloNativeUnaryInput")
+	request := newTestCodeGeneratorRequest("paths=source_relative", file, otherFile)
+	request.FileToGenerate = []string{file.GetName(), otherFile.GetName()}
+	plugin, err := ProtogenOptions().New(request)
+	if err != nil {
+		t.Fatalf("protogen.Options.New() error = %v", err)
+	}
+
+	if _, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true}); err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v, want different GoImportPath ignored", err)
+	}
+}
+
 func TestRenderNativeClientCGOGeneratedSourceCompiles(t *testing.T) {
 	file := stage1AcceptanceFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
@@ -335,5 +423,57 @@ func nativeClientCollisionTestFilePlan(method MethodPlan) FilePlan {
 				CGONativeClient: GeneratedFilePlan{Filename: "test/v1/collision.client.cgo.rpccgo.go", Enabled: true},
 			},
 		}},
+	}
+}
+
+func nativeClientPackageCollisionFile(name, goPackage, messageName string) *descriptorpb.FileDescriptorProto {
+	return &descriptorpb.FileDescriptorProto{
+		Name:    proto.String(name),
+		Package: proto.String("test.v1"),
+		Syntax:  proto.String("proto3"),
+		Options: &descriptorpb.FileOptions{
+			GoPackage: proto.String(goPackage),
+		},
+		MessageType: []*descriptorpb.DescriptorProto{
+			{Name: proto.String(messageName)},
+		},
+	}
+}
+
+func nativeClientPackageCollisionEnumFile(name, goPackage, enumName string) *descriptorpb.FileDescriptorProto {
+	return &descriptorpb.FileDescriptorProto{
+		Name:    proto.String(name),
+		Package: proto.String("test.v1"),
+		Syntax:  proto.String("proto3"),
+		Options: &descriptorpb.FileOptions{
+			GoPackage: proto.String(goPackage),
+		},
+		EnumType: []*descriptorpb.EnumDescriptorProto{
+			{
+				Name: proto.String(enumName),
+				Value: []*descriptorpb.EnumValueDescriptorProto{
+					{Name: proto.String(enumName + "_UNSPECIFIED"), Number: proto.Int32(0)},
+				},
+			},
+		},
+	}
+}
+
+func nativeClientPackageCollisionNestedFile(name, goPackage, nestedName string) *descriptorpb.FileDescriptorProto {
+	return &descriptorpb.FileDescriptorProto{
+		Name:    proto.String(name),
+		Package: proto.String("test.v1"),
+		Syntax:  proto.String("proto3"),
+		Options: &descriptorpb.FileOptions{
+			GoPackage: proto.String(goPackage),
+		},
+		MessageType: []*descriptorpb.DescriptorProto{
+			{
+				Name: proto.String("Decode"),
+				NestedType: []*descriptorpb.DescriptorProto{
+					{Name: proto.String(nestedName)},
+				},
+			},
+		},
 	}
 }

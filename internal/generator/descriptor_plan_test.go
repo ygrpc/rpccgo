@@ -141,6 +141,22 @@ func TestBuildDescriptorPlanRejectsInvalidServiceAnnotation(t *testing.T) {
 	}
 }
 
+func TestBuildPackageLevelSymbolPlansIncludesNestedSymbols(t *testing.T) {
+	file := simpleTestFile()
+	otherFile := nativeClientPackageCollisionNestedFile("test/v1/other.proto", "example.com/test/v1;testv1", "Nested")
+	request := newTestCodeGeneratorRequest("paths=source_relative", file, otherFile)
+	request.FileToGenerate = []string{file.GetName(), otherFile.GetName()}
+	plugin, err := ProtogenOptions().New(request)
+	if err != nil {
+		t.Fatalf("protogen.Options.New() error = %v", err)
+	}
+
+	symbols := buildPackageLevelSymbolPlans(plugin.Files, "example.com/test/v1")
+	if !hasTopLevelSymbol(symbols, "Decode_Nested", "test.v1.Decode.Nested", TopLevelSymbolKindMessage) {
+		t.Fatalf("package-level symbols = %#v, want nested message Decode_Nested", symbols)
+	}
+}
+
 func TestMethodStreamingPlan(t *testing.T) {
 	plugin := newTestPlugin(t, "paths=source_relative", streamingPlanTestFile())
 
@@ -160,6 +176,15 @@ func TestMethodStreamingPlan(t *testing.T) {
 	assertMethodStreaming(t, methods[1], "ClientStream", StreamingKindClientStreaming)
 	assertMethodStreaming(t, methods[2], "ServerStream", StreamingKindServerStreaming)
 	assertMethodStreaming(t, methods[3], "BidiStream", StreamingKindBidiStreaming)
+}
+
+func hasTopLevelSymbol(symbols []TopLevelSymbolPlan, goName, fullName string, kind TopLevelSymbolKind) bool {
+	for _, symbol := range symbols {
+		if symbol.GoName == goName && symbol.FullName == fullName && symbol.Kind == kind {
+			return true
+		}
+	}
+	return false
 }
 
 func assertMethodPlan(t *testing.T, got MethodPlan, want MethodPlan) {

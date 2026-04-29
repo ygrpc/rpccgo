@@ -34,7 +34,12 @@ func GenerateWithOptions(plugin *protogen.Plugin, options GenerateOptions) ([]Fi
 		}
 		AttachNativeFileFamilyPlan(&plan)
 		plans = append(plans, plan)
-		if options.RenderNativeStageFiles {
+	}
+	for i := range plans {
+		plans[i].TopLevelSymbols = buildPackageLevelSymbolPlans(plugin.Files, plans[i].GoImportPath)
+	}
+	if options.RenderNativeStageFiles {
+		for _, plan := range plans {
 			if err := renderNativeStageFiles(plugin, plan); err != nil {
 				return nil, err
 			}

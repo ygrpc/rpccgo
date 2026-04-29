@@ -293,11 +293,23 @@ func TestNativeUnaryPinFailureReleasesStagedOutput(t *testing.T) {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 
-	input := &GreeterSayHelloNativeUnaryInput{}
+	name := []byte("stage3")
+	payload := []byte("bytes")
+	input := &GreeterSayHelloNativeUnaryInput{
+		NamePtr: uintptr(unsafe.Pointer(&name[0])),
+		NameLen: int32(len(name)),
+		PayloadPtr: uintptr(unsafe.Pointer(&payload[0])),
+		PayloadLen: int32(len(payload)),
+		Enabled: 1,
+	}
 	output := &GreeterSayHelloNativeUnaryOutput{}
 	errID := CallGreeterSayHelloNativeUnary(context.Background(), input, output)
 	if errID == 0 {
 		t.Fatal("duplicate response backing slice returned errID 0")
+	}
+	text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+	if !ok || !strings.Contains(string(text), "already pinned") {
+		t.Fatalf("duplicate response backing slice error text = %q, ok=%v", text, ok)
 	}
 	if output.PayloadPtr != 0 || output.PayloadLen != 0 || output.ExtraPayloadPtr != 0 || output.ExtraPayloadLen != 0 {
 		t.Fatalf("output was partially committed on pin failure: %#v", output)

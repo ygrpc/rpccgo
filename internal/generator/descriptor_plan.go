@@ -30,20 +30,27 @@ func BuildDescriptorPlan(file *protogen.File) (FilePlan, error) {
 }
 
 func buildTopLevelSymbolPlans(file *protogen.File) []TopLevelSymbolPlan {
+	return buildFileSymbolPlans(file)
+}
+
+func buildPackageLevelSymbolPlans(files []*protogen.File, goImportPath string) []TopLevelSymbolPlan {
+	var symbols []TopLevelSymbolPlan
+	for _, file := range files {
+		if file == nil || string(file.GoImportPath) != goImportPath {
+			continue
+		}
+		symbols = append(symbols, buildFileSymbolPlans(file)...)
+	}
+	return symbols
+}
+
+func buildFileSymbolPlans(file *protogen.File) []TopLevelSymbolPlan {
 	symbols := make([]TopLevelSymbolPlan, 0, len(file.Messages)+len(file.Enums)+len(file.Services))
 	for _, message := range file.Messages {
-		symbols = append(symbols, TopLevelSymbolPlan{
-			GoName:   message.GoIdent.GoName,
-			FullName: string(message.Desc.FullName()),
-			Kind:     TopLevelSymbolKindMessage,
-		})
+		symbols = appendMessageSymbolPlans(symbols, message)
 	}
 	for _, enum := range file.Enums {
-		symbols = append(symbols, TopLevelSymbolPlan{
-			GoName:   enum.GoIdent.GoName,
-			FullName: string(enum.Desc.FullName()),
-			Kind:     TopLevelSymbolKindEnum,
-		})
+		symbols = appendEnumSymbolPlan(symbols, enum)
 	}
 	for _, service := range file.Services {
 		symbols = append(symbols, TopLevelSymbolPlan{
@@ -53,6 +60,29 @@ func buildTopLevelSymbolPlans(file *protogen.File) []TopLevelSymbolPlan {
 		})
 	}
 	return symbols
+}
+
+func appendMessageSymbolPlans(symbols []TopLevelSymbolPlan, message *protogen.Message) []TopLevelSymbolPlan {
+	symbols = append(symbols, TopLevelSymbolPlan{
+		GoName:   message.GoIdent.GoName,
+		FullName: string(message.Desc.FullName()),
+		Kind:     TopLevelSymbolKindMessage,
+	})
+	for _, nested := range message.Messages {
+		symbols = appendMessageSymbolPlans(symbols, nested)
+	}
+	for _, enum := range message.Enums {
+		symbols = appendEnumSymbolPlan(symbols, enum)
+	}
+	return symbols
+}
+
+func appendEnumSymbolPlan(symbols []TopLevelSymbolPlan, enum *protogen.Enum) []TopLevelSymbolPlan {
+	return append(symbols, TopLevelSymbolPlan{
+		GoName:   enum.GoIdent.GoName,
+		FullName: string(enum.Desc.FullName()),
+		Kind:     TopLevelSymbolKindEnum,
+	})
 }
 
 func buildServiceDescriptorPlan(service *protogen.Service) (ServicePlan, error) {
