@@ -36,7 +36,7 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P()
 
 	for _, method := range streamingMethods {
-		renderRuntimeSessionInterface(g, method.SessionName)
+		renderRuntimeSessionInterface(g, method)
 	}
 
 	g.P("var ", dispatcherName, " rpcruntime.Dispatcher[", adapterName, "]")
@@ -61,6 +61,9 @@ type runtimeAdapterMethod struct {
 	AdapterResult  string
 	MethodGoName   string
 	SessionName    string
+	RequestType    string
+	ResponseType   string
+	StreamingKind  StreamingKind
 	Streaming      bool
 }
 
@@ -92,16 +95,21 @@ func buildRuntimeAdapterMethods(g *protogen.GeneratedFile, service ServicePlan) 
 
 func runtimeAdapterMethodFor(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) (runtimeAdapterMethod, error) {
 	sessionName := service.GoName + method.GoName + "NativeStreamSession"
+	requestType := nativeRuntimeMessageType(g, method.Request)
+	responseType := nativeRuntimeMessageType(g, method.Response)
 	rendered := runtimeAdapterMethod{
 		SourceFullName: method.FullName,
 		MethodGoName:   method.GoName,
 		SessionName:    sessionName,
+		RequestType:    requestType,
+		ResponseType:   responseType,
+		StreamingKind:  method.Streaming,
 	}
 	switch method.Streaming {
 	case StreamingKindUnary:
 		rendered.AdapterName = method.GoName
-		rendered.AdapterArgs = ", req " + nativeRuntimeMessageType(g, method.Request)
-		rendered.AdapterResult = " (" + nativeRuntimeMessageType(g, method.Response) + ", error)"
+		rendered.AdapterArgs = ", req " + requestType
+		rendered.AdapterResult = " (" + responseType + ", error)"
 	case StreamingKindClientStreaming, StreamingKindServerStreaming, StreamingKindBidiStreaming:
 		rendered.AdapterName = "Start" + method.GoName
 		rendered.AdapterResult = " (" + sessionName + ", error)"
@@ -129,12 +137,24 @@ func runtimeStreamingMethods(methods []runtimeAdapterMethod) []runtimeAdapterMet
 	return streaming
 }
 
-func renderRuntimeSessionInterface(g *protogen.GeneratedFile, sessionName string) {
-	g.P("type ", sessionName, " interface {")
-	g.P("Send(ctx context.Context) error")
-	g.P("Finish(ctx context.Context) error")
-	g.P("CloseSend(ctx context.Context) error")
-	g.P("Cancel(ctx context.Context) error")
+func renderRuntimeSessionInterface(g *protogen.GeneratedFile, method runtimeAdapterMethod) {
+	g.P("type ", method.SessionName, " interface {")
+	switch method.StreamingKind {
+	case StreamingKindClientStreaming:
+		g.P("Send(ctx context.Context, req ", method.RequestType, ") error")
+		g.P("Finish(ctx context.Context) (", method.ResponseType, ", error)")
+		g.P("Cancel(ctx context.Context) error")
+	case StreamingKindServerStreaming:
+		g.P("Recv(ctx context.Context) (", method.ResponseType, ", error)")
+		g.P("Cancel(ctx context.Context) error")
+	case StreamingKindBidiStreaming:
+		g.P("Send(ctx context.Context, req ", method.RequestType, ") error")
+		g.P("Recv(ctx context.Context) (", method.ResponseType, ", error)")
+		g.P("CloseSend(ctx context.Context) error")
+		g.P("Cancel(ctx context.Context) error")
+	default:
+		g.P("Cancel(ctx context.Context) error")
+	}
 	g.P("}")
 	g.P()
 }

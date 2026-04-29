@@ -62,7 +62,7 @@ func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
 	const nativeServerFile = "test/v1/stage1_acceptance.all_service.server.native.rpccgo.go"
 	for _, fragment := range []string{
 		"type AllServiceClientStreamNativeClientStream interface {",
-		"Recv(ctx context.Context) (*AllRequest, error)",
+		"Send(ctx context.Context, req *AllRequest) error",
 		"Finish(ctx context.Context) (*AllReply, error)",
 		"type AllServiceServerStreamNativeServerStream interface {",
 		"Recv(ctx context.Context) (*AllReply, error)",
@@ -70,7 +70,10 @@ func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
 		"Send(ctx context.Context, req *AllRequest) error",
 		"CloseSend(ctx context.Context) error",
 		"Cancel(ctx context.Context) error",
-		"return allServiceNativeStreamBridgeNotImplemented",
+		"return s.stream.Send(ctx, req)",
+		"return s.stream.Finish(ctx)",
+		"return s.stream.Recv(ctx)",
+		"return s.stream.CloseSend(ctx)",
 		"if s.stream == nil {",
 		"return allServiceNativeStreamIsNil",
 		"return s.stream.Cancel(ctx)",

@@ -30,14 +30,18 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	g.P()
 
 	errorName := lowerInitial(service.GoName) + "NativeClientUnsupportedField"
+	streamHandleErrorName := lowerInitial(service.GoName) + "NativeClientStreamHandleInvalid"
 	g.P("var ", errorName, ` = errors.New("rpccgo: native unary client field bridge is not implemented")`)
+	g.P("var ", streamHandleErrorName, ` = errors.New("rpccgo: native client stream handle is invalid")`)
 	g.P()
 
 	for _, method := range service.Methods {
-		if method.Streaming != StreamingKindUnary {
-			continue
+		switch method.Streaming {
+		case StreamingKindUnary:
+			renderNativeUnaryClient(g, service, method, errorName)
+		case StreamingKindClientStreaming:
+			renderNativeClientStreamingClient(g, service, method, errorName, streamHandleErrorName)
 		}
-		renderNativeUnaryClient(g, service, method, errorName)
 	}
 	return nil
 }
@@ -94,6 +98,100 @@ func renderNativeUnaryClient(g *protogen.GeneratedFile, service ServicePlan, met
 	renderNativeUnaryResponseEncoder(g, service, method, outputName, unsupportedError)
 }
 
+func renderNativeClientStreamingClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError string) {
+	inputName := nativeClientStreamingInputName(service, method)
+	outputName := nativeClientStreamingOutputName(service, method)
+
+	g.P("type ", inputName, " struct {")
+	renderNativeClientFields(g, method.NativeContract.RequestFields, false)
+	g.P("}")
+	g.P()
+
+	g.P("type ", outputName, " struct {")
+	renderNativeClientFields(g, method.NativeContract.ResponseFields, true)
+	g.P("}")
+	g.P()
+
+	g.P("func ", nativeClientStreamingStartFuncName(service, method), "(ctx context.Context) (int32, int32) {")
+	g.P("if ctx == nil {")
+	g.P("ctx = context.Background()")
+	g.P("}")
+	g.P("handle, err := ", lowerInitial(service.GoName), "Dispatcher.StartStream(func(snapshot rpcruntime.AdapterSnapshot[", service.GoName, "NativeAdapter]) (any, error) {")
+	g.P("return snapshot.Adapter.Start", method.GoName, "(ctx)")
+	g.P("})")
+	g.P("if err != nil {")
+	g.P("return 0, int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return int32(handle), 0")
+	g.P("}")
+	g.P()
+
+	g.P("func ", nativeClientStreamingSendFuncName(service, method), "(ctx context.Context, handle int32, input *", inputName, ") int32 {")
+	g.P("if ctx == nil {")
+	g.P("ctx = context.Background()")
+	g.P("}")
+	g.P("if input == nil {")
+	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native client stream input is nil")))`)
+	g.P("}")
+	g.P("session, ok := load", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("if !ok {")
+	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
+	g.P("}")
+	g.P("req, err := ", nativeClientStreamingDecoderName(service, method), "(input)")
+	g.P("if err != nil {")
+	g.P("return int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("if err := session.Send(ctx, req); err != nil {")
+	g.P("return int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+
+	g.P("func ", nativeClientStreamingFinishFuncName(service, method), "(ctx context.Context, handle int32, output *", outputName, ") int32 {")
+	g.P("if ctx == nil {")
+	g.P("ctx = context.Background()")
+	g.P("}")
+	g.P("if output == nil {")
+	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native client stream output is nil")))`)
+	g.P("}")
+	g.P("session, ok := take", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("if !ok {")
+	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
+	g.P("}")
+	g.P("resp, err := session.Finish(ctx)")
+	g.P("if err != nil {")
+	g.P("return int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("if resp == nil {")
+	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native client stream server returned nil response")))`)
+	g.P("}")
+	g.P("if err := ", nativeClientStreamingEncoderName(service, method), "(resp, output); err != nil {")
+	g.P("return int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+
+	g.P("func ", nativeClientStreamingCancelFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
+	g.P("if ctx == nil {")
+	g.P("ctx = context.Background()")
+	g.P("}")
+	g.P("session, ok := take", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("if !ok {")
+	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
+	g.P("}")
+	g.P("if err := session.Cancel(ctx); err != nil {")
+	g.P("return int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+
+	renderNativeClientStreamingRequestDecoder(g, service, method, inputName, unsupportedError)
+	renderNativeClientStreamingResponseEncoder(g, service, method, outputName, unsupportedError)
+}
+
 func renderNativeClientFields(g *protogen.GeneratedFile, fields []FieldPlan, output bool) {
 	for _, field := range fields {
 		switch field.Native.Shape {
@@ -142,6 +240,17 @@ func renderNativeUnaryRequestDecoder(g *protogen.GeneratedFile, service ServiceP
 	g.P()
 }
 
+func renderNativeClientStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, inputName, unsupportedError string) {
+	g.P("func ", nativeClientStreamingDecoderName(service, method), "(input *", inputName, ") (", nativeGoMessageType(g, method.Request), ", error) {")
+	g.P("req := &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Request.GoName, GoImportPath: protogen.GoImportPath(method.Request.GoImportPath)}), "{}")
+	for _, field := range method.NativeContract.RequestFields {
+		renderNativeRequestFieldDecode(g, field, unsupportedError)
+	}
+	g.P("return req, nil")
+	g.P("}")
+	g.P()
+}
+
 func renderNativeRequestFieldDecode(g *protogen.GeneratedFile, field FieldPlan, unsupportedError string) {
 	switch field.Native.Shape {
 	case NativeABIShapeBoolByte:
@@ -180,6 +289,26 @@ func renderNativeRequestFieldDecode(g *protogen.GeneratedFile, field FieldPlan, 
 
 func renderNativeUnaryResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, outputName, unsupportedError string) {
 	g.P("func ", nativeUnaryClientEncoderName(service, method), "(resp ", nativeGoMessageType(g, method.Response), ", output *", outputName, ") error {")
+	for _, field := range method.NativeContract.ResponseFields {
+		renderNativeResponseFieldValidate(g, field, unsupportedError)
+	}
+	var pinned []FieldPlan
+	for _, field := range method.NativeContract.ResponseFields {
+		renderNativeResponseFieldStage(g, field, pinned)
+		if nativeClientFieldPinsOutput(field) {
+			pinned = append(pinned, field)
+		}
+	}
+	for _, field := range method.NativeContract.ResponseFields {
+		renderNativeResponseFieldCommit(g, field)
+	}
+	g.P("return nil")
+	g.P("}")
+	g.P()
+}
+
+func renderNativeClientStreamingResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, outputName, unsupportedError string) {
+	g.P("func ", nativeClientStreamingEncoderName(service, method), "(resp ", nativeGoMessageType(g, method.Response), ", output *", outputName, ") error {")
 	for _, field := range method.NativeContract.ResponseFields {
 		renderNativeResponseFieldValidate(g, field, unsupportedError)
 	}
@@ -281,6 +410,38 @@ func nativeUnaryClientInputName(service ServicePlan, method MethodPlan) string {
 	return service.GoName + method.GoName + "NativeUnaryInput"
 }
 
+func nativeClientStreamingInputName(service ServicePlan, method MethodPlan) string {
+	return service.GoName + method.GoName + "NativeClientStreamInput"
+}
+
+func nativeClientStreamingOutputName(service ServicePlan, method MethodPlan) string {
+	return service.GoName + method.GoName + "NativeClientStreamOutput"
+}
+
+func nativeClientStreamingStartFuncName(service ServicePlan, method MethodPlan) string {
+	return "Start" + service.GoName + method.GoName + "NativeClientStream"
+}
+
+func nativeClientStreamingSendFuncName(service ServicePlan, method MethodPlan) string {
+	return "Send" + service.GoName + method.GoName + "NativeClientStream"
+}
+
+func nativeClientStreamingFinishFuncName(service ServicePlan, method MethodPlan) string {
+	return "Finish" + service.GoName + method.GoName + "NativeClientStream"
+}
+
+func nativeClientStreamingCancelFuncName(service ServicePlan, method MethodPlan) string {
+	return "Cancel" + service.GoName + method.GoName + "NativeClientStream"
+}
+
+func nativeClientStreamingDecoderName(service ServicePlan, method MethodPlan) string {
+	return "decode" + service.GoName + method.GoName + "NativeClientStreamRequest"
+}
+
+func nativeClientStreamingEncoderName(service ServicePlan, method MethodPlan) string {
+	return "encode" + service.GoName + method.GoName + "NativeClientStreamResponse"
+}
+
 func nativeUnaryClientOutputName(service ServicePlan, method MethodPlan) string {
 	return service.GoName + method.GoName + "NativeUnaryOutput"
 }
@@ -299,7 +460,7 @@ func nativeUnaryClientEncoderName(service ServicePlan, method MethodPlan) string
 
 func nativeClientNeedsFmt(service ServicePlan) bool {
 	for _, method := range service.Methods {
-		if method.Streaming != StreamingKindUnary {
+		if method.Streaming != StreamingKindUnary && method.Streaming != StreamingKindClientStreaming {
 			continue
 		}
 		for _, field := range method.NativeContract.RequestFields {
@@ -384,30 +545,57 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 	if err := addGenerated(lowerInitial(service.GoName)+"NativeClientUnsupportedField", service.FullName+" unsupported field error"); err != nil {
 		return err
 	}
+	if err := addGenerated(lowerInitial(service.GoName)+"NativeClientStreamHandleInvalid", service.FullName+" stream handle error"); err != nil {
+		return err
+	}
 	for _, method := range service.Methods {
-		if method.Streaming != StreamingKindUnary {
-			continue
-		}
-		if err := addGenerated(nativeUnaryClientInputName(service, method), method.FullName+" unary input"); err != nil {
-			return err
-		}
-		if err := addGenerated(nativeUnaryClientOutputName(service, method), method.FullName+" unary output"); err != nil {
-			return err
-		}
-		if err := addGenerated(nativeUnaryClientFuncName(service, method), method.FullName+" unary client call"); err != nil {
-			return err
-		}
-		if err := addGenerated(nativeUnaryClientDecoderName(service, method), method.FullName+" unary request decoder"); err != nil {
-			return err
-		}
-		if err := addGenerated(nativeUnaryClientEncoderName(service, method), method.FullName+" unary response encoder"); err != nil {
-			return err
-		}
-		if err := validateNativeClientStructFields(nativeUnaryClientInputName(service, method), method.NativeContract.RequestFields, nativeClientInputFieldSymbols); err != nil {
-			return err
-		}
-		if err := validateNativeClientStructFields(nativeUnaryClientOutputName(service, method), method.NativeContract.ResponseFields, nativeClientOutputFieldSymbols); err != nil {
-			return err
+		switch method.Streaming {
+		case StreamingKindUnary:
+			if err := addGenerated(nativeUnaryClientInputName(service, method), method.FullName+" unary input"); err != nil {
+				return err
+			}
+			if err := addGenerated(nativeUnaryClientOutputName(service, method), method.FullName+" unary output"); err != nil {
+				return err
+			}
+			if err := addGenerated(nativeUnaryClientFuncName(service, method), method.FullName+" unary client call"); err != nil {
+				return err
+			}
+			if err := addGenerated(nativeUnaryClientDecoderName(service, method), method.FullName+" unary request decoder"); err != nil {
+				return err
+			}
+			if err := addGenerated(nativeUnaryClientEncoderName(service, method), method.FullName+" unary response encoder"); err != nil {
+				return err
+			}
+			if err := validateNativeClientStructFields(nativeUnaryClientInputName(service, method), method.NativeContract.RequestFields, nativeClientInputFieldSymbols); err != nil {
+				return err
+			}
+			if err := validateNativeClientStructFields(nativeUnaryClientOutputName(service, method), method.NativeContract.ResponseFields, nativeClientOutputFieldSymbols); err != nil {
+				return err
+			}
+		case StreamingKindClientStreaming:
+			for _, item := range []struct {
+				symbol string
+				source string
+			}{
+				{nativeClientStreamingInputName(service, method), method.FullName + " client stream input"},
+				{nativeClientStreamingOutputName(service, method), method.FullName + " client stream output"},
+				{nativeClientStreamingStartFuncName(service, method), method.FullName + " client stream start"},
+				{nativeClientStreamingSendFuncName(service, method), method.FullName + " client stream send"},
+				{nativeClientStreamingFinishFuncName(service, method), method.FullName + " client stream finish"},
+				{nativeClientStreamingCancelFuncName(service, method), method.FullName + " client stream cancel"},
+				{nativeClientStreamingDecoderName(service, method), method.FullName + " client stream request decoder"},
+				{nativeClientStreamingEncoderName(service, method), method.FullName + " client stream response encoder"},
+			} {
+				if err := addGenerated(item.symbol, item.source); err != nil {
+					return err
+				}
+			}
+			if err := validateNativeClientStructFields(nativeClientStreamingInputName(service, method), method.NativeContract.RequestFields, nativeClientInputFieldSymbols); err != nil {
+				return err
+			}
+			if err := validateNativeClientStructFields(nativeClientStreamingOutputName(service, method), method.NativeContract.ResponseFields, nativeClientOutputFieldSymbols); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -424,15 +612,25 @@ func addNativeClientGeneratedSymbols(seen map[string]string, service ServicePlan
 	}
 
 	add(lowerInitial(service.GoName)+"NativeClientUnsupportedField", service.FullName+" unsupported field error")
+	add(lowerInitial(service.GoName)+"NativeClientStreamHandleInvalid", service.FullName+" stream handle error")
 	for _, method := range service.Methods {
-		if method.Streaming != StreamingKindUnary {
-			continue
+		switch method.Streaming {
+		case StreamingKindUnary:
+			add(nativeUnaryClientInputName(service, method), method.FullName+" unary input")
+			add(nativeUnaryClientOutputName(service, method), method.FullName+" unary output")
+			add(nativeUnaryClientFuncName(service, method), method.FullName+" unary client call")
+			add(nativeUnaryClientDecoderName(service, method), method.FullName+" unary request decoder")
+			add(nativeUnaryClientEncoderName(service, method), method.FullName+" unary response encoder")
+		case StreamingKindClientStreaming:
+			add(nativeClientStreamingInputName(service, method), method.FullName+" client stream input")
+			add(nativeClientStreamingOutputName(service, method), method.FullName+" client stream output")
+			add(nativeClientStreamingStartFuncName(service, method), method.FullName+" client stream start")
+			add(nativeClientStreamingSendFuncName(service, method), method.FullName+" client stream send")
+			add(nativeClientStreamingFinishFuncName(service, method), method.FullName+" client stream finish")
+			add(nativeClientStreamingCancelFuncName(service, method), method.FullName+" client stream cancel")
+			add(nativeClientStreamingDecoderName(service, method), method.FullName+" client stream request decoder")
+			add(nativeClientStreamingEncoderName(service, method), method.FullName+" client stream response encoder")
 		}
-		add(nativeUnaryClientInputName(service, method), method.FullName+" unary input")
-		add(nativeUnaryClientOutputName(service, method), method.FullName+" unary output")
-		add(nativeUnaryClientFuncName(service, method), method.FullName+" unary client call")
-		add(nativeUnaryClientDecoderName(service, method), method.FullName+" unary request decoder")
-		add(nativeUnaryClientEncoderName(service, method), method.FullName+" unary response encoder")
 	}
 }
 
