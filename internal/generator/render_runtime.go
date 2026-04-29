@@ -1,8 +1,18 @@
 package generator
 
-import "google.golang.org/protobuf/compiler/protogen"
+import (
+	"fmt"
 
-func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedFilePlan) {
+	"google.golang.org/protobuf/compiler/protogen"
+)
+
+func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedFilePlan) error {
+	runtimeMethods, err := buildRuntimeAdapterMethods(service)
+	if err != nil {
+		return err
+	}
+	streamingMethods := runtimeStreamingMethods(runtimeMethods)
+
 	g := plugin.NewGeneratedFile(file.Filename, protogen.GoImportPath(plan.GoImportPath))
 	g.P("package ", plan.GoPackageName)
 	g.P()
@@ -15,21 +25,18 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P()
 
 	adapterName := service.GoName + "NativeAdapter"
-	sessionName := service.GoName + "NativeStreamSession"
 	dispatcherName := lowerInitial(service.GoName) + "Dispatcher"
 
 	g.P("type ", adapterName, " interface {")
-	renderRuntimeAdapterMethods(g, service)
+	for _, method := range runtimeMethods {
+		g.P(method.AdapterName, "(ctx context.Context)", method.AdapterResult)
+	}
 	g.P("}")
 	g.P()
 
-	g.P("type ", sessionName, " interface {")
-	g.P("Send(ctx context.Context) error")
-	g.P("Finish(ctx context.Context) error")
-	g.P("CloseSend(ctx context.Context) error")
-	g.P("Cancel(ctx context.Context) error")
-	g.P("}")
-	g.P()
+	for _, method := range streamingMethods {
+		renderRuntimeSessionInterface(g, method.SessionName)
+	}
 
 	g.P("var ", dispatcherName, " rpcruntime.Dispatcher[", adapterName, "]")
 	g.P()
@@ -39,42 +46,102 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P("}")
 	g.P()
 
-	g.P("func load", service.GoName, "NativeStream(handle rpcruntime.StreamHandle) (", sessionName, ", bool) {")
-	g.P("return rpcruntime.LoadDispatcherStream[", adapterName, ", ", sessionName, "](&", dispatcherName, ", handle)")
-	g.P("}")
-	g.P()
+	for _, method := range streamingMethods {
+		renderRuntimeStreamHelpers(g, service.GoName, adapterName, dispatcherName, method)
+	}
 
-	g.P("func take", service.GoName, "NativeStream(handle rpcruntime.StreamHandle) (", sessionName, ", bool) {")
-	g.P("return rpcruntime.TakeDispatcherStream[", adapterName, ", ", sessionName, "](&", dispatcherName, ", handle)")
-	g.P("}")
-	g.P()
-
-	g.P("func delete", service.GoName, "NativeStream(handle rpcruntime.StreamHandle) bool {")
-	g.P("return rpcruntime.DeleteDispatcherStream[", adapterName, "](&", dispatcherName, ", handle)")
-	g.P("}")
+	return nil
 }
 
-func renderRuntimeAdapterMethods(g *protogen.GeneratedFile, service ServicePlan) {
+type runtimeAdapterMethod struct {
+	SourceFullName string
+	AdapterName    string
+	AdapterResult  string
+	MethodGoName   string
+	SessionName    string
+	Streaming      bool
+}
+
+func buildRuntimeAdapterMethods(service ServicePlan) ([]runtimeAdapterMethod, error) {
 	if len(service.Methods) == 0 {
-		g.P("DispatchUnary(ctx context.Context) error")
-		g.P("StartClientStream(ctx context.Context) (", service.GoName, "NativeStreamSession, error)")
-		g.P("StartServerStream(ctx context.Context) (", service.GoName, "NativeStreamSession, error)")
-		g.P("StartBidiStream(ctx context.Context) (", service.GoName, "NativeStreamSession, error)")
-		return
+		return []runtimeAdapterMethod{
+			{AdapterName: "DispatchUnary", AdapterResult: " error", MethodGoName: "DispatchUnary", SessionName: service.GoName + "DispatchUnaryNativeStreamSession"},
+			{AdapterName: "StartClientStream", AdapterResult: " (" + service.GoName + "ClientStreamNativeStreamSession, error)", MethodGoName: "ClientStream", SessionName: service.GoName + "ClientStreamNativeStreamSession", Streaming: true},
+			{AdapterName: "StartServerStream", AdapterResult: " (" + service.GoName + "ServerStreamNativeStreamSession, error)", MethodGoName: "ServerStream", SessionName: service.GoName + "ServerStreamNativeStreamSession", Streaming: true},
+			{AdapterName: "StartBidiStream", AdapterResult: " (" + service.GoName + "BidiStreamNativeStreamSession, error)", MethodGoName: "BidiStream", SessionName: service.GoName + "BidiStreamNativeStreamSession", Streaming: true},
+		}, nil
 	}
 
+	methods := make([]runtimeAdapterMethod, 0, len(service.Methods))
+	seen := make(map[string]string, len(service.Methods))
 	for _, method := range service.Methods {
-		switch method.Streaming {
-		case StreamingKindUnary:
-			g.P(method.GoName, "(ctx context.Context) error")
-		case StreamingKindClientStreaming:
-			g.P("Start", method.GoName, "(ctx context.Context) (", service.GoName, "NativeStreamSession, error)")
-		case StreamingKindServerStreaming:
-			g.P("Start", method.GoName, "(ctx context.Context) (", service.GoName, "NativeStreamSession, error)")
-		case StreamingKindBidiStreaming:
-			g.P("Start", method.GoName, "(ctx context.Context) (", service.GoName, "NativeStreamSession, error)")
-		default:
-			g.P(method.GoName, "(ctx context.Context) error")
+		rendered, err := runtimeAdapterMethodFor(service, method)
+		if err != nil {
+			return nil, err
+		}
+		if previous, exists := seen[rendered.AdapterName]; exists {
+			return nil, fmt.Errorf("runtime adapter method %s for %s collides with %s", rendered.AdapterName, method.FullName, previous)
+		}
+		seen[rendered.AdapterName] = method.FullName
+		methods = append(methods, rendered)
+	}
+	return methods, nil
+}
+
+func runtimeAdapterMethodFor(service ServicePlan, method MethodPlan) (runtimeAdapterMethod, error) {
+	sessionName := service.GoName + method.GoName + "NativeStreamSession"
+	rendered := runtimeAdapterMethod{
+		SourceFullName: method.FullName,
+		MethodGoName:   method.GoName,
+		SessionName:    sessionName,
+	}
+	switch method.Streaming {
+	case StreamingKindUnary:
+		rendered.AdapterName = method.GoName
+		rendered.AdapterResult = " error"
+	case StreamingKindClientStreaming, StreamingKindServerStreaming, StreamingKindBidiStreaming:
+		rendered.AdapterName = "Start" + method.GoName
+		rendered.AdapterResult = " (" + sessionName + ", error)"
+		rendered.Streaming = true
+	default:
+		return runtimeAdapterMethod{}, fmt.Errorf("%s has unknown streaming kind %d", method.FullName, method.Streaming)
+	}
+	return rendered, nil
+}
+
+func runtimeStreamingMethods(methods []runtimeAdapterMethod) []runtimeAdapterMethod {
+	streaming := make([]runtimeAdapterMethod, 0, len(methods))
+	for _, method := range methods {
+		if method.Streaming {
+			streaming = append(streaming, method)
 		}
 	}
+	return streaming
+}
+
+func renderRuntimeSessionInterface(g *protogen.GeneratedFile, sessionName string) {
+	g.P("type ", sessionName, " interface {")
+	g.P("Send(ctx context.Context) error")
+	g.P("Finish(ctx context.Context) error")
+	g.P("CloseSend(ctx context.Context) error")
+	g.P("Cancel(ctx context.Context) error")
+	g.P("}")
+	g.P()
+}
+
+func renderRuntimeStreamHelpers(g *protogen.GeneratedFile, serviceName, adapterName, dispatcherName string, method runtimeAdapterMethod) {
+	g.P("func load", serviceName, method.MethodGoName, "NativeStream(handle rpcruntime.StreamHandle) (", method.SessionName, ", bool) {")
+	g.P("return rpcruntime.LoadDispatcherStream[", adapterName, ", ", method.SessionName, "](&", dispatcherName, ", handle)")
+	g.P("}")
+	g.P()
+
+	g.P("func take", serviceName, method.MethodGoName, "NativeStream(handle rpcruntime.StreamHandle) (", method.SessionName, ", bool) {")
+	g.P("return rpcruntime.TakeDispatcherStream[", adapterName, ", ", method.SessionName, "](&", dispatcherName, ", handle)")
+	g.P("}")
+	g.P()
+
+	g.P("func delete", serviceName, method.MethodGoName, "NativeStream(handle rpcruntime.StreamHandle) bool {")
+	g.P("return rpcruntime.DeleteDispatcherStream[", adapterName, "](&", dispatcherName, ", handle)")
+	g.P("}")
+	g.P()
 }

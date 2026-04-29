@@ -7,8 +7,10 @@ import (
 )
 
 func main() {
-	generator.ProtogenOptions().Run(func(plugin *protogen.Plugin) error {
-		_, err := generator.Generate(plugin)
-		return err
-	})
+	generator.ProtogenOptions().Run(run)
+}
+
+func run(plugin *protogen.Plugin) error {
+	_, err := generator.GenerateWithOptions(plugin, generator.GenerateOptions{RenderNativeStageFiles: true})
+	return err
 }
