@@ -24,6 +24,10 @@ func RenderNativeStageFiles(plugin *protogen.Plugin, plan FilePlan) error {
 			if !file.Enabled {
 				continue
 			}
+			if file == family.Runtime {
+				renderRuntimeFile(plugin, plan, service, file)
+				continue
+			}
 			renderNativeStageFile(plugin, plan, service, file)
 		}
 	}
