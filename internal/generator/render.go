@@ -36,6 +36,12 @@ func RenderNativeStageFiles(plugin *protogen.Plugin, plan FilePlan) error {
 				}
 				continue
 			}
+			if file == family.CGONativeServer {
+				if err := renderNativeServerCGOFile(plugin, plan, service, file); err != nil {
+					return err
+				}
+				continue
+			}
 			if file == family.CGONativeClient {
 				if err := renderNativeClientCGOFile(plugin, plan, service, file); err != nil {
 					return err
