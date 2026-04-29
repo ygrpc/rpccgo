@@ -30,6 +30,12 @@ func RenderNativeStageFiles(plugin *protogen.Plugin, plan FilePlan) error {
 				}
 				continue
 			}
+			if file == family.NativeServer {
+				if err := renderNativeServerFile(plugin, plan, service, file); err != nil {
+					return err
+				}
+				continue
+			}
 			renderNativeStageFile(plugin, plan, service, file)
 		}
 	}
