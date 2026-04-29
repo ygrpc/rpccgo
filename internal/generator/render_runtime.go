@@ -29,7 +29,7 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 
 	g.P("type ", adapterName, " interface {")
 	for _, method := range runtimeMethods {
-		g.P(method.AdapterName, "(ctx context.Context)", method.AdapterResult)
+		g.P(method.AdapterName, "(ctx context.Context", method.AdapterArgs, ")", method.AdapterResult)
 	}
 	g.P("}")
 	g.P()
@@ -56,6 +56,7 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 type runtimeAdapterMethod struct {
 	SourceFullName string
 	AdapterName    string
+	AdapterArgs    string
 	AdapterResult  string
 	MethodGoName   string
 	SessionName    string
@@ -98,7 +99,8 @@ func runtimeAdapterMethodFor(service ServicePlan, method MethodPlan) (runtimeAda
 	switch method.Streaming {
 	case StreamingKindUnary:
 		rendered.AdapterName = method.GoName
-		rendered.AdapterResult = " error"
+		rendered.AdapterArgs = ", req " + nativeRuntimeMessageType(method.Request)
+		rendered.AdapterResult = " (" + nativeRuntimeMessageType(method.Response) + ", error)"
 	case StreamingKindClientStreaming, StreamingKindServerStreaming, StreamingKindBidiStreaming:
 		rendered.AdapterName = "Start" + method.GoName
 		rendered.AdapterResult = " (" + sessionName + ", error)"
@@ -107,6 +109,13 @@ func runtimeAdapterMethodFor(service ServicePlan, method MethodPlan) (runtimeAda
 		return runtimeAdapterMethod{}, fmt.Errorf("%s has unknown streaming kind %d", method.FullName, method.Streaming)
 	}
 	return rendered, nil
+}
+
+func nativeRuntimeMessageType(message MethodIOPlan) string {
+	if message.GoImportPath == "" {
+		return "*" + message.GoName
+	}
+	return "*" + message.GoName
 }
 
 func runtimeStreamingMethods(methods []runtimeAdapterMethod) []runtimeAdapterMethod {

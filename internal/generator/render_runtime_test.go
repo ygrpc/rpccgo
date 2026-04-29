@@ -35,7 +35,7 @@ func TestRenderRuntimeGlueDefinesServiceDispatcherAndRegistration(t *testing.T) 
 	const runtimeFile = "test/v1/stage1_acceptance.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"type AllServiceNativeAdapter interface {",
-		"Unary(ctx context.Context) error",
+		"Unary(ctx context.Context, req *AllRequest) (*AllReply, error)",
 		"StartClientStream(ctx context.Context) (AllServiceClientStreamNativeStreamSession, error)",
 		"StartServerStream(ctx context.Context) (AllServiceServerStreamNativeStreamSession, error)",
 		"StartBidiStream(ctx context.Context) (AllServiceBidiStreamNativeStreamSession, error)",
@@ -164,6 +164,7 @@ func TestRenderRuntimeGeneratedSourceCompiles(t *testing.T) {
 			t.Fatalf("write generated file %s: %v", name, err)
 		}
 	}
+	writeNativeServerCompileStubs(t, tmp)
 
 	cmd := exec.Command("go", "test", "./...")
 	cmd.Dir = tmp

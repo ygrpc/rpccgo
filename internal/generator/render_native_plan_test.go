@@ -14,7 +14,7 @@ func TestRenderNativeFileFamilyPlanNativeEnabledService(t *testing.T) {
 	assertGeneratedFilePlan(t, got.Runtime, "test/v1/greeter.greeter.runtime.rpccgo.go", true)
 	assertGeneratedFilePlan(t, got.NativeServer, "test/v1/greeter.greeter.server.native.rpccgo.go", true)
 	assertGeneratedFilePlan(t, got.CGONativeServer, "test/v1/greeter.greeter.server.cgo.rpccgo.go", true)
-	assertGeneratedFilePlan(t, got.CGONativeClient, "test/v1/greeter.greeter.client.cgo.rpccgo.go", false)
+	assertGeneratedFilePlan(t, got.CGONativeClient, "test/v1/greeter.greeter.client.cgo.rpccgo.go", true)
 }
 
 func TestRenderNativeFileFamilyPlanMessageOnlyService(t *testing.T) {
@@ -47,7 +47,7 @@ func TestRenderNativeFileFamilyPlanUsesGeneratedFilenamePrefix(t *testing.T) {
 	assertGeneratedFilePlan(t, got.Runtime, "gen/output/greeter.greeter.runtime.rpccgo.go", true)
 	assertGeneratedFilePlan(t, got.NativeServer, "gen/output/greeter.greeter.server.native.rpccgo.go", true)
 	assertGeneratedFilePlan(t, got.CGONativeServer, "gen/output/greeter.greeter.server.cgo.rpccgo.go", true)
-	assertGeneratedFilePlan(t, got.CGONativeClient, "gen/output/greeter.greeter.client.cgo.rpccgo.go", false)
+	assertGeneratedFilePlan(t, got.CGONativeClient, "gen/output/greeter.greeter.client.cgo.rpccgo.go", true)
 }
 
 func assertGeneratedFilePlan(t *testing.T, got GeneratedFilePlan, wantFilename string, wantEnabled bool) {

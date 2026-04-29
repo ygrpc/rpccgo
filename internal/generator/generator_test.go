@@ -74,12 +74,14 @@ func TestGenerateWithNativeRendererEmitsNativeStageFiles(t *testing.T) {
 		"test/v1/greeter.greeter.runtime.rpccgo.go",
 		"test/v1/greeter.greeter.server.native.rpccgo.go",
 		"test/v1/greeter.greeter.server.cgo.rpccgo.go",
+		"test/v1/greeter.greeter.client.cgo.rpccgo.go",
 	})
-	assertNoGeneratedFilenameContains(t, plugin, ".connect.", ".grpc.", ".message.", ".remote.", ".client.cgo.")
+	assertNoGeneratedFilenameContains(t, plugin, ".connect.", ".grpc.", ".message.", ".remote.")
 	assertGeneratedContentDoesNotContain(t, plugin, "connectrpc.com/connect", "google.golang.org/grpc")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "rpccgo service runtime stage file for Greeter")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go", "rpccgo native stage file for Greeter go native server")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.cgo.rpccgo.go", "rpccgo native stage file for Greeter cgo native server")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.client.cgo.rpccgo.go", "rpccgo native stage file for Greeter cgo native client")
 }
 
 func TestGenerateWithNativeRendererSkipsNativeServerForMessageOnlyService(t *testing.T) {
@@ -115,6 +117,7 @@ func TestGenerateWithNativeRendererUsesNonSourceRelativeGeneratedPrefix(t *testi
 		"example.com/test/v1/greeter.greeter.runtime.rpccgo.go",
 		"example.com/test/v1/greeter.greeter.server.native.rpccgo.go",
 		"example.com/test/v1/greeter.greeter.server.cgo.rpccgo.go",
+		"example.com/test/v1/greeter.greeter.client.cgo.rpccgo.go",
 	})
 }
 

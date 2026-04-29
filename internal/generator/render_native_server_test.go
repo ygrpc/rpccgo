@@ -32,8 +32,9 @@ func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) 
 		`errors.New("rpccgo: native stream is nil")`,
 		"type allServiceGoNativeAdapter struct {",
 		"server AllServiceNativeServer",
-		"func (a *allServiceGoNativeAdapter) Unary(ctx context.Context) error {",
-		"return allServiceNativeRequestBridgeNotImplemented",
+		"func (a *allServiceGoNativeAdapter) Unary(ctx context.Context, req *AllRequest) (*AllReply, error) {",
+		"return nil, allServiceNativeRequestBridgeNotImplemented",
+		"return a.server.Unary(ctx, req)",
 		"func (a *allServiceGoNativeAdapter) StartClientStream(ctx context.Context) (AllServiceClientStreamNativeStreamSession, error) {",
 		"if stream == nil {",
 		"return nil, allServiceNativeStreamIsNil",
@@ -224,12 +225,62 @@ func writeNativeServerCompileStubs(t *testing.T, root string) {
 
 	const content = `package testv1
 
-type AllRequest struct{}
-type AllReply struct{}
-type ConnectNativeRequest struct{}
-type ConnectNativeReply struct{}
-type NativeOnlyRequest struct{}
-type NativeOnlyReply struct{}
+type AllRequest struct {
+	Name string
+	Enabled bool
+}
+type AllReply struct {
+	Accepted bool
+	Payload []byte
+}
+type DefaultRequest struct {
+	Name string
+	Enabled bool
+}
+type DefaultReply struct {
+	Accepted bool
+	Payload []byte
+}
+type ConnectRequest struct {
+	Name string
+	Enabled bool
+}
+type ConnectReply struct {
+	Accepted bool
+	Payload []byte
+}
+type GrpcRequest struct {
+	Name string
+	Enabled bool
+}
+type GrpcReply struct {
+	Accepted bool
+	Payload []byte
+}
+type MessageRequest struct {
+	Name string
+	Enabled bool
+}
+type MessageReply struct {
+	Accepted bool
+	Payload []byte
+}
+type ConnectNativeRequest struct {
+	Name string
+	Enabled bool
+}
+type ConnectNativeReply struct {
+	Accepted bool
+	Payload []byte
+}
+type NativeOnlyRequest struct {
+	Name string
+	Enabled bool
+}
+type NativeOnlyReply struct {
+	Accepted bool
+	Payload []byte
+}
 `
 	target := filepath.Join(root, "test/v1/stage1_acceptance_stubs.go")
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {

@@ -121,8 +121,11 @@ func renderGoNativeAdapter(g *protogen.GeneratedFile, service ServicePlan, metho
 }
 
 func renderGoNativeUnaryAdapterMethod(g *protogen.GeneratedFile, adapterName string, method MethodPlan, errorNames nativeServerErrorNames) {
-	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context) error {")
-	g.P("return ", errorNames.RequestBridgeNotImplemented)
+	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context, req ", nativeGoMessageType(g, method.Request), ") (", nativeGoMessageType(g, method.Response), ", error) {")
+	g.P("if req == nil {")
+	g.P("return nil, ", errorNames.RequestBridgeNotImplemented)
+	g.P("}")
+	g.P("return a.server.", method.GoName, "(ctx, req)")
 	g.P("}")
 	g.P()
 }
