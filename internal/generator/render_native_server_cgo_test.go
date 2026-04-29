@@ -1,9 +1,14 @@
 package generator
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/descriptorpb"
 )
 
 func TestRenderNativeServerCGODefinesUnaryCallbackTableAdapterAndRegistration(t *testing.T) {
@@ -28,9 +33,10 @@ func TestRenderNativeServerCGODefinesUnaryCallbackTableAdapterAndRegistration(t 
 		`rpcruntime "rpccgo/rpcruntime"`,
 		`unsafe "unsafe"`,
 		"type allServiceCGONativeAdapter struct {",
-		"callbacks *C.AllServiceCGONativeServerCallbacks",
+		"callbacks C.AllServiceCGONativeServerCallbacks",
 		"func RegisterAllServiceCGONativeServer(callbacks *C.AllServiceCGONativeServerCallbacks) (rpcruntime.AdapterSnapshot[AllServiceNativeAdapter], error) {",
-		"return registerAllServiceActiveServer(rpcruntime.ServerKindCGONative, &allServiceCGONativeAdapter{callbacks: callbacks})",
+		"callbacksCopy := *callbacks",
+		"return registerAllServiceActiveServer(rpcruntime.ServerKindCGONative, &allServiceCGONativeAdapter{callbacks: callbacksCopy})",
 		"type AllServiceGoCGONativeServerCallbacks struct {",
 		"func RegisterAllServiceGoCGONativeServerForTesting(callbacks *AllServiceGoCGONativeServerCallbacks) (rpcruntime.AdapterSnapshot[AllServiceNativeAdapter], error) {",
 		`errors.New("rpccgo: AllService cgo native server callbacks are nil")`,
@@ -38,14 +44,16 @@ func TestRenderNativeServerCGODefinesUnaryCallbackTableAdapterAndRegistration(t 
 		`errors.New("rpccgo: cgo native server streaming is not implemented")`,
 		"callback := a.callbacks.Unary",
 		"errID := int32(C.callAllServiceUnaryCGONativeUnaryCallback(callback, input, output))",
-		"return nil, allServiceCGONativeServerErrorFromID(errID)",
+		"callbackErr := allServiceCGONativeServerErrorFromID(errID)",
+		"return nil, errors.Join(callbackErr, cleanupErr)",
 		"_, NamePtr, err := rpcruntime.PinString(req.Name)",
 		"pinned = append(pinned, NamePtr)",
 		"rpcruntime.Release(pinned[i])",
-		"Payload := rpcruntime.NewRpcBytes((*byte)(unsafe.Pointer(uintptr(output.PayloadPtr))), int32(output.PayloadLen), output.PayloadOwnership > 0)",
+		"Payload := rpcruntime.NewRpcBytes((*byte)(unsafe.Pointer(uintptr(output.PayloadPtr))), int32(output.PayloadLen), false)",
 		"resp.Payload = Payload.SafeBytes()",
-		"func cleanupAllServiceUnaryCGONativeUnaryResponse(output *C.AllServiceUnaryCGONativeUnaryResponse) {",
-		`_ = rpcruntime.ReleaseC(unsafe.Pointer(uintptr(output.PayloadPtr)), true, "test.v1.AllReply.payload")`,
+		"func cleanupAllServiceUnaryCGONativeUnaryResponse(output *C.AllServiceUnaryCGONativeUnaryResponse) error {",
+		`if err := rpcruntime.ReleaseC(unsafe.Pointer(uintptr(output.PayloadPtr)), true, "test.v1.AllReply.payload"); err != nil {`,
+		"cleanupErr = errors.Join(cleanupErr, err)",
 		"func allServiceCGONativeServerErrorFromID(errID int32) error {",
 		"rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))",
 		"//export StoreAllServiceCGONativeServerErrorTextForExport",
@@ -55,6 +63,47 @@ func TestRenderNativeServerCGODefinesUnaryCallbackTableAdapterAndRegistration(t 
 		assertGeneratedContentContains(t, plugin, cgoServerFile, fragment)
 	}
 	assertGeneratedContentDoesNotContain(t, plugin, "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf")
+}
+
+func TestRenderNativeServerCGOScalarOnlyGeneratedSourceCompiles(t *testing.T) {
+	file := nativeServerScalarOnlyFile()
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	const cgoServerFile = "test/v1/native_scalar.scalar.server.cgo.rpccgo.go"
+	assertGeneratedContentContains(t, plugin, cgoServerFile, `unsafe "unsafe"`)
+	assertGeneratedContentContains(t, plugin, cgoServerFile, "func StoreScalarCGONativeServerErrorTextForExport(text *C.char, textLen C.int32_t) C.int32_t {")
+
+	tmp := t.TempDir()
+	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {
+		return strings.Contains(name, ".runtime.rpccgo.go") ||
+			strings.Contains(name, ".server.native.rpccgo.go") ||
+			strings.Contains(name, ".server.cgo.rpccgo.go") ||
+			strings.Contains(name, ".client.cgo.rpccgo.go")
+	})
+	writeNativeServerCGOTestFile(t, filepath.Join(tmp, "test/v1/native_scalar_stubs.go"), `package testv1
+
+type ScalarRequest struct {
+	Enabled bool
+	Count int32
+}
+
+type ScalarReply struct {
+	Accepted bool
+	Count int32
+}
+`)
+
+	cmd := exec.Command("go", "test", "./...")
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("scalar-only generated cgo native server go test failed: %v\n%s", err, out)
+	}
 }
 
 func TestRenderNativeServerCGORejectsGeneratedSymbolCollisions(t *testing.T) {
@@ -163,6 +212,54 @@ func TestRenderNativeServerCGOGeneratedSourceCompiles(t *testing.T) {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("generated cgo native server go test failed: %v\n%s", err, out)
+	}
+}
+
+func nativeServerScalarOnlyFile() *descriptorpb.FileDescriptorProto {
+	return &descriptorpb.FileDescriptorProto{
+		Name:    proto.String("test/v1/native_scalar.proto"),
+		Package: proto.String("test.v1"),
+		Syntax:  proto.String("proto3"),
+		Options: &descriptorpb.FileOptions{
+			GoPackage: proto.String("example.com/test/v1;testv1"),
+		},
+		MessageType: []*descriptorpb.DescriptorProto{
+			{
+				Name: proto.String("ScalarRequest"),
+				Field: []*descriptorpb.FieldDescriptorProto{
+					fieldDescriptor("enabled", 1, descriptorpb.FieldDescriptorProto_TYPE_BOOL, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+					fieldDescriptor("count", 2, descriptorpb.FieldDescriptorProto_TYPE_INT32, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+				},
+			},
+			{
+				Name: proto.String("ScalarReply"),
+				Field: []*descriptorpb.FieldDescriptorProto{
+					fieldDescriptor("accepted", 1, descriptorpb.FieldDescriptorProto_TYPE_BOOL, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+					fieldDescriptor("count", 2, descriptorpb.FieldDescriptorProto_TYPE_INT32, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+				},
+			},
+		},
+		Service: []*descriptorpb.ServiceDescriptorProto{{
+			Name: proto.String("Scalar"),
+			Method: []*descriptorpb.MethodDescriptorProto{
+				methodDescriptor("Unary", ".test.v1.ScalarRequest", ".test.v1.ScalarReply", false, false),
+			},
+		}},
+		SourceCodeInfo: &descriptorpb.SourceCodeInfo{Location: []*descriptorpb.SourceCodeInfo_Location{{
+			Path:            []int32{6, 0},
+			Span:            []int32{0, 0, 0},
+			LeadingComments: proto.String("@rpccgo: native\n"),
+		}}},
+	}
+}
+
+func writeNativeServerCGOTestFile(t *testing.T, target, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatalf("mkdir %s: %v", filepath.Dir(target), err)
+	}
+	if err := os.WriteFile(target, []byte(content), 0o644); err != nil {
+		t.Fatalf("write %s: %v", target, err)
 	}
 }
 

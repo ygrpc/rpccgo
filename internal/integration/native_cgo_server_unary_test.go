@@ -48,6 +48,7 @@ const nativeCGOServerUnaryFixtureTestSource = `package testv1
 
 import (
 	context "context"
+	runtime "runtime"
 	strings "strings"
 	"testing"
 	"unsafe"
@@ -69,7 +70,7 @@ func TestNativeCGOServerUnaryRoutesThroughDispatcher(t *testing.T) {
 	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
 	rpcruntime.ResetFreeCallbackForTesting()
 	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
-	registerCFreeCallback()
+	frees := registerCFreeCallback()
 	if err := registerGreeterCGONativeServerCallbacks(); err != nil {
 		t.Fatalf("registerGreeterCGONativeServerCallbacks() error = %v", err)
 	}
@@ -91,9 +92,13 @@ func TestNativeCGOServerUnaryRoutesThroughDispatcher(t *testing.T) {
 	if string(got) != "cgo-server:stage3" {
 		t.Fatalf("Payload = %q", got)
 	}
-	rpcruntime.Release(output.PayloadPtr)
-	rpcruntime.Release(output.NotePtr)
-	rpcruntime.Release(output.ExtraPayloadPtr)
+	for i := 0; i < 3; i++ {
+		runtime.GC()
+		runtime.Gosched()
+	}
+	if got := frees(); got != 1 {
+		t.Fatalf("free callback calls after GC = %d, want 1", got)
+	}
 }
 
 func TestNativeCGOServerUnaryRegistrationValidation(t *testing.T) {
@@ -156,6 +161,13 @@ func TestNativeCGOServerUnaryOwnedOutputCleanupOnDecodeError(t *testing.T) {
 	if got := frees(); got != 1 {
 		t.Fatalf("free callback calls = %d, want 1", got)
 	}
+	for i := 0; i < 3; i++ {
+		runtime.GC()
+		runtime.Gosched()
+	}
+	if got := frees(); got != 1 {
+		t.Fatalf("free callback calls after GC = %d, want 1", got)
+	}
 }
 
 func TestNativeCGOServerUnaryOwnedOutputCleanupOnCallbackError(t *testing.T) {
@@ -173,6 +185,50 @@ func TestNativeCGOServerUnaryOwnedOutputCleanupOnCallbackError(t *testing.T) {
 	if got := frees(); got != 1 {
 		t.Fatalf("free callback calls = %d, want 1", got)
 	}
+	for i := 0; i < 3; i++ {
+		runtime.GC()
+		runtime.Gosched()
+	}
+	if got := frees(); got != 1 {
+		t.Fatalf("free callback calls after GC = %d, want 1", got)
+	}
+}
+
+func TestNativeCGOServerUnaryOwnedOutputCleanupErrorPropagates(t *testing.T) {
+	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	rpcruntime.ResetFreeCallbackForTesting()
+	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
+	if err := registerGreeterCGONativeServerCallbacks(); err != nil {
+		t.Fatalf("registerGreeterCGONativeServerCallbacks() error = %v", err)
+	}
+	name := []byte("stage3")
+	payload := []byte("bytes")
+	input := &GreeterSayHelloNativeUnaryInput{
+		NamePtr:    uintptr(unsafe.Pointer(&name[0])),
+		NameLen:    int32(len(name)),
+		PayloadPtr: uintptr(unsafe.Pointer(&payload[0])),
+		PayloadLen: int32(len(payload)),
+		Enabled:    1,
+	}
+	errID := CallGreeterSayHelloNativeUnary(context.Background(), input, &GreeterSayHelloNativeUnaryOutput{})
+	if errID == 0 {
+		t.Fatal("missing free callback returned errID 0")
+	}
+	text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+	if !ok || !strings.Contains(string(text), "ownership requires registered free func") {
+		t.Fatalf("cleanup error text = %q, ok=%v", text, ok)
+	}
+}
+
+func TestNativeCGOServerUnaryCallbackTableIsCopiedAtRegistration(t *testing.T) {
+	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	rpcruntime.ResetFreeCallbackForTesting()
+	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
+	registerCFreeCallback()
+	if err := registerGreeterCGONativeServerCallbacksThenClearLocalTable(); err != nil {
+		t.Fatalf("registerGreeterCGONativeServerCallbacksThenClearLocalTable() error = %v", err)
+	}
+	assertUnaryPayload(t, "cgo-server:stage3")
 }
 
 func TestNativeCGOServerUnaryRegistrationOverridesGoServer(t *testing.T) {
@@ -376,6 +432,14 @@ import (
 func registerGreeterCGONativeServerCallbacks() error {
 	callbacks := C.greeterCallbacks()
 	_, err := RegisterGreeterCGONativeServer(&callbacks)
+	return err
+}
+
+func registerGreeterCGONativeServerCallbacksThenClearLocalTable() error {
+	callbacks := C.greeterCallbacks()
+	_, err := RegisterGreeterCGONativeServer(&callbacks)
+	callbacks.SayHello = nil
+	callbacks.SayUnsupported = nil
 	return err
 }
 

@@ -27,9 +27,7 @@ func renderNativeServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	g.P(`errors "errors"`)
 	g.P(`fmt "fmt"`)
 	g.P(`rpcruntime "rpccgo/rpcruntime"`)
-	if nativeServerCGONeedsUnsafe(service) {
-		g.P(`unsafe "unsafe"`)
-	}
+	g.P(`unsafe "unsafe"`)
 	g.P(")")
 	g.P()
 	g.P("// ", nativeStageMarker(service, file))
@@ -126,7 +124,7 @@ func renderCGONativeServerCField(g *protogen.GeneratedFile, field FieldPlan, out
 
 func renderCGONativeServerAdapter(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeAdapterMethod, callbacksName, adapterName string, errorNames nativeServerCGOErrorNames) {
 	g.P("type ", adapterName, " struct {")
-	g.P("callbacks *C.", callbacksName)
+	g.P("callbacks C.", callbacksName)
 	g.P("}")
 	g.P()
 
@@ -156,7 +154,7 @@ func renderCGONativeServerAdapter(g *protogen.GeneratedFile, service ServicePlan
 
 func renderCGONativeServerUnaryAdapter(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, errorNames nativeServerCGOErrorNames) {
 	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context, req ", nativeGoMessageType(g, method.Request), ") (", nativeGoMessageType(g, method.Response), ", error) {")
-	g.P("if a == nil || a.callbacks == nil {")
+	g.P("if a == nil {")
 	g.P("return nil, ", errorNames.CallbacksNil)
 	g.P("}")
 	g.P("callback := a.callbacks.", method.GoName)
@@ -171,11 +169,21 @@ func renderCGONativeServerUnaryAdapter(g *protogen.GeneratedFile, service Servic
 	g.P("output := &C.", nativeCGOServerResponseName(service, method), "{}")
 	g.P("errID := int32(C.", nativeCGOServerTrampolineName(service, method), "(callback, input, output))")
 	g.P("if errID != 0 {")
-	g.P(nativeCGOServerResponseCleanupName(service, method), "(output)")
-	g.P("return nil, ", nativeCGOServerErrorIDHelperName(service), "(errID)")
+	g.P("cleanupErr := ", nativeCGOServerResponseCleanupName(service, method), "(output)")
+	g.P("callbackErr := ", nativeCGOServerErrorIDHelperName(service), "(errID)")
+	g.P("if cleanupErr != nil {")
+	g.P("return nil, errors.Join(callbackErr, cleanupErr)")
+	g.P("}")
+	g.P("return nil, callbackErr")
 	g.P("}")
 	g.P("resp, err := ", nativeCGOServerResponseDecoderName(service, method), "(output)")
-	g.P(nativeCGOServerResponseCleanupName(service, method), "(output)")
+	g.P("cleanupErr := ", nativeCGOServerResponseCleanupName(service, method), "(output)")
+	g.P("if cleanupErr != nil {")
+	g.P("if err != nil {")
+	g.P("return nil, errors.Join(err, cleanupErr)")
+	g.P("}")
+	g.P("return nil, cleanupErr")
+	g.P("}")
 	g.P("if err != nil {")
 	g.P("return nil, err")
 	g.P("}")
@@ -323,7 +331,7 @@ func renderCGONativeServerResponseTextDecode(g *protogen.GeneratedFile, field Fi
 	g.P("if _, err := rpcruntime.LengthFromInt32(int32(output.", field.GoName, "Len)); err != nil {")
 	g.P(`return nil, fmt.Errorf("`, field.FullName, `: %w", err)`)
 	g.P("}")
-	g.P(field.GoName, " := rpcruntime.NewRpc", wrapper, "((*byte)(unsafe.Pointer(uintptr(output.", field.GoName, "Ptr))), int32(output.", field.GoName, "Len), output.", field.GoName, "Ownership > 0)")
+	g.P(field.GoName, " := rpcruntime.NewRpc", wrapper, "((*byte)(unsafe.Pointer(uintptr(output.", field.GoName, "Ptr))), int32(output.", field.GoName, "Len), false)")
 	g.P("resp.", field.GoName, " = ", field.GoName, ".", safeMethod, "()")
 }
 
@@ -340,26 +348,31 @@ func renderCGONativeServerRegistration(g *protogen.GeneratedFile, service Servic
 		g.P("return rpcruntime.AdapterSnapshot[", service.GoName, "NativeAdapter]{}, ", errorNames.UnaryCallbackMissing)
 		g.P("}")
 	}
-	g.P("return register", service.GoName, "ActiveServer(rpcruntime.ServerKindCGONative, &", adapterName, "{callbacks: callbacks})")
+	g.P("callbacksCopy := *callbacks")
+	g.P("return register", service.GoName, "ActiveServer(rpcruntime.ServerKindCGONative, &", adapterName, "{callbacks: callbacksCopy})")
 	g.P("}")
 	g.P()
 }
 
 func renderCGONativeServerResponseCleanup(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
-	g.P("func ", nativeCGOServerResponseCleanupName(service, method), "(output *C.", nativeCGOServerResponseName(service, method), ") {")
+	g.P("func ", nativeCGOServerResponseCleanupName(service, method), "(output *C.", nativeCGOServerResponseName(service, method), ") error {")
 	g.P("if output == nil {")
-	g.P("return")
+	g.P("return nil")
 	g.P("}")
+	g.P("var cleanupErr error")
 	for _, field := range method.NativeContract.ResponseFields {
 		if field.Native.Shape == NativeABIShapeScalar && (field.Kind == FieldKindString || field.Kind == FieldKindBytes) {
 			g.P("if output.", field.GoName, "Ownership > 0 && output.", field.GoName, "Ptr != 0 {")
-			g.P("_ = rpcruntime.ReleaseC(unsafe.Pointer(uintptr(output.", field.GoName, "Ptr)), true, \"", field.FullName, "\")")
+			g.P("if err := rpcruntime.ReleaseC(unsafe.Pointer(uintptr(output.", field.GoName, "Ptr)), true, \"", field.FullName, "\"); err != nil {")
+			g.P("cleanupErr = errors.Join(cleanupErr, err)")
+			g.P("}")
 			g.P("output.", field.GoName, "Ptr = 0")
 			g.P("output.", field.GoName, "Len = 0")
 			g.P("output.", field.GoName, "Ownership = 0")
 			g.P("}")
 		}
 	}
+	g.P("return cleanupErr")
 	g.P("}")
 	g.P()
 }
@@ -411,11 +424,21 @@ func renderCGONativeServerGoHelper(g *protogen.GeneratedFile, service ServicePla
 		g.P("output := &C.", nativeCGOServerResponseName(service, method), "{}")
 		g.P("errID := a.callbacks.", method.GoName, "(ctx, input, output)")
 		g.P("if errID != 0 {")
-		g.P(nativeCGOServerResponseCleanupName(service, method), "(output)")
-		g.P("return nil, ", nativeCGOServerErrorIDHelperName(service), "(errID)")
+		g.P("cleanupErr := ", nativeCGOServerResponseCleanupName(service, method), "(output)")
+		g.P("callbackErr := ", nativeCGOServerErrorIDHelperName(service), "(errID)")
+		g.P("if cleanupErr != nil {")
+		g.P("return nil, errors.Join(callbackErr, cleanupErr)")
+		g.P("}")
+		g.P("return nil, callbackErr")
 		g.P("}")
 		g.P("resp, err := ", nativeCGOServerResponseDecoderName(service, method), "(output)")
-		g.P(nativeCGOServerResponseCleanupName(service, method), "(output)")
+		g.P("cleanupErr := ", nativeCGOServerResponseCleanupName(service, method), "(output)")
+		g.P("if cleanupErr != nil {")
+		g.P("if err != nil {")
+		g.P("return nil, errors.Join(err, cleanupErr)")
+		g.P("}")
+		g.P("return nil, cleanupErr")
+		g.P("}")
 		g.P("if err != nil {")
 		g.P("return nil, err")
 		g.P("}")
@@ -502,17 +525,7 @@ func nativeCGOServerErrorIDHelperName(service ServicePlan) string {
 }
 
 func nativeServerCGONeedsUnsafe(service ServicePlan) bool {
-	for _, method := range service.Methods {
-		if method.Streaming != StreamingKindUnary {
-			continue
-		}
-		for _, field := range method.NativeContract.ResponseFields {
-			if field.Native.Shape == NativeABIShapeScalar && (field.Kind == FieldKindString || field.Kind == FieldKindBytes) {
-				return true
-			}
-		}
-	}
-	return false
+	return true
 }
 
 type nativeServerCGOErrorNames struct {
