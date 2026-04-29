@@ -16,6 +16,7 @@ func BuildDescriptorPlan(file *protogen.File) (FilePlan, error) {
 		GoImportPath:            string(file.GoImportPath),
 		ProtoPath:               file.Desc.Path(),
 		GeneratedFilenamePrefix: file.GeneratedFilenamePrefix,
+		TopLevelSymbols:         buildTopLevelSymbolPlans(file),
 		Services:                make([]ServicePlan, 0, len(file.Services)),
 	}
 	for _, service := range file.Services {
@@ -26,6 +27,32 @@ func BuildDescriptorPlan(file *protogen.File) (FilePlan, error) {
 		plan.Services = append(plan.Services, servicePlan)
 	}
 	return plan, nil
+}
+
+func buildTopLevelSymbolPlans(file *protogen.File) []TopLevelSymbolPlan {
+	symbols := make([]TopLevelSymbolPlan, 0, len(file.Messages)+len(file.Enums)+len(file.Services))
+	for _, message := range file.Messages {
+		symbols = append(symbols, TopLevelSymbolPlan{
+			GoName:   message.GoIdent.GoName,
+			FullName: string(message.Desc.FullName()),
+			Kind:     TopLevelSymbolKindMessage,
+		})
+	}
+	for _, enum := range file.Enums {
+		symbols = append(symbols, TopLevelSymbolPlan{
+			GoName:   enum.GoIdent.GoName,
+			FullName: string(enum.Desc.FullName()),
+			Kind:     TopLevelSymbolKindEnum,
+		})
+	}
+	for _, service := range file.Services {
+		symbols = append(symbols, TopLevelSymbolPlan{
+			GoName:   service.GoName,
+			FullName: string(service.Desc.FullName()),
+			Kind:     TopLevelSymbolKindService,
+		})
+	}
+	return symbols
 }
 
 func buildServiceDescriptorPlan(service *protogen.Service) (ServicePlan, error) {

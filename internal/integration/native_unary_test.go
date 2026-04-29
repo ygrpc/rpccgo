@@ -74,6 +74,7 @@ func newNativeUnaryTestPlugin(t *testing.T) *protogen.Plugin {
 						fieldDescriptor("accepted", 1, descriptorpb.FieldDescriptorProto_TYPE_BOOL, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 						fieldDescriptor("payload", 2, descriptorpb.FieldDescriptorProto_TYPE_BYTES, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 						fieldDescriptor("note", 3, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+						fieldDescriptor("extra_payload", 4, descriptorpb.FieldDescriptorProto_TYPE_BYTES, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 					},
 				},
 				{
@@ -147,6 +148,7 @@ type HelloReply struct {
 	Accepted bool
 	Payload []byte
 	Note string
+	ExtraPayload []byte
 }
 
 type UnsupportedReply struct {
@@ -226,6 +228,7 @@ func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 	}
 	rpcruntime.Release(output.PayloadPtr)
 	rpcruntime.Release(output.NotePtr)
+	rpcruntime.Release(output.ExtraPayloadPtr)
 }
 
 func TestNativeUnaryNegativeLengthStoresError(t *testing.T) {
@@ -279,6 +282,31 @@ func TestNativeUnaryOwnedStringAndBytesRelease(t *testing.T) {
 	}
 	rpcruntime.Release(output.PayloadPtr)
 	rpcruntime.Release(output.NotePtr)
+	rpcruntime.Release(output.ExtraPayloadPtr)
+}
+
+func TestNativeUnaryPinFailureReleasesStagedOutput(t *testing.T) {
+	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	shared := []byte("shared")
+	server := &recordingServer{response: &HelloReply{Accepted: true, Payload: shared, ExtraPayload: shared}}
+	if _, err := RegisterGreeterGoNativeServer(server); err != nil {
+		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
+	}
+
+	input := &GreeterSayHelloNativeUnaryInput{}
+	output := &GreeterSayHelloNativeUnaryOutput{}
+	errID := CallGreeterSayHelloNativeUnary(context.Background(), input, output)
+	if errID == 0 {
+		t.Fatal("duplicate response backing slice returned errID 0")
+	}
+	if output.PayloadPtr != 0 || output.PayloadLen != 0 || output.ExtraPayloadPtr != 0 || output.ExtraPayloadLen != 0 {
+		t.Fatalf("output was partially committed on pin failure: %#v", output)
+	}
+	ptr, err := rpcruntime.PinBytes(shared)
+	if err != nil {
+		t.Fatalf("PinBytes(shared) after failed call = %v, want staged pin released", err)
+	}
+	rpcruntime.Release(ptr)
 }
 
 func TestNativeUnaryOwnedReleaseErrorStoresError(t *testing.T) {

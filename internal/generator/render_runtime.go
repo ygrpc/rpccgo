@@ -7,13 +7,14 @@ import (
 )
 
 func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedFilePlan) error {
-	runtimeMethods, err := buildRuntimeAdapterMethods(service)
+	g := plugin.NewGeneratedFile(file.Filename, protogen.GoImportPath(plan.GoImportPath))
+
+	runtimeMethods, err := buildRuntimeAdapterMethods(g, service)
 	if err != nil {
 		return err
 	}
 	streamingMethods := runtimeStreamingMethods(runtimeMethods)
 
-	g := plugin.NewGeneratedFile(file.Filename, protogen.GoImportPath(plan.GoImportPath))
 	g.P("package ", plan.GoPackageName)
 	g.P()
 	g.P("import (")
@@ -63,7 +64,7 @@ type runtimeAdapterMethod struct {
 	Streaming      bool
 }
 
-func buildRuntimeAdapterMethods(service ServicePlan) ([]runtimeAdapterMethod, error) {
+func buildRuntimeAdapterMethods(g *protogen.GeneratedFile, service ServicePlan) ([]runtimeAdapterMethod, error) {
 	if len(service.Methods) == 0 {
 		return []runtimeAdapterMethod{
 			{AdapterName: "DispatchUnary", AdapterResult: " error", MethodGoName: "DispatchUnary", SessionName: service.GoName + "DispatchUnaryNativeStreamSession"},
@@ -76,7 +77,7 @@ func buildRuntimeAdapterMethods(service ServicePlan) ([]runtimeAdapterMethod, er
 	methods := make([]runtimeAdapterMethod, 0, len(service.Methods))
 	seen := make(map[string]string, len(service.Methods))
 	for _, method := range service.Methods {
-		rendered, err := runtimeAdapterMethodFor(service, method)
+		rendered, err := runtimeAdapterMethodFor(g, service, method)
 		if err != nil {
 			return nil, err
 		}
@@ -89,7 +90,7 @@ func buildRuntimeAdapterMethods(service ServicePlan) ([]runtimeAdapterMethod, er
 	return methods, nil
 }
 
-func runtimeAdapterMethodFor(service ServicePlan, method MethodPlan) (runtimeAdapterMethod, error) {
+func runtimeAdapterMethodFor(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) (runtimeAdapterMethod, error) {
 	sessionName := service.GoName + method.GoName + "NativeStreamSession"
 	rendered := runtimeAdapterMethod{
 		SourceFullName: method.FullName,
@@ -99,8 +100,8 @@ func runtimeAdapterMethodFor(service ServicePlan, method MethodPlan) (runtimeAda
 	switch method.Streaming {
 	case StreamingKindUnary:
 		rendered.AdapterName = method.GoName
-		rendered.AdapterArgs = ", req " + nativeRuntimeMessageType(method.Request)
-		rendered.AdapterResult = " (" + nativeRuntimeMessageType(method.Response) + ", error)"
+		rendered.AdapterArgs = ", req " + nativeRuntimeMessageType(g, method.Request)
+		rendered.AdapterResult = " (" + nativeRuntimeMessageType(g, method.Response) + ", error)"
 	case StreamingKindClientStreaming, StreamingKindServerStreaming, StreamingKindBidiStreaming:
 		rendered.AdapterName = "Start" + method.GoName
 		rendered.AdapterResult = " (" + sessionName + ", error)"
@@ -111,11 +112,11 @@ func runtimeAdapterMethodFor(service ServicePlan, method MethodPlan) (runtimeAda
 	return rendered, nil
 }
 
-func nativeRuntimeMessageType(message MethodIOPlan) string {
-	if message.GoImportPath == "" {
-		return "*" + message.GoName
-	}
-	return "*" + message.GoName
+func nativeRuntimeMessageType(g *protogen.GeneratedFile, message MethodIOPlan) string {
+	return "*" + g.QualifiedGoIdent(protogen.GoIdent{
+		GoName:       message.GoName,
+		GoImportPath: protogen.GoImportPath(message.GoImportPath),
+	})
 }
 
 func runtimeStreamingMethods(methods []runtimeAdapterMethod) []runtimeAdapterMethod {

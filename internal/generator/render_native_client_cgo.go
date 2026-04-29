@@ -7,7 +7,7 @@ import (
 )
 
 func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedFilePlan) error {
-	if err := validateNativeClientCGOSymbols(service); err != nil {
+	if err := validateNativeClientCGOSymbols(plan, service); err != nil {
 		return err
 	}
 
@@ -333,15 +333,34 @@ func nativeClientOutputFieldSymbols(field FieldPlan) []string {
 	return []string{field.GoName}
 }
 
-func validateNativeClientCGOSymbols(service ServicePlan) error {
+func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 	seen := make(map[string]string)
-	messageTypes := make(map[string]string)
-	for _, method := range service.Methods {
-		if method.Request.GoName != "" {
-			messageTypes[method.Request.GoName] = method.FullName + " request"
+	protobufSymbols := make(map[string]TopLevelSymbolPlan)
+	for _, symbol := range plan.TopLevelSymbols {
+		if symbol.GoName == "" {
+			continue
 		}
-		if method.Response.GoName != "" {
-			messageTypes[method.Response.GoName] = method.FullName + " response"
+		protobufSymbols[symbol.GoName] = symbol
+	}
+	for _, method := range service.Methods {
+		if method.Request.GoName != "" && method.Request.GoImportPath == plan.GoImportPath {
+			protobufSymbols[method.Request.GoName] = TopLevelSymbolPlan{
+				GoName:   method.Request.GoName,
+				FullName: method.Request.FullName,
+				Kind:     TopLevelSymbolKindMessage,
+			}
+		}
+		if method.Response.GoName != "" && method.Response.GoImportPath == plan.GoImportPath {
+			protobufSymbols[method.Response.GoName] = TopLevelSymbolPlan{
+				GoName:   method.Response.GoName,
+				FullName: method.Response.FullName,
+				Kind:     TopLevelSymbolKindMessage,
+			}
+		}
+	}
+	for _, otherService := range plan.Services {
+		if otherService.FullName != service.FullName && otherService.NativeFileFamily.CGONativeClient.Enabled {
+			addNativeClientGeneratedSymbols(seen, otherService)
 		}
 	}
 
@@ -350,10 +369,13 @@ func validateNativeClientCGOSymbols(service ServicePlan) error {
 			return nil
 		}
 		if previous, exists := seen[symbol]; exists {
-			return fmt.Errorf("native client cgo symbol %s for %s collides with %s", symbol, source, previous)
+			if previous != source {
+				return fmt.Errorf("native client cgo symbol %s for %s collides with %s", symbol, source, previous)
+			}
+			return nil
 		}
-		if messageSource, exists := messageTypes[symbol]; exists {
-			return fmt.Errorf("native client cgo symbol %s for %s collides with protobuf message type from %s", symbol, source, messageSource)
+		if protobufSymbol, exists := protobufSymbols[symbol]; exists {
+			return fmt.Errorf("native client cgo symbol %s for %s collides with protobuf %s %s", symbol, source, protobufSymbol.Kind, protobufSymbol.FullName)
 		}
 		seen[symbol] = source
 		return nil
@@ -389,6 +411,29 @@ func validateNativeClientCGOSymbols(service ServicePlan) error {
 		}
 	}
 	return nil
+}
+
+func addNativeClientGeneratedSymbols(seen map[string]string, service ServicePlan) {
+	add := func(symbol, source string) {
+		if symbol == "" {
+			return
+		}
+		if _, exists := seen[symbol]; !exists {
+			seen[symbol] = source
+		}
+	}
+
+	add(lowerInitial(service.GoName)+"NativeClientUnsupportedField", service.FullName+" unsupported field error")
+	for _, method := range service.Methods {
+		if method.Streaming != StreamingKindUnary {
+			continue
+		}
+		add(nativeUnaryClientInputName(service, method), method.FullName+" unary input")
+		add(nativeUnaryClientOutputName(service, method), method.FullName+" unary output")
+		add(nativeUnaryClientFuncName(service, method), method.FullName+" unary client call")
+		add(nativeUnaryClientDecoderName(service, method), method.FullName+" unary request decoder")
+		add(nativeUnaryClientEncoderName(service, method), method.FullName+" unary response encoder")
+	}
 }
 
 func validateNativeClientStructFields(structName string, fields []FieldPlan, symbols func(FieldPlan) []string) error {

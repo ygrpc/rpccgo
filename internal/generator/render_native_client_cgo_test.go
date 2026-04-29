@@ -83,9 +83,10 @@ func TestRenderNativeClientCGOSupportsEnumAsInt32(t *testing.T) {
 
 func TestRenderNativeClientCGORejectsGeneratedHelperCollisions(t *testing.T) {
 	tests := []struct {
-		name      string
-		method    MethodPlan
-		wantError string
+		name            string
+		method          MethodPlan
+		topLevelSymbols []TopLevelSymbolPlan
+		wantError       string
 	}{
 		{
 			name: "decoder collides with request message",
@@ -143,12 +144,44 @@ func TestRenderNativeClientCGORejectsGeneratedHelperCollisions(t *testing.T) {
 			},
 			wantError: "PayloadLen",
 		},
+		{
+			name: "unrelated message collides with call func",
+			method: MethodPlan{
+				Name:      "Unary",
+				GoName:    "Unary",
+				FullName:  "test.v1.AllService.Unary",
+				Streaming: StreamingKindUnary,
+				Request:   MethodIOPlan{GoName: "AllRequest", GoImportPath: "example.com/test/v1", FullName: "test.v1.AllRequest"},
+				Response:  MethodIOPlan{GoName: "AllReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.AllReply"},
+			},
+			topLevelSymbols: []TopLevelSymbolPlan{
+				{GoName: "CallAllServiceUnaryNativeUnary", FullName: "test.v1.CallAllServiceUnaryNativeUnary", Kind: TopLevelSymbolKindMessage},
+			},
+			wantError: "CallAllServiceUnaryNativeUnary",
+		},
+		{
+			name: "unrelated enum collides with decoder",
+			method: MethodPlan{
+				Name:      "Decode",
+				GoName:    "Decode",
+				FullName:  "test.v1.AllService.Decode",
+				Streaming: StreamingKindUnary,
+				Request:   MethodIOPlan{GoName: "AllRequest", GoImportPath: "example.com/test/v1", FullName: "test.v1.AllRequest"},
+				Response:  MethodIOPlan{GoName: "AllReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.AllReply"},
+			},
+			topLevelSymbols: []TopLevelSymbolPlan{
+				{GoName: "decodeAllServiceDecodeNativeUnaryRequest", FullName: "test.v1.decodeAllServiceDecodeNativeUnaryRequest", Kind: TopLevelSymbolKindEnum},
+			},
+			wantError: "decodeAllServiceDecodeNativeUnaryRequest",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())
-			err := RenderNativeStageFiles(plugin, nativeClientCollisionTestFilePlan(tt.method))
+			plan := nativeClientCollisionTestFilePlan(tt.method)
+			plan.TopLevelSymbols = tt.topLevelSymbols
+			err := RenderNativeStageFiles(plugin, plan)
 			if err == nil {
 				t.Fatal("RenderNativeStageFiles() error = nil, want native client cgo symbol collision")
 			}
@@ -156,6 +189,42 @@ func TestRenderNativeClientCGORejectsGeneratedHelperCollisions(t *testing.T) {
 				t.Fatalf("RenderNativeStageFiles() error = %q, want collision for %q", got, tt.wantError)
 			}
 		})
+	}
+}
+
+func TestRenderNativeClientCGORejectsSiblingServiceGeneratedSymbolCollisions(t *testing.T) {
+	plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())
+	plan := nativeClientCollisionTestFilePlan(MethodPlan{
+		Name:      "Unary",
+		GoName:    "Unary",
+		FullName:  "test.v1.AllService.Unary",
+		Streaming: StreamingKindUnary,
+		Request:   MethodIOPlan{GoName: "AllRequest", GoImportPath: "example.com/test/v1", FullName: "test.v1.AllRequest"},
+		Response:  MethodIOPlan{GoName: "AllReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.AllReply"},
+	})
+	plan.Services = append(plan.Services, ServicePlan{
+		Name:     "All",
+		GoName:   "All",
+		FullName: "test.v1.All",
+		Methods: []MethodPlan{{
+			Name:      "ServiceUnary",
+			GoName:    "ServiceUnary",
+			FullName:  "test.v1.All.ServiceUnary",
+			Streaming: StreamingKindUnary,
+			Request:   MethodIOPlan{GoName: "OtherRequest", GoImportPath: "example.com/test/v1", FullName: "test.v1.OtherRequest"},
+			Response:  MethodIOPlan{GoName: "OtherReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.OtherReply"},
+		}},
+		NativeFileFamily: NativeFileFamilyPlan{
+			CGONativeClient: GeneratedFilePlan{Filename: "test/v1/collision_sibling.client.cgo.rpccgo.go", Enabled: true},
+		},
+	})
+
+	err := RenderNativeStageFiles(plugin, plan)
+	if err == nil {
+		t.Fatal("RenderNativeStageFiles() error = nil, want sibling native client cgo symbol collision")
+	}
+	if got := err.Error(); !strings.Contains(got, "AllServiceUnaryNativeUnaryInput") || !strings.Contains(got, "collides") {
+		t.Fatalf("RenderNativeStageFiles() error = %q, want sibling collision for AllServiceUnaryNativeUnaryInput", got)
 	}
 }
 

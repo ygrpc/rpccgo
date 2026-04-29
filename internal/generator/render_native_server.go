@@ -10,12 +10,13 @@ func renderNativeServerFile(plugin *protogen.Plugin, plan FilePlan, service Serv
 	if err := validateNativeServerSymbols(service); err != nil {
 		return err
 	}
-	runtimeMethods, err := buildRuntimeAdapterMethods(service)
+	g := plugin.NewGeneratedFile(file.Filename, protogen.GoImportPath(plan.GoImportPath))
+
+	runtimeMethods, err := buildRuntimeAdapterMethods(g, service)
 	if err != nil {
 		return err
 	}
 
-	g := plugin.NewGeneratedFile(file.Filename, protogen.GoImportPath(plan.GoImportPath))
 	g.P("package ", plan.GoPackageName)
 	g.P()
 	g.P("import (")

@@ -30,6 +30,7 @@ type FilePlan struct {
 	GoImportPath            string
 	ProtoPath               string
 	GeneratedFilenamePrefix string
+	TopLevelSymbols         []TopLevelSymbolPlan
 	Services                []ServicePlan
 }
 
@@ -61,6 +62,20 @@ type NativeFileFamilyPlan struct {
 type GeneratedFilePlan struct {
 	Filename string
 	Enabled  bool
+}
+
+type TopLevelSymbolKind string
+
+const (
+	TopLevelSymbolKindMessage TopLevelSymbolKind = "message"
+	TopLevelSymbolKindEnum    TopLevelSymbolKind = "enum"
+	TopLevelSymbolKindService TopLevelSymbolKind = "service"
+)
+
+type TopLevelSymbolPlan struct {
+	GoName   string
+	FullName string
+	Kind     TopLevelSymbolKind
 }
 
 type MethodPlan struct {
