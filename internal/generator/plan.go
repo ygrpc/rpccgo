@@ -37,16 +37,29 @@ func (p FilePlan) HasIdentity() bool {
 }
 
 type ServicePlan struct {
-	Name       string
-	GoName     string
-	FullName   string
-	Adapters   AdapterSelection
-	Methods    []MethodPlan
-	NeedsCodec bool
+	Name             string
+	GoName           string
+	FullName         string
+	Adapters         AdapterSelection
+	Methods          []MethodPlan
+	NeedsCodec       bool
+	NativeFileFamily NativeFileFamilyPlan
 }
 
 func (p ServicePlan) HasIdentity() bool {
 	return p.Name != "" && p.GoName != "" && p.FullName != "" && p.Adapters.HasTokens()
+}
+
+type NativeFileFamilyPlan struct {
+	Runtime         GeneratedFilePlan
+	NativeServer    GeneratedFilePlan
+	CGONativeServer GeneratedFilePlan
+	CGONativeClient GeneratedFilePlan
+}
+
+type GeneratedFilePlan struct {
+	Filename string
+	Enabled  bool
 }
 
 type MethodPlan struct {

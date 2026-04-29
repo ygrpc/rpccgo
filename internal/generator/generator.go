@@ -6,8 +6,17 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-// Generate parses the protoc plugin request into Stage 1 planning data.
+type GenerateOptions struct {
+	RenderNativeStageFiles bool
+}
+
+// Generate parses the protoc plugin request into planning data without
+// emitting generated files.
 func Generate(plugin *protogen.Plugin) ([]FilePlan, error) {
+	return GenerateWithOptions(plugin, GenerateOptions{})
+}
+
+func GenerateWithOptions(plugin *protogen.Plugin, options GenerateOptions) ([]FilePlan, error) {
 	if plugin == nil {
 		return nil, fmt.Errorf("generator plugin is nil")
 	}
@@ -21,7 +30,13 @@ func Generate(plugin *protogen.Plugin) ([]FilePlan, error) {
 		if err != nil {
 			return nil, err
 		}
+		AttachNativeFileFamilyPlan(&plan)
 		plans = append(plans, plan)
+		if options.RenderNativeStageFiles {
+			if err := RenderNativeStageFiles(plugin, plan); err != nil {
+				return nil, err
+			}
+		}
 	}
 	return plans, nil
 }

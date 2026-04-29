@@ -49,6 +49,41 @@ func TestGenerateBuildsBasicFilePlans(t *testing.T) {
 	}
 }
 
+func TestGenerateWithNativeRendererEmitsNativeStageFiles(t *testing.T) {
+	file := simpleTestFile()
+	setSimpleServiceComment(t, file, "@rpccgo: native\n")
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	plans, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	if len(plans) != 1 {
+		t.Fatalf("GenerateWithOptions() returned %d plans, want 1", len(plans))
+	}
+	assertGeneratedFilenames(t, plugin, []string{
+		"test/v1/greeter.greeter.runtime.rpccgo.go",
+		"test/v1/greeter.greeter.server.native.rpccgo.go",
+		"test/v1/greeter.greeter.server.cgo.rpccgo.go",
+	})
+	assertNoGeneratedFilenameContains(t, plugin, ".connect.", ".grpc.", ".message.", ".remote.", ".client.cgo.")
+}
+
+func TestGenerateWithNativeRendererSkipsNativeServerForMessageOnlyService(t *testing.T) {
+	plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())
+
+	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	assertGeneratedFilenames(t, plugin, []string{
+		"test/v1/greeter.greeter.runtime.rpccgo.go",
+	})
+	assertNoGeneratedFilenameContains(t, plugin, ".server.native.", ".server.cgo.", ".connect.", ".grpc.", ".message.", ".remote.", ".client.cgo.")
+}
+
 func TestGenerateAllowsStandardPathsParameter(t *testing.T) {
 	plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())
 
@@ -136,4 +171,60 @@ func simpleTestFile() *descriptorpb.FileDescriptorProto {
 			},
 		},
 	}
+}
+
+func setSimpleServiceComment(t *testing.T, file *descriptorpb.FileDescriptorProto, comment string) {
+	t.Helper()
+
+	if len(file.Service) != 1 {
+		t.Fatalf("simple test file has %d services, want 1", len(file.Service))
+	}
+	file.SourceCodeInfo = &descriptorpb.SourceCodeInfo{
+		Location: []*descriptorpb.SourceCodeInfo_Location{
+			{
+				Path:            []int32{6, 0},
+				Span:            []int32{0, 0, 0},
+				LeadingComments: proto.String(comment),
+			},
+		},
+	}
+}
+
+func assertGeneratedFilenames(t *testing.T, plugin *protogen.Plugin, want []string) {
+	t.Helper()
+
+	files := plugin.Response().GetFile()
+	if len(files) != len(want) {
+		t.Fatalf("generated files = %v, want %v", generatedFilenames(plugin), want)
+	}
+	for i, file := range files {
+		if got := file.GetName(); got != want[i] {
+			t.Fatalf("generated file %d = %q, want %q; all files: %v", i, got, want[i], generatedFilenames(plugin))
+		}
+		content := file.GetContent()
+		if !strings.Contains(content, "package testv1") {
+			t.Fatalf("generated file %q missing package declaration: %q", file.GetName(), content)
+		}
+	}
+}
+
+func assertNoGeneratedFilenameContains(t *testing.T, plugin *protogen.Plugin, fragments ...string) {
+	t.Helper()
+
+	for _, name := range generatedFilenames(plugin) {
+		for _, fragment := range fragments {
+			if strings.Contains(name, fragment) {
+				t.Fatalf("generated filename %q contains forbidden fragment %q; all files: %v", name, fragment, generatedFilenames(plugin))
+			}
+		}
+	}
+}
+
+func generatedFilenames(plugin *protogen.Plugin) []string {
+	files := plugin.Response().GetFile()
+	names := make([]string, 0, len(files))
+	for _, file := range files {
+		names = append(names, file.GetName())
+	}
+	return names
 }
