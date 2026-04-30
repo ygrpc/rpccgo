@@ -41,6 +41,8 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 			renderNativeUnaryClient(g, service, method, errorName)
 		case StreamingKindClientStreaming:
 			renderNativeClientStreamingClient(g, service, method, errorName, streamHandleErrorName)
+		case StreamingKindServerStreaming:
+			renderNativeServerStreamingClient(g, service, method, errorName, streamHandleErrorName)
 		}
 	}
 	return nil
@@ -192,6 +194,102 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, service Servic
 	renderNativeClientStreamingResponseEncoder(g, service, method, outputName, unsupportedError)
 }
 
+func renderNativeServerStreamingClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError string) {
+	inputName := nativeServerStreamingInputName(service, method)
+	outputName := nativeServerStreamingOutputName(service, method)
+
+	g.P("type ", inputName, " struct {")
+	renderNativeClientFields(g, method.NativeContract.RequestFields, false)
+	g.P("}")
+	g.P()
+
+	g.P("type ", outputName, " struct {")
+	renderNativeClientFields(g, method.NativeContract.ResponseFields, true)
+	g.P("}")
+	g.P()
+
+	g.P("func ", nativeServerStreamingStartFuncName(service, method), "(ctx context.Context, input *", inputName, ") (int32, int32) {")
+	g.P("if ctx == nil {")
+	g.P("ctx = context.Background()")
+	g.P("}")
+	g.P("if input == nil {")
+	g.P(`return 0, int32(rpcruntime.StoreError(errors.New("rpccgo: native server stream input is nil")))`)
+	g.P("}")
+	g.P("req, err := ", nativeServerStreamingDecoderName(service, method), "(input)")
+	g.P("if err != nil {")
+	g.P("return 0, int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("handle, err := ", lowerInitial(service.GoName), "Dispatcher.StartStream(func(snapshot rpcruntime.AdapterSnapshot[", service.GoName, "NativeAdapter]) (any, error) {")
+	g.P("return snapshot.Adapter.Start", method.GoName, "(ctx, req)")
+	g.P("})")
+	g.P("if err != nil {")
+	g.P("return 0, int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return int32(handle), 0")
+	g.P("}")
+	g.P()
+
+	g.P("func ", nativeServerStreamingReadFuncName(service, method), "(ctx context.Context, handle int32, output *", outputName, ") int32 {")
+	g.P("if ctx == nil {")
+	g.P("ctx = context.Background()")
+	g.P("}")
+	g.P("if output == nil {")
+	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native server stream output is nil")))`)
+	g.P("}")
+	g.P("session, ok := load", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("if !ok {")
+	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
+	g.P("}")
+	g.P("resp, err := session.Recv(ctx)")
+	g.P("if err != nil {")
+	g.P("return int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("if resp == nil {")
+	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native server stream server returned nil response")))`)
+	g.P("}")
+	g.P("if err := ", nativeServerStreamingEncoderName(service, method), "(resp, output); err != nil {")
+	g.P("return int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+
+	g.P("func ", nativeServerStreamingDoneFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
+	g.P("if ctx == nil {")
+	g.P("ctx = context.Background()")
+	g.P("}")
+	g.P("session, ok := take", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("if !ok {")
+	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
+	g.P("}")
+	g.P("if done, ok := session.(interface{ Done(context.Context) error }); ok {")
+	g.P("if err := done.Done(ctx); err != nil {")
+	g.P("return int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("}")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+
+	g.P("func ", nativeServerStreamingCancelFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
+	g.P("if ctx == nil {")
+	g.P("ctx = context.Background()")
+	g.P("}")
+	g.P("session, ok := take", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("if !ok {")
+	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
+	g.P("}")
+	g.P("if err := session.Cancel(ctx); err != nil {")
+	g.P("return int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+
+	renderNativeServerStreamingRequestDecoder(g, service, method, inputName, unsupportedError)
+	renderNativeServerStreamingResponseEncoder(g, service, method, outputName, unsupportedError)
+}
+
 func renderNativeClientFields(g *protogen.GeneratedFile, fields []FieldPlan, output bool) {
 	for _, field := range fields {
 		switch field.Native.Shape {
@@ -242,6 +340,17 @@ func renderNativeUnaryRequestDecoder(g *protogen.GeneratedFile, service ServiceP
 
 func renderNativeClientStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, inputName, unsupportedError string) {
 	g.P("func ", nativeClientStreamingDecoderName(service, method), "(input *", inputName, ") (", nativeGoMessageType(g, method.Request), ", error) {")
+	g.P("req := &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Request.GoName, GoImportPath: protogen.GoImportPath(method.Request.GoImportPath)}), "{}")
+	for _, field := range method.NativeContract.RequestFields {
+		renderNativeRequestFieldDecode(g, field, unsupportedError)
+	}
+	g.P("return req, nil")
+	g.P("}")
+	g.P()
+}
+
+func renderNativeServerStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, inputName, unsupportedError string) {
+	g.P("func ", nativeServerStreamingDecoderName(service, method), "(input *", inputName, ") (", nativeGoMessageType(g, method.Request), ", error) {")
 	g.P("req := &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Request.GoName, GoImportPath: protogen.GoImportPath(method.Request.GoImportPath)}), "{}")
 	for _, field := range method.NativeContract.RequestFields {
 		renderNativeRequestFieldDecode(g, field, unsupportedError)
@@ -309,6 +418,26 @@ func renderNativeUnaryResponseEncoder(g *protogen.GeneratedFile, service Service
 
 func renderNativeClientStreamingResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, outputName, unsupportedError string) {
 	g.P("func ", nativeClientStreamingEncoderName(service, method), "(resp ", nativeGoMessageType(g, method.Response), ", output *", outputName, ") error {")
+	for _, field := range method.NativeContract.ResponseFields {
+		renderNativeResponseFieldValidate(g, field, unsupportedError)
+	}
+	var pinned []FieldPlan
+	for _, field := range method.NativeContract.ResponseFields {
+		renderNativeResponseFieldStage(g, field, pinned)
+		if nativeClientFieldPinsOutput(field) {
+			pinned = append(pinned, field)
+		}
+	}
+	for _, field := range method.NativeContract.ResponseFields {
+		renderNativeResponseFieldCommit(g, field)
+	}
+	g.P("return nil")
+	g.P("}")
+	g.P()
+}
+
+func renderNativeServerStreamingResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, outputName, unsupportedError string) {
+	g.P("func ", nativeServerStreamingEncoderName(service, method), "(resp ", nativeGoMessageType(g, method.Response), ", output *", outputName, ") error {")
 	for _, field := range method.NativeContract.ResponseFields {
 		renderNativeResponseFieldValidate(g, field, unsupportedError)
 	}
@@ -442,6 +571,38 @@ func nativeClientStreamingEncoderName(service ServicePlan, method MethodPlan) st
 	return "encode" + service.GoName + method.GoName + "NativeClientStreamResponse"
 }
 
+func nativeServerStreamingInputName(service ServicePlan, method MethodPlan) string {
+	return service.GoName + method.GoName + "NativeServerStreamInput"
+}
+
+func nativeServerStreamingOutputName(service ServicePlan, method MethodPlan) string {
+	return service.GoName + method.GoName + "NativeServerStreamOutput"
+}
+
+func nativeServerStreamingStartFuncName(service ServicePlan, method MethodPlan) string {
+	return "Start" + service.GoName + method.GoName + "NativeServerStream"
+}
+
+func nativeServerStreamingReadFuncName(service ServicePlan, method MethodPlan) string {
+	return "Read" + service.GoName + method.GoName + "NativeServerStream"
+}
+
+func nativeServerStreamingDoneFuncName(service ServicePlan, method MethodPlan) string {
+	return "Done" + service.GoName + method.GoName + "NativeServerStream"
+}
+
+func nativeServerStreamingCancelFuncName(service ServicePlan, method MethodPlan) string {
+	return "Cancel" + service.GoName + method.GoName + "NativeServerStream"
+}
+
+func nativeServerStreamingDecoderName(service ServicePlan, method MethodPlan) string {
+	return "decode" + service.GoName + method.GoName + "NativeServerStreamRequest"
+}
+
+func nativeServerStreamingEncoderName(service ServicePlan, method MethodPlan) string {
+	return "encode" + service.GoName + method.GoName + "NativeServerStreamResponse"
+}
+
 func nativeUnaryClientOutputName(service ServicePlan, method MethodPlan) string {
 	return service.GoName + method.GoName + "NativeUnaryOutput"
 }
@@ -460,7 +621,7 @@ func nativeUnaryClientEncoderName(service ServicePlan, method MethodPlan) string
 
 func nativeClientNeedsFmt(service ServicePlan) bool {
 	for _, method := range service.Methods {
-		if method.Streaming != StreamingKindUnary && method.Streaming != StreamingKindClientStreaming {
+		if method.Streaming != StreamingKindUnary && method.Streaming != StreamingKindClientStreaming && method.Streaming != StreamingKindServerStreaming {
 			continue
 		}
 		for _, field := range method.NativeContract.RequestFields {
@@ -596,6 +757,30 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 			if err := validateNativeClientStructFields(nativeClientStreamingOutputName(service, method), method.NativeContract.ResponseFields, nativeClientOutputFieldSymbols); err != nil {
 				return err
 			}
+		case StreamingKindServerStreaming:
+			for _, item := range []struct {
+				symbol string
+				source string
+			}{
+				{nativeServerStreamingInputName(service, method), method.FullName + " server stream input"},
+				{nativeServerStreamingOutputName(service, method), method.FullName + " server stream output"},
+				{nativeServerStreamingStartFuncName(service, method), method.FullName + " server stream start"},
+				{nativeServerStreamingReadFuncName(service, method), method.FullName + " server stream read"},
+				{nativeServerStreamingDoneFuncName(service, method), method.FullName + " server stream done"},
+				{nativeServerStreamingCancelFuncName(service, method), method.FullName + " server stream cancel"},
+				{nativeServerStreamingDecoderName(service, method), method.FullName + " server stream request decoder"},
+				{nativeServerStreamingEncoderName(service, method), method.FullName + " server stream response encoder"},
+			} {
+				if err := addGenerated(item.symbol, item.source); err != nil {
+					return err
+				}
+			}
+			if err := validateNativeClientStructFields(nativeServerStreamingInputName(service, method), method.NativeContract.RequestFields, nativeClientInputFieldSymbols); err != nil {
+				return err
+			}
+			if err := validateNativeClientStructFields(nativeServerStreamingOutputName(service, method), method.NativeContract.ResponseFields, nativeClientOutputFieldSymbols); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -630,6 +815,15 @@ func addNativeClientGeneratedSymbols(seen map[string]string, service ServicePlan
 			add(nativeClientStreamingCancelFuncName(service, method), method.FullName+" client stream cancel")
 			add(nativeClientStreamingDecoderName(service, method), method.FullName+" client stream request decoder")
 			add(nativeClientStreamingEncoderName(service, method), method.FullName+" client stream response encoder")
+		case StreamingKindServerStreaming:
+			add(nativeServerStreamingInputName(service, method), method.FullName+" server stream input")
+			add(nativeServerStreamingOutputName(service, method), method.FullName+" server stream output")
+			add(nativeServerStreamingStartFuncName(service, method), method.FullName+" server stream start")
+			add(nativeServerStreamingReadFuncName(service, method), method.FullName+" server stream read")
+			add(nativeServerStreamingDoneFuncName(service, method), method.FullName+" server stream done")
+			add(nativeServerStreamingCancelFuncName(service, method), method.FullName+" server stream cancel")
+			add(nativeServerStreamingDecoderName(service, method), method.FullName+" server stream request decoder")
+			add(nativeServerStreamingEncoderName(service, method), method.FullName+" server stream response encoder")
 		}
 	}
 }

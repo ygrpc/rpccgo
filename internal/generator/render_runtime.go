@@ -116,7 +116,9 @@ func runtimeAdapterMethodFor(g *protogen.GeneratedFile, service ServicePlan, met
 		rendered.Streaming = true
 	case StreamingKindServerStreaming:
 		rendered.AdapterName = "Start" + method.GoName
-		rendered.AdapterResult = " (" + requestType + ", error)"
+		rendered.AdapterArgs = ", req " + requestType
+		rendered.AdapterResult = " (" + sessionName + ", error)"
+		rendered.Streaming = true
 	case StreamingKindBidiStreaming:
 		rendered.AdapterName = "Start" + method.GoName
 		rendered.AdapterResult = " error"

@@ -218,15 +218,15 @@
 - 参考旧 server streaming onRead/onDone 测试关注点。
 - 重写为 generated native session glue，不迁旧 generated runtime 文件结构。
 
-- [ ] 生成 server streaming `Start`、`Cancel`、`onRead`、`onDone` native ABI。
-- [ ] `Start` 返回 `rpcruntime.StreamHandle`。
-- [ ] `onRead` 通过 handle 读取固定 snapshot session。
-- [ ] `onDone` 使用 typed take，并执行 terminal cleanup。
-- [ ] `Cancel` 传播到底层 adapter 并 finalize。
-- [ ] 添加 integration fixture：server streaming 到 Go native server。
-- [ ] 添加 integration fixture：server streaming 到 cgo native server。
-- [ ] 运行 `rtk go test ./internal/integration -run 'TestNativeServerStreaming' -count=1`。
-- [ ] 验收：server streaming native 调用链在 onDone 后 handle 不再可用。
+- [x] 生成 server streaming `Start`、`Cancel`、`onRead`、`onDone` native ABI。
+- [x] `Start` 返回 `rpcruntime.StreamHandle`。
+- [x] `onRead` 通过 handle 读取固定 snapshot session。
+- [x] `onDone` 使用 typed take，并执行 terminal cleanup。
+- [x] `Cancel` 传播到底层 adapter 并 finalize。
+- [x] 添加 integration fixture：server streaming 到 Go native server。
+- [x] 添加 integration fixture：server streaming 到 cgo native server。
+- [x] 运行 `rtk go test ./internal/integration -run 'TestNativeServerStreaming' -count=1`。
+- [x] 验收：server streaming native 调用链在 onDone 后 handle 不再可用。
 - [ ] 提交：`feat: support native server streaming`
 
 ## Task 8：接入 native bidi streaming

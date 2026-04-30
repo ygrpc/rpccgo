@@ -40,12 +40,14 @@ func TestRenderRuntimeGlueDefinesServiceDispatcherAndRegistration(t *testing.T) 
 		"type AllServiceNativeAdapter interface {",
 		"Unary(ctx context.Context, req *AllRequest) (*AllReply, error)",
 		"StartClientStream(ctx context.Context) (AllServiceClientStreamNativeStreamSession, error)",
-		"StartServerStream(ctx context.Context) (*AllRequest, error)",
+		"StartServerStream(ctx context.Context, req *AllRequest) (AllServiceServerStreamNativeStreamSession, error)",
 		"StartBidiStream(ctx context.Context) error",
 		"type AllServiceClientStreamNativeStreamSession interface {",
 		"Send(ctx context.Context, req *AllRequest) error",
 		"Finish(ctx context.Context) (*AllReply, error)",
 		"Cancel(ctx context.Context) error",
+		"type AllServiceServerStreamNativeStreamSession interface {",
+		"Recv(ctx context.Context) (*AllReply, error)",
 		"var allServiceDispatcher rpcruntime.Dispatcher[AllServiceNativeAdapter]",
 		"func registerAllServiceActiveServer(kind rpcruntime.ServerKind, adapter AllServiceNativeAdapter) (rpcruntime.AdapterSnapshot[AllServiceNativeAdapter], error) {",
 		"return allServiceDispatcher.Register(kind, rpcruntime.ServerContractNative, adapter)",
@@ -53,9 +55,7 @@ func TestRenderRuntimeGlueDefinesServiceDispatcherAndRegistration(t *testing.T) 
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
 	assertGeneratedContentDoesNotContain(t, plugin,
-		"AllServiceServerStreamNativeStreamSession",
 		"AllServiceBidiStreamNativeStreamSession",
-		"loadAllServiceServerStreamNativeStream",
 		"loadAllServiceBidiStreamNativeStream",
 	)
 }
@@ -76,6 +76,12 @@ func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleAndHelpers(t *testing.T) {
 		"func takeAllServiceClientStreamNativeStream(handle rpcruntime.StreamHandle) (AllServiceClientStreamNativeStreamSession, bool) {",
 		"return rpcruntime.TakeDispatcherStream[AllServiceNativeAdapter, AllServiceClientStreamNativeStreamSession](&allServiceDispatcher, handle)",
 		"func deleteAllServiceClientStreamNativeStream(handle rpcruntime.StreamHandle) bool {",
+		"return rpcruntime.DeleteDispatcherStream[AllServiceNativeAdapter](&allServiceDispatcher, handle)",
+		"func loadAllServiceServerStreamNativeStream(handle rpcruntime.StreamHandle) (AllServiceServerStreamNativeStreamSession, bool) {",
+		"return rpcruntime.LoadDispatcherStream[AllServiceNativeAdapter, AllServiceServerStreamNativeStreamSession](&allServiceDispatcher, handle)",
+		"func takeAllServiceServerStreamNativeStream(handle rpcruntime.StreamHandle) (AllServiceServerStreamNativeStreamSession, bool) {",
+		"return rpcruntime.TakeDispatcherStream[AllServiceNativeAdapter, AllServiceServerStreamNativeStreamSession](&allServiceDispatcher, handle)",
+		"func deleteAllServiceServerStreamNativeStream(handle rpcruntime.StreamHandle) bool {",
 		"return rpcruntime.DeleteDispatcherStream[AllServiceNativeAdapter](&allServiceDispatcher, handle)",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)

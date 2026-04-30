@@ -53,6 +53,8 @@ func renderGoNativeServerInterface(g *protogen.GeneratedFile, service ServicePla
 			g.P(method.GoName, "(ctx context.Context, req ", nativeGoMessageType(g, method.Request), ") (", nativeGoMessageType(g, method.Response), ", error)")
 		case StreamingKindClientStreaming:
 			g.P(method.GoName, "(ctx context.Context) (", service.GoName, method.GoName, "NativeClientStream, error)")
+		case StreamingKindServerStreaming:
+			g.P(method.GoName, "(ctx context.Context, req ", nativeGoMessageType(g, method.Request), ") (", service.GoName, method.GoName, "NativeServerStream, error)")
 		}
 	}
 	g.P("}")
@@ -66,6 +68,12 @@ func renderGoNativeStreamInterfaces(g *protogen.GeneratedFile, service ServicePl
 			g.P("type ", service.GoName, method.GoName, "NativeClientStream interface {")
 			g.P("Send(ctx context.Context, req ", nativeGoMessageType(g, method.Request), ") error")
 			g.P("Finish(ctx context.Context) (", nativeGoMessageType(g, method.Response), ", error)")
+			g.P("Cancel(ctx context.Context) error")
+			g.P("}")
+			g.P()
+		case StreamingKindServerStreaming:
+			g.P("type ", service.GoName, method.GoName, "NativeServerStream interface {")
+			g.P("Recv(ctx context.Context) (", nativeGoMessageType(g, method.Response), ", error)")
 			g.P("Cancel(ctx context.Context) error")
 			g.P("}")
 			g.P()
@@ -137,10 +145,28 @@ func renderGoNativeClientStreamAdapterMethod(g *protogen.GeneratedFile, service 
 }
 
 func renderGoNativeServerStreamAdapterMethod(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, errorNames nativeServerErrorNames) {
-	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context) (", nativeGoMessageType(g, method.Request), ", error) {")
-	g.P("return nil, ", errorNames.StreamBridgeNotImplemented)
+	sessionName := service.GoName + method.GoName + "NativeStreamSession"
+	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context, req ", nativeGoMessageType(g, method.Request), ") (", sessionName, ", error) {")
+	g.P("if req == nil {")
+	g.P("return nil, ", errorNames.RequestBridgeNotImplemented)
+	g.P("}")
+	g.P("stream, err := a.server.", method.GoName, "(ctx, req)")
+	g.P("if err != nil {")
+	g.P("return nil, err")
+	g.P("}")
+	g.P("if stream == nil {")
+	g.P("return nil, ", errorNames.StreamIsNil)
+	g.P("}")
+	g.P("return &", lowerInitial(service.GoName), method.GoName, "GoNativeServerStreamSession{stream: stream}, nil")
 	g.P("}")
 	g.P()
+
+	g.P("type ", lowerInitial(service.GoName), method.GoName, "GoNativeServerStreamSession struct {")
+	g.P("stream ", service.GoName, method.GoName, "NativeServerStream")
+	g.P("}")
+	g.P()
+	renderGoNativeServerStreamRecv(g, lowerInitial(service.GoName)+method.GoName+"GoNativeServerStreamSession", method, errorNames)
+	renderCancelForwarder(g, lowerInitial(service.GoName)+method.GoName+"GoNativeServerStreamSession", errorNames)
 }
 
 func renderGoNativeBidiStreamAdapterMethod(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, errorNames nativeServerErrorNames) {
@@ -315,7 +341,14 @@ func validateNativeServerSymbols(service ServicePlan) error {
 			if err := addGenerated(lowerInitial(service.GoName)+method.GoName+"GoNativeClientStreamSession", method.FullName+" client stream session"); err != nil {
 				return err
 			}
-		case StreamingKindServerStreaming, StreamingKindBidiStreaming:
+		case StreamingKindServerStreaming:
+			if err := addGenerated(service.GoName+method.GoName+"NativeServerStream", method.FullName+" server stream interface"); err != nil {
+				return err
+			}
+			if err := addGenerated(lowerInitial(service.GoName)+method.GoName+"GoNativeServerStreamSession", method.FullName+" server stream session"); err != nil {
+				return err
+			}
+		case StreamingKindBidiStreaming:
 		default:
 			return fmt.Errorf("%s has unknown native server streaming kind %d", method.FullName, method.Streaming)
 		}
