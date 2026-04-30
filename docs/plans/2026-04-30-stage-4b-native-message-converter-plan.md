@@ -8,6 +8,8 @@
 
 **Tech Stack:** Go 1.24、cgo、protobuf `protogen`、现有 `internal/generator`、`rpcruntime`、标准库 `testing`。
 
+**Prerequisite:** Stage 4B 必须基于 2026-04-30 Stage 4A dispatcher alignment follow-up 后的 runtime 形态实现：每个 generated service 只有一个 `rpcruntime.Dispatcher[<Service>ActiveAdapter]`，`<Service>ActiveAdapter` 同时持有 Native 与 Message adapter，direct path 由 `snapshot.Contract` 分支决定。Stage 4B 的工作是在当前 converter-disabled mismatch 分支中接入 generated codec，不能恢复双 dispatcher、旧 bootstrap 或 framework selector。
+
 ---
 
 ## 范围
@@ -51,10 +53,12 @@ Stage 4B 不实现：
 Stage 4B 结束后，converter 至少生成以下文件或等价能力：
 
 - `<service>.codec.rpccgo.go`：service-specific protobuf/native 双向转换函数。
-- `<service>.runtime.rpccgo.go`：dispatcher 在 contract mismatch 时调用 converter。
-- `<service>.client.cgo.rpccgo.go`：cgo native client 与 cgo message client 的 mismatch 调用路径复用 dispatcher。
-- `<service>.server.cgo.rpccgo.go`：cgo message server callback adapter 能被 native client 经 converter 调用。
+- `<service>.runtime.rpccgo.go`：single dispatcher 在 contract mismatch 分支调用 converter。
+- `<service>.client.cgo.rpccgo.go`：cgo native client 的 mismatch 调用路径复用 dispatcher。
+- `<service>.client.message.cgo.rpccgo.go`：cgo message client 的 mismatch 调用路径复用 dispatcher。
+- `<service>.server.message.cgo.rpccgo.go`：cgo message server callback adapter 能被 native client 经 converter 调用。
 - `<service>.server.native.rpccgo.go`：Go native server adapter 能被 message client 经 converter 调用。
+- `<service>.server.cgo.rpccgo.go`：cgo native server callback adapter 能被 message client 经 converter 调用。
 
 Stage 4B 只处理 contract mismatch conversion。contract 匹配路径仍由 Stage 3 和 Stage 4A direct path 负责，不能为了 converter 重写 direct path 语义。
 

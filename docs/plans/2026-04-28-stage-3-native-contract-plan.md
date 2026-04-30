@@ -47,9 +47,9 @@
 
 ## 输出模型
 
-阶段 3 结束后，native-enabled service 至少生成以下文件或等价能力：
+阶段 3 结束后，native-enabled service 至少生成以下文件或等价能力。2026-04-30 follow-up 后，runtime dispatcher 的类型已从 native-only adapter 收敛为 service-specific active adapter union，继续保持每个 generated service 只有一个 active server slot：
 
-- `<service>.runtime.rpccgo.go`：service-specific dispatcher wrapper、native adapter union、stream session glue。
+- `<service>.runtime.rpccgo.go`：service-specific dispatcher wrapper、active adapter union、stream session glue。
 - `<service>.server.native.rpccgo.go`：Go native server interface、adapter、registration API。
 - `<service>.server.cgo.rpccgo.go`：cgo native server callback table、registration API、callback adapter。
 - `<service>.client.cgo.rpccgo.go`：cgo native client exported ABI，所有调用进入 dispatcher。
@@ -95,7 +95,7 @@
 - 不迁旧 binding runtime。
 - 新 runtime glue 只把 Stage 2 `rpcruntime.Dispatcher` 包装成 service-specific API。
 
-- [x] 生成 service package 内的 dispatcher 变量或 holder，类型参数为 generated native adapter interface。
+- [x] 生成 service package 内的 dispatcher 变量或 holder；Stage 4A follow-up 后类型参数为 generated active adapter union。
 - [x] 生成 service native adapter interface，包含 unary 与 streaming operation 方法。
 - [x] 生成 active server registration helper，内部调用 `rpcruntime.Dispatcher.Register`。
 - [x] 生成 stream helper，使用 `rpcruntime.StreamHandle` 和 public dispatcher stream helpers。

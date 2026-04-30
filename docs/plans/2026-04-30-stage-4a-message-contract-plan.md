@@ -6,6 +6,8 @@
 
 **Architecture:** Stage 4A 只实现 contract 匹配的 message direct path：cgo message client 发起 protobuf bytes request，dispatcher 捕获 active server，直接调用 cgo message server callback adapter。Stage 4A 复用 Stage 1 `ServicePlan`、Stage 2 `rpcruntime` dispatcher/session primitive 和 Stage 3 generated service runtime glue，不实现 native/message converter，也不让 message client 调 native server。
 
+**Follow-up:** 2026-04-30 dispatcher alignment follow-up 已把 Stage 3/4A runtime 收敛为每个 generated service 一个 `rpcruntime.Dispatcher[<Service>ActiveAdapter]`。native/message adapter interface 仍分离，注册 helpers 写入同一个 active server slot，contract mismatch 继续返回 converter-disabled error，留给 Stage 4B 替换为 generated codec conversion。
+
 **Tech Stack:** Go 1.24、cgo、protobuf `protogen`、现有 `internal/generator`、`rpcruntime`、标准库 `testing`。
 
 ---
@@ -49,9 +51,9 @@ Stage 4A 不实现：
 
 Stage 4A 结束后，message direct path 至少生成以下文件或等价能力：
 
-- `<service>.runtime.rpccgo.go`：补齐 message adapter contract、message stream session glue 和 dispatcher message entrypoints。
-- `<service>.client.cgo.rpccgo.go`：新增 cgo message client exported ABI，所有调用进入 dispatcher。
-- `<service>.server.cgo.rpccgo.go`：新增 cgo message server callback table、registration API 和 callback adapter。
+- `<service>.runtime.rpccgo.go`：补齐 message adapter contract、message stream session glue、single dispatcher active adapter union 和 dispatcher message entrypoints。
+- `<service>.client.message.cgo.rpccgo.go`：新增 cgo message client exported ABI，所有调用进入 dispatcher。
+- `<service>.server.message.cgo.rpccgo.go`：新增 cgo message server callback table、registration API 和 callback adapter。
 
 Stage 4A 可以修改 Stage 3 已存在的 generated file family，但不能生成 `<service>.codec.rpccgo.go`。contract mismatch 时必须返回明确错误，不能隐式 fallback、不能临时转换。
 

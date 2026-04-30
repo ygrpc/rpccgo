@@ -4,9 +4,10 @@ Stage 4A 建立 generated service 级 message contract direct path。cgo message
 
 ## 已实现
 
-- 新增 message file family plan，复用 `<service>.runtime.rpccgo.go`、`<service>.client.cgo.rpccgo.go`、`<service>.server.cgo.rpccgo.go`。
+- 新增 message file family plan，复用 `<service>.runtime.rpccgo.go`，并生成独立的 `<service>.client.message.cgo.rpccgo.go` 与 `<service>.server.message.cgo.rpccgo.go`。
 - 插件入口按 service adapter selection 渲染 native 或 message direct path。
-- generated runtime 增加 `MessageAdapter`、message dispatcher、message active server registration、message stream session interface 和 `rpcruntime.StreamHandle` helper。
+- 2026-04-30 follow-up 后，message cgo 文件使用唯一文件族名：`<service>.client.message.cgo.rpccgo.go` 与 `<service>.server.message.cgo.rpccgo.go`，避免 mixed native/message service 与 native cgo 文件冲突。
+- generated runtime 增加 `MessageAdapter`、message active server registration、message stream session interface 和 `rpcruntime.StreamHandle` helper；native/message registration 写入同一个 `rpcruntime.Dispatcher[<Service>ActiveAdapter]`。
 - cgo message unary client 生成 `Call<Service><Method>MessageUnary`，请求和响应都使用 protobuf bytes ABI。
 - cgo message client streaming、server streaming、bidi streaming 生成 Start/Send/Finish/Read/Done/CloseSend/Cancel ABI。
 - cgo message server 生成 callback table、registration API、unary callback adapter 和三类 streaming callback session adapter。
@@ -47,4 +48,4 @@ Stage 4A 建立 generated service 级 message contract direct path。cgo message
 
 ## 剩余测试缺口
 
-当前 Stage 4A acceptance 覆盖 generated-source contract。后续需要在具备真实 protobuf Go message 生成链时补充 cgo message client 到 cgo message server 的 C callback E2E，重点覆盖 response buffer ownership、callback error id、zero-length response、invalid protobuf bytes 和 streaming terminal lifecycle。
+2026-04-30 follow-up 已补充真实 protobuf Go message 生成链下的 cgo message client 到 cgo message server direct-path compile/runtime coverage，覆盖 unary、client streaming、server streaming、bidi streaming、invalid protobuf bytes、callback error 和 terminal lifecycle。Stage 4B 剩余缺口是 native/message contract mismatch converter 路径。
