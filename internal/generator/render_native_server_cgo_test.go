@@ -20,9 +20,11 @@ func TestRenderNativeServerCGODefinesUnaryCallbackTableAdapterAndRegistration(t 
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const cgoServerFile = "test/v1/stage1_acceptance.all_service.server.cgo.rpccgo.go"
+	const cgoServerFile = "test/v1/cgo/stage1_acceptance.all_service.server.cgo.rpccgo.go"
 	for _, fragment := range []string{
+		"package main",
 		`import "C"`,
+		`v1 "example.com/test/v1"`,
 		"typedef struct AllServiceUnaryCGONativeUnaryRequest {",
 		"uintptr_t NamePtr;",
 		"int32_t NameLen;",
@@ -34,11 +36,11 @@ func TestRenderNativeServerCGODefinesUnaryCallbackTableAdapterAndRegistration(t 
 		`unsafe "unsafe"`,
 		"type allServiceCGONativeAdapter struct {",
 		"callbacks C.AllServiceCGONativeServerCallbacks",
-		"func RegisterAllServiceCGONativeServer(callbacks *C.AllServiceCGONativeServerCallbacks) (rpcruntime.AdapterSnapshot[AllServiceNativeAdapter], error) {",
+		"func RegisterAllServiceCGONativeServer(callbacks *C.AllServiceCGONativeServerCallbacks) (rpcruntime.AdapterSnapshot[v1.AllServiceNativeAdapter], error) {",
 		"callbacksCopy := *callbacks",
-		"return registerAllServiceActiveServer(rpcruntime.ServerKindCGONative, &allServiceCGONativeAdapter{callbacks: callbacksCopy})",
+		"return v1.RegisterAllServiceCGONativeActiveServer(rpcruntime.ServerKindCGONative, &allServiceCGONativeAdapter{callbacks: callbacksCopy})",
 		"type AllServiceGoCGONativeServerCallbacks struct {",
-		"func RegisterAllServiceGoCGONativeServerForTesting(callbacks *AllServiceGoCGONativeServerCallbacks) (rpcruntime.AdapterSnapshot[AllServiceNativeAdapter], error) {",
+		"func RegisterAllServiceGoCGONativeServerForTesting(callbacks *AllServiceGoCGONativeServerCallbacks) (rpcruntime.AdapterSnapshot[v1.AllServiceNativeAdapter], error) {",
 		`errors.New("rpccgo: AllService cgo native server callbacks are nil")`,
 		`errors.New("rpccgo: AllService cgo native server unary callback is missing")`,
 		`errors.New("rpccgo: cgo native server streaming is not implemented")`,
@@ -62,7 +64,7 @@ func TestRenderNativeServerCGODefinesUnaryCallbackTableAdapterAndRegistration(t 
 	} {
 		assertGeneratedContentContains(t, plugin, cgoServerFile, fragment)
 	}
-	assertGeneratedContentDoesNotContain(t, plugin, "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf")
+	assertGeneratedFileContentDoesNotContain(t, plugin, cgoServerFile, "registerAllServiceActiveServer", "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf")
 }
 
 func TestRenderNativeServerCGOScalarOnlyGeneratedSourceCompiles(t *testing.T) {
@@ -74,7 +76,7 @@ func TestRenderNativeServerCGOScalarOnlyGeneratedSourceCompiles(t *testing.T) {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const cgoServerFile = "test/v1/native_scalar.scalar.server.cgo.rpccgo.go"
+	const cgoServerFile = "test/v1/cgo/native_scalar.scalar.server.cgo.rpccgo.go"
 	assertGeneratedContentContains(t, plugin, cgoServerFile, `unsafe "unsafe"`)
 	assertGeneratedContentContains(t, plugin, cgoServerFile, "func StoreScalarCGONativeServerErrorTextForExport(text *C.char, textLen C.int32_t) C.int32_t {")
 

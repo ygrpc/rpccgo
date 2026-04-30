@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"path"
 
 	"google.golang.org/protobuf/compiler/protogen"
 )
@@ -11,8 +12,10 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 		return err
 	}
 
-	g := plugin.NewGeneratedFile(file.Filename, protogen.GoImportPath(plan.GoImportPath))
-	g.P("package ", plan.GoPackageName)
+	cgoImportPath := protogen.GoImportPath(cgoGoImportPath(plan))
+	g := plugin.NewGeneratedFile(file.Filename, cgoImportPath)
+	servicePackage := cgoServicePackageQualifier(g, plan.GoImportPath, service.GoName+"CGONativeClientBridge")
+	g.P("package main")
 	g.P()
 	g.P("import (")
 	g.P(`context "context"`)
@@ -38,19 +41,19 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	for _, method := range service.Methods {
 		switch method.Streaming {
 		case StreamingKindUnary:
-			renderNativeUnaryClient(g, service, method, errorName)
+			renderNativeUnaryClient(g, service, method, errorName, servicePackage)
 		case StreamingKindClientStreaming:
-			renderNativeClientStreamingClient(g, service, method, errorName, streamHandleErrorName)
+			renderNativeClientStreamingClient(g, service, method, errorName, streamHandleErrorName, servicePackage)
 		case StreamingKindServerStreaming:
-			renderNativeServerStreamingClient(g, service, method, errorName, streamHandleErrorName)
+			renderNativeServerStreamingClient(g, service, method, errorName, streamHandleErrorName, servicePackage)
 		case StreamingKindBidiStreaming:
-			renderNativeBidiStreamingClient(g, service, method, errorName, streamHandleErrorName)
+			renderNativeBidiStreamingClient(g, service, method, errorName, streamHandleErrorName, servicePackage)
 		}
 	}
 	return nil
 }
 
-func renderNativeUnaryClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
+func renderNativeUnaryClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError, servicePackage string) {
 	inputName := nativeUnaryClientInputName(service, method)
 	outputName := nativeUnaryClientOutputName(service, method)
 	funcName := nativeUnaryClientFuncName(service, method)
@@ -79,12 +82,7 @@ func renderNativeUnaryClient(g *protogen.GeneratedFile, service ServicePlan, met
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
-	g.P("var resp ", nativeGoMessageType(g, method.Response))
-	g.P("err = ", lowerInitial(service.GoName), "Dispatcher.Invoke(ctx, func(ctx context.Context, snapshot rpcruntime.AdapterSnapshot[", service.GoName, "NativeAdapter]) error {")
-	g.P("var callErr error")
-	g.P("resp, callErr = snapshot.Adapter.", method.GoName, "(ctx, req)")
-	g.P("return callErr")
-	g.P("})")
+	g.P("resp, err := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().", method.GoName, "(ctx, req)")
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -102,7 +100,7 @@ func renderNativeUnaryClient(g *protogen.GeneratedFile, service ServicePlan, met
 	renderNativeUnaryResponseEncoder(g, service, method, outputName, unsupportedError)
 }
 
-func renderNativeClientStreamingClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError string) {
+func renderNativeClientStreamingClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError, servicePackage string) {
 	inputName := nativeClientStreamingInputName(service, method)
 	outputName := nativeClientStreamingOutputName(service, method)
 
@@ -120,9 +118,7 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, service Servic
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("handle, err := ", lowerInitial(service.GoName), "Dispatcher.StartStream(func(snapshot rpcruntime.AdapterSnapshot[", service.GoName, "NativeAdapter]) (any, error) {")
-	g.P("return snapshot.Adapter.Start", method.GoName, "(ctx)")
-	g.P("})")
+	g.P("handle, err := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Start", method.GoName, "(ctx)")
 	g.P("if err != nil {")
 	g.P("return 0, int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -137,7 +133,7 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, service Servic
 	g.P("if input == nil {")
 	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native client stream input is nil")))`)
 	g.P("}")
-	g.P("session, ok := load", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Load", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
 	g.P("if !ok {")
 	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
 	g.P("}")
@@ -159,7 +155,7 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, service Servic
 	g.P("if output == nil {")
 	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native client stream output is nil")))`)
 	g.P("}")
-	g.P("session, ok := take", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Take", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
 	g.P("if !ok {")
 	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
 	g.P("}")
@@ -181,7 +177,7 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, service Servic
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("session, ok := take", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Take", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
 	g.P("if !ok {")
 	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
 	g.P("}")
@@ -196,7 +192,7 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, service Servic
 	renderNativeClientStreamingResponseEncoder(g, service, method, outputName, unsupportedError)
 }
 
-func renderNativeServerStreamingClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError string) {
+func renderNativeServerStreamingClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError, servicePackage string) {
 	inputName := nativeServerStreamingInputName(service, method)
 	outputName := nativeServerStreamingOutputName(service, method)
 
@@ -221,9 +217,7 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, service Servic
 	g.P("if err != nil {")
 	g.P("return 0, int32(rpcruntime.StoreError(err))")
 	g.P("}")
-	g.P("handle, err := ", lowerInitial(service.GoName), "Dispatcher.StartStream(func(snapshot rpcruntime.AdapterSnapshot[", service.GoName, "NativeAdapter]) (any, error) {")
-	g.P("return snapshot.Adapter.Start", method.GoName, "(ctx, req)")
-	g.P("})")
+	g.P("handle, err := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Start", method.GoName, "(ctx, req)")
 	g.P("if err != nil {")
 	g.P("return 0, int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -238,7 +232,7 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, service Servic
 	g.P("if output == nil {")
 	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native server stream output is nil")))`)
 	g.P("}")
-	g.P("session, ok := load", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Load", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
 	g.P("if !ok {")
 	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
 	g.P("}")
@@ -260,7 +254,7 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, service Servic
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("session, ok := take", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Take", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
 	g.P("if !ok {")
 	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
 	g.P("}")
@@ -277,7 +271,7 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, service Servic
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("session, ok := take", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Take", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
 	g.P("if !ok {")
 	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
 	g.P("}")
@@ -292,7 +286,7 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, service Servic
 	renderNativeServerStreamingResponseEncoder(g, service, method, outputName, unsupportedError)
 }
 
-func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError string) {
+func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError, servicePackage string) {
 	inputName := nativeBidiStreamingInputName(service, method)
 	outputName := nativeBidiStreamingOutputName(service, method)
 
@@ -310,9 +304,7 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServiceP
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("handle, err := ", lowerInitial(service.GoName), "Dispatcher.StartStream(func(snapshot rpcruntime.AdapterSnapshot[", service.GoName, "NativeAdapter]) (any, error) {")
-	g.P("return snapshot.Adapter.Start", method.GoName, "(ctx)")
-	g.P("})")
+	g.P("handle, err := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Start", method.GoName, "(ctx)")
 	g.P("if err != nil {")
 	g.P("return 0, int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -327,7 +319,7 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServiceP
 	g.P("if input == nil {")
 	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native bidi stream input is nil")))`)
 	g.P("}")
-	g.P("session, ok := load", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Load", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
 	g.P("if !ok {")
 	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
 	g.P("}")
@@ -349,7 +341,7 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServiceP
 	g.P("if output == nil {")
 	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native bidi stream output is nil")))`)
 	g.P("}")
-	g.P("session, ok := load", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Load", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
 	g.P("if !ok {")
 	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
 	g.P("}")
@@ -371,7 +363,7 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServiceP
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("session, ok := load", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Load", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
 	g.P("if !ok {")
 	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
 	g.P("}")
@@ -386,7 +378,7 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServiceP
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("session, ok := take", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Take", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
 	g.P("if !ok {")
 	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
 	g.P("}")
@@ -403,7 +395,7 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServiceP
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("session, ok := take", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Take", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
 	g.P("if !ok {")
 	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
 	g.P("}")
@@ -692,6 +684,18 @@ func nativeGoEnumType(g *protogen.GeneratedFile, field FieldPlan) string {
 		GoName:       field.EnumType.GoName,
 		GoImportPath: protogen.GoImportPath(field.EnumType.GoImportPath),
 	})
+}
+
+func cgoGoImportPath(plan FilePlan) string {
+	return path.Join(string(plan.GoImportPath), cgoDirForFilePlan(plan))
+}
+
+func cgoServicePackageQualifier(g *protogen.GeneratedFile, goImportPath string, symbol string) string {
+	qualified := g.QualifiedGoIdent(protogen.GoIdent{
+		GoName:       symbol,
+		GoImportPath: protogen.GoImportPath(goImportPath),
+	})
+	return qualified[:len(qualified)-len(symbol)]
 }
 
 func nativeUnaryClientInputName(service ServicePlan, method MethodPlan) string {

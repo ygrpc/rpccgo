@@ -35,6 +35,9 @@ func TestGenerateBuildsBasicFilePlans(t *testing.T) {
 	if plan.GeneratedFilenamePrefix != "test/v1/greeter" {
 		t.Fatalf("GeneratedFilenamePrefix = %q, want %q", plan.GeneratedFilenamePrefix, "test/v1/greeter")
 	}
+	if plan.CGODir != "cgo" {
+		t.Fatalf("CGODir = %q, want %q", plan.CGODir, "cgo")
+	}
 	if len(plan.Services) != 1 {
 		t.Fatalf("Services = %d, want 1", len(plan.Services))
 	}
@@ -50,8 +53,8 @@ func TestGenerateBuildsBasicFilePlans(t *testing.T) {
 	}
 	assertGeneratedFilePlan(t, service.NativeFileFamily.Runtime, "test/v1/greeter.greeter.runtime.rpccgo.go", true)
 	assertGeneratedFilePlan(t, service.NativeFileFamily.NativeServer, "test/v1/greeter.greeter.server.native.rpccgo.go", false)
-	assertGeneratedFilePlan(t, service.NativeFileFamily.CGONativeServer, "test/v1/greeter.greeter.server.cgo.rpccgo.go", false)
-	assertGeneratedFilePlan(t, service.NativeFileFamily.CGONativeClient, "test/v1/greeter.greeter.client.cgo.rpccgo.go", true)
+	assertGeneratedFilePlan(t, service.NativeFileFamily.CGONativeServer, "test/v1/cgo/greeter.greeter.server.cgo.rpccgo.go", false)
+	assertGeneratedFilePlan(t, service.NativeFileFamily.CGONativeClient, "test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go", true)
 	if len(plugin.Response().GetFile()) != 0 {
 		t.Fatalf("Generate() may attach file family plans, but must not emit files during plan-only generation")
 	}
@@ -73,15 +76,15 @@ func TestGenerateWithNativeRendererEmitsNativeStageFiles(t *testing.T) {
 	assertGeneratedFilenames(t, plugin, []string{
 		"test/v1/greeter.greeter.runtime.rpccgo.go",
 		"test/v1/greeter.greeter.server.native.rpccgo.go",
-		"test/v1/greeter.greeter.server.cgo.rpccgo.go",
-		"test/v1/greeter.greeter.client.cgo.rpccgo.go",
+		"test/v1/cgo/greeter.greeter.server.cgo.rpccgo.go",
+		"test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go",
 	})
 	assertNoGeneratedFilenameContains(t, plugin, ".connect.", ".grpc.", ".message.", ".remote.")
 	assertGeneratedContentDoesNotContain(t, plugin, "connectrpc.com/connect", "google.golang.org/grpc")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "rpccgo service runtime stage file for Greeter")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go", "rpccgo native stage file for Greeter go native server")
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.cgo.rpccgo.go", "rpccgo native stage file for Greeter cgo native server")
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.client.cgo.rpccgo.go", "rpccgo native stage file for Greeter cgo native client")
+	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.server.cgo.rpccgo.go", "rpccgo native stage file for Greeter cgo native server")
+	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go", "rpccgo native stage file for Greeter cgo native client")
 }
 
 func TestGenerateWithNativeRendererSkipsNativeServerForMessageOnlyService(t *testing.T) {
@@ -94,12 +97,12 @@ func TestGenerateWithNativeRendererSkipsNativeServerForMessageOnlyService(t *tes
 
 	assertGeneratedFilenames(t, plugin, []string{
 		"test/v1/greeter.greeter.runtime.rpccgo.go",
-		"test/v1/greeter.greeter.client.cgo.rpccgo.go",
+		"test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go",
 	})
 	assertNoGeneratedFilenameContains(t, plugin, ".server.native.", ".server.cgo.", ".connect.", ".grpc.", ".message.", ".remote.")
 	assertGeneratedContentDoesNotContain(t, plugin, "go native server", "cgo native server", "connectrpc.com/connect", "google.golang.org/grpc")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "rpccgo service runtime stage file for Greeter")
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.client.cgo.rpccgo.go", "rpccgo native stage file for Greeter cgo native client")
+	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go", "rpccgo native stage file for Greeter cgo native client")
 }
 
 func TestGenerateWithNativeRendererUsesNonSourceRelativeGeneratedPrefix(t *testing.T) {
@@ -118,9 +121,54 @@ func TestGenerateWithNativeRendererUsesNonSourceRelativeGeneratedPrefix(t *testi
 	assertGeneratedFilenames(t, plugin, []string{
 		"example.com/test/v1/greeter.greeter.runtime.rpccgo.go",
 		"example.com/test/v1/greeter.greeter.server.native.rpccgo.go",
-		"example.com/test/v1/greeter.greeter.server.cgo.rpccgo.go",
-		"example.com/test/v1/greeter.greeter.client.cgo.rpccgo.go",
+		"example.com/test/v1/cgo/greeter.greeter.server.cgo.rpccgo.go",
+		"example.com/test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go",
 	})
+}
+
+func TestGenerateAcceptsCGODirParameter(t *testing.T) {
+	file := simpleTestFile()
+	setSimpleServiceComment(t, file, "@rpccgo: native\n")
+	plugin := newTestPlugin(t, "paths=source_relative,cgo_dir=../cmd/rpc", file)
+
+	plans, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	if got, want := plans[0].CGODir, "../cmd/rpc"; got != want {
+		t.Fatalf("CGODir = %q, want %q", got, want)
+	}
+	assertGeneratedFilenames(t, plugin, []string{
+		"test/v1/greeter.greeter.runtime.rpccgo.go",
+		"test/v1/greeter.greeter.server.native.rpccgo.go",
+		"test/cmd/rpc/greeter.greeter.server.cgo.rpccgo.go",
+		"test/cmd/rpc/greeter.greeter.client.cgo.rpccgo.go",
+	})
+}
+
+func TestPluginOptionsRejectEmptyCGODirParameter(t *testing.T) {
+	request := newTestCodeGeneratorRequest("cgo_dir=", simpleTestFile())
+
+	_, err := ProtogenOptions().New(request)
+	if err == nil {
+		t.Fatal("ProtogenOptions().New() error = nil, want empty cgo_dir error")
+	}
+	if !strings.Contains(err.Error(), "cgo_dir") || !strings.Contains(err.Error(), "must not be empty") {
+		t.Fatalf("ProtogenOptions().New() error = %q, want empty cgo_dir error", err.Error())
+	}
+}
+
+func TestPluginOptionsRejectAbsoluteCGODirParameter(t *testing.T) {
+	request := newTestCodeGeneratorRequest("cgo_dir=/tmp/rpc", simpleTestFile())
+
+	_, err := ProtogenOptions().New(request)
+	if err == nil {
+		t.Fatal("ProtogenOptions().New() error = nil, want absolute cgo_dir error")
+	}
+	if !strings.Contains(err.Error(), "cgo_dir") || !strings.Contains(err.Error(), "relative") {
+		t.Fatalf("ProtogenOptions().New() error = %q, want relative cgo_dir error", err.Error())
+	}
 }
 
 func TestGenerateWithNativeRendererPropagatesRendererError(t *testing.T) {
@@ -259,7 +307,11 @@ func assertGeneratedFilenames(t *testing.T, plugin *protogen.Plugin, want []stri
 			t.Fatalf("generated file %d = %q, want %q; all files: %v", i, got, want[i], generatedFilenames(plugin))
 		}
 		content := file.GetContent()
-		if !strings.Contains(content, "package testv1") {
+		wantPackage := "package testv1"
+		if strings.Contains(file.GetName(), "/cgo/") || strings.Contains(file.GetName(), "/cmd/rpc/") {
+			wantPackage = "package main"
+		}
+		if !strings.Contains(content, wantPackage) {
 			t.Fatalf("generated file %q missing package declaration: %q", file.GetName(), content)
 		}
 	}
@@ -302,6 +354,23 @@ func assertGeneratedContentDoesNotContain(t *testing.T, plugin *protogen.Plugin,
 			}
 		}
 	}
+}
+
+func assertGeneratedFileContentDoesNotContain(t *testing.T, plugin *protogen.Plugin, filename string, fragments ...string) {
+	t.Helper()
+
+	for _, file := range plugin.Response().GetFile() {
+		if file.GetName() != filename {
+			continue
+		}
+		for _, fragment := range fragments {
+			if strings.Contains(file.GetContent(), fragment) {
+				t.Fatalf("generated file %q content contains forbidden fragment %q: %q", filename, fragment, file.GetContent())
+			}
+		}
+		return
+	}
+	t.Fatalf("generated file %q not found; all files: %v", filename, generatedFilenames(plugin))
 }
 
 func generatedFilenames(plugin *protogen.Plugin) []string {

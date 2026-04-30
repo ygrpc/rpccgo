@@ -53,6 +53,11 @@ func TestRenderRuntimeGlueDefinesServiceDispatcherAndRegistration(t *testing.T) 
 		"var allServiceDispatcher rpcruntime.Dispatcher[AllServiceNativeAdapter]",
 		"func registerAllServiceActiveServer(kind rpcruntime.ServerKind, adapter AllServiceNativeAdapter) (rpcruntime.AdapterSnapshot[AllServiceNativeAdapter], error) {",
 		"return allServiceDispatcher.Register(kind, rpcruntime.ServerContractNative, adapter)",
+		"type AllServiceCGONativeClientBridge struct{}",
+		"func (AllServiceCGONativeClientBridge) Unary(ctx context.Context, req *AllRequest) (*AllReply, error) {",
+		"resp, callErr = snapshot.Adapter.Unary(ctx, req)",
+		"func NewAllServiceCGONativeClientBridge() AllServiceCGONativeClientBridge {",
+		"func RegisterAllServiceCGONativeActiveServer(kind rpcruntime.ServerKind, adapter AllServiceNativeAdapter) (rpcruntime.AdapterSnapshot[AllServiceNativeAdapter], error) {",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
@@ -85,6 +90,9 @@ func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleAndHelpers(t *testing.T) {
 		"return rpcruntime.LoadDispatcherStream[AllServiceNativeAdapter, AllServiceBidiStreamNativeStreamSession](&allServiceDispatcher, handle)",
 		"func takeAllServiceBidiStreamNativeStream(handle rpcruntime.StreamHandle) (AllServiceBidiStreamNativeStreamSession, bool) {",
 		"return rpcruntime.TakeDispatcherStream[AllServiceNativeAdapter, AllServiceBidiStreamNativeStreamSession](&allServiceDispatcher, handle)",
+		"func (AllServiceCGONativeClientBridge) StartClientStream(ctx context.Context) (rpcruntime.StreamHandle, error) {",
+		"func (AllServiceCGONativeClientBridge) LoadClientStreamNativeStream(handle rpcruntime.StreamHandle) (AllServiceClientStreamNativeStreamSession, bool) {",
+		"func (AllServiceCGONativeClientBridge) TakeClientStreamNativeStream(handle rpcruntime.StreamHandle) (AllServiceClientStreamNativeStreamSession, bool) {",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}

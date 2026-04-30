@@ -50,6 +50,7 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	for _, method := range streamingMethods {
 		renderRuntimeStreamHelpers(g, service.GoName, adapterName, dispatcherName, method)
 	}
+	renderRuntimeCGOBridge(g, service.GoName, adapterName, dispatcherName, runtimeMethods)
 
 	return nil
 }
@@ -181,6 +182,84 @@ func renderRuntimeStreamHelpers(g *protogen.GeneratedFile, serviceName, adapterN
 
 	g.P("func delete", serviceName, method.MethodGoName, "NativeStream(handle rpcruntime.StreamHandle) bool {")
 	g.P("return rpcruntime.DeleteDispatcherStream[", adapterName, "](&", dispatcherName, ", handle)")
+	g.P("}")
+	g.P()
+}
+
+func renderRuntimeCGOBridge(g *protogen.GeneratedFile, serviceName, adapterName, dispatcherName string, methods []runtimeAdapterMethod) {
+	bridgeName := serviceName + "CGONativeClientBridge"
+	g.P("type ", bridgeName, " struct{}")
+	g.P()
+
+	for _, method := range methods {
+		if method.Streaming {
+			continue
+		}
+		g.P("func (", bridgeName, ") ", method.MethodGoName, "(ctx context.Context, req ", method.RequestType, ") (", method.ResponseType, ", error) {")
+		g.P("var resp ", method.ResponseType)
+		g.P("err := ", dispatcherName, ".Invoke(ctx, func(ctx context.Context, snapshot rpcruntime.AdapterSnapshot[", adapterName, "]) error {")
+		g.P("var callErr error")
+		g.P("resp, callErr = snapshot.Adapter.", method.AdapterName, "(ctx, req)")
+		g.P("return callErr")
+		g.P("})")
+		g.P("if err != nil {")
+		g.P("return nil, err")
+		g.P("}")
+		g.P("return resp, nil")
+		g.P("}")
+		g.P()
+	}
+
+	for _, method := range methods {
+		if !method.Streaming {
+			continue
+		}
+		renderRuntimeCGOStreamBridge(g, serviceName, bridgeName, adapterName, dispatcherName, method)
+	}
+
+	g.P("func New", serviceName, "CGONativeClientBridge() ", bridgeName, " {")
+	g.P("return ", bridgeName, "{}")
+	g.P("}")
+	g.P()
+
+	g.P("func Register", serviceName, "CGONativeActiveServer(kind rpcruntime.ServerKind, adapter ", adapterName, ") (rpcruntime.AdapterSnapshot[", adapterName, "], error) {")
+	g.P("return register", serviceName, "ActiveServer(kind, adapter)")
+	g.P("}")
+	g.P()
+}
+
+func renderRuntimeCGOStreamBridge(g *protogen.GeneratedFile, serviceName, bridgeName, adapterName, dispatcherName string, method runtimeAdapterMethod) {
+	switch method.StreamingKind {
+	case StreamingKindClientStreaming:
+		g.P("func (", bridgeName, ") Start", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
+		g.P("return ", dispatcherName, ".StartStream(func(snapshot rpcruntime.AdapterSnapshot[", adapterName, "]) (any, error) {")
+		g.P("return snapshot.Adapter.", method.AdapterName, "(ctx)")
+		g.P("})")
+		g.P("}")
+		g.P()
+	case StreamingKindServerStreaming:
+		g.P("func (", bridgeName, ") Start", method.MethodGoName, "(ctx context.Context, req ", method.RequestType, ") (rpcruntime.StreamHandle, error) {")
+		g.P("return ", dispatcherName, ".StartStream(func(snapshot rpcruntime.AdapterSnapshot[", adapterName, "]) (any, error) {")
+		g.P("return snapshot.Adapter.", method.AdapterName, "(ctx, req)")
+		g.P("})")
+		g.P("}")
+		g.P()
+	case StreamingKindBidiStreaming:
+		g.P("func (", bridgeName, ") Start", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
+		g.P("return ", dispatcherName, ".StartStream(func(snapshot rpcruntime.AdapterSnapshot[", adapterName, "]) (any, error) {")
+		g.P("return snapshot.Adapter.", method.AdapterName, "(ctx)")
+		g.P("})")
+		g.P("}")
+		g.P()
+	}
+
+	g.P("func (", bridgeName, ") Load", method.MethodGoName, "NativeStream(handle rpcruntime.StreamHandle) (", method.SessionName, ", bool) {")
+	g.P("return load", serviceName, method.MethodGoName, "NativeStream(handle)")
+	g.P("}")
+	g.P()
+
+	g.P("func (", bridgeName, ") Take", method.MethodGoName, "NativeStream(handle rpcruntime.StreamHandle) (", method.SessionName, ", bool) {")
+	g.P("return take", serviceName, method.MethodGoName, "NativeStream(handle)")
 	g.P("}")
 	g.P()
 }

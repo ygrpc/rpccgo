@@ -22,9 +22,10 @@ func TestNativeBidiStreamingRoutesToGoNativeServer(t *testing.T) {
 	}
 
 	writeNativeBidiStreamingFixture(t, tmp, plugin, "example.com/nativebidi")
-	writeFile(t, filepath.Join(tmp, "test/v1/native_bidi_streaming_go_test.go"), nativeBidiStreamingGoFixtureTestSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/native_integration_reset.go"), nativeIntegrationResetSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_bidi_streaming_go_test.go"), nativeBidiStreamingGoFixtureTestSource)
 
-	cmd := exec.Command("go", "test", "./test/v1", "-run", "TestNativeBidiStreamingGo", "-count=1")
+	cmd := exec.Command("go", "test", "./test/v1/cgo", "-run", "TestNativeBidiStreamingGo", "-count=1")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -40,10 +41,11 @@ func TestNativeBidiStreamingRoutesToCGONativeServer(t *testing.T) {
 	}
 
 	writeNativeBidiStreamingFixture(t, tmp, plugin, "example.com/nativebidicgo")
-	writeFile(t, filepath.Join(tmp, "test/v1/native_bidi_streaming_cgo_callbacks.go"), nativeBidiStreamingCGOFixtureCallbackSource)
-	writeFile(t, filepath.Join(tmp, "test/v1/native_bidi_streaming_cgo_test.go"), nativeBidiStreamingCGOFixtureTestSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/native_integration_reset.go"), nativeIntegrationResetSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_bidi_streaming_cgo_callbacks.go"), nativeBidiStreamingCGOFixtureCallbackSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_bidi_streaming_cgo_test.go"), nativeBidiStreamingCGOFixtureTestSource)
 
-	cmd := exec.Command("go", "test", "./test/v1", "-run", "TestNativeBidiStreamingCGO", "-count=1")
+	cmd := exec.Command("go", "test", "./test/v1/cgo", "-run", "TestNativeBidiStreamingCGO", "-count=1")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -137,7 +139,7 @@ type ChatReply struct {
 }
 `
 
-const nativeBidiStreamingGoFixtureTestSource = `package testv1
+const nativeBidiStreamingGoFixtureTestSource = `package main
 
 import (
 	context "context"
@@ -147,6 +149,7 @@ import (
 	"testing"
 	"unsafe"
 
+	v1 "example.com/nativebidi/test/v1"
 	rpcruntime "rpccgo/rpcruntime"
 )
 
@@ -154,7 +157,7 @@ type chatGoServer struct {
 	stream *chatGoStream
 }
 
-func (s *chatGoServer) Chat(ctx context.Context) (GreeterChatNativeBidiStream, error) {
+func (s *chatGoServer) Chat(ctx context.Context) (v1.GreeterChatNativeBidiStream, error) {
 	s.stream = &chatGoStream{}
 	return s.stream, nil
 }
@@ -167,7 +170,7 @@ type chatGoStream struct {
 	canceled bool
 }
 
-func (s *chatGoStream) Send(ctx context.Context, req *ChatRequest) error {
+func (s *chatGoStream) Send(ctx context.Context, req *v1.ChatRequest) error {
 	if s.closed {
 		return errors.New("go bidi send closed")
 	}
@@ -176,13 +179,13 @@ func (s *chatGoStream) Send(ctx context.Context, req *ChatRequest) error {
 	return nil
 }
 
-func (s *chatGoStream) Recv(ctx context.Context) (*ChatReply, error) {
+func (s *chatGoStream) Recv(ctx context.Context) (*v1.ChatReply, error) {
 	if s.read >= len(s.names) {
 		return nil, io.EOF
 	}
 	index := s.read
 	s.read++
-	return &ChatReply{Ack: s.seqs[index], Message: s.names[index]}, nil
+	return &v1.ChatReply{Ack: s.seqs[index], Message: s.names[index]}, nil
 }
 
 func (s *chatGoStream) CloseSend(ctx context.Context) error {
@@ -196,9 +199,9 @@ func (s *chatGoStream) Cancel(ctx context.Context) error {
 }
 
 func TestNativeBidiStreamingGoServerLifecycle(t *testing.T) {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	v1.ResetGreeterDispatcherForIntegrationTest()
 	server := &chatGoServer{}
-	if _, err := RegisterGreeterGoNativeServer(server); err != nil {
+	if _, err := v1.RegisterGreeterGoNativeServer(server); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 
@@ -224,9 +227,9 @@ func TestNativeBidiStreamingGoServerLifecycle(t *testing.T) {
 }
 
 func TestNativeBidiStreamingGoServerCancelFinalizesOnce(t *testing.T) {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	v1.ResetGreeterDispatcherForIntegrationTest()
 	server := &chatGoServer{}
-	if _, err := RegisterGreeterGoNativeServer(server); err != nil {
+	if _, err := v1.RegisterGreeterGoNativeServer(server); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 	handle, errID := StartGreeterChatNativeBidiStream(context.Background())
@@ -288,7 +291,7 @@ func assertErrorTextContainsBidi(t *testing.T, errID int32, want string) {
 }
 `
 
-const nativeBidiStreamingCGOFixtureTestSource = `package testv1
+const nativeBidiStreamingCGOFixtureTestSource = `package main
 
 import (
 	context "context"
@@ -296,11 +299,12 @@ import (
 	"testing"
 	"unsafe"
 
+	v1 "example.com/nativebidicgo/test/v1"
 	rpcruntime "rpccgo/rpcruntime"
 )
 
 func TestNativeBidiStreamingCGOServerLifecycle(t *testing.T) {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	v1.ResetGreeterDispatcherForIntegrationTest()
 	rpcruntime.ResetFreeCallbackForTesting()
 	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
 	frees := registerBidiCFreeCallback()
@@ -336,7 +340,7 @@ func TestNativeBidiStreamingCGOServerLifecycle(t *testing.T) {
 }
 
 func TestNativeBidiStreamingCGOServerCancelFinalizesOnce(t *testing.T) {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	v1.ResetGreeterDispatcherForIntegrationTest()
 	if err := registerGreeterBidiCGONativeServerCallbacks(); err != nil {
 		t.Fatalf("registerGreeterBidiCGONativeServerCallbacks() error = %v", err)
 	}
@@ -384,7 +388,7 @@ func TestNativeBidiStreamingCGOServerCallbackErrorsPropagate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+			v1.ResetGreeterDispatcherForIntegrationTest()
 			setGreeterBidiErrorMode(tt.mode)
 			t.Cleanup(func() { setGreeterBidiErrorMode(0) })
 			if err := registerGreeterBidiCGONativeServerCallbacks(); err != nil {
@@ -449,7 +453,7 @@ func assertErrorTextContainsBidiCGO(t *testing.T, errID int32, want string) {
 }
 `
 
-const nativeBidiStreamingCGOFixtureCallbackSource = `package testv1
+const nativeBidiStreamingCGOFixtureCallbackSource = `package main
 
 /*
 #include <stdint.h>

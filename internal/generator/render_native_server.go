@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
 )
@@ -306,6 +307,17 @@ func nativeGoMessageType(g *protogen.GeneratedFile, message MethodIOPlan) string
 		GoName:       message.GoName,
 		GoImportPath: protogen.GoImportPath(message.GoImportPath),
 	})
+}
+
+func nativeGoMessagePackagePrefix(g *protogen.GeneratedFile, message MethodIOPlan) string {
+	qualified := g.QualifiedGoIdent(protogen.GoIdent{
+		GoName:       message.GoName,
+		GoImportPath: protogen.GoImportPath(message.GoImportPath),
+	})
+	if strings.HasSuffix(qualified, "."+message.GoName) {
+		return qualified[:len(qualified)-len(message.GoName)]
+	}
+	return ""
 }
 
 type nativeServerErrorNames struct {

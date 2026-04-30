@@ -37,9 +37,10 @@ func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 		writeFile(t, filepath.Join(tmp, name), generated.GetContent())
 	}
 	writeFile(t, filepath.Join(tmp, "test/v1/native_unary_stubs.go"), nativeUnaryStubSource)
-	writeFile(t, filepath.Join(tmp, "test/v1/native_unary_test.go"), nativeUnaryFixtureTestSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/native_integration_reset.go"), nativeIntegrationResetSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_unary_test.go"), nativeUnaryFixtureTestSource)
 
-	cmd := exec.Command("go", "test", "./test/v1", "-run", "TestNativeUnary", "-count=1")
+	cmd := exec.Command("go", "test", "./test/v1/cgo", "-run", "TestNativeUnary", "-count=1")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -49,6 +50,11 @@ func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 
 func newNativeUnaryTestPlugin(t *testing.T) *protogen.Plugin {
 	t.Helper()
+	return newNativeUnaryTestPluginForPackage(t, "example.com/nativeunary/test/v1;testv1")
+}
+
+func newNativeUnaryTestPluginForPackage(t *testing.T, goPackage string) *protogen.Plugin {
+	t.Helper()
 	request := &pluginpb.CodeGeneratorRequest{
 		Parameter:      proto.String("paths=source_relative"),
 		FileToGenerate: []string{"test/v1/native_unary.proto"},
@@ -57,7 +63,7 @@ func newNativeUnaryTestPlugin(t *testing.T) *protogen.Plugin {
 			Package: proto.String("test.v1"),
 			Syntax:  proto.String("proto3"),
 			Options: &descriptorpb.FileOptions{
-				GoPackage: proto.String("example.com/nativeunary/test/v1;testv1"),
+				GoPackage: proto.String(goPackage),
 			},
 			MessageType: []*descriptorpb.DescriptorProto{
 				{
@@ -160,7 +166,16 @@ type UnsupportedReply struct {
 type Child struct{}
 `
 
-const nativeUnaryFixtureTestSource = `package testv1
+const nativeIntegrationResetSource = `package testv1
+
+import rpcruntime "rpccgo/rpcruntime"
+
+func ResetGreeterDispatcherForIntegrationTest() {
+	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+}
+`
+
+const nativeUnaryFixtureTestSource = `package main
 
 import (
 	context "context"
@@ -169,16 +184,17 @@ import (
 	"testing"
 	"unsafe"
 
+	v1 "example.com/nativeunary/test/v1"
 	rpcruntime "rpccgo/rpcruntime"
 )
 
 type recordingServer struct {
 	called bool
 	err error
-	response *HelloReply
+	response *v1.HelloReply
 }
 
-func (s *recordingServer) SayHello(ctx context.Context, req *HelloRequest) (*HelloReply, error) {
+func (s *recordingServer) SayHello(ctx context.Context, req *v1.HelloRequest) (*v1.HelloReply, error) {
 	s.called = true
 	if s.err != nil {
 		return nil, s.err
@@ -189,17 +205,17 @@ func (s *recordingServer) SayHello(ctx context.Context, req *HelloRequest) (*Hel
 	if s.response != nil {
 		return s.response, nil
 	}
-	return &HelloReply{Accepted: true, Payload: []byte("dispatcher:"+req.Name), Note: "ok"}, nil
+	return &v1.HelloReply{Accepted: true, Payload: []byte("dispatcher:"+req.Name), Note: "ok"}, nil
 }
 
-func (s *recordingServer) SayUnsupported(ctx context.Context, req *HelloRequest) (*UnsupportedReply, error) {
-	return &UnsupportedReply{Payload: []byte("pinned"), Note: "note", Unsupported: &Child{}}, nil
+func (s *recordingServer) SayUnsupported(ctx context.Context, req *v1.HelloRequest) (*v1.UnsupportedReply, error) {
+	return &v1.UnsupportedReply{Payload: []byte("pinned"), Note: "note", Unsupported: &v1.Child{}}, nil
 }
 
 func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	v1.ResetGreeterDispatcherForIntegrationTest()
 	server := &recordingServer{}
-	if _, err := RegisterGreeterGoNativeServer(server); err != nil {
+	if _, err := v1.RegisterGreeterGoNativeServer(server); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 
@@ -232,8 +248,8 @@ func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 }
 
 func TestNativeUnaryNegativeLengthStoresError(t *testing.T) {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
-	if _, err := RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
+	v1.ResetGreeterDispatcherForIntegrationTest()
+	if _, err := v1.RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 	input := &GreeterSayHelloNativeUnaryInput{NameLen: -1}
@@ -249,8 +265,8 @@ func TestNativeUnaryNegativeLengthStoresError(t *testing.T) {
 }
 
 func TestNativeUnaryOwnedStringAndBytesRelease(t *testing.T) {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
-	if _, err := RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
+	v1.ResetGreeterDispatcherForIntegrationTest()
+	if _, err := v1.RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 	rpcruntime.ResetFreeCallbackForTesting()
@@ -286,10 +302,10 @@ func TestNativeUnaryOwnedStringAndBytesRelease(t *testing.T) {
 }
 
 func TestNativeUnaryPinFailureReleasesStagedOutput(t *testing.T) {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	v1.ResetGreeterDispatcherForIntegrationTest()
 	shared := []byte("shared")
-	server := &recordingServer{response: &HelloReply{Accepted: true, Payload: shared, ExtraPayload: shared}}
-	if _, err := RegisterGreeterGoNativeServer(server); err != nil {
+	server := &recordingServer{response: &v1.HelloReply{Accepted: true, Payload: shared, ExtraPayload: shared}}
+	if _, err := v1.RegisterGreeterGoNativeServer(server); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 
@@ -322,8 +338,8 @@ func TestNativeUnaryPinFailureReleasesStagedOutput(t *testing.T) {
 }
 
 func TestNativeUnaryOwnedReleaseErrorStoresError(t *testing.T) {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
-	if _, err := RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
+	v1.ResetGreeterDispatcherForIntegrationTest()
+	if _, err := v1.RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 	rpcruntime.ResetFreeCallbackForTesting()
@@ -346,7 +362,7 @@ func TestNativeUnaryOwnedReleaseErrorStoresError(t *testing.T) {
 }
 
 func TestNativeUnaryMissingActiveServerStoresError(t *testing.T) {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	v1.ResetGreeterDispatcherForIntegrationTest()
 	input := &GreeterSayHelloNativeUnaryInput{}
 	output := &GreeterSayHelloNativeUnaryOutput{}
 	errID := CallGreeterSayHelloNativeUnary(context.Background(), input, output)
@@ -360,8 +376,8 @@ func TestNativeUnaryMissingActiveServerStoresError(t *testing.T) {
 }
 
 func TestNativeUnaryServerErrorStoresError(t *testing.T) {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
-	if _, err := RegisterGreeterGoNativeServer(&recordingServer{err: errors.New("server exploded")}); err != nil {
+	v1.ResetGreeterDispatcherForIntegrationTest()
+	if _, err := v1.RegisterGreeterGoNativeServer(&recordingServer{err: errors.New("server exploded")}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 	input := &GreeterSayHelloNativeUnaryInput{}
@@ -377,8 +393,8 @@ func TestNativeUnaryServerErrorStoresError(t *testing.T) {
 }
 
 func TestNativeUnaryOutputStagingLeavesOutputUntouchedOnUnsupportedResponse(t *testing.T) {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
-	if _, err := RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
+	v1.ResetGreeterDispatcherForIntegrationTest()
+	if _, err := v1.RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 	input := &GreeterSayUnsupportedNativeUnaryInput{}

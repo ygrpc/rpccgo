@@ -21,8 +21,10 @@ func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const nativeClientFile = "test/v1/stage1_acceptance.all_service.client.cgo.rpccgo.go"
+	const nativeClientFile = "test/v1/cgo/stage1_acceptance.all_service.client.cgo.rpccgo.go"
 	for _, fragment := range []string{
+		"package main",
+		`v1 "example.com/test/v1"`,
 		`rpcruntime "rpccgo/rpcruntime"`,
 		`unsafe "unsafe"`,
 		"type AllServiceUnaryNativeUnaryInput struct {",
@@ -36,8 +38,7 @@ func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
 		"PayloadPtr uintptr",
 		"PayloadLen int32",
 		"func CallAllServiceUnaryNativeUnary(ctx context.Context, input *AllServiceUnaryNativeUnaryInput, output *AllServiceUnaryNativeUnaryOutput) int32 {",
-		"err = allServiceDispatcher.Invoke(ctx, func(ctx context.Context, snapshot rpcruntime.AdapterSnapshot[AllServiceNativeAdapter]) error {",
-		"resp, callErr = snapshot.Adapter.Unary(ctx, req)",
+		"resp, err := v1.NewAllServiceCGONativeClientBridge().Unary(ctx, req)",
 		"return int32(rpcruntime.StoreError(err))",
 		"return int32(rpcruntime.StoreError(errors.New(\"rpccgo: native unary client input is nil\")))",
 		"return int32(rpcruntime.StoreError(errors.New(\"rpccgo: native unary client output is nil\")))",
@@ -58,7 +59,7 @@ func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
 	} {
 		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
 	}
-	assertGeneratedContentDoesNotContain(t, plugin, "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf")
+	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "allServiceDispatcher", "loadAllService", "takeAllService", "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf")
 }
 
 func TestRenderNativeClientCGOSupportsEnumAsInt32(t *testing.T) {
@@ -70,10 +71,10 @@ func TestRenderNativeClientCGOSupportsEnumAsInt32(t *testing.T) {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const nativeClientFile = "test/v1/native_enum.enum_service.client.cgo.rpccgo.go"
+	const nativeClientFile = "test/v1/cgo/native_enum.enum_service.client.cgo.rpccgo.go"
 	for _, fragment := range []string{
 		"State int32",
-		"req.State = State(input.State)",
+		"req.State = v1.State(input.State)",
 		"StateValue := int32(resp.State)",
 		"output.State = StateValue",
 	} {
@@ -348,7 +349,8 @@ func writeNativeGeneratedModule(t *testing.T, root string, plugin *protogen.Plug
 	if err != nil {
 		t.Fatalf("filepath.Abs() error = %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/generated\n\ngo 1.24.4\n\nrequire rpccgo v0.0.0\n\nreplace rpccgo => "+repoRoot+"\n"), 0o644); err != nil {
+	modulePath := nativeGeneratedModulePath(t, plugin)
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module "+modulePath+"\n\ngo 1.24.4\n\nrequire rpccgo v0.0.0\n\nreplace rpccgo => "+repoRoot+"\n"), 0o644); err != nil {
 		t.Fatalf("write go.mod: %v", err)
 	}
 
@@ -365,6 +367,27 @@ func writeNativeGeneratedModule(t *testing.T, root string, plugin *protogen.Plug
 			t.Fatalf("write generated file %s: %v", name, err)
 		}
 	}
+}
+
+func nativeGeneratedModulePath(t *testing.T, plugin *protogen.Plugin) string {
+	t.Helper()
+	for _, file := range plugin.Files {
+		if file == nil || !file.Generate {
+			continue
+		}
+		generatedDir := filepath.ToSlash(filepath.Dir(file.GeneratedFilenamePrefix))
+		importPath := string(file.GoImportPath)
+		if generatedDir == "." {
+			return importPath
+		}
+		suffix := "/" + generatedDir
+		if strings.HasSuffix(importPath, suffix) {
+			return strings.TrimSuffix(importPath, suffix)
+		}
+		return importPath
+	}
+	t.Fatal("no generated protogen file found")
+	return ""
 }
 
 func nativeClientEnumFile() *descriptorpb.FileDescriptorProto {

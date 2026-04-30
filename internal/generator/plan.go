@@ -30,6 +30,7 @@ type FilePlan struct {
 	GoImportPath            string
 	ProtoPath               string
 	GeneratedFilenamePrefix string
+	CGODir                  string
 	TopLevelSymbols         []TopLevelSymbolPlan
 	Services                []ServicePlan
 }

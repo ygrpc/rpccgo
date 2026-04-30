@@ -22,9 +22,10 @@ func TestNativeServerStreamingRoutesToGoNativeServer(t *testing.T) {
 	}
 
 	writeNativeServerStreamingFixture(t, tmp, plugin, "example.com/nativeserverstream")
-	writeFile(t, filepath.Join(tmp, "test/v1/native_server_streaming_go_test.go"), nativeServerStreamingGoFixtureTestSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/native_integration_reset.go"), nativeIntegrationResetSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_server_streaming_go_test.go"), nativeServerStreamingGoFixtureTestSource)
 
-	cmd := exec.Command("go", "test", "./test/v1", "-run", "TestNativeServerStreamingGo", "-count=1")
+	cmd := exec.Command("go", "test", "./test/v1/cgo", "-run", "TestNativeServerStreamingGo", "-count=1")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -40,10 +41,11 @@ func TestNativeServerStreamingRoutesToCGONativeServer(t *testing.T) {
 	}
 
 	writeNativeServerStreamingFixture(t, tmp, plugin, "example.com/nativeserverstreamcgo")
-	writeFile(t, filepath.Join(tmp, "test/v1/native_server_streaming_cgo_callbacks.go"), nativeServerStreamingCGOFixtureCallbackSource)
-	writeFile(t, filepath.Join(tmp, "test/v1/native_server_streaming_cgo_test.go"), nativeServerStreamingCGOFixtureTestSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/native_integration_reset.go"), nativeIntegrationResetSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_server_streaming_cgo_callbacks.go"), nativeServerStreamingCGOFixtureCallbackSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_server_streaming_cgo_test.go"), nativeServerStreamingCGOFixtureTestSource)
 
-	cmd := exec.Command("go", "test", "./test/v1", "-run", "TestNativeServerStreamingCGO", "-count=1")
+	cmd := exec.Command("go", "test", "./test/v1/cgo", "-run", "TestNativeServerStreamingCGO", "-count=1")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -136,7 +138,7 @@ type ListReply struct {
 }
 `
 
-const nativeServerStreamingGoFixtureTestSource = `package testv1
+const nativeServerStreamingGoFixtureTestSource = `package main
 
 import (
 	context "context"
@@ -146,6 +148,7 @@ import (
 	"testing"
 	"unsafe"
 
+	v1 "example.com/nativeserverstream/test/v1"
 	rpcruntime "rpccgo/rpcruntime"
 )
 
@@ -154,7 +157,7 @@ type listGoServer struct {
 	stream *listGoStream
 }
 
-func (s *listGoServer) List(ctx context.Context, req *ListRequest) (GreeterListNativeServerStream, error) {
+func (s *listGoServer) List(ctx context.Context, req *v1.ListRequest) (v1.GreeterListNativeServerStream, error) {
 	s.stream = &listGoStream{prefix: s.label + req.Prefix, limit: req.Limit}
 	return s.stream, nil
 }
@@ -166,12 +169,12 @@ type listGoStream struct {
 	canceled bool
 }
 
-func (s *listGoStream) Recv(ctx context.Context) (*ListReply, error) {
+func (s *listGoStream) Recv(ctx context.Context) (*v1.ListReply, error) {
 	if s.index >= s.limit {
 		return nil, io.EOF
 	}
 	s.index++
-	return &ListReply{Index: s.index, Name: s.prefix + ":" + string(rune('0'+s.index))}, nil
+	return &v1.ListReply{Index: s.index, Name: s.prefix + ":" + string(rune('0'+s.index))}, nil
 }
 
 func (s *listGoStream) Cancel(ctx context.Context) error {
@@ -180,9 +183,9 @@ func (s *listGoStream) Cancel(ctx context.Context) error {
 }
 
 func TestNativeServerStreamingGoServerReadDoneFinalizesHandle(t *testing.T) {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	v1.ResetGreeterDispatcherForIntegrationTest()
 	server := &listGoServer{}
-	if _, err := RegisterGreeterGoNativeServer(server); err != nil {
+	if _, err := v1.RegisterGreeterGoNativeServer(server); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 
@@ -203,9 +206,9 @@ func TestNativeServerStreamingGoServerReadDoneFinalizesHandle(t *testing.T) {
 }
 
 func TestNativeServerStreamingGoServerStartCapturesActiveServerSnapshot(t *testing.T) {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	v1.ResetGreeterDispatcherForIntegrationTest()
 	serverA := &listGoServer{label: "A:"}
-	if _, err := RegisterGreeterGoNativeServer(serverA); err != nil {
+	if _, err := v1.RegisterGreeterGoNativeServer(serverA); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer(A) error = %v", err)
 	}
 	handle, errID := StartGreeterListNativeServerStream(context.Background(), listInput("x", 1))
@@ -213,7 +216,7 @@ func TestNativeServerStreamingGoServerStartCapturesActiveServerSnapshot(t *testi
 		t.Fatalf("StartGreeterListNativeServerStream() errID = %d", errID)
 	}
 	serverB := &listGoServer{label: "B:"}
-	if _, err := RegisterGreeterGoNativeServer(serverB); err != nil {
+	if _, err := v1.RegisterGreeterGoNativeServer(serverB); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer(B) error = %v", err)
 	}
 	assertListRead(t, handle, 1, "A:x:1")
@@ -223,9 +226,9 @@ func TestNativeServerStreamingGoServerStartCapturesActiveServerSnapshot(t *testi
 }
 
 func TestNativeServerStreamingGoServerCancelFinalizesHandle(t *testing.T) {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	v1.ResetGreeterDispatcherForIntegrationTest()
 	server := &listGoServer{}
-	if _, err := RegisterGreeterGoNativeServer(server); err != nil {
+	if _, err := v1.RegisterGreeterGoNativeServer(server); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 	handle, errID := StartGreeterListNativeServerStream(context.Background(), listInput("go", 1))
@@ -244,7 +247,7 @@ func TestNativeServerStreamingGoServerCancelFinalizesHandle(t *testing.T) {
 }
 
 func TestNativeServerStreamingGoServerMissingActiveServer(t *testing.T) {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	v1.ResetGreeterDispatcherForIntegrationTest()
 	handle, errID := StartGreeterListNativeServerStream(context.Background(), listInput("none", 1))
 	if handle != 0 {
 		t.Fatalf("handle = %d, want 0", handle)
@@ -289,7 +292,7 @@ func assertErrorTextContainsServerStream(t *testing.T, errID int32, want string)
 }
 `
 
-const nativeServerStreamingCGOFixtureTestSource = `package testv1
+const nativeServerStreamingCGOFixtureTestSource = `package main
 
 import (
 	context "context"
@@ -297,11 +300,12 @@ import (
 	"testing"
 	"unsafe"
 
+	v1 "example.com/nativeserverstreamcgo/test/v1"
 	rpcruntime "rpccgo/rpcruntime"
 )
 
 func TestNativeServerStreamingCGOServerReadDoneFinalizesHandle(t *testing.T) {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	v1.ResetGreeterDispatcherForIntegrationTest()
 	rpcruntime.ResetFreeCallbackForTesting()
 	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
 	frees := registerServerStreamCFreeCallback()
@@ -331,7 +335,7 @@ func TestNativeServerStreamingCGOServerReadDoneFinalizesHandle(t *testing.T) {
 }
 
 func TestNativeServerStreamingCGOServerCancelFinalizesHandle(t *testing.T) {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	v1.ResetGreeterDispatcherForIntegrationTest()
 	if err := registerGreeterServerStreamCGONativeServerCallbacks(); err != nil {
 		t.Fatalf("registerGreeterServerStreamCGONativeServerCallbacks() error = %v", err)
 	}
@@ -370,7 +374,7 @@ func TestNativeServerStreamingCGOServerCallbackErrorsPropagate(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+			v1.ResetGreeterDispatcherForIntegrationTest()
 			setGreeterServerStreamErrorMode(tt.mode)
 			t.Cleanup(func() { setGreeterServerStreamErrorMode(0) })
 			if err := registerGreeterServerStreamCGONativeServerCallbacks(); err != nil {
@@ -428,7 +432,7 @@ func assertErrorTextContainsCGOServerStream(t *testing.T, errID int32, want stri
 }
 `
 
-const nativeServerStreamingCGOFixtureCallbackSource = `package testv1
+const nativeServerStreamingCGOFixtureCallbackSource = `package main
 
 /*
 #include <stdint.h>

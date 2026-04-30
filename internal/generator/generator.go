@@ -2,12 +2,21 @@ package generator
 
 import (
 	"fmt"
+	"path"
+	"path/filepath"
+	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
+const defaultCGODir = "cgo"
+
 type GenerateOptions struct {
 	RenderNativeStageFiles bool
+}
+
+type GeneratorConfig struct {
+	CGODir string
 }
 
 var renderNativeStageFiles = RenderNativeStageFiles
@@ -22,6 +31,10 @@ func GenerateWithOptions(plugin *protogen.Plugin, options GenerateOptions) ([]Fi
 	if plugin == nil {
 		return nil, fmt.Errorf("generator plugin is nil")
 	}
+	config, err := generatorConfigFromPlugin(plugin)
+	if err != nil {
+		return nil, err
+	}
 
 	plans := make([]FilePlan, 0, len(plugin.Files))
 	for _, file := range plugin.Files {
@@ -32,6 +45,7 @@ func GenerateWithOptions(plugin *protogen.Plugin, options GenerateOptions) ([]Fi
 		if err != nil {
 			return nil, err
 		}
+		plan.CGODir = config.CGODir
 		AttachNativeFileFamilyPlan(&plan)
 		plans = append(plans, plan)
 	}
@@ -55,5 +69,50 @@ func ProtogenOptions() protogen.Options {
 }
 
 func parseRPCCGOParameter(name, value string) error {
-	return fmt.Errorf("unknown rpccgo parameter %q", name)
+	switch name {
+	case "cgo_dir":
+		_, err := cleanCGODir(value)
+		return err
+	default:
+		return fmt.Errorf("unknown rpccgo parameter %q", name)
+	}
+}
+
+func generatorConfigFromPlugin(plugin *protogen.Plugin) (GeneratorConfig, error) {
+	config := GeneratorConfig{CGODir: defaultCGODir}
+	if plugin.Request == nil {
+		return config, nil
+	}
+	for _, param := range strings.Split(plugin.Request.GetParameter(), ",") {
+		if param == "" {
+			continue
+		}
+		name, value, hasValue := strings.Cut(param, "=")
+		if name != "cgo_dir" {
+			continue
+		}
+		if !hasValue {
+			value = ""
+		}
+		cleaned, err := cleanCGODir(value)
+		if err != nil {
+			return GeneratorConfig{}, err
+		}
+		config.CGODir = cleaned
+	}
+	return config, nil
+}
+
+func cleanCGODir(value string) (string, error) {
+	if value == "" {
+		return "", fmt.Errorf("cgo_dir must not be empty")
+	}
+	if filepath.IsAbs(value) || path.IsAbs(value) {
+		return "", fmt.Errorf("cgo_dir must be relative to the protobuf Go package output directory")
+	}
+	cleaned := path.Clean(strings.ReplaceAll(value, "\\", "/"))
+	if cleaned == "." {
+		return "", fmt.Errorf("cgo_dir must not be empty")
+	}
+	return cleaned, nil
 }
