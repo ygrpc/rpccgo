@@ -266,20 +266,20 @@
 - 迁移旧 native integration 的测试关注点。
 - 记录旧 native 代码为什么参考后重写，以及旧 bootstrap 为什么不迁移。
 
-- [ ] 添加 Stage 3 acceptance test，覆盖 Go native server 与 cgo native server。
-- [ ] acceptance test 覆盖 unary、client streaming、server streaming、bidi streaming。
-- [ ] acceptance test 证明 cgo native client 调用都进入 dispatcher。
-- [ ] 写入已迁移、参考后重写、不迁移清单。
-- [ ] 明确旧 native renderer、bridge、cgo runtime 只能参考，不能照搬旧 registry/provider/bootstrap。
-- [ ] 记录验证命令：generator focused、integration focused、runtime focused、全仓测试、AGENTS.md 中的 forbidden unsigned scan。
-- [ ] 不记录机器环境处理。
-- [ ] 更新本计划 checkbox。
-- [ ] 运行 `rtk go test ./internal/generator ./cmd/protoc-gen-rpc-cgo -count=1`。
-- [ ] 运行 `rtk go test ./internal/integration -count=1`。
-- [ ] 运行 `rtk go test ./rpcruntime -count=1`。
-- [ ] 运行 `rtk go test ./... -count=1`。
-- [ ] 运行 AGENTS.md 中的 forbidden unsigned scan。
-- [ ] 验收：阶段 3 “迁移了什么、为什么参考后重写、为什么不迁旧架构”有明确记录。
+- [x] 添加 Stage 3 acceptance test，覆盖 Go native server 与 cgo native server。
+- [x] acceptance test 覆盖 unary、client streaming、server streaming、bidi streaming。
+- [x] acceptance test 证明 cgo native client 调用都进入 dispatcher。
+- [x] 写入已迁移、参考后重写、不迁移清单。
+- [x] 明确旧 native renderer、bridge、cgo runtime 只能参考，不能照搬旧 registry/provider/bootstrap。
+- [x] 记录验证命令：generator focused、integration focused、runtime focused、全仓测试、AGENTS.md 中的 forbidden unsigned scan。
+- [x] 不记录机器环境处理。
+- [x] 更新本计划 checkbox。
+- [x] 运行 `rtk go test ./internal/generator ./cmd/protoc-gen-rpc-cgo -count=1`。
+- [x] 运行 `rtk go test ./internal/integration -count=1`。
+- [x] 运行 `rtk go test ./rpcruntime -count=1`。
+- [x] 运行 `rtk go test ./... -count=1`。
+- [x] 运行 AGENTS.md 中的 forbidden unsigned scan。
+- [x] 验收：阶段 3 “迁移了什么、为什么参考后重写、为什么不迁旧架构”有明确记录。
 - [ ] 提交：`docs: record stage 3 migration inventory`
 
 ## 阶段 3 完成标准
