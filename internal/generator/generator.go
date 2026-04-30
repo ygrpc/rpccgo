@@ -12,7 +12,9 @@ import (
 const defaultCGODir = "cgo"
 
 type GenerateOptions struct {
-	RenderNativeStageFiles bool
+	RenderNativeStageFiles  bool
+	RenderMessageStageFiles bool
+	RenderStageFiles        bool
 }
 
 type GeneratorConfig struct {
@@ -20,6 +22,8 @@ type GeneratorConfig struct {
 }
 
 var renderNativeStageFiles = RenderNativeStageFiles
+var renderMessageStageFiles = RenderMessageStageFiles
+var renderStageFiles = RenderStageFiles
 
 // Generate parses the protoc plugin request into planning data, including file
 // family plans, without emitting generated files.
@@ -47,6 +51,7 @@ func GenerateWithOptions(plugin *protogen.Plugin, options GenerateOptions) ([]Fi
 		}
 		plan.CGODir = config.CGODir
 		AttachNativeFileFamilyPlan(&plan)
+		AttachMessageFileFamilyPlan(&plan)
 		plans = append(plans, plan)
 	}
 	for i := range plans {
@@ -55,6 +60,20 @@ func GenerateWithOptions(plugin *protogen.Plugin, options GenerateOptions) ([]Fi
 	if options.RenderNativeStageFiles {
 		for _, plan := range plans {
 			if err := renderNativeStageFiles(plugin, plan); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if options.RenderMessageStageFiles {
+		for _, plan := range plans {
+			if err := renderMessageStageFiles(plugin, plan); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if options.RenderStageFiles {
+		for _, plan := range plans {
+			if err := renderStageFiles(plugin, plan); err != nil {
 				return nil, err
 			}
 		}

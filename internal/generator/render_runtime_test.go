@@ -23,6 +23,7 @@ func TestRenderRuntimeGlueImportsRPCRuntimeOnly(t *testing.T) {
 
 	const runtimeFile = "test/v1/greeter.greeter.runtime.rpccgo.go"
 	assertGeneratedContentContains(t, plugin, runtimeFile, `rpcruntime "rpccgo/rpcruntime"`)
+	assertGeneratedContentContains(t, plugin, runtimeFile, `errors "errors"`)
 	assertGeneratedContentDoesNotContain(t, plugin, "connectrpc.com/connect", "google.golang.org/grpc")
 }
 
@@ -63,6 +64,45 @@ func TestRenderRuntimeGlueDefinesServiceDispatcherAndRegistration(t *testing.T) 
 	}
 }
 
+func TestRenderRuntimeGlueDefinesMessageContractDispatcherAndRegistration(t *testing.T) {
+	file := stage1AcceptanceFile()
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	const runtimeFile = "test/v1/stage1_acceptance.all_service.runtime.rpccgo.go"
+	for _, fragment := range []string{
+		"type AllServiceMessageAdapter interface {",
+		"UnaryMessage(ctx context.Context, req []byte) ([]byte, error)",
+		"StartClientStreamMessage(ctx context.Context) (AllServiceClientStreamMessageStreamSession, error)",
+		"StartServerStreamMessage(ctx context.Context, req []byte) (AllServiceServerStreamMessageStreamSession, error)",
+		"StartBidiStreamMessage(ctx context.Context) (AllServiceBidiStreamMessageStreamSession, error)",
+		"type AllServiceClientStreamMessageStreamSession interface {",
+		"Send(ctx context.Context, req []byte) error",
+		"Finish(ctx context.Context) ([]byte, error)",
+		"Cancel(ctx context.Context) error",
+		"type AllServiceServerStreamMessageStreamSession interface {",
+		"Recv(ctx context.Context) ([]byte, error)",
+		"Done(ctx context.Context) error",
+		"type AllServiceBidiStreamMessageStreamSession interface {",
+		"CloseSend(ctx context.Context) error",
+		"var allServiceMessageDispatcher rpcruntime.Dispatcher[AllServiceMessageAdapter]",
+		"func registerAllServiceMessageActiveServer(kind rpcruntime.ServerKind, adapter AllServiceMessageAdapter) (rpcruntime.AdapterSnapshot[AllServiceMessageAdapter], error) {",
+		"return allServiceMessageDispatcher.Register(kind, rpcruntime.ServerContractMessage, adapter)",
+		"type AllServiceCGOMessageClientBridge struct{}",
+		"func (AllServiceCGOMessageClientBridge) Unary(ctx context.Context, req []byte) ([]byte, error) {",
+		"resp, callErr = snapshot.Adapter.UnaryMessage(ctx, req)",
+		"native/message converter is not enabled",
+		"func NewAllServiceCGOMessageClientBridge() AllServiceCGOMessageClientBridge {",
+		"func RegisterAllServiceCGOMessageActiveServer(kind rpcruntime.ServerKind, adapter AllServiceMessageAdapter) (rpcruntime.AdapterSnapshot[AllServiceMessageAdapter], error) {",
+	} {
+		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
+	}
+}
+
 func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleAndHelpers(t *testing.T) {
 	file := stage1AcceptanceFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
@@ -97,6 +137,31 @@ func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleAndHelpers(t *testing.T) {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
 	assertGeneratedContentDoesNotContain(t, plugin, "rpcruntime.Handle", " handle Handle", "handle Handle")
+}
+
+func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleForMessageHelpers(t *testing.T) {
+	file := stage1AcceptanceFile()
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	const runtimeFile = "test/v1/stage1_acceptance.all_service.runtime.rpccgo.go"
+	for _, fragment := range []string{
+		"func loadAllServiceClientStreamMessageStream(handle rpcruntime.StreamHandle) (AllServiceClientStreamMessageStreamSession, bool) {",
+		"return rpcruntime.LoadDispatcherStream[AllServiceMessageAdapter, AllServiceClientStreamMessageStreamSession](&allServiceMessageDispatcher, handle)",
+		"func takeAllServiceClientStreamMessageStream(handle rpcruntime.StreamHandle) (AllServiceClientStreamMessageStreamSession, bool) {",
+		"return rpcruntime.TakeDispatcherStream[AllServiceMessageAdapter, AllServiceClientStreamMessageStreamSession](&allServiceMessageDispatcher, handle)",
+		"func deleteAllServiceClientStreamMessageStream(handle rpcruntime.StreamHandle) bool {",
+		"return rpcruntime.DeleteDispatcherStream[AllServiceMessageAdapter](&allServiceMessageDispatcher, handle)",
+		"func (AllServiceCGOMessageClientBridge) StartClientStream(ctx context.Context) (rpcruntime.StreamHandle, error) {",
+		"func (AllServiceCGOMessageClientBridge) LoadClientStreamMessageStream(handle rpcruntime.StreamHandle) (AllServiceClientStreamMessageStreamSession, bool) {",
+		"func (AllServiceCGOMessageClientBridge) TakeClientStreamMessageStream(handle rpcruntime.StreamHandle) (AllServiceClientStreamMessageStreamSession, bool) {",
+	} {
+		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
+	}
 }
 
 func TestRenderRuntimeRejectsUnknownStreamingKind(t *testing.T) {

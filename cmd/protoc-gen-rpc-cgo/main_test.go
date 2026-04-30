@@ -23,6 +23,20 @@ func TestRunEmitsRuntimeGlue(t *testing.T) {
 	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "var greeterDispatcher rpcruntime.Dispatcher[GreeterNativeAdapter]")
 }
 
+func TestRunEmitsMessageDirectPathForDefaultService(t *testing.T) {
+	file := mainTestFile()
+	file.SourceCodeInfo = nil
+	plugin := newMainTestPlugin(t, "paths=source_relative", file)
+
+	if err := run(plugin); err != nil {
+		t.Fatalf("run() error = %v", err)
+	}
+
+	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "type GreeterMessageAdapter interface {")
+	assertMainGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.server.cgo.rpccgo.go", "typedef struct GreeterCGOMessageServerCallbacks {")
+	assertMainGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go", "func CallGreeterSayHelloMessageUnary")
+}
+
 func newMainTestPlugin(t *testing.T, parameter string, files ...*descriptorpb.FileDescriptorProto) *protogen.Plugin {
 	t.Helper()
 

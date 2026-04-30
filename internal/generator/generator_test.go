@@ -60,6 +60,58 @@ func TestGenerateBuildsBasicFilePlans(t *testing.T) {
 	}
 }
 
+func TestRenderMessageStageFilesEmitsDirectPathFileFamily(t *testing.T) {
+	file := simpleTestFile()
+	setSimpleServiceComment(t, file, "@rpccgo: msg-grpc\n")
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	plans, err := Generate(plugin)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	AttachMessageFileFamilyPlan(&plans[0])
+
+	if err := RenderMessageStageFiles(plugin, plans[0]); err != nil {
+		t.Fatalf("RenderMessageStageFiles() error = %v", err)
+	}
+
+	assertGeneratedFilenames(t, plugin, []string{
+		"test/v1/greeter.greeter.runtime.rpccgo.go",
+		"test/v1/cgo/greeter.greeter.server.cgo.rpccgo.go",
+		"test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go",
+	})
+	assertNoGeneratedFilenameContains(t, plugin, ".connect.", ".grpc.", ".remote.", ".codec.", ".message.")
+	assertGeneratedContentDoesNotContain(t, plugin, "connectrpc.com/connect", "google.golang.org/grpc")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "type GreeterMessageAdapter interface {")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "return greeterMessageDispatcher.Register(kind, rpcruntime.ServerContractMessage, adapter)")
+	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.server.cgo.rpccgo.go", "rpccgo message direct stage file for Greeter cgo message server callbacks")
+	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go", "rpccgo message direct stage file for Greeter cgo message client")
+}
+
+func TestRenderMessageStageFilesSkipsServerCallbacksForNativeOnlyService(t *testing.T) {
+	file := simpleTestFile()
+	setSimpleServiceComment(t, file, "@rpccgo: native\n")
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	plans, err := Generate(plugin)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	plans[0].Services[0].Adapters = AdapterSelection{Tokens: []AdapterToken{AdapterTokenNative}}
+	AttachMessageFileFamilyPlan(&plans[0])
+
+	if err := RenderMessageStageFiles(plugin, plans[0]); err != nil {
+		t.Fatalf("RenderMessageStageFiles() error = %v", err)
+	}
+
+	assertGeneratedFilenames(t, plugin, []string{
+		"test/v1/greeter.greeter.runtime.rpccgo.go",
+		"test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go",
+	})
+	assertNoGeneratedFilenameContains(t, plugin, ".server.cgo.", ".connect.", ".grpc.", ".remote.", ".codec.", ".message.")
+	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go", "rpccgo message direct stage file for Greeter cgo message client")
+}
+
 func TestGenerateWithNativeRendererEmitsNativeStageFiles(t *testing.T) {
 	file := simpleTestFile()
 	setSimpleServiceComment(t, file, "@rpccgo: native\n")

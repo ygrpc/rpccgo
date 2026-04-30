@@ -1,0 +1,40 @@
+package generator
+
+import (
+	"fmt"
+	"path"
+)
+
+func AttachMessageFileFamilyPlan(file *FilePlan) {
+	if file == nil {
+		return
+	}
+	for i := range file.Services {
+		file.Services[i].MessageFileFamily = BuildMessageFileFamilyPlan(*file, file.Services[i])
+	}
+}
+
+func BuildMessageFileFamilyPlan(file FilePlan, service ServicePlan) MessageFileFamilyPlan {
+	serviceName := lowerSnakeCase(service.GoName)
+	prefix := file.GeneratedFilenamePrefix
+	cgoPrefix := path.Join(path.Dir(prefix), cgoDirForFilePlan(file), path.Base(prefix))
+
+	return MessageFileFamilyPlan{
+		Runtime: GeneratedFilePlan{
+			Filename: fmt.Sprintf("%s.%s.runtime.rpccgo.go", prefix, serviceName),
+			Enabled:  true,
+		},
+		CGOMessageServer: GeneratedFilePlan{
+			Filename: fmt.Sprintf("%s.%s.server.cgo.rpccgo.go", cgoPrefix, serviceName),
+			Enabled:  needsCGOMessageServerAdapter(service),
+		},
+		CGOMessageClient: GeneratedFilePlan{
+			Filename: fmt.Sprintf("%s.%s.client.cgo.rpccgo.go", cgoPrefix, serviceName),
+			Enabled:  true,
+		},
+	}
+}
+
+func needsCGOMessageServerAdapter(service ServicePlan) bool {
+	return service.Adapters.Has(AdapterTokenMessageConnect) || service.Adapters.Has(AdapterTokenMessageGRPC)
+}
