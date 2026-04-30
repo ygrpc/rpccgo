@@ -72,15 +72,15 @@
 - 不迁旧 renderer 输出代码。
 - 参考旧 renderer 的文件族命名经验，但按新版 `<service>.*.rpccgo.go` 布局重建。
 
-- [ ] 定义 generated file family plan，包含 runtime、native server、cgo server、cgo client。
-- [ ] 只有 `AdapterTokenNative` 启用时生成 native server 与 cgo native server 文件。
-- [ ] cgo native client 文件是否生成先由 Stage 3 plan 显式记录，不能被 `@rpccgo` server adapter 注释误控。
-- [ ] `Generate` 可以在 renderer enabled 时输出 native stage files；Stage 1 plan-only tests 继续可验证。
-- [ ] 添加测试：native-enabled service 输出预期文件名，message-only service 不输出 native server 文件。
-- [ ] 添加测试：renderer 不输出 connect/grpc/message/remote 文件。
-- [ ] 运行 `rtk go test ./internal/generator ./cmd/protoc-gen-rpc-cgo -run 'TestRenderNative|TestGenerate' -count=1`。
-- [ ] 验收：生成文件布局与架构文档一致，且没有引入旧 framework selector。
-- [ ] 提交：`feat: add native renderer pipeline`
+- [x] 定义 generated file family plan，包含 runtime、native server、cgo server、cgo client。
+- [x] 只有 `AdapterTokenNative` 启用时生成 native server 与 cgo native server 文件。
+- [x] cgo native client 文件是否生成先由 Stage 3 plan 显式记录，不能被 `@rpccgo` server adapter 注释误控。
+- [x] `Generate` 可以在 renderer enabled 时输出 native stage files；Stage 1 plan-only tests 继续可验证。
+- [x] 添加测试：native-enabled service 输出预期文件名，message-only service 不输出 native server 文件。
+- [x] 添加测试：renderer 不输出 connect/grpc/message/remote 文件。
+- [x] 运行 `rtk go test ./internal/generator ./cmd/protoc-gen-rpc-cgo -run 'TestRenderNative|TestGenerate' -count=1`。
+- [x] 验收：生成文件布局与架构文档一致，且没有引入旧 framework selector。
+- [x] 提交：`feat: add native renderer pipeline`
 
 ## Task 2：生成 service-specific runtime glue
 
@@ -95,15 +95,15 @@
 - 不迁旧 binding runtime。
 - 新 runtime glue 只把 Stage 2 `rpcruntime.Dispatcher` 包装成 service-specific API。
 
-- [ ] 生成 service package 内的 dispatcher 变量或 holder，类型参数为 generated native adapter interface。
-- [ ] 生成 service native adapter interface，包含 unary 与 streaming operation 方法。
-- [ ] 生成 active server registration helper，内部调用 `rpcruntime.Dispatcher.Register`。
-- [ ] 生成 stream helper，使用 `rpcruntime.StreamHandle` 和 public dispatcher stream helpers。
-- [ ] 添加 golden 或 source assertion 测试，证明 runtime glue import `rpcruntime`，不 import connect/grpc。
-- [ ] 添加测试：runtime glue 中 stream handle 类型是 `rpcruntime.StreamHandle`，不使用旧 handle 类型。
-- [ ] 运行 `rtk go test ./internal/generator -run 'TestRenderRuntime' -count=1`。
-- [ ] 验收：generated runtime 是 service-specific，但通用状态仍在 `rpcruntime`。
-- [ ] 提交：`feat: render native service runtime glue`
+- [x] 生成 service package 内的 dispatcher 变量或 holder，类型参数为 generated native adapter interface。
+- [x] 生成 service native adapter interface，包含 unary 与 streaming operation 方法。
+- [x] 生成 active server registration helper，内部调用 `rpcruntime.Dispatcher.Register`。
+- [x] 生成 stream helper，使用 `rpcruntime.StreamHandle` 和 public dispatcher stream helpers。
+- [x] 添加 golden 或 source assertion 测试，证明 runtime glue import `rpcruntime`，不 import connect/grpc。
+- [x] 添加测试：runtime glue 中 stream handle 类型是 `rpcruntime.StreamHandle`，不使用旧 handle 类型。
+- [x] 运行 `rtk go test ./internal/generator -run 'TestRenderRuntime' -count=1`。
+- [x] 验收：generated runtime 是 service-specific，但通用状态仍在 `rpcruntime`。
+- [x] 提交：`feat: render native service runtime glue`
 
 ## Task 3：生成 Go native server interface 与 registration API
 
@@ -118,16 +118,16 @@
 - 参考旧 `native_server` 的 interface 与 adapter 语义。
 - 重写 registration API，注册时只写入 Stage 2 active server slot。
 
-- [ ] 生成 `<Service>NativeServer` interface，覆盖 unary 与三类 streaming 方法。
-- [ ] 生成 Go native adapter，将 interface 方法暴露为 dispatcher native adapter。
-- [ ] 生成 `Register<Service>GoNativeServer(server)`。
-- [ ] nil server 必须返回明确错误。
-- [ ] 后注册 server 只影响后续调用，已启动 stream 保持旧 snapshot。
-- [ ] 添加 generated source assertion 测试，覆盖 unary 和 streaming 方法签名。
-- [ ] 添加 compile fixture，证明 generated Go native server 文件可编译。
-- [ ] 运行 `rtk go test ./internal/generator -run 'TestRenderNativeServer' -count=1`。
-- [ ] 验收：Go native server 可以注册成 active server，且不依赖 cgo。
-- [ ] 提交：`feat: render go native server adapter`
+- [x] 生成 `<Service>NativeServer` interface，覆盖 unary 与三类 streaming 方法。
+- [x] 生成 Go native adapter，将 interface 方法暴露为 dispatcher native adapter。
+- [x] 生成 `Register<Service>GoNativeServer(server)`。
+- [x] nil server 必须返回明确错误。
+- [x] 后注册 server 只影响后续调用，已启动 stream 保持旧 snapshot。
+- [x] 添加 generated source assertion 测试，覆盖 unary 和 streaming 方法签名。
+- [x] 添加 compile fixture，证明 generated Go native server 文件可编译。
+- [x] 运行 `rtk go test ./internal/generator -run 'TestRenderNativeServer' -count=1`。
+- [x] 验收：Go native server 可以注册成 active server，且不依赖 cgo。
+- [x] 提交：`feat: render go native server adapter`
 
 ## Task 4：实现 native unary client 到 Go native server
 
@@ -143,16 +143,16 @@
 - 参考旧 `native_bridge` 的 unary ABI、error store 和 wrapper 使用顺序。
 - 重写 cgo native client export，使调用总是进入 generated dispatcher。
 
-- [ ] 生成 cgo native unary client export。
-- [ ] request native fields 转为 Go request 值。
-- [ ] Go response 值转为 native response output。
-- [ ] Go error 存入 `rpcruntime` error store，并通过 `int32` error id 返回。
-- [ ] 缺少 active server 时返回明确 error id。
-- [ ] 添加 integration fixture：cgo native client unary 调用 Go native server。
-- [ ] 添加测试：error propagation、string/bytes wrapper release、repeated wrapper 不泄漏。
-- [ ] 运行 `rtk go test ./internal/generator ./internal/integration -run 'TestNativeUnary' -count=1`。
-- [ ] 验收：cgo native client unary 通过 dispatcher 调用 Go native server。
-- [ ] 提交：`feat: route native unary client to go server`
+- [x] 生成 cgo native unary client export。
+- [x] request native fields 转为 Go request 值。
+- [x] Go response 值转为 native response output。
+- [x] Go error 存入 `rpcruntime` error store，并通过 `int32` error id 返回。
+- [x] 缺少 active server 时返回明确 error id。
+- [x] 添加 integration fixture：cgo native client unary 调用 Go native server。
+- [x] 添加测试：error propagation、string/bytes wrapper release、repeated wrapper 不泄漏。
+- [x] 运行 `rtk go test ./internal/generator ./internal/integration -run 'TestNativeUnary' -count=1`。
+- [x] 验收：cgo native client unary 通过 dispatcher 调用 Go native server。
+- [x] 提交：`feat: route native unary client to go server`
 
 ## Task 5：生成 cgo native server callback ABI
 
@@ -168,16 +168,16 @@
 - 参考旧 `native_bridge_cgo` callback table 形态。
 - 重写为 generated cgo native server adapter，注册时写入单 active server slot。
 
-- [ ] 生成 cgo native server callback table。
-- [ ] 生成 `Register<Service>CGONativeServer(callbacks)`。
-- [ ] nil callback table 或缺失 unary callback 返回明确错误。
-- [ ] adapter 调用 C callback，并按 error id 传播错误。
-- [ ] cgo callback request/response 使用 Stage 0 native wrappers。
-- [ ] 添加 integration fixture：cgo native client unary 调用 cgo native server。
-- [ ] 添加测试：Go native server 与 cgo native server 后注册互相覆盖后续调用。
-- [ ] 运行 `rtk go test ./internal/generator ./internal/integration -run 'TestNativeCGOServerUnary|TestNativeUnary' -count=1`。
-- [ ] 验收：cgo native server 可以注册成 active server，cgo native client 通过 dispatcher 调用它。
-- [ ] 提交：`feat: render cgo native server callbacks`
+- [x] 生成 cgo native server callback table。
+- [x] 生成 `Register<Service>CGONativeServer(callbacks)`。
+- [x] nil callback table 或缺失 unary callback 返回明确错误。
+- [x] adapter 调用 C callback，并按 error id 传播错误。
+- [x] cgo callback request/response 使用 Stage 0 native wrappers。
+- [x] 添加 integration fixture：cgo native client unary 调用 cgo native server。
+- [x] 添加测试：Go native server 与 cgo native server 后注册互相覆盖后续调用。
+- [x] 运行 `rtk go test ./internal/generator ./internal/integration -run 'TestNativeCGOServerUnary|TestNativeUnary' -count=1`。
+- [x] 验收：cgo native server 可以注册成 active server，cgo native client 通过 dispatcher 调用它。
+- [x] 提交：`feat: render cgo native server callbacks`
 
 ## Task 6：接入 native client streaming
 
@@ -193,16 +193,16 @@
 - 参考旧 native streaming 的 Start、Send、Finish、Cancel 调用顺序。
 - 不迁旧 stream registry；使用 Stage 2 `StreamHandle` 和 dispatcher stream helpers。
 
-- [ ] 生成 client streaming `Start`、`Send`、`Finish`、`Cancel` native ABI。
-- [ ] `Start` 捕获 active server snapshot 并返回 `rpcruntime.StreamHandle`。
-- [ ] `Send` 使用 handle 找回 session，并在 send closed/finalized/canceled 后返回明确错误。
-- [ ] `Finish` terminal 操作使用 typed take，成功后 handle 不再可用。
-- [ ] `Cancel` 传播到底层 adapter 并 finalize。
-- [ ] 添加 integration fixture：client streaming 到 Go native server。
-- [ ] 添加 integration fixture：client streaming 到 cgo native server。
-- [ ] 运行 `rtk go test ./internal/integration -run 'TestNativeClientStreaming' -count=1`。
-- [ ] 验收：client streaming native 调用链复用统一 stream lifecycle。
-- [ ] 提交：`feat: support native client streaming`
+- [x] 生成 client streaming `Start`、`Send`、`Finish`、`Cancel` native ABI。
+- [x] `Start` 捕获 active server snapshot 并返回 `rpcruntime.StreamHandle`。
+- [x] `Send` 使用 handle 找回 session，并在 send closed/finalized/canceled 后返回明确错误。
+- [x] `Finish` terminal 操作使用 typed take，成功后 handle 不再可用。
+- [x] `Cancel` 传播到底层 adapter 并 finalize。
+- [x] 添加 integration fixture：client streaming 到 Go native server。
+- [x] 添加 integration fixture：client streaming 到 cgo native server。
+- [x] 运行 `rtk go test ./internal/integration -run 'TestNativeClientStreaming' -count=1`。
+- [x] 验收：client streaming native 调用链复用统一 stream lifecycle。
+- [x] 提交：`feat: support native client streaming`
 
 ## Task 7：接入 native server streaming
 
@@ -227,7 +227,7 @@
 - [x] 添加 integration fixture：server streaming 到 cgo native server。
 - [x] 运行 `rtk go test ./internal/integration -run 'TestNativeServerStreaming' -count=1`。
 - [x] 验收：server streaming native 调用链在 onDone 后 handle 不再可用。
-- [ ] 提交：`feat: support native server streaming`
+- [x] 提交：`feat: support native server streaming`
 
 ## Task 8：接入 native bidi streaming
 
@@ -251,7 +251,7 @@
 - [x] 添加 integration fixture：bidi streaming 到 cgo native server。
 - [x] 运行 `rtk go test ./internal/integration -run 'TestNativeBidiStreaming' -count=1`。
 - [x] 验收：bidi native 调用链覆盖 send/read/close/cancel/done 全生命周期。
-- [ ] 提交：`feat: support native bidi streaming`
+- [x] 提交：`feat: support native bidi streaming`
 
 ## Task 9：Stage 3 acceptance tests 与迁移清单
 
@@ -280,7 +280,7 @@
 - [x] 运行 `rtk go test ./... -count=1`。
 - [x] 运行 AGENTS.md 中的 forbidden unsigned scan。
 - [x] 验收：阶段 3 “迁移了什么、为什么参考后重写、为什么不迁旧架构”有明确记录。
-- [ ] 提交：`docs: record stage 3 migration inventory`
+- [x] 提交：`docs: record stage 3 migration inventory`
 
 ## 阶段 3 完成标准
 
