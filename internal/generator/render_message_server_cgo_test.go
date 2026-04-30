@@ -16,7 +16,7 @@ func TestRenderMessageServerCGODefinesUnaryCallbackTableAndRegistration(t *testi
 		t.Fatalf("RenderMessageStageFiles() error = %v", err)
 	}
 
-	const cgoServerFile = "test/v1/cgo/greeter.greeter.server.cgo.rpccgo.go"
+	const cgoServerFile = "test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go"
 	for _, fragment := range []string{
 		"package main",
 		`import "C"`,

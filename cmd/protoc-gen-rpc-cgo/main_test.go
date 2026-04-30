@@ -20,7 +20,7 @@ func TestRunEmitsRuntimeGlue(t *testing.T) {
 	}
 
 	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", `rpcruntime "rpccgo/rpcruntime"`)
-	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "var greeterDispatcher rpcruntime.Dispatcher[GreeterNativeAdapter]")
+	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "var greeterDispatcher rpcruntime.Dispatcher[GreeterActiveAdapter]")
 }
 
 func TestRunEmitsMessageDirectPathForDefaultService(t *testing.T) {
@@ -33,8 +33,8 @@ func TestRunEmitsMessageDirectPathForDefaultService(t *testing.T) {
 	}
 
 	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "type GreeterMessageAdapter interface {")
-	assertMainGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.server.cgo.rpccgo.go", "typedef struct GreeterCGOMessageServerCallbacks {")
-	assertMainGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go", "func CallGreeterSayHelloMessageUnary")
+	assertMainGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go", "typedef struct GreeterCGOMessageServerCallbacks {")
+	assertMainGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go", "func CallGreeterSayHelloMessageUnary")
 }
 
 func newMainTestPlugin(t *testing.T, parameter string, files ...*descriptorpb.FileDescriptorProto) *protogen.Plugin {

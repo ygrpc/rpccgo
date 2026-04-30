@@ -82,29 +82,12 @@ func renderMessageUnaryClient(g *protogen.GeneratedFile, service ServicePlan, me
 	g.P()
 
 	g.P("func ", messageBytesFromABIName(service, method, "Request"), "(ptr uintptr, length int32) ([]byte, error) {")
-	g.P("if length < 0 {")
-	g.P(`return nil, errors.New("rpccgo: message request length is negative")`)
-	g.P("}")
-	g.P("if length == 0 {")
-	g.P("return nil, nil")
-	g.P("}")
-	g.P("if ptr == 0 {")
-	g.P(`return nil, errors.New("rpccgo: message request pointer is nil")`)
-	g.P("}")
-	g.P("return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(ptr)), int(length))...), nil")
+	renderMessageBytesFromABIBody(g, "request")
 	g.P("}")
 	g.P()
 
 	g.P("func ", messageBytesToABIName(service, method, "Response"), "(data []byte) (uintptr, int32, error) {")
-	g.P("length, err := rpcruntime.LengthToInt32(len(data))")
-	g.P("if err != nil {")
-	g.P("return 0, 0, err")
-	g.P("}")
-	g.P("ptr, err := rpcruntime.PinBytes(data)")
-	g.P("if err != nil {")
-	g.P("return 0, 0, err")
-	g.P("}")
-	g.P("return ptr, length, nil")
+	renderMessageBytesToABIBody(g)
 	g.P("}")
 	g.P()
 }
@@ -160,6 +143,7 @@ func renderMessageClientStreamingClient(g *protogen.GeneratedFile, service Servi
 	g.P("return 0")
 	g.P("}")
 	g.P()
+	renderMessageClientBytesHelpers(g, service, method)
 }
 
 func renderMessageServerStreamingClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage string) {
@@ -212,6 +196,7 @@ func renderMessageServerStreamingClient(g *protogen.GeneratedFile, service Servi
 	g.P("return 0")
 	g.P("}")
 	g.P()
+	renderMessageClientBytesHelpers(g, service, method)
 }
 
 func renderMessageBidiStreamingClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage string) {
@@ -282,6 +267,44 @@ func renderMessageBidiStreamingClient(g *protogen.GeneratedFile, service Service
 	g.P("return 0")
 	g.P("}")
 	g.P()
+	renderMessageClientBytesHelpers(g, service, method)
+}
+
+func renderMessageClientBytesHelpers(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
+	g.P("func ", messageBytesFromABIName(service, method, "Request"), "(ptr uintptr, length int32) ([]byte, error) {")
+	renderMessageBytesFromABIBody(g, "request")
+	g.P("}")
+	g.P()
+
+	g.P("func ", messageBytesToABIName(service, method, "Response"), "(data []byte) (uintptr, int32, error) {")
+	renderMessageBytesToABIBody(g)
+	g.P("}")
+	g.P()
+}
+
+func renderMessageBytesFromABIBody(g *protogen.GeneratedFile, label string) {
+	g.P("if length < 0 {")
+	g.P(`return nil, errors.New("rpccgo: message `, label, ` length is negative")`)
+	g.P("}")
+	g.P("if length == 0 {")
+	g.P("return nil, nil")
+	g.P("}")
+	g.P("if ptr == 0 {")
+	g.P(`return nil, errors.New("rpccgo: message `, label, ` pointer is nil")`)
+	g.P("}")
+	g.P("return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(ptr)), int(length))...), nil")
+}
+
+func renderMessageBytesToABIBody(g *protogen.GeneratedFile) {
+	g.P("length, err := rpcruntime.LengthToInt32(len(data))")
+	g.P("if err != nil {")
+	g.P("return 0, 0, err")
+	g.P("}")
+	g.P("ptr, err := rpcruntime.PinBytes(data)")
+	g.P("if err != nil {")
+	g.P("return 0, 0, err")
+	g.P("}")
+	g.P("return ptr, length, nil")
 }
 
 func renderMessageClientLoadSessionPrefix(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage string) {

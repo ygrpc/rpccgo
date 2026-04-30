@@ -32,6 +32,37 @@ func TestRenderNativeFileFamilyPlanMessageOnlyService(t *testing.T) {
 	assertGeneratedFilePlan(t, got.CGONativeClient, "test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go", true)
 }
 
+func TestRenderNativeFileFamilyPlanKeepsLegacyCGOFilenamesBeforeStageMerge(t *testing.T) {
+	file := FilePlan{GeneratedFilenamePrefix: "test/v1/greeter"}
+	service := ServicePlan{
+		GoName:   "Greeter",
+		Adapters: AdapterSelection{Tokens: []AdapterToken{AdapterTokenMessageConnect, AdapterTokenNative}},
+	}
+
+	got := BuildNativeFileFamilyPlan(file, service)
+
+	assertGeneratedFilePlan(t, got.CGONativeServer, "test/v1/cgo/greeter.greeter.server.cgo.rpccgo.go", true)
+	assertGeneratedFilePlan(t, got.CGONativeClient, "test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go", true)
+}
+
+func TestRenderNativeAndMessageFileFamilyPlansUseDistinctCGOFilenames(t *testing.T) {
+	file := FilePlan{GeneratedFilenamePrefix: "test/v1/greeter"}
+	service := ServicePlan{
+		GoName:   "Greeter",
+		Adapters: AdapterSelection{Tokens: []AdapterToken{AdapterTokenMessageConnect, AdapterTokenNative}},
+	}
+
+	native := BuildNativeFileFamilyPlan(file, service)
+	message := BuildMessageFileFamilyPlan(file, service)
+
+	if native.CGONativeServer.Filename == message.CGOMessageServer.Filename {
+		t.Fatalf("native and message cgo server filenames collide: %q", native.CGONativeServer.Filename)
+	}
+	if native.CGONativeClient.Filename == message.CGOMessageClient.Filename {
+		t.Fatalf("native and message cgo client filenames collide: %q", native.CGONativeClient.Filename)
+	}
+}
+
 func TestRenderNativeFileFamilyPlanUsesGeneratedFilenamePrefix(t *testing.T) {
 	file := FilePlan{
 		ProtoPath:               "proto/source/path/greeter.proto",

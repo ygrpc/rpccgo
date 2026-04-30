@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"path"
 	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
@@ -60,19 +61,78 @@ func RenderStageFiles(plugin *protogen.Plugin, plan FilePlan) error {
 	}
 
 	for _, service := range plan.Services {
-		servicePlan := plan
-		servicePlan.Services = []ServicePlan{service}
-		if service.Adapters.Has(AdapterTokenNative) {
-			if err := RenderNativeStageFiles(plugin, servicePlan); err != nil {
-				return err
-			}
-			continue
+		rendered := make(map[string]bool)
+		if err := renderSharedRuntimeOnce(plugin, plan, service, rendered); err != nil {
+			return err
 		}
-		if err := RenderMessageStageFiles(plugin, servicePlan); err != nil {
+
+		nativeService := service
+		nativeService.NativeFileFamily.Runtime.Enabled = false
+		nativePlan := plan
+		nativePlan.Services = []ServicePlan{nativeService}
+		if err := RenderNativeStageFiles(plugin, nativePlan); err != nil {
+			return err
+		}
+		markRendered(rendered, nativeService.NativeFileFamily.NativeServer)
+		markRendered(rendered, nativeService.NativeFileFamily.CGONativeServer)
+		markRendered(rendered, nativeService.NativeFileFamily.CGONativeClient)
+
+		messageService := service
+		messageService.MessageFileFamily.Runtime.Enabled = false
+		avoidRenderedFilenames(rendered, &messageService.MessageFileFamily.CGOMessageServer, "message")
+		avoidRenderedFilenames(rendered, &messageService.MessageFileFamily.CGOMessageClient, "message")
+		messagePlan := plan
+		messagePlan.Services = []ServicePlan{messageService}
+		if err := RenderMessageStageFiles(plugin, messagePlan); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func renderSharedRuntimeOnce(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, rendered map[string]bool) error {
+	runtimeFile := service.NativeFileFamily.Runtime
+	if !runtimeFile.Enabled {
+		runtimeFile = service.MessageFileFamily.Runtime
+	}
+	if !runtimeFile.Enabled {
+		return nil
+	}
+	if rendered[runtimeFile.Filename] {
+		return nil
+	}
+	if err := renderRuntimeFile(plugin, plan, service, runtimeFile); err != nil {
+		return err
+	}
+	rendered[runtimeFile.Filename] = true
+	return nil
+}
+
+func markRendered(rendered map[string]bool, file GeneratedFilePlan) {
+	if !file.Enabled {
+		return
+	}
+	rendered[file.Filename] = true
+}
+
+func avoidRenderedFilenames(rendered map[string]bool, file *GeneratedFilePlan, qualifier string) {
+	if file == nil || !file.Enabled || !rendered[file.Filename] {
+		return
+	}
+	file.Filename = qualifiedGeneratedFilename(file.Filename, qualifier)
+}
+
+func qualifiedGeneratedFilename(filename, qualifier string) string {
+	dir, base := path.Split(filename)
+	suffix := ".cgo.rpccgo.go"
+	if strings.HasSuffix(base, suffix) {
+		return dir + strings.TrimSuffix(base, suffix) + "." + qualifier + suffix
+	}
+	suffix = ".rpccgo.go"
+	if strings.HasSuffix(base, suffix) {
+		return dir + strings.TrimSuffix(base, suffix) + "." + qualifier + suffix
+	}
+	return dir + base + "." + qualifier
 }
 
 func RenderMessageStageFiles(plugin *protogen.Plugin, plan FilePlan) error {
@@ -154,9 +214,9 @@ func messageStageMarker(service ServicePlan, file GeneratedFilePlan) string {
 	switch {
 	case strings.Contains(name, ".runtime.rpccgo.go"):
 		return strings.Join([]string{"rpccgo message direct stage file for", service.GoName, "runtime"}, " ")
-	case strings.Contains(name, ".server.cgo.rpccgo.go"):
+	case strings.Contains(name, ".server.cgo.rpccgo.go"), strings.Contains(name, ".server.message.cgo.rpccgo.go"):
 		return strings.Join([]string{"rpccgo message direct stage file for", service.GoName, "cgo message server callbacks"}, " ")
-	case strings.Contains(name, ".client.cgo.rpccgo.go"):
+	case strings.Contains(name, ".client.cgo.rpccgo.go"), strings.Contains(name, ".client.message.cgo.rpccgo.go"):
 		return strings.Join([]string{"rpccgo message direct stage file for", service.GoName, "cgo message client"}, " ")
 	default:
 		return strings.Join([]string{"rpccgo message direct stage file for", service.GoName, "unknown"}, " ")

@@ -16,7 +16,7 @@ func TestRenderMessageClientCGODefinesUnaryExportSurface(t *testing.T) {
 		t.Fatalf("RenderMessageStageFiles() error = %v", err)
 	}
 
-	const cgoClientFile = "test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go"
+	const cgoClientFile = "test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go"
 	for _, fragment := range []string{
 		"package main",
 		`context "context"`,
