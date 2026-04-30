@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -66,6 +67,61 @@ func TestCGODirGeneration(t *testing.T) {
 			out, err := cmd.CombinedOutput()
 			if err != nil {
 				t.Fatalf("cgo_dir fixture failed: %v\n%s", err, out)
+			}
+		})
+	}
+}
+
+func TestMessageCGODirGeneration(t *testing.T) {
+	tests := []struct {
+		name       string
+		parameter  string
+		cgoPackage string
+		cgoFiles   []string
+	}{
+		{
+			name:       "default cgo subdir",
+			parameter:  "paths=source_relative",
+			cgoPackage: "./test/v1/cgo",
+			cgoFiles: []string{
+				"test/v1/cgo/message_direct.greeter.server.message.cgo.rpccgo.go",
+				"test/v1/cgo/message_direct.greeter.client.message.cgo.rpccgo.go",
+			},
+		},
+		{
+			name:       "external cgo dir",
+			parameter:  "paths=source_relative,cgo_dir=../cmd/rpc",
+			cgoPackage: "./test/cmd/rpc",
+			cgoFiles: []string{
+				"test/cmd/rpc/message_direct.greeter.server.message.cgo.rpccgo.go",
+				"test/cmd/rpc/message_direct.greeter.client.message.cgo.rpccgo.go",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmp := t.TempDir()
+			plugin := newMessageDirectPathTestPluginWithParameter(t, tt.parameter, "example.com/messagecgodir/test/v1;testv1")
+			if _, err := generator.GenerateWithOptions(plugin, generator.GenerateOptions{RenderStageFiles: true}); err != nil {
+				t.Fatalf("GenerateWithOptions() error = %v", err)
+			}
+
+			assertGeneratedFileExists(t, plugin, "test/v1/message_direct.greeter.runtime.rpccgo.go")
+			for _, name := range tt.cgoFiles {
+				assertGeneratedFileExists(t, plugin, name)
+				assertGeneratedFileContains(t, plugin, name, "package main")
+				assertGeneratedFileContains(t, plugin, name, `v1 "example.com/messagecgodir/test/v1"`)
+			}
+
+			writeMessageDirectPathGeneratedModule(t, tmp, plugin, "example.com/messagecgodir")
+
+			cmd := exec.Command("go", "test", "./test/v1", tt.cgoPackage, "-count=1")
+			cmd.Dir = tmp
+			cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("message cgo_dir fixture failed: %v\n%s", err, out)
 			}
 		})
 	}

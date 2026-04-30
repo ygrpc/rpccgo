@@ -171,7 +171,7 @@ const nativeIntegrationResetSource = `package testv1
 import rpcruntime "rpccgo/rpcruntime"
 
 func ResetGreeterDispatcherForIntegrationTest() {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterNativeAdapter]{}
+	greeterDispatcher = rpcruntime.Dispatcher[GreeterActiveAdapter]{}
 }
 `
 

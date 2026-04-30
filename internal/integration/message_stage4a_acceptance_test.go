@@ -21,8 +21,9 @@ func TestMessageStage4AAcceptanceGeneratedDirectPath(t *testing.T) {
 
 	assertIntegrationGeneratedFilenames(t, plugin, []string{
 		"test/v1/message_stage4a.greeter.runtime.rpccgo.go",
-		"test/v1/cgo/message_stage4a.greeter.server.cgo.rpccgo.go",
 		"test/v1/cgo/message_stage4a.greeter.client.cgo.rpccgo.go",
+		"test/v1/cgo/message_stage4a.greeter.server.message.cgo.rpccgo.go",
+		"test/v1/cgo/message_stage4a.greeter.client.message.cgo.rpccgo.go",
 	})
 	assertIntegrationNoGeneratedFilenameContains(t, plugin, ".codec.", ".connect.", ".grpc.", ".remote.")
 
@@ -39,7 +40,7 @@ func TestMessageStage4AAcceptanceGeneratedDirectPath(t *testing.T) {
 		assertIntegrationGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
 
-	const clientFile = "test/v1/cgo/message_stage4a.greeter.client.cgo.rpccgo.go"
+	const clientFile = "test/v1/cgo/message_stage4a.greeter.client.message.cgo.rpccgo.go"
 	for _, fragment := range []string{
 		"func CallGreeterUnaryMessageUnary",
 		"func StartGreeterUploadMessageClientStream",
@@ -58,7 +59,7 @@ func TestMessageStage4AAcceptanceGeneratedDirectPath(t *testing.T) {
 		assertIntegrationGeneratedContentContains(t, plugin, clientFile, fragment)
 	}
 
-	const serverFile = "test/v1/cgo/message_stage4a.greeter.server.cgo.rpccgo.go"
+	const serverFile = "test/v1/cgo/message_stage4a.greeter.server.message.cgo.rpccgo.go"
 	for _, fragment := range []string{
 		"typedef struct GreeterCGOMessageServerCallbacks {",
 		"GreeterUnaryCGOMessageUnaryCallback Unary;",
