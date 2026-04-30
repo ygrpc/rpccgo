@@ -43,6 +43,8 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 			renderNativeClientStreamingClient(g, service, method, errorName, streamHandleErrorName)
 		case StreamingKindServerStreaming:
 			renderNativeServerStreamingClient(g, service, method, errorName, streamHandleErrorName)
+		case StreamingKindBidiStreaming:
+			renderNativeBidiStreamingClient(g, service, method, errorName, streamHandleErrorName)
 		}
 	}
 	return nil
@@ -290,6 +292,132 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, service Servic
 	renderNativeServerStreamingResponseEncoder(g, service, method, outputName, unsupportedError)
 }
 
+func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError string) {
+	inputName := nativeBidiStreamingInputName(service, method)
+	outputName := nativeBidiStreamingOutputName(service, method)
+
+	g.P("type ", inputName, " struct {")
+	renderNativeClientFields(g, method.NativeContract.RequestFields, false)
+	g.P("}")
+	g.P()
+
+	g.P("type ", outputName, " struct {")
+	renderNativeClientFields(g, method.NativeContract.ResponseFields, true)
+	g.P("}")
+	g.P()
+
+	g.P("func ", nativeBidiStreamingStartFuncName(service, method), "(ctx context.Context) (int32, int32) {")
+	g.P("if ctx == nil {")
+	g.P("ctx = context.Background()")
+	g.P("}")
+	g.P("handle, err := ", lowerInitial(service.GoName), "Dispatcher.StartStream(func(snapshot rpcruntime.AdapterSnapshot[", service.GoName, "NativeAdapter]) (any, error) {")
+	g.P("return snapshot.Adapter.Start", method.GoName, "(ctx)")
+	g.P("})")
+	g.P("if err != nil {")
+	g.P("return 0, int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return int32(handle), 0")
+	g.P("}")
+	g.P()
+
+	g.P("func ", nativeBidiStreamingSendFuncName(service, method), "(ctx context.Context, handle int32, input *", inputName, ") int32 {")
+	g.P("if ctx == nil {")
+	g.P("ctx = context.Background()")
+	g.P("}")
+	g.P("if input == nil {")
+	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native bidi stream input is nil")))`)
+	g.P("}")
+	g.P("session, ok := load", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("if !ok {")
+	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
+	g.P("}")
+	g.P("req, err := ", nativeBidiStreamingDecoderName(service, method), "(input)")
+	g.P("if err != nil {")
+	g.P("return int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("if err := session.Send(ctx, req); err != nil {")
+	g.P("return int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+
+	g.P("func ", nativeBidiStreamingReadFuncName(service, method), "(ctx context.Context, handle int32, output *", outputName, ") int32 {")
+	g.P("if ctx == nil {")
+	g.P("ctx = context.Background()")
+	g.P("}")
+	g.P("if output == nil {")
+	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native bidi stream output is nil")))`)
+	g.P("}")
+	g.P("session, ok := load", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("if !ok {")
+	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
+	g.P("}")
+	g.P("resp, err := session.Recv(ctx)")
+	g.P("if err != nil {")
+	g.P("return int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("if resp == nil {")
+	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native bidi stream server returned nil response")))`)
+	g.P("}")
+	g.P("if err := ", nativeBidiStreamingEncoderName(service, method), "(resp, output); err != nil {")
+	g.P("return int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+
+	g.P("func ", nativeBidiStreamingCloseSendFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
+	g.P("if ctx == nil {")
+	g.P("ctx = context.Background()")
+	g.P("}")
+	g.P("session, ok := load", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("if !ok {")
+	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
+	g.P("}")
+	g.P("if err := session.CloseSend(ctx); err != nil {")
+	g.P("return int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+
+	g.P("func ", nativeBidiStreamingDoneFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
+	g.P("if ctx == nil {")
+	g.P("ctx = context.Background()")
+	g.P("}")
+	g.P("session, ok := take", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("if !ok {")
+	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
+	g.P("}")
+	g.P("if done, ok := session.(interface{ Done(context.Context) error }); ok {")
+	g.P("if err := done.Done(ctx); err != nil {")
+	g.P("return int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("}")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+
+	g.P("func ", nativeBidiStreamingCancelFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
+	g.P("if ctx == nil {")
+	g.P("ctx = context.Background()")
+	g.P("}")
+	g.P("session, ok := take", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
+	g.P("if !ok {")
+	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
+	g.P("}")
+	g.P("if err := session.Cancel(ctx); err != nil {")
+	g.P("return int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+
+	renderNativeBidiStreamingRequestDecoder(g, service, method, inputName, unsupportedError)
+	renderNativeBidiStreamingResponseEncoder(g, service, method, outputName, unsupportedError)
+}
+
 func renderNativeClientFields(g *protogen.GeneratedFile, fields []FieldPlan, output bool) {
 	for _, field := range fields {
 		switch field.Native.Shape {
@@ -351,6 +479,17 @@ func renderNativeClientStreamingRequestDecoder(g *protogen.GeneratedFile, servic
 
 func renderNativeServerStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, inputName, unsupportedError string) {
 	g.P("func ", nativeServerStreamingDecoderName(service, method), "(input *", inputName, ") (", nativeGoMessageType(g, method.Request), ", error) {")
+	g.P("req := &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Request.GoName, GoImportPath: protogen.GoImportPath(method.Request.GoImportPath)}), "{}")
+	for _, field := range method.NativeContract.RequestFields {
+		renderNativeRequestFieldDecode(g, field, unsupportedError)
+	}
+	g.P("return req, nil")
+	g.P("}")
+	g.P()
+}
+
+func renderNativeBidiStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, inputName, unsupportedError string) {
+	g.P("func ", nativeBidiStreamingDecoderName(service, method), "(input *", inputName, ") (", nativeGoMessageType(g, method.Request), ", error) {")
 	g.P("req := &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Request.GoName, GoImportPath: protogen.GoImportPath(method.Request.GoImportPath)}), "{}")
 	for _, field := range method.NativeContract.RequestFields {
 		renderNativeRequestFieldDecode(g, field, unsupportedError)
@@ -438,6 +577,26 @@ func renderNativeClientStreamingResponseEncoder(g *protogen.GeneratedFile, servi
 
 func renderNativeServerStreamingResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, outputName, unsupportedError string) {
 	g.P("func ", nativeServerStreamingEncoderName(service, method), "(resp ", nativeGoMessageType(g, method.Response), ", output *", outputName, ") error {")
+	for _, field := range method.NativeContract.ResponseFields {
+		renderNativeResponseFieldValidate(g, field, unsupportedError)
+	}
+	var pinned []FieldPlan
+	for _, field := range method.NativeContract.ResponseFields {
+		renderNativeResponseFieldStage(g, field, pinned)
+		if nativeClientFieldPinsOutput(field) {
+			pinned = append(pinned, field)
+		}
+	}
+	for _, field := range method.NativeContract.ResponseFields {
+		renderNativeResponseFieldCommit(g, field)
+	}
+	g.P("return nil")
+	g.P("}")
+	g.P()
+}
+
+func renderNativeBidiStreamingResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, outputName, unsupportedError string) {
+	g.P("func ", nativeBidiStreamingEncoderName(service, method), "(resp ", nativeGoMessageType(g, method.Response), ", output *", outputName, ") error {")
 	for _, field := range method.NativeContract.ResponseFields {
 		renderNativeResponseFieldValidate(g, field, unsupportedError)
 	}
@@ -603,6 +762,46 @@ func nativeServerStreamingEncoderName(service ServicePlan, method MethodPlan) st
 	return "encode" + service.GoName + method.GoName + "NativeServerStreamResponse"
 }
 
+func nativeBidiStreamingInputName(service ServicePlan, method MethodPlan) string {
+	return service.GoName + method.GoName + "NativeBidiStreamInput"
+}
+
+func nativeBidiStreamingOutputName(service ServicePlan, method MethodPlan) string {
+	return service.GoName + method.GoName + "NativeBidiStreamOutput"
+}
+
+func nativeBidiStreamingStartFuncName(service ServicePlan, method MethodPlan) string {
+	return "Start" + service.GoName + method.GoName + "NativeBidiStream"
+}
+
+func nativeBidiStreamingSendFuncName(service ServicePlan, method MethodPlan) string {
+	return "Send" + service.GoName + method.GoName + "NativeBidiStream"
+}
+
+func nativeBidiStreamingReadFuncName(service ServicePlan, method MethodPlan) string {
+	return "Read" + service.GoName + method.GoName + "NativeBidiStream"
+}
+
+func nativeBidiStreamingCloseSendFuncName(service ServicePlan, method MethodPlan) string {
+	return "CloseSend" + service.GoName + method.GoName + "NativeBidiStream"
+}
+
+func nativeBidiStreamingDoneFuncName(service ServicePlan, method MethodPlan) string {
+	return "Done" + service.GoName + method.GoName + "NativeBidiStream"
+}
+
+func nativeBidiStreamingCancelFuncName(service ServicePlan, method MethodPlan) string {
+	return "Cancel" + service.GoName + method.GoName + "NativeBidiStream"
+}
+
+func nativeBidiStreamingDecoderName(service ServicePlan, method MethodPlan) string {
+	return "decode" + service.GoName + method.GoName + "NativeBidiStreamRequest"
+}
+
+func nativeBidiStreamingEncoderName(service ServicePlan, method MethodPlan) string {
+	return "encode" + service.GoName + method.GoName + "NativeBidiStreamResponse"
+}
+
 func nativeUnaryClientOutputName(service ServicePlan, method MethodPlan) string {
 	return service.GoName + method.GoName + "NativeUnaryOutput"
 }
@@ -621,7 +820,7 @@ func nativeUnaryClientEncoderName(service ServicePlan, method MethodPlan) string
 
 func nativeClientNeedsFmt(service ServicePlan) bool {
 	for _, method := range service.Methods {
-		if method.Streaming != StreamingKindUnary && method.Streaming != StreamingKindClientStreaming && method.Streaming != StreamingKindServerStreaming {
+		if method.Streaming != StreamingKindUnary && method.Streaming != StreamingKindClientStreaming && method.Streaming != StreamingKindServerStreaming && method.Streaming != StreamingKindBidiStreaming {
 			continue
 		}
 		for _, field := range method.NativeContract.RequestFields {
@@ -781,6 +980,32 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 			if err := validateNativeClientStructFields(nativeServerStreamingOutputName(service, method), method.NativeContract.ResponseFields, nativeClientOutputFieldSymbols); err != nil {
 				return err
 			}
+		case StreamingKindBidiStreaming:
+			for _, item := range []struct {
+				symbol string
+				source string
+			}{
+				{nativeBidiStreamingInputName(service, method), method.FullName + " bidi stream input"},
+				{nativeBidiStreamingOutputName(service, method), method.FullName + " bidi stream output"},
+				{nativeBidiStreamingStartFuncName(service, method), method.FullName + " bidi stream start"},
+				{nativeBidiStreamingSendFuncName(service, method), method.FullName + " bidi stream send"},
+				{nativeBidiStreamingReadFuncName(service, method), method.FullName + " bidi stream read"},
+				{nativeBidiStreamingCloseSendFuncName(service, method), method.FullName + " bidi stream close send"},
+				{nativeBidiStreamingDoneFuncName(service, method), method.FullName + " bidi stream done"},
+				{nativeBidiStreamingCancelFuncName(service, method), method.FullName + " bidi stream cancel"},
+				{nativeBidiStreamingDecoderName(service, method), method.FullName + " bidi stream request decoder"},
+				{nativeBidiStreamingEncoderName(service, method), method.FullName + " bidi stream response encoder"},
+			} {
+				if err := addGenerated(item.symbol, item.source); err != nil {
+					return err
+				}
+			}
+			if err := validateNativeClientStructFields(nativeBidiStreamingInputName(service, method), method.NativeContract.RequestFields, nativeClientInputFieldSymbols); err != nil {
+				return err
+			}
+			if err := validateNativeClientStructFields(nativeBidiStreamingOutputName(service, method), method.NativeContract.ResponseFields, nativeClientOutputFieldSymbols); err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -824,6 +1049,17 @@ func addNativeClientGeneratedSymbols(seen map[string]string, service ServicePlan
 			add(nativeServerStreamingCancelFuncName(service, method), method.FullName+" server stream cancel")
 			add(nativeServerStreamingDecoderName(service, method), method.FullName+" server stream request decoder")
 			add(nativeServerStreamingEncoderName(service, method), method.FullName+" server stream response encoder")
+		case StreamingKindBidiStreaming:
+			add(nativeBidiStreamingInputName(service, method), method.FullName+" bidi stream input")
+			add(nativeBidiStreamingOutputName(service, method), method.FullName+" bidi stream output")
+			add(nativeBidiStreamingStartFuncName(service, method), method.FullName+" bidi stream start")
+			add(nativeBidiStreamingSendFuncName(service, method), method.FullName+" bidi stream send")
+			add(nativeBidiStreamingReadFuncName(service, method), method.FullName+" bidi stream read")
+			add(nativeBidiStreamingCloseSendFuncName(service, method), method.FullName+" bidi stream close send")
+			add(nativeBidiStreamingDoneFuncName(service, method), method.FullName+" bidi stream done")
+			add(nativeBidiStreamingCancelFuncName(service, method), method.FullName+" bidi stream cancel")
+			add(nativeBidiStreamingDecoderName(service, method), method.FullName+" bidi stream request decoder")
+			add(nativeBidiStreamingEncoderName(service, method), method.FullName+" bidi stream response encoder")
 		}
 	}
 }

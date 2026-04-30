@@ -243,14 +243,14 @@
 - 参考旧 bidi streaming 的 send、close send、onRead、onDone、cancel 覆盖。
 - 使用 Stage 2 lifecycle helper 表达 terminal 和 close-send 规则。
 
-- [ ] 生成 bidi streaming `Start`、`Send`、`CloseSend`、`Cancel`、`onRead`、`onDone` native ABI。
-- [ ] `CloseSend` 后继续 `Send` 返回明确错误。
-- [ ] `onDone` 后所有 handle 操作返回稳定错误或 false。
-- [ ] `Cancel` 不重复执行 callback。
-- [ ] 添加 integration fixture：bidi streaming 到 Go native server。
-- [ ] 添加 integration fixture：bidi streaming 到 cgo native server。
-- [ ] 运行 `rtk go test ./internal/integration -run 'TestNativeBidiStreaming' -count=1`。
-- [ ] 验收：bidi native 调用链覆盖 send/read/close/cancel/done 全生命周期。
+- [x] 生成 bidi streaming `Start`、`Send`、`CloseSend`、`Cancel`、`onRead`、`onDone` native ABI。
+- [x] `CloseSend` 后继续 `Send` 返回明确错误。
+- [x] `onDone` 后所有 handle 操作返回稳定错误或 false。
+- [x] `Cancel` 不重复执行 callback。
+- [x] 添加 integration fixture：bidi streaming 到 Go native server。
+- [x] 添加 integration fixture：bidi streaming 到 cgo native server。
+- [x] 运行 `rtk go test ./internal/integration -run 'TestNativeBidiStreaming' -count=1`。
+- [x] 验收：bidi native 调用链覆盖 send/read/close/cancel/done 全生命周期。
 - [ ] 提交：`feat: support native bidi streaming`
 
 ## Task 9：Stage 3 acceptance tests 与迁移清单

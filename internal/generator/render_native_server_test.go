@@ -23,6 +23,7 @@ func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) 
 		"Unary(ctx context.Context, req *AllRequest) (*AllReply, error)",
 		"ClientStream(ctx context.Context) (AllServiceClientStreamNativeClientStream, error)",
 		"ServerStream(ctx context.Context, req *AllRequest) (AllServiceServerStreamNativeServerStream, error)",
+		"BidiStream(ctx context.Context) (AllServiceBidiStreamNativeBidiStream, error)",
 		`allServiceNativeRequestBridgeNotImplemented`,
 		`allServiceNativeStreamBridgeNotImplemented`,
 		`allServiceNativeStreamIsNil`,
@@ -40,8 +41,9 @@ func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) 
 		"func (a *allServiceGoNativeAdapter) StartServerStream(ctx context.Context, req *AllRequest) (AllServiceServerStreamNativeStreamSession, error) {",
 		"stream, err := a.server.ServerStream(ctx, req)",
 		"return &allServiceServerStreamGoNativeServerStreamSession{stream: stream}, nil",
-		"func (a *allServiceGoNativeAdapter) StartBidiStream(ctx context.Context) error {",
-		"return allServiceNativeStreamBridgeNotImplemented",
+		"func (a *allServiceGoNativeAdapter) StartBidiStream(ctx context.Context) (AllServiceBidiStreamNativeStreamSession, error) {",
+		"stream, err := a.server.BidiStream(ctx)",
+		"return &allServiceBidiStreamGoNativeBidiStreamSession{stream: stream}, nil",
 		"func RegisterAllServiceGoNativeServer(server AllServiceNativeServer) (rpcruntime.AdapterSnapshot[AllServiceNativeAdapter], error) {",
 		`errors.New("rpccgo: AllService go native server is nil")`,
 		"return registerAllServiceActiveServer(rpcruntime.ServerKindGoNative, &allServiceGoNativeAdapter{server: server})",
@@ -49,9 +51,6 @@ func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) 
 		assertGeneratedContentContains(t, plugin, nativeServerFile, fragment)
 	}
 	assertGeneratedContentDoesNotContain(t, plugin, "ctx, nil")
-	assertGeneratedContentDoesNotContain(t, plugin,
-		"BidiStream(ctx context.Context) (AllServiceBidiStreamNativeBidiStream, error)",
-	)
 	assertGeneratedContentDoesNotContain(t, plugin, "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf")
 }
 
@@ -80,13 +79,13 @@ func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
 		"type allServiceServerStreamGoNativeServerStreamSession struct {",
 		"stream AllServiceServerStreamNativeServerStream",
 		"return s.stream.Recv(ctx)",
+		"type AllServiceBidiStreamNativeBidiStream interface {",
+		"type allServiceBidiStreamGoNativeBidiStreamSession struct {",
+		"stream AllServiceBidiStreamNativeBidiStream",
+		"return s.stream.CloseSend(ctx)",
 	} {
 		assertGeneratedContentContains(t, plugin, nativeServerFile, fragment)
 	}
-	assertGeneratedContentDoesNotContain(t, plugin,
-		"type AllServiceBidiStreamNativeBidiStream interface {",
-		"return s.stream.CloseSend(ctx)",
-	)
 }
 
 func TestRenderNativeServerRejectsUnknownStreamingKind(t *testing.T) {
