@@ -85,7 +85,7 @@ Stage 4B 只处理 contract mismatch conversion。contract 匹配路径仍由 St
 - [x] 添加测试：Stage 4B 不输出 connect/grpc/remote 文件。
 - [x] 运行 `rtk go test ./internal/generator ./cmd/protoc-gen-rpc-cgo -run 'TestRenderCodec|TestGenerate' -count=1`。
 - [x] 验收：codec 文件布局与架构文档一致，且没有引入旧 framework selector。
-- [ ] 提交：`feat: add native message codec renderer`
+- [x] 提交：`feat: add native message codec renderer`
 
 ## Task 2：生成 protobuf message 到 native field struct 转换
 
@@ -100,16 +100,16 @@ Stage 4B 只处理 contract mismatch conversion。contract 匹配路径仍由 St
 - 参考旧 `native_codec` 的 scalar、string、bytes、repeated wrapper 转换关注点。
 - 重写为 generated service-specific converter，不放入 `rpcruntime`。
 
-- [ ] 生成 request protobuf message 到 native request struct 的转换函数。
-- [ ] 生成 response protobuf message 到 native response struct 的转换函数。
-- [ ] string、bytes 使用 Stage 0 owned wrapper，并明确 release 责任。
-- [ ] repeated scalar 使用对应 `RpcRepeat` wrapper。
-- [ ] repeated bool 使用 byte 编码 wrapper，不使用 Go `[]bool` 作为 C ABI 表示。
-- [ ] nil message、非法字段状态和 wrapper 构造失败返回明确错误。
-- [ ] 添加 codec focused test 覆盖 scalar、string、bytes、repeated、repeated bool。
-- [ ] 运行 `rtk go test ./internal/generator ./internal/integration -run 'TestCodecMessageToNative|TestRenderCodec' -count=1`。
-- [ ] 验收：protobuf message 可以稳定转换为 native field struct，且释放责任清晰。
-- [ ] 提交：`feat: render message to native codec`
+- [x] 生成 request protobuf message 到 native request struct 的转换函数。
+- [x] 生成 response protobuf message 到 native response struct 的转换函数。
+- [x] string、bytes 使用 Stage 0 owned wrapper，并明确 release 责任。
+- [x] repeated scalar 使用对应 `RpcRepeat` wrapper。
+- [x] repeated bool 使用 byte 编码 wrapper，不使用 Go `[]bool` 作为 C ABI 表示。
+- [x] nil message、非法字段状态和 wrapper 构造失败返回明确错误。
+- [x] 添加 codec focused test 覆盖 scalar、string、bytes、repeated、repeated bool。
+- [x] 运行 `rtk go test ./internal/generator ./internal/integration -run 'TestCodecMessageToNative|TestRenderCodec' -count=1`。
+- [x] 验收：protobuf message 可以稳定转换为 native field struct，且释放责任清晰。
+- [x] 提交：`feat: render message to native codec`
 
 ## Task 3：生成 native field struct 到 protobuf message 转换
 
@@ -124,16 +124,16 @@ Stage 4B 只处理 contract mismatch conversion。contract 匹配路径仍由 St
 - 参考旧 `native_codec` 的 native wrapper 读取和 protobuf 赋值顺序。
 - 重写为 generated service-specific converter，避免把 protobuf 类型引入 `rpcruntime`。
 
-- [ ] 生成 native request struct 到 protobuf request message 的转换函数。
-- [ ] 生成 native response struct 到 protobuf response message 的转换函数。
-- [ ] string、bytes wrapper 读取失败返回明确错误。
-- [ ] repeated wrapper 读取失败返回明确错误。
-- [ ] repeated bool byte 编码解码错误返回明确错误。
-- [ ] protobuf marshal 前保持 message 类型完整，marshal error 直接传播。
-- [ ] 添加 codec focused test 覆盖 scalar、string、bytes、repeated、repeated bool。
-- [ ] 运行 `rtk go test ./internal/generator ./internal/integration -run 'TestCodecNativeToMessage|TestRenderCodec' -count=1`。
-- [ ] 验收：native field struct 可以稳定转换为 protobuf message，且不泄漏 wrapper 生命周期。
-- [ ] 提交：`feat: render native to message codec`
+- [x] 生成 native request struct 到 protobuf request message 的转换函数。
+- [x] 生成 native response struct 到 protobuf response message 的转换函数。
+- [x] string、bytes wrapper 读取失败返回明确错误。
+- [x] repeated wrapper 读取失败返回明确错误。
+- [x] repeated bool byte 编码解码错误返回明确错误。
+- [x] protobuf marshal 前保持 message 类型完整，marshal error 直接传播。
+- [x] 添加 codec focused test 覆盖 scalar、string、bytes、repeated、repeated bool。
+- [x] 运行 `rtk go test ./internal/generator ./internal/integration -run 'TestCodecNativeToMessage|TestRenderCodec' -count=1`。
+- [x] 验收：native field struct 可以稳定转换为 protobuf message，且不泄漏 wrapper 生命周期。
+- [x] 提交：`feat: render native to message codec`
 
 ## Task 4：dispatcher mismatch glue：message client 调 Go native server
 
@@ -151,14 +151,14 @@ Stage 4B 只处理 contract mismatch conversion。contract 匹配路径仍由 St
 
 - [x] message unary request bytes unmarshal 后转换为 native request。
 - [x] native response 转换为 protobuf response bytes 返回给 message client。
-- [ ] converter error、native server error、marshal error 都返回明确 `int32` error id。
+- [x] converter error、native server error、marshal error 都返回明确 `int32` error id。
 - [x] client streaming 的 `Send` payload 从 protobuf request 转 native request。
 - [x] client streaming 的 `Finish` payload 从 native response 转 protobuf response。
 - [x] server streaming 与 bidi streaming 的 read payload 从 native response 转 protobuf response。
 - [x] 添加 integration fixture：cgo message client 调 Go native server，覆盖 unary 与三类 streaming。
-- [ ] 运行 `rtk go test ./internal/integration -run 'TestMessageClientToGoNative' -count=1`。
-- [ ] 验收：cgo message client 可以通过 dispatcher + converter 调 Go native server。
-- [ ] 提交：`feat: route message client to go native server`
+- [x] 运行 `rtk go test ./internal/integration -run 'TestMessageClientToGoNative' -count=1`。
+- [x] 验收：cgo message client 可以通过 dispatcher + converter 调 Go native server。
+- [x] 提交：`feat: route message client to go native server`
 
 ## Task 5：dispatcher mismatch glue：message client 调 cgo native server
 
@@ -176,14 +176,14 @@ Stage 4B 只处理 contract mismatch conversion。contract 匹配路径仍由 St
 
 - [x] message unary request bytes unmarshal 后转换为 cgo native server request wrapper。
 - [x] cgo native server response wrapper 转换为 protobuf response bytes。
-- [ ] cgo native callback error id、converter error、marshal error 都稳定传播。
+- [x] cgo native callback error id、converter error、marshal error 都稳定传播。
 - [x] streaming `Start` 捕获 cgo native server adapter snapshot。
 - [x] streaming send/read payload 全部经过 generated codec。
-- [ ] terminal cleanup 释放 converter 创建的 owned wrapper。
+- [x] terminal cleanup 释放 converter 创建的 owned wrapper。
 - [x] 添加 integration fixture：cgo message client 调 cgo native server，覆盖 unary 与三类 streaming。
 - [x] 运行 `rtk go test ./internal/integration -run 'TestMessageClientToCGONative' -count=1`。
 - [x] 验收：cgo message client 可以通过 dispatcher + converter 调 cgo native server。
-- [ ] 提交：`feat: route message client to cgo native server`
+- [x] 提交：`feat: route message client to cgo native server`
 
 ## Task 6：dispatcher mismatch glue：native client 调 cgo message server
 
@@ -201,14 +201,14 @@ Stage 4B 只处理 contract mismatch conversion。contract 匹配路径仍由 St
 
 - [x] native unary request 转换为 protobuf request bytes 后调用 cgo message server。
 - [x] cgo message server response bytes 转换为 native response wrapper。
-- [ ] converter error、message callback error、unmarshal error 都返回明确 `int32` error id。
+- [x] converter error、message callback error、unmarshal error 都返回明确 `int32` error id。
 - [x] client streaming 的 `Send` payload 从 native request 转 protobuf request。
 - [x] client streaming 的 `Finish` payload 从 protobuf response 转 native response。
 - [x] server streaming 与 bidi streaming 的 read payload 从 protobuf response 转 native response。
 - [x] 添加 integration fixture：cgo native client 调 cgo message server，覆盖 unary 与三类 streaming。
-- [ ] 运行 `rtk go test ./internal/integration -run 'TestNativeClientToCGOMessage' -count=1`。
-- [ ] 验收：cgo native client 可以通过 dispatcher + converter 调 cgo message server。
-- [ ] 提交：`feat: route native client to cgo message server`
+- [x] 运行 `rtk go test ./internal/integration -run 'TestNativeClientToCGOMessage' -count=1`。
+- [x] 验收：cgo native client 可以通过 dispatcher + converter 调 cgo message server。
+- [x] 提交：`feat: route native client to cgo message server`
 
 ## Task 7：converter lifecycle、错误语义与 active server snapshot 覆盖
 
@@ -224,16 +224,16 @@ Stage 4B 只处理 contract mismatch conversion。contract 匹配路径仍由 St
 - 迁移旧 wrapper lifecycle、stream cancel/finalize、error propagation 的测试关注点。
 - 不迁旧 stream registry；使用 Stage 2 `StreamHandle` 和 dispatcher stream helpers。
 
-- [ ] converter 创建的 owned string/bytes wrapper 在成功、错误、cancel、finish 后都有明确释放路径。
-- [ ] repeated wrapper 读取和释放覆盖成功与失败路径。
-- [ ] stream `Start` 后重新注册 active server 不影响当前 session 的 converter 方向。
+- [x] converter 创建的 owned string/bytes wrapper 在成功、错误、cancel、finish 后都有明确释放路径。
+- [x] repeated wrapper 读取和释放覆盖成功与失败路径。
+- [x] stream `Start` 后重新注册 active server 不影响当前 session 的 converter 方向。
 - [x] converter error 不调用下游 server callback。
 - [x] 下游 server error 不被 converter 覆盖。
 - [x] `Cancel` 传播到底层 adapter 并 finalize converter session state。
 - [x] 添加测试：unary 与三类 streaming 的 snapshot、cancel、finalize、error precedence。
 - [x] 运行 `rtk go test ./internal/integration -run 'TestConverterLifecycle|TestConverterSnapshot' -count=1`。
 - [x] 验收：converter 生命周期与 Stage 2/3/4A stream lifecycle 一致。
-- [ ] 提交：`test: cover converter lifecycle and snapshot semantics`
+- [x] 提交：`test: cover converter lifecycle and snapshot semantics`
 
 ## Task 8：Stage 4B acceptance tests 与迁移清单
 
@@ -258,14 +258,14 @@ Stage 4B 只处理 contract mismatch conversion。contract 匹配路径仍由 St
 - [x] 明确 Stage 4B 不实现 connect/grpc local adapter 或 remote adapter。
 - [x] 记录验证命令：generator focused、integration focused、runtime focused、全仓测试、AGENTS.md 中的 forbidden unsigned scan。
 - [x] 不记录机器环境处理。
-- [ ] 更新本计划 checkbox。
-- [ ] 运行 `rtk go test ./internal/generator ./cmd/protoc-gen-rpc-cgo -count=1`。
-- [ ] 运行 `rtk go test ./internal/integration -count=1`。
-- [ ] 运行 `rtk go test ./rpcruntime -count=1`。
-- [ ] 运行 `rtk go test ./... -count=1`。
-- [ ] 运行 AGENTS.md 中的 forbidden unsigned scan。
-- [ ] 验收：阶段 4B “迁移了什么、为什么参考后重写、为什么不迁旧架构和 connect/grpc adapter”有明确记录。
-- [ ] 提交：`docs: record stage 4b migration inventory`
+- [x] 更新本计划 checkbox。
+- [x] 运行 `rtk go test ./internal/generator ./cmd/protoc-gen-rpc-cgo -count=1`。
+- [x] 运行 `rtk go test ./internal/integration -count=1`。
+- [x] 运行 `rtk go test ./rpcruntime -count=1`。
+- [x] 运行 `rtk go test ./... -count=1`。
+- [x] 运行 AGENTS.md 中的 forbidden unsigned scan。
+- [x] 验收：阶段 4B “迁移了什么、为什么参考后重写、为什么不迁旧架构和 connect/grpc adapter”有明确记录。
+- [x] 提交：`docs: record stage 4b migration inventory`
 
 ## Stage 4B 完成标准
 

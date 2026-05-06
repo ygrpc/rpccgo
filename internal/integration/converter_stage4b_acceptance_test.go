@@ -8,16 +8,28 @@ func TestStage4BMessageClientToGoNativeServerRoutesThroughConverter(t *testing.T
 	})
 }
 
+func TestMessageClientToGoNative(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageContractMismatch")
+}
+
 func TestStage4BMessageClientToCGONativeServerRoutesThroughConverter(t *testing.T) {
 	t.Run("unary and streaming message client entries", func(t *testing.T) {
 		runMessageDirectPathFixture(t, "TestMessageClientToCGONative")
 	})
 }
 
+func TestMessageClientToCGONative(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageClientToCGONative")
+}
+
 func TestStage4BNativeClientToCGOMessageServerRoutesThroughConverter(t *testing.T) {
 	t.Run("unary and streaming native client entries", func(t *testing.T) {
 		runMessageDirectPathFixture(t, "TestNativeContractMismatch")
 	})
+}
+
+func TestNativeClientToCGOMessage(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestNativeContractMismatch")
 }
 
 func TestStage4BConverterFixtureShape(t *testing.T) {
