@@ -128,13 +128,15 @@ func writeMessageDirectPathGeneratedModule(t *testing.T, root string, plugin *pr
 	if err != nil {
 		t.Fatalf("filepath.Abs() error = %v", err)
 	}
-	writeFile(t, filepath.Join(root, "go.mod"), "module "+module+"\n\ngo 1.24.4\n\nrequire (\n\tgoogle.golang.org/protobuf v1.36.11\n\trpccgo v0.0.0\n)\n\nreplace rpccgo => "+repoRoot+"\n")
+	writeFile(t, filepath.Join(root, "go.mod"), "module "+module+"\n\ngo 1.24.4\n\nrequire (\n\tconnectrpc.com/connect v1.19.1\n\tgoogle.golang.org/grpc v1.79.3\n\tgoogle.golang.org/protobuf v1.36.11\n\trpccgo v0.0.0\n)\n\nreplace rpccgo => "+repoRoot+"\n")
 	writeFile(t, filepath.Join(root, "go.sum"), "google.golang.org/protobuf v1.36.11 h1:fV6ZwhNocDyBLK0dj+fg8ektcVegBBuEolpbTQyBNVE=\ngoogle.golang.org/protobuf v1.36.11/go.mod h1:HTf+CrKn2C3g5S8VImy6tdcUvCska2kB7j23XfzDpco=\n")
 	for _, generated := range plugin.Response().GetFile() {
 		name := generated.GetName()
 		include := strings.Contains(name, ".runtime.rpccgo.go") ||
 			strings.Contains(name, ".codec.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go") ||
+			strings.Contains(name, ".server.connect.rpccgo.go") ||
+			strings.Contains(name, ".server.grpc.rpccgo.go") ||
 			strings.Contains(name, ".server.cgo.rpccgo.go") ||
 			strings.Contains(name, ".client.cgo.rpccgo.go") ||
 			strings.Contains(name, ".message.cgo.rpccgo.go")
@@ -218,6 +220,8 @@ typedef int32_t (*GreeterChatCGONativeBidiStreamCloseSendCallback)(int32_t strea
 typedef int32_t (*GreeterChatCGONativeBidiStreamDoneCallback)(int32_t stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamCancelCallback)(int32_t stream);
 
+extern int32_t greeterMessageStreamEOFErrorIDForIntegration(void);
+
 typedef struct GreeterCGONativeServerCallbacks {
 	GreeterUnaryCGONativeUnaryCallback Unary;
 	GreeterUploadCGONativeClientStreamStartCallback UploadStart;
@@ -265,6 +269,7 @@ static int nativeChatRecvs;
 static int nativeChatCloseSends;
 static int nativeChatDones;
 static int nativeChatCancels;
+static int messageStreamEOFMode;
 
 static void resetMessageCounters(void) {
 	unaryCalls = 0;
@@ -296,6 +301,7 @@ static void resetMessageCounters(void) {
 	nativeChatCloseSends = 0;
 	nativeChatDones = 0;
 	nativeChatCancels = 0;
+	messageStreamEOFMode = 0;
 }
 
 static int32_t emptyResponse(uintptr_t* response_ptr, int32_t* response_len) {
@@ -341,6 +347,9 @@ static int32_t greeterListStart(uintptr_t request_ptr, int32_t request_len, int3
 
 static int32_t greeterListRecv(int32_t stream, uintptr_t* response_ptr, int32_t* response_len) {
 	listRecvs++;
+	if (messageStreamEOFMode && listRecvs > 1) {
+		return greeterMessageStreamEOFErrorIDForIntegration();
+	}
 	return emptyResponse(response_ptr, response_len);
 }
 
@@ -364,6 +373,9 @@ static int32_t greeterChatSend(int32_t stream, uintptr_t request_ptr, int32_t re
 
 static int32_t greeterChatRecv(int32_t stream, uintptr_t* response_ptr, int32_t* response_len) {
 	chatRecvs++;
+	if (messageStreamEOFMode && chatRecvs > 1) {
+		return greeterMessageStreamEOFErrorIDForIntegration();
+	}
 	return emptyResponse(response_ptr, response_len);
 }
 
@@ -502,6 +514,7 @@ static GreeterCGONativeServerCallbacks greeterNativeCallbacks(void) {
 
 static void setUnaryError(int enabled) { unaryError = enabled; }
 static void setNativeUnaryError(int enabled) { nativeUnaryError = enabled; }
+static void setMessageStreamEOFMode(int enabled) { messageStreamEOFMode = enabled; }
 static int getUnaryCalls(void) { return unaryCalls; }
 static int getUploadStarts(void) { return uploadStarts; }
 static int getUploadSends(void) { return uploadSends; }
@@ -536,10 +549,16 @@ import (
 	v1 "example.com/messagedirect/test/v1"
 )
 
+//export greeterMessageStreamEOFErrorIDForIntegration
+func greeterMessageStreamEOFErrorIDForIntegration() C.int32_t {
+	return C.int32_t(GreeterCGOMessageStreamEOFErrorID())
+}
+
 func registerGreeterMessageCallbacksForIntegration() error {
 	v1.ResetGreeterDispatcherForIntegrationTest()
 	C.resetMessageCounters()
 	C.setUnaryError(0)
+	C.setMessageStreamEOFMode(0)
 	callbacks := C.greeterMessageCallbacks()
 	_, err := RegisterGreeterCGOMessageServer(&callbacks)
 	return err
@@ -547,6 +566,7 @@ func registerGreeterMessageCallbacksForIntegration() error {
 
 func registerGreeterMessageCallbacksWithoutResetForIntegration() error {
 	C.setUnaryError(0)
+	C.setMessageStreamEOFMode(0)
 	callbacks := C.greeterMessageCallbacks()
 	_, err := RegisterGreeterCGOMessageServer(&callbacks)
 	return err
@@ -575,6 +595,14 @@ func setGreeterMessageUnaryErrorForIntegration(enabled bool) {
 		return
 	}
 	C.setUnaryError(0)
+}
+
+func setGreeterMessageStreamEOFModeForIntegration(enabled bool) {
+	if enabled {
+		C.setMessageStreamEOFMode(1)
+		return
+	}
+	C.setMessageStreamEOFMode(0)
 }
 
 func greeterMessageUnaryCallsForIntegration() int { return int(C.getUnaryCalls()) }

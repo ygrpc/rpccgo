@@ -38,3 +38,28 @@ func TestRenderMessageServerCGODefinesUnaryCallbackTableAndRegistration(t *testi
 		assertGeneratedContentContains(t, plugin, cgoServerFile, fragment)
 	}
 }
+
+func TestRenderMessageServerCGOFileEmitsStreamEOFHelper(t *testing.T) {
+	file := simpleTestFile()
+	setSimpleServiceComment(t, file, "@rpccgo: msg-connect\n")
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	plans, err := Generate(plugin)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	AttachMessageFileFamilyPlan(&plans[0])
+
+	if err := RenderMessageStageFiles(plugin, plans[0]); err != nil {
+		t.Fatalf("RenderMessageStageFiles() error = %v", err)
+	}
+
+	const cgoServerFile = "test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go"
+	for _, fragment := range []string{
+		`io "io"`,
+		"func GreeterCGOMessageStreamEOFErrorID() int32 {",
+		"return int32(rpcruntime.StoreError(io.EOF))",
+	} {
+		assertGeneratedContentContains(t, plugin, cgoServerFile, fragment)
+	}
+}

@@ -18,6 +18,7 @@ func renderMessageServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service 
 	g.P(`context "context"`)
 	g.P(`errors "errors"`)
 	g.P(`fmt "fmt"`)
+	g.P(`io "io"`)
 	g.P(`rpcruntime "rpccgo/rpcruntime"`)
 	g.P(`unsafe "unsafe"`)
 	g.P(")")
@@ -62,6 +63,7 @@ func renderMessageServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service 
 	g.P()
 
 	renderCGOMessageErrorIDHelper(g, service)
+	renderCGOMessageStreamEOFHelper(g, service)
 	return nil
 }
 
@@ -162,6 +164,13 @@ func renderCGOMessageServerUnaryAdapter(g *protogen.GeneratedFile, service Servi
 	g.P()
 }
 
+func renderCGOMessageStreamEOFHelper(g *protogen.GeneratedFile, service ServicePlan) {
+	g.P("func ", service.GoName, "CGOMessageStreamEOFErrorID() int32 {")
+	g.P("return int32(rpcruntime.StoreError(io.EOF))")
+	g.P("}")
+	g.P()
+}
+
 func renderCGOMessageErrorIDHelper(g *protogen.GeneratedFile, service ServicePlan) {
 	g.P("func ", messageCGOServerErrorIDHelperName(service), "(errID int32) error {")
 	g.P("if errID == 0 {")
@@ -171,6 +180,9 @@ func renderCGOMessageErrorIDHelper(g *protogen.GeneratedFile, service ServicePla
 	g.P("if ok {")
 	g.P("if ptr != 0 {")
 	g.P("defer rpcruntime.Release(ptr)")
+	g.P("}")
+	g.P("if string(text) == io.EOF.Error() {")
+	g.P("return io.EOF")
 	g.P("}")
 	g.P("return errors.New(string(text))")
 	g.P("}")
