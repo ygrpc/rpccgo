@@ -238,6 +238,7 @@ typedef struct GreeterCGONativeServerCallbacks {
 
 static int unaryCalls;
 static int unaryError;
+static int nativeUnaryError;
 static int uploadStarts;
 static int uploadSends;
 static int uploadFinishes;
@@ -253,18 +254,22 @@ static int nativeUnaryCalls;
 static int nativeUploadStarts;
 static int nativeUploadSends;
 static int nativeUploadFinishes;
+static int nativeUploadCancels;
 static int nativeListStarts;
 static int nativeListRecvs;
 static int nativeListDones;
+static int nativeListCancels;
 static int nativeChatStarts;
 static int nativeChatSends;
 static int nativeChatRecvs;
 static int nativeChatCloseSends;
 static int nativeChatDones;
+static int nativeChatCancels;
 
 static void resetMessageCounters(void) {
 	unaryCalls = 0;
 	unaryError = 0;
+	nativeUnaryError = 0;
 	uploadStarts = 0;
 	uploadSends = 0;
 	uploadFinishes = 0;
@@ -280,14 +285,17 @@ static void resetMessageCounters(void) {
 	nativeUploadStarts = 0;
 	nativeUploadSends = 0;
 	nativeUploadFinishes = 0;
+	nativeUploadCancels = 0;
 	nativeListStarts = 0;
 	nativeListRecvs = 0;
 	nativeListDones = 0;
+	nativeListCancels = 0;
 	nativeChatStarts = 0;
 	nativeChatSends = 0;
 	nativeChatRecvs = 0;
 	nativeChatCloseSends = 0;
 	nativeChatDones = 0;
+	nativeChatCancels = 0;
 }
 
 static int32_t emptyResponse(uintptr_t* response_ptr, int32_t* response_len) {
@@ -393,6 +401,9 @@ static GreeterCGOMessageServerCallbacks greeterMessageCallbacks(void) {
 
 static int32_t nativeGreeterUnary(GreeterUnaryCGONativeUnaryRequest* input, GreeterUnaryCGONativeUnaryResponse* output) {
 	nativeUnaryCalls++;
+	if (nativeUnaryError) {
+		return 99997;
+	}
 	return 0;
 }
 
@@ -412,7 +423,10 @@ static int32_t nativeGreeterUploadFinish(int32_t stream, GreeterUploadCGONativeC
 	return 0;
 }
 
-static int32_t nativeGreeterUploadCancel(int32_t stream) { return 0; }
+static int32_t nativeGreeterUploadCancel(int32_t stream) {
+	nativeUploadCancels++;
+	return 0;
+}
 
 static int32_t nativeGreeterListStart(GreeterListCGONativeServerStreamRequest* input, int32_t* stream) {
 	nativeListStarts++;
@@ -430,7 +444,10 @@ static int32_t nativeGreeterListDone(int32_t stream) {
 	return 0;
 }
 
-static int32_t nativeGreeterListCancel(int32_t stream) { return 0; }
+static int32_t nativeGreeterListCancel(int32_t stream) {
+	nativeListCancels++;
+	return 0;
+}
 
 static int32_t nativeGreeterChatStart(int32_t* stream) {
 	nativeChatStarts++;
@@ -458,7 +475,10 @@ static int32_t nativeGreeterChatDone(int32_t stream) {
 	return 0;
 }
 
-static int32_t nativeGreeterChatCancel(int32_t stream) { return 0; }
+static int32_t nativeGreeterChatCancel(int32_t stream) {
+	nativeChatCancels++;
+	return 0;
+}
 
 static GreeterCGONativeServerCallbacks greeterNativeCallbacks(void) {
 	GreeterCGONativeServerCallbacks callbacks;
@@ -481,6 +501,7 @@ static GreeterCGONativeServerCallbacks greeterNativeCallbacks(void) {
 }
 
 static void setUnaryError(int enabled) { unaryError = enabled; }
+static void setNativeUnaryError(int enabled) { nativeUnaryError = enabled; }
 static int getUnaryCalls(void) { return unaryCalls; }
 static int getUploadStarts(void) { return uploadStarts; }
 static int getUploadSends(void) { return uploadSends; }
@@ -497,14 +518,17 @@ static int getNativeUnaryCalls(void) { return nativeUnaryCalls; }
 static int getNativeUploadStarts(void) { return nativeUploadStarts; }
 static int getNativeUploadSends(void) { return nativeUploadSends; }
 static int getNativeUploadFinishes(void) { return nativeUploadFinishes; }
+static int getNativeUploadCancels(void) { return nativeUploadCancels; }
 static int getNativeListStarts(void) { return nativeListStarts; }
 static int getNativeListRecvs(void) { return nativeListRecvs; }
 static int getNativeListDones(void) { return nativeListDones; }
+static int getNativeListCancels(void) { return nativeListCancels; }
 static int getNativeChatStarts(void) { return nativeChatStarts; }
 static int getNativeChatSends(void) { return nativeChatSends; }
 static int getNativeChatRecvs(void) { return nativeChatRecvs; }
 static int getNativeChatCloseSends(void) { return nativeChatCloseSends; }
 static int getNativeChatDones(void) { return nativeChatDones; }
+static int getNativeChatCancels(void) { return nativeChatCancels; }
 */
 import "C"
 
@@ -521,12 +545,28 @@ func registerGreeterMessageCallbacksForIntegration() error {
 	return err
 }
 
+func registerGreeterMessageCallbacksWithoutResetForIntegration() error {
+	C.setUnaryError(0)
+	callbacks := C.greeterMessageCallbacks()
+	_, err := RegisterGreeterCGOMessageServer(&callbacks)
+	return err
+}
+
 func registerGreeterNativeCallbacksForIntegration() error {
 	v1.ResetGreeterDispatcherForIntegrationTest()
 	C.resetMessageCounters()
+	C.setNativeUnaryError(0)
 	callbacks := C.greeterNativeCallbacks()
 	_, err := RegisterGreeterCGONativeServer(&callbacks)
 	return err
+}
+
+func setGreeterNativeUnaryErrorForIntegration(enabled bool) {
+	if enabled {
+		C.setNativeUnaryError(1)
+		return
+	}
+	C.setNativeUnaryError(0)
 }
 
 func setGreeterMessageUnaryErrorForIntegration(enabled bool) {
@@ -553,14 +593,17 @@ func greeterNativeUnaryCallsForIntegration() int { return int(C.getNativeUnaryCa
 func greeterNativeUploadStartsForIntegration() int { return int(C.getNativeUploadStarts()) }
 func greeterNativeUploadSendsForIntegration() int { return int(C.getNativeUploadSends()) }
 func greeterNativeUploadFinishesForIntegration() int { return int(C.getNativeUploadFinishes()) }
+func greeterNativeUploadCancelsForIntegration() int { return int(C.getNativeUploadCancels()) }
 func greeterNativeListStartsForIntegration() int { return int(C.getNativeListStarts()) }
 func greeterNativeListRecvsForIntegration() int { return int(C.getNativeListRecvs()) }
 func greeterNativeListDonesForIntegration() int { return int(C.getNativeListDones()) }
+func greeterNativeListCancelsForIntegration() int { return int(C.getNativeListCancels()) }
 func greeterNativeChatStartsForIntegration() int { return int(C.getNativeChatStarts()) }
 func greeterNativeChatSendsForIntegration() int { return int(C.getNativeChatSends()) }
 func greeterNativeChatRecvsForIntegration() int { return int(C.getNativeChatRecvs()) }
 func greeterNativeChatCloseSendsForIntegration() int { return int(C.getNativeChatCloseSends()) }
 func greeterNativeChatDonesForIntegration() int { return int(C.getNativeChatDones()) }
+func greeterNativeChatCancelsForIntegration() int { return int(C.getNativeChatCancels()) }
 `
 
 const messageDirectPathFixtureTestSource = `package main
@@ -786,6 +829,80 @@ func TestMessageClientToCGONative(t *testing.T) {
 	}
 	if got := greeterNativeChatDonesForIntegration(); got != 1 {
 		t.Fatalf("native chat dones = %d, want 1", got)
+	}
+}
+
+func TestConverterErrorDoesNotCallCGONativeServer(t *testing.T) {
+	if err := registerGreeterNativeCallbacksForIntegration(); err != nil {
+		t.Fatalf("registerGreeterNativeCallbacksForIntegration() error = %v", err)
+	}
+
+	badRequest := []byte{0xff}
+	errID := CallGreeterUnaryMessageUnary(context.Background(), uintptr(unsafe.Pointer(&badRequest[0])), int32(len(badRequest)), &GreeterMessageOutput{})
+	assertMessageErrContains(t, errID, "protobuf unmarshal failed")
+	if got := greeterNativeUnaryCallsForIntegration(); got != 0 {
+		t.Fatalf("native unary calls = %d, want 0 after converter error", got)
+	}
+}
+
+func TestDownstreamCGONativeErrorIsNotCoveredByConverter(t *testing.T) {
+	if err := registerGreeterNativeCallbacksForIntegration(); err != nil {
+		t.Fatalf("registerGreeterNativeCallbacksForIntegration() error = %v", err)
+	}
+	setGreeterNativeUnaryErrorForIntegration(true)
+
+	errID := CallGreeterUnaryMessageUnary(context.Background(), 0, 0, &GreeterMessageOutput{})
+	assertMessageErrContains(t, errID, "unknown error id 99997")
+	if got := greeterNativeUnaryCallsForIntegration(); got != 1 {
+		t.Fatalf("native unary calls = %d, want 1", got)
+	}
+}
+
+func TestConverterStreamStartCapturesCGONativeSnapshot(t *testing.T) {
+	if err := registerGreeterNativeCallbacksForIntegration(); err != nil {
+		t.Fatalf("registerGreeterNativeCallbacksForIntegration() error = %v", err)
+	}
+	handle, errID := StartGreeterUploadMessageClientStream(context.Background())
+	assertMessageNoErr(t, errID)
+
+	if err := registerGreeterMessageCallbacksWithoutResetForIntegration(); err != nil {
+		t.Fatalf("registerGreeterMessageCallbacksWithoutResetForIntegration() error = %v", err)
+	}
+	assertMessageNoErr(t, SendGreeterUploadMessageClientStream(context.Background(), handle, 0, 0))
+	assertMessageNoErr(t, FinishGreeterUploadMessageClientStream(context.Background(), handle, &GreeterMessageOutput{}))
+	if got := greeterNativeUploadSendsForIntegration(); got != 1 {
+		t.Fatalf("native upload sends = %d, want 1", got)
+	}
+	if got := greeterMessageUploadSendsForIntegration(); got != 0 {
+		t.Fatalf("message upload sends = %d, want 0 for existing native snapshot", got)
+	}
+}
+
+func TestConverterCancelPropagatesToCGONativeAndFinalizesHandle(t *testing.T) {
+	if err := registerGreeterNativeCallbacksForIntegration(); err != nil {
+		t.Fatalf("registerGreeterNativeCallbacksForIntegration() error = %v", err)
+	}
+	handle, errID := StartGreeterUploadMessageClientStream(context.Background())
+	assertMessageNoErr(t, errID)
+	assertMessageNoErr(t, CancelGreeterUploadMessageClientStream(context.Background(), handle))
+	if got := greeterNativeUploadCancelsForIntegration(); got != 1 {
+		t.Fatalf("native upload cancels = %d, want 1", got)
+	}
+	errID = SendGreeterUploadMessageClientStream(context.Background(), handle, 0, 0)
+	assertMessageErrContains(t, errID, "message client stream handle is invalid")
+
+	listHandle, errID := StartGreeterListMessageServerStream(context.Background(), 0, 0)
+	assertMessageNoErr(t, errID)
+	assertMessageNoErr(t, CancelGreeterListMessageServerStream(context.Background(), listHandle))
+	if got := greeterNativeListCancelsForIntegration(); got != 1 {
+		t.Fatalf("native list cancels = %d, want 1", got)
+	}
+
+	chatHandle, errID := StartGreeterChatMessageBidiStream(context.Background())
+	assertMessageNoErr(t, errID)
+	assertMessageNoErr(t, CancelGreeterChatMessageBidiStream(context.Background(), chatHandle))
+	if got := greeterNativeChatCancelsForIntegration(); got != 1 {
+		t.Fatalf("native chat cancels = %d, want 1", got)
 	}
 }
 

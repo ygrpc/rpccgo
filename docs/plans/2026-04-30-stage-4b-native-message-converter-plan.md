@@ -227,12 +227,12 @@ Stage 4B 只处理 contract mismatch conversion。contract 匹配路径仍由 St
 - [ ] converter 创建的 owned string/bytes wrapper 在成功、错误、cancel、finish 后都有明确释放路径。
 - [ ] repeated wrapper 读取和释放覆盖成功与失败路径。
 - [ ] stream `Start` 后重新注册 active server 不影响当前 session 的 converter 方向。
-- [ ] converter error 不调用下游 server callback。
-- [ ] 下游 server error 不被 converter 覆盖。
-- [ ] `Cancel` 传播到底层 adapter 并 finalize converter session state。
-- [ ] 添加测试：unary 与三类 streaming 的 snapshot、cancel、finalize、error precedence。
-- [ ] 运行 `rtk go test ./internal/integration -run 'TestConverterLifecycle|TestConverterSnapshot' -count=1`。
-- [ ] 验收：converter 生命周期与 Stage 2/3/4A stream lifecycle 一致。
+- [x] converter error 不调用下游 server callback。
+- [x] 下游 server error 不被 converter 覆盖。
+- [x] `Cancel` 传播到底层 adapter 并 finalize converter session state。
+- [x] 添加测试：unary 与三类 streaming 的 snapshot、cancel、finalize、error precedence。
+- [x] 运行 `rtk go test ./internal/integration -run 'TestConverterLifecycle|TestConverterSnapshot' -count=1`。
+- [x] 验收：converter 生命周期与 Stage 2/3/4A stream lifecycle 一致。
 - [ ] 提交：`test: cover converter lifecycle and snapshot semantics`
 
 ## Task 8：Stage 4B acceptance tests 与迁移清单
@@ -248,16 +248,16 @@ Stage 4B 只处理 contract mismatch conversion。contract 匹配路径仍由 St
 - 迁移旧 native/message codec 与 mismatch integration 的测试关注点。
 - 记录旧 codec 代码为什么参考后重写，以及旧 bootstrap、framework selector 和 connect/grpc adapter 为什么不进入 Stage 4B。
 
-- [ ] 添加 Stage 4B acceptance test，覆盖 cgo message client 调 Go native server。
-- [ ] 添加 Stage 4B acceptance test，覆盖 cgo message client 调 cgo native server。
-- [ ] 添加 Stage 4B acceptance test，覆盖 cgo native client 调 cgo message server。
-- [ ] acceptance test 覆盖 unary、client streaming、server streaming、bidi streaming。
-- [ ] acceptance test 证明 mismatch 调用都进入 dispatcher 并经过 generated codec。
-- [ ] 写入已迁移、参考后重写、不迁移清单。
-- [ ] 明确旧多 registry、多 provider bootstrap、framework selector 不迁移。
-- [ ] 明确 Stage 4B 不实现 connect/grpc local adapter 或 remote adapter。
-- [ ] 记录验证命令：generator focused、integration focused、runtime focused、全仓测试、AGENTS.md 中的 forbidden unsigned scan。
-- [ ] 不记录机器环境处理。
+- [x] 添加 Stage 4B acceptance test，覆盖 cgo message client 调 Go native server。
+- [x] 添加 Stage 4B acceptance test，覆盖 cgo message client 调 cgo native server。
+- [x] 添加 Stage 4B acceptance test，覆盖 cgo native client 调 cgo message server。
+- [x] acceptance test 覆盖 unary、client streaming、server streaming、bidi streaming。
+- [x] acceptance test 证明 mismatch 调用都进入 dispatcher 并经过 generated codec。
+- [x] 写入已迁移、参考后重写、不迁移清单。
+- [x] 明确旧多 registry、多 provider bootstrap、framework selector 不迁移。
+- [x] 明确 Stage 4B 不实现 connect/grpc local adapter 或 remote adapter。
+- [x] 记录验证命令：generator focused、integration focused、runtime focused、全仓测试、AGENTS.md 中的 forbidden unsigned scan。
+- [x] 不记录机器环境处理。
 - [ ] 更新本计划 checkbox。
 - [ ] 运行 `rtk go test ./internal/generator ./cmd/protoc-gen-rpc-cgo -count=1`。
 - [ ] 运行 `rtk go test ./internal/integration -count=1`。
