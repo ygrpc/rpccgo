@@ -38,5 +38,4 @@ func TestStage4BConverterFixtureShape(t *testing.T) {
 	t.Log("helper reuse: runMessageDirectPathFixture builds the module and runs one generated cgo package test by name")
 	t.Log("current assertion: mismatch calls route through dispatcher snapshots and generated codec wrappers")
 	t.Log("covered paths: cgo message client to Go native server, cgo message client to cgo native server, and cgo native client to cgo message server")
-	t.Log("pending broader payload coverage: add non-empty scalar/string/bytes/repeated fixture messages")
 }
