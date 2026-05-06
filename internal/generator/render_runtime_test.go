@@ -177,6 +177,40 @@ func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleForMessageHelpers(t *testing
 	}
 }
 
+func TestRenderRuntimeStageFilesWrapsNativeStreamsForMessageClientCodec(t *testing.T) {
+	file := stage1AcceptanceFile()
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true})
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	const runtimeFile = "test/v1/stage1_acceptance.all_service.runtime.rpccgo.go"
+	for _, fragment := range []string{
+		"case rpcruntime.ServerContractNative:",
+		"nativeSession, err := snapshot.Adapter.Native.StartClientStream(ctx)",
+		"return &allServiceClientStreamNativeToMessageStreamSession{native: nativeSession}, nil",
+		"type allServiceClientStreamNativeToMessageStreamSession struct {",
+		"native AllServiceClientStreamNativeStreamSession",
+		"nativeReq, err := convertAllServiceClientStreamMessageToNativeRequest(req)",
+		"return s.native.Send(ctx, nativeReq)",
+		"nativeResp, err := s.native.Finish(ctx)",
+		"return convertAllServiceClientStreamNativeToMessageResponse(nativeResp)",
+		"nativeReq, err := convertAllServiceServerStreamMessageToNativeRequest(req)",
+		"nativeSession, err := snapshot.Adapter.Native.StartServerStream(ctx, nativeReq)",
+		"return &allServiceServerStreamNativeToMessageStreamSession{native: nativeSession}, nil",
+		"nativeResp, err := s.native.Recv(ctx)",
+		"return convertAllServiceServerStreamNativeToMessageResponse(nativeResp)",
+		"nativeSession, err := snapshot.Adapter.Native.StartBidiStream(ctx)",
+		"return &allServiceBidiStreamNativeToMessageStreamSession{native: nativeSession}, nil",
+		"nativeReq, err := convertAllServiceBidiStreamMessageToNativeRequest(req)",
+		"return convertAllServiceBidiStreamNativeToMessageResponse(nativeResp)",
+	} {
+		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
+	}
+}
+
 func TestRenderRuntimeRejectsUnknownStreamingKind(t *testing.T) {
 	plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())
 	plan := FilePlan{

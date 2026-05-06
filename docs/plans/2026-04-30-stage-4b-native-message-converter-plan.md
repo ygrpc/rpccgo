@@ -77,14 +77,14 @@ Stage 4B 只处理 contract mismatch conversion。contract 匹配路径仍由 St
 - 不迁旧 codec renderer 输出代码。
 - 参考旧 `native_codec` 的字段覆盖测试思路，但按新版 `<service>.codec.rpccgo.go` 和 signed ABI 重建。
 
-- [ ] 定义 codec generated file family plan，输出 `<service>.codec.rpccgo.go`。
-- [ ] codec 生成只依赖 service-specific protobuf 类型和 Stage 1 native field plan。
-- [ ] codec 文件不 import connect/grpc，不接触 remote adapter。
-- [ ] direct path renderer 不依赖 codec 文件。
-- [ ] 添加测试：converter-enabled service 输出 codec 文件。
-- [ ] 添加测试：Stage 4B 不输出 connect/grpc/remote 文件。
-- [ ] 运行 `rtk go test ./internal/generator ./cmd/protoc-gen-rpc-cgo -run 'TestRenderCodec|TestGenerate' -count=1`。
-- [ ] 验收：codec 文件布局与架构文档一致，且没有引入旧 framework selector。
+- [x] 定义 codec generated file family plan，输出 `<service>.codec.rpccgo.go`。
+- [x] codec 生成只依赖 service-specific protobuf 类型和 Stage 1 native field plan。
+- [x] codec 文件不 import connect/grpc，不接触 remote adapter。
+- [x] direct path renderer 不依赖 codec 文件。
+- [x] 添加测试：converter-enabled service 输出 codec 文件。
+- [x] 添加测试：Stage 4B 不输出 connect/grpc/remote 文件。
+- [x] 运行 `rtk go test ./internal/generator ./cmd/protoc-gen-rpc-cgo -run 'TestRenderCodec|TestGenerate' -count=1`。
+- [x] 验收：codec 文件布局与架构文档一致，且没有引入旧 framework selector。
 - [ ] 提交：`feat: add native message codec renderer`
 
 ## Task 2：生成 protobuf message 到 native field struct 转换
@@ -149,13 +149,13 @@ Stage 4B 只处理 contract mismatch conversion。contract 匹配路径仍由 St
 - 不迁旧 bridge dispatch 代码。
 - 复用 Stage 3 Go native server adapter 和 Stage 4A message client ABI，在 dispatcher mismatch 分支调用 generated codec。
 
-- [ ] message unary request bytes unmarshal 后转换为 native request。
-- [ ] native response 转换为 protobuf response bytes 返回给 message client。
+- [x] message unary request bytes unmarshal 后转换为 native request。
+- [x] native response 转换为 protobuf response bytes 返回给 message client。
 - [ ] converter error、native server error、marshal error 都返回明确 `int32` error id。
-- [ ] client streaming 的 `Send` payload 从 protobuf request 转 native request。
-- [ ] client streaming 的 `Finish` payload 从 native response 转 protobuf response。
-- [ ] server streaming 与 bidi streaming 的 read payload 从 native response 转 protobuf response。
-- [ ] 添加 integration fixture：cgo message client 调 Go native server，覆盖 unary 与三类 streaming。
+- [x] client streaming 的 `Send` payload 从 protobuf request 转 native request。
+- [x] client streaming 的 `Finish` payload 从 native response 转 protobuf response。
+- [x] server streaming 与 bidi streaming 的 read payload 从 native response 转 protobuf response。
+- [x] 添加 integration fixture：cgo message client 调 Go native server，覆盖 unary 与三类 streaming。
 - [ ] 运行 `rtk go test ./internal/integration -run 'TestMessageClientToGoNative' -count=1`。
 - [ ] 验收：cgo message client 可以通过 dispatcher + converter 调 Go native server。
 - [ ] 提交：`feat: route message client to go native server`

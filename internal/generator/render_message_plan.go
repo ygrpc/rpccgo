@@ -35,6 +35,13 @@ func BuildMessageFileFamilyPlan(file FilePlan, service ServicePlan) MessageFileF
 	}
 }
 
+func BuildCodecFilePlan(file FilePlan, service ServicePlan) GeneratedFilePlan {
+	return GeneratedFilePlan{
+		Filename: fmt.Sprintf("%s.%s.codec.rpccgo.go", file.GeneratedFilenamePrefix, lowerSnakeCase(service.GoName)),
+		Enabled:  service.NeedsCodec,
+	}
+}
+
 func needsCGOMessageServerAdapter(service ServicePlan) bool {
 	return service.Adapters.Has(AdapterTokenMessageConnect) || service.Adapters.Has(AdapterTokenMessageGRPC)
 }

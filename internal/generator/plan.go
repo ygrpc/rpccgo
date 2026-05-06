@@ -46,6 +46,7 @@ type ServicePlan struct {
 	Adapters          AdapterSelection
 	Methods           []MethodPlan
 	NeedsCodec        bool
+	CodecEnabled      bool
 	NativeFileFamily  NativeFileFamilyPlan
 	MessageFileFamily MessageFileFamilyPlan
 }

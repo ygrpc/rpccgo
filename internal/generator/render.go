@@ -86,11 +86,18 @@ func RenderStageFiles(plugin *protogen.Plugin, plan FilePlan) error {
 		if err := RenderMessageStageFiles(plugin, messagePlan); err != nil {
 			return err
 		}
+
+		codecPlan := plan
+		codecPlan.Services = []ServicePlan{service}
+		if err := RenderCodecFiles(plugin, codecPlan); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
 func renderSharedRuntimeOnce(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, rendered map[string]bool) error {
+	service.CodecEnabled = service.NeedsCodec
 	runtimeFile := service.NativeFileFamily.Runtime
 	if !runtimeFile.Enabled {
 		runtimeFile = service.MessageFileFamily.Runtime

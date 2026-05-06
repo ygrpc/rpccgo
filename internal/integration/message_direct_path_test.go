@@ -33,11 +33,11 @@ func TestMessageBidiStreamingDirectPathRoutesToCGOMessageServer(t *testing.T) {
 	runMessageDirectPathFixture(t, "TestMessageBidiStreamingDirectPath")
 }
 
-func TestMessageContractMismatchRoutesReturnConverterDisabledError(t *testing.T) {
+func TestMessageContractMismatchRoutesThroughConverter(t *testing.T) {
 	runMessageDirectPathFixture(t, "TestMessageContractMismatch")
 }
 
-func TestNativeContractMismatchRoutesReturnConverterDisabledError(t *testing.T) {
+func TestNativeContractMismatchRoutesThroughConverter(t *testing.T) {
 	runMessageDirectPathFixture(t, "TestNativeContractMismatch")
 }
 
@@ -129,6 +129,7 @@ func writeMessageDirectPathGeneratedModule(t *testing.T, root string, plugin *pr
 	for _, generated := range plugin.Response().GetFile() {
 		name := generated.GetName()
 		include := strings.Contains(name, ".runtime.rpccgo.go") ||
+			strings.Contains(name, ".codec.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go") ||
 			strings.Contains(name, ".client.cgo.rpccgo.go") ||
 			strings.Contains(name, ".message.cgo.rpccgo.go")
@@ -373,7 +374,6 @@ const messageDirectPathFixtureTestSource = `package main
 
 import (
 	context "context"
-	errors "errors"
 	strings "strings"
 	"testing"
 	"unsafe"
@@ -512,28 +512,37 @@ func TestMessageContractMismatch(t *testing.T) {
 	}
 
 	errID := CallGreeterUnaryMessageUnary(context.Background(), 0, 0, &GreeterMessageOutput{})
-	assertMessageErrContains(t, errID, "message contract mismatch", "native/message converter is not enabled")
+	assertMessageNoErr(t, errID)
 
 	_, errID = StartGreeterUploadMessageClientStream(context.Background())
-	assertMessageErrContains(t, errID, "message contract mismatch")
+	assertMessageNoErr(t, errID)
+	uploadHandle, _ := StartGreeterUploadMessageClientStream(context.Background())
+	assertMessageNoErr(t, SendGreeterUploadMessageClientStream(context.Background(), uploadHandle, 0, 0))
+	assertMessageNoErr(t, FinishGreeterUploadMessageClientStream(context.Background(), uploadHandle, &GreeterMessageOutput{}))
 
-	_, errID = StartGreeterListMessageServerStream(context.Background(), 0, 0)
-	assertMessageErrContains(t, errID, "message contract mismatch")
+	listHandle, errID := StartGreeterListMessageServerStream(context.Background(), 0, 0)
+	assertMessageNoErr(t, errID)
+	assertMessageNoErr(t, ReadGreeterListMessageServerStream(context.Background(), listHandle, &GreeterMessageOutput{}))
+	assertMessageNoErr(t, DoneGreeterListMessageServerStream(context.Background(), listHandle))
 
-	_, errID = StartGreeterChatMessageBidiStream(context.Background())
-	assertMessageErrContains(t, errID, "message contract mismatch")
+	chatHandle, errID := StartGreeterChatMessageBidiStream(context.Background())
+	assertMessageNoErr(t, errID)
+	assertMessageNoErr(t, SendGreeterChatMessageBidiStream(context.Background(), chatHandle, 0, 0))
+	assertMessageNoErr(t, ReadGreeterChatMessageBidiStream(context.Background(), chatHandle, &GreeterMessageOutput{}))
+	assertMessageNoErr(t, CloseSendGreeterChatMessageBidiStream(context.Background(), chatHandle))
+	assertMessageNoErr(t, DoneGreeterChatMessageBidiStream(context.Background(), chatHandle))
 }
 
 func TestNativeContractMismatch(t *testing.T) {
 	registerMessageServer(t)
 	errID := CallGreeterUnaryNativeUnary(context.Background(), &GreeterUnaryNativeUnaryInput{}, &GreeterUnaryNativeUnaryOutput{})
-	assertMessageErrContains(t, errID, "native contract mismatch", "native/message converter is not enabled")
+	assertMessageNoErr(t, errID)
 }
 
 type mismatchNativeServer struct{}
 
 func (mismatchNativeServer) Unary(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	return nil, errors.New("native server should not be called before converter is enabled")
+	return &emptypb.Empty{}, nil
 }
 
 func (mismatchNativeServer) Upload(context.Context) (v1.GreeterUploadNativeClientStream, error) {
@@ -585,6 +594,14 @@ func assertMessageErrContains(t *testing.T, errID int32, wants ...string) {
 		if !strings.Contains(string(text), want) {
 			t.Fatalf("error text = %q, want contains %q", text, want)
 		}
+	}
+}
+
+func assertMessageNoErr(t *testing.T, errID int32) {
+	t.Helper()
+	if errID != 0 {
+		text, _, _ := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+		t.Fatalf("errID = %d, error text = %q, want no error", errID, text)
 	}
 }
 `

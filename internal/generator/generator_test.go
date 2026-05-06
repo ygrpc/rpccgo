@@ -55,6 +55,7 @@ func TestGenerateBuildsBasicFilePlans(t *testing.T) {
 	assertGeneratedFilePlan(t, service.NativeFileFamily.NativeServer, "test/v1/greeter.greeter.server.native.rpccgo.go", false)
 	assertGeneratedFilePlan(t, service.NativeFileFamily.CGONativeServer, "test/v1/cgo/greeter.greeter.server.cgo.rpccgo.go", false)
 	assertGeneratedFilePlan(t, service.NativeFileFamily.CGONativeClient, "test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go", true)
+	assertGeneratedFilePlan(t, BuildCodecFilePlan(plan, service), "test/v1/greeter.greeter.codec.rpccgo.go", true)
 	if len(plugin.Response().GetFile()) != 0 {
 		t.Fatalf("Generate() may attach file family plans, but must not emit files during plan-only generation")
 	}
@@ -195,14 +196,16 @@ func TestRenderStageFilesEmitsMixedNativeAndMessageCGOFamilies(t *testing.T) {
 		"test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go",
 		"test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go",
 		"test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go",
+		"test/v1/greeter.greeter.codec.rpccgo.go",
 	})
-	assertNoGeneratedFilenameContains(t, plugin, ".connect.", ".grpc.", ".remote.", ".codec.")
+	assertNoGeneratedFilenameContains(t, plugin, ".connect.", ".grpc.", ".remote.")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "type GreeterNativeAdapter interface {")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "type GreeterMessageAdapter interface {")
 	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.server.cgo.rpccgo.go", "rpccgo native stage file for Greeter cgo native server")
 	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go", "rpccgo native stage file for Greeter cgo native client")
 	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go", "rpccgo message direct stage file for Greeter cgo message server callbacks")
 	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go", "rpccgo message direct stage file for Greeter cgo message client")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.codec.rpccgo.go", "rpccgo native message codec stage file for Greeter")
 }
 
 func TestGenerateAcceptsCGODirParameter(t *testing.T) {

@@ -24,8 +24,9 @@ func TestMessageStage4AAcceptanceGeneratedDirectPath(t *testing.T) {
 		"test/v1/cgo/message_stage4a.greeter.client.cgo.rpccgo.go",
 		"test/v1/cgo/message_stage4a.greeter.server.message.cgo.rpccgo.go",
 		"test/v1/cgo/message_stage4a.greeter.client.message.cgo.rpccgo.go",
+		"test/v1/message_stage4a.greeter.codec.rpccgo.go",
 	})
-	assertIntegrationNoGeneratedFilenameContains(t, plugin, ".codec.", ".connect.", ".grpc.", ".remote.")
+	assertIntegrationNoGeneratedFilenameContains(t, plugin, ".connect.", ".grpc.", ".remote.")
 
 	const runtimeFile = "test/v1/message_stage4a.greeter.runtime.rpccgo.go"
 	for _, fragment := range []string{
