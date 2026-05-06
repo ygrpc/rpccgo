@@ -537,6 +537,23 @@ func TestNativeContractMismatch(t *testing.T) {
 	registerMessageServer(t)
 	errID := CallGreeterUnaryNativeUnary(context.Background(), &GreeterUnaryNativeUnaryInput{}, &GreeterUnaryNativeUnaryOutput{})
 	assertMessageNoErr(t, errID)
+
+	uploadHandle, errID := StartGreeterUploadNativeClientStream(context.Background())
+	assertMessageNoErr(t, errID)
+	assertMessageNoErr(t, SendGreeterUploadNativeClientStream(context.Background(), uploadHandle, &GreeterUploadNativeClientStreamInput{}))
+	assertMessageNoErr(t, FinishGreeterUploadNativeClientStream(context.Background(), uploadHandle, &GreeterUploadNativeClientStreamOutput{}))
+
+	listHandle, errID := StartGreeterListNativeServerStream(context.Background(), &GreeterListNativeServerStreamInput{})
+	assertMessageNoErr(t, errID)
+	assertMessageNoErr(t, ReadGreeterListNativeServerStream(context.Background(), listHandle, &GreeterListNativeServerStreamOutput{}))
+	assertMessageNoErr(t, DoneGreeterListNativeServerStream(context.Background(), listHandle))
+
+	chatHandle, errID := StartGreeterChatNativeBidiStream(context.Background())
+	assertMessageNoErr(t, errID)
+	assertMessageNoErr(t, SendGreeterChatNativeBidiStream(context.Background(), chatHandle, &GreeterChatNativeBidiStreamInput{}))
+	assertMessageNoErr(t, ReadGreeterChatNativeBidiStream(context.Background(), chatHandle, &GreeterChatNativeBidiStreamOutput{}))
+	assertMessageNoErr(t, CloseSendGreeterChatNativeBidiStream(context.Background(), chatHandle))
+	assertMessageNoErr(t, DoneGreeterChatNativeBidiStream(context.Background(), chatHandle))
 }
 
 type mismatchNativeServer struct{}

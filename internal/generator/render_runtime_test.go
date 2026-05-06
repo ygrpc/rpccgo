@@ -211,6 +211,41 @@ func TestRenderRuntimeStageFilesWrapsNativeStreamsForMessageClientCodec(t *testi
 	}
 }
 
+func TestRenderRuntimeStageFilesWrapsMessageStreamsForNativeClientCodec(t *testing.T) {
+	file := stage1AcceptanceFile()
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true})
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	const runtimeFile = "test/v1/stage1_acceptance.all_service.runtime.rpccgo.go"
+	for _, fragment := range []string{
+		"messageSession, err := snapshot.Adapter.Message.StartClientStreamMessage(ctx)",
+		"return &allServiceClientStreamMessageToNativeStreamSession{message: messageSession}, nil",
+		"type allServiceClientStreamMessageToNativeStreamSession struct {",
+		"message AllServiceClientStreamMessageStreamSession",
+		"messageReq, err := convertAllServiceClientStreamNativeToMessageRequest(req)",
+		"return s.message.Send(ctx, messageReq)",
+		"messageResp, err := s.message.Finish(ctx)",
+		"return convertAllServiceClientStreamMessageToNativeResponse(messageResp)",
+		"messageReq, err := convertAllServiceServerStreamNativeToMessageRequest(req)",
+		"messageSession, err := snapshot.Adapter.Message.StartServerStreamMessage(ctx, messageReq)",
+		"return &allServiceServerStreamMessageToNativeStreamSession{message: messageSession}, nil",
+		"messageResp, err := s.message.Recv(ctx)",
+		"return convertAllServiceServerStreamMessageToNativeResponse(messageResp)",
+		"return s.message.Done(ctx)",
+		"messageSession, err := snapshot.Adapter.Message.StartBidiStreamMessage(ctx)",
+		"return &allServiceBidiStreamMessageToNativeStreamSession{message: messageSession}, nil",
+		"messageReq, err := convertAllServiceBidiStreamNativeToMessageRequest(req)",
+		"return convertAllServiceBidiStreamMessageToNativeResponse(messageResp)",
+		"return s.message.CloseSend(ctx)",
+	} {
+		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
+	}
+}
+
 func TestRenderRuntimeRejectsUnknownStreamingKind(t *testing.T) {
 	plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())
 	plan := FilePlan{

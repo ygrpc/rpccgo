@@ -199,13 +199,13 @@ Stage 4B 只处理 contract mismatch conversion。contract 匹配路径仍由 St
 - 参考旧 native client 调 message server 的 fixture 语义。
 - 重写为 dispatcher mismatch branch，server adapter 仍是 Stage 4A cgo message server adapter。
 
-- [ ] native unary request 转换为 protobuf request bytes 后调用 cgo message server。
-- [ ] cgo message server response bytes 转换为 native response wrapper。
+- [x] native unary request 转换为 protobuf request bytes 后调用 cgo message server。
+- [x] cgo message server response bytes 转换为 native response wrapper。
 - [ ] converter error、message callback error、unmarshal error 都返回明确 `int32` error id。
-- [ ] client streaming 的 `Send` payload 从 native request 转 protobuf request。
-- [ ] client streaming 的 `Finish` payload 从 protobuf response 转 native response。
-- [ ] server streaming 与 bidi streaming 的 read payload 从 protobuf response 转 native response。
-- [ ] 添加 integration fixture：cgo native client 调 cgo message server，覆盖 unary 与三类 streaming。
+- [x] client streaming 的 `Send` payload 从 native request 转 protobuf request。
+- [x] client streaming 的 `Finish` payload 从 protobuf response 转 native response。
+- [x] server streaming 与 bidi streaming 的 read payload 从 protobuf response 转 native response。
+- [x] 添加 integration fixture：cgo native client 调 cgo message server，覆盖 unary 与三类 streaming。
 - [ ] 运行 `rtk go test ./internal/integration -run 'TestNativeClientToCGOMessage' -count=1`。
 - [ ] 验收：cgo native client 可以通过 dispatcher + converter 调 cgo message server。
 - [ ] 提交：`feat: route native client to cgo message server`
