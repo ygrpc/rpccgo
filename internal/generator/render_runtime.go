@@ -657,6 +657,9 @@ func renderNativeToMessageCloseSend(g *protogen.GeneratedFile, wrapperName strin
 
 func renderNativeToMessageDone(g *protogen.GeneratedFile, wrapperName string) {
 	g.P("func (s *", wrapperName, ") Done(ctx context.Context) error {")
+	g.P("if done, ok := s.native.(interface{ Done(context.Context) error }); ok {")
+	g.P("return done.Done(ctx)")
+	g.P("}")
 	g.P("return nil")
 	g.P("}")
 	g.P()

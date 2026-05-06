@@ -37,6 +37,10 @@ func TestMessageContractMismatchRoutesThroughConverter(t *testing.T) {
 	runMessageDirectPathFixture(t, "TestMessageContractMismatch")
 }
 
+func TestMessageClientToCGONativeRoutesThroughConverter(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageClientToCGONative")
+}
+
 func TestNativeContractMismatchRoutesThroughConverter(t *testing.T) {
 	runMessageDirectPathFixture(t, "TestNativeContractMismatch")
 }
@@ -131,6 +135,7 @@ func writeMessageDirectPathGeneratedModule(t *testing.T, root string, plugin *pr
 		include := strings.Contains(name, ".runtime.rpccgo.go") ||
 			strings.Contains(name, ".codec.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go") ||
+			strings.Contains(name, ".server.cgo.rpccgo.go") ||
 			strings.Contains(name, ".client.cgo.rpccgo.go") ||
 			strings.Contains(name, ".message.cgo.rpccgo.go")
 		if !include {
@@ -188,6 +193,49 @@ typedef struct GreeterCGOMessageServerCallbacks {
 	GreeterChatCGOMessageBidiStreamCancelCallback ChatCancel;
 } GreeterCGOMessageServerCallbacks;
 
+typedef struct GreeterUnaryCGONativeUnaryRequest {} GreeterUnaryCGONativeUnaryRequest;
+typedef struct GreeterUnaryCGONativeUnaryResponse {} GreeterUnaryCGONativeUnaryResponse;
+typedef struct GreeterUploadCGONativeClientStreamRequest {} GreeterUploadCGONativeClientStreamRequest;
+typedef struct GreeterUploadCGONativeClientStreamResponse {} GreeterUploadCGONativeClientStreamResponse;
+typedef struct GreeterListCGONativeServerStreamRequest {} GreeterListCGONativeServerStreamRequest;
+typedef struct GreeterListCGONativeServerStreamResponse {} GreeterListCGONativeServerStreamResponse;
+typedef struct GreeterChatCGONativeBidiStreamRequest {} GreeterChatCGONativeBidiStreamRequest;
+typedef struct GreeterChatCGONativeBidiStreamResponse {} GreeterChatCGONativeBidiStreamResponse;
+
+typedef int32_t (*GreeterUnaryCGONativeUnaryCallback)(GreeterUnaryCGONativeUnaryRequest* input, GreeterUnaryCGONativeUnaryResponse* output);
+typedef int32_t (*GreeterUploadCGONativeClientStreamStartCallback)(int32_t* stream);
+typedef int32_t (*GreeterUploadCGONativeClientStreamSendCallback)(int32_t stream, GreeterUploadCGONativeClientStreamRequest* input);
+typedef int32_t (*GreeterUploadCGONativeClientStreamFinishCallback)(int32_t stream, GreeterUploadCGONativeClientStreamResponse* output);
+typedef int32_t (*GreeterUploadCGONativeClientStreamCancelCallback)(int32_t stream);
+typedef int32_t (*GreeterListCGONativeServerStreamStartCallback)(GreeterListCGONativeServerStreamRequest* input, int32_t* stream);
+typedef int32_t (*GreeterListCGONativeServerStreamRecvCallback)(int32_t stream, GreeterListCGONativeServerStreamResponse* output);
+typedef int32_t (*GreeterListCGONativeServerStreamDoneCallback)(int32_t stream);
+typedef int32_t (*GreeterListCGONativeServerStreamCancelCallback)(int32_t stream);
+typedef int32_t (*GreeterChatCGONativeBidiStreamStartCallback)(int32_t* stream);
+typedef int32_t (*GreeterChatCGONativeBidiStreamSendCallback)(int32_t stream, GreeterChatCGONativeBidiStreamRequest* input);
+typedef int32_t (*GreeterChatCGONativeBidiStreamRecvCallback)(int32_t stream, GreeterChatCGONativeBidiStreamResponse* output);
+typedef int32_t (*GreeterChatCGONativeBidiStreamCloseSendCallback)(int32_t stream);
+typedef int32_t (*GreeterChatCGONativeBidiStreamDoneCallback)(int32_t stream);
+typedef int32_t (*GreeterChatCGONativeBidiStreamCancelCallback)(int32_t stream);
+
+typedef struct GreeterCGONativeServerCallbacks {
+	GreeterUnaryCGONativeUnaryCallback Unary;
+	GreeterUploadCGONativeClientStreamStartCallback UploadStart;
+	GreeterUploadCGONativeClientStreamSendCallback UploadSend;
+	GreeterUploadCGONativeClientStreamFinishCallback UploadFinish;
+	GreeterUploadCGONativeClientStreamCancelCallback UploadCancel;
+	GreeterListCGONativeServerStreamStartCallback ListStart;
+	GreeterListCGONativeServerStreamRecvCallback ListRecv;
+	GreeterListCGONativeServerStreamDoneCallback ListDone;
+	GreeterListCGONativeServerStreamCancelCallback ListCancel;
+	GreeterChatCGONativeBidiStreamStartCallback ChatStart;
+	GreeterChatCGONativeBidiStreamSendCallback ChatSend;
+	GreeterChatCGONativeBidiStreamRecvCallback ChatRecv;
+	GreeterChatCGONativeBidiStreamCloseSendCallback ChatCloseSend;
+	GreeterChatCGONativeBidiStreamDoneCallback ChatDone;
+	GreeterChatCGONativeBidiStreamCancelCallback ChatCancel;
+} GreeterCGONativeServerCallbacks;
+
 static int unaryCalls;
 static int unaryError;
 static int uploadStarts;
@@ -201,6 +249,18 @@ static int chatSends;
 static int chatRecvs;
 static int chatCloseSends;
 static int chatDones;
+static int nativeUnaryCalls;
+static int nativeUploadStarts;
+static int nativeUploadSends;
+static int nativeUploadFinishes;
+static int nativeListStarts;
+static int nativeListRecvs;
+static int nativeListDones;
+static int nativeChatStarts;
+static int nativeChatSends;
+static int nativeChatRecvs;
+static int nativeChatCloseSends;
+static int nativeChatDones;
 
 static void resetMessageCounters(void) {
 	unaryCalls = 0;
@@ -216,6 +276,18 @@ static void resetMessageCounters(void) {
 	chatRecvs = 0;
 	chatCloseSends = 0;
 	chatDones = 0;
+	nativeUnaryCalls = 0;
+	nativeUploadStarts = 0;
+	nativeUploadSends = 0;
+	nativeUploadFinishes = 0;
+	nativeListStarts = 0;
+	nativeListRecvs = 0;
+	nativeListDones = 0;
+	nativeChatStarts = 0;
+	nativeChatSends = 0;
+	nativeChatRecvs = 0;
+	nativeChatCloseSends = 0;
+	nativeChatDones = 0;
 }
 
 static int32_t emptyResponse(uintptr_t* response_ptr, int32_t* response_len) {
@@ -319,6 +391,95 @@ static GreeterCGOMessageServerCallbacks greeterMessageCallbacks(void) {
 	return callbacks;
 }
 
+static int32_t nativeGreeterUnary(GreeterUnaryCGONativeUnaryRequest* input, GreeterUnaryCGONativeUnaryResponse* output) {
+	nativeUnaryCalls++;
+	return 0;
+}
+
+static int32_t nativeGreeterUploadStart(int32_t* stream) {
+	nativeUploadStarts++;
+	*stream = 404;
+	return 0;
+}
+
+static int32_t nativeGreeterUploadSend(int32_t stream, GreeterUploadCGONativeClientStreamRequest* input) {
+	nativeUploadSends++;
+	return 0;
+}
+
+static int32_t nativeGreeterUploadFinish(int32_t stream, GreeterUploadCGONativeClientStreamResponse* output) {
+	nativeUploadFinishes++;
+	return 0;
+}
+
+static int32_t nativeGreeterUploadCancel(int32_t stream) { return 0; }
+
+static int32_t nativeGreeterListStart(GreeterListCGONativeServerStreamRequest* input, int32_t* stream) {
+	nativeListStarts++;
+	*stream = 505;
+	return 0;
+}
+
+static int32_t nativeGreeterListRecv(int32_t stream, GreeterListCGONativeServerStreamResponse* output) {
+	nativeListRecvs++;
+	return 0;
+}
+
+static int32_t nativeGreeterListDone(int32_t stream) {
+	nativeListDones++;
+	return 0;
+}
+
+static int32_t nativeGreeterListCancel(int32_t stream) { return 0; }
+
+static int32_t nativeGreeterChatStart(int32_t* stream) {
+	nativeChatStarts++;
+	*stream = 606;
+	return 0;
+}
+
+static int32_t nativeGreeterChatSend(int32_t stream, GreeterChatCGONativeBidiStreamRequest* input) {
+	nativeChatSends++;
+	return 0;
+}
+
+static int32_t nativeGreeterChatRecv(int32_t stream, GreeterChatCGONativeBidiStreamResponse* output) {
+	nativeChatRecvs++;
+	return 0;
+}
+
+static int32_t nativeGreeterChatCloseSend(int32_t stream) {
+	nativeChatCloseSends++;
+	return 0;
+}
+
+static int32_t nativeGreeterChatDone(int32_t stream) {
+	nativeChatDones++;
+	return 0;
+}
+
+static int32_t nativeGreeterChatCancel(int32_t stream) { return 0; }
+
+static GreeterCGONativeServerCallbacks greeterNativeCallbacks(void) {
+	GreeterCGONativeServerCallbacks callbacks;
+	callbacks.Unary = nativeGreeterUnary;
+	callbacks.UploadStart = nativeGreeterUploadStart;
+	callbacks.UploadSend = nativeGreeterUploadSend;
+	callbacks.UploadFinish = nativeGreeterUploadFinish;
+	callbacks.UploadCancel = nativeGreeterUploadCancel;
+	callbacks.ListStart = nativeGreeterListStart;
+	callbacks.ListRecv = nativeGreeterListRecv;
+	callbacks.ListDone = nativeGreeterListDone;
+	callbacks.ListCancel = nativeGreeterListCancel;
+	callbacks.ChatStart = nativeGreeterChatStart;
+	callbacks.ChatSend = nativeGreeterChatSend;
+	callbacks.ChatRecv = nativeGreeterChatRecv;
+	callbacks.ChatCloseSend = nativeGreeterChatCloseSend;
+	callbacks.ChatDone = nativeGreeterChatDone;
+	callbacks.ChatCancel = nativeGreeterChatCancel;
+	return callbacks;
+}
+
 static void setUnaryError(int enabled) { unaryError = enabled; }
 static int getUnaryCalls(void) { return unaryCalls; }
 static int getUploadStarts(void) { return uploadStarts; }
@@ -332,6 +493,18 @@ static int getChatSends(void) { return chatSends; }
 static int getChatRecvs(void) { return chatRecvs; }
 static int getChatCloseSends(void) { return chatCloseSends; }
 static int getChatDones(void) { return chatDones; }
+static int getNativeUnaryCalls(void) { return nativeUnaryCalls; }
+static int getNativeUploadStarts(void) { return nativeUploadStarts; }
+static int getNativeUploadSends(void) { return nativeUploadSends; }
+static int getNativeUploadFinishes(void) { return nativeUploadFinishes; }
+static int getNativeListStarts(void) { return nativeListStarts; }
+static int getNativeListRecvs(void) { return nativeListRecvs; }
+static int getNativeListDones(void) { return nativeListDones; }
+static int getNativeChatStarts(void) { return nativeChatStarts; }
+static int getNativeChatSends(void) { return nativeChatSends; }
+static int getNativeChatRecvs(void) { return nativeChatRecvs; }
+static int getNativeChatCloseSends(void) { return nativeChatCloseSends; }
+static int getNativeChatDones(void) { return nativeChatDones; }
 */
 import "C"
 
@@ -345,6 +518,14 @@ func registerGreeterMessageCallbacksForIntegration() error {
 	C.setUnaryError(0)
 	callbacks := C.greeterMessageCallbacks()
 	_, err := RegisterGreeterCGOMessageServer(&callbacks)
+	return err
+}
+
+func registerGreeterNativeCallbacksForIntegration() error {
+	v1.ResetGreeterDispatcherForIntegrationTest()
+	C.resetMessageCounters()
+	callbacks := C.greeterNativeCallbacks()
+	_, err := RegisterGreeterCGONativeServer(&callbacks)
 	return err
 }
 
@@ -368,6 +549,18 @@ func greeterMessageChatSendsForIntegration() int { return int(C.getChatSends()) 
 func greeterMessageChatRecvsForIntegration() int { return int(C.getChatRecvs()) }
 func greeterMessageChatCloseSendsForIntegration() int { return int(C.getChatCloseSends()) }
 func greeterMessageChatDonesForIntegration() int { return int(C.getChatDones()) }
+func greeterNativeUnaryCallsForIntegration() int { return int(C.getNativeUnaryCalls()) }
+func greeterNativeUploadStartsForIntegration() int { return int(C.getNativeUploadStarts()) }
+func greeterNativeUploadSendsForIntegration() int { return int(C.getNativeUploadSends()) }
+func greeterNativeUploadFinishesForIntegration() int { return int(C.getNativeUploadFinishes()) }
+func greeterNativeListStartsForIntegration() int { return int(C.getNativeListStarts()) }
+func greeterNativeListRecvsForIntegration() int { return int(C.getNativeListRecvs()) }
+func greeterNativeListDonesForIntegration() int { return int(C.getNativeListDones()) }
+func greeterNativeChatStartsForIntegration() int { return int(C.getNativeChatStarts()) }
+func greeterNativeChatSendsForIntegration() int { return int(C.getNativeChatSends()) }
+func greeterNativeChatRecvsForIntegration() int { return int(C.getNativeChatRecvs()) }
+func greeterNativeChatCloseSendsForIntegration() int { return int(C.getNativeChatCloseSends()) }
+func greeterNativeChatDonesForIntegration() int { return int(C.getNativeChatDones()) }
 `
 
 const messageDirectPathFixtureTestSource = `package main
@@ -531,6 +724,69 @@ func TestMessageContractMismatch(t *testing.T) {
 	assertMessageNoErr(t, ReadGreeterChatMessageBidiStream(context.Background(), chatHandle, &GreeterMessageOutput{}))
 	assertMessageNoErr(t, CloseSendGreeterChatMessageBidiStream(context.Background(), chatHandle))
 	assertMessageNoErr(t, DoneGreeterChatMessageBidiStream(context.Background(), chatHandle))
+}
+
+func TestMessageClientToCGONative(t *testing.T) {
+	if err := registerGreeterNativeCallbacksForIntegration(); err != nil {
+		t.Fatalf("registerGreeterNativeCallbacksForIntegration() error = %v", err)
+	}
+
+	errID := CallGreeterUnaryMessageUnary(context.Background(), 0, 0, &GreeterMessageOutput{})
+	assertMessageNoErr(t, errID)
+
+	uploadHandle, errID := StartGreeterUploadMessageClientStream(context.Background())
+	assertMessageNoErr(t, errID)
+	assertMessageNoErr(t, SendGreeterUploadMessageClientStream(context.Background(), uploadHandle, 0, 0))
+	assertMessageNoErr(t, FinishGreeterUploadMessageClientStream(context.Background(), uploadHandle, &GreeterMessageOutput{}))
+
+	listHandle, errID := StartGreeterListMessageServerStream(context.Background(), 0, 0)
+	assertMessageNoErr(t, errID)
+	assertMessageNoErr(t, ReadGreeterListMessageServerStream(context.Background(), listHandle, &GreeterMessageOutput{}))
+	assertMessageNoErr(t, DoneGreeterListMessageServerStream(context.Background(), listHandle))
+
+	chatHandle, errID := StartGreeterChatMessageBidiStream(context.Background())
+	assertMessageNoErr(t, errID)
+	assertMessageNoErr(t, SendGreeterChatMessageBidiStream(context.Background(), chatHandle, 0, 0))
+	assertMessageNoErr(t, ReadGreeterChatMessageBidiStream(context.Background(), chatHandle, &GreeterMessageOutput{}))
+	assertMessageNoErr(t, CloseSendGreeterChatMessageBidiStream(context.Background(), chatHandle))
+	assertMessageNoErr(t, DoneGreeterChatMessageBidiStream(context.Background(), chatHandle))
+
+	if got := greeterNativeUnaryCallsForIntegration(); got != 1 {
+		t.Fatalf("native unary calls = %d, want 1", got)
+	}
+	if got := greeterNativeUploadStartsForIntegration(); got != 1 {
+		t.Fatalf("native upload starts = %d, want 1", got)
+	}
+	if got := greeterNativeUploadSendsForIntegration(); got != 1 {
+		t.Fatalf("native upload sends = %d, want 1", got)
+	}
+	if got := greeterNativeUploadFinishesForIntegration(); got != 1 {
+		t.Fatalf("native upload finishes = %d, want 1", got)
+	}
+	if got := greeterNativeListStartsForIntegration(); got != 1 {
+		t.Fatalf("native list starts = %d, want 1", got)
+	}
+	if got := greeterNativeListRecvsForIntegration(); got != 1 {
+		t.Fatalf("native list recvs = %d, want 1", got)
+	}
+	if got := greeterNativeListDonesForIntegration(); got != 1 {
+		t.Fatalf("native list dones = %d, want 1", got)
+	}
+	if got := greeterNativeChatStartsForIntegration(); got != 1 {
+		t.Fatalf("native chat starts = %d, want 1", got)
+	}
+	if got := greeterNativeChatSendsForIntegration(); got != 1 {
+		t.Fatalf("native chat sends = %d, want 1", got)
+	}
+	if got := greeterNativeChatRecvsForIntegration(); got != 1 {
+		t.Fatalf("native chat recvs = %d, want 1", got)
+	}
+	if got := greeterNativeChatCloseSendsForIntegration(); got != 1 {
+		t.Fatalf("native chat close sends = %d, want 1", got)
+	}
+	if got := greeterNativeChatDonesForIntegration(); got != 1 {
+		t.Fatalf("native chat dones = %d, want 1", got)
+	}
 }
 
 func TestNativeContractMismatch(t *testing.T) {

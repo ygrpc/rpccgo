@@ -48,7 +48,7 @@ func renderNativeServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 
 	callbacksName := service.GoName + "CGONativeServerCallbacks"
 	adapterName := lowerInitial(service.GoName) + "CGONativeAdapter"
-	renderCGONativeServerAdapter(g, service, runtimeMethods, callbacksName, adapterName, errorNames)
+	renderCGONativeServerAdapter(g, service, runtimeMethods, callbacksName, adapterName, errorNames, servicePackage)
 	renderCGONativeServerRegistration(g, service, callbacksName, adapterName, errorNames, servicePackage)
 	renderCGONativeServerGoHelper(g, service, runtimeMethods, callbacksName, errorNames, servicePackage)
 	renderCGONativeServerErrorStoreExport(g, service)
@@ -242,7 +242,7 @@ func renderCGONativeServerCField(g *protogen.GeneratedFile, field FieldPlan, out
 	}
 }
 
-func renderCGONativeServerAdapter(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeAdapterMethod, callbacksName, adapterName string, errorNames nativeServerCGOErrorNames) {
+func renderCGONativeServerAdapter(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeAdapterMethod, callbacksName, adapterName string, errorNames nativeServerCGOErrorNames, servicePackage string) {
 	g.P("type ", adapterName, " struct {")
 	g.P("callbacks C.", callbacksName)
 	g.P("}")
@@ -262,11 +262,11 @@ func renderCGONativeServerAdapter(g *protogen.GeneratedFile, service ServicePlan
 		case StreamingKindUnary:
 			renderCGONativeServerUnaryAdapter(g, service, adapterName, method, errorNames)
 		case StreamingKindClientStreaming:
-			renderCGONativeServerClientStreamAdapter(g, service, adapterName, method, errorNames)
+			renderCGONativeServerClientStreamAdapter(g, service, adapterName, method, errorNames, servicePackage)
 		case StreamingKindServerStreaming:
-			renderCGONativeServerServerStreamAdapter(g, service, adapterName, method, errorNames)
+			renderCGONativeServerServerStreamAdapter(g, service, adapterName, method, errorNames, servicePackage)
 		case StreamingKindBidiStreaming:
-			renderCGONativeServerBidiStreamAdapter(g, service, adapterName, method, errorNames)
+			renderCGONativeServerBidiStreamAdapter(g, service, adapterName, method, errorNames, servicePackage)
 		default:
 			renderCGONativeServerStreamingFallback(g, adapterName, runtimeMethod, errorNames)
 		}
@@ -335,8 +335,8 @@ func renderCGONativeServerUnaryAdapter(g *protogen.GeneratedFile, service Servic
 	g.P()
 }
 
-func renderCGONativeServerClientStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	sessionName := nativeGoMessagePackagePrefix(g, method.Request) + service.GoName + method.GoName + "NativeStreamSession"
+func renderCGONativeServerClientStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, errorNames nativeServerCGOErrorNames, servicePackage string) {
+	sessionName := servicePackage + service.GoName + method.GoName + "NativeStreamSession"
 	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context) (", sessionName, ", error) {")
 	g.P("if a == nil {")
 	g.P("return nil, ", errorNames.CallbacksNil)
@@ -421,8 +421,8 @@ func renderCGONativeServerClientStreamCancel(g *protogen.GeneratedFile, service 
 	g.P()
 }
 
-func renderCGONativeServerServerStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	sessionName := nativeGoMessagePackagePrefix(g, method.Request) + service.GoName + method.GoName + "NativeStreamSession"
+func renderCGONativeServerServerStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, errorNames nativeServerCGOErrorNames, servicePackage string) {
+	sessionName := servicePackage + service.GoName + method.GoName + "NativeStreamSession"
 	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context, req ", nativeGoMessageType(g, method.Request), ") (", sessionName, ", error) {")
 	g.P("if a == nil {")
 	g.P("return nil, ", errorNames.CallbacksNil)
@@ -507,8 +507,8 @@ func renderCGONativeServerServerStreamCancel(g *protogen.GeneratedFile, service 
 	g.P()
 }
 
-func renderCGONativeServerBidiStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	sessionName := nativeGoMessagePackagePrefix(g, method.Request) + service.GoName + method.GoName + "NativeStreamSession"
+func renderCGONativeServerBidiStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, errorNames nativeServerCGOErrorNames, servicePackage string) {
+	sessionName := servicePackage + service.GoName + method.GoName + "NativeStreamSession"
 	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context) (", sessionName, ", error) {")
 	g.P("if a == nil {")
 	g.P("return nil, ", errorNames.CallbacksNil)
@@ -1092,11 +1092,11 @@ func renderCGONativeServerGoHelper(g *protogen.GeneratedFile, service ServicePla
 			g.P("}")
 			g.P()
 		case StreamingKindClientStreaming:
-			renderGoCGONativeServerClientStreamAdapter(g, service, method)
+			renderGoCGONativeServerClientStreamAdapter(g, service, method, servicePackage)
 		case StreamingKindServerStreaming:
-			renderGoCGONativeServerServerStreamAdapter(g, service, method)
+			renderGoCGONativeServerServerStreamAdapter(g, service, method, servicePackage)
 		case StreamingKindBidiStreaming:
-			renderGoCGONativeServerBidiStreamAdapter(g, service, method)
+			renderGoCGONativeServerBidiStreamAdapter(g, service, method, servicePackage)
 		}
 	}
 	for _, runtimeMethod := range methods {
@@ -1108,8 +1108,8 @@ func renderCGONativeServerGoHelper(g *protogen.GeneratedFile, service ServicePla
 	}
 }
 
-func renderGoCGONativeServerClientStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
-	sessionName := nativeGoMessagePackagePrefix(g, method.Request) + service.GoName + method.GoName + "NativeStreamSession"
+func renderGoCGONativeServerClientStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage string) {
+	sessionName := servicePackage + service.GoName + method.GoName + "NativeStreamSession"
 	adapterName := lowerInitial(service.GoName) + "GoCGONativeAdapter"
 	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context) (", sessionName, ", error) {")
 	g.P("var stream C.int32_t")
@@ -1178,8 +1178,8 @@ func renderGoCGONativeServerClientStreamAdapter(g *protogen.GeneratedFile, servi
 	g.P()
 }
 
-func renderGoCGONativeServerServerStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
-	sessionName := nativeGoMessagePackagePrefix(g, method.Request) + service.GoName + method.GoName + "NativeStreamSession"
+func renderGoCGONativeServerServerStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage string) {
+	sessionName := servicePackage + service.GoName + method.GoName + "NativeStreamSession"
 	adapterName := lowerInitial(service.GoName) + "GoCGONativeAdapter"
 	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context, req ", nativeGoMessageType(g, method.Request), ") (", sessionName, ", error) {")
 	g.P("input, cleanup, err := ", nativeCGOServerServerStreamRequestEncoderName(service, method), "(req)")
@@ -1248,8 +1248,8 @@ func renderGoCGONativeServerServerStreamAdapter(g *protogen.GeneratedFile, servi
 	g.P()
 }
 
-func renderGoCGONativeServerBidiStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
-	sessionName := nativeGoMessagePackagePrefix(g, method.Request) + service.GoName + method.GoName + "NativeStreamSession"
+func renderGoCGONativeServerBidiStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage string) {
+	sessionName := servicePackage + service.GoName + method.GoName + "NativeStreamSession"
 	adapterName := lowerInitial(service.GoName) + "GoCGONativeAdapter"
 	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context) (", sessionName, ", error) {")
 	g.P("var stream C.int32_t")
