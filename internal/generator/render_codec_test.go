@@ -114,7 +114,7 @@ func TestCodecNativeToMessageRendersProtobufMarshalAndErrors(t *testing.T) {
 	}
 }
 
-func TestRenderStageFilesEmitsCodecWithoutTransportAdapterFiles(t *testing.T) {
+func TestRenderStageFilesEmitsCodecWithoutRemoteAdapterFiles(t *testing.T) {
 	file := simpleTestFile()
 	setSimpleServiceComment(t, file, "@rpccgo: native\n")
 	plugin := newTestPlugin(t, "paths=source_relative", file)
@@ -131,10 +131,12 @@ func TestRenderStageFilesEmitsCodecWithoutTransportAdapterFiles(t *testing.T) {
 		"test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go",
 		"test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go",
 		"test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go",
+		"test/v1/greeter.greeter.server.connect.rpccgo.go",
 		"test/v1/greeter.greeter.codec.rpccgo.go",
 	})
-	assertNoGeneratedFilenameContains(t, plugin, ".connect.", ".grpc.", ".remote.")
-	assertGeneratedContentDoesNotContain(t, plugin, "connectrpc.com/connect", "google.golang.org/grpc", ".remote.")
+	assertNoGeneratedFilenameContains(t, plugin, ".grpc.", ".remote.")
+	assertGeneratedContentDoesNotContain(t, plugin, ".remote.")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.connect.rpccgo.go", `connect "connectrpc.com/connect"`)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.codec.rpccgo.go", "rpccgo native message codec stage file for Greeter")
 }
 

@@ -24,9 +24,10 @@ func TestMessageStage4AAcceptanceGeneratedDirectPath(t *testing.T) {
 		"test/v1/cgo/message_stage4a.greeter.client.cgo.rpccgo.go",
 		"test/v1/cgo/message_stage4a.greeter.server.message.cgo.rpccgo.go",
 		"test/v1/cgo/message_stage4a.greeter.client.message.cgo.rpccgo.go",
+		"test/v1/message_stage4a.greeter.server.connect.rpccgo.go",
 		"test/v1/message_stage4a.greeter.codec.rpccgo.go",
 	})
-	assertIntegrationNoGeneratedFilenameContains(t, plugin, ".connect.", ".grpc.", ".remote.")
+	assertIntegrationNoGeneratedFilenameContains(t, plugin, ".grpc.", ".remote.")
 
 	const runtimeFile = "test/v1/message_stage4a.greeter.runtime.rpccgo.go"
 	for _, fragment := range []string{
@@ -71,6 +72,15 @@ func TestMessageStage4AAcceptanceGeneratedDirectPath(t *testing.T) {
 		"return v1.RegisterGreeterCGOMessageActiveServer(rpcruntime.ServerKindCGOMessage",
 	} {
 		assertIntegrationGeneratedContentContains(t, plugin, serverFile, fragment)
+	}
+
+	const connectFile = "test/v1/message_stage4a.greeter.server.connect.rpccgo.go"
+	for _, fragment := range []string{
+		`connect "connectrpc.com/connect"`,
+		`http "net/http"`,
+		"func NewGreeterConnectHandler",
+	} {
+		assertIntegrationGeneratedContentContains(t, plugin, connectFile, fragment)
 	}
 }
 

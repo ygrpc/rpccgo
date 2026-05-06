@@ -86,6 +86,8 @@ func RenderStageFiles(plugin *protogen.Plugin, plan FilePlan) error {
 		if err := RenderMessageStageFiles(plugin, messagePlan); err != nil {
 			return err
 		}
+		markRendered(rendered, messageService.MessageFileFamily.ConnectServer)
+		markRendered(rendered, messageService.MessageFileFamily.GRPCServer)
 
 		codecPlan := plan
 		codecPlan.Services = []ServicePlan{service}
@@ -153,6 +155,8 @@ func RenderMessageStageFiles(plugin *protogen.Plugin, plan FilePlan) error {
 			family.Runtime,
 			family.CGOMessageServer,
 			family.CGOMessageClient,
+			family.ConnectServer,
+			family.GRPCServer,
 		}
 		for _, file := range files {
 			if !file.Enabled {
@@ -172,6 +176,18 @@ func RenderMessageStageFiles(plugin *protogen.Plugin, plan FilePlan) error {
 			}
 			if file == family.CGOMessageClient {
 				if err := renderMessageClientCGOFile(plugin, plan, service, file); err != nil {
+					return err
+				}
+				continue
+			}
+			if file == family.ConnectServer {
+				if err := renderConnectServerFile(plugin, plan, service, file); err != nil {
+					return err
+				}
+				continue
+			}
+			if file == family.GRPCServer {
+				if err := renderGRPCServerFile(plugin, plan, service, file); err != nil {
 					return err
 				}
 				continue
@@ -225,6 +241,10 @@ func messageStageMarker(service ServicePlan, file GeneratedFilePlan) string {
 		return strings.Join([]string{"rpccgo message direct stage file for", service.GoName, "cgo message server callbacks"}, " ")
 	case strings.Contains(name, ".client.cgo.rpccgo.go"), strings.Contains(name, ".client.message.cgo.rpccgo.go"):
 		return strings.Join([]string{"rpccgo message direct stage file for", service.GoName, "cgo message client"}, " ")
+	case strings.Contains(name, ".server.connect.rpccgo.go"):
+		return strings.Join([]string{"rpccgo message direct stage file for", service.GoName, "connect local server adapter"}, " ")
+	case strings.Contains(name, ".server.grpc.rpccgo.go"):
+		return strings.Join([]string{"rpccgo message direct stage file for", service.GoName, "grpc local server adapter"}, " ")
 	default:
 		return strings.Join([]string{"rpccgo message direct stage file for", service.GoName, "unknown"}, " ")
 	}
