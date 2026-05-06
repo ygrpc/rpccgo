@@ -66,6 +66,8 @@ type MessageFileFamilyPlan struct {
 	Runtime          GeneratedFilePlan
 	CGOMessageServer GeneratedFilePlan
 	CGOMessageClient GeneratedFilePlan
+	ConnectServer    GeneratedFilePlan
+	GRPCServer       GeneratedFilePlan
 }
 
 type GeneratedFilePlan struct {
