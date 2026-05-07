@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package examples.full.greeter.v1;
+
+option go_package = "example.com/rpccgo-full/proto;greeterv1";
+
+message SayHelloRequest {
+  string name = 1;
+  string city = 2;
+}
+
+message SayHelloResponse {
+  string message = 1;
+}
+
+// @rpccgo: msg-connect|msg-grpc|native
+service Greeter {
+  rpc SayHello(SayHelloRequest) returns (SayHelloResponse);
+  rpc Collect(stream SayHelloRequest) returns (SayHelloResponse);
+  rpc Broadcast(SayHelloRequest) returns (stream SayHelloResponse);
+  rpc Chat(stream SayHelloRequest) returns (stream SayHelloResponse);
+}
