@@ -4,7 +4,7 @@
 
 阶段 7 固化 generated layout 与 public API，并新增 `examples/minimal-greeter` 与 `examples/full-greeter`。两个 example 都使用真实 `protoc` 生成路径，调用仍经过 generated dispatcher 和单 active server slot。
 
-两个 example 都新增 `magefile.go`，保留旧项目“进入 example 目录后用 Mage 运行”的操作模型；Mage target 只包装生成、测试和 full server 启动，不迁移旧 bootstrap。
+两个 example 都新增 `magefile.go`，保留旧项目“进入 example 目录后用 Mage 运行”的操作模型；`Run` 执行真实 demo，`Test` 跑验收，`Server` 暴露长驻服务入口，不迁移旧 bootstrap。
 
 ## 迁移或参考
 

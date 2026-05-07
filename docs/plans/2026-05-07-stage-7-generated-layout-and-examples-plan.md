@@ -67,7 +67,7 @@
 - Create: `examples/minimal-greeter/example_test.go`  
   运行生成命令和 example package 测试。
 - Create: `examples/minimal-greeter/magefile.go`  
-  提供 `Generate`、`Test`、`Run` target，和旧项目一样用 Mage 控制 example。
+  提供 `Generate`、`Run`、`Test`、`Server` target，`Run` 执行真实 demo，`Test` 跑验收。
 - Create: `examples/full-greeter/proto/greeter.proto`  
   全 transport / 全 streaming proto，含 unary、client streaming、server streaming、bidi streaming。
 - Create: `examples/full-greeter/go.mod`
@@ -934,8 +934,8 @@ rtk git commit -m "feat: add full greeter transport matrix example"
 - `rtk go test ./internal/generator -run 'TestRenderMessageClientCGO|TestStage7' -count=1`：PASS。
 - 在 `examples/minimal-greeter` 下执行 `rtk go test ./... -count=1`：PASS。
 - 在 `examples/full-greeter` 下执行 `rtk go test ./... -count=1`：PASS。
-- 在 `examples/minimal-greeter` 下执行 `rtk go run github.com/magefile/mage run`：PASS。
-- 在 `examples/full-greeter` 下执行 `rtk go run github.com/magefile/mage run`：PASS。
+- 在 `examples/minimal-greeter` 下执行 `rtk go run github.com/magefile/mage run`：PASS，打印真实 demo 输出并自动退出。
+- 在 `examples/full-greeter` 下执行 `rtk go run github.com/magefile/mage run`：PASS，打印 Connect/gRPC demo 输出并自动退出。
 - `rtk go test ./internal/generator ./cmd/protoc-gen-rpc-cgo -count=1`：PASS。
 - `rtk go test ./internal/integration -count=1`：PASS。
 - `rtk go test ./rpcruntime -count=1`：PASS。

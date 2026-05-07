@@ -25,6 +25,16 @@ cd ../full-greeter
 rtk go run github.com/magefile/mage run
 ```
 
+运行验收测试：
+
+```bash
+cd examples/minimal-greeter
+rtk go run github.com/magefile/mage test
+
+cd ../full-greeter
+rtk go run github.com/magefile/mage test
+```
+
 手动启动 full example server：
 
 ```bash
