@@ -113,11 +113,42 @@ func TestRenderMessageFileFamilyPlanGatesLocalTransportAdaptersByToken(t *testin
 	assertGeneratedFilePlan(t, grpcOnly.GRPCServer, "test/v1/greeter.greeter.server.grpc.rpccgo.go", true)
 }
 
+func TestRenderMessageFileFamilyPlanIncludesRemoteTransportAdapters(t *testing.T) {
+	file := FilePlan{GeneratedFilenamePrefix: "test/v1/greeter"}
+	service := ServicePlan{
+		GoName:   "Greeter",
+		Adapters: AdapterSelection{Tokens: []AdapterToken{AdapterTokenMessageConnect, AdapterTokenMessageGRPC}},
+	}
+
+	got := BuildMessageFileFamilyPlan(file, service)
+
+	assertGeneratedFilePlan(t, got.ConnectRemote, "test/v1/greeter.greeter.remote.connect.rpccgo.go", true)
+	assertGeneratedFilePlan(t, got.GRPCRemote, "test/v1/greeter.greeter.remote.grpc.rpccgo.go", true)
+}
+
+func TestRenderMessageFileFamilyPlanGatesRemoteTransportAdaptersByToken(t *testing.T) {
+	file := FilePlan{GeneratedFilenamePrefix: "test/v1/greeter"}
+
+	connectOnly := BuildMessageFileFamilyPlan(file, ServicePlan{
+		GoName:   "Greeter",
+		Adapters: AdapterSelection{Tokens: []AdapterToken{AdapterTokenMessageConnect}},
+	})
+	assertGeneratedFilePlan(t, connectOnly.ConnectRemote, "test/v1/greeter.greeter.remote.connect.rpccgo.go", true)
+	assertGeneratedFilePlan(t, connectOnly.GRPCRemote, "test/v1/greeter.greeter.remote.grpc.rpccgo.go", false)
+
+	grpcOnly := BuildMessageFileFamilyPlan(file, ServicePlan{
+		GoName:   "Greeter",
+		Adapters: AdapterSelection{Tokens: []AdapterToken{AdapterTokenMessageGRPC}},
+	})
+	assertGeneratedFilePlan(t, grpcOnly.ConnectRemote, "test/v1/greeter.greeter.remote.connect.rpccgo.go", false)
+	assertGeneratedFilePlan(t, grpcOnly.GRPCRemote, "test/v1/greeter.greeter.remote.grpc.rpccgo.go", true)
+}
+
 func assertMessageFileFamilyDoesNotUseAdapterOrCodecFiles(t *testing.T, got MessageFileFamilyPlan) {
 	t.Helper()
 
-	for _, file := range []GeneratedFilePlan{got.Runtime, got.CGOMessageServer, got.CGOMessageClient, got.ConnectServer, got.GRPCServer} {
-		assertFilenameDoesNotContain(t, file.Filename, ".remote.", ".codec.")
+	for _, file := range []GeneratedFilePlan{got.Runtime, got.CGOMessageServer, got.CGOMessageClient, got.ConnectServer, got.GRPCServer, got.ConnectRemote, got.GRPCRemote} {
+		assertFilenameDoesNotContain(t, file.Filename, ".adapter.", ".codec.")
 	}
 }
 

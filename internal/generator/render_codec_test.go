@@ -119,9 +119,16 @@ func TestRenderStageFilesEmitsCodecWithoutRemoteAdapterFiles(t *testing.T) {
 	setSimpleServiceComment(t, file, "@rpccgo: native\n")
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true})
+	plans, err := Generate(plugin)
 	if err != nil {
-		t.Fatalf("GenerateWithOptions() error = %v", err)
+		t.Fatalf("Generate() error = %v", err)
+	}
+	plans[0].Services[0].Adapters = AdapterSelection{Tokens: []AdapterToken{AdapterTokenNative}}
+	AttachNativeFileFamilyPlan(&plans[0])
+	AttachMessageFileFamilyPlan(&plans[0])
+
+	if err := RenderStageFiles(plugin, plans[0]); err != nil {
+		t.Fatalf("RenderStageFiles() error = %v", err)
 	}
 
 	assertGeneratedFilenames(t, plugin, []string{
@@ -129,14 +136,11 @@ func TestRenderStageFilesEmitsCodecWithoutRemoteAdapterFiles(t *testing.T) {
 		"test/v1/greeter.greeter.server.native.rpccgo.go",
 		"test/v1/cgo/greeter.greeter.server.cgo.rpccgo.go",
 		"test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go",
-		"test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go",
 		"test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go",
-		"test/v1/greeter.greeter.server.connect.rpccgo.go",
 		"test/v1/greeter.greeter.codec.rpccgo.go",
 	})
-	assertNoGeneratedFilenameContains(t, plugin, ".grpc.", ".remote.")
+	assertNoGeneratedFilenameContains(t, plugin, ".connect.", ".grpc.", ".remote.")
 	assertGeneratedContentDoesNotContain(t, plugin, ".remote.")
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.connect.rpccgo.go", `connect "connectrpc.com/connect"`)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.codec.rpccgo.go", "rpccgo native message codec stage file for Greeter")
 }
 
