@@ -25,9 +25,10 @@ func TestMessageStage4AAcceptanceGeneratedDirectPath(t *testing.T) {
 		"test/v1/cgo/message_stage4a.greeter.server.message.cgo.rpccgo.go",
 		"test/v1/cgo/message_stage4a.greeter.client.message.cgo.rpccgo.go",
 		"test/v1/message_stage4a.greeter.server.connect.rpccgo.go",
+		"test/v1/message_stage4a.greeter.remote.connect.rpccgo.go",
 		"test/v1/message_stage4a.greeter.codec.rpccgo.go",
 	})
-	assertIntegrationNoGeneratedFilenameContains(t, plugin, ".grpc.", ".remote.")
+	assertIntegrationNoGeneratedFilenameContains(t, plugin, ".grpc.")
 
 	const runtimeFile = "test/v1/message_stage4a.greeter.runtime.rpccgo.go"
 	for _, fragment := range []string{
@@ -81,6 +82,16 @@ func TestMessageStage4AAcceptanceGeneratedDirectPath(t *testing.T) {
 		"func NewGreeterConnectHandler",
 	} {
 		assertIntegrationGeneratedContentContains(t, plugin, connectFile, fragment)
+	}
+
+	const remoteFile = "test/v1/message_stage4a.greeter.remote.connect.rpccgo.go"
+	for _, fragment := range []string{
+		"type GreeterConnectRemoteServer struct {",
+		"func NewGreeterConnectRemoteServer(httpClient connect.HTTPClient, baseURL string, options ...connect.ClientOption) (*GreeterConnectRemoteServer, error) {",
+		"func RegisterGreeterConnectRemoteServer(httpClient connect.HTTPClient, baseURL string, options ...connect.ClientOption) (rpcruntime.AdapterSnapshot[GreeterMessageAdapter], error) {",
+		"return RegisterGreeterCGOMessageActiveServer(rpcruntime.ServerKindConnectRemote, adapter)",
+	} {
+		assertIntegrationGeneratedContentContains(t, plugin, remoteFile, fragment)
 	}
 }
 
