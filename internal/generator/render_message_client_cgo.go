@@ -17,7 +17,7 @@ func renderMessageClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service 
 	g.P(`context "context"`)
 	g.P(`errors "errors"`)
 	g.P(`fmt "fmt"`)
-	g.P(`proto "google.golang.org/protobuf/proto"`)
+	g.P(`protobuf "google.golang.org/protobuf/proto"`)
 	g.P(`rpcruntime "rpccgo/rpcruntime"`)
 	g.P(`unsafe "unsafe"`)
 	g.P(")")
@@ -61,14 +61,14 @@ func renderMessageUnaryClient(g *protogen.GeneratedFile, service ServicePlan, me
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
-	g.P("if err := proto.Unmarshal(req, &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Request.GoName, GoImportPath: protogen.GoImportPath(method.Request.GoImportPath)}), "{}); err != nil {")
+	g.P("if err := protobuf.Unmarshal(req, &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Request.GoName, GoImportPath: protogen.GoImportPath(method.Request.GoImportPath)}), "{}); err != nil {")
 	g.P(`return int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)))`)
 	g.P("}")
 	g.P("resp, err := ", servicePackage, "New", service.GoName, "CGOMessageClientBridge().", method.GoName, "(ctx, req)")
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
-	g.P("if err := proto.Unmarshal(resp, &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Response.GoName, GoImportPath: protogen.GoImportPath(method.Response.GoImportPath)}), "{}); err != nil {")
+	g.P("if err := protobuf.Unmarshal(resp, &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Response.GoName, GoImportPath: protogen.GoImportPath(method.Response.GoImportPath)}), "{}); err != nil {")
 	g.P(`return int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response protobuf unmarshal failed: %w", err)))`)
 	g.P("}")
 	g.P("ptr, length, err := ", messageBytesToABIName(service, method, "Response"), "(resp)")
@@ -333,13 +333,13 @@ func renderMessageClientTakeSessionPrefix(g *protogen.GeneratedFile, service Ser
 }
 
 func renderMessageProtoUnmarshalCheck(g *protogen.GeneratedFile, message MethodIOPlan, dataName, label string) {
-	g.P("if err := proto.Unmarshal(", dataName, ", &", g.QualifiedGoIdent(protogen.GoIdent{GoName: message.GoName, GoImportPath: protogen.GoImportPath(message.GoImportPath)}), "{}); err != nil {")
+	g.P("if err := protobuf.Unmarshal(", dataName, ", &", g.QualifiedGoIdent(protogen.GoIdent{GoName: message.GoName, GoImportPath: protogen.GoImportPath(message.GoImportPath)}), "{}); err != nil {")
 	g.P(`return int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message `, label, ` protobuf unmarshal failed: %w", err)))`)
 	g.P("}")
 }
 
 func renderMessageProtoUnmarshalStartCheck(g *protogen.GeneratedFile, message MethodIOPlan, dataName, label string) {
-	g.P("if err := proto.Unmarshal(", dataName, ", &", g.QualifiedGoIdent(protogen.GoIdent{GoName: message.GoName, GoImportPath: protogen.GoImportPath(message.GoImportPath)}), "{}); err != nil {")
+	g.P("if err := protobuf.Unmarshal(", dataName, ", &", g.QualifiedGoIdent(protogen.GoIdent{GoName: message.GoName, GoImportPath: protogen.GoImportPath(message.GoImportPath)}), "{}); err != nil {")
 	g.P(`return 0, int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message `, label, ` protobuf unmarshal failed: %w", err)))`)
 	g.P("}")
 }

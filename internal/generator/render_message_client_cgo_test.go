@@ -22,7 +22,7 @@ func TestRenderMessageClientCGODefinesUnaryExportSurface(t *testing.T) {
 		`context "context"`,
 		`errors "errors"`,
 		`fmt "fmt"`,
-		`proto "google.golang.org/protobuf/proto"`,
+		`protobuf "google.golang.org/protobuf/proto"`,
 		`rpcruntime "rpccgo/rpcruntime"`,
 		`unsafe "unsafe"`,
 		"type GreeterMessageOutput struct {",

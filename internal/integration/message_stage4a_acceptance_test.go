@@ -56,7 +56,7 @@ func TestMessageStage4AAcceptanceGeneratedDirectPath(t *testing.T) {
 		"func SendGreeterChatMessageBidiStream",
 		"func CloseSendGreeterChatMessageBidiStream",
 		"func DoneGreeterChatMessageBidiStream",
-		"proto.Unmarshal",
+		"protobuf.Unmarshal",
 		"rpcruntime.StoreError",
 	} {
 		assertIntegrationGeneratedContentContains(t, plugin, clientFile, fragment)
