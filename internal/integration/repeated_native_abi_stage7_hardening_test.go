@@ -1,0 +1,522 @@
+package integration
+
+import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	"testing"
+
+	"rpccgo/internal/generator"
+
+	"google.golang.org/protobuf/compiler/protogen"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/descriptorpb"
+	"google.golang.org/protobuf/types/pluginpb"
+)
+
+func TestRepeatedNativeABIStage7HardeningAcceptance(t *testing.T) {
+	tmp := t.TempDir()
+	plugin := newRepeatedNativeABIStage7Plugin(t, "example.com/stage7repeated/repeated/v1;repeatedv1")
+	if _, err := generator.GenerateWithOptions(plugin, generator.GenerateOptions{RenderStageFiles: true}); err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	writeMessageDirectPathGeneratedModule(t, tmp, plugin, "example.com/stage7repeated")
+	writeFile(t, filepath.Join(tmp, "repeated/v1/repeated.pb.go"), repeatedStage7PBGoSource)
+	writeFile(t, filepath.Join(tmp, "repeated/v1/repeated_integration_reset.go"), repeatedStage7ResetSource)
+	writeFile(t, filepath.Join(tmp, "repeated/v1/cgo/repeated_callbacks.go"), repeatedStage7CallbackSource)
+	writeFile(t, filepath.Join(tmp, "repeated/v1/cgo/repeated_native_abi_stage7_test.go"), repeatedStage7FixtureTestSource)
+
+	cmd := exec.Command("go", "test", "./repeated/v1/cgo", "-run", "^TestRepeatedNativeABI$", "-count=1")
+	cmd.Dir = tmp
+	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("repeated native ABI fixture failed: %v\n%s", err, out)
+	}
+}
+
+func newRepeatedNativeABIStage7Plugin(t *testing.T, goPackage string) *protogen.Plugin {
+	t.Helper()
+	request := &pluginpb.CodeGeneratorRequest{
+		Parameter:      proto.String("paths=source_relative"),
+		FileToGenerate: []string{"repeated/v1/repeated.proto"},
+		ProtoFile: []*descriptorpb.FileDescriptorProto{{
+			Name:    proto.String("repeated/v1/repeated.proto"),
+			Package: proto.String("stage7.repeated.v1"),
+			Syntax:  proto.String("proto3"),
+			Options: &descriptorpb.FileOptions{
+				GoPackage: proto.String(goPackage),
+			},
+			MessageType: []*descriptorpb.DescriptorProto{
+				{
+					Name: proto.String("RepeatedRequest"),
+					Field: []*descriptorpb.FieldDescriptorProto{
+						fieldDescriptor("scores", 1, descriptorpb.FieldDescriptorProto_TYPE_INT32, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
+						fieldDescriptor("flags", 2, descriptorpb.FieldDescriptorProto_TYPE_BOOL, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
+					},
+				},
+				{
+					Name: proto.String("RepeatedReply"),
+					Field: []*descriptorpb.FieldDescriptorProto{
+						fieldDescriptor("scores", 1, descriptorpb.FieldDescriptorProto_TYPE_INT32, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
+						fieldDescriptor("flags", 2, descriptorpb.FieldDescriptorProto_TYPE_BOOL, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
+					},
+				},
+			},
+			Service: []*descriptorpb.ServiceDescriptorProto{{
+				Name: proto.String("RepeatedGreeter"),
+				Method: []*descriptorpb.MethodDescriptorProto{{
+					Name:       proto.String("Echo"),
+					InputType:  proto.String(".stage7.repeated.v1.RepeatedRequest"),
+					OutputType: proto.String(".stage7.repeated.v1.RepeatedReply"),
+				}},
+			}},
+			SourceCodeInfo: &descriptorpb.SourceCodeInfo{Location: []*descriptorpb.SourceCodeInfo_Location{{
+				Path:            []int32{6, 0},
+				Span:            []int32{0, 0, 0},
+				LeadingComments: proto.String("@rpccgo: msg-connect|native\n"),
+			}}},
+		}},
+	}
+	plugin, err := generator.ProtogenOptions().New(request)
+	if err != nil {
+		t.Fatalf("protogen.Options.New() error = %v", err)
+	}
+	return plugin
+}
+
+const repeatedStage7ResetSource = `package repeatedv1
+
+import rpcruntime "rpccgo/rpcruntime"
+
+func ResetRepeatedGreeterDispatcherForIntegrationTest() {
+	repeatedGreeterDispatcher = rpcruntime.Dispatcher[RepeatedGreeterActiveAdapter]{}
+}
+`
+
+const repeatedStage7CallbackSource = `package main
+
+/*
+#include <stdint.h>
+
+typedef int32_t (*RepeatedGreeterEchoCGOMessageUnaryCallback)(uintptr_t request_ptr, int32_t request_len, uintptr_t* response_ptr, int32_t* response_len);
+
+typedef struct RepeatedGreeterCGOMessageServerCallbacks {
+	RepeatedGreeterEchoCGOMessageUnaryCallback Echo;
+} RepeatedGreeterCGOMessageServerCallbacks;
+
+static int repeatedMessageUnaryCalls;
+static uint8_t repeatedMessageUnaryResponse[] = {0x0A, 0x02, 0x01, 0x02, 0x12, 0x02, 0x01, 0x00};
+
+static int32_t repeatedGreeterMessageUnary(uintptr_t request_ptr, int32_t request_len, uintptr_t* response_ptr, int32_t* response_len) {
+	repeatedMessageUnaryCalls++;
+	*response_ptr = (uintptr_t)repeatedMessageUnaryResponse;
+	*response_len = (int32_t)sizeof(repeatedMessageUnaryResponse);
+	return 0;
+}
+
+static RepeatedGreeterCGOMessageServerCallbacks repeatedGreeterMessageCallbacks(void) {
+	RepeatedGreeterCGOMessageServerCallbacks callbacks;
+	callbacks.Echo = repeatedGreeterMessageUnary;
+	return callbacks;
+}
+
+static int getRepeatedMessageUnaryCalls(void) { return repeatedMessageUnaryCalls; }
+*/
+import "C"
+
+import repeatedv1 "example.com/stage7repeated/repeated/v1"
+
+func registerRepeatedGreeterMessageCallbacksForIntegration() error {
+	repeatedv1.ResetRepeatedGreeterDispatcherForIntegrationTest()
+	callbacks := C.repeatedGreeterMessageCallbacks()
+	_, err := RegisterRepeatedGreeterCGOMessageServer(&callbacks)
+	return err
+}
+
+func repeatedMessageUnaryCallsForIntegration() int {
+	return int(C.getRepeatedMessageUnaryCalls())
+}
+`
+
+const repeatedStage7FixtureTestSource = `package main
+
+import (
+	context "context"
+	errors "errors"
+	slices "slices"
+	strings "strings"
+	testing "testing"
+	unsafe "unsafe"
+
+	repeatedv1 "example.com/stage7repeated/repeated/v1"
+	proto "google.golang.org/protobuf/proto"
+	rpcruntime "rpccgo/rpcruntime"
+)
+
+type repeatedGoNativeServer struct{}
+
+func (repeatedGoNativeServer) Echo(ctx context.Context, req *repeatedv1.RepeatedRequest) (*repeatedv1.RepeatedReply, error) {
+	if req == nil {
+		return nil, errors.New("request is nil")
+	}
+	scores := append([]int32(nil), req.Scores...)
+	for i := range scores {
+		scores[i] += 10
+	}
+	flags := make([]bool, len(req.Flags))
+	for i := range req.Flags {
+		flags[i] = !req.Flags[i]
+	}
+	return &repeatedv1.RepeatedReply{Scores: scores, Flags: flags}, nil
+}
+
+func TestRepeatedNativeABI(t *testing.T) {
+	t.Run("native client routes to go native server with repeated fields", func(t *testing.T) {
+		repeatedv1.ResetRepeatedGreeterDispatcherForIntegrationTest()
+		if _, err := repeatedv1.RegisterRepeatedGreeterGoNativeServer(repeatedGoNativeServer{}); err != nil {
+			t.Fatalf("RegisterRepeatedGreeterGoNativeServer() error = %v", err)
+		}
+
+		scores := []int32{1, 2, 3}
+		flags := []byte{1, 0, 1}
+		input := &RepeatedGreeterEchoNativeUnaryInput{
+			ScoresPtr:       uintptr(unsafe.Pointer(&scores[0])),
+			ScoresLen:       int32(len(scores)),
+			ScoresOwnership: 0,
+			FlagsPtr:        uintptr(unsafe.Pointer(&flags[0])),
+			FlagsLen:        int32(len(flags)),
+			FlagsOwnership:  0,
+		}
+		output := &RepeatedGreeterEchoNativeUnaryOutput{}
+		if errID := CallRepeatedGreeterEchoNativeUnary(context.Background(), input, output); errID != 0 {
+			t.Fatalf("CallRepeatedGreeterEchoNativeUnary() errID = %d", errID)
+		}
+		t.Cleanup(func() { releaseRepeatedOutput(output) })
+
+		if got, want := int32SliceFromOutput(output.ScoresPtr, output.ScoresLen), []int32{11, 12, 13}; !slices.Equal(got, want) {
+			t.Fatalf("scores = %v, want %v", got, want)
+		}
+		if got, want := boolSliceFromOutput(output.FlagsPtr, output.FlagsLen), []bool{false, true, false}; !slices.Equal(got, want) {
+			t.Fatalf("flags = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("native client to cgo message server uses native to message converter", func(t *testing.T) {
+		if err := registerRepeatedGreeterMessageCallbacksForIntegration(); err != nil {
+			t.Fatalf("registerRepeatedGreeterMessageCallbacksForIntegration() error = %v", err)
+		}
+
+		scores := []int32{9, 8}
+		flags := []byte{0, 1}
+		input := &RepeatedGreeterEchoNativeUnaryInput{
+			ScoresPtr:       uintptr(unsafe.Pointer(&scores[0])),
+			ScoresLen:       int32(len(scores)),
+			ScoresOwnership: 0,
+			FlagsPtr:        uintptr(unsafe.Pointer(&flags[0])),
+			FlagsLen:        int32(len(flags)),
+			FlagsOwnership:  0,
+		}
+		output := &RepeatedGreeterEchoNativeUnaryOutput{}
+		if errID := CallRepeatedGreeterEchoNativeUnary(context.Background(), input, output); errID != 0 {
+			t.Fatalf("CallRepeatedGreeterEchoNativeUnary() errID = %d", errID)
+		}
+		t.Cleanup(func() { releaseRepeatedOutput(output) })
+
+		if got := repeatedMessageUnaryCallsForIntegration(); got == 0 {
+			t.Fatal("expected cgo message unary callback to be called")
+		}
+		if got, want := int32SliceFromOutput(output.ScoresPtr, output.ScoresLen), []int32{1, 2}; !slices.Equal(got, want) {
+			t.Fatalf("scores = %v, want %v", got, want)
+		}
+		if got, want := boolSliceFromOutput(output.FlagsPtr, output.FlagsLen), []bool{true, false}; !slices.Equal(got, want) {
+			t.Fatalf("flags = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("message client to go native server uses message to native converter", func(t *testing.T) {
+		repeatedv1.ResetRepeatedGreeterDispatcherForIntegrationTest()
+		if _, err := repeatedv1.RegisterRepeatedGreeterGoNativeServer(repeatedGoNativeServer{}); err != nil {
+			t.Fatalf("RegisterRepeatedGreeterGoNativeServer() error = %v", err)
+		}
+
+		req := &repeatedv1.RepeatedRequest{
+			Scores: []int32{4, 5},
+			Flags:  []bool{true, false, true},
+		}
+		reqData, err := proto.Marshal(req)
+		if err != nil {
+			t.Fatalf("proto.Marshal(req) error = %v", err)
+		}
+
+		output := &RepeatedGreeterMessageOutput{}
+		if errID := CallRepeatedGreeterEchoMessageUnary(context.Background(), requestPtr(reqData), int32(len(reqData)), output); errID != 0 {
+			t.Fatalf("CallRepeatedGreeterEchoMessageUnary() errID = %d", errID)
+		}
+		t.Cleanup(func() { rpcruntime.Release(output.DataPtr) })
+
+		var resp repeatedv1.RepeatedReply
+		if err := proto.Unmarshal(bytesFromOutput(output.DataPtr, output.DataLen), &resp); err != nil {
+			t.Fatalf("proto.Unmarshal(resp) error = %v", err)
+		}
+		if got, want := resp.Scores, []int32{14, 15}; !slices.Equal(got, want) {
+			t.Fatalf("scores = %v, want %v", got, want)
+		}
+		if got, want := resp.Flags, []bool{false, true, false}; !slices.Equal(got, want) {
+			t.Fatalf("flags = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("negative repeated length returns error id instead of panic", func(t *testing.T) {
+		repeatedv1.ResetRepeatedGreeterDispatcherForIntegrationTest()
+		if _, err := repeatedv1.RegisterRepeatedGreeterGoNativeServer(repeatedGoNativeServer{}); err != nil {
+			t.Fatalf("RegisterRepeatedGreeterGoNativeServer() error = %v", err)
+		}
+
+		input := &RepeatedGreeterEchoNativeUnaryInput{
+			ScoresLen: -1,
+		}
+		output := &RepeatedGreeterEchoNativeUnaryOutput{}
+		errID := CallRepeatedGreeterEchoNativeUnary(context.Background(), input, output)
+		if errID == 0 {
+			t.Fatal("negative length returned errID 0")
+		}
+		text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+		if !ok || !strings.Contains(string(text), "negative") {
+			t.Fatalf("negative length error text = %q, ok=%v", text, ok)
+		}
+	})
+}
+
+func int32SliceFromOutput(ptr uintptr, length int32) []int32 {
+	if ptr == 0 || length == 0 {
+		return nil
+	}
+	data := unsafe.Slice((*int32)(unsafe.Pointer(ptr)), int(length))
+	return append([]int32(nil), data...)
+}
+
+func boolSliceFromOutput(ptr uintptr, length int32) []bool {
+	if ptr == 0 || length == 0 {
+		return nil
+	}
+	raw := unsafe.Slice((*byte)(unsafe.Pointer(ptr)), int(length))
+	out := make([]bool, len(raw))
+	for i := range raw {
+		out[i] = raw[i] != 0
+	}
+	return out
+}
+
+func bytesFromOutput(ptr uintptr, length int32) []byte {
+	if ptr == 0 || length == 0 {
+		return nil
+	}
+	return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(ptr)), int(length))...)
+}
+
+func requestPtr(data []byte) uintptr {
+	if len(data) == 0 {
+		return 0
+	}
+	return uintptr(unsafe.Pointer(&data[0]))
+}
+
+func releaseRepeatedOutput(output *RepeatedGreeterEchoNativeUnaryOutput) {
+	if output == nil {
+		return
+	}
+	rpcruntime.Release(output.ScoresPtr)
+	rpcruntime.Release(output.FlagsPtr)
+}
+`
+
+const repeatedStage7PBGoSource = `// Code generated by protoc-gen-go. DO NOT EDIT.
+// versions:
+// 	protoc-gen-go v1.36.11
+// 	protoc        v7.34.1
+// source: repeated/v1/repeated.proto
+
+package repeatedv1
+
+import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	reflect "reflect"
+	sync "sync"
+	unsafe "unsafe"
+)
+
+const (
+	// Verify that this generated code is sufficiently up-to-date.
+	_ = protoimpl.EnforceVersion(20 - protoimpl.MinVersion)
+	// Verify that runtime/protoimpl is sufficiently up-to-date.
+	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
+)
+
+type RepeatedRequest struct {
+	state         protoimpl.MessageState ` + "`" + `protogen:"open.v1"` + "`" + `
+	Scores        []int32                ` + "`" + `protobuf:"varint,1,rep,packed,name=scores,proto3" json:"scores,omitempty"` + "`" + `
+	Flags         []bool                 ` + "`" + `protobuf:"varint,2,rep,packed,name=flags,proto3" json:"flags,omitempty"` + "`" + `
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RepeatedRequest) Reset() {
+	*x = RepeatedRequest{}
+	mi := &file_repeated_v1_repeated_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RepeatedRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RepeatedRequest) ProtoMessage() {}
+
+func (x *RepeatedRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_repeated_v1_repeated_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RepeatedRequest.ProtoReflect.Descriptor instead.
+func (*RepeatedRequest) Descriptor() ([]byte, []int) {
+	return file_repeated_v1_repeated_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *RepeatedRequest) GetScores() []int32 {
+	if x != nil {
+		return x.Scores
+	}
+	return nil
+}
+
+func (x *RepeatedRequest) GetFlags() []bool {
+	if x != nil {
+		return x.Flags
+	}
+	return nil
+}
+
+type RepeatedReply struct {
+	state         protoimpl.MessageState ` + "`" + `protogen:"open.v1"` + "`" + `
+	Scores        []int32                ` + "`" + `protobuf:"varint,1,rep,packed,name=scores,proto3" json:"scores,omitempty"` + "`" + `
+	Flags         []bool                 ` + "`" + `protobuf:"varint,2,rep,packed,name=flags,proto3" json:"flags,omitempty"` + "`" + `
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RepeatedReply) Reset() {
+	*x = RepeatedReply{}
+	mi := &file_repeated_v1_repeated_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RepeatedReply) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RepeatedReply) ProtoMessage() {}
+
+func (x *RepeatedReply) ProtoReflect() protoreflect.Message {
+	mi := &file_repeated_v1_repeated_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RepeatedReply.ProtoReflect.Descriptor instead.
+func (*RepeatedReply) Descriptor() ([]byte, []int) {
+	return file_repeated_v1_repeated_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *RepeatedReply) GetScores() []int32 {
+	if x != nil {
+		return x.Scores
+	}
+	return nil
+}
+
+func (x *RepeatedReply) GetFlags() []bool {
+	if x != nil {
+		return x.Flags
+	}
+	return nil
+}
+
+var File_repeated_v1_repeated_proto protoreflect.FileDescriptor
+
+const file_repeated_v1_repeated_proto_rawDesc = "" +
+	"\n" +
+	"\x1arepeated/v1/repeated.proto\x12\x12stage7.repeated.v1\"?\n" +
+	"\x0fRepeatedRequest\x12\x16\n" +
+	"\x06scores\x18\x01 \x03(\x05R\x06scores\x12\x14\n" +
+	"\x05flags\x18\x02 \x03(\bR\x05flags\"=\n" +
+	"\rRepeatedReply\x12\x16\n" +
+	"\x06scores\x18\x01 \x03(\x05R\x06scores\x12\x14\n" +
+	"\x05flags\x18\x02 \x03(\bR\x05flagsB3Z1example.com/stage7repeated/repeated/v1;repeatedv1b\x06proto3"
+
+var (
+	file_repeated_v1_repeated_proto_rawDescOnce sync.Once
+	file_repeated_v1_repeated_proto_rawDescData []byte
+)
+
+func file_repeated_v1_repeated_proto_rawDescGZIP() []byte {
+	file_repeated_v1_repeated_proto_rawDescOnce.Do(func() {
+		file_repeated_v1_repeated_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_repeated_v1_repeated_proto_rawDesc), len(file_repeated_v1_repeated_proto_rawDesc)))
+	})
+	return file_repeated_v1_repeated_proto_rawDescData
+}
+
+var file_repeated_v1_repeated_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_repeated_v1_repeated_proto_goTypes = []any{
+	(*RepeatedRequest)(nil), // 0: stage7.repeated.v1.RepeatedRequest
+	(*RepeatedReply)(nil),   // 1: stage7.repeated.v1.RepeatedReply
+}
+var file_repeated_v1_repeated_proto_depIdxs = []int32{
+	0, // [0:0] is the sub-list for method output_type
+	0, // [0:0] is the sub-list for method input_type
+	0, // [0:0] is the sub-list for extension type_name
+	0, // [0:0] is the sub-list for extension extendee
+	0, // [0:0] is the sub-list for field type_name
+}
+
+func init() { file_repeated_v1_repeated_proto_init() }
+func file_repeated_v1_repeated_proto_init() {
+	if File_repeated_v1_repeated_proto != nil {
+		return
+	}
+	type x struct{}
+	out := protoimpl.TypeBuilder{
+		File: protoimpl.DescBuilder{
+			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_repeated_v1_repeated_proto_rawDesc), len(file_repeated_v1_repeated_proto_rawDesc)),
+			NumEnums:      0,
+			NumMessages:   2,
+			NumExtensions: 0,
+			NumServices:   0,
+		},
+		GoTypes:           file_repeated_v1_repeated_proto_goTypes,
+		DependencyIndexes: file_repeated_v1_repeated_proto_depIdxs,
+		MessageInfos:      file_repeated_v1_repeated_proto_msgTypes,
+	}.Build()
+	File_repeated_v1_repeated_proto = out.File
+	file_repeated_v1_repeated_proto_goTypes = nil
+	file_repeated_v1_repeated_proto_depIdxs = nil
+}
+`
