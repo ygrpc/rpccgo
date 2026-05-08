@@ -71,10 +71,10 @@ func TestBuildContractPlanBuildsNativeAndMessageFields(t *testing.T) {
 		Name:     "tags",
 		GoName:   "Tags",
 		FullName: "test.v1.ContractRequest.tags",
-		Kind:     FieldKindString,
+		Kind:     FieldKindSignedInt32,
 		Repeated: true,
 		Native: NativeFieldPlan{
-			Kind:  NativeFieldKindString,
+			Kind:  NativeFieldKindSignedNumeric,
 			Shape: NativeABIShapeRepeated,
 		},
 	})
@@ -355,7 +355,7 @@ func contractRequestDescriptor() *descriptorpb.DescriptorProto {
 			fieldDescriptor("signed_total", 2, descriptorpb.FieldDescriptorProto_TYPE_INT64, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 			fieldDescriptor("ratio", 3, descriptorpb.FieldDescriptorProto_TYPE_FLOAT, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 			fieldDescriptor("enabled", 4, descriptorpb.FieldDescriptorProto_TYPE_BOOL, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
-			fieldDescriptor("tags", 5, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
+			fieldDescriptor("tags", 5, descriptorpb.FieldDescriptorProto_TYPE_INT32, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
 			fieldDescriptor("payload", 6, descriptorpb.FieldDescriptorProto_TYPE_BYTES, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 			fieldDescriptor("child", 7, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".test.v1.Child"),
 			fieldDescriptor("state", 8, descriptorpb.FieldDescriptorProto_TYPE_ENUM, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".test.v1.State"),
