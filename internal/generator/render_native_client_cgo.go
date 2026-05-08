@@ -415,6 +415,12 @@ func renderNativeClientFields(g *protogen.GeneratedFile, fields []FieldPlan, out
 		switch field.Native.Shape {
 		case NativeABIShapeBoolByte:
 			g.P(field.GoName, " int8")
+		case NativeABIShapeRepeated, NativeABIShapeBoolByteBufferWrapper:
+			g.P(field.GoName, "Ptr uintptr")
+			g.P(field.GoName, "Len int32")
+			if !output {
+				g.P(field.GoName, "Ownership int32")
+			}
 		case NativeABIShapeScalar:
 			renderNativeScalarField(g, field, output)
 		default:
@@ -495,6 +501,75 @@ func renderNativeRequestFieldDecode(g *protogen.GeneratedFile, field FieldPlan, 
 	switch field.Native.Shape {
 	case NativeABIShapeBoolByte:
 		g.P("req.", field.GoName, " = input.", field.GoName, " != 0")
+	case NativeABIShapeBoolByteBufferWrapper:
+		g.P("if _, err := rpcruntime.LengthFromInt32(input.", field.GoName, "Len); err != nil {")
+		g.P(`return nil, fmt.Errorf("`, field.FullName, `: %w", err)`)
+		g.P("}")
+		g.P(field.GoName, ", err := rpcruntime.NewRpcBoolRepeatChecked((*byte)(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
+		g.P("if err != nil {")
+		g.P(`return nil, fmt.Errorf("`, field.FullName, `: %w", err)`)
+		g.P("}")
+		g.P("req.", field.GoName, " = ", field.GoName, ".SafeSlice()")
+		g.P("if err := ", field.GoName, ".Release(); err != nil {")
+		g.P("return nil, err")
+		g.P("}")
+	case NativeABIShapeRepeated:
+		g.P("if _, err := rpcruntime.LengthFromInt32(input.", field.GoName, "Len); err != nil {")
+		g.P(`return nil, fmt.Errorf("`, field.FullName, `: %w", err)`)
+		g.P("}")
+		switch field.Kind {
+		case FieldKindSignedInt32:
+			g.P(field.GoName, ", err := rpcruntime.NewRpcRepeatChecked((*int32)(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
+			g.P("if err != nil {")
+			g.P(`return nil, fmt.Errorf("`, field.FullName, `: %w", err)`)
+			g.P("}")
+			g.P("req.", field.GoName, " = ", field.GoName, ".SafeSlice()")
+			g.P("if err := ", field.GoName, ".Release(); err != nil {")
+			g.P("return nil, err")
+			g.P("}")
+		case FieldKindSignedInt64:
+			g.P(field.GoName, ", err := rpcruntime.NewRpcRepeatChecked((*int64)(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
+			g.P("if err != nil {")
+			g.P(`return nil, fmt.Errorf("`, field.FullName, `: %w", err)`)
+			g.P("}")
+			g.P("req.", field.GoName, " = ", field.GoName, ".SafeSlice()")
+			g.P("if err := ", field.GoName, ".Release(); err != nil {")
+			g.P("return nil, err")
+			g.P("}")
+		case FieldKindFloat:
+			g.P(field.GoName, ", err := rpcruntime.NewRpcRepeatChecked((*float32)(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
+			g.P("if err != nil {")
+			g.P(`return nil, fmt.Errorf("`, field.FullName, `: %w", err)`)
+			g.P("}")
+			g.P("req.", field.GoName, " = ", field.GoName, ".SafeSlice()")
+			g.P("if err := ", field.GoName, ".Release(); err != nil {")
+			g.P("return nil, err")
+			g.P("}")
+		case FieldKindDouble:
+			g.P(field.GoName, ", err := rpcruntime.NewRpcRepeatChecked((*float64)(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
+			g.P("if err != nil {")
+			g.P(`return nil, fmt.Errorf("`, field.FullName, `: %w", err)`)
+			g.P("}")
+			g.P("req.", field.GoName, " = ", field.GoName, ".SafeSlice()")
+			g.P("if err := ", field.GoName, ".Release(); err != nil {")
+			g.P("return nil, err")
+			g.P("}")
+		case FieldKindEnum:
+			g.P(field.GoName, ", err := rpcruntime.NewRpcRepeatChecked((*int32)(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
+			g.P("if err != nil {")
+			g.P(`return nil, fmt.Errorf("`, field.FullName, `: %w", err)`)
+			g.P("}")
+			g.P(field.GoName, "Raw := ", field.GoName, ".SafeSlice()")
+			g.P("req.", field.GoName, " = make([]", nativeGoEnumType(g, field), ", len(", field.GoName, "Raw))")
+			g.P("for i := range ", field.GoName, "Raw {")
+			g.P("req.", field.GoName, "[i] = ", nativeGoEnumType(g, field), "(", field.GoName, "Raw[i])")
+			g.P("}")
+			g.P("if err := ", field.GoName, ".Release(); err != nil {")
+			g.P("return nil, err")
+			g.P("}")
+		default:
+			g.P("return nil, ", unsupportedError)
+		}
 	case NativeABIShapeScalar:
 		switch field.Kind {
 		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble:
@@ -611,6 +686,21 @@ func renderNativeResponseFieldValidate(g *protogen.GeneratedFile, field FieldPla
 	switch field.Native.Shape {
 	case NativeABIShapeBoolByte:
 		return
+	case NativeABIShapeBoolByteBufferWrapper:
+		g.P(field.GoName, "Len, err := rpcruntime.LengthToInt32(len(resp.", field.GoName, "))")
+		g.P("if err != nil {")
+		g.P("return err")
+		g.P("}")
+		return
+	case NativeABIShapeRepeated:
+		switch field.Kind {
+		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble, FieldKindEnum:
+			g.P(field.GoName, "Len, err := rpcruntime.LengthToInt32(len(resp.", field.GoName, "))")
+			g.P("if err != nil {")
+			g.P("return err")
+			g.P("}")
+			return
+		}
 	case NativeABIShapeScalar:
 		switch field.Kind {
 		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble, FieldKindEnum:
@@ -633,6 +723,40 @@ func renderNativeResponseFieldStage(g *protogen.GeneratedFile, field FieldPlan, 
 		g.P("if resp.", field.GoName, " {")
 		g.P(field.GoName, "Value = 1")
 		g.P("}")
+	case NativeABIShapeBoolByteBufferWrapper:
+		g.P(field.GoName, "Bytes := make([]byte, len(resp.", field.GoName, "))")
+		g.P("for i := range resp.", field.GoName, " {")
+		g.P("if resp.", field.GoName, "[i] {")
+		g.P(field.GoName, "Bytes[i] = 1")
+		g.P("}")
+		g.P("}")
+		g.P(field.GoName, "Ptr, err := rpcruntime.PinBytes(", field.GoName, "Bytes)")
+		g.P("if err != nil {")
+		renderReleasePinnedOutputFields(g, pinned)
+		g.P("return err")
+		g.P("}")
+		g.P("_ = ", field.GoName, "Ptr")
+	case NativeABIShapeRepeated:
+		switch field.Kind {
+		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble:
+			g.P(field.GoName, "Ptr, err := rpcruntime.PinSlice(resp.", field.GoName, ")")
+			g.P("if err != nil {")
+			renderReleasePinnedOutputFields(g, pinned)
+			g.P("return err")
+			g.P("}")
+			g.P("_ = ", field.GoName, "Ptr")
+		case FieldKindEnum:
+			g.P(field.GoName, "Values := make([]int32, len(resp.", field.GoName, "))")
+			g.P("for i := range resp.", field.GoName, " {")
+			g.P(field.GoName, "Values[i] = int32(resp.", field.GoName, "[i])")
+			g.P("}")
+			g.P(field.GoName, "Ptr, err := rpcruntime.PinSlice(", field.GoName, "Values)")
+			g.P("if err != nil {")
+			renderReleasePinnedOutputFields(g, pinned)
+			g.P("return err")
+			g.P("}")
+			g.P("_ = ", field.GoName, "Ptr")
+		}
 	case NativeABIShapeScalar:
 		switch field.Kind {
 		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble:
@@ -668,6 +792,9 @@ func renderNativeResponseFieldCommit(g *protogen.GeneratedFile, field FieldPlan)
 	switch field.Native.Shape {
 	case NativeABIShapeBoolByte:
 		g.P("output.", field.GoName, " = ", field.GoName, "Value")
+	case NativeABIShapeBoolByteBufferWrapper, NativeABIShapeRepeated:
+		g.P("output.", field.GoName, "Ptr = ", field.GoName, "Ptr")
+		g.P("output.", field.GoName, "Len = ", field.GoName, "Len")
 	case NativeABIShapeScalar:
 		switch field.Kind {
 		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble, FieldKindEnum:
@@ -831,21 +958,43 @@ func nativeClientNeedsFmt(service ServicePlan) bool {
 			if field.Native.Shape == NativeABIShapeScalar && (field.Kind == FieldKindString || field.Kind == FieldKindBytes) {
 				return true
 			}
+			if field.Native.Shape == NativeABIShapeRepeated || field.Native.Shape == NativeABIShapeBoolByteBufferWrapper {
+				return true
+			}
 		}
 	}
 	return false
 }
 
 func nativeClientNeedsUnsafe(service ServicePlan) bool {
-	return nativeClientNeedsFmt(service)
+	for _, method := range service.Methods {
+		if method.Streaming != StreamingKindUnary && method.Streaming != StreamingKindClientStreaming && method.Streaming != StreamingKindServerStreaming && method.Streaming != StreamingKindBidiStreaming {
+			continue
+		}
+		for _, field := range method.NativeContract.RequestFields {
+			if field.Native.Shape == NativeABIShapeScalar && (field.Kind == FieldKindString || field.Kind == FieldKindBytes) {
+				return true
+			}
+			if field.Native.Shape == NativeABIShapeRepeated || field.Native.Shape == NativeABIShapeBoolByteBufferWrapper {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func nativeClientFieldPinsOutput(field FieldPlan) bool {
+	if field.Native.Shape == NativeABIShapeRepeated || field.Native.Shape == NativeABIShapeBoolByteBufferWrapper {
+		return true
+	}
 	return field.Native.Shape == NativeABIShapeScalar && (field.Kind == FieldKindString || field.Kind == FieldKindBytes)
 }
 
 func nativeClientInputFieldSymbols(field FieldPlan) []string {
 	if field.Native.Shape == NativeABIShapeScalar && (field.Kind == FieldKindString || field.Kind == FieldKindBytes) {
+		return []string{field.GoName + "Ptr", field.GoName + "Len", field.GoName + "Ownership"}
+	}
+	if field.Native.Shape == NativeABIShapeRepeated || field.Native.Shape == NativeABIShapeBoolByteBufferWrapper {
 		return []string{field.GoName + "Ptr", field.GoName + "Len", field.GoName + "Ownership"}
 	}
 	return []string{field.GoName}

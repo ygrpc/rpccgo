@@ -82,6 +82,46 @@ func TestRenderNativeClientCGOSupportsEnumAsInt32(t *testing.T) {
 	}
 }
 
+func TestRenderNativeClientCGOSupportsRepeatedNativeABI(t *testing.T) {
+	file := nativeClientRepeatedFile()
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	const nativeClientFile = "test/v1/cgo/native_repeated.repeated_service.client.cgo.rpccgo.go"
+	for _, fragment := range []string{
+		"ScoresPtr",
+		"ScoresLen",
+		"ScoresOwnership",
+		"FlagsPtr",
+		"FlagsLen",
+		"FlagsOwnership",
+		"CountsPtr",
+		"CountsLen",
+		"CountsOwnership",
+		"RatiosPtr",
+		"RatiosLen",
+		"RatiosOwnership",
+		"MoodsPtr",
+		"MoodsLen",
+		"MoodsOwnership",
+		"rpcruntime.NewRpcRepeatChecked((*int32)(unsafe.Pointer(input.ScoresPtr)), input.ScoresLen, input.ScoresOwnership > 0)",
+		"rpcruntime.NewRpcRepeatChecked((*int64)(unsafe.Pointer(input.CountsPtr)), input.CountsLen, input.CountsOwnership > 0)",
+		"rpcruntime.NewRpcRepeatChecked((*float64)(unsafe.Pointer(input.RatiosPtr)), input.RatiosLen, input.RatiosOwnership > 0)",
+		"rpcruntime.NewRpcRepeatChecked((*int32)(unsafe.Pointer(input.MoodsPtr)), input.MoodsLen, input.MoodsOwnership > 0)",
+		"rpcruntime.NewRpcBoolRepeatChecked((*byte)(unsafe.Pointer(input.FlagsPtr)), input.FlagsLen, input.FlagsOwnership > 0)",
+		"rpcruntime.LengthFromInt32(input.ScoresLen)",
+		"rpcruntime.LengthFromInt32(input.FlagsLen)",
+		"rpcruntime.Release(ScoresPtr)",
+	} {
+		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
+	}
+	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "return nil, repeatedServiceNativeClientUnsupportedField")
+}
+
 func TestRenderNativeClientCGORejectsGeneratedHelperCollisions(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -420,6 +460,64 @@ func nativeClientEnumFile() *descriptorpb.FileDescriptorProto {
 				Name: proto.String("EnumService"),
 				Method: []*descriptorpb.MethodDescriptorProto{
 					methodDescriptor("Check", ".test.v1.EnumRequest", ".test.v1.EnumReply", false, false),
+				},
+			},
+		},
+		SourceCodeInfo: &descriptorpb.SourceCodeInfo{Location: []*descriptorpb.SourceCodeInfo_Location{
+			{
+				Path:            []int32{6, 0},
+				Span:            []int32{0, 0, 0},
+				LeadingComments: proto.String("@rpccgo: native\n"),
+			},
+		}},
+	}
+}
+
+func nativeClientRepeatedFile() *descriptorpb.FileDescriptorProto {
+	return &descriptorpb.FileDescriptorProto{
+		Name:    proto.String("test/v1/native_repeated.proto"),
+		Package: proto.String("test.v1"),
+		Syntax:  proto.String("proto3"),
+		Options: &descriptorpb.FileOptions{
+			GoPackage: proto.String("example.com/test/v1;testv1"),
+		},
+		EnumType: []*descriptorpb.EnumDescriptorProto{
+			{
+				Name: proto.String("Mood"),
+				Value: []*descriptorpb.EnumValueDescriptorProto{
+					{Name: proto.String("MOOD_UNSPECIFIED"), Number: proto.Int32(0)},
+					{Name: proto.String("MOOD_OK"), Number: proto.Int32(1)},
+					{Name: proto.String("MOOD_BUSY"), Number: proto.Int32(2)},
+				},
+			},
+		},
+		MessageType: []*descriptorpb.DescriptorProto{
+			{
+				Name: proto.String("RepeatedRequest"),
+				Field: []*descriptorpb.FieldDescriptorProto{
+					fieldDescriptor("scores", 1, descriptorpb.FieldDescriptorProto_TYPE_INT32, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
+					fieldDescriptor("flags", 2, descriptorpb.FieldDescriptorProto_TYPE_BOOL, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
+					fieldDescriptor("counts", 3, descriptorpb.FieldDescriptorProto_TYPE_INT64, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
+					fieldDescriptor("ratios", 4, descriptorpb.FieldDescriptorProto_TYPE_DOUBLE, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
+					fieldDescriptor("moods", 5, descriptorpb.FieldDescriptorProto_TYPE_ENUM, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".test.v1.Mood"),
+				},
+			},
+			{
+				Name: proto.String("RepeatedReply"),
+				Field: []*descriptorpb.FieldDescriptorProto{
+					fieldDescriptor("scores", 1, descriptorpb.FieldDescriptorProto_TYPE_INT32, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
+					fieldDescriptor("flags", 2, descriptorpb.FieldDescriptorProto_TYPE_BOOL, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
+					fieldDescriptor("counts", 3, descriptorpb.FieldDescriptorProto_TYPE_INT64, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
+					fieldDescriptor("ratios", 4, descriptorpb.FieldDescriptorProto_TYPE_DOUBLE, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
+					fieldDescriptor("moods", 5, descriptorpb.FieldDescriptorProto_TYPE_ENUM, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".test.v1.Mood"),
+				},
+			},
+		},
+		Service: []*descriptorpb.ServiceDescriptorProto{
+			{
+				Name: proto.String("RepeatedService"),
+				Method: []*descriptorpb.MethodDescriptorProto{
+					methodDescriptor("Check", ".test.v1.RepeatedRequest", ".test.v1.RepeatedReply", false, false),
 				},
 			},
 		},
