@@ -20,6 +20,14 @@
 - 旧 provider registry、多 provider bootstrap、framework selector。
 - 旧 debugserver 与 forwarding bootstrap。
 
+## Hardening 补充
+
+- repeated numeric、enum、bool native ABI 已由 Stage 7 hardening acceptance 覆盖。
+- repeated string/bytes 不进入当前 native ABI；planner 明确报错。
+- example `Run` 和 full matrix acceptance 使用构建后的 server 二进制，避免 `go run` cleanup 只杀父进程。
+- example client 不再使用 `panic(err)` 展示错误处理。
+- remote stream cancel 会取消 stream context；gRPC connection 生命周期仍由调用方持有。
+
 ## 验证结果
 
 - `rtk go test ./internal/generator -run 'TestRenderMessageClientCGO|TestStage7' -count=1`：PASS。
