@@ -993,3 +993,4 @@ rtk git commit -m "docs: record stage 7 generated examples"
 - example 使用真实 `protoc`，开发机需要 `protoc` 可用；若 CI 没有 `protoc`，阶段 8 需要决定是否在 CI 安装或把 example generation 拆成可选验证。
 - full example 的 helper 可能和现有 integration fixture 有重复；阶段 7 接受少量重复以换取用户可读性，阶段 8 再决定是否抽公共 test helper。
 - 本阶段固化 public API 后，后续重命名成本会上升；Task 1 必须仔细确认命名就是想长期保留的用户 API。
+- Stage 7 hardening 后，repeated numeric、enum 和 bool native ABI 有 generated-source acceptance；repeated string/bytes 仍不进入 native ABI，planner 会明确报错，避免 renderer 半实现。

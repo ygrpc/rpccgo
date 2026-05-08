@@ -165,6 +165,36 @@ func TestBuildContractPlanRejectsRepeatedMessage(t *testing.T) {
 	}
 }
 
+func TestBuildContractPlanRejectsRepeatedStringNativeABI(t *testing.T) {
+	plugin := newTestPlugin(t, "paths=source_relative", repeatedStringContractTestFile())
+
+	_, err := BuildDescriptorPlan(plugin.Files[0])
+	if err == nil {
+		t.Fatal("BuildDescriptorPlan() error = nil, want repeated string unsupported error")
+	}
+	got := err.Error()
+	for _, want := range []string{"repeated string", "not supported"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("BuildDescriptorPlan() error = %q, want substring %q", got, want)
+		}
+	}
+}
+
+func TestBuildContractPlanRejectsRepeatedBytesNativeABI(t *testing.T) {
+	plugin := newTestPlugin(t, "paths=source_relative", repeatedBytesContractTestFile())
+
+	_, err := BuildDescriptorPlan(plugin.Files[0])
+	if err == nil {
+		t.Fatal("BuildDescriptorPlan() error = nil, want repeated bytes unsupported error")
+	}
+	got := err.Error()
+	for _, want := range []string{"repeated bytes", "not supported"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("BuildDescriptorPlan() error = %q, want substring %q", got, want)
+		}
+	}
+}
+
 func TestBuildContractPlanRejectsMapField(t *testing.T) {
 	plugin := newTestPlugin(t, "paths=source_relative", mapContractTestFile())
 
@@ -266,6 +296,14 @@ func repeatedBoolContractTestFile() *descriptorpb.FileDescriptorProto {
 
 func repeatedMessageContractTestFile() *descriptorpb.FileDescriptorProto {
 	return badFieldContractTestFile(fieldDescriptor("children", 1, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".test.v1.Child"))
+}
+
+func repeatedStringContractTestFile() *descriptorpb.FileDescriptorProto {
+	return badFieldContractTestFile(fieldDescriptor("tags", 1, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""))
+}
+
+func repeatedBytesContractTestFile() *descriptorpb.FileDescriptorProto {
+	return badFieldContractTestFile(fieldDescriptor("payloads", 1, descriptorpb.FieldDescriptorProto_TYPE_BYTES, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""))
 }
 
 func mapContractTestFile() *descriptorpb.FileDescriptorProto {

@@ -132,8 +132,14 @@ func nativeFieldPlan(field FieldPlan) (NativeFieldPlan, error) {
 		}
 		return NativeFieldPlan{Kind: NativeFieldKindBool, Shape: NativeABIShapeBoolByte}, nil
 	case FieldKindString:
+		if field.Repeated {
+			return NativeFieldPlan{}, fmt.Errorf("repeated string fields are not supported in native ABI")
+		}
 		return NativeFieldPlan{Kind: NativeFieldKindString, Shape: repeatedShape(field.Repeated)}, nil
 	case FieldKindBytes:
+		if field.Repeated {
+			return NativeFieldPlan{}, fmt.Errorf("repeated bytes fields are not supported in native ABI")
+		}
 		return NativeFieldPlan{Kind: NativeFieldKindBytes, Shape: repeatedShape(field.Repeated)}, nil
 	case FieldKindMessage:
 		if field.Repeated {
