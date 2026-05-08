@@ -60,15 +60,18 @@ func (s *GreeterGRPCRemoteServer) StartCollectMessage(ctx context.Context) (Gree
 	if s == nil || s.conn == nil {
 		return nil, errors.New("rpccgo: grpc remote server is nil")
 	}
-	stream, err := s.conn.NewStream(ctx, &grpc.StreamDesc{ClientStreams: true}, GreeterCollectGRPCFullMethodName)
+	streamCtx, cancel := context.WithCancel(ctx)
+	stream, err := s.conn.NewStream(streamCtx, &grpc.StreamDesc{ClientStreams: true}, GreeterCollectGRPCFullMethodName)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
-	return &GreeterCollectGRPCRemoteClientStreamSession{stream: &grpc.GenericClientStream[SayHelloRequest, SayHelloResponse]{ClientStream: stream}}, nil
+	return &GreeterCollectGRPCRemoteClientStreamSession{stream: &grpc.GenericClientStream[SayHelloRequest, SayHelloResponse]{ClientStream: stream}, cancel: cancel}, nil
 }
 
 type GreeterCollectGRPCRemoteClientStreamSession struct {
 	stream *grpc.GenericClientStream[SayHelloRequest, SayHelloResponse]
+	cancel context.CancelFunc
 }
 
 func (s *GreeterCollectGRPCRemoteClientStreamSession) Send(ctx context.Context, req []byte) error {
@@ -88,6 +91,11 @@ func (s *GreeterCollectGRPCRemoteClientStreamSession) Finish(ctx context.Context
 	if s == nil || s.stream == nil {
 		return nil, errors.New("rpccgo: grpc remote client stream is nil")
 	}
+	defer func() {
+		if s.cancel != nil {
+			s.cancel()
+		}
+	}()
 	response, err := s.stream.CloseAndRecv()
 	if err != nil {
 		return nil, err
@@ -104,6 +112,9 @@ func (s *GreeterCollectGRPCRemoteClientStreamSession) Cancel(ctx context.Context
 	if s == nil || s.stream == nil {
 		return nil
 	}
+	if s.cancel != nil {
+		s.cancel()
+	}
 	return s.stream.CloseSend()
 }
 
@@ -111,26 +122,32 @@ func (s *GreeterGRPCRemoteServer) StartBroadcastMessage(ctx context.Context, req
 	if s == nil || s.conn == nil {
 		return nil, errors.New("rpccgo: grpc remote server is nil")
 	}
-	stream, err := s.conn.NewStream(ctx, &grpc.StreamDesc{ServerStreams: true}, GreeterBroadcastGRPCFullMethodName)
+	streamCtx, cancel := context.WithCancel(ctx)
+	stream, err := s.conn.NewStream(streamCtx, &grpc.StreamDesc{ServerStreams: true}, GreeterBroadcastGRPCFullMethodName)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 	request := new(SayHelloRequest)
 	if err := proto.Unmarshal(req, request); err != nil {
+		cancel()
 		return nil, status.Errorf(codes.InvalidArgument, "rpccgo: grpc remote request protobuf unmarshal failed: %v", err)
 	}
 	client := &grpc.GenericClientStream[SayHelloRequest, SayHelloResponse]{ClientStream: stream}
 	if err := client.Send(request); err != nil {
+		cancel()
 		return nil, err
 	}
 	if err := client.CloseSend(); err != nil {
+		cancel()
 		return nil, err
 	}
-	return &GreeterBroadcastGRPCRemoteServerStreamSession{stream: client}, nil
+	return &GreeterBroadcastGRPCRemoteServerStreamSession{stream: client, cancel: cancel}, nil
 }
 
 type GreeterBroadcastGRPCRemoteServerStreamSession struct {
 	stream *grpc.GenericClientStream[SayHelloRequest, SayHelloResponse]
+	cancel context.CancelFunc
 }
 
 func (s *GreeterBroadcastGRPCRemoteServerStreamSession) Recv(ctx context.Context) ([]byte, error) {
@@ -154,6 +171,9 @@ func (s *GreeterBroadcastGRPCRemoteServerStreamSession) Recv(ctx context.Context
 
 func (s *GreeterBroadcastGRPCRemoteServerStreamSession) Done(ctx context.Context) error {
 	_ = ctx
+	if s != nil && s.cancel != nil {
+		s.cancel()
+	}
 	return nil
 }
 
@@ -162,6 +182,9 @@ func (s *GreeterBroadcastGRPCRemoteServerStreamSession) Cancel(ctx context.Conte
 	if s == nil || s.stream == nil {
 		return nil
 	}
+	if s.cancel != nil {
+		s.cancel()
+	}
 	return s.stream.CloseSend()
 }
 
@@ -169,15 +192,18 @@ func (s *GreeterGRPCRemoteServer) StartChatMessage(ctx context.Context) (Greeter
 	if s == nil || s.conn == nil {
 		return nil, errors.New("rpccgo: grpc remote server is nil")
 	}
-	stream, err := s.conn.NewStream(ctx, &grpc.StreamDesc{ClientStreams: true, ServerStreams: true}, GreeterChatGRPCFullMethodName)
+	streamCtx, cancel := context.WithCancel(ctx)
+	stream, err := s.conn.NewStream(streamCtx, &grpc.StreamDesc{ClientStreams: true, ServerStreams: true}, GreeterChatGRPCFullMethodName)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
-	return &GreeterChatGRPCRemoteBidiStreamSession{stream: &grpc.GenericClientStream[SayHelloRequest, SayHelloResponse]{ClientStream: stream}}, nil
+	return &GreeterChatGRPCRemoteBidiStreamSession{stream: &grpc.GenericClientStream[SayHelloRequest, SayHelloResponse]{ClientStream: stream}, cancel: cancel}, nil
 }
 
 type GreeterChatGRPCRemoteBidiStreamSession struct {
 	stream *grpc.GenericClientStream[SayHelloRequest, SayHelloResponse]
+	cancel context.CancelFunc
 }
 
 func (s *GreeterChatGRPCRemoteBidiStreamSession) Send(ctx context.Context, req []byte) error {
@@ -221,6 +247,9 @@ func (s *GreeterChatGRPCRemoteBidiStreamSession) CloseSend(ctx context.Context) 
 
 func (s *GreeterChatGRPCRemoteBidiStreamSession) Done(ctx context.Context) error {
 	_ = ctx
+	if s != nil && s.cancel != nil {
+		s.cancel()
+	}
 	return nil
 }
 
@@ -228,6 +257,9 @@ func (s *GreeterChatGRPCRemoteBidiStreamSession) Cancel(ctx context.Context) err
 	_ = ctx
 	if s == nil || s.stream == nil {
 		return nil
+	}
+	if s.cancel != nil {
+		s.cancel()
 	}
 	return s.stream.CloseSend()
 }

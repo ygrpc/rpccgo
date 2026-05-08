@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -18,16 +19,22 @@ import (
 )
 
 func main() {
-	ctx := context.Background()
+	if err := run(context.Background()); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func run(ctx context.Context) error {
 	connectBaseURL := strings.TrimRight(envOrDefault("RPCCGO_FULL_CONNECT_URL", "http://127.0.0.1:8081"), "/")
 	grpcAddr := envOrDefault("RPCCGO_FULL_GRPC_ADDR", "127.0.0.1:8082")
 
 	if err := runConnectDemo(ctx, connectBaseURL); err != nil {
-		panic(err)
+		return err
 	}
 	if err := runGRPCDemo(ctx, grpcAddr); err != nil {
-		panic(err)
+		return err
 	}
+	return nil
 }
 
 func runConnectDemo(ctx context.Context, baseURL string) error {

@@ -1,6 +1,7 @@
 package full
 
 import (
+	"bytes"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -48,6 +49,18 @@ func TestFullGreeterExample(t *testing.T) {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("full example failed: %v\n%s", err, out)
+	}
+}
+
+func TestFullGreeterMageRunNoPanic(t *testing.T) {
+	cmd := exec.Command("go", "run", "github.com/magefile/mage", "run")
+	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("mage run error = %v\n%s", err, out)
+	}
+	if bytes.Contains(out, []byte("panic:")) {
+		t.Fatalf("mage run output contains panic:\n%s", out)
 	}
 }
 

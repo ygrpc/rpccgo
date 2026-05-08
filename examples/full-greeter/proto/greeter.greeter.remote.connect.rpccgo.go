@@ -74,12 +74,14 @@ func (s *GreeterConnectRemoteServer) StartCollectMessage(ctx context.Context) (G
 	if s == nil || s.collect == nil {
 		return nil, errors.New("rpccgo: connect remote server is nil")
 	}
-	stream := s.collect.CallClientStream(ctx)
-	return &GreeterCollectConnectRemoteClientStreamSession{stream: stream}, nil
+	streamCtx, cancel := context.WithCancel(ctx)
+	stream := s.collect.CallClientStream(streamCtx)
+	return &GreeterCollectConnectRemoteClientStreamSession{stream: stream, cancel: cancel}, nil
 }
 
 type GreeterCollectConnectRemoteClientStreamSession struct {
 	stream *connect.ClientStreamForClient[SayHelloRequest, SayHelloResponse]
+	cancel context.CancelFunc
 }
 
 func (s *GreeterCollectConnectRemoteClientStreamSession) Send(ctx context.Context, req []byte) error {
@@ -99,6 +101,11 @@ func (s *GreeterCollectConnectRemoteClientStreamSession) Finish(ctx context.Cont
 	if s == nil || s.stream == nil {
 		return nil, errors.New("rpccgo: connect remote client stream is nil")
 	}
+	defer func() {
+		if s.cancel != nil {
+			s.cancel()
+		}
+	}()
 	resp, err := s.stream.CloseAndReceive()
 	if err != nil {
 		return nil, err
@@ -118,6 +125,9 @@ func (s *GreeterCollectConnectRemoteClientStreamSession) Cancel(ctx context.Cont
 	if s == nil || s.stream == nil {
 		return nil
 	}
+	if s.cancel != nil {
+		s.cancel()
+	}
 	conn, err := s.stream.Conn()
 	if err != nil {
 		return nil
@@ -133,15 +143,18 @@ func (s *GreeterConnectRemoteServer) StartBroadcastMessage(ctx context.Context, 
 	if err := proto.Unmarshal(req, request); err != nil {
 		return nil, fmt.Errorf("rpccgo: connect remote request protobuf unmarshal failed: %w", err)
 	}
-	stream, err := s.broadcast.CallServerStream(ctx, connect.NewRequest(request))
+	streamCtx, cancel := context.WithCancel(ctx)
+	stream, err := s.broadcast.CallServerStream(streamCtx, connect.NewRequest(request))
 	if err != nil {
+		cancel()
 		return nil, err
 	}
-	return &GreeterBroadcastConnectRemoteServerStreamSession{stream: stream}, nil
+	return &GreeterBroadcastConnectRemoteServerStreamSession{stream: stream, cancel: cancel}, nil
 }
 
 type GreeterBroadcastConnectRemoteServerStreamSession struct {
 	stream *connect.ServerStreamForClient[SayHelloResponse]
+	cancel context.CancelFunc
 }
 
 func (s *GreeterBroadcastConnectRemoteServerStreamSession) Recv(ctx context.Context) ([]byte, error) {
@@ -171,6 +184,9 @@ func (s *GreeterBroadcastConnectRemoteServerStreamSession) Done(ctx context.Cont
 	if s == nil || s.stream == nil {
 		return nil
 	}
+	if s.cancel != nil {
+		defer s.cancel()
+	}
 	return s.stream.Close()
 }
 
@@ -178,6 +194,9 @@ func (s *GreeterBroadcastConnectRemoteServerStreamSession) Cancel(ctx context.Co
 	_ = ctx
 	if s == nil || s.stream == nil {
 		return nil
+	}
+	if s.cancel != nil {
+		s.cancel()
 	}
 	conn, err := s.stream.Conn()
 	if err != nil {
@@ -190,12 +209,14 @@ func (s *GreeterConnectRemoteServer) StartChatMessage(ctx context.Context) (Gree
 	if s == nil || s.chat == nil {
 		return nil, errors.New("rpccgo: connect remote server is nil")
 	}
-	stream := s.chat.CallBidiStream(ctx)
-	return &GreeterChatConnectRemoteBidiStreamSession{stream: stream}, nil
+	streamCtx, cancel := context.WithCancel(ctx)
+	stream := s.chat.CallBidiStream(streamCtx)
+	return &GreeterChatConnectRemoteBidiStreamSession{stream: stream, cancel: cancel}, nil
 }
 
 type GreeterChatConnectRemoteBidiStreamSession struct {
 	stream *connect.BidiStreamForClient[SayHelloRequest, SayHelloResponse]
+	cancel context.CancelFunc
 }
 
 func (s *GreeterChatConnectRemoteBidiStreamSession) Send(ctx context.Context, req []byte) error {
@@ -242,6 +263,9 @@ func (s *GreeterChatConnectRemoteBidiStreamSession) Done(ctx context.Context) er
 	if s == nil || s.stream == nil {
 		return nil
 	}
+	if s.cancel != nil {
+		defer s.cancel()
+	}
 	return s.stream.CloseResponse()
 }
 
@@ -250,11 +274,18 @@ func (s *GreeterChatConnectRemoteBidiStreamSession) Cancel(ctx context.Context) 
 	if s == nil || s.stream == nil {
 		return nil
 	}
-	conn, err := s.stream.Conn()
-	if err != nil {
-		return nil
+	if s.cancel != nil {
+		s.cancel()
 	}
-	return closeConnectRemoteConn(conn)
+	conn, err := s.stream.Conn()
+	if err == nil {
+		return closeConnectRemoteConn(conn)
+	}
+	err = s.stream.CloseRequest()
+	if closeErr := s.stream.CloseResponse(); err == nil {
+		err = closeErr
+	}
+	return err
 }
 
 func closeConnectRemoteConn(conn connect.StreamingClientConn) error {

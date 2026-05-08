@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 	"unsafe"
@@ -91,9 +93,18 @@ func startExampleServer(t *testing.T) exampleServer {
 
 	connectAddr := reserveTCPAddr(t)
 	grpcAddr := reserveTCPAddr(t)
-	cmd := exec.Command("go", "run", "./cmd/server")
+	serverBin := filepath.Join(t.TempDir(), "full-example-server-"+strconv.FormatInt(time.Now().UnixNano(), 10))
+	build := exec.Command("go", "build", "-o", serverBin, "./cmd/server")
+	build.Dir = "../.."
+	build.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
+	if out, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build full example server error = %v\n%s", err, out)
+	}
+
+	cmd := exec.Command(serverBin)
 	cmd.Dir = "../.."
 	cmd.Env = append(os.Environ(),
+		"GOFLAGS=-mod=mod",
 		"RPCCGO_FULL_CONNECT_ADDR="+connectAddr,
 		"RPCCGO_FULL_GRPC_ADDR="+grpcAddr,
 	)

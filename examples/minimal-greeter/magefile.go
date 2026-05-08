@@ -7,7 +7,8 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"syscall"
+	"path/filepath"
+	"strconv"
 	"time"
 )
 
@@ -53,17 +54,23 @@ func Run() error {
 	if err != nil {
 		return err
 	}
-	server := exec.Command("go", "run", "./cmd/server")
+	serverBin := filepath.Join(os.TempDir(), "rpccgo-minimal-server-"+strconv.FormatInt(time.Now().UnixNano(), 10))
+	if err := runWithEnv(map[string]string{"GOFLAGS": "-mod=mod"}, "go", "build", "-o", serverBin, "./cmd/server"); err != nil {
+		return err
+	}
+	defer func() { _ = os.Remove(serverBin) }()
+
+	server := exec.Command(serverBin)
 	server.Stdout = os.Stdout
 	server.Stderr = os.Stderr
 	server.Env = append(os.Environ(), "GOFLAGS=-mod=mod", "RPCCGO_MINIMAL_CONNECT_ADDR="+addr)
-	server.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if err := server.Start(); err != nil {
 		return err
 	}
 	defer func() {
 		if server.Process != nil {
-			_ = syscall.Kill(-server.Process.Pid, syscall.SIGKILL)
+			_ = server.Process.Kill()
+			_ = server.Wait()
 		}
 	}()
 	if err := waitForTCP(addr); err != nil {
