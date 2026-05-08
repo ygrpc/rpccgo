@@ -117,29 +117,42 @@ func writeStage6RemoteGeneratedModule(t *testing.T, root string, plugins ...*pro
 const stage6RemoteServerMainSource = `package main
 
 import (
+	context "context"
+	errors "errors"
 	flag "flag"
 	fmt "fmt"
 	net "net"
 	http "net/http"
 	os "os"
 	osignal "os/signal"
+	strings "strings"
 	syscall "syscall"
+	time "time"
 
 	remotev1 "example.com/stage6/remote/v1"
 	grpc "google.golang.org/grpc"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 func main() {
 	transport := flag.String("transport", "connect", "remote transport")
 	unaryError := flag.Bool("unary-error", false, "enable unary error")
+	cancelObserver := flag.Bool("cancel-observer", false, "enable remote cancel observer mode")
+	cancelSignalFile := flag.String("cancel-signal-file", "", "cancel observer signal file")
 	flag.Parse()
 
-	if err := registerGreeterMessageCallbacksForIntegration(); err != nil {
-		panic(err)
-	}
-	setGreeterMessageStreamEOFModeForIntegration(true)
-	if *unaryError {
-		setGreeterMessageUnaryErrorForIntegration(true)
+	if *cancelObserver {
+		if _, err := remotev1.RegisterGreeterGoNativeServer(cancelObserverGreeter{signalFile: *cancelSignalFile}); err != nil {
+			panic(err)
+		}
+	} else {
+		if err := registerGreeterMessageCallbacksForIntegration(); err != nil {
+			panic(err)
+		}
+		setGreeterMessageStreamEOFModeForIntegration(true)
+		if *unaryError {
+			setGreeterMessageUnaryErrorForIntegration(true)
+		}
 	}
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -153,6 +166,9 @@ func main() {
 	switch *transport {
 	case "connect":
 		_, handler := remotev1.NewGreeterConnectHandler()
+		if *cancelObserver {
+			handler = wrapConnectCancelObserver(handler, *cancelSignalFile)
+		}
 		server := &http.Server{Handler: handler}
 		fmt.Println(listener.Addr().String())
 		go func() {
@@ -174,6 +190,141 @@ func main() {
 	default:
 		panic("unknown transport: " + *transport)
 	}
+}
+
+type cancelObserverGreeter struct {
+	signalFile string
+}
+
+func (s cancelObserverGreeter) Unary(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, nil
+}
+
+func (s cancelObserverGreeter) Upload(ctx context.Context) (remotev1.GreeterUploadNativeClientStream, error) {
+	stream := &cancelObserverUploadStream{ctx: ctx, signalFile: s.signalFile}
+	go stream.watchCancel()
+	return stream, nil
+}
+
+func (s cancelObserverGreeter) List(context.Context, *emptypb.Empty) (remotev1.GreeterListNativeServerStream, error) {
+	return &cancelObserverListStream{}, nil
+}
+
+func (s cancelObserverGreeter) Chat(ctx context.Context) (remotev1.GreeterChatNativeBidiStream, error) {
+	stream := &cancelObserverChatStream{ctx: ctx, signalFile: s.signalFile}
+	go stream.watchCancel()
+	return stream, nil
+}
+
+type cancelObserverUploadStream struct {
+	ctx        context.Context
+	signalFile string
+}
+
+func (s *cancelObserverUploadStream) watchCancel() {
+	<-s.ctx.Done()
+	writeCancelSignal(s.signalFile, "upload")
+}
+
+func (s *cancelObserverUploadStream) Send(context.Context, *emptypb.Empty) error {
+	return nil
+}
+
+func (s *cancelObserverUploadStream) Finish(context.Context) (*emptypb.Empty, error) {
+	select {
+	case <-s.ctx.Done():
+		writeCancelSignal(s.signalFile, "upload")
+		return nil, s.ctx.Err()
+	case <-time.After(5 * time.Second):
+		return nil, errors.New("cancel observer upload stream timed out waiting for cancellation")
+	}
+}
+
+func (s *cancelObserverUploadStream) Cancel(context.Context) error {
+	writeCancelSignal(s.signalFile, "upload")
+	return nil
+}
+
+type cancelObserverListStream struct{}
+
+func (*cancelObserverListStream) Recv(context.Context) (*emptypb.Empty, error) {
+	return nil, errors.New("cancel observer list stream is not used")
+}
+
+func (*cancelObserverListStream) Done(context.Context) error {
+	return nil
+}
+
+func (*cancelObserverListStream) Cancel(context.Context) error {
+	return nil
+}
+
+type cancelObserverChatStream struct {
+	ctx        context.Context
+	signalFile string
+}
+
+func (s *cancelObserverChatStream) watchCancel() {
+	<-s.ctx.Done()
+	writeCancelSignal(s.signalFile, "chat")
+}
+
+func (*cancelObserverChatStream) Send(context.Context, *emptypb.Empty) error {
+	return nil
+}
+
+func (s *cancelObserverChatStream) Recv(context.Context) (*emptypb.Empty, error) {
+	select {
+	case <-s.ctx.Done():
+		writeCancelSignal(s.signalFile, "chat")
+		return nil, s.ctx.Err()
+	case <-time.After(5 * time.Second):
+		return nil, errors.New("cancel observer chat stream timed out waiting for cancellation")
+	}
+}
+
+func (*cancelObserverChatStream) CloseSend(context.Context) error {
+	return nil
+}
+
+func (s *cancelObserverChatStream) Done(context.Context) error {
+	writeCancelSignal(s.signalFile, "chat")
+	return nil
+}
+
+func (s *cancelObserverChatStream) Cancel(context.Context) error {
+	writeCancelSignal(s.signalFile, "chat")
+	return nil
+}
+
+func writeCancelSignal(path, signal string) {
+	if path == "" {
+		return
+	}
+	file, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+	_, _ = file.WriteString(signal + "\n")
+}
+
+func wrapConnectCancelObserver(next http.Handler, signalFile string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.Contains(r.URL.Path, "/Upload") {
+			go func() {
+				<-r.Context().Done()
+				writeCancelSignal(signalFile, "upload")
+			}()
+		}
+		if strings.Contains(r.URL.Path, "/Chat") {
+			go func() {
+				<-r.Context().Done()
+				writeCancelSignal(signalFile, "chat")
+			}()
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 `
 
@@ -273,6 +424,64 @@ func TestRemoteTransportStage6Acceptance(t *testing.T) {
 		errID := CallGreeterUnaryMessageUnary(ctx, 0, 0, &GreeterMessageOutput{})
 		assertMessageErrContains(t, errID, "unknown error id 99999")
 	})
+
+	t.Run("connect remote client stream cancel notifies remote context", func(t *testing.T) {
+		remote := startStage6RemoteCancelObserverServer(t, "connect")
+		defer remote.close()
+		registerConnectRemote(t, remote)
+
+		ctx, cancel := stage6CallContext(t)
+		defer cancel()
+		handle, errID := StartGreeterUploadMessageClientStream(ctx)
+		assertMessageNoErr(t, errID)
+		assertMessageNoErr(t, SendGreeterUploadMessageClientStream(ctx, handle, 0, 0))
+		assertMessageNoErr(t, CancelGreeterUploadMessageClientStream(ctx, handle))
+		remote.waitForCancelSignal(t, "upload")
+	})
+
+	t.Run("connect remote bidi cancel notifies remote context", func(t *testing.T) {
+		remote := startStage6RemoteCancelObserverServer(t, "connect")
+		defer remote.close()
+		registerConnectRemote(t, remote)
+
+		ctx, cancel := stage6CallContext(t)
+		defer cancel()
+		handle, errID := StartGreeterChatMessageBidiStream(ctx)
+		assertMessageNoErr(t, errID)
+		assertMessageNoErr(t, SendGreeterChatMessageBidiStream(ctx, handle, 0, 0))
+		assertMessageNoErr(t, CancelGreeterChatMessageBidiStream(ctx, handle))
+		remote.waitForCancelSignal(t, "chat")
+	})
+
+	t.Run("grpc remote client stream cancel notifies remote context", func(t *testing.T) {
+		remote := startStage6RemoteCancelObserverServer(t, "grpc")
+		defer remote.close()
+		closeRemoteClient := registerGRPCRemote(t, remote)
+		defer closeRemoteClient()
+
+		ctx, cancel := stage6CallContext(t)
+		defer cancel()
+		handle, errID := StartGreeterUploadMessageClientStream(ctx)
+		assertMessageNoErr(t, errID)
+		assertMessageNoErr(t, SendGreeterUploadMessageClientStream(ctx, handle, 0, 0))
+		assertMessageNoErr(t, CancelGreeterUploadMessageClientStream(ctx, handle))
+		remote.waitForCancelSignal(t, "upload")
+	})
+
+	t.Run("grpc remote bidi cancel notifies remote context", func(t *testing.T) {
+		remote := startStage6RemoteCancelObserverServer(t, "grpc")
+		defer remote.close()
+		closeRemoteClient := registerGRPCRemote(t, remote)
+		defer closeRemoteClient()
+
+		ctx, cancel := stage6CallContext(t)
+		defer cancel()
+		handle, errID := StartGreeterChatMessageBidiStream(ctx)
+		assertMessageNoErr(t, errID)
+		assertMessageNoErr(t, SendGreeterChatMessageBidiStream(ctx, handle, 0, 0))
+		assertMessageNoErr(t, CancelGreeterChatMessageBidiStream(ctx, handle))
+		remote.waitForCancelSignal(t, "chat")
+	})
 }
 
 func stage6CallContext(t *testing.T) (context.Context, context.CancelFunc) {
@@ -281,9 +490,10 @@ func stage6CallContext(t *testing.T) (context.Context, context.CancelFunc) {
 }
 
 type stage6RemoteProcess struct {
-	addr string
-	cmd  *exec.Cmd
-	done chan error
+	addr             string
+	cmd              *exec.Cmd
+	done             chan error
+	cancelSignalFile string
 }
 
 func startStage6RemoteServer(t *testing.T, transport string, unaryError bool) stage6RemoteProcess {
@@ -292,7 +502,7 @@ func startStage6RemoteServer(t *testing.T, transport string, unaryError bool) st
 	if moduleRoot == "" {
 		t.Fatal("RPCCGO_STAGE6_MODULE_ROOT is empty")
 	}
-	args := []string{"-transport", transport}
+		args := []string{"-transport", transport}
 	if unaryError {
 		args = append(args, "-unary-error")
 	}
@@ -342,11 +552,72 @@ func startStage6RemoteServer(t *testing.T, transport string, unaryError bool) st
 	return stage6RemoteProcess{}
 }
 
+func startStage6RemoteCancelObserverServer(t *testing.T, transport string) stage6RemoteProcess {
+	t.Helper()
+	moduleRoot := os.Getenv("RPCCGO_STAGE6_MODULE_ROOT")
+	if moduleRoot == "" {
+		t.Fatal("RPCCGO_STAGE6_MODULE_ROOT is empty")
+	}
+	signalFile := filepath.Join(moduleRoot, "stage6-cancel-observer-"+transport+"-"+time.Now().Format("20060102150405.000000000"))
+	args := []string{
+		"-transport", transport,
+		"-cancel-observer",
+		"-cancel-signal-file", signalFile,
+	}
+	cmd := exec.Command(filepath.Join(moduleRoot, "stage6-remote-server"), args...)
+	cmd.Dir = moduleRoot
+	cmd.Env = os.Environ()
+	stderr := &strings.Builder{}
+	cmd.Stderr = stderr
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("StdoutPipe() error = %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("start cancel-observer remote server: %v\n%s", err, stderr.String())
+	}
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+
+	lineCh := make(chan string, 1)
+	errCh := make(chan error, 1)
+	go func() {
+		scanner := bufio.NewScanner(stdout)
+		if scanner.Scan() {
+			lineCh <- strings.TrimSpace(scanner.Text())
+			return
+		}
+		if err := scanner.Err(); err != nil {
+			errCh <- err
+			return
+		}
+		errCh <- io.EOF
+	}()
+
+	select {
+	case addr := <-lineCh:
+		waitForStage6RemotePort(t, addr)
+		return stage6RemoteProcess{addr: addr, cmd: cmd, done: done, cancelSignalFile: signalFile}
+	case err := <-errCh:
+		_ = cmd.Process.Kill()
+		<-done
+		t.Fatalf("cancel-observer remote server exited before address: %v\n%s", err, stderr.String())
+	case <-time.After(10 * time.Second):
+		_ = cmd.Process.Kill()
+		<-done
+		t.Fatalf("cancel-observer remote server did not print address\n%s", stderr.String())
+	}
+	return stage6RemoteProcess{}
+}
+
 func (p stage6RemoteProcess) close() {
 	if p.cmd != nil && p.cmd.Process != nil {
 		_ = p.cmd.Process.Signal(os.Interrupt)
 	}
 	if p.done == nil {
+		if p.cancelSignalFile != "" {
+			_ = os.Remove(p.cancelSignalFile)
+		}
 		return
 	}
 	select {
@@ -357,6 +628,32 @@ func (p stage6RemoteProcess) close() {
 		}
 		<-p.done
 	}
+	if p.cancelSignalFile != "" {
+		_ = os.Remove(p.cancelSignalFile)
+	}
+}
+
+func (p stage6RemoteProcess) waitForCancelSignal(t *testing.T, signal string) {
+	t.Helper()
+	if p.cancelSignalFile == "" {
+		t.Fatalf("cancel signal file is empty, want %q", signal)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		data, err := os.ReadFile(p.cancelSignalFile)
+		if err == nil {
+			for _, line := range strings.Split(string(data), "\n") {
+				if strings.TrimSpace(line) == signal {
+					return
+				}
+			}
+		} else if !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("read cancel signal file: %v", err)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	content, _ := os.ReadFile(p.cancelSignalFile)
+	t.Fatalf("cancel signal %q not observed within timeout, file=%q", signal, strings.TrimSpace(string(content)))
 }
 
 func waitForStage6RemotePort(t *testing.T, addr string) {

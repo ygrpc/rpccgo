@@ -22,11 +22,19 @@ func TestRenderConnectRemoteFileEmitsMessageAdapter(t *testing.T) {
 		"func (s *AllServiceConnectRemoteServer) UnaryMessage(ctx context.Context, req []byte) ([]byte, error) {",
 		"resp, err := s.unary.CallUnary(ctx, connect.NewRequest(request))",
 		"func (s *AllServiceConnectRemoteServer) StartClientStreamMessage(ctx context.Context) (AllServiceClientStreamMessageStreamSession, error) {",
-		"stream := s.clientStream.CallClientStream(ctx)",
+		"streamCtx, cancel := context.WithCancel(ctx)",
+		"stream := s.clientStream.CallClientStream(streamCtx)",
+		"cancel: cancel",
+		"cancel context.CancelFunc",
+		"s.cancel()",
+		"defer s.cancel()",
+		"closeConnectRemoteConn",
 		"func (s *AllServiceConnectRemoteServer) StartServerStreamMessage(ctx context.Context, req []byte) (AllServiceServerStreamMessageStreamSession, error) {",
-		"stream, err := s.serverStream.CallServerStream(ctx, connect.NewRequest(request))",
+		"stream, err := s.serverStream.CallServerStream(streamCtx, connect.NewRequest(request))",
 		"func (s *AllServiceConnectRemoteServer) StartBidiStreamMessage(ctx context.Context) (AllServiceBidiStreamMessageStreamSession, error) {",
-		"stream := s.bidiStream.CallBidiStream(ctx)",
+		"stream := s.bidiStream.CallBidiStream(streamCtx)",
+		"err = s.stream.CloseRequest()",
+		"if closeErr := s.stream.CloseResponse(); err == nil {",
 	} {
 		assertGeneratedContentContains(t, plugin, remoteFile, fragment)
 	}

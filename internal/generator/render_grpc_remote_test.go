@@ -22,11 +22,16 @@ func TestRenderGRPCRemoteFileEmitsMessageAdapter(t *testing.T) {
 		"func (s *AllServiceGRPCRemoteServer) UnaryMessage(ctx context.Context, req []byte) ([]byte, error) {",
 		"err := s.conn.Invoke(ctx, AllServiceUnaryGRPCFullMethodName, request, response)",
 		"func (s *AllServiceGRPCRemoteServer) StartClientStreamMessage(ctx context.Context) (AllServiceClientStreamMessageStreamSession, error) {",
-		"stream, err := s.conn.NewStream(ctx, &grpc.StreamDesc{ClientStreams: true}, AllServiceClientStreamGRPCFullMethodName)",
+		"streamCtx, cancel := context.WithCancel(ctx)",
+		"stream, err := s.conn.NewStream(streamCtx, &grpc.StreamDesc{ClientStreams: true}, AllServiceClientStreamGRPCFullMethodName)",
+		"cancel context.CancelFunc",
+		"cancel: cancel",
+		"s.cancel()",
+		"return s.stream.CloseSend()",
 		"func (s *AllServiceGRPCRemoteServer) StartServerStreamMessage(ctx context.Context, req []byte) (AllServiceServerStreamMessageStreamSession, error) {",
-		"stream, err := s.conn.NewStream(ctx, &grpc.StreamDesc{ServerStreams: true}, AllServiceServerStreamGRPCFullMethodName)",
+		"stream, err := s.conn.NewStream(streamCtx, &grpc.StreamDesc{ServerStreams: true}, AllServiceServerStreamGRPCFullMethodName)",
 		"func (s *AllServiceGRPCRemoteServer) StartBidiStreamMessage(ctx context.Context) (AllServiceBidiStreamMessageStreamSession, error) {",
-		"stream, err := s.conn.NewStream(ctx, &grpc.StreamDesc{ClientStreams: true, ServerStreams: true}, AllServiceBidiStreamGRPCFullMethodName)",
+		"stream, err := s.conn.NewStream(streamCtx, &grpc.StreamDesc{ClientStreams: true, ServerStreams: true}, AllServiceBidiStreamGRPCFullMethodName)",
 	} {
 		assertGeneratedContentContains(t, plugin, remoteFile, fragment)
 	}
