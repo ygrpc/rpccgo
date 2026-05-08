@@ -1,6 +1,7 @@
 package rpcruntime
 
 import (
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -118,6 +119,34 @@ func TestNewRpcStringRejectsNegativeLength(t *testing.T) {
 	expectPanic(t, "NewRpcString", func() {
 		_ = NewRpcString(&src[0], -1, false)
 	})
+}
+
+func TestNewRpcBytesCheckedRejectsNegativeLength(t *testing.T) {
+	values := []byte("abc")
+	got, err := NewRpcBytesChecked(&values[0], -1, false)
+	if err == nil {
+		t.Fatal("NewRpcBytesChecked() error = nil, want negative length error")
+	}
+	if got != nil {
+		t.Fatalf("NewRpcBytesChecked() wrapper = %#v, want nil", got)
+	}
+	if !strings.Contains(err.Error(), "NewRpcBytes") || !strings.Contains(err.Error(), "negative") {
+		t.Fatalf("NewRpcBytesChecked() error = %q, want NewRpcBytes negative length", err.Error())
+	}
+}
+
+func TestNewRpcStringCheckedRejectsNegativeLength(t *testing.T) {
+	values := []byte("abc")
+	got, err := NewRpcStringChecked(&values[0], -1, false)
+	if err == nil {
+		t.Fatal("NewRpcStringChecked() error = nil, want negative length error")
+	}
+	if got != nil {
+		t.Fatalf("NewRpcStringChecked() wrapper = %#v, want nil", got)
+	}
+	if !strings.Contains(err.Error(), "NewRpcString") || !strings.Contains(err.Error(), "negative") {
+		t.Fatalf("NewRpcStringChecked() error = %q, want NewRpcString negative length", err.Error())
+	}
 }
 
 func TestRpcBytesSafeBytesCopiesOnlyOnce(t *testing.T) {

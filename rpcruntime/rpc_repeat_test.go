@@ -2,6 +2,7 @@ package rpcruntime
 
 import (
 	"slices"
+	"strings"
 	"testing"
 	"unsafe"
 )
@@ -192,6 +193,34 @@ func TestNewRpcBoolRepeatRejectsNegativeLength(t *testing.T) {
 	expectPanic(t, "NewRpcBoolRepeat", func() {
 		_ = NewRpcBoolRepeat(&values[0], -1, false)
 	})
+}
+
+func TestNewRpcRepeatCheckedRejectsNegativeLength(t *testing.T) {
+	values := []int32{1, 2, 3}
+	got, err := NewRpcRepeatChecked(&values[0], -1, false)
+	if err == nil {
+		t.Fatal("NewRpcRepeatChecked() error = nil, want negative length error")
+	}
+	if got != nil {
+		t.Fatalf("NewRpcRepeatChecked() wrapper = %#v, want nil", got)
+	}
+	if !strings.Contains(err.Error(), "NewRpcRepeat") || !strings.Contains(err.Error(), "negative") {
+		t.Fatalf("NewRpcRepeatChecked() error = %q, want NewRpcRepeat negative length", err.Error())
+	}
+}
+
+func TestNewRpcBoolRepeatCheckedRejectsNegativeLength(t *testing.T) {
+	values := []byte{1, 0, 1}
+	got, err := NewRpcBoolRepeatChecked(&values[0], -1, false)
+	if err == nil {
+		t.Fatal("NewRpcBoolRepeatChecked() error = nil, want negative length error")
+	}
+	if got != nil {
+		t.Fatalf("NewRpcBoolRepeatChecked() wrapper = %#v, want nil", got)
+	}
+	if !strings.Contains(err.Error(), "NewRpcBoolRepeat") || !strings.Contains(err.Error(), "negative") {
+		t.Fatalf("NewRpcBoolRepeatChecked() error = %q, want NewRpcBoolRepeat negative length", err.Error())
+	}
 }
 
 func TestRpcRepeatReleaseOwnershipTrueOnlyFreesOnce(t *testing.T) {

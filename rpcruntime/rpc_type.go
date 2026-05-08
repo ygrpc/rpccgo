@@ -2,6 +2,7 @@ package rpcruntime
 
 import (
 	"bytes"
+	"fmt"
 	"runtime"
 	"sync"
 	"unsafe"
@@ -53,7 +54,21 @@ var (
 )
 
 func NewRpcBytes(ptr *byte, length int32, ownership bool) *RpcBytes {
-	_ = mustLengthFromInt32(length, "NewRpcBytes")
+	rpc, err := NewRpcBytesChecked(ptr, length, ownership)
+	if err != nil {
+		panic(err)
+	}
+	return rpc
+}
+
+func NewRpcBytesChecked(ptr *byte, length int32, ownership bool) (*RpcBytes, error) {
+	if _, err := LengthFromInt32(length); err != nil {
+		return nil, fmt.Errorf("NewRpcBytes: %w", err)
+	}
+	return newRpcBytesUnchecked(ptr, length, ownership), nil
+}
+
+func newRpcBytesUnchecked(ptr *byte, length int32, ownership bool) *RpcBytes {
 	rpc := &RpcBytes{
 		ptr:       ptr,
 		length:    length,
@@ -64,7 +79,21 @@ func NewRpcBytes(ptr *byte, length int32, ownership bool) *RpcBytes {
 }
 
 func NewRpcString(ptr *byte, length int32, ownership bool) *RpcString {
-	_ = mustLengthFromInt32(length, "NewRpcString")
+	rpc, err := NewRpcStringChecked(ptr, length, ownership)
+	if err != nil {
+		panic(err)
+	}
+	return rpc
+}
+
+func NewRpcStringChecked(ptr *byte, length int32, ownership bool) (*RpcString, error) {
+	if _, err := LengthFromInt32(length); err != nil {
+		return nil, fmt.Errorf("NewRpcString: %w", err)
+	}
+	return newRpcStringUnchecked(ptr, length, ownership), nil
+}
+
+func newRpcStringUnchecked(ptr *byte, length int32, ownership bool) *RpcString {
 	rpc := &RpcString{
 		ptr:       ptr,
 		length:    length,

@@ -49,7 +49,21 @@ var (
 )
 
 func NewRpcRepeat[T NativeRepeatElem](ptr *T, length int32, ownership bool) *RpcRepeat[T] {
-	_ = mustLengthFromInt32(length, "NewRpcRepeat")
+	rpc, err := NewRpcRepeatChecked(ptr, length, ownership)
+	if err != nil {
+		panic(err)
+	}
+	return rpc
+}
+
+func NewRpcRepeatChecked[T NativeRepeatElem](ptr *T, length int32, ownership bool) (*RpcRepeat[T], error) {
+	if _, err := LengthFromInt32(length); err != nil {
+		return nil, fmt.Errorf("NewRpcRepeat: %w", err)
+	}
+	return newRpcRepeatUnchecked(ptr, length, ownership), nil
+}
+
+func newRpcRepeatUnchecked[T NativeRepeatElem](ptr *T, length int32, ownership bool) *RpcRepeat[T] {
 	rpc := &RpcRepeat[T]{
 		ptr:       ptr,
 		length:    length,
@@ -60,7 +74,21 @@ func NewRpcRepeat[T NativeRepeatElem](ptr *T, length int32, ownership bool) *Rpc
 }
 
 func NewRpcBoolRepeat(ptr *byte, length int32, ownership bool) *RpcBoolRepeat {
-	_ = mustLengthFromInt32(length, "NewRpcBoolRepeat")
+	rpc, err := NewRpcBoolRepeatChecked(ptr, length, ownership)
+	if err != nil {
+		panic(err)
+	}
+	return rpc
+}
+
+func NewRpcBoolRepeatChecked(ptr *byte, length int32, ownership bool) (*RpcBoolRepeat, error) {
+	if _, err := LengthFromInt32(length); err != nil {
+		return nil, fmt.Errorf("NewRpcBoolRepeat: %w", err)
+	}
+	return newRpcBoolRepeatUnchecked(ptr, length, ownership), nil
+}
+
+func newRpcBoolRepeatUnchecked(ptr *byte, length int32, ownership bool) *RpcBoolRepeat {
 	rpc := &RpcBoolRepeat{
 		ptr:       ptr,
 		length:    length,
