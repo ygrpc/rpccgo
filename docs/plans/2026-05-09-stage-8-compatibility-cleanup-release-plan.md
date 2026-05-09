@@ -244,7 +244,7 @@ rtk git commit -m "fix: normalize request-side empty ABI inputs"
 
 **迁移内容与理由:** 旧 message export/message client 代码在 ABI 边界执行 `proto.Unmarshal`，把坏 protobuf bytes 转成错误。新版已在部分 message client path 加了校验；Stage 8 要把 unary、client streaming、server streaming、bidi streaming、cgo message server callback response 全部锁成 acceptance，防止某条 stream path 只传 raw bytes 而延迟炸在下游。
 
-- [ ] **Step 1: 写 renderer 断言**
+- [x] **Step 1: 写 renderer 断言**
 
 在 message client/server renderer tests 中断言：
 
@@ -254,7 +254,7 @@ rtk git commit -m "fix: normalize request-side empty ABI inputs"
 - cgo message server callback 返回非零 `errID` 时通过 `rpcruntime.TakeErrorText` 转成 Go error。
 - unknown error id 返回包含 id 的错误，不被吞掉。
 
-- [ ] **Step 2: 写 generated-source acceptance**
+- [x] **Step 2: 写 generated-source acceptance**
 
 创建 `internal/integration/stage8_message_bytes_hardening_test.go`，覆盖：
 
@@ -265,7 +265,7 @@ rtk git commit -m "fix: normalize request-side empty ABI inputs"
 - cgo message server callback 返回 invalid response bytes 时，cgo message client read/finish/unary 得到 response unmarshal error。
 - callback unknown error id 返回明确错误文本。
 
-- [ ] **Step 3: Run failing tests**
+- [x] **Step 3: Run failing tests**
 
 Run:
 
@@ -276,11 +276,11 @@ rtk go test ./internal/integration -run TestStage8MessageBytesHardening -count=1
 
 Expected: 若当前某条路径未校验，测试失败并指出方法类型。
 
-- [ ] **Step 4: 实现缺失校验**
+- [x] **Step 4: 实现缺失校验**
 
 补齐 `render_message_client_cgo.go` 与 `render_message_server_cgo.go` 中缺失的 protobuf request/response 校验。保持 direct-path bytes ABI：校验通过后仍把 raw protobuf bytes 传给 dispatcher 或 callback，不引入新的 message wrapper 模型。
 
-- [ ] **Step 5: Run focused tests**
+- [x] **Step 5: Run focused tests**
 
 Run:
 
@@ -291,13 +291,13 @@ rtk go test ./internal/integration -run TestStage8MessageBytesHardening -count=1
 
 Expected: PASS。
 
-- [ ] **Step 6: 验收**
+- [x] **Step 6: 验收**
 
 - invalid protobuf bytes 在 cgo boundary 变成 error id 或 Go error。
 - valid zero-length protobuf request 仍能表示默认 protobuf message。
 - direct-path message bytes ABI 没有被替换成 service-specific runtime 类型。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 rtk git add internal/generator/render_message_client_cgo.go internal/generator/render_message_client_cgo_test.go internal/generator/render_message_server_cgo.go internal/generator/render_message_server_cgo_test.go internal/integration/stage8_message_bytes_hardening_test.go
