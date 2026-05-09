@@ -387,7 +387,7 @@ rtk git commit -m "test: harden stream terminal lifecycle"
 
 **迁移内容与理由:** runtime wrapper 已有大量 release 测试，Stage 7 也补了 repeated release。Stage 8 要补 generated ABI 层的组合验收：owned/borrowed request、output pointer release、callback error text、unknown error id、失败路径 cleanup。
 
-- [ ] **Step 1: 写 memory release acceptance**
+- [x] **Step 1: 写 memory release acceptance**
 
 创建 `internal/integration/stage8_memory_release_hardening_test.go`，覆盖：
 
@@ -397,7 +397,7 @@ rtk git commit -m "test: harden stream terminal lifecycle"
 - cgo message server response pointer 在 Go 侧复制后不被 Go 自动释放；所有权仍由 C callback 合同定义。
 - error text 通过 `TakeErrorText` 消费一次，导出的 pointer 可 release。
 
-- [ ] **Step 2: 补 runtime 单测缺口**
+- [x] **Step 2: 补 runtime 单测缺口**
 
 如果 acceptance 暴露 runtime 层缺口，在 `rpcruntime/*_test.go` 中先补 failing tests，再做最小实现。重点覆盖：
 
@@ -406,7 +406,7 @@ rtk git commit -m "test: harden stream terminal lifecycle"
 - empty singleton release no-op。
 - owned zero-length pointer 的释放合同保持现有行为。
 
-- [ ] **Step 3: Run failing tests**
+- [x] **Step 3: Run failing tests**
 
 Run:
 
@@ -417,7 +417,7 @@ rtk go test ./internal/integration -run TestStage8MemoryReleaseHardening -count=
 
 Expected: 实现前可能暴露 generated cleanup 缺口。
 
-- [ ] **Step 4: 修复 generated cleanup 缺口**
+- [x] **Step 4: 修复 generated cleanup 缺口**
 
 只修复 acceptance 指出的路径：
 
@@ -426,7 +426,7 @@ Expected: 实现前可能暴露 generated cleanup 缺口。
 - response output pin 失败时不留下半写 output。
 - error id helper 使用 `TakeErrorText` 后释放 error text pointer。
 
-- [ ] **Step 5: Run focused tests**
+- [x] **Step 5: Run focused tests**
 
 Run:
 
@@ -437,14 +437,14 @@ rtk go test ./internal/integration -run TestStage8MemoryReleaseHardening -count=
 
 Expected: PASS。
 
-- [ ] **Step 6: 验收**
+- [x] **Step 6: 验收**
 
 - owned request 内存释放一次。
 - borrowed request 不释放。
 - output/error text 生命周期有明确测试。
 - 失败路径不会产生明显 handle 或 pinned pointer 泄漏。
 
-- [ ] **Step 7: 提交**
+- [x] **Step 7: 提交**
 
 ```bash
 rtk git add rpcruntime/errors_test.go rpcruntime/release_test.go rpcruntime/rpc_type_test.go rpcruntime/rpc_repeat_test.go internal/generator/render_native_client_cgo.go internal/generator/render_native_server_cgo.go internal/generator/render_message_client_cgo.go internal/generator/render_message_server_cgo.go internal/integration/stage8_memory_release_hardening_test.go
