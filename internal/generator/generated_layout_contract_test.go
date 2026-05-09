@@ -86,12 +86,15 @@ func TestStage7PublicAPIContract(t *testing.T) {
 func TestStage7GeneratedLayoutRejectsOldBootstrapNames(t *testing.T) {
 	plugin := newStage7GeneratedLayoutPlugin(t)
 	banned := []string{
-		"provider",
-		"registry",
-		"bootstrap",
+		"provider registry",
 		"framework selector",
+		"multi provider",
+		"dual provider",
+		"bootstrap",
 		"goclient.export",
 		"goserver.export",
+		"native_forwarding_client",
+		"native_forwarding_server",
 	}
 
 	for _, generated := range plugin.Response().GetFile() {

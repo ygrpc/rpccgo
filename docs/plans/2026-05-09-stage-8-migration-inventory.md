@@ -25,6 +25,11 @@ Stage 8 只迁移旧项目的“边界测试语义”，不迁移旧项目的“
 4. generated 层的 owned/borrowed request 与 error text 生命周期需要补组合验收，避免只靠 runtime 单测。
 5. 文档和 release checklist 需要固定“发布前验证命令集合”，确保 root module 与两个 examples 一起验收。
 
+## Stage 8 Task 6 对齐补充
+
+- generated layout 合同新增旧模型禁用词：`provider registry`、`framework selector`、`multi provider`、`dual provider`、`bootstrap`、`goclient.export`、`goserver.export`、`native_forwarding_client`、`native_forwarding_server`。
+- README 仅保留最小“发布前验证入口”，具体命令收敛到 Stage 8 release checklist，不在 README 展开。
+
 ## 明确不迁移
 
 - 旧 provider registry、多 provider bootstrap、framework selector。

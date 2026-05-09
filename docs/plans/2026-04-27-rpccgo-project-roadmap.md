@@ -201,10 +201,12 @@
 
 ### 任务
 
-- 补齐错误语义、内存释放、stream cancel/finalize、空输入、repeated wrapper 等验证。
-- 清理不符合新版架构的旧概念。
-- 对齐 README、架构文档、项目计划和实际行为。
-- 建立发布前验证命令集合。
+- 统一 request-side empty input/ownership 合同（`ptr == 0 || len/count == 0` 视为 empty；负长度保留错误）。
+- 锁住 message bytes ABI 的 protobuf 错误语义（unary + 三类 streaming + cgo callback response）。
+- 补齐 stream terminal lifecycle 验收（Finish/Done/CloseSend/Cancel/EOF/invalid handle）。
+- 补齐 memory release 与 error text 生命周期验收（owned/borrowed request、output pointer、TakeErrorText）。
+- 清理旧 provider/bootstrap/forwarding 模型词汇在生成物和用户入口中的回流。
+- 建立并固化发布前验证命令集合（root module + examples + 合同扫描）。
 
 ### 旧项目可迁移部分
 

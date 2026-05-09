@@ -462,7 +462,7 @@ rtk git commit -m "test: verify ABI memory release semantics"
 
 **迁移内容与理由:** 新版明确不保留 provider registry、多 provider bootstrap、framework selector、旧 forwarding client/server 心智模型。Stage 8 要用测试和文档扫描锁住这些旧概念不回流，同时让 README 的可用性描述保持简洁。
 
-- [ ] **Step 1: 扩展 generated layout 禁用词测试**
+- [x] **Step 1: 扩展 generated layout 禁用词测试**
 
 在 `generated_layout_contract_test.go` 中确认生成物不包含旧模型 token：
 
@@ -476,7 +476,7 @@ rtk git commit -m "test: verify ABI memory release semantics"
 
 允许文档中作为“明确不迁移”出现这些词；生成物和用户 example 不允许。
 
-- [ ] **Step 2: 文档扫描**
+- [x] **Step 2: 文档扫描**
 
 Run:
 
@@ -486,7 +486,7 @@ rtk rg -n "provider registry|framework selector|multi provider|dual provider|goc
 
 Expected: 只允许测试断言或历史说明中的受控命中；真实生成物、README、examples 不出现旧模型作为推荐路径。
 
-- [ ] **Step 3: 更新 README 与 roadmap**
+- [x] **Step 3: 更新 README 与 roadmap**
 
 README 只补发布前验证入口和 examples 入口，不展开 spec 细节。Roadmap Stage 8 更新为实际收口项：
 
@@ -496,7 +496,7 @@ README 只补发布前验证入口和 examples 入口，不展开 spec 细节。
 - memory release。
 - release checklist。
 
-- [ ] **Step 4: Run focused tests**
+- [x] **Step 4: Run focused tests**
 
 Run:
 
@@ -507,13 +507,13 @@ rtk go test ./internal/generator -run TestStage7GeneratedLayoutRejectsOldBootstr
 
 Expected: PASS。
 
-- [ ] **Step 5: 验收**
+- [x] **Step 5: 验收**
 
 - 生成物和 examples 不回流旧 provider/bootstrap/forwarding 模型。
 - README 保持极简心智模型，不复制 spec 大段概念。
 - Roadmap 与 Stage 8 实际行为一致。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 rtk git add internal/generator/generated_layout_contract_test.go README.md docs/plans/2026-04-27-rpccgo-project-roadmap.md docs/plans/2026-05-09-stage-8-migration-inventory.md
