@@ -88,7 +88,7 @@ Stage 8 不实现：
 
 **迁移内容与理由:** 旧项目的价值主要是边界用例，不是旧架构。先把 message/native/native_forwarding/both_mode 中值得迁移的测试语义写成清单，避免执行时把 provider registry、framework selector 或 debugserver 带回新版。
 
-- [ ] **Step 1: 盘点旧项目高价值用例**
+- [x] **Step 1: 盘点旧项目高价值用例**
 
 检查：
 
@@ -103,7 +103,7 @@ rtk rg -n "proto.Unmarshal|proto.Marshal|Release|ownership|Cancel|CloseSend|Fini
 - streaming terminal lifecycle 与 cancel/onDone。
 - both-mode 共同编译但单 active server bootstrap。
 
-- [ ] **Step 2: 写迁移清单**
+- [x] **Step 2: 写迁移清单**
 
 创建 `docs/plans/2026-05-09-stage-8-migration-inventory.md`，包含：
 
@@ -112,11 +112,11 @@ rtk rg -n "proto.Unmarshal|proto.Marshal|Release|ownership|Cancel|CloseSend|Fini
 - `当前实现差距` 列表，映射到本计划 Task 2-7。
 - `验证入口` 列表，映射到 focused tests、全仓测试、examples、unsigned scan。
 
-- [ ] **Step 3: 回填计划文档审计结果**
+- [x] **Step 3: 回填计划文档审计结果**
 
 在本计划 `旧项目迁移判定` 或后续风险处补充审计过程中发现的新增边界。只补真实长期边界；不要把临时本机环境问题写进项目文档。
 
-- [ ] **Step 4: 验证**
+- [x] **Step 4: 验证**
 
 Run:
 
@@ -130,12 +130,12 @@ Expected:
 - 占位词扫描无命中。
 - diff 只包含 Stage 8 计划与迁移清单。
 
-- [ ] **Step 5: 验收**
+- [x] **Step 5: 验收**
 
 - 迁移清单能回答“迁移什么、有什么用、为什么迁移而不是重写、什么明确不迁移”。
 - 每个后续任务都能从迁移清单找到对应边界来源。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 rtk git add docs/plans/2026-05-09-stage-8-compatibility-cleanup-release-plan.md docs/plans/2026-05-09-stage-8-migration-inventory.md
@@ -530,7 +530,7 @@ rtk git commit -m "docs: align release-ready architecture wording"
 
 **迁移内容与理由:** Stage 8 的验收不能只依赖一次本机记录。需要固定一组发布前命令，覆盖 root module、examples 子模块、生成路径、unsigned scan、旧模型扫描和 git 状态。
 
-- [ ] **Step 1: 写 release checklist**
+- [x] **Step 1: 写 release checklist**
 
 创建 `docs/plans/2026-05-09-stage-8-release-checklist.md`，包含以下命令和期望：
 
@@ -553,15 +553,15 @@ rtk git status --short
 - 旧模型扫描允许测试断言命中时，checklist 必须列明允许文件。
 - examples 是独立 Go module，root `go test ./...` 不覆盖它们。
 
-- [ ] **Step 2: README 添加最小验证入口**
+- [x] **Step 2: README 添加最小验证入口**
 
 README 只增加一个短小的“发布前验证”段落，指向 `docs/plans/2026-05-09-stage-8-release-checklist.md`，不要把 checklist 全文复制到 README。
 
-- [ ] **Step 3: Run checklist locally**
+- [x] **Step 3: Run checklist locally**
 
 按 checklist 顺序执行所有命令，并把结果写回本计划 `验证结果`。
 
-- [ ] **Step 4: 验证**
+- [x] **Step 4: 验证**
 
 Run:
 
@@ -571,13 +571,13 @@ rtk rg -n "T[B]D|T[O]DO" docs/plans/2026-05-09-stage-8-release-checklist.md READ
 
 Expected: 无命中。
 
-- [ ] **Step 5: 验收**
+- [x] **Step 5: 验收**
 
 - checklist 可独立指导发布前验证。
 - README 保持简洁。
 - 本计划记录实际验证结果。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 rtk git add docs/plans/2026-05-09-stage-8-release-checklist.md README.md docs/plans/2026-05-09-stage-8-compatibility-cleanup-release-plan.md
@@ -594,7 +594,7 @@ rtk git commit -m "docs: add stage 8 release checklist"
 
 **迁移内容与理由:** 最后用 canonical plan、实际代码、fresh tests 三方交叉验证 Stage 8，避免只看 checkbox。把实际结果回填到计划和清单，形成可审计交付记录。
 
-- [ ] **Step 1: Run full verification**
+- [x] **Step 1: Run full verification**
 
 Run:
 
@@ -618,15 +618,15 @@ Expected:
 - 旧模型扫描没有非预期命中。
 - `rtk git status --short` 只显示本计划相关文件，忽略未跟踪 `.vscode/`。
 
-- [ ] **Step 2: Record verification results**
+- [x] **Step 2: Record verification results**
 
 在本计划新增或更新 `验证结果`，逐条记录命令和 PASS/失败原因。若失败来自本机临时环境，只记录在执行结果，不把 workaround 写进长期文档。
 
-- [ ] **Step 3: 更新完成标准**
+- [x] **Step 3: 更新完成标准**
 
 只在对应实现与 fresh 验证都完成后，把 `完成标准` checkbox 标为 `[x]`。
 
-- [ ] **Step 4: 最终文档扫描**
+- [x] **Step 4: 最终文档扫描**
 
 Run:
 
@@ -636,7 +636,7 @@ rtk rg -n "T[B]D|T[O]DO" docs/plans/2026-05-09-stage-8-compatibility-cleanup-rel
 
 Expected: 无命中。
 
-- [ ] **Step 5: 提交**
+- [x] **Step 5: 提交**
 
 ```bash
 rtk git add docs/plans/2026-05-09-stage-8-compatibility-cleanup-release-plan.md docs/plans/2026-05-09-stage-8-migration-inventory.md docs/plans/2026-05-09-stage-8-release-checklist.md
@@ -645,16 +645,16 @@ rtk git commit -m "docs: record stage 8 verification"
 
 ## 完成标准
 
-- [ ] request-side empty input normalization 在 message/native generated-source acceptance 中通过。
-- [ ] request-side `ownership > 0` 合同在 non-empty request 中通过 release 验证。
-- [ ] invalid protobuf message bytes 在 unary 与三类 streaming 中都返回 error id 或 Go error。
-- [ ] cgo message server callback response bytes 的 invalid protobuf 场景被验收。
-- [ ] stream terminal lifecycle 对重复 terminal operation、terminal 后继续操作、invalid handle、EOF/Done、Cancel 都有验收。
-- [ ] native/message/local/remote 路径的 in-flight stream snapshot 不受后续 active server registration 影响。
-- [ ] owned/borrowed request、output pointer、error text 生命周期有测试覆盖。
-- [ ] 生成物和 examples 不包含旧 provider registry、多 provider bootstrap、framework selector 或旧 forwarding client/server 模型。
-- [ ] README、roadmap、迁移清单、release checklist 与实际行为一致。
-- [ ] root module、internal focused tests、两个 examples、两个 `mage run`、unsigned scan、旧模型扫描全部通过。
+- [x] request-side empty input normalization 在 message/native generated-source acceptance 中通过。
+- [x] request-side `ownership > 0` 合同在 non-empty request 中通过 release 验证。
+- [x] invalid protobuf message bytes 在 unary 与三类 streaming 中都返回 error id 或 Go error。
+- [x] cgo message server callback response bytes 的 invalid protobuf 场景被验收。
+- [x] stream terminal lifecycle 对重复 terminal operation、terminal 后继续操作、invalid handle、EOF/Done、Cancel 都有验收。
+- [x] native/message/local/remote 路径的 in-flight stream snapshot 不受后续 active server registration 影响。
+- [x] owned/borrowed request、output pointer、error text 生命周期有测试覆盖。
+- [x] 生成物和 examples 不包含旧 provider registry、多 provider bootstrap、framework selector 或旧 forwarding client/server 模型。
+- [x] README、roadmap、迁移清单、release checklist 与实际行为一致。
+- [x] root module、internal focused tests、两个 examples、两个 `mage run`、unsigned scan、旧模型扫描全部通过。
 
 ## 提交边界
 
@@ -679,4 +679,15 @@ rtk git commit -m "docs: record stage 8 verification"
 
 ## 验证结果
 
-- 待执行 Stage 8 时记录。
+- 2026-05-09：`rtk go test ./rpcruntime -count=1` -> PASS（171 passed）。
+- 2026-05-09：`rtk go test ./internal/generator -count=1` -> PASS（169 passed）。
+- 2026-05-09：`rtk go test ./internal/integration -count=1` -> PASS（58 passed）。
+- 2026-05-09：`rtk go test ./... -count=1` -> PASS（400 passed）。
+- 2026-05-09：`(examples/minimal-greeter) rtk go test ./... -count=1` -> PASS（4 passed）。
+- 2026-05-09：`(examples/minimal-greeter) rtk go run github.com/magefile/mage run` -> PASS（`connect: hello, minimal-demo`）。
+- 2026-05-09：`(examples/full-greeter) rtk go test ./... -count=1` -> PASS（8 passed）。
+- 2026-05-09：`(examples/full-greeter) rtk go run github.com/magefile/mage run` -> PASS（connect/grpc unary+streaming 输出正常）。
+- 2026-05-09：`rtk rg -n "uint32|uint64|Uint32|Uint64|u32|u64|uint32_t|uint64_t" . -g '!AGENTS.md' -g '!docs/plans/**'` -> PASS（无输出，exit code 1）。
+- 2026-05-09：`rtk rg -n "provider registry|framework selector|multi provider|dual provider|goclient.export|goserver.export|native_forwarding_client|native_forwarding_server" . -g '!docs/plans/**' -g '!docs/specs/**' -g '!AGENTS.md'` -> PASS（仅命中 `internal/generator/generated_layout_contract_test.go`）。
+- 2026-05-09：`rtk git status --short` -> 仅包含本阶段预期改动。
+- 2026-05-09：阶段收口中发现并修复一次生成器回归：repeated native request decode 的 `err` 变量作用域导致生成代码编译错误；修复后复跑全量验证通过。
