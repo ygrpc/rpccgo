@@ -28,15 +28,14 @@ func TestRenderConnectRemoteFileEmitsMessageAdapter(t *testing.T) {
 		"cancel context.CancelFunc",
 		"s.cancel()",
 		"defer s.cancel()",
-		"closeConnectRemoteConn",
 		"func (s *AllServiceConnectRemoteServer) StartServerStreamMessage(ctx context.Context, req []byte) (AllServiceServerStreamMessageStreamSession, error) {",
 		"stream, err := s.serverStream.CallServerStream(streamCtx, connect.NewRequest(request))",
 		"func (s *AllServiceConnectRemoteServer) StartBidiStreamMessage(ctx context.Context) (AllServiceBidiStreamMessageStreamSession, error) {",
 		"stream := s.bidiStream.CallBidiStream(streamCtx)",
-		"err = s.stream.CloseRequest()",
-		"if closeErr := s.stream.CloseResponse(); err == nil {",
+		"conn, err := s.stream.Conn()",
+		"return conn.CloseRequest()",
 	} {
 		assertGeneratedContentContains(t, plugin, remoteFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, remoteFile, `grpc "google.golang.org/grpc"`, "panic(", "ClientModel")
+	assertGeneratedFileContentDoesNotContain(t, plugin, remoteFile, `grpc "google.golang.org/grpc"`, "panic(", "ClientModel", "closeConnectRemoteConn")
 }

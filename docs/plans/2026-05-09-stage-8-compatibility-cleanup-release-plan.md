@@ -317,7 +317,7 @@ rtk git commit -m "fix: harden message protobuf ABI errors"
 
 **迁移内容与理由:** Stage 2-7 已覆盖各类 streaming happy path 和部分 cancel 行为。Stage 8 要补发布前最容易漏的 terminal lifecycle：重复 terminal operation、terminal 后继续 send/read、invalid handle、EOF 后 done、registration override 后 in-flight stream snapshot 不漂移。
 
-- [ ] **Step 1: 写 terminal lifecycle acceptance**
+- [x] **Step 1: 写 terminal lifecycle acceptance**
 
 创建 `internal/integration/stage8_stream_terminal_lifecycle_test.go`，覆盖 native client、message client、Connect remote、gRPC remote 的共同场景：
 
@@ -328,7 +328,7 @@ rtk git commit -m "fix: harden message protobuf ABI errors"
 - invalid handle 对 `Send`、`Read`、`Finish`、`Done`、`CloseSend`、`Cancel` 都返回明确错误。
 - stream start 捕获 active server snapshot；注册新 active server 后，旧 stream 后续操作仍走旧 adapter。
 
-- [ ] **Step 2: Run failing tests**
+- [x] **Step 2: Run failing tests**
 
 Run:
 
@@ -338,7 +338,7 @@ rtk go test ./internal/integration -run TestStage8StreamTerminalLifecycle -count
 
 Expected: 暴露缺失的 terminal guard 或 handle finalization 行为。
 
-- [ ] **Step 3: 修复 lifecycle 缺口**
+- [x] **Step 3: 修复 lifecycle 缺口**
 
 按失败路径做最小修复：
 
@@ -347,7 +347,7 @@ Expected: 暴露缺失的 terminal guard 或 handle finalization 行为。
 - 不让 generated service 维护平行 session registry。
 - remote stream `Cancel` 只取消 stream context 和关闭 send side，不关闭调用方持有的 gRPC conn。
 
-- [ ] **Step 4: Run focused stream suites**
+- [x] **Step 4: Run focused stream suites**
 
 Run:
 
@@ -358,13 +358,13 @@ rtk go test ./internal/integration -run 'TestStage8StreamTerminalLifecycle|TestR
 
 Expected: PASS。
 
-- [ ] **Step 5: 验收**
+- [x] **Step 5: 验收**
 
 - terminal operation 只有一次成功。
 - terminal 后继续操作返回 error id，不 panic，不泄漏 handle。
 - in-flight stream snapshot 不受后续 active server registration 影响。
 
-- [ ] **Step 6: 提交**
+- [x] **Step 6: 提交**
 
 ```bash
 rtk git add internal/integration/stage8_stream_terminal_lifecycle_test.go internal/integration/remote_transport_stage6_acceptance_test.go internal/generator/render_connect_remote.go internal/generator/render_grpc_remote.go internal/generator/render_message_client_cgo.go internal/generator/render_native_client_cgo.go

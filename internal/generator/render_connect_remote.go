@@ -77,9 +77,6 @@ func renderConnectRemoteFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 		}
 	}
 
-	if serviceHasStreamingMethod(service) {
-		renderConnectRemoteConnCloser(g)
-	}
 	return nil
 }
 
@@ -179,10 +176,10 @@ func renderConnectRemoteClientStreaming(g *protogen.GeneratedFile, service Servi
 	g.P("s.cancel()")
 	g.P("}")
 	g.P("conn, err := s.stream.Conn()")
-	g.P("if err != nil {")
+	g.P("if err != nil || conn == nil {")
 	g.P("return nil")
 	g.P("}")
-	g.P("return closeConnectRemoteConn(conn)")
+	g.P("return conn.CloseRequest()")
 	g.P("}")
 	g.P()
 }
@@ -260,11 +257,7 @@ func renderConnectRemoteServerStreaming(g *protogen.GeneratedFile, service Servi
 	g.P("if s.cancel != nil {")
 	g.P("s.cancel()")
 	g.P("}")
-	g.P("conn, err := s.stream.Conn()")
-	g.P("if err != nil {")
 	g.P("return s.stream.Close()")
-	g.P("}")
-	g.P("return closeConnectRemoteConn(conn)")
 	g.P("}")
 	g.P()
 }
@@ -354,28 +347,10 @@ func renderConnectRemoteBidiStreaming(g *protogen.GeneratedFile, service Service
 	g.P("s.cancel()")
 	g.P("}")
 	g.P("conn, err := s.stream.Conn()")
-	g.P("if err == nil {")
-	g.P("return closeConnectRemoteConn(conn)")
+	g.P("if err == nil && conn != nil {")
+	g.P("return conn.CloseRequest()")
 	g.P("}")
-	g.P("err = s.stream.CloseRequest()")
-	g.P("if closeErr := s.stream.CloseResponse(); err == nil {")
-	g.P("err = closeErr")
-	g.P("}")
-	g.P("return err")
-	g.P("}")
-	g.P()
-}
-
-func renderConnectRemoteConnCloser(g *protogen.GeneratedFile) {
-	g.P("func closeConnectRemoteConn(conn connect.StreamingClientConn) error {")
-	g.P("if conn == nil {")
 	g.P("return nil")
-	g.P("}")
-	g.P("err := conn.CloseRequest()")
-	g.P("if closeErr := conn.CloseResponse(); err == nil {")
-	g.P("err = closeErr")
-	g.P("}")
-	g.P("return err")
 	g.P("}")
 	g.P()
 }
