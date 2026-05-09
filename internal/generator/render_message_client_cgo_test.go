@@ -40,7 +40,7 @@ func TestRenderMessageClientCGODefinesUnaryExportSurface(t *testing.T) {
 		"output.DataLen = length",
 		"func decodeGreeterSayHelloMessageRequestBytes(ptr uintptr, length int32) ([]byte, error) {",
 		`return nil, errors.New("rpccgo: message request length is negative")`,
-		`return nil, errors.New("rpccgo: message request pointer is nil")`,
+		"if ptr == 0 || length == 0 {",
 		"unsafe.Slice((*byte)(unsafe.Pointer(ptr)), int(length))",
 		"func encodeGreeterSayHelloMessageResponseBytes(data []byte) (uintptr, int32, error) {",
 		"length, err := rpcruntime.LengthToInt32(len(data))",

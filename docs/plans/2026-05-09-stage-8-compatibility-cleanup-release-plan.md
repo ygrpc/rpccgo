@@ -158,7 +158,7 @@ rtk git commit -m "docs: plan stage 8 compatibility cleanup"
 
 **迁移内容与理由:** 旧 empty input normalization 设计把 request-side `ptr == 0 || len/count == 0` 固定为 empty input，并把 `ownership > 0` 固定为 ownership transfer。当前 runtime 已有 canonical empty wrapper；Stage 8 要把 generated request decode 统一到这条合同，并用 generated-source acceptance 证明 message/native 路径一致。
 
-- [ ] **Step 1: 写 focused renderer 红测**
+- [x] **Step 1: 写 focused renderer 红测**
 
 在 generator tests 中断言：
 
@@ -167,7 +167,7 @@ rtk git commit -m "docs: plan stage 8 compatibility cleanup"
 - request-side non-empty path 使用 `Ownership > 0`。
 - negative length/count 仍返回 error id 或 Go error。
 
-- [ ] **Step 2: 写 generated-source acceptance**
+- [x] **Step 2: 写 generated-source acceptance**
 
 创建 `internal/integration/stage8_empty_input_normalization_test.go`，覆盖：
 
@@ -176,7 +176,7 @@ rtk git commit -m "docs: plan stage 8 compatibility cleanup"
 - non-empty request 且 `ownership=2` 会调用 free callback 一次。
 - negative length/count 返回 error id，错误文本包含 `negative`。
 
-- [ ] **Step 3: Run failing tests**
+- [x] **Step 3: Run failing tests**
 
 Run:
 
@@ -187,7 +187,7 @@ rtk go test ./internal/integration -run TestStage8EmptyInputNormalization -count
 
 Expected: 在实现前失败，指出 request decode 尚未统一的路径。
 
-- [ ] **Step 4: 实现 message request empty normalization**
+- [x] **Step 4: 实现 message request empty normalization**
 
 在 `render_message_client_cgo.go` 中调整 message request bytes helper：
 
@@ -197,7 +197,7 @@ Expected: 在实现前失败，指出 request decode 尚未统一的路径。
 
 保留 response-side pointer required 语义；本任务只改 request-side。
 
-- [ ] **Step 5: 实现 native request empty normalization**
+- [x] **Step 5: 实现 native request empty normalization**
 
 在 `render_native_client_cgo.go` 和 `render_native_server_cgo.go` 的 request decode 中：
 
@@ -207,7 +207,7 @@ Expected: 在实现前失败，指出 request decode 尚未统一的路径。
 - non-empty path 继续使用 checked constructor，并传入 `Ownership > 0`。
 - negative length/count 先报错，不进入 empty path。
 
-- [ ] **Step 6: Run focused tests**
+- [x] **Step 6: Run focused tests**
 
 Run:
 
@@ -219,13 +219,13 @@ rtk go test ./internal/integration -run TestStage8EmptyInputNormalization -count
 
 Expected: PASS。
 
-- [ ] **Step 7: 验收**
+- [x] **Step 7: 验收**
 
 - request-side empty input 合同在 message/native 生成物中一致。
 - response-side pointer required 语义没有被静默放宽。
 - owned non-empty request 仍释放一次，borrowed request 不释放。
 
-- [ ] **Step 8: 提交**
+- [x] **Step 8: 提交**
 
 ```bash
 rtk git add rpcruntime/rpc_type_test.go rpcruntime/rpc_repeat_test.go internal/generator/render_message_client_cgo.go internal/generator/render_message_client_cgo_test.go internal/generator/render_native_client_cgo.go internal/generator/render_native_client_cgo_test.go internal/generator/render_native_server_cgo.go internal/generator/render_native_server_cgo_test.go internal/integration/stage8_empty_input_normalization_test.go

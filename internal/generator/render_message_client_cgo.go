@@ -286,11 +286,8 @@ func renderMessageBytesFromABIBody(g *protogen.GeneratedFile, label string) {
 	g.P("if length < 0 {")
 	g.P(`return nil, errors.New("rpccgo: message `, label, ` length is negative")`)
 	g.P("}")
-	g.P("if length == 0 {")
+	g.P("if ptr == 0 || length == 0 {")
 	g.P("return nil, nil")
-	g.P("}")
-	g.P("if ptr == 0 {")
-	g.P(`return nil, errors.New("rpccgo: message `, label, ` pointer is nil")`)
 	g.P("}")
 	g.P("return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(ptr)), int(length))...), nil")
 }
