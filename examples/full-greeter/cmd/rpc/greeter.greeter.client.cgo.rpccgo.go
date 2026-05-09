@@ -63,7 +63,12 @@ func decodeGreeterSayHelloNativeUnaryRequest(input *GreeterSayHelloNativeUnaryIn
 	if _, err := rpcruntime.LengthFromInt32(input.NameLen); err != nil {
 		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", err)
 	}
-	Name := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)
+	var Name *rpcruntime.RpcString
+	if input.NamePtr == 0 || input.NameLen == 0 {
+		Name = rpcruntime.EmptyRpcString()
+	} else {
+		Name = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)
+	}
 	req.Name = Name.SafeString()
 	if err := Name.Release(); err != nil {
 		return nil, err
@@ -71,7 +76,12 @@ func decodeGreeterSayHelloNativeUnaryRequest(input *GreeterSayHelloNativeUnaryIn
 	if _, err := rpcruntime.LengthFromInt32(input.CityLen); err != nil {
 		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", err)
 	}
-	City := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.CityPtr)), input.CityLen, input.CityOwnership > 0)
+	var City *rpcruntime.RpcString
+	if input.CityPtr == 0 || input.CityLen == 0 {
+		City = rpcruntime.EmptyRpcString()
+	} else {
+		City = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.CityPtr)), input.CityLen, input.CityOwnership > 0)
+	}
 	req.City = City.SafeString()
 	if err := City.Release(); err != nil {
 		return nil, err
@@ -184,7 +194,12 @@ func decodeGreeterCollectNativeClientStreamRequest(input *GreeterCollectNativeCl
 	if _, err := rpcruntime.LengthFromInt32(input.NameLen); err != nil {
 		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", err)
 	}
-	Name := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)
+	var Name *rpcruntime.RpcString
+	if input.NamePtr == 0 || input.NameLen == 0 {
+		Name = rpcruntime.EmptyRpcString()
+	} else {
+		Name = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)
+	}
 	req.Name = Name.SafeString()
 	if err := Name.Release(); err != nil {
 		return nil, err
@@ -192,7 +207,12 @@ func decodeGreeterCollectNativeClientStreamRequest(input *GreeterCollectNativeCl
 	if _, err := rpcruntime.LengthFromInt32(input.CityLen); err != nil {
 		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", err)
 	}
-	City := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.CityPtr)), input.CityLen, input.CityOwnership > 0)
+	var City *rpcruntime.RpcString
+	if input.CityPtr == 0 || input.CityLen == 0 {
+		City = rpcruntime.EmptyRpcString()
+	} else {
+		City = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.CityPtr)), input.CityLen, input.CityOwnership > 0)
+	}
 	req.City = City.SafeString()
 	if err := City.Release(); err != nil {
 		return nil, err
@@ -307,7 +327,12 @@ func decodeGreeterBroadcastNativeServerStreamRequest(input *GreeterBroadcastNati
 	if _, err := rpcruntime.LengthFromInt32(input.NameLen); err != nil {
 		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", err)
 	}
-	Name := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)
+	var Name *rpcruntime.RpcString
+	if input.NamePtr == 0 || input.NameLen == 0 {
+		Name = rpcruntime.EmptyRpcString()
+	} else {
+		Name = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)
+	}
 	req.Name = Name.SafeString()
 	if err := Name.Release(); err != nil {
 		return nil, err
@@ -315,7 +340,12 @@ func decodeGreeterBroadcastNativeServerStreamRequest(input *GreeterBroadcastNati
 	if _, err := rpcruntime.LengthFromInt32(input.CityLen); err != nil {
 		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", err)
 	}
-	City := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.CityPtr)), input.CityLen, input.CityOwnership > 0)
+	var City *rpcruntime.RpcString
+	if input.CityPtr == 0 || input.CityLen == 0 {
+		City = rpcruntime.EmptyRpcString()
+	} else {
+		City = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.CityPtr)), input.CityLen, input.CityOwnership > 0)
+	}
 	req.City = City.SafeString()
 	if err := City.Release(); err != nil {
 		return nil, err
@@ -458,7 +488,12 @@ func decodeGreeterChatNativeBidiStreamRequest(input *GreeterChatNativeBidiStream
 	if _, err := rpcruntime.LengthFromInt32(input.NameLen); err != nil {
 		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", err)
 	}
-	Name := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)
+	var Name *rpcruntime.RpcString
+	if input.NamePtr == 0 || input.NameLen == 0 {
+		Name = rpcruntime.EmptyRpcString()
+	} else {
+		Name = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)
+	}
 	req.Name = Name.SafeString()
 	if err := Name.Release(); err != nil {
 		return nil, err
@@ -466,7 +501,12 @@ func decodeGreeterChatNativeBidiStreamRequest(input *GreeterChatNativeBidiStream
 	if _, err := rpcruntime.LengthFromInt32(input.CityLen); err != nil {
 		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", err)
 	}
-	City := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.CityPtr)), input.CityLen, input.CityOwnership > 0)
+	var City *rpcruntime.RpcString
+	if input.CityPtr == 0 || input.CityLen == 0 {
+		City = rpcruntime.EmptyRpcString()
+	} else {
+		City = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.CityPtr)), input.CityLen, input.CityOwnership > 0)
+	}
 	req.City = City.SafeString()
 	if err := City.Release(); err != nil {
 		return nil, err

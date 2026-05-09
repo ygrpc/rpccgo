@@ -73,6 +73,7 @@ import (
 	errors "errors"
 	fmt "fmt"
 	io "io"
+	protobuf "google.golang.org/protobuf/proto"
 	rpcruntime "rpccgo/rpcruntime"
 	unsafe "unsafe"
 )
@@ -96,6 +97,9 @@ func (a *greeterCGOMessageAdapter) SayHelloMessage(ctx context.Context, req []by
 	if callback == nil {
 		return nil, greeterCGOMessageServerUnaryCallbackMissing
 	}
+	if err := protobuf.Unmarshal(req, &proto.SayHelloRequest{}); err != nil {
+		return nil, fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)
+	}
 	var requestPtr uintptr
 	if len(req) != 0 {
 		requestPtr = uintptr(unsafe.Pointer(&req[0]))
@@ -110,6 +114,17 @@ func (a *greeterCGOMessageAdapter) SayHelloMessage(ctx context.Context, req []by
 	if errID != 0 {
 		return nil, greeterCGOMessageServerError(errID)
 	}
+	resp, err := decodeGreeterSayHelloCGOMessageResponseBytes(responsePtr, responseLen)
+	if err != nil {
+		return nil, err
+	}
+	if err := protobuf.Unmarshal(resp, &proto.SayHelloResponse{}); err != nil {
+		return nil, fmt.Errorf("rpccgo: message response protobuf unmarshal failed: %w", err)
+	}
+	return resp, nil
+}
+
+func decodeGreeterSayHelloCGOMessageResponseBytes(responsePtr C.uintptr_t, responseLen C.int32_t) ([]byte, error) {
 	if responseLen < 0 {
 		return nil, errors.New("rpccgo: message server response length is negative")
 	}
@@ -143,6 +158,9 @@ type greeterCollectCGOMessageClientStreamSession struct {
 }
 
 func (s *greeterCollectCGOMessageClientStreamSession) Send(ctx context.Context, req []byte) error {
+	if err := protobuf.Unmarshal(req, &proto.SayHelloRequest{}); err != nil {
+		return fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)
+	}
 	var requestPtr uintptr
 	if len(req) != 0 {
 		requestPtr = uintptr(unsafe.Pointer(&req[0]))
@@ -165,6 +183,25 @@ func (s *greeterCollectCGOMessageClientStreamSession) Finish(ctx context.Context
 	if errID != 0 {
 		return nil, greeterCGOMessageServerError(errID)
 	}
+	resp, err := decodeGreeterCollectCGOMessageResponseBytes(responsePtr, responseLen)
+	if err != nil {
+		return nil, err
+	}
+	if err := protobuf.Unmarshal(resp, &proto.SayHelloResponse{}); err != nil {
+		return nil, fmt.Errorf("rpccgo: message response protobuf unmarshal failed: %w", err)
+	}
+	return resp, nil
+}
+
+func (s *greeterCollectCGOMessageClientStreamSession) Cancel(ctx context.Context) error {
+	errID := int32(C.callGreeterCollectCGOMessageClientStreamCancel(s.callbacks.CollectCancel, C.int32_t(s.stream)))
+	if errID != 0 {
+		return greeterCGOMessageServerError(errID)
+	}
+	return nil
+}
+
+func decodeGreeterCollectCGOMessageResponseBytes(responsePtr C.uintptr_t, responseLen C.int32_t) ([]byte, error) {
 	if responseLen < 0 {
 		return nil, errors.New("rpccgo: message server response length is negative")
 	}
@@ -177,20 +214,15 @@ func (s *greeterCollectCGOMessageClientStreamSession) Finish(ctx context.Context
 	return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(uintptr(responsePtr))), int(responseLen))...), nil
 }
 
-func (s *greeterCollectCGOMessageClientStreamSession) Cancel(ctx context.Context) error {
-	errID := int32(C.callGreeterCollectCGOMessageClientStreamCancel(s.callbacks.CollectCancel, C.int32_t(s.stream)))
-	if errID != 0 {
-		return greeterCGOMessageServerError(errID)
-	}
-	return nil
-}
-
 func (a *greeterCGOMessageAdapter) StartBroadcastMessage(ctx context.Context, req []byte) (proto.GreeterBroadcastMessageStreamSession, error) {
 	if a == nil {
 		return nil, greeterCGOMessageServerCallbacksNil
 	}
 	if a.callbacks.BroadcastStart == nil {
 		return nil, greeterCGOMessageServerUnaryCallbackMissing
+	}
+	if err := protobuf.Unmarshal(req, &proto.SayHelloRequest{}); err != nil {
+		return nil, fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)
 	}
 	var requestPtr uintptr
 	if len(req) != 0 {
@@ -220,16 +252,14 @@ func (s *greeterBroadcastCGOMessageServerStreamSession) Recv(ctx context.Context
 	if errID != 0 {
 		return nil, greeterCGOMessageServerError(errID)
 	}
-	if responseLen < 0 {
-		return nil, errors.New("rpccgo: message server response length is negative")
+	resp, err := decodeGreeterBroadcastCGOMessageResponseBytes(responsePtr, responseLen)
+	if err != nil {
+		return nil, err
 	}
-	if responseLen == 0 {
-		return nil, nil
+	if err := protobuf.Unmarshal(resp, &proto.SayHelloResponse{}); err != nil {
+		return nil, fmt.Errorf("rpccgo: message response protobuf unmarshal failed: %w", err)
 	}
-	if responsePtr == 0 {
-		return nil, errors.New("rpccgo: message server response pointer is nil")
-	}
-	return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(uintptr(responsePtr))), int(responseLen))...), nil
+	return resp, nil
 }
 
 func (s *greeterBroadcastCGOMessageServerStreamSession) Done(ctx context.Context) error {
@@ -246,6 +276,19 @@ func (s *greeterBroadcastCGOMessageServerStreamSession) Cancel(ctx context.Conte
 		return greeterCGOMessageServerError(errID)
 	}
 	return nil
+}
+
+func decodeGreeterBroadcastCGOMessageResponseBytes(responsePtr C.uintptr_t, responseLen C.int32_t) ([]byte, error) {
+	if responseLen < 0 {
+		return nil, errors.New("rpccgo: message server response length is negative")
+	}
+	if responseLen == 0 {
+		return nil, nil
+	}
+	if responsePtr == 0 {
+		return nil, errors.New("rpccgo: message server response pointer is nil")
+	}
+	return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(uintptr(responsePtr))), int(responseLen))...), nil
 }
 
 func (a *greeterCGOMessageAdapter) StartChatMessage(ctx context.Context) (proto.GreeterChatMessageStreamSession, error) {
@@ -269,6 +312,9 @@ type greeterChatCGOMessageBidiStreamSession struct {
 }
 
 func (s *greeterChatCGOMessageBidiStreamSession) Send(ctx context.Context, req []byte) error {
+	if err := protobuf.Unmarshal(req, &proto.SayHelloRequest{}); err != nil {
+		return fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)
+	}
 	var requestPtr uintptr
 	if len(req) != 0 {
 		requestPtr = uintptr(unsafe.Pointer(&req[0]))
@@ -291,16 +337,14 @@ func (s *greeterChatCGOMessageBidiStreamSession) Recv(ctx context.Context) ([]by
 	if errID != 0 {
 		return nil, greeterCGOMessageServerError(errID)
 	}
-	if responseLen < 0 {
-		return nil, errors.New("rpccgo: message server response length is negative")
+	resp, err := decodeGreeterChatCGOMessageResponseBytes(responsePtr, responseLen)
+	if err != nil {
+		return nil, err
 	}
-	if responseLen == 0 {
-		return nil, nil
+	if err := protobuf.Unmarshal(resp, &proto.SayHelloResponse{}); err != nil {
+		return nil, fmt.Errorf("rpccgo: message response protobuf unmarshal failed: %w", err)
 	}
-	if responsePtr == 0 {
-		return nil, errors.New("rpccgo: message server response pointer is nil")
-	}
-	return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(uintptr(responsePtr))), int(responseLen))...), nil
+	return resp, nil
 }
 
 func (s *greeterChatCGOMessageBidiStreamSession) CloseSend(ctx context.Context) error {
@@ -325,6 +369,19 @@ func (s *greeterChatCGOMessageBidiStreamSession) Cancel(ctx context.Context) err
 		return greeterCGOMessageServerError(errID)
 	}
 	return nil
+}
+
+func decodeGreeterChatCGOMessageResponseBytes(responsePtr C.uintptr_t, responseLen C.int32_t) ([]byte, error) {
+	if responseLen < 0 {
+		return nil, errors.New("rpccgo: message server response length is negative")
+	}
+	if responseLen == 0 {
+		return nil, nil
+	}
+	if responsePtr == 0 {
+		return nil, errors.New("rpccgo: message server response pointer is nil")
+	}
+	return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(uintptr(responsePtr))), int(responseLen))...), nil
 }
 
 func RegisterGreeterCGOMessageServer(callbacks *C.GreeterCGOMessageServerCallbacks) (rpcruntime.AdapterSnapshot[proto.GreeterMessageAdapter], error) {

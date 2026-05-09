@@ -129,10 +129,10 @@ func (s *GreeterCollectConnectRemoteClientStreamSession) Cancel(ctx context.Cont
 		s.cancel()
 	}
 	conn, err := s.stream.Conn()
-	if err != nil {
+	if err != nil || conn == nil {
 		return nil
 	}
-	return closeConnectRemoteConn(conn)
+	return conn.CloseRequest()
 }
 
 func (s *GreeterConnectRemoteServer) StartBroadcastMessage(ctx context.Context, req []byte) (GreeterBroadcastMessageStreamSession, error) {
@@ -198,11 +198,7 @@ func (s *GreeterBroadcastConnectRemoteServerStreamSession) Cancel(ctx context.Co
 	if s.cancel != nil {
 		s.cancel()
 	}
-	conn, err := s.stream.Conn()
-	if err != nil {
-		return s.stream.Close()
-	}
-	return closeConnectRemoteConn(conn)
+	return s.stream.Close()
 }
 
 func (s *GreeterConnectRemoteServer) StartChatMessage(ctx context.Context) (GreeterChatMessageStreamSession, error) {
@@ -278,23 +274,8 @@ func (s *GreeterChatConnectRemoteBidiStreamSession) Cancel(ctx context.Context) 
 		s.cancel()
 	}
 	conn, err := s.stream.Conn()
-	if err == nil {
-		return closeConnectRemoteConn(conn)
+	if err == nil && conn != nil {
+		return conn.CloseRequest()
 	}
-	err = s.stream.CloseRequest()
-	if closeErr := s.stream.CloseResponse(); err == nil {
-		err = closeErr
-	}
-	return err
-}
-
-func closeConnectRemoteConn(conn connect.StreamingClientConn) error {
-	if conn == nil {
-		return nil
-	}
-	err := conn.CloseRequest()
-	if closeErr := conn.CloseResponse(); err == nil {
-		err = closeErr
-	}
-	return err
+	return nil
 }

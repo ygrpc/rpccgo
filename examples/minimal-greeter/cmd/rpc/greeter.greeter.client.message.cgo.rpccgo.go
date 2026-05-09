@@ -54,11 +54,8 @@ func decodeGreeterSayHelloMessageRequestBytes(ptr uintptr, length int32) ([]byte
 	if length < 0 {
 		return nil, errors.New("rpccgo: message request length is negative")
 	}
-	if length == 0 {
+	if ptr == 0 || length == 0 {
 		return nil, nil
-	}
-	if ptr == 0 {
-		return nil, errors.New("rpccgo: message request pointer is nil")
 	}
 	return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(ptr)), int(length))...), nil
 }

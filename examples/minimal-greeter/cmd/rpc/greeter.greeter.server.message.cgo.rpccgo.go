@@ -25,6 +25,7 @@ import (
 	errors "errors"
 	fmt "fmt"
 	io "io"
+	protobuf "google.golang.org/protobuf/proto"
 	rpcruntime "rpccgo/rpcruntime"
 	unsafe "unsafe"
 )
@@ -48,6 +49,9 @@ func (a *greeterCGOMessageAdapter) SayHelloMessage(ctx context.Context, req []by
 	if callback == nil {
 		return nil, greeterCGOMessageServerUnaryCallbackMissing
 	}
+	if err := protobuf.Unmarshal(req, &v1.SayHelloRequest{}); err != nil {
+		return nil, fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)
+	}
 	var requestPtr uintptr
 	if len(req) != 0 {
 		requestPtr = uintptr(unsafe.Pointer(&req[0]))
@@ -62,6 +66,17 @@ func (a *greeterCGOMessageAdapter) SayHelloMessage(ctx context.Context, req []by
 	if errID != 0 {
 		return nil, greeterCGOMessageServerError(errID)
 	}
+	resp, err := decodeGreeterSayHelloCGOMessageResponseBytes(responsePtr, responseLen)
+	if err != nil {
+		return nil, err
+	}
+	if err := protobuf.Unmarshal(resp, &v1.SayHelloResponse{}); err != nil {
+		return nil, fmt.Errorf("rpccgo: message response protobuf unmarshal failed: %w", err)
+	}
+	return resp, nil
+}
+
+func decodeGreeterSayHelloCGOMessageResponseBytes(responsePtr C.uintptr_t, responseLen C.int32_t) ([]byte, error) {
 	if responseLen < 0 {
 		return nil, errors.New("rpccgo: message server response length is negative")
 	}
