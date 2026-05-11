@@ -100,6 +100,52 @@ func TestBuildDescriptorPlanBuildsServicesAndMethods(t *testing.T) {
 	})
 }
 
+func TestBuildDescriptorPlanBuildsCompleteServicePlans(t *testing.T) {
+	plugin := newTestPlugin(t, "paths=source_relative", completeServicePlanTestFile())
+
+	plan, err := BuildDescriptorPlan(plugin.Files[0])
+	if err != nil {
+		t.Fatalf("BuildDescriptorPlan() error = %v", err)
+	}
+
+	if plan.ProtoPath != "test/v1/complete_service_plan.proto" {
+		t.Fatalf("ProtoPath = %q, want complete service plan proto", plan.ProtoPath)
+	}
+	services := servicesByName(t, plan.Services,
+		"DefaultService", "ConnectService", "GrpcService", "MessageService",
+		"ConnectNativeService", "AllService", "NativeOnlyService",
+	)
+
+	wantServices := map[string][]AdapterToken{
+		"DefaultService":       {AdapterTokenMessageConnect},
+		"ConnectService":       {AdapterTokenMessageConnect},
+		"GrpcService":          {AdapterTokenMessageGRPC},
+		"MessageService":       {AdapterTokenMessageConnect, AdapterTokenMessageGRPC},
+		"ConnectNativeService": {AdapterTokenMessageConnect, AdapterTokenNative},
+		"AllService":           {AdapterTokenMessageConnect, AdapterTokenMessageGRPC, AdapterTokenNative},
+		"NativeOnlyService":    {AdapterTokenMessageConnect, AdapterTokenNative},
+	}
+	for name, wantTokens := range wantServices {
+		service := services[name]
+		assertAdapterTokens(t, service.Adapters, wantTokens)
+		if !service.NeedsCodec {
+			t.Fatalf("%s NeedsCodec = false, want true", name)
+		}
+		for _, method := range service.Methods {
+			if !method.NeedsCodec {
+				t.Fatalf("%s.%s NeedsCodec = false, want true", name, method.Name)
+			}
+			assertCompleteMethodContracts(t, method)
+		}
+	}
+
+	methods := methodsByName(t, services["AllService"].Methods, "Unary", "ClientStream", "ServerStream", "BidiStream")
+	assertMethodStreaming(t, methods["Unary"], "Unary", StreamingKindUnary)
+	assertMethodStreaming(t, methods["ClientStream"], "ClientStream", StreamingKindClientStreaming)
+	assertMethodStreaming(t, methods["ServerStream"], "ServerStream", StreamingKindServerStreaming)
+	assertMethodStreaming(t, methods["BidiStream"], "BidiStream", StreamingKindBidiStreaming)
+}
+
 func TestBuildDescriptorPlanKeepsImportedMethodGoIdent(t *testing.T) {
 	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/imported.proto",
 		commonTypesTestFile(), importedMethodTestFile())
@@ -178,6 +224,44 @@ func TestMethodStreamingPlan(t *testing.T) {
 	assertMethodStreaming(t, methods[3], "BidiStream", StreamingKindBidiStreaming)
 }
 
+func assertCompleteMethodContracts(t *testing.T, method MethodPlan) {
+	t.Helper()
+
+	if method.Request.GoName == "" || method.Response.GoName == "" {
+		t.Fatalf("%s request/response descriptor metadata is missing", method.FullName)
+	}
+	if method.MessageContract.RequestType != method.Request || method.MessageContract.ResponseType != method.Response {
+		t.Fatalf("%s MessageContract = %#v, want request/response IO metadata", method.FullName, method.MessageContract)
+	}
+	if len(method.NativeContract.RequestFields) == 0 || len(method.NativeContract.ResponseFields) == 0 {
+		t.Fatalf("%s NativeContract missing request or response fields", method.FullName)
+	}
+	if len(method.RequestBody) != len(method.NativeContract.RequestFields) || len(method.ResponseBody) != len(method.NativeContract.ResponseFields) {
+		t.Fatalf("%s request/response bodies do not match native contract fields", method.FullName)
+	}
+}
+
+func servicesByName(t *testing.T, services []ServicePlan, wantNames ...string) map[string]ServicePlan {
+	t.Helper()
+
+	if len(services) != len(wantNames) {
+		t.Fatalf("Services = %d, want %d", len(services), len(wantNames))
+	}
+	byName := make(map[string]ServicePlan, len(services))
+	for _, service := range services {
+		if _, exists := byName[service.Name]; exists {
+			t.Fatalf("duplicate service name %q", service.Name)
+		}
+		byName[service.Name] = service
+	}
+	for _, name := range wantNames {
+		if _, exists := byName[name]; !exists {
+			t.Fatalf("service %q not found in file plan", name)
+		}
+	}
+	return byName
+}
+
 func hasTopLevelSymbol(symbols []TopLevelSymbolPlan, goName, fullName string, kind TopLevelSymbolKind) bool {
 	for _, symbol := range symbols {
 		if symbol.GoName == goName && symbol.FullName == fullName && symbol.Kind == kind {
@@ -226,6 +310,109 @@ func findTestProtoFile(t *testing.T, plugin *protogen.Plugin, path string) *prot
 	}
 	t.Fatalf("file %q not found in plugin", path)
 	return nil
+}
+
+func completeServicePlanTestFile() *descriptorpb.FileDescriptorProto {
+	file := &descriptorpb.FileDescriptorProto{
+		Name:    proto.String("test/v1/complete_service_plan.proto"),
+		Package: proto.String("test.v1"),
+		Syntax:  proto.String("proto3"),
+		Options: &descriptorpb.FileOptions{
+			GoPackage: proto.String("example.com/test/v1;testv1"),
+		},
+		MessageType: []*descriptorpb.DescriptorProto{
+			completeServicePlanRequestDescriptor("DefaultRequest"),
+			completeServicePlanReplyDescriptor("DefaultReply"),
+			completeServicePlanRequestDescriptor("ConnectRequest"),
+			completeServicePlanReplyDescriptor("ConnectReply"),
+			completeServicePlanRequestDescriptor("GrpcRequest"),
+			completeServicePlanReplyDescriptor("GrpcReply"),
+			completeServicePlanRequestDescriptor("MessageRequest"),
+			completeServicePlanReplyDescriptor("MessageReply"),
+			completeServicePlanRequestDescriptor("ConnectNativeRequest"),
+			completeServicePlanReplyDescriptor("ConnectNativeReply"),
+			completeServicePlanRequestDescriptor("AllRequest"),
+			completeServicePlanReplyDescriptor("AllReply"),
+			completeServicePlanRequestDescriptor("NativeOnlyRequest"),
+			completeServicePlanReplyDescriptor("NativeOnlyReply"),
+			childMessageDescriptor(),
+		},
+		Service: []*descriptorpb.ServiceDescriptorProto{
+			completeServicePlanService("DefaultService", "Default", ".test.v1.DefaultRequest", ".test.v1.DefaultReply", false),
+			completeServicePlanService("ConnectService", "Connect", ".test.v1.ConnectRequest", ".test.v1.ConnectReply", false),
+			completeServicePlanService("GrpcService", "Grpc", ".test.v1.GrpcRequest", ".test.v1.GrpcReply", false),
+			completeServicePlanService("MessageService", "Message", ".test.v1.MessageRequest", ".test.v1.MessageReply", false),
+			completeServicePlanService("ConnectNativeService", "ConnectNative", ".test.v1.ConnectNativeRequest", ".test.v1.ConnectNativeReply", false),
+			completeServicePlanService("AllService", "All", ".test.v1.AllRequest", ".test.v1.AllReply", true),
+			completeServicePlanService("NativeOnlyService", "NativeOnly", ".test.v1.NativeOnlyRequest", ".test.v1.NativeOnlyReply", false),
+		},
+	}
+	file.SourceCodeInfo = completeServicePlanServiceComments([]string{
+		"",
+		"@rpccgo: msg-connect\n",
+		"@rpccgo: msg-grpc\n",
+		"@rpccgo: msg-connect|msg-grpc\n",
+		"@rpccgo: msg-connect|native\n",
+		"@rpccgo: msg-connect|msg-grpc|native\n",
+		"@rpccgo: native\n",
+	})
+	return file
+}
+
+func completeServicePlanRequestDescriptor(name string) *descriptorpb.DescriptorProto {
+	return &descriptorpb.DescriptorProto{
+		Name: proto.String(name),
+		Field: []*descriptorpb.FieldDescriptorProto{
+			fieldDescriptor("name", 1, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+			fieldDescriptor("enabled", 2, descriptorpb.FieldDescriptorProto_TYPE_BOOL, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+			fieldDescriptor("child", 3, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".test.v1.Child"),
+		},
+	}
+}
+
+func completeServicePlanReplyDescriptor(name string) *descriptorpb.DescriptorProto {
+	return &descriptorpb.DescriptorProto{
+		Name: proto.String(name),
+		Field: []*descriptorpb.FieldDescriptorProto{
+			fieldDescriptor("accepted", 1, descriptorpb.FieldDescriptorProto_TYPE_BOOL, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+			fieldDescriptor("payload", 2, descriptorpb.FieldDescriptorProto_TYPE_BYTES, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+		},
+	}
+}
+
+func completeServicePlanService(name, methodPrefix, input, output string, streaming bool) *descriptorpb.ServiceDescriptorProto {
+	if !streaming {
+		return &descriptorpb.ServiceDescriptorProto{
+			Name: proto.String(name),
+			Method: []*descriptorpb.MethodDescriptorProto{
+				methodDescriptor(methodPrefix+"Unary", input, output, false, false),
+			},
+		}
+	}
+	return &descriptorpb.ServiceDescriptorProto{
+		Name: proto.String(name),
+		Method: []*descriptorpb.MethodDescriptorProto{
+			methodDescriptor("Unary", input, output, false, false),
+			methodDescriptor("ClientStream", input, output, true, false),
+			methodDescriptor("ServerStream", input, output, false, true),
+			methodDescriptor("BidiStream", input, output, true, true),
+		},
+	}
+}
+
+func completeServicePlanServiceComments(comments []string) *descriptorpb.SourceCodeInfo {
+	locations := make([]*descriptorpb.SourceCodeInfo_Location, 0, len(comments))
+	for index, comment := range comments {
+		if comment == "" {
+			continue
+		}
+		locations = append(locations, &descriptorpb.SourceCodeInfo_Location{
+			Path:            []int32{6, int32(index)},
+			Span:            []int32{int32(index), 0, int32(index), 1},
+			LeadingComments: proto.String(comment),
+		})
+	}
+	return &descriptorpb.SourceCodeInfo{Location: locations}
 }
 
 func descriptorPlanTestFile() *descriptorpb.FileDescriptorProto {

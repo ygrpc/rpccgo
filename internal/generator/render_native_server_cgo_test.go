@@ -12,7 +12,7 @@ import (
 )
 
 func TestRenderNativeServerCGODefinesUnaryCallbackTableAdapterAndRegistration(t *testing.T) {
-	file := stage1AcceptanceFile()
+	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
@@ -20,7 +20,7 @@ func TestRenderNativeServerCGODefinesUnaryCallbackTableAdapterAndRegistration(t 
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const cgoServerFile = "test/v1/cgo/stage1_acceptance.all_service.server.cgo.rpccgo.go"
+	const cgoServerFile = "test/v1/cgo/complete_service_plan.all_service.server.cgo.rpccgo.go"
 	for _, fragment := range []string{
 		"package main",
 		`import "C"`,
@@ -139,6 +139,7 @@ func TestRenderNativeServerCGOSupportsRepeatedNativeABI(t *testing.T) {
 		"rpcruntime.NewRpcRepeatChecked((*float64)(unsafe.Pointer(uintptr(output.RatiosPtr))), int32(output.RatiosLen), false)",
 		"rpcruntime.NewRpcRepeatChecked((*int32)(unsafe.Pointer(uintptr(output.MoodsPtr))), int32(output.MoodsLen), false)",
 		"rpcruntime.NewRpcBoolRepeatChecked((*byte)(unsafe.Pointer(uintptr(output.FlagsPtr))), int32(output.FlagsLen), false)",
+		"output.ScoresOwnership > 0",
 		"rpcruntime.ReleaseC(unsafe.Pointer(uintptr(output.ScoresPtr)), true, \"test.v1.RepeatedReply.scores\")",
 	} {
 		assertGeneratedContentContains(t, plugin, cgoServerFile, fragment)
@@ -259,7 +260,7 @@ func TestRenderNativeServerCGORejectsPackageAndSiblingSymbolCollisions(t *testin
 }
 
 func TestRenderNativeServerCGOGeneratedSourceCompiles(t *testing.T) {
-	file := stage1AcceptanceFile()
+	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})

@@ -9,7 +9,7 @@ import (
 )
 
 func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) {
-	file := stage1AcceptanceFile()
+	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
@@ -17,7 +17,7 @@ func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) 
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const nativeServerFile = "test/v1/stage1_acceptance.all_service.server.native.rpccgo.go"
+	const nativeServerFile = "test/v1/complete_service_plan.all_service.server.native.rpccgo.go"
 	for _, fragment := range []string{
 		"type AllServiceNativeServer interface {",
 		"Unary(ctx context.Context, req *AllRequest) (*AllReply, error)",
@@ -55,7 +55,7 @@ func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) 
 }
 
 func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
-	file := stage1AcceptanceFile()
+	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
@@ -63,7 +63,7 @@ func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const nativeServerFile = "test/v1/stage1_acceptance.all_service.server.native.rpccgo.go"
+	const nativeServerFile = "test/v1/complete_service_plan.all_service.server.native.rpccgo.go"
 	for _, fragment := range []string{
 		"type AllServiceClientStreamNativeClientStream interface {",
 		"Send(ctx context.Context, req *AllRequest) error",
@@ -189,7 +189,7 @@ func TestRenderNativeServerRejectsGeneratedSymbolCollisions(t *testing.T) {
 }
 
 func TestRenderNativeServerGeneratedSourceCompiles(t *testing.T) {
-	file := stage1AcceptanceFile()
+	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
@@ -291,7 +291,7 @@ type NativeOnlyReply struct {
 	Payload []byte
 }
 `
-	target := filepath.Join(root, "test/v1/stage1_acceptance_stubs.go")
+	target := filepath.Join(root, "test/v1/complete_service_plan_stubs.go")
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 		t.Fatalf("mkdir stub dir: %v", err)
 	}

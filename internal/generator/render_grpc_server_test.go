@@ -3,14 +3,14 @@ package generator
 import "testing"
 
 func TestRenderGRPCServerFileEmitsServiceDesc(t *testing.T) {
-	file := stage1AcceptanceFile()
+	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	if _, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true}); err != nil {
 		t.Fatalf("GenerateWithOptions(RenderStageFiles) error = %v", err)
 	}
 
-	const grpcFile = "test/v1/stage1_acceptance.all_service.server.grpc.rpccgo.go"
+	const grpcFile = "test/v1/complete_service_plan.all_service.server.grpc.rpccgo.go"
 	for _, fragment := range []string{
 		`grpc "google.golang.org/grpc"`,
 		`codes "google.golang.org/grpc/codes"`,

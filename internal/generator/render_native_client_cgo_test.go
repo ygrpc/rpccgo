@@ -13,7 +13,7 @@ import (
 )
 
 func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
-	file := stage1AcceptanceFile()
+	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
@@ -21,7 +21,7 @@ func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const nativeClientFile = "test/v1/cgo/stage1_acceptance.all_service.client.cgo.rpccgo.go"
+	const nativeClientFile = "test/v1/cgo/complete_service_plan.all_service.client.cgo.rpccgo.go"
 	for _, fragment := range []string{
 		"package main",
 		`v1 "example.com/test/v1"`,
@@ -47,6 +47,7 @@ func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
 		"if input.NamePtr == 0 || input.NameLen == 0 {",
 		"Name = rpcruntime.EmptyRpcString()",
 		"Name = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)",
+		"input.NameOwnership > 0",
 		"req.Name = Name.SafeString()",
 		"if err := Name.Release(); err != nil {",
 		"req.Enabled = input.Enabled != 0",
@@ -62,6 +63,59 @@ func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
 		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
 	}
 	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "allServiceDispatcher", "loadAllService", "takeAllService", "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf")
+}
+
+func TestRenderNativeClientCGOStreamWrappersUseLoadAndTakeBoundaries(t *testing.T) {
+	file := messageCgoTestFile()
+	setSimpleServiceComment(t, file, "@rpccgo: native\n")
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	const nativeClientFile = "test/v1/cgo/message_cgo.greeter.client.cgo.rpccgo.go"
+	for _, fragment := range []string{
+		"LoadUploadNativeStream",
+		"TakeUploadNativeStream",
+		"LoadListNativeStream",
+		"TakeListNativeStream",
+		"LoadChatNativeStream",
+		"TakeChatNativeStream",
+		"CloseSendGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32",
+		`rpccgo: native client stream handle is invalid`,
+	} {
+		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
+	}
+}
+
+func TestRenderNativeClientCGOHandlesBytesOwnershipAndPinnedOutputRelease(t *testing.T) {
+	file := nativeClientBytesOwnershipFile()
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	const nativeClientFile = "test/v1/cgo/native_unary.greeter.client.cgo.rpccgo.go"
+	for _, fragment := range []string{
+		"PayloadOwnership int32",
+		"if input.PayloadPtr == 0 || input.PayloadLen == 0 {",
+		"Payload = rpcruntime.EmptyRpcBytes()",
+		"Payload = rpcruntime.NewRpcBytes((*byte)(unsafe.Pointer(input.PayloadPtr)), input.PayloadLen, input.PayloadOwnership > 0)",
+		"input.PayloadOwnership > 0",
+		"if err := Payload.Release(); err != nil {",
+		"PayloadPtr, err := rpcruntime.PinBytes(resp.Payload)",
+		"data, NotePtr, err := rpcruntime.PinString(resp.Note)",
+		"rpcruntime.Release(PayloadPtr)",
+		"rpcruntime.Release(NotePtr)",
+		"output.PayloadPtr = PayloadPtr",
+		"output.NotePtr = NotePtr",
+	} {
+		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
+	}
 }
 
 func TestRenderNativeClientCGOSupportsEnumAsInt32(t *testing.T) {
@@ -112,7 +166,12 @@ func TestRenderNativeClientCGOSupportsRepeatedNativeABI(t *testing.T) {
 		"MoodsOwnership",
 		"if input.ScoresPtr == 0 || input.ScoresLen == 0 {",
 		"Scores = rpcruntime.EmptyRpcRepeat[int32]()",
+		"input.ScoresOwnership > 0",
 		"Scores, decodeErr = rpcruntime.NewRpcRepeatChecked((*int32)(unsafe.Pointer(input.ScoresPtr)), input.ScoresLen, input.ScoresOwnership > 0)",
+		"if input.FlagsPtr == 0 || input.FlagsLen == 0 {",
+		"Flags = rpcruntime.EmptyRpcBoolRepeat()",
+		"input.FlagsOwnership > 0",
+		"Flags, decodeErr = rpcruntime.NewRpcBoolRepeatChecked((*byte)(unsafe.Pointer(input.FlagsPtr)), input.FlagsLen, input.FlagsOwnership > 0)",
 		"if input.CountsPtr == 0 || input.CountsLen == 0 {",
 		"Counts = rpcruntime.EmptyRpcRepeat[int64]()",
 		"Counts, decodeErr = rpcruntime.NewRpcRepeatChecked((*int64)(unsafe.Pointer(input.CountsPtr)), input.CountsLen, input.CountsOwnership > 0)",
@@ -122,9 +181,6 @@ func TestRenderNativeClientCGOSupportsRepeatedNativeABI(t *testing.T) {
 		"if input.MoodsPtr == 0 || input.MoodsLen == 0 {",
 		"Moods = rpcruntime.EmptyRpcRepeat[int32]()",
 		"Moods, decodeErr = rpcruntime.NewRpcRepeatChecked((*int32)(unsafe.Pointer(input.MoodsPtr)), input.MoodsLen, input.MoodsOwnership > 0)",
-		"if input.FlagsPtr == 0 || input.FlagsLen == 0 {",
-		"Flags = rpcruntime.EmptyRpcBoolRepeat()",
-		"Flags, decodeErr = rpcruntime.NewRpcBoolRepeatChecked((*byte)(unsafe.Pointer(input.FlagsPtr)), input.FlagsLen, input.FlagsOwnership > 0)",
 		"rpcruntime.LengthFromInt32(input.ScoresLen)",
 		"rpcruntime.LengthFromInt32(input.FlagsLen)",
 		"rpcruntime.Release(ScoresPtr)",
@@ -370,7 +426,7 @@ func TestRenderNativeClientCGOIgnoresMultiFileSymbolsFromDifferentGoImportPath(t
 }
 
 func TestRenderNativeClientCGOGeneratedSourceCompiles(t *testing.T) {
-	file := stage1AcceptanceFile()
+	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
@@ -440,6 +496,48 @@ func nativeGeneratedModulePath(t *testing.T, plugin *protogen.Plugin) string {
 	}
 	t.Fatal("no generated protogen file found")
 	return ""
+}
+
+func nativeClientBytesOwnershipFile() *descriptorpb.FileDescriptorProto {
+	return &descriptorpb.FileDescriptorProto{
+		Name:    proto.String("test/v1/native_unary.proto"),
+		Package: proto.String("test.v1"),
+		Syntax:  proto.String("proto3"),
+		Options: &descriptorpb.FileOptions{
+			GoPackage: proto.String("example.com/test/v1;testv1"),
+		},
+		MessageType: []*descriptorpb.DescriptorProto{
+			{
+				Name: proto.String("HelloRequest"),
+				Field: []*descriptorpb.FieldDescriptorProto{
+					fieldDescriptor("payload", 1, descriptorpb.FieldDescriptorProto_TYPE_BYTES, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+				},
+			},
+			{
+				Name: proto.String("HelloReply"),
+				Field: []*descriptorpb.FieldDescriptorProto{
+					fieldDescriptor("payload", 1, descriptorpb.FieldDescriptorProto_TYPE_BYTES, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+					fieldDescriptor("note", 2, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+					fieldDescriptor("extra_payload", 3, descriptorpb.FieldDescriptorProto_TYPE_BYTES, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+				},
+			},
+		},
+		Service: []*descriptorpb.ServiceDescriptorProto{
+			{
+				Name: proto.String("Greeter"),
+				Method: []*descriptorpb.MethodDescriptorProto{
+					methodDescriptor("SayHello", ".test.v1.HelloRequest", ".test.v1.HelloReply", false, false),
+				},
+			},
+		},
+		SourceCodeInfo: &descriptorpb.SourceCodeInfo{Location: []*descriptorpb.SourceCodeInfo_Location{
+			{
+				Path:            []int32{6, 0},
+				Span:            []int32{0, 0, 0},
+				LeadingComments: proto.String("@rpccgo: native\n"),
+			},
+		}},
+	}
 }
 
 func nativeClientEnumFile() *descriptorpb.FileDescriptorProto {

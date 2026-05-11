@@ -58,7 +58,7 @@ func buildFieldPlan(field *protogen.Field) (FieldPlan, error) {
 		return FieldPlan{}, fmt.Errorf("protogen field is nil")
 	}
 	if field.Desc.IsMap() {
-		return FieldPlan{}, fmt.Errorf("field %s: map fields are not supported in stage 1", field.Desc.FullName())
+		return FieldPlan{}, fmt.Errorf("field %s: map fields are not supported in native ABI", field.Desc.FullName())
 	}
 
 	kind, err := fieldKind(field.Desc.Kind())
@@ -143,7 +143,7 @@ func nativeFieldPlan(field FieldPlan) (NativeFieldPlan, error) {
 		return NativeFieldPlan{Kind: NativeFieldKindBytes, Shape: repeatedShape(field.Repeated)}, nil
 	case FieldKindMessage:
 		if field.Repeated {
-			return NativeFieldPlan{}, fmt.Errorf("repeated message fields are not supported in stage 1")
+			return NativeFieldPlan{}, fmt.Errorf("repeated message fields are not supported in native ABI")
 		}
 		return NativeFieldPlan{Kind: NativeFieldKindMessageBytes, Shape: NativeABIShapeMessageBytes}, nil
 	case FieldKindEnum:

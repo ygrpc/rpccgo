@@ -28,7 +28,7 @@ func TestRenderRuntimeGlueImportsRPCRuntimeOnly(t *testing.T) {
 }
 
 func TestRenderRuntimeGlueDefinesServiceDispatcherAndRegistration(t *testing.T) {
-	file := stage1AcceptanceFile()
+	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
@@ -36,7 +36,7 @@ func TestRenderRuntimeGlueDefinesServiceDispatcherAndRegistration(t *testing.T) 
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const runtimeFile = "test/v1/stage1_acceptance.all_service.runtime.rpccgo.go"
+	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"type AllServiceNativeAdapter interface {",
 		"Unary(ctx context.Context, req *AllRequest) (*AllReply, error)",
@@ -70,7 +70,7 @@ func TestRenderRuntimeGlueDefinesServiceDispatcherAndRegistration(t *testing.T) 
 }
 
 func TestRenderRuntimeGlueDefinesMessageContractDispatcherAndRegistration(t *testing.T) {
-	file := stage1AcceptanceFile()
+	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
@@ -78,7 +78,7 @@ func TestRenderRuntimeGlueDefinesMessageContractDispatcherAndRegistration(t *tes
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const runtimeFile = "test/v1/stage1_acceptance.all_service.runtime.rpccgo.go"
+	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"type AllServiceMessageAdapter interface {",
 		"UnaryMessage(ctx context.Context, req []byte) ([]byte, error)",
@@ -117,7 +117,7 @@ func TestRenderRuntimeGlueDefinesMessageContractDispatcherAndRegistration(t *tes
 }
 
 func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleAndHelpers(t *testing.T) {
-	file := stage1AcceptanceFile()
+	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
@@ -125,7 +125,7 @@ func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleAndHelpers(t *testing.T) {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const runtimeFile = "test/v1/stage1_acceptance.all_service.runtime.rpccgo.go"
+	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"func loadAllServiceClientStreamNativeStream(handle rpcruntime.StreamHandle) (AllServiceClientStreamNativeStreamSession, bool) {",
 		"return rpcruntime.LoadDispatcherStream[AllServiceActiveAdapter, AllServiceClientStreamNativeStreamSession](&allServiceDispatcher, handle)",
@@ -153,7 +153,7 @@ func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleAndHelpers(t *testing.T) {
 }
 
 func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleForMessageHelpers(t *testing.T) {
-	file := stage1AcceptanceFile()
+	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
@@ -161,7 +161,7 @@ func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleForMessageHelpers(t *testing
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const runtimeFile = "test/v1/stage1_acceptance.all_service.runtime.rpccgo.go"
+	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"func loadAllServiceClientStreamMessageStream(handle rpcruntime.StreamHandle) (AllServiceClientStreamMessageStreamSession, bool) {",
 		"return rpcruntime.LoadDispatcherStream[AllServiceActiveAdapter, AllServiceClientStreamMessageStreamSession](&allServiceDispatcher, handle)",
@@ -178,7 +178,7 @@ func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleForMessageHelpers(t *testing
 }
 
 func TestRenderRuntimeStageFilesWrapsNativeStreamsForMessageClientCodec(t *testing.T) {
-	file := stage1AcceptanceFile()
+	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true})
@@ -186,7 +186,7 @@ func TestRenderRuntimeStageFilesWrapsNativeStreamsForMessageClientCodec(t *testi
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const runtimeFile = "test/v1/stage1_acceptance.all_service.runtime.rpccgo.go"
+	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"case rpcruntime.ServerContractNative:",
 		"nativeSession, err := snapshot.Adapter.Native.StartClientStream(ctx)",
@@ -212,7 +212,7 @@ func TestRenderRuntimeStageFilesWrapsNativeStreamsForMessageClientCodec(t *testi
 }
 
 func TestRenderRuntimeStageFilesWrapsMessageStreamsForNativeClientCodec(t *testing.T) {
-	file := stage1AcceptanceFile()
+	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true})
@@ -220,7 +220,7 @@ func TestRenderRuntimeStageFilesWrapsMessageStreamsForNativeClientCodec(t *testi
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const runtimeFile = "test/v1/stage1_acceptance.all_service.runtime.rpccgo.go"
+	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"messageSession, err := snapshot.Adapter.Message.StartClientStreamMessage(ctx)",
 		"return &allServiceClientStreamMessageToNativeStreamSession{message: messageSession}, nil",
@@ -303,7 +303,7 @@ func TestRenderRuntimeRejectsAdapterMethodSymbolCollision(t *testing.T) {
 }
 
 func TestRenderRuntimeGeneratedSourceCompiles(t *testing.T) {
-	file := stage1AcceptanceFile()
+	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})

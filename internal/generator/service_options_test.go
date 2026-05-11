@@ -100,6 +100,16 @@ func TestParseServiceRPCCGOOptionsErrors(t *testing.T) {
 			wantMessage: "valid tokens: msg-connect, msg-grpc, native",
 		},
 		{
+			name:        "unknown token keeps bad token in error",
+			comments:    "@rpccgo:msg-connect|bogus",
+			wantMessage: `unknown @rpccgo token "bogus"`,
+		},
+		{
+			name:        "spelling error keeps bad token in error",
+			comments:    "@rpccgo:msg-conenct",
+			wantMessage: `unknown @rpccgo token "msg-conenct"`,
+		},
+		{
 			name:        "empty directive is rejected",
 			comments:    "@rpccgo:",
 			wantMessage: "empty @rpccgo directive",

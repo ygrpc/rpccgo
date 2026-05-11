@@ -3,14 +3,14 @@ package generator
 import "testing"
 
 func TestRenderConnectRemoteFileEmitsMessageAdapter(t *testing.T) {
-	file := stage1AcceptanceFile()
+	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	if _, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true}); err != nil {
 		t.Fatalf("GenerateWithOptions(RenderStageFiles) error = %v", err)
 	}
 
-	const remoteFile = "test/v1/stage1_acceptance.all_service.remote.connect.rpccgo.go"
+	const remoteFile = "test/v1/complete_service_plan.all_service.remote.connect.rpccgo.go"
 	for _, fragment := range []string{
 		`connect "connectrpc.com/connect"`,
 		`http "net/http"`,
