@@ -192,14 +192,17 @@ type recordingServer struct {
 	called bool
 	err error
 	response *v1.HelloReply
+	received *v1.HelloRequest
+	allowAnyRequest bool
 }
 
 func (s *recordingServer) SayHello(ctx context.Context, req *v1.HelloRequest) (*v1.HelloReply, error) {
 	s.called = true
+	s.received = req
 	if s.err != nil {
 		return nil, s.err
 	}
-	if req.Name != "stage3" || string(req.Payload) != "bytes" || !req.Enabled {
+	if !s.allowAnyRequest && (req.Name != "native" || string(req.Payload) != "bytes" || !req.Enabled) {
 		return nil, errors.New("request did not cross native bridge")
 	}
 	if s.response != nil {
@@ -219,7 +222,7 @@ func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 
-	name := []byte("stage3")
+	name := []byte("native")
 	payload := []byte("bytes")
 	input := &GreeterSayHelloNativeUnaryInput{
 		NamePtr: uintptr(unsafe.Pointer(&name[0])),
@@ -239,7 +242,7 @@ func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 		t.Fatalf("Accepted = %d, want 1", output.Accepted)
 	}
 	got := unsafe.Slice((*byte)(unsafe.Pointer(output.PayloadPtr)), output.PayloadLen)
-	if string(got) != "dispatcher:stage3" {
+	if string(got) != "dispatcher:native" {
 		t.Fatalf("Payload = %q", got)
 	}
 	rpcruntime.Release(output.PayloadPtr)
@@ -247,24 +250,57 @@ func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 	rpcruntime.Release(output.ExtraPayloadPtr)
 }
 
-func TestNativeUnaryNegativeLengthStoresError(t *testing.T) {
+func TestNativeUnaryTreatsNilPointerAsEmptyRequestInput(t *testing.T) {
+	v1.ResetGreeterDispatcherForIntegrationTest()
+	server := &recordingServer{allowAnyRequest: true}
+	if _, err := v1.RegisterGreeterGoNativeServer(server); err != nil {
+		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
+	}
+	input := &GreeterSayHelloNativeUnaryInput{
+		NamePtr: 0,
+		NameLen: 5,
+		PayloadPtr: 0,
+		PayloadLen: 5,
+		Enabled: 1,
+	}
+	output := &GreeterSayHelloNativeUnaryOutput{}
+	if errID := CallGreeterSayHelloNativeUnary(context.Background(), input, output); errID != 0 {
+		t.Fatalf("CallGreeterSayHelloNativeUnary() errID = %d", errID)
+	}
+	if !server.called || server.received == nil {
+		t.Fatal("server did not receive request")
+	}
+	if server.received.Name != "" || len(server.received.Payload) != 0 || !server.received.Enabled {
+		t.Fatalf("received request = %#v, want empty name/payload and enabled", server.received)
+	}
+	rpcruntime.Release(output.PayloadPtr)
+	rpcruntime.Release(output.NotePtr)
+	rpcruntime.Release(output.ExtraPayloadPtr)
+}
+
+func TestNativeUnaryRejectsNegativeRequestLength(t *testing.T) {
 	v1.ResetGreeterDispatcherForIntegrationTest()
 	if _, err := v1.RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
-	input := &GreeterSayHelloNativeUnaryInput{NameLen: -1}
+	name := []byte("native")
+	payload := []byte("bytes")
+	input := &GreeterSayHelloNativeUnaryInput{
+		NamePtr: uintptr(unsafe.Pointer(&name[0])),
+		NameLen: -1,
+		PayloadPtr: uintptr(unsafe.Pointer(&payload[0])),
+		PayloadLen: int32(len(payload)),
+		Enabled: 1,
+	}
 	output := &GreeterSayHelloNativeUnaryOutput{}
 	errID := CallGreeterSayHelloNativeUnary(context.Background(), input, output)
 	if errID == 0 {
 		t.Fatal("negative length returned errID 0")
 	}
-	text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
-	if !ok || !strings.Contains(string(text), "cannot be negative") {
-		t.Fatalf("negative length error text = %q, ok=%v", text, ok)
-	}
+	assertNativeErrContains(t, errID, "negative")
 }
 
-func TestNativeUnaryOwnedStringAndBytesRelease(t *testing.T) {
+func TestNativeUnaryInputOwnershipRelease(t *testing.T) {
 	v1.ResetGreeterDispatcherForIntegrationTest()
 	if _, err := v1.RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
@@ -276,29 +312,87 @@ func TestNativeUnaryOwnedStringAndBytesRelease(t *testing.T) {
 		released = append(released, uintptr(ptr))
 	})
 
-	name := []byte("stage3")
-	payload := []byte("bytes")
-	namePtr := uintptr(unsafe.Pointer(&name[0]))
-	payloadPtr := uintptr(unsafe.Pointer(&payload[0]))
-	input := &GreeterSayHelloNativeUnaryInput{
-		NamePtr: namePtr,
-		NameLen: int32(len(name)),
+	borrowedName := []byte("native")
+	borrowedPayload := []byte("bytes")
+	borrowedInput := &GreeterSayHelloNativeUnaryInput{
+		NamePtr: uintptr(unsafe.Pointer(&borrowedName[0])),
+		NameLen: int32(len(borrowedName)),
+		PayloadPtr: uintptr(unsafe.Pointer(&borrowedPayload[0])),
+		PayloadLen: int32(len(borrowedPayload)),
+		Enabled: 1,
+	}
+	borrowedOutput := &GreeterSayHelloNativeUnaryOutput{}
+	if errID := CallGreeterSayHelloNativeUnary(context.Background(), borrowedInput, borrowedOutput); errID != 0 {
+		t.Fatalf("borrowed CallGreeterSayHelloNativeUnary() errID = %d", errID)
+	}
+	if len(released) != 0 {
+		t.Fatalf("borrowed released = %#v, want none", released)
+	}
+	rpcruntime.Release(borrowedOutput.PayloadPtr)
+	rpcruntime.Release(borrowedOutput.NotePtr)
+	rpcruntime.Release(borrowedOutput.ExtraPayloadPtr)
+
+	ownedName := []byte("native")
+	ownedPayload := []byte("bytes")
+	ownedNamePtr := uintptr(unsafe.Pointer(&ownedName[0]))
+	ownedPayloadPtr := uintptr(unsafe.Pointer(&ownedPayload[0]))
+	ownedInput := &GreeterSayHelloNativeUnaryInput{
+		NamePtr: ownedNamePtr,
+		NameLen: int32(len(ownedName)),
 		NameOwnership: 1,
-		PayloadPtr: payloadPtr,
-		PayloadLen: int32(len(payload)),
+		PayloadPtr: ownedPayloadPtr,
+		PayloadLen: int32(len(ownedPayload)),
 		PayloadOwnership: 1,
+		Enabled: 1,
+	}
+	ownedOutput := &GreeterSayHelloNativeUnaryOutput{}
+	if errID := CallGreeterSayHelloNativeUnary(context.Background(), ownedInput, ownedOutput); errID != 0 {
+		t.Fatalf("owned CallGreeterSayHelloNativeUnary() errID = %d", errID)
+	}
+	if len(released) != 2 || released[0] != ownedNamePtr || released[1] != ownedPayloadPtr {
+		t.Fatalf("owned released = %#v, want name then payload", released)
+	}
+	rpcruntime.Release(ownedOutput.PayloadPtr)
+	rpcruntime.Release(ownedOutput.NotePtr)
+	rpcruntime.Release(ownedOutput.ExtraPayloadPtr)
+}
+
+func TestNativeUnaryOutputReleaseCanBeCalledOnce(t *testing.T) {
+	v1.ResetGreeterDispatcherForIntegrationTest()
+	if _, err := v1.RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
+		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
+	}
+	name := []byte("native")
+	payload := []byte("bytes")
+	input := &GreeterSayHelloNativeUnaryInput{
+		NamePtr: uintptr(unsafe.Pointer(&name[0])),
+		NameLen: int32(len(name)),
+		PayloadPtr: uintptr(unsafe.Pointer(&payload[0])),
+		PayloadLen: int32(len(payload)),
 		Enabled: 1,
 	}
 	output := &GreeterSayHelloNativeUnaryOutput{}
 	if errID := CallGreeterSayHelloNativeUnary(context.Background(), input, output); errID != 0 {
 		t.Fatalf("CallGreeterSayHelloNativeUnary() errID = %d", errID)
 	}
-	if len(released) != 2 || released[0] != namePtr || released[1] != payloadPtr {
-		t.Fatalf("released = %#v, want name then payload", released)
+	if output.PayloadPtr == 0 || output.NotePtr == 0 {
+		t.Fatalf("output missing releasable pointers: %#v", output)
 	}
-	rpcruntime.Release(output.PayloadPtr)
-	rpcruntime.Release(output.NotePtr)
-	rpcruntime.Release(output.ExtraPayloadPtr)
+	if !rpcruntime.Release(output.PayloadPtr) {
+		t.Fatal("first payload release = false, want true")
+	}
+	if rpcruntime.Release(output.PayloadPtr) {
+		t.Fatal("second payload release = true, want false")
+	}
+	if !rpcruntime.Release(output.NotePtr) {
+		t.Fatal("first note release = false, want true")
+	}
+	if rpcruntime.Release(output.NotePtr) {
+		t.Fatal("second note release = true, want false")
+	}
+	if rpcruntime.Release(output.ExtraPayloadPtr) {
+		t.Fatal("empty extra payload release = true, want false")
+	}
 }
 
 func TestNativeUnaryPinFailureReleasesStagedOutput(t *testing.T) {
@@ -309,7 +403,7 @@ func TestNativeUnaryPinFailureReleasesStagedOutput(t *testing.T) {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 
-	name := []byte("stage3")
+	name := []byte("native")
 	payload := []byte("bytes")
 	input := &GreeterSayHelloNativeUnaryInput{
 		NamePtr: uintptr(unsafe.Pointer(&name[0])),
@@ -344,7 +438,7 @@ func TestNativeUnaryOwnedReleaseErrorStoresError(t *testing.T) {
 	}
 	rpcruntime.ResetFreeCallbackForTesting()
 	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
-	name := []byte("stage3")
+	name := []byte("native")
 	input := &GreeterSayHelloNativeUnaryInput{
 		NamePtr: uintptr(unsafe.Pointer(&name[0])),
 		NameLen: int32(len(name)),
@@ -369,10 +463,7 @@ func TestNativeUnaryMissingActiveServerStoresError(t *testing.T) {
 	if errID == 0 {
 		t.Fatal("missing active server returned errID 0")
 	}
-	text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
-	if !ok || !strings.Contains(string(text), "active server") {
-		t.Fatalf("missing active server error text = %q, ok=%v", text, ok)
-	}
+	assertNativeErrContains(t, errID, "active server")
 }
 
 func TestNativeUnaryServerErrorStoresError(t *testing.T) {
@@ -405,6 +496,14 @@ func TestNativeUnaryOutputStagingLeavesOutputUntouchedOnUnsupportedResponse(t *t
 	}
 	if output.PayloadPtr != 0 || output.PayloadLen != 0 || output.NotePtr != 0 || output.NoteLen != 0 {
 		t.Fatalf("output was partially committed on error: %#v", output)
+	}
+}
+
+func assertNativeErrContains(t *testing.T, errID int32, want string) {
+	t.Helper()
+	text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+	if !ok || !strings.Contains(string(text), want) {
+		t.Fatalf("error text = %q, ok=%v, want substring %q", text, ok, want)
 	}
 }
 `

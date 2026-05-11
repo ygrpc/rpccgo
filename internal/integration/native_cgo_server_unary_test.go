@@ -77,7 +77,7 @@ func TestNativeCGOServerUnaryRoutesThroughDispatcher(t *testing.T) {
 		t.Fatalf("registerGreeterCGONativeServerCallbacks() error = %v", err)
 	}
 
-	name := []byte("stage3")
+	name := []byte("native")
 	payload := []byte("bytes")
 	input := &GreeterSayHelloNativeUnaryInput{
 		NamePtr: uintptr(unsafe.Pointer(&name[0])),
@@ -91,7 +91,7 @@ func TestNativeCGOServerUnaryRoutesThroughDispatcher(t *testing.T) {
 		t.Fatalf("CallGreeterSayHelloNativeUnary() errID = %d", errID)
 	}
 	got := unsafe.Slice((*byte)(unsafe.Pointer(output.PayloadPtr)), output.PayloadLen)
-	if string(got) != "cgo-server:stage3" {
+	if string(got) != "cgo-server:native" {
 		t.Fatalf("Payload = %q", got)
 	}
 	for i := 0; i < 3; i++ {
@@ -203,7 +203,7 @@ func TestNativeCGOServerUnaryOwnedOutputCleanupErrorPropagates(t *testing.T) {
 	if err := registerGreeterCGONativeServerCallbacks(); err != nil {
 		t.Fatalf("registerGreeterCGONativeServerCallbacks() error = %v", err)
 	}
-	name := []byte("stage3")
+	name := []byte("native")
 	payload := []byte("bytes")
 	input := &GreeterSayHelloNativeUnaryInput{
 		NamePtr:    uintptr(unsafe.Pointer(&name[0])),
@@ -230,7 +230,7 @@ func TestNativeCGOServerUnaryCallbackTableIsCopiedAtRegistration(t *testing.T) {
 	if err := registerGreeterCGONativeServerCallbacksThenClearLocalTable(); err != nil {
 		t.Fatalf("registerGreeterCGONativeServerCallbacksThenClearLocalTable() error = %v", err)
 	}
-	assertUnaryPayload(t, "cgo-server:stage3")
+	assertUnaryPayload(t, "cgo-server:native")
 }
 
 func TestNativeCGOServerUnaryRegistrationOverridesGoServer(t *testing.T) {
@@ -244,7 +244,7 @@ func TestNativeCGOServerUnaryRegistrationOverridesGoServer(t *testing.T) {
 	if err := registerGreeterCGONativeServerCallbacks(); err != nil {
 		t.Fatalf("registerGreeterCGONativeServerCallbacks() error = %v", err)
 	}
-	assertUnaryPayload(t, "cgo-server:stage3")
+	assertUnaryPayload(t, "cgo-server:native")
 
 	if _, err := v1.RegisterGreeterGoNativeServer(cgoOverrideGoServer{}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() second error = %v", err)
@@ -254,7 +254,7 @@ func TestNativeCGOServerUnaryRegistrationOverridesGoServer(t *testing.T) {
 
 func assertUnaryPayload(t *testing.T, want string) {
 	t.Helper()
-	name := []byte("stage3")
+	name := []byte("native")
 	payload := []byte("bytes")
 	input := &GreeterSayHelloNativeUnaryInput{
 		NamePtr:    uintptr(unsafe.Pointer(&name[0])),
@@ -346,7 +346,7 @@ static int32_t greeterSayHelloCallback(GreeterSayHelloCGONativeUnaryRequest* inp
 		char msg[] = "callback malloc failed";
 		return StoreGreeterCGONativeServerErrorTextForExport(msg, sizeof(msg)-1);
 	}
-	resp[0] = 'c'; resp[1] = 'g'; resp[2] = 'o'; resp[3] = '-'; resp[4] = 's'; resp[5] = 'e'; resp[6] = 'r'; resp[7] = 'v'; resp[8] = 'e'; resp[9] = 'r'; resp[10] = ':'; resp[11] = 's'; resp[12] = 't'; resp[13] = 'a'; resp[14] = 'g'; resp[15] = 'e'; resp[16] = '3';
+	resp[0] = 'c'; resp[1] = 'g'; resp[2] = 'o'; resp[3] = '-'; resp[4] = 's'; resp[5] = 'e'; resp[6] = 'r'; resp[7] = 'v'; resp[8] = 'e'; resp[9] = 'r'; resp[10] = ':'; resp[11] = 'n'; resp[12] = 'a'; resp[13] = 't'; resp[14] = 'i'; resp[15] = 'v'; resp[16] = 'e';
 	output->Accepted = 1;
 	output->PayloadPtr = (uintptr_t)resp;
 	output->PayloadLen = 17;
