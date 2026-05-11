@@ -45,6 +45,62 @@ func TestNativeContractMismatchRoutesThroughConverter(t *testing.T) {
 	runMessageDirectPathFixture(t, "TestNativeContractMismatch")
 }
 
+func TestMessageKnownErrorTextIsConsumedOnce(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageKnownErrorTextIsConsumedOnce")
+}
+
+func TestMessageUnknownErrorIDReturnsErrorText(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageUnknownErrorIDReturnsErrorText")
+}
+
+func TestMessageBytesRejectInvalidUnaryRequest(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageBytesRejectInvalidUnaryRequest")
+}
+
+func TestMessageBytesRejectInvalidClientStreamSend(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageBytesRejectInvalidClientStreamSend")
+}
+
+func TestMessageBytesRejectInvalidServerStreamStart(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageBytesRejectInvalidServerStreamStart")
+}
+
+func TestMessageBytesRejectInvalidBidiSend(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageBytesRejectInvalidBidiSend")
+}
+
+func TestMessageBytesRejectInvalidCallbackResponse(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageBytesRejectInvalidCallbackResponse")
+}
+
+func TestMessageClientStreamRejectsOperationsAfterFinish(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageClientStreamRejectsOperationsAfterFinish")
+}
+
+func TestMessageServerStreamRejectsReadAfterDone(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageServerStreamRejectsReadAfterDone")
+}
+
+func TestMessageBidiRejectsSendAfterCloseSendAndReadAfterCancel(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageBidiRejectsSendAfterCloseSendAndReadAfterCancel")
+}
+
+func TestMessageBidiCloseSendErrorKeepsSendSideOpen(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageBidiCloseSendErrorKeepsSendSideOpen")
+}
+
+func TestMessageStreamCancelTwiceCallsDownstreamOnce(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageStreamCancelTwiceCallsDownstreamOnce")
+}
+
+func TestMessageStreamInvalidHandleReturnsError(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageStreamInvalidHandleReturnsError")
+}
+
+func TestMessageStreamStartCapturesActiveServerSnapshot(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageStreamStartCapturesActiveServerSnapshot")
+}
+
 func runMessageDirectPathFixture(t *testing.T, testName string) {
 	t.Helper()
 	tmp := t.TempDir()
@@ -113,10 +169,14 @@ func newMessageDirectPathTestPluginWithParameter(t *testing.T, parameter, goPack
 }
 
 func messageDirectPathMethod(name string, clientStreaming, serverStreaming bool) *descriptorpb.MethodDescriptorProto {
+	return messageContractMethod(name, ".google.protobuf.Empty", ".google.protobuf.Empty", clientStreaming, serverStreaming)
+}
+
+func messageContractMethod(name, inputType, outputType string, clientStreaming, serverStreaming bool) *descriptorpb.MethodDescriptorProto {
 	return &descriptorpb.MethodDescriptorProto{
 		Name:            proto.String(name),
-		InputType:       proto.String(".google.protobuf.Empty"),
-		OutputType:      proto.String(".google.protobuf.Empty"),
+		InputType:       proto.String(inputType),
+		OutputType:      proto.String(outputType),
 		ClientStreaming: proto.Bool(clientStreaming),
 		ServerStreaming: proto.Bool(serverStreaming),
 	}
@@ -221,6 +281,7 @@ typedef int32_t (*GreeterChatCGONativeBidiStreamDoneCallback)(int32_t stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamCancelCallback)(int32_t stream);
 
 extern int32_t greeterMessageStreamEOFErrorIDForIntegration(void);
+extern int32_t greeterMessageStoredErrorIDForIntegration(void);
 
 typedef struct GreeterCGONativeServerCallbacks {
 	GreeterUnaryCGONativeUnaryCallback Unary;
@@ -242,18 +303,23 @@ typedef struct GreeterCGONativeServerCallbacks {
 
 static int unaryCalls;
 static int unaryError;
+static int unaryStoredError;
 static int nativeUnaryError;
+static int chatCloseSendFailuresRemaining;
 static int uploadStarts;
 static int uploadSends;
 static int uploadFinishes;
+static int uploadCancels;
 static int listStarts;
 static int listRecvs;
 static int listDones;
+static int listCancels;
 static int chatStarts;
 static int chatSends;
 static int chatRecvs;
 static int chatCloseSends;
 static int chatDones;
+static int chatCancels;
 static int nativeUnaryCalls;
 static int nativeUploadStarts;
 static int nativeUploadSends;
@@ -270,22 +336,28 @@ static int nativeChatCloseSends;
 static int nativeChatDones;
 static int nativeChatCancels;
 static int messageStreamEOFMode;
+static int invalidMessageResponse;
 
 static void resetMessageCounters(void) {
 	unaryCalls = 0;
 	unaryError = 0;
+	unaryStoredError = 0;
 	nativeUnaryError = 0;
+	chatCloseSendFailuresRemaining = 0;
 	uploadStarts = 0;
 	uploadSends = 0;
 	uploadFinishes = 0;
+	uploadCancels = 0;
 	listStarts = 0;
 	listRecvs = 0;
 	listDones = 0;
+	listCancels = 0;
 	chatStarts = 0;
 	chatSends = 0;
 	chatRecvs = 0;
 	chatCloseSends = 0;
 	chatDones = 0;
+	chatCancels = 0;
 	nativeUnaryCalls = 0;
 	nativeUploadStarts = 0;
 	nativeUploadSends = 0;
@@ -302,9 +374,16 @@ static void resetMessageCounters(void) {
 	nativeChatDones = 0;
 	nativeChatCancels = 0;
 	messageStreamEOFMode = 0;
+	invalidMessageResponse = 0;
 }
 
 static int32_t emptyResponse(uintptr_t* response_ptr, int32_t* response_len) {
+	static unsigned char invalid_response[] = {0xff};
+	if (invalidMessageResponse) {
+		*response_ptr = (uintptr_t)&invalid_response[0];
+		*response_len = 1;
+		return 0;
+	}
 	*response_ptr = 0;
 	*response_len = 0;
 	return 0;
@@ -312,6 +391,9 @@ static int32_t emptyResponse(uintptr_t* response_ptr, int32_t* response_len) {
 
 static int32_t greeterUnary(uintptr_t request_ptr, int32_t request_len, uintptr_t* response_ptr, int32_t* response_len) {
 	unaryCalls++;
+	if (unaryStoredError) {
+		return greeterMessageStoredErrorIDForIntegration();
+	}
 	if (unaryError) {
 		return 99999;
 	}
@@ -337,7 +419,10 @@ static int32_t greeterUploadFinish(int32_t stream, uintptr_t* response_ptr, int3
 	return emptyResponse(response_ptr, response_len);
 }
 
-static int32_t greeterUploadCancel(int32_t stream) { return 0; }
+static int32_t greeterUploadCancel(int32_t stream) {
+	uploadCancels++;
+	return 0;
+}
 
 static int32_t greeterListStart(uintptr_t request_ptr, int32_t request_len, int32_t* stream) {
 	listStarts++;
@@ -358,7 +443,10 @@ static int32_t greeterListDone(int32_t stream) {
 	return 0;
 }
 
-static int32_t greeterListCancel(int32_t stream) { return 0; }
+static int32_t greeterListCancel(int32_t stream) {
+	listCancels++;
+	return 0;
+}
 
 static int32_t greeterChatStart(int32_t* stream) {
 	chatStarts++;
@@ -381,6 +469,10 @@ static int32_t greeterChatRecv(int32_t stream, uintptr_t* response_ptr, int32_t*
 
 static int32_t greeterChatCloseSend(int32_t stream) {
 	chatCloseSends++;
+	if (chatCloseSendFailuresRemaining > 0) {
+		chatCloseSendFailuresRemaining--;
+		return 99996;
+	}
 	return 0;
 }
 
@@ -389,7 +481,10 @@ static int32_t greeterChatDone(int32_t stream) {
 	return 0;
 }
 
-static int32_t greeterChatCancel(int32_t stream) { return 0; }
+static int32_t greeterChatCancel(int32_t stream) {
+	chatCancels++;
+	return 0;
+}
 
 static GreeterCGOMessageServerCallbacks greeterMessageCallbacks(void) {
 	GreeterCGOMessageServerCallbacks callbacks;
@@ -513,20 +608,26 @@ static GreeterCGONativeServerCallbacks greeterNativeCallbacks(void) {
 }
 
 static void setUnaryError(int enabled) { unaryError = enabled; }
+static void setUnaryStoredError(int enabled) { unaryStoredError = enabled; }
 static void setNativeUnaryError(int enabled) { nativeUnaryError = enabled; }
+static void setChatCloseSendFailuresRemaining(int remaining) { chatCloseSendFailuresRemaining = remaining; }
 static void setMessageStreamEOFMode(int enabled) { messageStreamEOFMode = enabled; }
+static void setInvalidMessageResponse(int enabled) { invalidMessageResponse = enabled; }
 static int getUnaryCalls(void) { return unaryCalls; }
 static int getUploadStarts(void) { return uploadStarts; }
 static int getUploadSends(void) { return uploadSends; }
 static int getUploadFinishes(void) { return uploadFinishes; }
+static int getUploadCancels(void) { return uploadCancels; }
 static int getListStarts(void) { return listStarts; }
 static int getListRecvs(void) { return listRecvs; }
 static int getListDones(void) { return listDones; }
+static int getListCancels(void) { return listCancels; }
 static int getChatStarts(void) { return chatStarts; }
 static int getChatSends(void) { return chatSends; }
 static int getChatRecvs(void) { return chatRecvs; }
 static int getChatCloseSends(void) { return chatCloseSends; }
 static int getChatDones(void) { return chatDones; }
+static int getChatCancels(void) { return chatCancels; }
 static int getNativeUnaryCalls(void) { return nativeUnaryCalls; }
 static int getNativeUploadStarts(void) { return nativeUploadStarts; }
 static int getNativeUploadSends(void) { return nativeUploadSends; }
@@ -546,7 +647,10 @@ static int getNativeChatCancels(void) { return nativeChatCancels; }
 import "C"
 
 import (
+	errors "errors"
+
 	v1 "example.com/messagedirect/test/v1"
+	rpcruntime "rpccgo/rpcruntime"
 )
 
 //export greeterMessageStreamEOFErrorIDForIntegration
@@ -554,11 +658,18 @@ func greeterMessageStreamEOFErrorIDForIntegration() C.int32_t {
 	return C.int32_t(GreeterCGOMessageStreamEOFErrorID())
 }
 
+//export greeterMessageStoredErrorIDForIntegration
+func greeterMessageStoredErrorIDForIntegration() C.int32_t {
+	return C.int32_t(rpcruntime.StoreError(errors.New("expected callback error")))
+}
+
 func registerGreeterMessageCallbacksForIntegration() error {
 	v1.ResetGreeterDispatcherForIntegrationTest()
 	C.resetMessageCounters()
 	C.setUnaryError(0)
+	C.setUnaryStoredError(0)
 	C.setMessageStreamEOFMode(0)
+	C.setInvalidMessageResponse(0)
 	callbacks := C.greeterMessageCallbacks()
 	_, err := RegisterGreeterCGOMessageServer(&callbacks)
 	return err
@@ -566,7 +677,9 @@ func registerGreeterMessageCallbacksForIntegration() error {
 
 func registerGreeterMessageCallbacksWithoutResetForIntegration() error {
 	C.setUnaryError(0)
+	C.setUnaryStoredError(0)
 	C.setMessageStreamEOFMode(0)
+	C.setInvalidMessageResponse(0)
 	callbacks := C.greeterMessageCallbacks()
 	_, err := RegisterGreeterCGOMessageServer(&callbacks)
 	return err
@@ -597,6 +710,18 @@ func setGreeterMessageUnaryErrorForIntegration(enabled bool) {
 	C.setUnaryError(0)
 }
 
+func setGreeterMessageUnaryStoredErrorForIntegration(enabled bool) {
+	if enabled {
+		C.setUnaryStoredError(1)
+		return
+	}
+	C.setUnaryStoredError(0)
+}
+
+func setGreeterMessageChatCloseSendFailuresForIntegration(remaining int) {
+	C.setChatCloseSendFailuresRemaining(C.int(remaining))
+}
+
 func setGreeterMessageStreamEOFModeForIntegration(enabled bool) {
 	if enabled {
 		C.setMessageStreamEOFMode(1)
@@ -605,18 +730,29 @@ func setGreeterMessageStreamEOFModeForIntegration(enabled bool) {
 	C.setMessageStreamEOFMode(0)
 }
 
+func setGreeterMessageInvalidResponseForIntegration(enabled bool) {
+	if enabled {
+		C.setInvalidMessageResponse(1)
+		return
+	}
+	C.setInvalidMessageResponse(0)
+}
+
 func greeterMessageUnaryCallsForIntegration() int { return int(C.getUnaryCalls()) }
 func greeterMessageUploadStartsForIntegration() int { return int(C.getUploadStarts()) }
 func greeterMessageUploadSendsForIntegration() int { return int(C.getUploadSends()) }
 func greeterMessageUploadFinishesForIntegration() int { return int(C.getUploadFinishes()) }
+func greeterMessageUploadCancelsForIntegration() int { return int(C.getUploadCancels()) }
 func greeterMessageListStartsForIntegration() int { return int(C.getListStarts()) }
 func greeterMessageListRecvsForIntegration() int { return int(C.getListRecvs()) }
 func greeterMessageListDonesForIntegration() int { return int(C.getListDones()) }
+func greeterMessageListCancelsForIntegration() int { return int(C.getListCancels()) }
 func greeterMessageChatStartsForIntegration() int { return int(C.getChatStarts()) }
 func greeterMessageChatSendsForIntegration() int { return int(C.getChatSends()) }
 func greeterMessageChatRecvsForIntegration() int { return int(C.getChatRecvs()) }
 func greeterMessageChatCloseSendsForIntegration() int { return int(C.getChatCloseSends()) }
 func greeterMessageChatDonesForIntegration() int { return int(C.getChatDones()) }
+func greeterMessageChatCancelsForIntegration() int { return int(C.getChatCancels()) }
 func greeterNativeUnaryCallsForIntegration() int { return int(C.getNativeUnaryCalls()) }
 func greeterNativeUploadStartsForIntegration() int { return int(C.getNativeUploadStarts()) }
 func greeterNativeUploadSendsForIntegration() int { return int(C.getNativeUploadSends()) }
@@ -674,6 +810,241 @@ func TestMessageUnaryDirectPath(t *testing.T) {
 	setGreeterMessageUnaryErrorForIntegration(true)
 	errID = CallGreeterUnaryMessageUnary(context.Background(), 0, 0, &GreeterMessageOutput{})
 	assertMessageErrContains(t, errID, "unknown error id 99999")
+}
+
+func TestMessageKnownErrorTextIsConsumedOnce(t *testing.T) {
+	registerMessageServer(t)
+	setGreeterMessageUnaryStoredErrorForIntegration(true)
+
+	errID := CallGreeterUnaryMessageUnary(context.Background(), 0, 0, &GreeterMessageOutput{})
+	if errID == 0 {
+		t.Fatal("CallGreeterUnaryMessageUnary() errID = 0, want stored callback error")
+	}
+	text, ptr, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+	if !ok || !strings.Contains(string(text), "expected callback error") {
+		t.Fatalf("first TakeErrorText = (%q, %d, %v), want expected callback error", text, ptr, ok)
+	}
+	rpcruntime.Release(ptr)
+	secondText, secondPtr, secondOK := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+	if secondOK || len(secondText) != 0 || secondPtr != 0 {
+		t.Fatalf("second TakeErrorText = (%q, %d, %v), want consumed record", secondText, secondPtr, secondOK)
+	}
+}
+
+func TestMessageUnknownErrorIDReturnsErrorText(t *testing.T) {
+	registerMessageServer(t)
+	setGreeterMessageUnaryErrorForIntegration(true)
+
+	errID := CallGreeterUnaryMessageUnary(context.Background(), 0, 0, &GreeterMessageOutput{})
+	assertMessageErrContains(t, errID, "unknown error id 99999")
+}
+
+func TestMessageBytesRejectInvalidUnaryRequest(t *testing.T) {
+	registerMessageServer(t)
+	invalid := []byte{0xff}
+	errID := CallGreeterUnaryMessageUnary(context.Background(), uintptr(unsafe.Pointer(&invalid[0])), int32(len(invalid)), &GreeterMessageOutput{})
+	assertMessageErrContains(t, errID, "message request protobuf unmarshal failed")
+	if got := greeterMessageUnaryCallsForIntegration(); got != 0 {
+		t.Fatalf("unary callback calls = %d, want 0 after invalid request bytes", got)
+	}
+}
+
+func TestMessageBytesRejectInvalidClientStreamSend(t *testing.T) {
+	registerMessageServer(t)
+	handle, errID := StartGreeterUploadMessageClientStream(context.Background())
+	assertMessageNoErr(t, errID)
+	t.Cleanup(func() {
+		_ = CancelGreeterUploadMessageClientStream(context.Background(), handle)
+	})
+	invalid := []byte{0xff}
+	errID = SendGreeterUploadMessageClientStream(context.Background(), handle, uintptr(unsafe.Pointer(&invalid[0])), int32(len(invalid)))
+	assertMessageErrContains(t, errID, "message request protobuf unmarshal failed")
+	if got := greeterMessageUploadSendsForIntegration(); got != 0 {
+		t.Fatalf("upload sends = %d, want 0 after invalid request bytes", got)
+	}
+}
+
+func TestMessageBytesRejectInvalidServerStreamStart(t *testing.T) {
+	registerMessageServer(t)
+	invalid := []byte{0xff}
+	handle, errID := StartGreeterListMessageServerStream(context.Background(), uintptr(unsafe.Pointer(&invalid[0])), int32(len(invalid)))
+	assertMessageErrContains(t, errID, "message request protobuf unmarshal failed")
+	if handle != 0 {
+		if cancelErrID := CancelGreeterListMessageServerStream(context.Background(), handle); cancelErrID == 0 {
+			t.Fatalf("StartGreeterListMessageServerStream() returned usable handle %d after invalid request bytes", handle)
+		}
+	}
+	if got := greeterMessageListStartsForIntegration(); got != 0 {
+		t.Fatalf("list starts = %d, want 0 after invalid request bytes", got)
+	}
+}
+
+func TestMessageBytesRejectInvalidBidiSend(t *testing.T) {
+	registerMessageServer(t)
+	handle, errID := StartGreeterChatMessageBidiStream(context.Background())
+	assertMessageNoErr(t, errID)
+	t.Cleanup(func() {
+		_ = CancelGreeterChatMessageBidiStream(context.Background(), handle)
+	})
+	invalid := []byte{0xff}
+	errID = SendGreeterChatMessageBidiStream(context.Background(), handle, uintptr(unsafe.Pointer(&invalid[0])), int32(len(invalid)))
+	assertMessageErrContains(t, errID, "message request protobuf unmarshal failed")
+	if got := greeterMessageChatSendsForIntegration(); got != 0 {
+		t.Fatalf("chat sends = %d, want 0 after invalid request bytes", got)
+	}
+}
+
+func TestMessageBytesRejectInvalidCallbackResponse(t *testing.T) {
+	registerMessageServer(t)
+	setGreeterMessageInvalidResponseForIntegration(true)
+
+	errID := CallGreeterUnaryMessageUnary(context.Background(), 0, 0, &GreeterMessageOutput{})
+	assertMessageErrContains(t, errID, "message response protobuf unmarshal failed")
+
+	uploadHandle, errID := StartGreeterUploadMessageClientStream(context.Background())
+	assertMessageNoErr(t, errID)
+	assertMessageNoErr(t, SendGreeterUploadMessageClientStream(context.Background(), uploadHandle, 0, 0))
+	errID = FinishGreeterUploadMessageClientStream(context.Background(), uploadHandle, &GreeterMessageOutput{})
+	assertMessageErrContains(t, errID, "message response protobuf unmarshal failed")
+
+	listHandle, errID := StartGreeterListMessageServerStream(context.Background(), 0, 0)
+	assertMessageNoErr(t, errID)
+	errID = ReadGreeterListMessageServerStream(context.Background(), listHandle, &GreeterMessageOutput{})
+	assertMessageErrContains(t, errID, "message response protobuf unmarshal failed")
+	assertMessageNoErr(t, DoneGreeterListMessageServerStream(context.Background(), listHandle))
+
+	chatHandle, errID := StartGreeterChatMessageBidiStream(context.Background())
+	assertMessageNoErr(t, errID)
+	assertMessageNoErr(t, SendGreeterChatMessageBidiStream(context.Background(), chatHandle, 0, 0))
+	errID = ReadGreeterChatMessageBidiStream(context.Background(), chatHandle, &GreeterMessageOutput{})
+	assertMessageErrContains(t, errID, "message response protobuf unmarshal failed")
+	assertMessageNoErr(t, DoneGreeterChatMessageBidiStream(context.Background(), chatHandle))
+}
+
+func TestMessageClientStreamRejectsOperationsAfterFinish(t *testing.T) {
+	registerMessageServer(t)
+	handle, errID := StartGreeterUploadMessageClientStream(context.Background())
+	assertMessageNoErr(t, errID)
+	assertMessageNoErr(t, SendGreeterUploadMessageClientStream(context.Background(), handle, 0, 0))
+	output := &GreeterMessageOutput{}
+	assertMessageNoErr(t, FinishGreeterUploadMessageClientStream(context.Background(), handle, output))
+	errID = FinishGreeterUploadMessageClientStream(context.Background(), handle, output)
+	assertMessageErrContains(t, errID, "message client stream handle is invalid")
+	errID = SendGreeterUploadMessageClientStream(context.Background(), handle, 0, 0)
+	assertMessageErrContains(t, errID, "message client stream handle is invalid")
+	if got := greeterMessageUploadFinishesForIntegration(); got != 1 {
+		t.Fatalf("upload finishes = %d, want 1", got)
+	}
+}
+
+func TestMessageServerStreamRejectsReadAfterDone(t *testing.T) {
+	registerMessageServer(t)
+	setGreeterMessageStreamEOFModeForIntegration(true)
+	handle, errID := StartGreeterListMessageServerStream(context.Background(), 0, 0)
+	assertMessageNoErr(t, errID)
+	assertMessageNoErr(t, ReadGreeterListMessageServerStream(context.Background(), handle, &GreeterMessageOutput{}))
+	errID = ReadGreeterListMessageServerStream(context.Background(), handle, &GreeterMessageOutput{})
+	assertMessageErrContains(t, errID, "EOF")
+	assertMessageNoErr(t, DoneGreeterListMessageServerStream(context.Background(), handle))
+	errID = ReadGreeterListMessageServerStream(context.Background(), handle, &GreeterMessageOutput{})
+	assertMessageErrContains(t, errID, "message client stream handle is invalid")
+	if got := greeterMessageListDonesForIntegration(); got != 1 {
+		t.Fatalf("list dones = %d, want 1", got)
+	}
+}
+
+func TestMessageBidiRejectsSendAfterCloseSendAndReadAfterCancel(t *testing.T) {
+	registerMessageServer(t)
+	handle, errID := StartGreeterChatMessageBidiStream(context.Background())
+	assertMessageNoErr(t, errID)
+	assertMessageNoErr(t, CloseSendGreeterChatMessageBidiStream(context.Background(), handle))
+	errID = SendGreeterChatMessageBidiStream(context.Background(), handle, 0, 0)
+	assertMessageErrContains(t, errID, "stream send side is closed")
+	assertMessageNoErr(t, CancelGreeterChatMessageBidiStream(context.Background(), handle))
+	errID = ReadGreeterChatMessageBidiStream(context.Background(), handle, &GreeterMessageOutput{})
+	assertMessageErrContains(t, errID, "message client stream handle is invalid")
+	if got := greeterMessageChatCloseSendsForIntegration(); got != 1 {
+		t.Fatalf("chat close sends = %d, want 1", got)
+	}
+	if got := greeterMessageChatCancelsForIntegration(); got != 1 {
+		t.Fatalf("chat cancels = %d, want 1", got)
+	}
+}
+
+func TestMessageBidiCloseSendErrorKeepsSendSideOpen(t *testing.T) {
+	registerMessageServer(t)
+	setGreeterMessageChatCloseSendFailuresForIntegration(1)
+	handle, errID := StartGreeterChatMessageBidiStream(context.Background())
+	assertMessageNoErr(t, errID)
+
+	errID = CloseSendGreeterChatMessageBidiStream(context.Background(), handle)
+	assertMessageErrContains(t, errID, "unknown error id 99996")
+	assertMessageNoErr(t, SendGreeterChatMessageBidiStream(context.Background(), handle, 0, 0))
+	assertMessageNoErr(t, CloseSendGreeterChatMessageBidiStream(context.Background(), handle))
+
+	if got := greeterMessageChatCloseSendsForIntegration(); got != 2 {
+		t.Fatalf("chat close sends = %d, want 2 after retry", got)
+	}
+	if got := greeterMessageChatSendsForIntegration(); got != 1 {
+		t.Fatalf("chat sends = %d, want 1 after failed close send", got)
+	}
+}
+
+func TestMessageStreamCancelTwiceCallsDownstreamOnce(t *testing.T) {
+	registerMessageServer(t)
+	handle, errID := StartGreeterUploadMessageClientStream(context.Background())
+	assertMessageNoErr(t, errID)
+	assertMessageNoErr(t, CancelGreeterUploadMessageClientStream(context.Background(), handle))
+	errID = CancelGreeterUploadMessageClientStream(context.Background(), handle)
+	assertMessageErrContains(t, errID, "message client stream handle is invalid")
+	if got := greeterMessageUploadCancelsForIntegration(); got != 1 {
+		t.Fatalf("upload cancels = %d, want 1", got)
+	}
+}
+
+func TestMessageStreamInvalidHandleReturnsError(t *testing.T) {
+	registerMessageServer(t)
+	const invalid int32 = 999999
+	assertMessageErrContains(t, SendGreeterUploadMessageClientStream(context.Background(), invalid, 0, 0), "message client stream handle is invalid")
+	assertMessageErrContains(t, FinishGreeterUploadMessageClientStream(context.Background(), invalid, &GreeterMessageOutput{}), "message client stream handle is invalid")
+	assertMessageErrContains(t, ReadGreeterListMessageServerStream(context.Background(), invalid, &GreeterMessageOutput{}), "message client stream handle is invalid")
+	assertMessageErrContains(t, DoneGreeterListMessageServerStream(context.Background(), invalid), "message client stream handle is invalid")
+	assertMessageErrContains(t, CloseSendGreeterChatMessageBidiStream(context.Background(), invalid), "message client stream handle is invalid")
+	assertMessageErrContains(t, CancelGreeterChatMessageBidiStream(context.Background(), invalid), "message client stream handle is invalid")
+}
+
+func TestMessageStreamStartCapturesActiveServerSnapshot(t *testing.T) {
+	if err := registerGreeterNativeCallbacksForIntegration(); err != nil {
+		t.Fatalf("registerGreeterNativeCallbacksForIntegration() error = %v", err)
+	}
+	chatHandle, errID := StartGreeterChatMessageBidiStream(context.Background())
+	assertMessageNoErr(t, errID)
+	listHandle, errID := StartGreeterListMessageServerStream(context.Background(), 0, 0)
+	assertMessageNoErr(t, errID)
+	if err := registerGreeterMessageCallbacksWithoutResetForIntegration(); err != nil {
+		t.Fatalf("registerGreeterMessageCallbacksWithoutResetForIntegration() error = %v", err)
+	}
+
+	assertMessageNoErr(t, SendGreeterChatMessageBidiStream(context.Background(), chatHandle, 0, 0))
+	assertMessageNoErr(t, ReadGreeterChatMessageBidiStream(context.Background(), chatHandle, &GreeterMessageOutput{}))
+	assertMessageNoErr(t, DoneGreeterChatMessageBidiStream(context.Background(), chatHandle))
+	assertMessageNoErr(t, ReadGreeterListMessageServerStream(context.Background(), listHandle, &GreeterMessageOutput{}))
+	assertMessageNoErr(t, DoneGreeterListMessageServerStream(context.Background(), listHandle))
+	if got := greeterNativeChatSendsForIntegration(); got != 1 {
+		t.Fatalf("native chat sends = %d, want 1", got)
+	}
+	if got := greeterNativeChatRecvsForIntegration(); got != 1 {
+		t.Fatalf("native chat recvs = %d, want 1", got)
+	}
+	if got := greeterNativeListRecvsForIntegration(); got != 1 {
+		t.Fatalf("native list recvs = %d, want 1", got)
+	}
+	if got := greeterMessageChatSendsForIntegration(); got != 0 {
+		t.Fatalf("message chat sends = %d, want 0 for existing native snapshot", got)
+	}
+	if got := greeterMessageListRecvsForIntegration(); got != 0 {
+		t.Fatalf("message list recvs = %d, want 0 for existing native snapshot", got)
+	}
 }
 
 func TestMessageClientStreamingDirectPath(t *testing.T) {
@@ -1004,10 +1375,11 @@ func assertMessageErrContains(t *testing.T, errID int32, wants ...string) {
 	if errID == 0 {
 		t.Fatalf("errID = 0, want error containing %q", wants)
 	}
-	text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+	text, ptr, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
 	if !ok {
 		t.Fatalf("error text = %q, ok=%v, want contains %q", text, ok, wants)
 	}
+	rpcruntime.Release(ptr)
 	for _, want := range wants {
 		if !strings.Contains(string(text), want) {
 			t.Fatalf("error text = %q, want contains %q", text, want)

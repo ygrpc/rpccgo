@@ -3,7 +3,7 @@ package generator
 import "testing"
 
 func TestRenderMessageClientCGODefinesUnaryExportSurface(t *testing.T) {
-	file := simpleTestFile()
+	file := messageCgoTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	plans, err := Generate(plugin)
@@ -16,7 +16,7 @@ func TestRenderMessageClientCGODefinesUnaryExportSurface(t *testing.T) {
 		t.Fatalf("RenderMessageStageFiles() error = %v", err)
 	}
 
-	const cgoClientFile = "test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go"
+	const cgoClientFile = "test/v1/cgo/message_cgo.greeter.client.message.cgo.rpccgo.go"
 	for _, fragment := range []string{
 		"package main",
 		`context "context"`,
@@ -28,21 +28,37 @@ func TestRenderMessageClientCGODefinesUnaryExportSurface(t *testing.T) {
 		"type GreeterMessageOutput struct {",
 		"DataPtr uintptr",
 		"DataLen int32",
-		"func CallGreeterSayHelloMessageUnary(ctx context.Context, requestPtr uintptr, requestLen int32, output *GreeterMessageOutput) int32 {",
+		"func CallGreeterUnaryMessageUnary(ctx context.Context, requestPtr uintptr, requestLen int32, output *GreeterMessageOutput) int32 {",
+		"func StartGreeterUploadMessageClientStream(ctx context.Context) (int32, int32) {",
+		"func SendGreeterUploadMessageClientStream(ctx context.Context, handle int32, requestPtr uintptr, requestLen int32) int32 {",
+		"func FinishGreeterUploadMessageClientStream(ctx context.Context, handle int32, output *GreeterMessageOutput) int32 {",
+		"func StartGreeterListMessageServerStream(ctx context.Context, requestPtr uintptr, requestLen int32) (int32, int32) {",
+		"func ReadGreeterListMessageServerStream(ctx context.Context, handle int32, output *GreeterMessageOutput) int32 {",
+		"func StartGreeterChatMessageBidiStream(ctx context.Context) (int32, int32) {",
+		"func SendGreeterChatMessageBidiStream(ctx context.Context, handle int32, requestPtr uintptr, requestLen int32) int32 {",
+		"func ReadGreeterChatMessageBidiStream(ctx context.Context, handle int32, output *GreeterMessageOutput) int32 {",
+		"LoadUploadMessageStream",
+		"TakeUploadMessageStream",
+		"LoadListMessageStream",
+		"TakeListMessageStream",
+		"LoadChatMessageStream",
+		"TakeChatMessageStream",
+		"CloseSendGreeterChatMessageBidiStream",
+		`rpccgo: message client stream handle is invalid`,
 		"ctx = context.Background()",
 		`return int32(rpcruntime.StoreError(errors.New("rpccgo: message unary client output is nil")))`,
-		"req, err := decodeGreeterSayHelloMessageRequestBytes(requestPtr, requestLen)",
+		"req, err := decodeGreeterUnaryMessageRequestBytes(requestPtr, requestLen)",
 		`rpccgo: message request protobuf unmarshal failed`,
-		"resp, err := v1.NewGreeterCGOMessageClientBridge().SayHello(ctx, req)",
+		"resp, err := v1.NewGreeterCGOMessageClientBridge().Unary(ctx, req)",
 		`rpccgo: message response protobuf unmarshal failed`,
-		"ptr, length, err := encodeGreeterSayHelloMessageResponseBytes(resp)",
+		"ptr, length, err := encodeGreeterUnaryMessageResponseBytes(resp)",
 		"output.DataPtr = ptr",
 		"output.DataLen = length",
-		"func decodeGreeterSayHelloMessageRequestBytes(ptr uintptr, length int32) ([]byte, error) {",
+		"func decodeGreeterUnaryMessageRequestBytes(ptr uintptr, length int32) ([]byte, error) {",
 		`return nil, errors.New("rpccgo: message request length is negative")`,
 		"if ptr == 0 || length == 0 {",
 		"unsafe.Slice((*byte)(unsafe.Pointer(ptr)), int(length))",
-		"func encodeGreeterSayHelloMessageResponseBytes(data []byte) (uintptr, int32, error) {",
+		"func encodeGreeterUnaryMessageResponseBytes(data []byte) (uintptr, int32, error) {",
 		"length, err := rpcruntime.LengthToInt32(len(data))",
 		"ptr, err := rpcruntime.PinBytes(data)",
 		"return 0",

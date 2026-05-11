@@ -62,34 +62,109 @@ func TestGenerateBuildsBasicFilePlans(t *testing.T) {
 }
 
 func TestRenderMessageStageFilesEmitsDirectPathFileFamily(t *testing.T) {
-	file := simpleTestFile()
-	setSimpleServiceComment(t, file, "@rpccgo: msg-grpc\n")
-	plugin := newTestPlugin(t, "paths=source_relative", file)
+	t.Run("grpc service token emits grpc transport files", func(t *testing.T) {
+		file := simpleTestFile()
+		setSimpleServiceComment(t, file, "@rpccgo: msg-grpc\n")
+		plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	plans, err := Generate(plugin)
-	if err != nil {
-		t.Fatalf("Generate() error = %v", err)
-	}
-	AttachMessageFileFamilyPlan(&plans[0])
+		plans, err := Generate(plugin)
+		if err != nil {
+			t.Fatalf("Generate() error = %v", err)
+		}
+		AttachMessageFileFamilyPlan(&plans[0])
 
-	if err := RenderMessageStageFiles(plugin, plans[0]); err != nil {
-		t.Fatalf("RenderMessageStageFiles() error = %v", err)
-	}
+		if err := RenderMessageStageFiles(plugin, plans[0]); err != nil {
+			t.Fatalf("RenderMessageStageFiles() error = %v", err)
+		}
 
-	assertGeneratedFilenames(t, plugin, []string{
-		"test/v1/greeter.greeter.runtime.rpccgo.go",
-		"test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go",
-		"test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go",
-		"test/v1/greeter.greeter.server.grpc.rpccgo.go",
-		"test/v1/greeter.greeter.remote.grpc.rpccgo.go",
+		assertGeneratedFilenames(t, plugin, []string{
+			"test/v1/greeter.greeter.runtime.rpccgo.go",
+			"test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go",
+			"test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go",
+			"test/v1/greeter.greeter.server.grpc.rpccgo.go",
+			"test/v1/greeter.greeter.remote.grpc.rpccgo.go",
+		})
+		assertNoGeneratedFilenameContains(t, plugin, ".connect.", ".codec.")
+		assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "type GreeterMessageAdapter interface {")
+		assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "return registerGreeterMessageActiveServer(kind, adapter)")
+		assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go", "rpccgo message direct stage file for Greeter cgo message server callbacks")
+		assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go", "rpccgo message direct stage file for Greeter cgo message client")
+		assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.grpc.rpccgo.go", "func RegisterGreeterGRPCServer(registrar grpc.ServiceRegistrar) error")
+		assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.remote.grpc.rpccgo.go", "grpc remote server adapter")
 	})
-	assertNoGeneratedFilenameContains(t, plugin, ".connect.", ".codec.")
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "type GreeterMessageAdapter interface {")
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "return registerGreeterMessageActiveServer(kind, adapter)")
-	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go", "rpccgo message direct stage file for Greeter cgo message server callbacks")
-	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go", "rpccgo message direct stage file for Greeter cgo message client")
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.grpc.rpccgo.go", "func RegisterGreeterGRPCServer(registrar grpc.ServiceRegistrar) error")
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.remote.grpc.rpccgo.go", "grpc remote server adapter")
+
+	t.Run("default message contract keeps connect-only artifact contract", func(t *testing.T) {
+		plugin := newTestPlugin(t, "paths=source_relative", messageContractTestFile())
+
+		if _, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true}); err != nil {
+			t.Fatalf("GenerateWithOptions() error = %v", err)
+		}
+
+		assertGeneratedFilenames(t, plugin, []string{
+			"test/v1/message_contract.greeter.runtime.rpccgo.go",
+			"test/v1/cgo/message_contract.greeter.client.cgo.rpccgo.go",
+			"test/v1/cgo/message_contract.greeter.server.message.cgo.rpccgo.go",
+			"test/v1/cgo/message_contract.greeter.client.message.cgo.rpccgo.go",
+			"test/v1/message_contract.greeter.server.connect.rpccgo.go",
+			"test/v1/message_contract.greeter.remote.connect.rpccgo.go",
+			"test/v1/message_contract.greeter.codec.rpccgo.go",
+		})
+		assertNoGeneratedFilenameContains(t, plugin, ".grpc.")
+
+		const runtimeFile = "test/v1/message_contract.greeter.runtime.rpccgo.go"
+		for _, fragment := range []string{
+			"type GreeterMessageAdapter interface {",
+			"UnaryMessage(ctx context.Context, req []byte) ([]byte, error)",
+			"StartUploadMessage(ctx context.Context) (GreeterUploadMessageStreamSession, error)",
+			"StartListMessage(ctx context.Context, req []byte) (GreeterListMessageStreamSession, error)",
+			"StartChatMessage(ctx context.Context) (GreeterChatMessageStreamSession, error)",
+			"native/message converter is not enabled",
+			"rpcruntime.StreamHandle",
+		} {
+			assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
+		}
+
+		const messageClientFile = "test/v1/cgo/message_contract.greeter.client.message.cgo.rpccgo.go"
+		for _, fragment := range []string{
+			"func CallGreeterUnaryMessageUnary",
+			"func StartGreeterUploadMessageClientStream",
+			"func SendGreeterUploadMessageClientStream",
+			"func FinishGreeterUploadMessageClientStream",
+			"func StartGreeterListMessageServerStream",
+			"func ReadGreeterListMessageServerStream",
+			"func DoneGreeterListMessageServerStream",
+			"func StartGreeterChatMessageBidiStream",
+			"func SendGreeterChatMessageBidiStream",
+			"func CloseSendGreeterChatMessageBidiStream",
+			"func DoneGreeterChatMessageBidiStream",
+			"protobuf.Unmarshal",
+			"rpcruntime.StoreError",
+		} {
+			assertGeneratedContentContains(t, plugin, messageClientFile, fragment)
+		}
+
+		const messageServerFile = "test/v1/cgo/message_contract.greeter.server.message.cgo.rpccgo.go"
+		for _, fragment := range []string{
+			"typedef struct GreeterCGOMessageServerCallbacks {",
+			"GreeterUnaryCGOMessageUnaryCallback Unary;",
+			"GreeterUploadCGOMessageClientStreamStartCallback UploadStart;",
+			"GreeterListCGOMessageServerStreamRecvCallback ListRecv;",
+			"GreeterChatCGOMessageBidiStreamCloseSendCallback ChatCloseSend;",
+			"func RegisterGreeterCGOMessageServer",
+			"return v1.RegisterGreeterCGOMessageActiveServer(rpcruntime.ServerKindCGOMessage",
+		} {
+			assertGeneratedContentContains(t, plugin, messageServerFile, fragment)
+		}
+
+		const connectFile = "test/v1/message_contract.greeter.server.connect.rpccgo.go"
+		for _, fragment := range []string{
+			`connect "connectrpc.com/connect"`,
+			`http "net/http"`,
+			"func NewGreeterConnectHandler",
+		} {
+			assertGeneratedContentContains(t, plugin, connectFile, fragment)
+		}
+	})
 }
 
 func TestRenderMessageStageFilesSkipsServerCallbacksForNativeOnlyService(t *testing.T) {
@@ -412,6 +487,104 @@ func simpleTestFile() *descriptorpb.FileDescriptorProto {
 				},
 			},
 		},
+	}
+}
+
+func messageCgoTestFile() *descriptorpb.FileDescriptorProto {
+	return &descriptorpb.FileDescriptorProto{
+		Name:    proto.String("test/v1/message_cgo.proto"),
+		Package: proto.String("test.v1"),
+		Syntax:  proto.String("proto3"),
+		Options: &descriptorpb.FileOptions{
+			GoPackage: proto.String("example.com/test/v1;testv1"),
+		},
+		MessageType: []*descriptorpb.DescriptorProto{
+			{Name: proto.String("HelloRequest")},
+			{Name: proto.String("HelloReply")},
+		},
+		Service: []*descriptorpb.ServiceDescriptorProto{
+			{
+				Name: proto.String("Greeter"),
+				Method: []*descriptorpb.MethodDescriptorProto{
+					{
+						Name:            proto.String("Unary"),
+						InputType:       proto.String(".test.v1.HelloRequest"),
+						OutputType:      proto.String(".test.v1.HelloReply"),
+						ClientStreaming: proto.Bool(false),
+						ServerStreaming: proto.Bool(false),
+					},
+					{
+						Name:            proto.String("Upload"),
+						InputType:       proto.String(".test.v1.HelloRequest"),
+						OutputType:      proto.String(".test.v1.HelloReply"),
+						ClientStreaming: proto.Bool(true),
+						ServerStreaming: proto.Bool(false),
+					},
+					{
+						Name:            proto.String("List"),
+						InputType:       proto.String(".test.v1.HelloRequest"),
+						OutputType:      proto.String(".test.v1.HelloReply"),
+						ClientStreaming: proto.Bool(false),
+						ServerStreaming: proto.Bool(true),
+					},
+					{
+						Name:            proto.String("Chat"),
+						InputType:       proto.String(".test.v1.HelloRequest"),
+						OutputType:      proto.String(".test.v1.HelloReply"),
+						ClientStreaming: proto.Bool(true),
+						ServerStreaming: proto.Bool(true),
+					},
+				},
+			},
+		},
+	}
+}
+
+func messageContractTestFile() *descriptorpb.FileDescriptorProto {
+	return &descriptorpb.FileDescriptorProto{
+		Name:    proto.String("test/v1/message_contract.proto"),
+		Package: proto.String("test.v1"),
+		Syntax:  proto.String("proto3"),
+		Options: &descriptorpb.FileOptions{
+			GoPackage: proto.String("example.com/messagecontract/test/v1;testv1"),
+		},
+		MessageType: []*descriptorpb.DescriptorProto{
+			{Name: proto.String("MessageRequest")},
+			{Name: proto.String("MessageReply")},
+		},
+		Service: []*descriptorpb.ServiceDescriptorProto{{
+			Name: proto.String("Greeter"),
+			Method: []*descriptorpb.MethodDescriptorProto{
+				{
+					Name:            proto.String("Unary"),
+					InputType:       proto.String(".test.v1.MessageRequest"),
+					OutputType:      proto.String(".test.v1.MessageReply"),
+					ClientStreaming: proto.Bool(false),
+					ServerStreaming: proto.Bool(false),
+				},
+				{
+					Name:            proto.String("Upload"),
+					InputType:       proto.String(".test.v1.MessageRequest"),
+					OutputType:      proto.String(".test.v1.MessageReply"),
+					ClientStreaming: proto.Bool(true),
+					ServerStreaming: proto.Bool(false),
+				},
+				{
+					Name:            proto.String("List"),
+					InputType:       proto.String(".test.v1.MessageRequest"),
+					OutputType:      proto.String(".test.v1.MessageReply"),
+					ClientStreaming: proto.Bool(false),
+					ServerStreaming: proto.Bool(true),
+				},
+				{
+					Name:            proto.String("Chat"),
+					InputType:       proto.String(".test.v1.MessageRequest"),
+					OutputType:      proto.String(".test.v1.MessageReply"),
+					ClientStreaming: proto.Bool(true),
+					ServerStreaming: proto.Bool(true),
+				},
+			},
+		}},
 	}
 }
 
