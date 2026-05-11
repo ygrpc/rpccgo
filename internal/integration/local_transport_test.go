@@ -16,7 +16,7 @@ import (
 	"google.golang.org/protobuf/types/pluginpb"
 )
 
-func TestStage5LocalTransportAcceptance(t *testing.T) {
+func TestLocalTransportAcceptance(t *testing.T) {
 	tmp := t.TempDir()
 	plugin := newLocalTransportTestPlugin(t, "example.com/messagedirect/test/v1;testv1")
 	if _, err := generator.GenerateWithOptions(plugin, generator.GenerateOptions{RenderStageFiles: true}); err != nil {
@@ -26,9 +26,9 @@ func TestStage5LocalTransportAcceptance(t *testing.T) {
 	writeMessageDirectPathGeneratedModule(t, tmp, plugin, "example.com/messagedirect")
 	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_reset.go"), messageDirectPathResetSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/message_direct_path_callbacks.go"), messageDirectPathFixtureCallbackSource)
-	writeFile(t, filepath.Join(tmp, "test/v1/cgo/local_transport_stage5_test.go"), localTransportStage5FixtureTestSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/cgo/local_transport_test.go"), localTransportFixtureTestSource)
 
-	cmd := exec.Command("go", "test", "./test/v1/cgo", "-run", "^TestLocalTransportStage5Acceptance$", "-count=1")
+	cmd := exec.Command("go", "test", "./test/v1/cgo", "-run", "^TestLocalTransportAcceptance$", "-count=1")
 	cmd.Dir = tmp
 	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
 	out, err := cmd.CombinedOutput()
@@ -77,7 +77,7 @@ func newLocalTransportTestPlugin(t *testing.T, goPackage string) *protogen.Plugi
 	return plugin
 }
 
-const localTransportStage5FixtureTestSource = `package main
+const localTransportFixtureTestSource = `package main
 
 import (
 	context "context"
@@ -97,7 +97,7 @@ import (
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
-func TestLocalTransportStage5Acceptance(t *testing.T) {
+func TestLocalTransportAcceptance(t *testing.T) {
 	t.Run("connect routes to cgo message server", func(t *testing.T) {
 		registerTransportMessageServer(t)
 		setGreeterMessageStreamEOFModeForIntegration(true)
@@ -332,7 +332,7 @@ func startGRPCTransport(t *testing.T) (*grpc.ClientConn, func()) {
 		_ = server.Serve(listener)
 	}()
 	conn, err := grpc.NewClient(
-		"passthrough:///rpccgo-stage5",
+		"passthrough:///rpccgo-local-transport",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithContextDialer(func(ctx context.Context, target string) (net.Conn, error) {
 			return listener.DialContext(ctx)

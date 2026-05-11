@@ -19,10 +19,10 @@ import (
 	"google.golang.org/protobuf/types/pluginpb"
 )
 
-func TestStage6RemoteTransportAcceptance(t *testing.T) {
+func TestRemoteTransportAcceptance(t *testing.T) {
 	tmp := t.TempDir()
-	remotePlugin := newRemoteTransportStage6TestPlugin(t, "remote/v1/stage6.proto", "example.com/stage6/remote/v1;remotev1")
-	localPlugin := newRemoteTransportStage6TestPlugin(t, "local/v1/stage6.proto", "example.com/stage6/local/v1;localv1")
+	remotePlugin := newRemoteTransportTestPlugin(t, "remote/v1/remote_transport.proto", "example.com/remotetransport/remote/v1;remotev1")
+	localPlugin := newRemoteTransportTestPlugin(t, "local/v1/remote_transport.proto", "example.com/remotetransport/local/v1;localv1")
 	if _, err := generator.GenerateWithOptions(remotePlugin, generator.GenerateOptions{RenderStageFiles: true}); err != nil {
 		t.Fatalf("GenerateWithOptions(remote) error = %v", err)
 	}
@@ -30,15 +30,15 @@ func TestStage6RemoteTransportAcceptance(t *testing.T) {
 		t.Fatalf("GenerateWithOptions(local) error = %v", err)
 	}
 
-	writeStage6RemoteGeneratedModule(t, tmp, remotePlugin, localPlugin)
+	writeRemoteTransportGeneratedModule(t, tmp, remotePlugin, localPlugin)
 	writeFile(t, filepath.Join(tmp, "remote/v1/message_integration_reset.go"), strings.ReplaceAll(messageDirectPathResetSource, "package testv1", "package remotev1"))
 	writeFile(t, filepath.Join(tmp, "local/v1/message_integration_reset.go"), strings.ReplaceAll(messageDirectPathResetSource, "package testv1", "package localv1"))
-	writeFile(t, filepath.Join(tmp, "remote/v1/cgo/message_direct_path_callbacks.go"), strings.ReplaceAll(messageDirectPathFixtureCallbackSource, "example.com/messagedirect/test/v1", "example.com/stage6/remote/v1"))
-	writeFile(t, filepath.Join(tmp, "local/v1/cgo/message_direct_path_callbacks.go"), strings.ReplaceAll(messageDirectPathFixtureCallbackSource, "example.com/messagedirect/test/v1", "example.com/stage6/local/v1"))
-	writeFile(t, filepath.Join(tmp, "remote/v1/cgo/remote_server_main.go"), stage6RemoteServerMainSource)
-	writeFile(t, filepath.Join(tmp, "local/v1/cgo/remote_transport_stage6_test.go"), stage6LocalFixtureTestSource)
+	writeFile(t, filepath.Join(tmp, "remote/v1/cgo/message_direct_path_callbacks.go"), strings.ReplaceAll(messageDirectPathFixtureCallbackSource, "example.com/messagedirect/test/v1", "example.com/remotetransport/remote/v1"))
+	writeFile(t, filepath.Join(tmp, "local/v1/cgo/message_direct_path_callbacks.go"), strings.ReplaceAll(messageDirectPathFixtureCallbackSource, "example.com/messagedirect/test/v1", "example.com/remotetransport/local/v1"))
+	writeFile(t, filepath.Join(tmp, "remote/v1/cgo/remote_server_main.go"), remoteTransportServerMainSource)
+	writeFile(t, filepath.Join(tmp, "local/v1/cgo/remote_transport_test.go"), remoteTransportLocalFixtureTestSource)
 
-	buildCmd := exec.Command("go", "build", "-o", filepath.Join(tmp, "stage6-remote-server"), "./remote/v1/cgo")
+	buildCmd := exec.Command("go", "build", "-o", filepath.Join(tmp, "remote-transport-server"), "./remote/v1/cgo")
 	buildCmd.Dir = tmp
 	buildCmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
 	if out, err := buildCmd.CombinedOutput(); err != nil {
@@ -47,9 +47,9 @@ func TestStage6RemoteTransportAcceptance(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, "go", "test", "./local/v1/cgo", "-run", "^TestRemoteTransportStage6Acceptance$", "-count=1", "-timeout", "12s", "-v")
+	cmd := exec.CommandContext(ctx, "go", "test", "./local/v1/cgo", "-run", "^TestRemoteTransportAcceptance$", "-count=1", "-timeout", "12s", "-v")
 	cmd.Dir = tmp
-	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod", "RPCCGO_STAGE6_MODULE_ROOT="+tmp)
+	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod", "RPCCGO_REMOTE_TRANSPORT_MODULE_ROOT="+tmp)
 	out, err := cmd.CombinedOutput()
 	if ctx.Err() == context.DeadlineExceeded {
 		t.Fatalf("remote transport fixture timed out\n%s", out)
@@ -59,7 +59,7 @@ func TestStage6RemoteTransportAcceptance(t *testing.T) {
 	}
 }
 
-func newRemoteTransportStage6TestPlugin(t *testing.T, protoPath, goPackage string) *protogen.Plugin {
+func newRemoteTransportTestPlugin(t *testing.T, protoPath, goPackage string) *protogen.Plugin {
 	t.Helper()
 	emptyFile := protodesc.ToFileDescriptorProto(emptypb.File_google_protobuf_empty_proto)
 	request := &pluginpb.CodeGeneratorRequest{
@@ -99,13 +99,13 @@ func newRemoteTransportStage6TestPlugin(t *testing.T, protoPath, goPackage strin
 	return plugin
 }
 
-func writeStage6RemoteGeneratedModule(t *testing.T, root string, plugins ...*protogen.Plugin) {
+func writeRemoteTransportGeneratedModule(t *testing.T, root string, plugins ...*protogen.Plugin) {
 	t.Helper()
 	repoRoot, err := filepath.Abs("../..")
 	if err != nil {
 		t.Fatalf("filepath.Abs() error = %v", err)
 	}
-	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/stage6\n\ngo 1.24.4\n\nrequire (\n\tconnectrpc.com/connect v1.19.1\n\tgoogle.golang.org/grpc v1.79.3\n\tgoogle.golang.org/protobuf v1.36.11\n\trpccgo v0.0.0\n)\n\nreplace rpccgo => "+repoRoot+"\n")
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/remotetransport\n\ngo 1.24.4\n\nrequire (\n\tconnectrpc.com/connect v1.19.1\n\tgoogle.golang.org/grpc v1.79.3\n\tgoogle.golang.org/protobuf v1.36.11\n\trpccgo v0.0.0\n)\n\nreplace rpccgo => "+repoRoot+"\n")
 	writeFile(t, filepath.Join(root, "go.sum"), "google.golang.org/protobuf v1.36.11 h1:fV6ZwhNocDyBLK0dj+fg8ektcVegBBuEolpbTQyBNVE=\ngoogle.golang.org/protobuf v1.36.11/go.mod h1:HTf+CrKn2C3g5S8VImy6tdcUvCska2kB7j23XfzDpco=\n")
 	for _, plugin := range plugins {
 		for _, generated := range plugin.Response().GetFile() {
@@ -114,7 +114,7 @@ func writeStage6RemoteGeneratedModule(t *testing.T, root string, plugins ...*pro
 	}
 }
 
-const stage6RemoteServerMainSource = `package main
+const remoteTransportServerMainSource = `package main
 
 import (
 	context "context"
@@ -129,7 +129,7 @@ import (
 	syscall "syscall"
 	time "time"
 
-	remotev1 "example.com/stage6/remote/v1"
+	remotev1 "example.com/remotetransport/remote/v1"
 	grpc "google.golang.org/grpc"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
@@ -328,7 +328,7 @@ func wrapConnectCancelObserver(next http.Handler, signalFile string) http.Handle
 }
 `
 
-const stage6LocalFixtureTestSource = `package main
+const remoteTransportLocalFixtureTestSource = `package main
 
 import (
 	bufio "bufio"
@@ -344,62 +344,62 @@ import (
 	"testing"
 	time "time"
 
-	localv1 "example.com/stage6/local/v1"
+	localv1 "example.com/remotetransport/local/v1"
 	grpc "google.golang.org/grpc"
 	insecure "google.golang.org/grpc/credentials/insecure"
 	rpcruntime "rpccgo/rpcruntime"
 )
 
-func TestRemoteTransportStage6Acceptance(t *testing.T) {
+func TestRemoteTransportAcceptance(t *testing.T) {
 	t.Run("connect remote routes message client to remote cgo message server", func(t *testing.T) {
-		remote := startStage6RemoteServer(t, "connect", false)
+		remote := startRemoteTransportServer(t, "connect", false)
 		defer remote.close()
 		registerConnectRemote(t, remote)
 
-		ctx, cancel := stage6CallContext(t)
+		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
 		assertMessageNoErr(t, CallGreeterUnaryMessageUnary(ctx, 0, 0, &GreeterMessageOutput{}))
 	})
 
 	t.Run("grpc remote routes message client to remote cgo message server", func(t *testing.T) {
-		remote := startStage6RemoteServer(t, "grpc", false)
+		remote := startRemoteTransportServer(t, "grpc", false)
 		defer remote.close()
 		closeRemoteClient := registerGRPCRemote(t, remote)
 		defer closeRemoteClient()
 
-		ctx, cancel := stage6CallContext(t)
+		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
 		assertMessageNoErr(t, CallGreeterUnaryMessageUnary(ctx, 0, 0, &GreeterMessageOutput{}))
 	})
 
 	t.Run("connect remote reuses converter for native client", func(t *testing.T) {
-		remote := startStage6RemoteServer(t, "connect", false)
+		remote := startRemoteTransportServer(t, "connect", false)
 		defer remote.close()
 		registerConnectRemote(t, remote)
 
-		ctx, cancel := stage6CallContext(t)
+		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
 		assertNativeUnaryNoErr(t, CallGreeterUnaryNativeUnary(ctx, &GreeterUnaryNativeUnaryInput{}, &GreeterUnaryNativeUnaryOutput{}))
 	})
 
 	t.Run("grpc remote reuses converter for native client", func(t *testing.T) {
-		remote := startStage6RemoteServer(t, "grpc", false)
+		remote := startRemoteTransportServer(t, "grpc", false)
 		defer remote.close()
 		closeRemoteClient := registerGRPCRemote(t, remote)
 		defer closeRemoteClient()
 
-		ctx, cancel := stage6CallContext(t)
+		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
 		assertNativeUnaryNoErr(t, CallGreeterUnaryNativeUnary(ctx, &GreeterUnaryNativeUnaryInput{}, &GreeterUnaryNativeUnaryOutput{}))
 	})
 
 	t.Run("grpc remote client stream captures adapter snapshot", func(t *testing.T) {
-		remote := startStage6RemoteServer(t, "grpc", false)
+		remote := startRemoteTransportServer(t, "grpc", false)
 		defer remote.close()
 		closeRemoteClient := registerGRPCRemote(t, remote)
 		defer closeRemoteClient()
 
-		ctx, cancel := stage6CallContext(t)
+		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
 		handle, errID := StartGreeterUploadMessageClientStream(ctx)
 		assertMessageNoErr(t, errID)
@@ -415,22 +415,22 @@ func TestRemoteTransportStage6Acceptance(t *testing.T) {
 	})
 
 	t.Run("connect remote surfaces downstream errors", func(t *testing.T) {
-		remote := startStage6RemoteServer(t, "connect", true)
+		remote := startRemoteTransportServer(t, "connect", true)
 		defer remote.close()
 		registerConnectRemote(t, remote)
 
-		ctx, cancel := stage6CallContext(t)
+		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
 		errID := CallGreeterUnaryMessageUnary(ctx, 0, 0, &GreeterMessageOutput{})
 		assertMessageErrContains(t, errID, "unknown error id 99999")
 	})
 
 	t.Run("connect remote client stream cancel notifies remote context", func(t *testing.T) {
-		remote := startStage6RemoteCancelObserverServer(t, "connect")
+		remote := startRemoteTransportCancelObserverServer(t, "connect")
 		defer remote.close()
 		registerConnectRemote(t, remote)
 
-		ctx, cancel := stage6CallContext(t)
+		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
 		handle, errID := StartGreeterUploadMessageClientStream(ctx)
 		assertMessageNoErr(t, errID)
@@ -440,11 +440,11 @@ func TestRemoteTransportStage6Acceptance(t *testing.T) {
 	})
 
 	t.Run("connect remote bidi cancel notifies remote context", func(t *testing.T) {
-		remote := startStage6RemoteCancelObserverServer(t, "connect")
+		remote := startRemoteTransportCancelObserverServer(t, "connect")
 		defer remote.close()
 		registerConnectRemote(t, remote)
 
-		ctx, cancel := stage6CallContext(t)
+		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
 		handle, errID := StartGreeterChatMessageBidiStream(ctx)
 		assertMessageNoErr(t, errID)
@@ -454,12 +454,12 @@ func TestRemoteTransportStage6Acceptance(t *testing.T) {
 	})
 
 	t.Run("grpc remote client stream cancel notifies remote context", func(t *testing.T) {
-		remote := startStage6RemoteCancelObserverServer(t, "grpc")
+		remote := startRemoteTransportCancelObserverServer(t, "grpc")
 		defer remote.close()
 		closeRemoteClient := registerGRPCRemote(t, remote)
 		defer closeRemoteClient()
 
-		ctx, cancel := stage6CallContext(t)
+		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
 		handle, errID := StartGreeterUploadMessageClientStream(ctx)
 		assertMessageNoErr(t, errID)
@@ -469,12 +469,12 @@ func TestRemoteTransportStage6Acceptance(t *testing.T) {
 	})
 
 	t.Run("grpc remote bidi cancel notifies remote context", func(t *testing.T) {
-		remote := startStage6RemoteCancelObserverServer(t, "grpc")
+		remote := startRemoteTransportCancelObserverServer(t, "grpc")
 		defer remote.close()
 		closeRemoteClient := registerGRPCRemote(t, remote)
 		defer closeRemoteClient()
 
-		ctx, cancel := stage6CallContext(t)
+		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
 		handle, errID := StartGreeterChatMessageBidiStream(ctx)
 		assertMessageNoErr(t, errID)
@@ -484,29 +484,29 @@ func TestRemoteTransportStage6Acceptance(t *testing.T) {
 	})
 }
 
-func stage6CallContext(t *testing.T) (context.Context, context.CancelFunc) {
+func remoteTransportCallContext(t *testing.T) (context.Context, context.CancelFunc) {
 	t.Helper()
 	return context.WithTimeout(context.Background(), 3*time.Second)
 }
 
-type stage6RemoteProcess struct {
+type remoteTransportProcess struct {
 	addr             string
 	cmd              *exec.Cmd
 	done             chan error
 	cancelSignalFile string
 }
 
-func startStage6RemoteServer(t *testing.T, transport string, unaryError bool) stage6RemoteProcess {
+func startRemoteTransportServer(t *testing.T, transport string, unaryError bool) remoteTransportProcess {
 	t.Helper()
-	moduleRoot := os.Getenv("RPCCGO_STAGE6_MODULE_ROOT")
+	moduleRoot := os.Getenv("RPCCGO_REMOTE_TRANSPORT_MODULE_ROOT")
 	if moduleRoot == "" {
-		t.Fatal("RPCCGO_STAGE6_MODULE_ROOT is empty")
+		t.Fatal("RPCCGO_REMOTE_TRANSPORT_MODULE_ROOT is empty")
 	}
 		args := []string{"-transport", transport}
 	if unaryError {
 		args = append(args, "-unary-error")
 	}
-	cmd := exec.Command(filepath.Join(moduleRoot, "stage6-remote-server"), args...)
+	cmd := exec.Command(filepath.Join(moduleRoot, "remote-transport-server"), args...)
 	cmd.Dir = moduleRoot
 	cmd.Env = os.Environ()
 	stderr := &strings.Builder{}
@@ -538,8 +538,8 @@ func startStage6RemoteServer(t *testing.T, transport string, unaryError bool) st
 
 	select {
 	case addr := <-lineCh:
-		waitForStage6RemotePort(t, addr)
-		return stage6RemoteProcess{addr: addr, cmd: cmd, done: done}
+		waitForRemoteTransportPort(t, addr)
+		return remoteTransportProcess{addr: addr, cmd: cmd, done: done}
 	case err := <-errCh:
 		_ = cmd.Process.Kill()
 		<-done
@@ -549,22 +549,22 @@ func startStage6RemoteServer(t *testing.T, transport string, unaryError bool) st
 		<-done
 		t.Fatalf("remote server did not print address\n%s", stderr.String())
 	}
-	return stage6RemoteProcess{}
+	return remoteTransportProcess{}
 }
 
-func startStage6RemoteCancelObserverServer(t *testing.T, transport string) stage6RemoteProcess {
+func startRemoteTransportCancelObserverServer(t *testing.T, transport string) remoteTransportProcess {
 	t.Helper()
-	moduleRoot := os.Getenv("RPCCGO_STAGE6_MODULE_ROOT")
+	moduleRoot := os.Getenv("RPCCGO_REMOTE_TRANSPORT_MODULE_ROOT")
 	if moduleRoot == "" {
-		t.Fatal("RPCCGO_STAGE6_MODULE_ROOT is empty")
+		t.Fatal("RPCCGO_REMOTE_TRANSPORT_MODULE_ROOT is empty")
 	}
-	signalFile := filepath.Join(moduleRoot, "stage6-cancel-observer-"+transport+"-"+time.Now().Format("20060102150405.000000000"))
+	signalFile := filepath.Join(moduleRoot, "remote-transport-cancel-observer-"+transport+"-"+time.Now().Format("20060102150405.000000000"))
 	args := []string{
 		"-transport", transport,
 		"-cancel-observer",
 		"-cancel-signal-file", signalFile,
 	}
-	cmd := exec.Command(filepath.Join(moduleRoot, "stage6-remote-server"), args...)
+	cmd := exec.Command(filepath.Join(moduleRoot, "remote-transport-server"), args...)
 	cmd.Dir = moduleRoot
 	cmd.Env = os.Environ()
 	stderr := &strings.Builder{}
@@ -596,8 +596,8 @@ func startStage6RemoteCancelObserverServer(t *testing.T, transport string) stage
 
 	select {
 	case addr := <-lineCh:
-		waitForStage6RemotePort(t, addr)
-		return stage6RemoteProcess{addr: addr, cmd: cmd, done: done, cancelSignalFile: signalFile}
+		waitForRemoteTransportPort(t, addr)
+		return remoteTransportProcess{addr: addr, cmd: cmd, done: done, cancelSignalFile: signalFile}
 	case err := <-errCh:
 		_ = cmd.Process.Kill()
 		<-done
@@ -607,10 +607,10 @@ func startStage6RemoteCancelObserverServer(t *testing.T, transport string) stage
 		<-done
 		t.Fatalf("cancel-observer remote server did not print address\n%s", stderr.String())
 	}
-	return stage6RemoteProcess{}
+	return remoteTransportProcess{}
 }
 
-func (p stage6RemoteProcess) close() {
+func (p remoteTransportProcess) close() {
 	if p.cmd != nil && p.cmd.Process != nil {
 		_ = p.cmd.Process.Signal(os.Interrupt)
 	}
@@ -633,7 +633,7 @@ func (p stage6RemoteProcess) close() {
 	}
 }
 
-func (p stage6RemoteProcess) waitForCancelSignal(t *testing.T, signal string) {
+func (p remoteTransportProcess) waitForCancelSignal(t *testing.T, signal string) {
 	t.Helper()
 	if p.cancelSignalFile == "" {
 		t.Fatalf("cancel signal file is empty, want %q", signal)
@@ -656,7 +656,7 @@ func (p stage6RemoteProcess) waitForCancelSignal(t *testing.T, signal string) {
 	t.Fatalf("cancel signal %q not observed within timeout, file=%q", signal, strings.TrimSpace(string(content)))
 }
 
-func waitForStage6RemotePort(t *testing.T, addr string) {
+func waitForRemoteTransportPort(t *testing.T, addr string) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
@@ -670,7 +670,7 @@ func waitForStage6RemotePort(t *testing.T, addr string) {
 	t.Fatalf("remote server %s did not accept TCP connections", addr)
 }
 
-func registerConnectRemote(t *testing.T, remote stage6RemoteProcess) {
+func registerConnectRemote(t *testing.T, remote remoteTransportProcess) {
 	t.Helper()
 	localv1.ResetGreeterDispatcherForIntegrationTest()
 	if _, err := localv1.RegisterGreeterConnectRemoteServer(http.DefaultClient, "http://"+remote.addr); err != nil {
@@ -678,7 +678,7 @@ func registerConnectRemote(t *testing.T, remote stage6RemoteProcess) {
 	}
 }
 
-func registerGRPCRemote(t *testing.T, remote stage6RemoteProcess) func() {
+func registerGRPCRemote(t *testing.T, remote remoteTransportProcess) func() {
 	t.Helper()
 	localv1.ResetGreeterDispatcherForIntegrationTest()
 	conn, err := grpc.NewClient(
