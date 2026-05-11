@@ -7,8 +7,8 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-func TestStage7GeneratedLayoutContract(t *testing.T) {
-	plugin := newStage7GeneratedLayoutPlugin(t)
+func TestGeneratedLayoutGeneratedLayoutContract(t *testing.T) {
+	plugin := newGeneratedLayoutGeneratedLayoutPlugin(t)
 
 	assertGeneratedFilenames(t, plugin, []string{
 		"test/v1/greeter.greeter.runtime.rpccgo.go",
@@ -23,21 +23,21 @@ func TestStage7GeneratedLayoutContract(t *testing.T) {
 		"test/v1/greeter.greeter.remote.grpc.rpccgo.go",
 		"test/v1/greeter.greeter.codec.rpccgo.go",
 	})
-	assertStage7GeneratedPackage(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "package testv1")
-	assertStage7GeneratedPackage(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go", "package testv1")
-	assertStage7GeneratedPackage(t, plugin, "test/v1/greeter.greeter.codec.rpccgo.go", "package testv1")
-	assertStage7GeneratedPackage(t, plugin, "test/v1/greeter.greeter.server.connect.rpccgo.go", "package testv1")
-	assertStage7GeneratedPackage(t, plugin, "test/v1/greeter.greeter.server.grpc.rpccgo.go", "package testv1")
-	assertStage7GeneratedPackage(t, plugin, "test/v1/greeter.greeter.remote.connect.rpccgo.go", "package testv1")
-	assertStage7GeneratedPackage(t, plugin, "test/v1/greeter.greeter.remote.grpc.rpccgo.go", "package testv1")
-	assertStage7GeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.server.cgo.rpccgo.go", "package main")
-	assertStage7GeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.client.cgo.rpccgo.go", "package main")
-	assertStage7GeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go", "package main")
-	assertStage7GeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go", "package main")
+	assertGeneratedLayoutGeneratedPackage(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "package testv1")
+	assertGeneratedLayoutGeneratedPackage(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go", "package testv1")
+	assertGeneratedLayoutGeneratedPackage(t, plugin, "test/v1/greeter.greeter.codec.rpccgo.go", "package testv1")
+	assertGeneratedLayoutGeneratedPackage(t, plugin, "test/v1/greeter.greeter.server.connect.rpccgo.go", "package testv1")
+	assertGeneratedLayoutGeneratedPackage(t, plugin, "test/v1/greeter.greeter.server.grpc.rpccgo.go", "package testv1")
+	assertGeneratedLayoutGeneratedPackage(t, plugin, "test/v1/greeter.greeter.remote.connect.rpccgo.go", "package testv1")
+	assertGeneratedLayoutGeneratedPackage(t, plugin, "test/v1/greeter.greeter.remote.grpc.rpccgo.go", "package testv1")
+	assertGeneratedLayoutGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.server.cgo.rpccgo.go", "package main")
+	assertGeneratedLayoutGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.client.cgo.rpccgo.go", "package main")
+	assertGeneratedLayoutGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go", "package main")
+	assertGeneratedLayoutGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go", "package main")
 }
 
-func TestStage7PublicAPIContract(t *testing.T) {
-	plugin := newStage7GeneratedLayoutPlugin(t)
+func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
+	plugin := newGeneratedLayoutGeneratedLayoutPlugin(t)
 
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go",
 		"type GreeterNativeAdapter interface {",
@@ -83,8 +83,8 @@ func TestStage7PublicAPIContract(t *testing.T) {
 	)
 }
 
-func TestStage7GeneratedLayoutRejectsOldBootstrapNames(t *testing.T) {
-	plugin := newStage7GeneratedLayoutPlugin(t)
+func TestGeneratedLayoutGeneratedLayoutRejectsOldBootstrapNames(t *testing.T) {
+	plugin := newGeneratedLayoutGeneratedLayoutPlugin(t)
 	banned := []string{
 		"provider registry",
 		"framework selector",
@@ -108,7 +108,7 @@ func TestStage7GeneratedLayoutRejectsOldBootstrapNames(t *testing.T) {
 	}
 }
 
-func newStage7GeneratedLayoutPlugin(t *testing.T) *protogen.Plugin {
+func newGeneratedLayoutGeneratedLayoutPlugin(t *testing.T) *protogen.Plugin {
 	t.Helper()
 
 	file := simpleTestFile()
@@ -120,7 +120,7 @@ func newStage7GeneratedLayoutPlugin(t *testing.T) *protogen.Plugin {
 	return plugin
 }
 
-func assertStage7GeneratedPackage(t *testing.T, plugin *protogen.Plugin, filename string, want string) {
+func assertGeneratedLayoutGeneratedPackage(t *testing.T, plugin *protogen.Plugin, filename string, want string) {
 	t.Helper()
 
 	assertGeneratedContentContains(t, plugin, filename, want)
