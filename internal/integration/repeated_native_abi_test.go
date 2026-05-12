@@ -169,6 +169,37 @@ func (repeatedGoNativeServer) Echo(ctx context.Context, scores *rpcruntime.RpcRe
 	return outScores, outFlags, nil
 }
 
+type repeatedInput struct {
+	ScoresPtr uintptr
+	ScoresLen int32
+	ScoresOwnership int32
+	FlagsPtr uintptr
+	FlagsLen int32
+	FlagsOwnership int32
+}
+
+type repeatedOutput struct {
+	ScoresPtr uintptr
+	ScoresLen int32
+	FlagsPtr uintptr
+	FlagsLen int32
+}
+
+func callRepeatedEcho(ctx context.Context, input *repeatedInput, output *repeatedOutput) int32 {
+	if input == nil {
+		input = &repeatedInput{}
+	}
+	if output == nil {
+		output = &repeatedOutput{}
+	}
+	return CallRepeatedGreeterEchoNativeUnary(ctx,
+		input.ScoresPtr, input.ScoresLen, input.ScoresOwnership,
+		input.FlagsPtr, input.FlagsLen, input.FlagsOwnership,
+		&output.ScoresPtr, &output.ScoresLen,
+		&output.FlagsPtr, &output.FlagsLen,
+	)
+}
+
 func TestRepeatedNativeABI(t *testing.T) {
 	t.Run("native client routes to go native server with repeated fields", func(t *testing.T) {
 		repeatedv1.ResetRepeatedGreeterDispatcherForIntegrationTest()
@@ -178,7 +209,7 @@ func TestRepeatedNativeABI(t *testing.T) {
 
 		scores := []int32{1, 2, 3}
 		flags := []byte{1, 0, 1}
-		input := &RepeatedGreeterEchoNativeUnaryInput{
+		input := &repeatedInput{
 			ScoresPtr:       uintptr(unsafe.Pointer(&scores[0])),
 			ScoresLen:       int32(len(scores)),
 			ScoresOwnership: 0,
@@ -186,8 +217,8 @@ func TestRepeatedNativeABI(t *testing.T) {
 			FlagsLen:        int32(len(flags)),
 			FlagsOwnership:  0,
 		}
-		output := &RepeatedGreeterEchoNativeUnaryOutput{}
-		if errID := CallRepeatedGreeterEchoNativeUnary(context.Background(), input, output); errID != 0 {
+		output := &repeatedOutput{}
+		if errID := callRepeatedEcho(context.Background(), input, output); errID != 0 {
 			text, _, _ := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
 			t.Fatalf("CallRepeatedGreeterEchoNativeUnary() errID = %d: %s", errID, text)
 		}
@@ -208,7 +239,7 @@ func TestRepeatedNativeABI(t *testing.T) {
 
 		scores := []int32{9, 8}
 		flags := []byte{0, 1}
-		input := &RepeatedGreeterEchoNativeUnaryInput{
+		input := &repeatedInput{
 			ScoresPtr:       uintptr(unsafe.Pointer(&scores[0])),
 			ScoresLen:       int32(len(scores)),
 			ScoresOwnership: 0,
@@ -216,8 +247,8 @@ func TestRepeatedNativeABI(t *testing.T) {
 			FlagsLen:        int32(len(flags)),
 			FlagsOwnership:  0,
 		}
-		output := &RepeatedGreeterEchoNativeUnaryOutput{}
-		if errID := CallRepeatedGreeterEchoNativeUnary(context.Background(), input, output); errID != 0 {
+		output := &repeatedOutput{}
+		if errID := callRepeatedEcho(context.Background(), input, output); errID != 0 {
 			text, _, _ := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
 			t.Fatalf("CallRepeatedGreeterEchoNativeUnary() errID = %d: %s", errID, text)
 		}
@@ -273,11 +304,11 @@ func TestRepeatedNativeABI(t *testing.T) {
 			t.Fatalf("RegisterRepeatedGreeterGoNativeServer() error = %v", err)
 		}
 
-		input := &RepeatedGreeterEchoNativeUnaryInput{
+		input := &repeatedInput{
 			ScoresLen: -1,
 		}
-		output := &RepeatedGreeterEchoNativeUnaryOutput{}
-		errID := CallRepeatedGreeterEchoNativeUnary(context.Background(), input, output)
+		output := &repeatedOutput{}
+		errID := callRepeatedEcho(context.Background(), input, output)
 		if errID == 0 {
 			t.Fatal("negative length returned errID 0")
 		}
@@ -322,7 +353,7 @@ func requestPtr(data []byte) uintptr {
 	return uintptr(unsafe.Pointer(&data[0]))
 }
 
-func releaseRepeatedOutput(output *RepeatedGreeterEchoNativeUnaryOutput) {
+func releaseRepeatedOutput(output *repeatedOutput) {
 	if output == nil {
 		return
 	}

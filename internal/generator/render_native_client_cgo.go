@@ -55,38 +55,29 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 }
 
 func renderNativeUnaryClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError, servicePackage string) {
-	inputName := nativeUnaryClientInputName(service, method)
-	outputName := nativeUnaryClientOutputName(service, method)
 	funcName := nativeUnaryClientFuncName(service, method)
+	requestParams := nativeClientRequestParams(method.NativeContract.RequestFields)
+	requestArgs := nativeClientRequestCallArgs(method.NativeContract.RequestFields)
+	responseParams := nativeClientResponseOutputParams(method.NativeContract.ResponseFields)
+	responseArgs := nativeClientResponseOutputCallArgs(method.NativeContract.ResponseFields)
 
-	g.P("type ", inputName, " struct {")
-	renderNativeClientFields(g, method.NativeContract.RequestFields, false)
-	g.P("}")
-	g.P()
-
-	g.P("type ", outputName, " struct {")
-	renderNativeClientFields(g, method.NativeContract.ResponseFields, true)
-	g.P("}")
-	g.P()
-
-	g.P("func ", funcName, "(ctx context.Context, input *", inputName, ", output *", outputName, ") int32 {")
+	g.P("func ", funcName, "(ctx context.Context", nativeClientAppendParams("", requestParams, responseParams), ") int32 {")
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("if input == nil {")
-	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native unary client input is nil")))`)
-	g.P("}")
-	g.P("if output == nil {")
-	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native unary client output is nil")))`)
-	g.P("}")
+	if responseParams != "" {
+		g.P("if err := ", nativeUnaryClientOutputValidatorName(service, method), "(", responseArgs, "); err != nil {")
+		g.P("return int32(rpcruntime.StoreError(err))")
+		g.P("}")
+	}
 	requestNames := nativeClientRequestValueNames(method.NativeContract.RequestFields)
 	responseNames := nativeClientResponseValueNames(method.NativeContract.ResponseFields)
 	if requestNames == "" {
-		g.P("if err := ", nativeUnaryClientDecoderName(service, method), "(input); err != nil {")
+		g.P("if err := ", nativeUnaryClientDecoderName(service, method), "(", requestArgs, "); err != nil {")
 		g.P("return int32(rpcruntime.StoreError(err))")
 		g.P("}")
 	} else {
-		g.P(requestNames, ", err := ", nativeUnaryClientDecoderName(service, method), "(input)")
+		g.P(requestNames, ", err := ", nativeUnaryClientDecoderName(service, method), "(", requestArgs, ")")
 		g.P("if err != nil {")
 		g.P("return int32(rpcruntime.StoreError(err))")
 		g.P("}")
@@ -102,30 +93,22 @@ func renderNativeUnaryClient(g *protogen.GeneratedFile, service ServicePlan, met
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
-	g.P("if err := ", nativeUnaryClientEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), "output); err != nil {")
+	g.P("if err := ", nativeUnaryClientEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), responseArgs, "); err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return 0")
 	g.P("}")
 	g.P()
 
-	renderNativeUnaryRequestDecoder(g, service, method, inputName, unsupportedError)
-	renderNativeUnaryResponseEncoder(g, service, method, outputName, unsupportedError)
+	renderNativeUnaryRequestDecoder(g, service, method, unsupportedError)
+	renderNativeUnaryResponseEncoder(g, service, method, unsupportedError)
 }
 
 func renderNativeClientStreamingClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError, servicePackage string) {
-	inputName := nativeClientStreamingInputName(service, method)
-	outputName := nativeClientStreamingOutputName(service, method)
-
-	g.P("type ", inputName, " struct {")
-	renderNativeClientFields(g, method.NativeContract.RequestFields, false)
-	g.P("}")
-	g.P()
-
-	g.P("type ", outputName, " struct {")
-	renderNativeClientFields(g, method.NativeContract.ResponseFields, true)
-	g.P("}")
-	g.P()
+	requestParams := nativeClientRequestParams(method.NativeContract.RequestFields)
+	requestArgs := nativeClientRequestCallArgs(method.NativeContract.RequestFields)
+	responseParams := nativeClientResponseOutputParams(method.NativeContract.ResponseFields)
+	responseArgs := nativeClientResponseOutputCallArgs(method.NativeContract.ResponseFields)
 
 	g.P("func ", nativeClientStreamingStartFuncName(service, method), "(ctx context.Context) (int32, int32) {")
 	g.P("if ctx == nil {")
@@ -139,26 +122,20 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, service Servic
 	g.P("}")
 	g.P()
 
-	g.P("func ", nativeClientStreamingSendFuncName(service, method), "(ctx context.Context, handle int32, input *", inputName, ") int32 {")
+	g.P("func ", nativeClientStreamingSendFuncName(service, method), "(ctx context.Context, handle int32", nativeClientAppendParams("", requestParams), ") int32 {")
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("if input == nil {")
-	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native client stream input is nil")))`)
-	g.P("}")
-	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Load", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
-	g.P("if !ok {")
-	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
-	g.P("}")
+	renderNativeClientLoadNativeStream(g, service, method, invalidHandleError, servicePackage)
 	requestNames := nativeClientRequestValueNames(method.NativeContract.RequestFields)
 	responseNames := nativeClientResponseValueNames(method.NativeContract.ResponseFields)
 	g.P("var err error")
 	if requestNames == "" {
-		g.P("if err := ", nativeClientStreamingDecoderName(service, method), "(input); err != nil {")
+		g.P("if err := ", nativeClientStreamingDecoderName(service, method), "(", requestArgs, "); err != nil {")
 		g.P("return int32(rpcruntime.StoreError(err))")
 		g.P("}")
 	} else {
-		g.P(requestNames, ", err := ", nativeClientStreamingDecoderName(service, method), "(input)")
+		g.P(requestNames, ", err := ", nativeClientStreamingDecoderName(service, method), "(", requestArgs, ")")
 		g.P("if err != nil {")
 		g.P("return int32(rpcruntime.StoreError(err))")
 		g.P("}")
@@ -174,26 +151,26 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, service Servic
 	g.P("}")
 	g.P()
 
-	g.P("func ", nativeClientStreamingFinishFuncName(service, method), "(ctx context.Context, handle int32, output *", outputName, ") int32 {")
+	g.P("func ", nativeClientStreamingFinishFuncName(service, method), "(ctx context.Context, handle int32", nativeClientAppendParams("", responseParams), ") int32 {")
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("if output == nil {")
-	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native client stream output is nil")))`)
-	g.P("}")
-	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Take", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
-	g.P("if !ok {")
-	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
-	g.P("}")
+	if responseParams != "" {
+		g.P("if err := ", nativeClientStreamingOutputValidatorName(service, method), "(", responseArgs, "); err != nil {")
+		g.P("return int32(rpcruntime.StoreError(err))")
+		g.P("}")
+	}
+	renderNativeClientLoadNativeStream(g, service, method, invalidHandleError, servicePackage)
 	if responseNames == "" {
 		g.P("err := session.Finish(ctx)")
 	} else {
 		g.P(responseNames, ", err := session.Finish(ctx)")
 	}
+	renderNativeClientDeleteNativeStream(g, service, servicePackage)
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
-	g.P("if err := ", nativeClientStreamingEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), "output); err != nil {")
+	g.P("if err := ", nativeClientStreamingEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), responseArgs, "); err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return 0")
@@ -204,50 +181,38 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, service Servic
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Take", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
-	g.P("if !ok {")
-	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
-	g.P("}")
-	g.P("if err := session.Cancel(ctx); err != nil {")
+	renderNativeClientLoadNativeStream(g, service, method, invalidHandleError, servicePackage)
+	g.P("err := session.Cancel(ctx)")
+	renderNativeClientDeleteNativeStream(g, service, servicePackage)
+	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return 0")
 	g.P("}")
 	g.P()
 
-	renderNativeClientStreamingRequestDecoder(g, service, method, inputName, unsupportedError)
-	renderNativeClientStreamingResponseEncoder(g, service, method, outputName, unsupportedError)
+	renderNativeClientStreamingRequestDecoder(g, service, method, unsupportedError)
+	renderNativeClientStreamingResponseEncoder(g, service, method, unsupportedError)
 }
 
 func renderNativeServerStreamingClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError, servicePackage string) {
-	inputName := nativeServerStreamingInputName(service, method)
-	outputName := nativeServerStreamingOutputName(service, method)
+	requestParams := nativeClientRequestParams(method.NativeContract.RequestFields)
+	requestArgs := nativeClientRequestCallArgs(method.NativeContract.RequestFields)
+	responseParams := nativeClientResponseOutputParams(method.NativeContract.ResponseFields)
+	responseArgs := nativeClientResponseOutputCallArgs(method.NativeContract.ResponseFields)
 
-	g.P("type ", inputName, " struct {")
-	renderNativeClientFields(g, method.NativeContract.RequestFields, false)
-	g.P("}")
-	g.P()
-
-	g.P("type ", outputName, " struct {")
-	renderNativeClientFields(g, method.NativeContract.ResponseFields, true)
-	g.P("}")
-	g.P()
-
-	g.P("func ", nativeServerStreamingStartFuncName(service, method), "(ctx context.Context, input *", inputName, ") (int32, int32) {")
+	g.P("func ", nativeServerStreamingStartFuncName(service, method), "(ctx context.Context", nativeClientAppendParams("", requestParams), ") (int32, int32) {")
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
-	g.P("}")
-	g.P("if input == nil {")
-	g.P(`return 0, int32(rpcruntime.StoreError(errors.New("rpccgo: native server stream input is nil")))`)
 	g.P("}")
 	requestNames := nativeClientRequestValueNames(method.NativeContract.RequestFields)
 	g.P("var err error")
 	if requestNames == "" {
-		g.P("if err := ", nativeServerStreamingDecoderName(service, method), "(input); err != nil {")
+		g.P("if err := ", nativeServerStreamingDecoderName(service, method), "(", requestArgs, "); err != nil {")
 		g.P("return 0, int32(rpcruntime.StoreError(err))")
 		g.P("}")
 	} else {
-		g.P(requestNames, ", err := ", nativeServerStreamingDecoderName(service, method), "(input)")
+		g.P(requestNames, ", err := ", nativeServerStreamingDecoderName(service, method), "(", requestArgs, ")")
 		g.P("if err != nil {")
 		g.P("return 0, int32(rpcruntime.StoreError(err))")
 		g.P("}")
@@ -263,18 +228,17 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, service Servic
 	g.P("}")
 	g.P()
 
-	g.P("func ", nativeServerStreamingReadFuncName(service, method), "(ctx context.Context, handle int32, output *", outputName, ") int32 {")
+	g.P("func ", nativeServerStreamingReadFuncName(service, method), "(ctx context.Context, handle int32", nativeClientAppendParams("", responseParams), ") int32 {")
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("if output == nil {")
-	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native server stream output is nil")))`)
-	g.P("}")
-	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Load", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
-	g.P("if !ok {")
-	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
-	g.P("}")
 	responseNames := nativeClientResponseValueNames(method.NativeContract.ResponseFields)
+	if responseParams != "" {
+		g.P("if err := ", nativeServerStreamingOutputValidatorName(service, method), "(", responseArgs, "); err != nil {")
+		g.P("return int32(rpcruntime.StoreError(err))")
+		g.P("}")
+	}
+	renderNativeClientLoadNativeStream(g, service, method, invalidHandleError, servicePackage)
 	if responseNames == "" {
 		g.P("err := session.Recv(ctx)")
 	} else {
@@ -283,7 +247,7 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, service Servic
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
-	g.P("if err := ", nativeServerStreamingEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), "output); err != nil {")
+	g.P("if err := ", nativeServerStreamingEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), responseArgs, "); err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return 0")
@@ -294,14 +258,14 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, service Servic
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Take", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
-	g.P("if !ok {")
-	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
-	g.P("}")
+	renderNativeClientLoadNativeStream(g, service, method, invalidHandleError, servicePackage)
+	g.P("var err error")
 	g.P("if done, ok := session.(interface{ Done(context.Context) error }); ok {")
-	g.P("if err := done.Done(ctx); err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
+	g.P("err = done.Done(ctx)")
 	g.P("}")
+	renderNativeClientDeleteNativeStream(g, service, servicePackage)
+	g.P("if err != nil {")
+	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return 0")
 	g.P("}")
@@ -311,34 +275,25 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, service Servic
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Take", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
-	g.P("if !ok {")
-	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
-	g.P("}")
-	g.P("if err := session.Cancel(ctx); err != nil {")
+	renderNativeClientLoadNativeStream(g, service, method, invalidHandleError, servicePackage)
+	g.P("err := session.Cancel(ctx)")
+	renderNativeClientDeleteNativeStream(g, service, servicePackage)
+	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return 0")
 	g.P("}")
 	g.P()
 
-	renderNativeServerStreamingRequestDecoder(g, service, method, inputName, unsupportedError)
-	renderNativeServerStreamingResponseEncoder(g, service, method, outputName, unsupportedError)
+	renderNativeServerStreamingRequestDecoder(g, service, method, unsupportedError)
+	renderNativeServerStreamingResponseEncoder(g, service, method, unsupportedError)
 }
 
 func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError, servicePackage string) {
-	inputName := nativeBidiStreamingInputName(service, method)
-	outputName := nativeBidiStreamingOutputName(service, method)
-
-	g.P("type ", inputName, " struct {")
-	renderNativeClientFields(g, method.NativeContract.RequestFields, false)
-	g.P("}")
-	g.P()
-
-	g.P("type ", outputName, " struct {")
-	renderNativeClientFields(g, method.NativeContract.ResponseFields, true)
-	g.P("}")
-	g.P()
+	requestParams := nativeClientRequestParams(method.NativeContract.RequestFields)
+	requestArgs := nativeClientRequestCallArgs(method.NativeContract.RequestFields)
+	responseParams := nativeClientResponseOutputParams(method.NativeContract.ResponseFields)
+	responseArgs := nativeClientResponseOutputCallArgs(method.NativeContract.ResponseFields)
 
 	g.P("func ", nativeBidiStreamingStartFuncName(service, method), "(ctx context.Context) (int32, int32) {")
 	g.P("if ctx == nil {")
@@ -352,26 +307,20 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServiceP
 	g.P("}")
 	g.P()
 
-	g.P("func ", nativeBidiStreamingSendFuncName(service, method), "(ctx context.Context, handle int32, input *", inputName, ") int32 {")
+	g.P("func ", nativeBidiStreamingSendFuncName(service, method), "(ctx context.Context, handle int32", nativeClientAppendParams("", requestParams), ") int32 {")
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("if input == nil {")
-	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native bidi stream input is nil")))`)
-	g.P("}")
-	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Load", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
-	g.P("if !ok {")
-	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
-	g.P("}")
+	renderNativeClientLoadNativeStream(g, service, method, invalidHandleError, servicePackage)
 	requestNames := nativeClientRequestValueNames(method.NativeContract.RequestFields)
 	responseNames := nativeClientResponseValueNames(method.NativeContract.ResponseFields)
 	g.P("var err error")
 	if requestNames == "" {
-		g.P("if err := ", nativeBidiStreamingDecoderName(service, method), "(input); err != nil {")
+		g.P("if err := ", nativeBidiStreamingDecoderName(service, method), "(", requestArgs, "); err != nil {")
 		g.P("return int32(rpcruntime.StoreError(err))")
 		g.P("}")
 	} else {
-		g.P(requestNames, ", err := ", nativeBidiStreamingDecoderName(service, method), "(input)")
+		g.P(requestNames, ", err := ", nativeBidiStreamingDecoderName(service, method), "(", requestArgs, ")")
 		g.P("if err != nil {")
 		g.P("return int32(rpcruntime.StoreError(err))")
 		g.P("}")
@@ -387,17 +336,16 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServiceP
 	g.P("}")
 	g.P()
 
-	g.P("func ", nativeBidiStreamingReadFuncName(service, method), "(ctx context.Context, handle int32, output *", outputName, ") int32 {")
+	g.P("func ", nativeBidiStreamingReadFuncName(service, method), "(ctx context.Context, handle int32", nativeClientAppendParams("", responseParams), ") int32 {")
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("if output == nil {")
-	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native bidi stream output is nil")))`)
-	g.P("}")
-	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Load", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
-	g.P("if !ok {")
-	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
-	g.P("}")
+	if responseParams != "" {
+		g.P("if err := ", nativeBidiStreamingOutputValidatorName(service, method), "(", responseArgs, "); err != nil {")
+		g.P("return int32(rpcruntime.StoreError(err))")
+		g.P("}")
+	}
+	renderNativeClientLoadNativeStream(g, service, method, invalidHandleError, servicePackage)
 	if responseNames == "" {
 		g.P("err := session.Recv(ctx)")
 	} else {
@@ -406,7 +354,7 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServiceP
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
-	g.P("if err := ", nativeBidiStreamingEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), "output); err != nil {")
+	g.P("if err := ", nativeBidiStreamingEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), responseArgs, "); err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return 0")
@@ -417,10 +365,7 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServiceP
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Load", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
-	g.P("if !ok {")
-	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
-	g.P("}")
+	renderNativeClientLoadNativeStream(g, service, method, invalidHandleError, servicePackage)
 	g.P("if err := session.CloseSend(ctx); err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -432,14 +377,14 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServiceP
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Take", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
-	g.P("if !ok {")
-	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
-	g.P("}")
+	renderNativeClientLoadNativeStream(g, service, method, invalidHandleError, servicePackage)
+	g.P("var err error")
 	g.P("if done, ok := session.(interface{ Done(context.Context) error }); ok {")
-	g.P("if err := done.Done(ctx); err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
+	g.P("err = done.Done(ctx)")
 	g.P("}")
+	renderNativeClientDeleteNativeStream(g, service, servicePackage)
+	g.P("if err != nil {")
+	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return 0")
 	g.P("}")
@@ -449,83 +394,174 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServiceP
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("session, ok := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Take", method.GoName, "NativeStream(rpcruntime.StreamHandle(handle))")
-	g.P("if !ok {")
-	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
-	g.P("}")
-	g.P("if err := session.Cancel(ctx); err != nil {")
+	renderNativeClientLoadNativeStream(g, service, method, invalidHandleError, servicePackage)
+	g.P("err := session.Cancel(ctx)")
+	renderNativeClientDeleteNativeStream(g, service, servicePackage)
+	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return 0")
 	g.P("}")
 	g.P()
 
-	renderNativeBidiStreamingRequestDecoder(g, service, method, inputName, unsupportedError)
-	renderNativeBidiStreamingResponseEncoder(g, service, method, outputName, unsupportedError)
+	renderNativeBidiStreamingRequestDecoder(g, service, method, unsupportedError)
+	renderNativeBidiStreamingResponseEncoder(g, service, method, unsupportedError)
 }
 
-func renderNativeClientFields(g *protogen.GeneratedFile, fields []FieldPlan, output bool) {
+func nativeClientRequestParams(fields []FieldPlan) string {
+	parts := make([]string, 0, len(fields)*3)
 	for _, field := range fields {
-		switch field.Native.Shape {
-		case NativeABIShapeBoolByte:
-			g.P(field.GoName, " int8")
-		case NativeABIShapeRepeated, NativeABIShapeBoolByteBufferWrapper:
-			g.P(field.GoName, "Ptr uintptr")
-			g.P(field.GoName, "Len int32")
-			if !output {
-				g.P(field.GoName, "Ownership int32")
-			}
-		case NativeABIShapeScalar, NativeABIShapeMessageBytes:
-			renderNativeScalarField(g, field, output)
-		default:
-			g.P(field.GoName, " uintptr")
+		for _, param := range nativeClientInputFieldSymbols(field) {
+			parts = append(parts, param+" "+nativeClientRequestParamType(field, param))
 		}
 	}
+	return strings.Join(parts, ", ")
 }
 
-func renderNativeScalarField(g *protogen.GeneratedFile, field FieldPlan, output bool) {
+func nativeClientResponseOutputParams(fields []FieldPlan) string {
+	parts := make([]string, 0, len(fields)*2)
+	for _, field := range fields {
+		for _, param := range nativeClientOutputFieldSymbols(field) {
+			parts = append(parts, param+" *"+nativeClientOutputParamType(field, param))
+		}
+	}
+	return strings.Join(parts, ", ")
+}
+
+func nativeClientRequestParamType(field FieldPlan, param string) string {
+	if strings.HasSuffix(param, "Ptr") {
+		return "uintptr"
+	}
+	if strings.HasSuffix(param, "Len") || strings.HasSuffix(param, "Ownership") {
+		return "int32"
+	}
+	return nativeClientScalarParamType(field)
+}
+
+func nativeClientOutputParamType(field FieldPlan, param string) string {
+	if strings.HasSuffix(param, "Ptr") {
+		return "uintptr"
+	}
+	if strings.HasSuffix(param, "Len") {
+		return "int32"
+	}
+	return nativeClientScalarParamType(field)
+}
+
+func nativeClientScalarParamType(field FieldPlan) string {
 	switch field.Kind {
+	case FieldKindBool:
+		return "int8"
 	case FieldKindSignedInt32, FieldKindEnum:
-		g.P(field.GoName, " int32")
+		return "int32"
 	case FieldKindSignedInt64:
-		g.P(field.GoName, " int64")
+		return "int64"
 	case FieldKindFloat:
-		g.P(field.GoName, " float32")
+		return "float32"
 	case FieldKindDouble:
-		g.P(field.GoName, " float64")
-	case FieldKindString, FieldKindBytes, FieldKindMessage:
-		if output {
-			g.P(field.GoName, "Ptr uintptr")
-			g.P(field.GoName, "Len int32")
-			return
-		}
-		g.P(field.GoName, "Ptr uintptr")
-		g.P(field.GoName, "Len int32")
-		g.P(field.GoName, "Ownership int32")
+		return "float64"
 	default:
-		g.P(field.GoName, " uintptr")
+		return "uintptr"
 	}
 }
 
-func renderNativeUnaryRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, inputName, unsupportedError string) {
-	renderNativeClientRequestDecoder(g, nativeUnaryClientDecoderName(service, method), inputName, method.NativeContract.RequestFields, unsupportedError)
+func nativeClientRequestCallArgs(fields []FieldPlan) string {
+	return strings.Join(nativeClientFlatSymbols(fields, nativeClientInputFieldSymbols), ", ")
 }
 
-func renderNativeClientStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, inputName, unsupportedError string) {
-	renderNativeClientRequestDecoder(g, nativeClientStreamingDecoderName(service, method), inputName, method.NativeContract.RequestFields, unsupportedError)
+func nativeClientResponseOutputCallArgs(fields []FieldPlan) string {
+	return strings.Join(nativeClientFlatSymbols(fields, nativeClientOutputFieldSymbols), ", ")
 }
 
-func renderNativeServerStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, inputName, unsupportedError string) {
-	renderNativeClientRequestDecoder(g, nativeServerStreamingDecoderName(service, method), inputName, method.NativeContract.RequestFields, unsupportedError)
+func nativeClientFlatSymbols(fields []FieldPlan, symbols func(FieldPlan) []string) []string {
+	parts := make([]string, 0, len(fields)*3)
+	for _, field := range fields {
+		parts = append(parts, symbols(field)...)
+	}
+	return parts
 }
 
-func renderNativeBidiStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, inputName, unsupportedError string) {
-	renderNativeClientRequestDecoder(g, nativeBidiStreamingDecoderName(service, method), inputName, method.NativeContract.RequestFields, unsupportedError)
+func nativeClientAppendParams(base string, params ...string) string {
+	parts := make([]string, 0, 1+len(params))
+	if base != "" {
+		parts = append(parts, base)
+	}
+	for _, param := range params {
+		if param != "" {
+			parts = append(parts, param)
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return ", " + strings.Join(parts, ", ")
 }
 
-func renderNativeClientRequestDecoder(g *protogen.GeneratedFile, name, inputName string, fields []FieldPlan, unsupportedError string) {
+func nativeClientOutputPtrLocal(field FieldPlan) string {
+	return lowerInitial(field.GoName) + "PtrValue"
+}
+
+func nativeClientOutputLenLocal(field FieldPlan) string {
+	return lowerInitial(field.GoName) + "LenValue"
+}
+
+func nativeClientOutputValueSymbol(field FieldPlan) string {
+	return "out" + field.GoName
+}
+
+func nativeClientOutputPtrSymbol(field FieldPlan) string {
+	return "out" + field.GoName + "Ptr"
+}
+
+func nativeClientOutputLenSymbol(field FieldPlan) string {
+	return "out" + field.GoName + "Len"
+}
+
+func renderNativeClientLoadNativeStream(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, invalidHandleError, servicePackage string) {
+	g.P("session, ok := rpcruntime.LoadDispatcherStream[", servicePackage, service.GoName, "ActiveAdapter, ", nativeClientNativeStreamSessionName(service, method, servicePackage), "](", servicePackage, service.GoName, "DispatcherForRuntime(), rpcruntime.StreamHandle(handle))")
+	g.P("if !ok {")
+	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
+	g.P("}")
+}
+
+func renderNativeClientDeleteNativeStream(g *protogen.GeneratedFile, service ServicePlan, servicePackage string) {
+	g.P("rpcruntime.DeleteDispatcherStream[", servicePackage, service.GoName, "ActiveAdapter](", servicePackage, service.GoName, "DispatcherForRuntime(), rpcruntime.StreamHandle(handle))")
+}
+
+func nativeClientNativeStreamSessionName(service ServicePlan, method MethodPlan, servicePackage string) string {
+	return servicePackage + service.GoName + method.GoName + "NativeStreamSession"
+}
+
+func renderNativeUnaryRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
+	renderNativeClientRequestDecoder(g, nativeUnaryClientDecoderName(service, method), method.NativeContract.RequestFields, unsupportedError)
+}
+
+func renderNativeClientStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
+	renderNativeClientRequestDecoder(g, nativeClientStreamingDecoderName(service, method), method.NativeContract.RequestFields, unsupportedError)
+}
+
+func renderNativeServerStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
+	renderNativeClientRequestDecoder(g, nativeServerStreamingDecoderName(service, method), method.NativeContract.RequestFields, unsupportedError)
+}
+
+func renderNativeBidiStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
+	renderNativeClientRequestDecoder(g, nativeBidiStreamingDecoderName(service, method), method.NativeContract.RequestFields, unsupportedError)
+}
+
+func renderNativeClientRequestDecoder(g *protogen.GeneratedFile, name string, fields []FieldPlan, unsupportedError string) {
 	returns := nativeGoRequestReturns(g, fields)
-	g.P("func ", name, "(input *", inputName, ") (", returns, ") {")
+	g.P("func ", name, "(", nativeClientRequestParams(fields), ") (", returns, ") {")
+	if nativeClientRequestCleanupError(fields) != "" {
+		g.P("var decoded []interface{ Release() error }")
+		g.P("cleanupDecoded := func() error {")
+		g.P("var errs []error")
+		g.P("for i := len(decoded) - 1; i >= 0; i-- {")
+		g.P("errs = append(errs, decoded[i].Release())")
+		g.P("}")
+		g.P("return errors.Join(errs...)")
+		g.P("}")
+	}
+
 	for _, field := range fields {
 		renderNativeRequestFieldDecode(g, fields, field, unsupportedError)
 	}
@@ -541,10 +577,15 @@ func renderNativeClientRequestDecoder(g *protogen.GeneratedFile, name, inputName
 
 func renderNativeRequestFieldDecode(g *protogen.GeneratedFile, fields []FieldPlan, field FieldPlan, unsupportedError string) {
 	name := nativeClientValueName(field)
-	errReturn := func(errExpr string) string { return nativeClientZeroReturns(fields, errExpr) }
+	errReturn := func(errExpr string) string {
+		if nativeClientRequestCleanupError(fields) == "" {
+			return nativeClientZeroReturns(fields, errExpr)
+		}
+		return nativeClientZeroReturns(fields, "errors.Join("+errExpr+", cleanupDecoded())")
+	}
 	switch field.Native.Shape {
 	case NativeABIShapeBoolByte:
-		g.P(name, " := input.", field.GoName, " != 0")
+		g.P(name, " := ", field.GoName, " != 0")
 	case NativeABIShapeBoolByteBufferWrapper:
 		renderNativeClientRepeatedDecode(g, fields, field, name, "byte", "rpcruntime.RpcBoolRepeat", "rpcruntime.EmptyRpcBoolRepeat()", "rpcruntime.NewRpcBoolRepeatChecked", errReturn)
 	case NativeABIShapeRepeated:
@@ -565,9 +606,9 @@ func renderNativeRequestFieldDecode(g *protogen.GeneratedFile, fields []FieldPla
 	case NativeABIShapeScalar, NativeABIShapeMessageBytes:
 		switch field.Kind {
 		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble:
-			g.P(name, " := input.", field.GoName)
+			g.P(name, " := ", field.GoName)
 		case FieldKindEnum:
-			g.P(name, " := ", nativeGoEnumType(g, field), "(input.", field.GoName, ")")
+			g.P(name, " := ", nativeGoEnumType(g, field), "(", field.GoName, ")")
 		case FieldKindString:
 			renderNativeClientStringDecode(g, fields, field, name, errReturn)
 		case FieldKindBytes, FieldKindMessage:
@@ -575,6 +616,9 @@ func renderNativeRequestFieldDecode(g *protogen.GeneratedFile, fields []FieldPla
 		default:
 			g.P("return ", errReturn(unsupportedError))
 		}
+	}
+	if nativeClientFieldNeedsRequestRelease(field) {
+		g.P("decoded = append(decoded, ", name, ")")
 	}
 }
 
@@ -649,60 +693,64 @@ func nativeGoRequestZeroValue(field FieldPlan) string {
 	return nativeGoZeroValue(field)
 }
 
-func renderNativeClientRepeatedDecode(g *protogen.GeneratedFile, fields []FieldPlan, field FieldPlan, name, elemType, wrapperType, emptyExpr, ctor string, errReturn func(string) string) {
-	g.P("if _, err := rpcruntime.LengthFromInt32(input.", field.GoName, "Len); err != nil {")
+func renderNativeClientRepeatedDecode(g *protogen.GeneratedFile, _ []FieldPlan, field FieldPlan, name, elemType, wrapperType, emptyExpr, ctor string, errReturn func(string) string) {
+	g.P("if _, err := rpcruntime.LengthFromInt32(", field.GoName, "Len); err != nil {")
 	g.P(`return `, errReturn(`fmt.Errorf("`+field.FullName+`: %w", err)`))
 	g.P("}")
 	g.P("var ", name, " *", wrapperType)
-	g.P("if input.", field.GoName, "Ptr == 0 || input.", field.GoName, "Len == 0 {")
+	g.P("if ", field.GoName, "Ptr == 0 || ", field.GoName, "Len == 0 {")
 	g.P(name, " = ", emptyExpr)
 	g.P("} else {")
 	g.P("var decodeErr error")
-	g.P(name, ", decodeErr = ", ctor, "((*", elemType, ")(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
+	g.P(name, ", decodeErr = ", ctor, "((*", elemType, ")(unsafe.Pointer(", field.GoName, "Ptr)), ", field.GoName, "Len, ", field.GoName, "Ownership > 0)")
 	g.P("if decodeErr != nil {")
 	g.P(`return `, errReturn(`fmt.Errorf("`+field.FullName+`: %w", decodeErr)`))
 	g.P("}")
 	g.P("}")
 }
 
-func renderNativeClientStringDecode(g *protogen.GeneratedFile, fields []FieldPlan, field FieldPlan, name string, errReturn func(string) string) {
-	g.P("if _, err := rpcruntime.LengthFromInt32(input.", field.GoName, "Len); err != nil {")
+func renderNativeClientStringDecode(g *protogen.GeneratedFile, _ []FieldPlan, field FieldPlan, name string, errReturn func(string) string) {
+	g.P("if _, err := rpcruntime.LengthFromInt32(", field.GoName, "Len); err != nil {")
 	g.P(`return `, errReturn(`fmt.Errorf("`+field.FullName+`: %w", err)`))
 	g.P("}")
 	g.P("var ", name, " *rpcruntime.RpcString")
-	g.P("if input.", field.GoName, "Ptr == 0 || input.", field.GoName, "Len == 0 {")
+	g.P("if ", field.GoName, "Ptr == 0 || ", field.GoName, "Len == 0 {")
 	g.P(name, " = rpcruntime.EmptyRpcString()")
 	g.P("} else {")
-	g.P(name, " = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
+	g.P(name, " = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(", field.GoName, "Ptr)), ", field.GoName, "Len, ", field.GoName, "Ownership > 0)")
 	g.P("}")
 }
 
-func renderNativeClientBytesDecode(g *protogen.GeneratedFile, fields []FieldPlan, field FieldPlan, name string, errReturn func(string) string) {
-	g.P("if _, err := rpcruntime.LengthFromInt32(input.", field.GoName, "Len); err != nil {")
+func renderNativeClientBytesDecode(g *protogen.GeneratedFile, _ []FieldPlan, field FieldPlan, name string, errReturn func(string) string) {
+	g.P("if _, err := rpcruntime.LengthFromInt32(", field.GoName, "Len); err != nil {")
 	g.P(`return `, errReturn(`fmt.Errorf("`+field.FullName+`: %w", err)`))
 	g.P("}")
 	g.P("var ", name, " *rpcruntime.RpcBytes")
-	g.P("if input.", field.GoName, "Ptr == 0 || input.", field.GoName, "Len == 0 {")
+	g.P("if ", field.GoName, "Ptr == 0 || ", field.GoName, "Len == 0 {")
 	g.P(name, " = rpcruntime.EmptyRpcBytes()")
 	g.P("} else {")
-	g.P(name, " = rpcruntime.NewRpcBytes((*byte)(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
+	g.P(name, " = rpcruntime.NewRpcBytes((*byte)(unsafe.Pointer(", field.GoName, "Ptr)), ", field.GoName, "Len, ", field.GoName, "Ownership > 0)")
 	g.P("}")
 }
 
-func renderNativeUnaryResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, outputName, unsupportedError string) {
-	renderNativeClientResponseEncoder(g, nativeUnaryClientEncoderName(service, method), outputName, method.NativeContract.ResponseFields, unsupportedError)
+func renderNativeUnaryResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
+	renderNativeClientOutputValidator(g, nativeUnaryClientOutputValidatorName(service, method), method.NativeContract.ResponseFields)
+	renderNativeClientResponseEncoder(g, nativeUnaryClientEncoderName(service, method), method.NativeContract.ResponseFields, unsupportedError)
 }
 
-func renderNativeClientStreamingResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, outputName, unsupportedError string) {
-	renderNativeClientResponseEncoder(g, nativeClientStreamingEncoderName(service, method), outputName, method.NativeContract.ResponseFields, unsupportedError)
+func renderNativeClientStreamingResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
+	renderNativeClientOutputValidator(g, nativeClientStreamingOutputValidatorName(service, method), method.NativeContract.ResponseFields)
+	renderNativeClientResponseEncoder(g, nativeClientStreamingEncoderName(service, method), method.NativeContract.ResponseFields, unsupportedError)
 }
 
-func renderNativeServerStreamingResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, outputName, unsupportedError string) {
-	renderNativeClientResponseEncoder(g, nativeServerStreamingEncoderName(service, method), outputName, method.NativeContract.ResponseFields, unsupportedError)
+func renderNativeServerStreamingResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
+	renderNativeClientOutputValidator(g, nativeServerStreamingOutputValidatorName(service, method), method.NativeContract.ResponseFields)
+	renderNativeClientResponseEncoder(g, nativeServerStreamingEncoderName(service, method), method.NativeContract.ResponseFields, unsupportedError)
 }
 
-func renderNativeBidiStreamingResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, outputName, unsupportedError string) {
-	renderNativeClientResponseEncoder(g, nativeBidiStreamingEncoderName(service, method), outputName, method.NativeContract.ResponseFields, unsupportedError)
+func renderNativeBidiStreamingResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
+	renderNativeClientOutputValidator(g, nativeBidiStreamingOutputValidatorName(service, method), method.NativeContract.ResponseFields)
+	renderNativeClientResponseEncoder(g, nativeBidiStreamingEncoderName(service, method), method.NativeContract.ResponseFields, unsupportedError)
 }
 
 func renderNativeResponseFieldValidate(g *protogen.GeneratedFile, field FieldPlan, unsupportedError string) {
@@ -711,7 +759,7 @@ func renderNativeResponseFieldValidate(g *protogen.GeneratedFile, field FieldPla
 	case NativeABIShapeBoolByte:
 		return
 	case NativeABIShapeBoolByteBufferWrapper:
-		g.P(field.GoName, "Len, err := rpcruntime.LengthToInt32(len(", name, "))")
+		g.P(nativeClientOutputLenLocal(field), ", err := rpcruntime.LengthToInt32(len(", name, "))")
 		g.P("if err != nil {")
 		g.P("return err")
 		g.P("}")
@@ -719,7 +767,7 @@ func renderNativeResponseFieldValidate(g *protogen.GeneratedFile, field FieldPla
 	case NativeABIShapeRepeated:
 		switch field.Kind {
 		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble, FieldKindEnum:
-			g.P(field.GoName, "Len, err := rpcruntime.LengthToInt32(len(", name, "))")
+			g.P(nativeClientOutputLenLocal(field), ", err := rpcruntime.LengthToInt32(len(", name, "))")
 			g.P("if err != nil {")
 			g.P("return err")
 			g.P("}")
@@ -730,7 +778,7 @@ func renderNativeResponseFieldValidate(g *protogen.GeneratedFile, field FieldPla
 		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble, FieldKindEnum:
 			return
 		case FieldKindString, FieldKindBytes, FieldKindMessage:
-			g.P(field.GoName, "Len, err := rpcruntime.LengthToInt32(len(", name, "))")
+			g.P(nativeClientOutputLenLocal(field), ", err := rpcruntime.LengthToInt32(len(", name, "))")
 			g.P("if err != nil {")
 			g.P("return err")
 			g.P("}")
@@ -755,32 +803,32 @@ func renderNativeResponseFieldStage(g *protogen.GeneratedFile, field FieldPlan, 
 		g.P(name, "Bytes[i] = 1")
 		g.P("}")
 		g.P("}")
-		g.P(field.GoName, "Ptr, err := rpcruntime.PinBytes(", name, "Bytes)")
+		g.P(nativeClientOutputPtrLocal(field), ", err := rpcruntime.PinBytes(", name, "Bytes)")
 		g.P("if err != nil {")
 		renderReleasePinnedOutputFields(g, pinned)
 		g.P("return err")
 		g.P("}")
-		g.P("_ = ", field.GoName, "Ptr")
+		g.P("_ = ", nativeClientOutputPtrLocal(field))
 	case NativeABIShapeRepeated:
 		switch field.Kind {
 		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble:
-			g.P(field.GoName, "Ptr, err := rpcruntime.PinSlice(", name, ")")
+			g.P(nativeClientOutputPtrLocal(field), ", err := rpcruntime.PinSlice(", name, ")")
 			g.P("if err != nil {")
 			renderReleasePinnedOutputFields(g, pinned)
 			g.P("return err")
 			g.P("}")
-			g.P("_ = ", field.GoName, "Ptr")
+			g.P("_ = ", nativeClientOutputPtrLocal(field))
 		case FieldKindEnum:
 			g.P(name, "Values := make([]int32, len(", name, "))")
 			g.P("for i := range ", name, " {")
 			g.P(name, "Values[i] = int32(", name, "[i])")
 			g.P("}")
-			g.P(field.GoName, "Ptr, err := rpcruntime.PinSlice(", name, "Values)")
+			g.P(nativeClientOutputPtrLocal(field), ", err := rpcruntime.PinSlice(", name, "Values)")
 			g.P("if err != nil {")
 			renderReleasePinnedOutputFields(g, pinned)
 			g.P("return err")
 			g.P("}")
-			g.P("_ = ", field.GoName, "Ptr")
+			g.P("_ = ", nativeClientOutputPtrLocal(field))
 		}
 	case NativeABIShapeScalar, NativeABIShapeMessageBytes:
 		switch field.Kind {
@@ -789,32 +837,53 @@ func renderNativeResponseFieldStage(g *protogen.GeneratedFile, field FieldPlan, 
 		case FieldKindEnum:
 			g.P(name, "Value := int32(", name, ")")
 		case FieldKindString:
-			g.P("data, ", field.GoName, "Ptr, err := rpcruntime.PinString(", name, ")")
+			g.P("data, ", nativeClientOutputPtrLocal(field), ", err := rpcruntime.PinString(", name, ")")
 			g.P("_ = data")
 			g.P("if err != nil {")
 			renderReleasePinnedOutputFields(g, pinned)
 			g.P("return err")
 			g.P("}")
-			g.P("_ = ", field.GoName, "Ptr")
+			g.P("_ = ", nativeClientOutputPtrLocal(field))
 		case FieldKindBytes, FieldKindMessage:
-			g.P(field.GoName, "Ptr, err := rpcruntime.PinBytes(", name, ")")
+			g.P(nativeClientOutputPtrLocal(field), ", err := rpcruntime.PinBytes(", name, ")")
 			g.P("if err != nil {")
 			renderReleasePinnedOutputFields(g, pinned)
 			g.P("return err")
 			g.P("}")
-			g.P("_ = ", field.GoName, "Ptr")
+			g.P("_ = ", nativeClientOutputPtrLocal(field))
 		}
 	}
 }
 
 func renderReleasePinnedOutputFields(g *protogen.GeneratedFile, fields []FieldPlan) {
 	for _, field := range fields {
-		g.P("rpcruntime.Release(", field.GoName, "Ptr)")
+		g.P("rpcruntime.Release(", nativeClientOutputPtrLocal(field), ")")
 	}
 }
 
-func renderNativeClientResponseEncoder(g *protogen.GeneratedFile, name, outputName string, fields []FieldPlan, unsupportedError string) {
-	g.P("func ", name, "(", nativeGoRequestArgsForResponse(g, fields), "output *", outputName, ") error {")
+func renderNativeClientOutputValidator(g *protogen.GeneratedFile, name string, fields []FieldPlan) {
+	params := nativeClientResponseOutputParams(fields)
+	if params == "" {
+		return
+	}
+	g.P("func ", name, "(", params, ") error {")
+	for _, symbol := range nativeClientFlatSymbols(fields, nativeClientOutputFieldSymbols) {
+		g.P("if ", symbol, " == nil {")
+		g.P(`return errors.New("rpccgo: native client output pointer is nil")`)
+		g.P("}")
+	}
+	g.P("return nil")
+	g.P("}")
+	g.P()
+}
+
+func renderNativeClientResponseEncoder(g *protogen.GeneratedFile, name string, fields []FieldPlan, unsupportedError string) {
+	g.P("func ", name, "(", nativeGoRequestArgsForResponse(g, fields), nativeClientResponseOutputParams(fields), ") error {")
+	if nativeClientResponseOutputParams(fields) != "" {
+		g.P("if err := ", strings.Replace(name, "encode", "validate", 1), "(", nativeClientResponseOutputCallArgs(fields), "); err != nil {")
+		g.P("return err")
+		g.P("}")
+	}
 	for _, field := range fields {
 		renderNativeResponseFieldValidate(g, field, unsupportedError)
 	}
@@ -855,17 +924,17 @@ func renderNativeResponseFieldCommit(g *protogen.GeneratedFile, field FieldPlan)
 	name := nativeClientResponseValueName(field)
 	switch field.Native.Shape {
 	case NativeABIShapeBoolByte:
-		g.P("output.", field.GoName, " = ", name, "Value")
+		g.P("*", nativeClientOutputValueSymbol(field), " = ", name, "Value")
 	case NativeABIShapeBoolByteBufferWrapper, NativeABIShapeRepeated:
-		g.P("output.", field.GoName, "Ptr = ", field.GoName, "Ptr")
-		g.P("output.", field.GoName, "Len = ", field.GoName, "Len")
+		g.P("*", nativeClientOutputPtrSymbol(field), " = ", nativeClientOutputPtrLocal(field))
+		g.P("*", nativeClientOutputLenSymbol(field), " = ", nativeClientOutputLenLocal(field))
 	case NativeABIShapeScalar, NativeABIShapeMessageBytes:
 		switch field.Kind {
 		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble, FieldKindEnum:
-			g.P("output.", field.GoName, " = ", name, "Value")
+			g.P("*", nativeClientOutputValueSymbol(field), " = ", name, "Value")
 		case FieldKindString, FieldKindBytes, FieldKindMessage:
-			g.P("output.", field.GoName, "Ptr = ", field.GoName, "Ptr")
-			g.P("output.", field.GoName, "Len = ", field.GoName, "Len")
+			g.P("*", nativeClientOutputPtrSymbol(field), " = ", nativeClientOutputPtrLocal(field))
+			g.P("*", nativeClientOutputLenSymbol(field), " = ", nativeClientOutputLenLocal(field))
 		}
 	}
 }
@@ -925,6 +994,10 @@ func nativeClientStreamingEncoderName(service ServicePlan, method MethodPlan) st
 	return "encode" + service.GoName + method.GoName + "NativeClientStreamResponse"
 }
 
+func nativeClientStreamingOutputValidatorName(service ServicePlan, method MethodPlan) string {
+	return "validate" + service.GoName + method.GoName + "NativeClientStreamResponse"
+}
+
 func nativeServerStreamingInputName(service ServicePlan, method MethodPlan) string {
 	return service.GoName + method.GoName + "NativeServerStreamInput"
 }
@@ -955,6 +1028,10 @@ func nativeServerStreamingDecoderName(service ServicePlan, method MethodPlan) st
 
 func nativeServerStreamingEncoderName(service ServicePlan, method MethodPlan) string {
 	return "encode" + service.GoName + method.GoName + "NativeServerStreamResponse"
+}
+
+func nativeServerStreamingOutputValidatorName(service ServicePlan, method MethodPlan) string {
+	return "validate" + service.GoName + method.GoName + "NativeServerStreamResponse"
 }
 
 func nativeBidiStreamingInputName(service ServicePlan, method MethodPlan) string {
@@ -997,6 +1074,10 @@ func nativeBidiStreamingEncoderName(service ServicePlan, method MethodPlan) stri
 	return "encode" + service.GoName + method.GoName + "NativeBidiStreamResponse"
 }
 
+func nativeBidiStreamingOutputValidatorName(service ServicePlan, method MethodPlan) string {
+	return "validate" + service.GoName + method.GoName + "NativeBidiStreamResponse"
+}
+
 func nativeUnaryClientOutputName(service ServicePlan, method MethodPlan) string {
 	return service.GoName + method.GoName + "NativeUnaryOutput"
 }
@@ -1013,13 +1094,17 @@ func nativeUnaryClientEncoderName(service ServicePlan, method MethodPlan) string
 	return "encode" + service.GoName + method.GoName + "NativeUnaryResponse"
 }
 
+func nativeUnaryClientOutputValidatorName(service ServicePlan, method MethodPlan) string {
+	return "validate" + service.GoName + method.GoName + "NativeUnaryResponse"
+}
+
 func nativeClientNeedsFmt(service ServicePlan) bool {
 	for _, method := range service.Methods {
 		if method.Streaming != StreamingKindUnary && method.Streaming != StreamingKindClientStreaming && method.Streaming != StreamingKindServerStreaming && method.Streaming != StreamingKindBidiStreaming {
 			continue
 		}
 		for _, field := range method.NativeContract.RequestFields {
-			if field.Native.Shape == NativeABIShapeScalar && (field.Kind == FieldKindString || field.Kind == FieldKindBytes) {
+			if (field.Native.Shape == NativeABIShapeScalar || field.Native.Shape == NativeABIShapeMessageBytes) && (field.Kind == FieldKindString || field.Kind == FieldKindBytes || field.Kind == FieldKindMessage) {
 				return true
 			}
 			if field.Native.Shape == NativeABIShapeRepeated || field.Native.Shape == NativeABIShapeBoolByteBufferWrapper {
@@ -1036,7 +1121,7 @@ func nativeClientNeedsUnsafe(service ServicePlan) bool {
 			continue
 		}
 		for _, field := range method.NativeContract.RequestFields {
-			if field.Native.Shape == NativeABIShapeScalar && (field.Kind == FieldKindString || field.Kind == FieldKindBytes) {
+			if (field.Native.Shape == NativeABIShapeScalar || field.Native.Shape == NativeABIShapeMessageBytes) && (field.Kind == FieldKindString || field.Kind == FieldKindBytes || field.Kind == FieldKindMessage) {
 				return true
 			}
 			if field.Native.Shape == NativeABIShapeRepeated || field.Native.Shape == NativeABIShapeBoolByteBufferWrapper {
@@ -1051,11 +1136,11 @@ func nativeClientFieldPinsOutput(field FieldPlan) bool {
 	if field.Native.Shape == NativeABIShapeRepeated || field.Native.Shape == NativeABIShapeBoolByteBufferWrapper {
 		return true
 	}
-	return field.Native.Shape == NativeABIShapeScalar && (field.Kind == FieldKindString || field.Kind == FieldKindBytes)
+	return (field.Native.Shape == NativeABIShapeScalar || field.Native.Shape == NativeABIShapeMessageBytes) && (field.Kind == FieldKindString || field.Kind == FieldKindBytes || field.Kind == FieldKindMessage)
 }
 
 func nativeClientInputFieldSymbols(field FieldPlan) []string {
-	if field.Native.Shape == NativeABIShapeScalar && (field.Kind == FieldKindString || field.Kind == FieldKindBytes || field.Kind == FieldKindMessage) {
+	if (field.Native.Shape == NativeABIShapeScalar || field.Native.Shape == NativeABIShapeMessageBytes) && (field.Kind == FieldKindString || field.Kind == FieldKindBytes || field.Kind == FieldKindMessage) {
 		return []string{field.GoName + "Ptr", field.GoName + "Len", field.GoName + "Ownership"}
 	}
 	if field.Native.Shape == NativeABIShapeRepeated || field.Native.Shape == NativeABIShapeBoolByteBufferWrapper {
@@ -1066,9 +1151,9 @@ func nativeClientInputFieldSymbols(field FieldPlan) []string {
 
 func nativeClientOutputFieldSymbols(field FieldPlan) []string {
 	if nativeClientFieldPinsOutput(field) {
-		return []string{field.GoName + "Ptr", field.GoName + "Len"}
+		return []string{nativeClientOutputPtrSymbol(field), nativeClientOutputLenSymbol(field)}
 	}
-	return []string{field.GoName}
+	return []string{nativeClientOutputValueSymbol(field)}
 }
 
 func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
@@ -1128,12 +1213,6 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 	for _, method := range service.Methods {
 		switch method.Streaming {
 		case StreamingKindUnary:
-			if err := addGenerated(nativeUnaryClientInputName(service, method), method.FullName+" unary input"); err != nil {
-				return err
-			}
-			if err := addGenerated(nativeUnaryClientOutputName(service, method), method.FullName+" unary output"); err != nil {
-				return err
-			}
 			if err := addGenerated(nativeUnaryClientFuncName(service, method), method.FullName+" unary client call"); err != nil {
 				return err
 			}
@@ -1143,10 +1222,13 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 			if err := addGenerated(nativeUnaryClientEncoderName(service, method), method.FullName+" unary response encoder"); err != nil {
 				return err
 			}
-			if err := validateNativeClientStructFields(nativeUnaryClientInputName(service, method), method.NativeContract.RequestFields, nativeClientInputFieldSymbols); err != nil {
+			if err := addGenerated(nativeUnaryClientOutputValidatorName(service, method), method.FullName+" unary output validator"); err != nil {
 				return err
 			}
-			if err := validateNativeClientStructFields(nativeUnaryClientOutputName(service, method), method.NativeContract.ResponseFields, nativeClientOutputFieldSymbols); err != nil {
+			if err := validateNativeClientFlatFields(method.FullName+" unary request", method.NativeContract.RequestFields, nativeClientInputFieldSymbols); err != nil {
+				return err
+			}
+			if err := validateNativeClientFlatFields(method.FullName+" unary response", method.NativeContract.ResponseFields, nativeClientOutputFieldSymbols); err != nil {
 				return err
 			}
 		case StreamingKindClientStreaming:
@@ -1154,23 +1236,22 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 				symbol string
 				source string
 			}{
-				{nativeClientStreamingInputName(service, method), method.FullName + " client stream input"},
-				{nativeClientStreamingOutputName(service, method), method.FullName + " client stream output"},
 				{nativeClientStreamingStartFuncName(service, method), method.FullName + " client stream start"},
 				{nativeClientStreamingSendFuncName(service, method), method.FullName + " client stream send"},
 				{nativeClientStreamingFinishFuncName(service, method), method.FullName + " client stream finish"},
 				{nativeClientStreamingCancelFuncName(service, method), method.FullName + " client stream cancel"},
 				{nativeClientStreamingDecoderName(service, method), method.FullName + " client stream request decoder"},
 				{nativeClientStreamingEncoderName(service, method), method.FullName + " client stream response encoder"},
+				{nativeClientStreamingOutputValidatorName(service, method), method.FullName + " client stream output validator"},
 			} {
 				if err := addGenerated(item.symbol, item.source); err != nil {
 					return err
 				}
 			}
-			if err := validateNativeClientStructFields(nativeClientStreamingInputName(service, method), method.NativeContract.RequestFields, nativeClientInputFieldSymbols); err != nil {
+			if err := validateNativeClientFlatFields(method.FullName+" client stream request", method.NativeContract.RequestFields, nativeClientInputFieldSymbols); err != nil {
 				return err
 			}
-			if err := validateNativeClientStructFields(nativeClientStreamingOutputName(service, method), method.NativeContract.ResponseFields, nativeClientOutputFieldSymbols); err != nil {
+			if err := validateNativeClientFlatFields(method.FullName+" client stream response", method.NativeContract.ResponseFields, nativeClientOutputFieldSymbols); err != nil {
 				return err
 			}
 		case StreamingKindServerStreaming:
@@ -1178,23 +1259,22 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 				symbol string
 				source string
 			}{
-				{nativeServerStreamingInputName(service, method), method.FullName + " server stream input"},
-				{nativeServerStreamingOutputName(service, method), method.FullName + " server stream output"},
 				{nativeServerStreamingStartFuncName(service, method), method.FullName + " server stream start"},
 				{nativeServerStreamingReadFuncName(service, method), method.FullName + " server stream read"},
 				{nativeServerStreamingDoneFuncName(service, method), method.FullName + " server stream done"},
 				{nativeServerStreamingCancelFuncName(service, method), method.FullName + " server stream cancel"},
 				{nativeServerStreamingDecoderName(service, method), method.FullName + " server stream request decoder"},
 				{nativeServerStreamingEncoderName(service, method), method.FullName + " server stream response encoder"},
+				{nativeServerStreamingOutputValidatorName(service, method), method.FullName + " server stream output validator"},
 			} {
 				if err := addGenerated(item.symbol, item.source); err != nil {
 					return err
 				}
 			}
-			if err := validateNativeClientStructFields(nativeServerStreamingInputName(service, method), method.NativeContract.RequestFields, nativeClientInputFieldSymbols); err != nil {
+			if err := validateNativeClientFlatFields(method.FullName+" server stream request", method.NativeContract.RequestFields, nativeClientInputFieldSymbols); err != nil {
 				return err
 			}
-			if err := validateNativeClientStructFields(nativeServerStreamingOutputName(service, method), method.NativeContract.ResponseFields, nativeClientOutputFieldSymbols); err != nil {
+			if err := validateNativeClientFlatFields(method.FullName+" server stream response", method.NativeContract.ResponseFields, nativeClientOutputFieldSymbols); err != nil {
 				return err
 			}
 		case StreamingKindBidiStreaming:
@@ -1202,8 +1282,6 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 				symbol string
 				source string
 			}{
-				{nativeBidiStreamingInputName(service, method), method.FullName + " bidi stream input"},
-				{nativeBidiStreamingOutputName(service, method), method.FullName + " bidi stream output"},
 				{nativeBidiStreamingStartFuncName(service, method), method.FullName + " bidi stream start"},
 				{nativeBidiStreamingSendFuncName(service, method), method.FullName + " bidi stream send"},
 				{nativeBidiStreamingReadFuncName(service, method), method.FullName + " bidi stream read"},
@@ -1212,15 +1290,16 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 				{nativeBidiStreamingCancelFuncName(service, method), method.FullName + " bidi stream cancel"},
 				{nativeBidiStreamingDecoderName(service, method), method.FullName + " bidi stream request decoder"},
 				{nativeBidiStreamingEncoderName(service, method), method.FullName + " bidi stream response encoder"},
+				{nativeBidiStreamingOutputValidatorName(service, method), method.FullName + " bidi stream output validator"},
 			} {
 				if err := addGenerated(item.symbol, item.source); err != nil {
 					return err
 				}
 			}
-			if err := validateNativeClientStructFields(nativeBidiStreamingInputName(service, method), method.NativeContract.RequestFields, nativeClientInputFieldSymbols); err != nil {
+			if err := validateNativeClientFlatFields(method.FullName+" bidi stream request", method.NativeContract.RequestFields, nativeClientInputFieldSymbols); err != nil {
 				return err
 			}
-			if err := validateNativeClientStructFields(nativeBidiStreamingOutputName(service, method), method.NativeContract.ResponseFields, nativeClientOutputFieldSymbols); err != nil {
+			if err := validateNativeClientFlatFields(method.FullName+" bidi stream response", method.NativeContract.ResponseFields, nativeClientOutputFieldSymbols); err != nil {
 				return err
 			}
 		}
@@ -1243,32 +1322,27 @@ func addNativeClientGeneratedSymbols(seen map[string]string, service ServicePlan
 	for _, method := range service.Methods {
 		switch method.Streaming {
 		case StreamingKindUnary:
-			add(nativeUnaryClientInputName(service, method), method.FullName+" unary input")
-			add(nativeUnaryClientOutputName(service, method), method.FullName+" unary output")
 			add(nativeUnaryClientFuncName(service, method), method.FullName+" unary client call")
 			add(nativeUnaryClientDecoderName(service, method), method.FullName+" unary request decoder")
 			add(nativeUnaryClientEncoderName(service, method), method.FullName+" unary response encoder")
+			add(nativeUnaryClientOutputValidatorName(service, method), method.FullName+" unary output validator")
 		case StreamingKindClientStreaming:
-			add(nativeClientStreamingInputName(service, method), method.FullName+" client stream input")
-			add(nativeClientStreamingOutputName(service, method), method.FullName+" client stream output")
 			add(nativeClientStreamingStartFuncName(service, method), method.FullName+" client stream start")
 			add(nativeClientStreamingSendFuncName(service, method), method.FullName+" client stream send")
 			add(nativeClientStreamingFinishFuncName(service, method), method.FullName+" client stream finish")
 			add(nativeClientStreamingCancelFuncName(service, method), method.FullName+" client stream cancel")
 			add(nativeClientStreamingDecoderName(service, method), method.FullName+" client stream request decoder")
 			add(nativeClientStreamingEncoderName(service, method), method.FullName+" client stream response encoder")
+			add(nativeClientStreamingOutputValidatorName(service, method), method.FullName+" client stream output validator")
 		case StreamingKindServerStreaming:
-			add(nativeServerStreamingInputName(service, method), method.FullName+" server stream input")
-			add(nativeServerStreamingOutputName(service, method), method.FullName+" server stream output")
 			add(nativeServerStreamingStartFuncName(service, method), method.FullName+" server stream start")
 			add(nativeServerStreamingReadFuncName(service, method), method.FullName+" server stream read")
 			add(nativeServerStreamingDoneFuncName(service, method), method.FullName+" server stream done")
 			add(nativeServerStreamingCancelFuncName(service, method), method.FullName+" server stream cancel")
 			add(nativeServerStreamingDecoderName(service, method), method.FullName+" server stream request decoder")
 			add(nativeServerStreamingEncoderName(service, method), method.FullName+" server stream response encoder")
+			add(nativeServerStreamingOutputValidatorName(service, method), method.FullName+" server stream output validator")
 		case StreamingKindBidiStreaming:
-			add(nativeBidiStreamingInputName(service, method), method.FullName+" bidi stream input")
-			add(nativeBidiStreamingOutputName(service, method), method.FullName+" bidi stream output")
 			add(nativeBidiStreamingStartFuncName(service, method), method.FullName+" bidi stream start")
 			add(nativeBidiStreamingSendFuncName(service, method), method.FullName+" bidi stream send")
 			add(nativeBidiStreamingReadFuncName(service, method), method.FullName+" bidi stream read")
@@ -1277,8 +1351,22 @@ func addNativeClientGeneratedSymbols(seen map[string]string, service ServicePlan
 			add(nativeBidiStreamingCancelFuncName(service, method), method.FullName+" bidi stream cancel")
 			add(nativeBidiStreamingDecoderName(service, method), method.FullName+" bidi stream request decoder")
 			add(nativeBidiStreamingEncoderName(service, method), method.FullName+" bidi stream response encoder")
+			add(nativeBidiStreamingOutputValidatorName(service, method), method.FullName+" bidi stream output validator")
 		}
 	}
+}
+
+func validateNativeClientFlatFields(source string, fields []FieldPlan, symbols func(FieldPlan) []string) error {
+	seen := make(map[string]string)
+	for _, field := range fields {
+		for _, symbol := range symbols(field) {
+			if previous, exists := seen[symbol]; exists {
+				return fmt.Errorf("native client cgo flat field %s for %s collides with %s in %s", symbol, field.FullName, previous, source)
+			}
+			seen[symbol] = field.FullName
+		}
+	}
+	return nil
 }
 
 func validateNativeClientStructFields(structName string, fields []FieldPlan, symbols func(FieldPlan) []string) error {

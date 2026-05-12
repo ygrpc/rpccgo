@@ -73,7 +73,7 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"func RegisterGreeterCGONativeServer(callbacks *C.GreeterCGONativeServerCallbacks) (rpcruntime.AdapterSnapshot[v1.GreeterNativeAdapter], error) {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.client.cgo.rpccgo.go",
-		"func CallGreeterSayHelloNativeUnary(ctx context.Context, input *GreeterSayHelloNativeUnaryInput, output *GreeterSayHelloNativeUnaryOutput) int32 {",
+		"func CallGreeterSayHelloNativeUnary(ctx context.Context) int32 {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go",
 		"func RegisterGreeterCGOMessageServer(callbacks *C.GreeterCGOMessageServerCallbacks) (rpcruntime.AdapterSnapshot[v1.GreeterMessageAdapter], error) {",

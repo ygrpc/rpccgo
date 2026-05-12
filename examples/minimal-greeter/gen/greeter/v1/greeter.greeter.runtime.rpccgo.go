@@ -25,6 +25,10 @@ var greeterDispatcher rpcruntime.Dispatcher[GreeterActiveAdapter]
 var greeterNativeContractMismatchErr = errors.New("rpccgo: native contract mismatch: active server is message and native/message converter is not enabled")
 var greeterMessageContractMismatchErr = errors.New("rpccgo: message contract mismatch: active server is native and native/message converter is not enabled")
 
+func GreeterDispatcherForRuntime() *rpcruntime.Dispatcher[GreeterActiveAdapter] {
+	return &greeterDispatcher
+}
+
 func registerGreeterActiveServer(kind rpcruntime.ServerKind, adapter GreeterNativeAdapter) (rpcruntime.AdapterSnapshot[GreeterNativeAdapter], error) {
 	snapshot, err := greeterDispatcher.Register(kind, rpcruntime.ServerContractNative, GreeterActiveAdapter{Native: adapter})
 	if err != nil {

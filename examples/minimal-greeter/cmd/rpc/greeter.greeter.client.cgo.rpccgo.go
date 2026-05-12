@@ -17,28 +17,14 @@ import (
 var greeterNativeClientUnsupportedField = errors.New("rpccgo: native unary client field bridge is not implemented")
 var greeterNativeClientStreamHandleInvalid = errors.New("rpccgo: native client stream handle is invalid")
 
-type GreeterSayHelloNativeUnaryInput struct {
-	NamePtr       uintptr
-	NameLen       int32
-	NameOwnership int32
-}
-
-type GreeterSayHelloNativeUnaryOutput struct {
-	MessagePtr uintptr
-	MessageLen int32
-}
-
-func CallGreeterSayHelloNativeUnary(ctx context.Context, input *GreeterSayHelloNativeUnaryInput, output *GreeterSayHelloNativeUnaryOutput) int32 {
+func CallGreeterSayHelloNativeUnary(ctx context.Context, NamePtr uintptr, NameLen int32, NameOwnership int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	if input == nil {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: native unary client input is nil")))
+	if err := validateGreeterSayHelloNativeUnaryResponse(outMessagePtr, outMessageLen); err != nil {
+		return int32(rpcruntime.StoreError(err))
 	}
-	if output == nil {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: native unary client output is nil")))
-	}
-	nameValue, err := decodeGreeterSayHelloNativeUnaryRequest(input)
+	nameValue, err := decodeGreeterSayHelloNativeUnaryRequest(NamePtr, NameLen, NameOwnership)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -49,37 +35,59 @@ func CallGreeterSayHelloNativeUnary(ctx context.Context, input *GreeterSayHelloN
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
-	if err := encodeGreeterSayHelloNativeUnaryResponse(messageResult, output); err != nil {
+	if err := encodeGreeterSayHelloNativeUnaryResponse(messageResult, outMessagePtr, outMessageLen); err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
 	return 0
 }
 
-func decodeGreeterSayHelloNativeUnaryRequest(input *GreeterSayHelloNativeUnaryInput) (*rpcruntime.RpcString, error) {
-	if _, err := rpcruntime.LengthFromInt32(input.NameLen); err != nil {
-		return nil, fmt.Errorf("examples.minimal.greeter.v1.SayHelloRequest.name: %w", err)
+func decodeGreeterSayHelloNativeUnaryRequest(NamePtr uintptr, NameLen int32, NameOwnership int32) (*rpcruntime.RpcString, error) {
+	var decoded []interface{ Release() error }
+	cleanupDecoded := func() error {
+		var errs []error
+		for i := len(decoded) - 1; i >= 0; i-- {
+			errs = append(errs, decoded[i].Release())
+		}
+		return errors.Join(errs...)
+	}
+	if _, err := rpcruntime.LengthFromInt32(NameLen); err != nil {
+		return nil, errors.Join(fmt.Errorf("examples.minimal.greeter.v1.SayHelloRequest.name: %w", err), cleanupDecoded())
 	}
 	var nameValue *rpcruntime.RpcString
-	if input.NamePtr == 0 || input.NameLen == 0 {
+	if NamePtr == 0 || NameLen == 0 {
 		nameValue = rpcruntime.EmptyRpcString()
 	} else {
-		nameValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)
+		nameValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(NamePtr)), NameLen, NameOwnership > 0)
 	}
+	decoded = append(decoded, nameValue)
 	return nameValue, nil
 }
 
-func encodeGreeterSayHelloNativeUnaryResponse(messageResult string, output *GreeterSayHelloNativeUnaryOutput) error {
-	MessageLen, err := rpcruntime.LengthToInt32(len(messageResult))
+func validateGreeterSayHelloNativeUnaryResponse(outMessagePtr *uintptr, outMessageLen *int32) error {
+	if outMessagePtr == nil {
+		return errors.New("rpccgo: native client output pointer is nil")
+	}
+	if outMessageLen == nil {
+		return errors.New("rpccgo: native client output pointer is nil")
+	}
+	return nil
+}
+
+func encodeGreeterSayHelloNativeUnaryResponse(messageResult string, outMessagePtr *uintptr, outMessageLen *int32) error {
+	if err := validateGreeterSayHelloNativeUnaryResponse(outMessagePtr, outMessageLen); err != nil {
+		return err
+	}
+	messageLenValue, err := rpcruntime.LengthToInt32(len(messageResult))
 	if err != nil {
 		return err
 	}
-	data, MessagePtr, err := rpcruntime.PinString(messageResult)
+	data, messagePtrValue, err := rpcruntime.PinString(messageResult)
 	_ = data
 	if err != nil {
 		return err
 	}
-	_ = MessagePtr
-	output.MessagePtr = MessagePtr
-	output.MessageLen = MessageLen
+	_ = messagePtrValue
+	*outMessagePtr = messagePtrValue
+	*outMessageLen = messageLenValue
 	return nil
 }

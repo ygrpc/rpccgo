@@ -37,12 +37,8 @@ func TestRenderMessageClientCGODefinesUnaryExportSurface(t *testing.T) {
 		"func StartGreeterChatMessageBidiStream(ctx context.Context) (int32, int32) {",
 		"func SendGreeterChatMessageBidiStream(ctx context.Context, handle int32, requestPtr uintptr, requestLen int32) int32 {",
 		"func ReadGreeterChatMessageBidiStream(ctx context.Context, handle int32, output *GreeterMessageOutput) int32 {",
-		"LoadUploadMessageStream",
-		"TakeUploadMessageStream",
-		"LoadListMessageStream",
-		"TakeListMessageStream",
-		"LoadChatMessageStream",
-		"TakeChatMessageStream",
+		"rpcruntime.LoadDispatcherStream[v1.GreeterActiveAdapter, v1.GreeterUploadMessageStreamSession](v1.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))",
+		"rpcruntime.DeleteDispatcherStream[v1.GreeterActiveAdapter](v1.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))",
 		"CloseSendGreeterChatMessageBidiStream",
 		`rpccgo: message client stream handle is invalid`,
 		"ctx = context.Background()",
@@ -65,4 +61,5 @@ func TestRenderMessageClientCGODefinesUnaryExportSurface(t *testing.T) {
 	} {
 		assertGeneratedContentContains(t, plugin, cgoClientFile, fragment)
 	}
+	assertGeneratedFileContentDoesNotContain(t, plugin, cgoClientFile, "LoadUploadMessageStream", "TakeUploadMessageStream", "LoadListMessageStream", "TakeListMessageStream", "LoadChatMessageStream", "TakeChatMessageStream")
 }

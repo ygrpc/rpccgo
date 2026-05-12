@@ -53,6 +53,11 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P("var ", lowerInitial(service.GoName), `MessageContractMismatchErr = errors.New("rpccgo: message contract mismatch: active server is native and native/message converter is not enabled")`)
 	g.P()
 
+	g.P("func ", service.GoName, "DispatcherForRuntime() *rpcruntime.Dispatcher[", activeAdapterName, "] {")
+	g.P("return &", dispatcherName)
+	g.P("}")
+	g.P()
+
 	g.P("func register", service.GoName, "ActiveServer(kind rpcruntime.ServerKind, adapter ", adapterName, ") (rpcruntime.AdapterSnapshot[", adapterName, "], error) {")
 	g.P("snapshot, err := ", dispatcherName, ".Register(kind, rpcruntime.ServerContractNative, ", activeAdapterName, "{Native: adapter})")
 	g.P("if err != nil {")
@@ -525,16 +530,6 @@ func renderRuntimeMessageCGOStreamBridge(g *protogen.GeneratedFile, serviceName,
 		g.P()
 	}
 
-	g.P("func (", bridgeName, ") Load", method.MethodGoName, "MessageStream(handle rpcruntime.StreamHandle) (", methodMessageSessionName(method), ", bool) {")
-	g.P("return rpcruntime.LoadDispatcherStream[", activeAdapterName, ", ", methodMessageSessionName(method), "](&", dispatcherName, ", handle)")
-	g.P("}")
-	g.P()
-
-	g.P("func (", bridgeName, ") Take", method.MethodGoName, "MessageStream(handle rpcruntime.StreamHandle) (", methodMessageSessionName(method), ", bool) {")
-	g.P("return rpcruntime.TakeDispatcherStream[", activeAdapterName, ", ", methodMessageSessionName(method), "](&", dispatcherName, ", handle)")
-	g.P("}")
-	g.P()
-
 	renderNativeToMessageStreamWrapper(g, serviceName, method)
 }
 
@@ -584,15 +579,6 @@ func renderRuntimeMessageCGOStreamBridgeDirect(g *protogen.GeneratedFile, servic
 		g.P()
 	}
 
-	g.P("func (", bridgeName, ") Load", method.MethodGoName, "MessageStream(handle rpcruntime.StreamHandle) (", methodMessageSessionName(method), ", bool) {")
-	g.P("return rpcruntime.LoadDispatcherStream[", activeAdapterName, ", ", methodMessageSessionName(method), "](&", dispatcherName, ", handle)")
-	g.P("}")
-	g.P()
-
-	g.P("func (", bridgeName, ") Take", method.MethodGoName, "MessageStream(handle rpcruntime.StreamHandle) (", methodMessageSessionName(method), ", bool) {")
-	g.P("return rpcruntime.TakeDispatcherStream[", activeAdapterName, ", ", methodMessageSessionName(method), "](&", dispatcherName, ", handle)")
-	g.P("}")
-	g.P()
 }
 
 func renderNativeToMessageStreamWrapper(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod) {
@@ -774,16 +760,6 @@ func renderRuntimeCGOStreamBridge(g *protogen.GeneratedFile, serviceName, bridge
 		g.P()
 	}
 
-	g.P("func (", bridgeName, ") Load", method.MethodGoName, "NativeStream(handle rpcruntime.StreamHandle) (", method.SessionName, ", bool) {")
-	g.P("return rpcruntime.LoadDispatcherStream[", serviceName, "ActiveAdapter, ", method.SessionName, "](&", dispatcherName, ", handle)")
-	g.P("}")
-	g.P()
-
-	g.P("func (", bridgeName, ") Take", method.MethodGoName, "NativeStream(handle rpcruntime.StreamHandle) (", method.SessionName, ", bool) {")
-	g.P("return rpcruntime.TakeDispatcherStream[", serviceName, "ActiveAdapter, ", method.SessionName, "](&", dispatcherName, ", handle)")
-	g.P("}")
-	g.P()
-
 	renderMessageToNativeStreamWrapper(g, serviceName, method)
 }
 
@@ -821,15 +797,6 @@ func renderRuntimeCGOStreamBridgeDirect(g *protogen.GeneratedFile, serviceName, 
 		g.P()
 	}
 
-	g.P("func (", bridgeName, ") Load", method.MethodGoName, "NativeStream(handle rpcruntime.StreamHandle) (", method.SessionName, ", bool) {")
-	g.P("return rpcruntime.LoadDispatcherStream[", serviceName, "ActiveAdapter, ", method.SessionName, "](&", dispatcherName, ", handle)")
-	g.P("}")
-	g.P()
-
-	g.P("func (", bridgeName, ") Take", method.MethodGoName, "NativeStream(handle rpcruntime.StreamHandle) (", method.SessionName, ", bool) {")
-	g.P("return rpcruntime.TakeDispatcherStream[", serviceName, "ActiveAdapter, ", method.SessionName, "](&", dispatcherName, ", handle)")
-	g.P("}")
-	g.P()
 }
 
 func renderMessageToNativeStreamWrapper(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod) {

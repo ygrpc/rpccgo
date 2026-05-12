@@ -69,6 +69,10 @@ var greeterDispatcher rpcruntime.Dispatcher[GreeterActiveAdapter]
 var greeterNativeContractMismatchErr = errors.New("rpccgo: native contract mismatch: active server is message and native/message converter is not enabled")
 var greeterMessageContractMismatchErr = errors.New("rpccgo: message contract mismatch: active server is native and native/message converter is not enabled")
 
+func GreeterDispatcherForRuntime() *rpcruntime.Dispatcher[GreeterActiveAdapter] {
+	return &greeterDispatcher
+}
+
 func registerGreeterActiveServer(kind rpcruntime.ServerKind, adapter GreeterNativeAdapter) (rpcruntime.AdapterSnapshot[GreeterNativeAdapter], error) {
 	snapshot, err := greeterDispatcher.Register(kind, rpcruntime.ServerContractNative, GreeterActiveAdapter{Native: adapter})
 	if err != nil {
@@ -146,14 +150,6 @@ func (GreeterCGONativeClientBridge) StartCollect(ctx context.Context) (rpcruntim
 	})
 }
 
-func (GreeterCGONativeClientBridge) LoadCollectNativeStream(handle rpcruntime.StreamHandle) (GreeterCollectNativeStreamSession, bool) {
-	return rpcruntime.LoadDispatcherStream[GreeterActiveAdapter, GreeterCollectNativeStreamSession](&greeterDispatcher, handle)
-}
-
-func (GreeterCGONativeClientBridge) TakeCollectNativeStream(handle rpcruntime.StreamHandle) (GreeterCollectNativeStreamSession, bool) {
-	return rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterCollectNativeStreamSession](&greeterDispatcher, handle)
-}
-
 type greeterCollectMessageToNativeStreamSession struct {
 	message GreeterCollectMessageStreamSession
 }
@@ -205,14 +201,6 @@ func (GreeterCGONativeClientBridge) StartBroadcast(ctx context.Context, name *rp
 	})
 }
 
-func (GreeterCGONativeClientBridge) LoadBroadcastNativeStream(handle rpcruntime.StreamHandle) (GreeterBroadcastNativeStreamSession, bool) {
-	return rpcruntime.LoadDispatcherStream[GreeterActiveAdapter, GreeterBroadcastNativeStreamSession](&greeterDispatcher, handle)
-}
-
-func (GreeterCGONativeClientBridge) TakeBroadcastNativeStream(handle rpcruntime.StreamHandle) (GreeterBroadcastNativeStreamSession, bool) {
-	return rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterBroadcastNativeStreamSession](&greeterDispatcher, handle)
-}
-
 type greeterBroadcastMessageToNativeStreamSession struct {
 	message GreeterBroadcastMessageStreamSession
 }
@@ -254,14 +242,6 @@ func (GreeterCGONativeClientBridge) StartChat(ctx context.Context) (rpcruntime.S
 			return nil, greeterNativeContractMismatchErr
 		}
 	})
-}
-
-func (GreeterCGONativeClientBridge) LoadChatNativeStream(handle rpcruntime.StreamHandle) (GreeterChatNativeStreamSession, bool) {
-	return rpcruntime.LoadDispatcherStream[GreeterActiveAdapter, GreeterChatNativeStreamSession](&greeterDispatcher, handle)
-}
-
-func (GreeterCGONativeClientBridge) TakeChatNativeStream(handle rpcruntime.StreamHandle) (GreeterChatNativeStreamSession, bool) {
-	return rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatNativeStreamSession](&greeterDispatcher, handle)
 }
 
 type greeterChatMessageToNativeStreamSession struct {
@@ -372,14 +352,6 @@ func (GreeterCGOMessageClientBridge) StartCollect(ctx context.Context) (rpcrunti
 	return handle, nil
 }
 
-func (GreeterCGOMessageClientBridge) LoadCollectMessageStream(handle rpcruntime.StreamHandle) (GreeterCollectMessageStreamSession, bool) {
-	return rpcruntime.LoadDispatcherStream[GreeterActiveAdapter, GreeterCollectMessageStreamSession](&greeterDispatcher, handle)
-}
-
-func (GreeterCGOMessageClientBridge) TakeCollectMessageStream(handle rpcruntime.StreamHandle) (GreeterCollectMessageStreamSession, bool) {
-	return rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterCollectMessageStreamSession](&greeterDispatcher, handle)
-}
-
 type greeterCollectNativeToMessageStreamSession struct {
 	native GreeterCollectNativeStreamSession
 }
@@ -435,14 +407,6 @@ func (GreeterCGOMessageClientBridge) StartBroadcast(ctx context.Context, req []b
 	return handle, nil
 }
 
-func (GreeterCGOMessageClientBridge) LoadBroadcastMessageStream(handle rpcruntime.StreamHandle) (GreeterBroadcastMessageStreamSession, bool) {
-	return rpcruntime.LoadDispatcherStream[GreeterActiveAdapter, GreeterBroadcastMessageStreamSession](&greeterDispatcher, handle)
-}
-
-func (GreeterCGOMessageClientBridge) TakeBroadcastMessageStream(handle rpcruntime.StreamHandle) (GreeterBroadcastMessageStreamSession, bool) {
-	return rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterBroadcastMessageStreamSession](&greeterDispatcher, handle)
-}
-
 type greeterBroadcastNativeToMessageStreamSession struct {
 	native GreeterBroadcastNativeStreamSession
 }
@@ -491,14 +455,6 @@ func (GreeterCGOMessageClientBridge) StartChat(ctx context.Context) (rpcruntime.
 		return 0, err
 	}
 	return handle, nil
-}
-
-func (GreeterCGOMessageClientBridge) LoadChatMessageStream(handle rpcruntime.StreamHandle) (GreeterChatMessageStreamSession, bool) {
-	return rpcruntime.LoadDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](&greeterDispatcher, handle)
-}
-
-func (GreeterCGOMessageClientBridge) TakeChatMessageStream(handle rpcruntime.StreamHandle) (GreeterChatMessageStreamSession, bool) {
-	return rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](&greeterDispatcher, handle)
 }
 
 type greeterChatNativeToMessageStreamSession struct {

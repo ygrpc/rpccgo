@@ -27,43 +27,30 @@ func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
 		`v1 "example.com/test/v1"`,
 		`rpcruntime "rpccgo/rpcruntime"`,
 		`unsafe "unsafe"`,
-		"type AllServiceUnaryNativeUnaryInput struct {",
-		"NamePtr        uintptr",
-		"NameLen        int32",
-		"NameOwnership  int32",
-		"Enabled        int8",
-		"ChildPtr       uintptr",
-		"ChildLen       int32",
-		"ChildOwnership int32",
-		"type AllServiceUnaryNativeUnaryOutput struct {",
-		"Accepted   int8",
-		"PayloadPtr uintptr",
-		"PayloadLen int32",
-		"func CallAllServiceUnaryNativeUnary(ctx context.Context, input *AllServiceUnaryNativeUnaryInput, output *AllServiceUnaryNativeUnaryOutput) int32 {",
-		"nameValue, enabledValue, childValue, err := decodeAllServiceUnaryNativeUnaryRequest(input)",
+		"func CallAllServiceUnaryNativeUnary(ctx context.Context, NamePtr uintptr, NameLen int32, NameOwnership int32, Enabled int8, ChildPtr uintptr, ChildLen int32, ChildOwnership int32, outAccepted *int8, outPayloadPtr *uintptr, outPayloadLen *int32) int32 {",
+		"if err := validateAllServiceUnaryNativeUnaryResponse(outAccepted, outPayloadPtr, outPayloadLen); err != nil {",
+		"nameValue, enabledValue, childValue, err := decodeAllServiceUnaryNativeUnaryRequest(NamePtr, NameLen, NameOwnership, Enabled, ChildPtr, ChildLen, ChildOwnership)",
 		"acceptedResult, payloadResult, err := v1.NewAllServiceCGONativeClientBridge().Unary(ctx, nameValue, enabledValue, childValue)",
 		"return int32(rpcruntime.StoreError(err))",
-		"return int32(rpcruntime.StoreError(errors.New(\"rpccgo: native unary client input is nil\")))",
-		"return int32(rpcruntime.StoreError(errors.New(\"rpccgo: native unary client output is nil\")))",
-		"if _, err := rpcruntime.LengthFromInt32(input.NameLen); err != nil {",
-		"if input.NamePtr == 0 || input.NameLen == 0 {",
+		"if _, err := rpcruntime.LengthFromInt32(NameLen); err != nil {",
+		"if NamePtr == 0 || NameLen == 0 {",
 		"nameValue = rpcruntime.EmptyRpcString()",
-		"nameValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)",
-		"input.NameOwnership > 0",
+		"nameValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(NamePtr)), NameLen, NameOwnership > 0)",
+		"NameOwnership > 0",
 		"var acceptedResultValue int8",
 		"acceptedResultValue = 1",
-		"PayloadLen, err := rpcruntime.LengthToInt32(len(payloadResult))",
-		"PayloadPtr, err := rpcruntime.PinBytes(payloadResult)",
-		"output.Accepted = acceptedResultValue",
-		"output.PayloadPtr = PayloadPtr",
-		"output.PayloadLen = PayloadLen",
+		"payloadLenValue, err := rpcruntime.LengthToInt32(len(payloadResult))",
+		"payloadPtrValue, err := rpcruntime.PinBytes(payloadResult)",
+		"*outAccepted = acceptedResultValue",
+		"*outPayloadPtr = payloadPtrValue",
+		"*outPayloadLen = payloadLenValue",
 	} {
 		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "allServiceDispatcher", "loadAllService", "takeAllService", "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf")
+	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "type AllServiceUnaryNativeUnaryInput struct", "type AllServiceUnaryNativeUnaryOutput struct", "PayloadOwnership *int32", "allServiceDispatcher", "loadAllService", "takeAllService", "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf")
 }
 
-func TestRenderNativeClientCGOStreamWrappersUseLoadAndTakeBoundaries(t *testing.T) {
+func TestRenderNativeClientCGOStreamsUseDispatcherAccessor(t *testing.T) {
 	file := messageCgoTestFile()
 	setSimpleServiceComment(t, file, "@rpccgo: native\n")
 	plugin := newTestPlugin(t, "paths=source_relative", file)
@@ -75,17 +62,14 @@ func TestRenderNativeClientCGOStreamWrappersUseLoadAndTakeBoundaries(t *testing.
 
 	const nativeClientFile = "test/v1/cgo/message_cgo.greeter.client.cgo.rpccgo.go"
 	for _, fragment := range []string{
-		"LoadUploadNativeStream",
-		"TakeUploadNativeStream",
-		"LoadListNativeStream",
-		"TakeListNativeStream",
-		"LoadChatNativeStream",
-		"TakeChatNativeStream",
+		"rpcruntime.LoadDispatcherStream[v1.GreeterActiveAdapter, v1.GreeterUploadNativeStreamSession](v1.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))",
+		"rpcruntime.DeleteDispatcherStream[v1.GreeterActiveAdapter](v1.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))",
 		"CloseSendGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32",
 		`rpccgo: native client stream handle is invalid`,
 	} {
 		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
 	}
+	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "LoadUploadNativeStream", "TakeUploadNativeStream", "LoadListNativeStream", "TakeListNativeStream", "LoadChatNativeStream", "TakeChatNativeStream")
 }
 
 func TestRenderNativeClientCGOHandlesBytesOwnershipAndPinnedOutputRelease(t *testing.T) {
@@ -100,20 +84,21 @@ func TestRenderNativeClientCGOHandlesBytesOwnershipAndPinnedOutputRelease(t *tes
 	const nativeClientFile = "test/v1/cgo/native_unary.greeter.client.cgo.rpccgo.go"
 	for _, fragment := range []string{
 		"PayloadOwnership int32",
-		"if input.PayloadPtr == 0 || input.PayloadLen == 0 {",
+		"if PayloadPtr == 0 || PayloadLen == 0 {",
 		"payloadValue = rpcruntime.EmptyRpcBytes()",
-		"payloadValue = rpcruntime.NewRpcBytes((*byte)(unsafe.Pointer(input.PayloadPtr)), input.PayloadLen, input.PayloadOwnership > 0)",
-		"input.PayloadOwnership > 0",
+		"payloadValue = rpcruntime.NewRpcBytes((*byte)(unsafe.Pointer(PayloadPtr)), PayloadLen, PayloadOwnership > 0)",
+		"PayloadOwnership > 0",
 		"payloadResult, noteResult, extraPayloadResult, err := v1.NewGreeterCGONativeClientBridge().SayHello(ctx, payloadValue)",
-		"PayloadPtr, err := rpcruntime.PinBytes(payloadResult)",
-		"data, NotePtr, err := rpcruntime.PinString(noteResult)",
-		"rpcruntime.Release(PayloadPtr)",
-		"rpcruntime.Release(NotePtr)",
-		"output.PayloadPtr = PayloadPtr",
-		"output.NotePtr = NotePtr",
+		"payloadPtrValue, err := rpcruntime.PinBytes(payloadResult)",
+		"data, notePtrValue, err := rpcruntime.PinString(noteResult)",
+		"rpcruntime.Release(payloadPtrValue)",
+		"rpcruntime.Release(notePtrValue)",
+		"*outPayloadPtr = payloadPtrValue",
+		"*outNotePtr = notePtrValue",
 	} {
 		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
 	}
+	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "PayloadOwnership *int32", "NoteOwnership")
 }
 
 func TestRenderNativeClientCGOSupportsEnumAsInt32(t *testing.T) {
@@ -128,9 +113,9 @@ func TestRenderNativeClientCGOSupportsEnumAsInt32(t *testing.T) {
 	const nativeClientFile = "test/v1/cgo/native_enum.enum_service.client.cgo.rpccgo.go"
 	for _, fragment := range []string{
 		"State int32",
-		"stateValue := v1.State(input.State)",
+		"stateValue := v1.State(State)",
 		"stateResultValue := int32(stateResult)",
-		"output.State = stateResultValue",
+		"*outState = stateResultValue",
 	} {
 		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
 	}
@@ -162,26 +147,26 @@ func TestRenderNativeClientCGOSupportsRepeatedNativeABI(t *testing.T) {
 		"MoodsPtr",
 		"MoodsLen",
 		"MoodsOwnership",
-		"if input.ScoresPtr == 0 || input.ScoresLen == 0 {",
+		"if ScoresPtr == 0 || ScoresLen == 0 {",
 		"scoresValue = rpcruntime.EmptyRpcRepeat[int32]()",
-		"input.ScoresOwnership > 0",
-		"scoresValue, decodeErr = rpcruntime.NewRpcRepeatChecked((*int32)(unsafe.Pointer(input.ScoresPtr)), input.ScoresLen, input.ScoresOwnership > 0)",
-		"if input.FlagsPtr == 0 || input.FlagsLen == 0 {",
+		"ScoresOwnership > 0",
+		"scoresValue, decodeErr = rpcruntime.NewRpcRepeatChecked((*int32)(unsafe.Pointer(ScoresPtr)), ScoresLen, ScoresOwnership > 0)",
+		"if FlagsPtr == 0 || FlagsLen == 0 {",
 		"flagsValue = rpcruntime.EmptyRpcBoolRepeat()",
-		"input.FlagsOwnership > 0",
-		"flagsValue, decodeErr = rpcruntime.NewRpcBoolRepeatChecked((*byte)(unsafe.Pointer(input.FlagsPtr)), input.FlagsLen, input.FlagsOwnership > 0)",
-		"if input.CountsPtr == 0 || input.CountsLen == 0 {",
+		"FlagsOwnership > 0",
+		"flagsValue, decodeErr = rpcruntime.NewRpcBoolRepeatChecked((*byte)(unsafe.Pointer(FlagsPtr)), FlagsLen, FlagsOwnership > 0)",
+		"if CountsPtr == 0 || CountsLen == 0 {",
 		"countsValue = rpcruntime.EmptyRpcRepeat[int64]()",
-		"countsValue, decodeErr = rpcruntime.NewRpcRepeatChecked((*int64)(unsafe.Pointer(input.CountsPtr)), input.CountsLen, input.CountsOwnership > 0)",
-		"if input.RatiosPtr == 0 || input.RatiosLen == 0 {",
+		"countsValue, decodeErr = rpcruntime.NewRpcRepeatChecked((*int64)(unsafe.Pointer(CountsPtr)), CountsLen, CountsOwnership > 0)",
+		"if RatiosPtr == 0 || RatiosLen == 0 {",
 		"ratiosValue = rpcruntime.EmptyRpcRepeat[float64]()",
-		"ratiosValue, decodeErr = rpcruntime.NewRpcRepeatChecked((*float64)(unsafe.Pointer(input.RatiosPtr)), input.RatiosLen, input.RatiosOwnership > 0)",
-		"if input.MoodsPtr == 0 || input.MoodsLen == 0 {",
+		"ratiosValue, decodeErr = rpcruntime.NewRpcRepeatChecked((*float64)(unsafe.Pointer(RatiosPtr)), RatiosLen, RatiosOwnership > 0)",
+		"if MoodsPtr == 0 || MoodsLen == 0 {",
 		"moodsValue = rpcruntime.EmptyRpcRepeat[int32]()",
-		"moodsValue, decodeErr = rpcruntime.NewRpcRepeatChecked((*int32)(unsafe.Pointer(input.MoodsPtr)), input.MoodsLen, input.MoodsOwnership > 0)",
-		"rpcruntime.LengthFromInt32(input.ScoresLen)",
-		"rpcruntime.LengthFromInt32(input.FlagsLen)",
-		"rpcruntime.Release(ScoresPtr)",
+		"moodsValue, decodeErr = rpcruntime.NewRpcRepeatChecked((*int32)(unsafe.Pointer(MoodsPtr)), MoodsLen, MoodsOwnership > 0)",
+		"rpcruntime.LengthFromInt32(ScoresLen)",
+		"rpcruntime.LengthFromInt32(FlagsLen)",
+		"rpcruntime.Release(scoresPtrValue)",
 	} {
 		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
 	}
@@ -330,8 +315,8 @@ func TestRenderNativeClientCGORejectsSiblingServiceGeneratedSymbolCollisions(t *
 	if err == nil {
 		t.Fatal("RenderNativeStageFiles() error = nil, want sibling native client cgo symbol collision")
 	}
-	if got := err.Error(); !strings.Contains(got, "AllServiceUnaryNativeUnaryInput") || !strings.Contains(got, "collides") {
-		t.Fatalf("RenderNativeStageFiles() error = %q, want sibling collision for AllServiceUnaryNativeUnaryInput", got)
+	if got := err.Error(); !strings.Contains(got, "CallAllServiceUnaryNativeUnary") || !strings.Contains(got, "collides") {
+		t.Fatalf("RenderNativeStageFiles() error = %q, want sibling collision for CallAllServiceUnaryNativeUnary", got)
 	}
 }
 
@@ -342,12 +327,6 @@ func TestRenderNativeClientCGORejectsPackageLevelMultiFileSymbolCollisions(t *te
 		otherFile *descriptorpb.FileDescriptorProto
 		wantError string
 	}{
-		{
-			name:      "other file message collides with native input",
-			file:      simpleTestFile(),
-			otherFile: nativeClientPackageCollisionFile("test/v1/other.proto", "example.com/test/v1;testv1", "GreeterSayHelloNativeUnaryInput"),
-			wantError: "GreeterSayHelloNativeUnaryInput",
-		},
 		{
 			name:      "other file enum collides with native call",
 			file:      simpleTestFile(),
@@ -393,7 +372,7 @@ func TestRenderNativeClientCGORejectsNestedPackageLevelSymbolCollisions(t *testi
 	plan.Services[0].FullName = "test.v1.Greeter"
 	plan.Services[0].NativeFileFamily.CGONativeClient.Enabled = true
 	plan.TopLevelSymbols = append(plan.TopLevelSymbols, TopLevelSymbolPlan{
-		GoName:   "DecodeSayHelloNativeUnaryInputNativeUnaryInput",
+		GoName:   "CallDecodeSayHelloNativeUnaryInputNativeUnary",
 		FullName: "test.v1.Parent.Nested",
 		Kind:     TopLevelSymbolKindMessage,
 	})
@@ -402,8 +381,8 @@ func TestRenderNativeClientCGORejectsNestedPackageLevelSymbolCollisions(t *testi
 	if err == nil {
 		t.Fatal("RenderNativeStageFiles() error = nil, want nested protobuf symbol collision")
 	}
-	if got := err.Error(); !strings.Contains(got, "DecodeSayHelloNativeUnaryInputNativeUnaryInput") || !strings.Contains(got, "collides") {
-		t.Fatalf("RenderNativeStageFiles() error = %q, want nested collision for DecodeSayHelloNativeUnaryInputNativeUnaryInput", got)
+	if got := err.Error(); !strings.Contains(got, "CallDecodeSayHelloNativeUnaryInputNativeUnary") || !strings.Contains(got, "collides") {
+		t.Fatalf("RenderNativeStageFiles() error = %q, want nested collision for CallDecodeSayHelloNativeUnaryInputNativeUnary", got)
 	}
 }
 

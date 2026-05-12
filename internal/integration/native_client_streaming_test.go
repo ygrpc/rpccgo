@@ -186,6 +186,19 @@ func (s *uploadGoStream) Cancel(ctx context.Context) error {
 	return nil
 }
 
+type uploadOutput struct {
+	Count int32
+	SummaryPtr uintptr
+	SummaryLen int32
+}
+
+func finishUpload(ctx context.Context, handle int32, output *uploadOutput) int32 {
+	if output == nil {
+		output = &uploadOutput{}
+	}
+	return FinishGreeterUploadNativeClientStream(ctx, handle, &output.Count, &output.SummaryPtr, &output.SummaryLen)
+}
+
 func TestNativeClientStreamingGoServerFinishFinalizesHandle(t *testing.T) {
 	v1.ResetGreeterDispatcherForIntegrationTest()
 	server := &uploadGoServer{}
@@ -200,8 +213,8 @@ func TestNativeClientStreamingGoServerFinishFinalizesHandle(t *testing.T) {
 	sendUpload(t, handle, "first", "aa")
 	sendUpload(t, handle, "second", "bbb")
 
-	output := &GreeterUploadNativeClientStreamOutput{}
-	if errID := FinishGreeterUploadNativeClientStream(context.Background(), handle, output); errID != 0 {
+	output := &uploadOutput{}
+	if errID := finishUpload(context.Background(), handle, output); errID != 0 {
 		t.Fatalf("FinishGreeterUploadNativeClientStream() errID = %d", errID)
 	}
 	if output.Count != 2 {
@@ -213,7 +226,7 @@ func TestNativeClientStreamingGoServerFinishFinalizesHandle(t *testing.T) {
 	}
 	rpcruntime.Release(output.SummaryPtr)
 
-	errID = SendGreeterUploadNativeClientStream(context.Background(), handle, &GreeterUploadNativeClientStreamInput{})
+	errID = SendGreeterUploadNativeClientStream(context.Background(), handle, 0, 0, 0, 0, 0, 0)
 	if errID == 0 {
 		t.Fatal("Send after Finish returned errID 0")
 	}
@@ -239,8 +252,8 @@ func TestNativeClientStreamingGoServerStartCapturesActiveServerSnapshot(t *testi
 	}
 
 	sendUpload(t, handle, "first", "aa")
-	output := &GreeterUploadNativeClientStreamOutput{}
-	if errID := FinishGreeterUploadNativeClientStream(context.Background(), handle, output); errID != 0 {
+	output := &uploadOutput{}
+	if errID := finishUpload(context.Background(), handle, output); errID != 0 {
 		t.Fatalf("FinishGreeterUploadNativeClientStream() errID = %d", errID)
 	}
 	summary := unsafe.Slice((*byte)(unsafe.Pointer(output.SummaryPtr)), output.SummaryLen)
@@ -296,13 +309,7 @@ func sendUpload(t *testing.T, handle int32, nameValue, payloadValue string) {
 	t.Helper()
 	name := []byte(nameValue)
 	payload := []byte(payloadValue)
-	input := &GreeterUploadNativeClientStreamInput{
-		NamePtr: uintptr(unsafe.Pointer(&name[0])),
-		NameLen: int32(len(name)),
-		PayloadPtr: uintptr(unsafe.Pointer(&payload[0])),
-		PayloadLen: int32(len(payload)),
-	}
-	if errID := SendGreeterUploadNativeClientStream(context.Background(), handle, input); errID != 0 {
+	if errID := SendGreeterUploadNativeClientStream(context.Background(), handle, uintptr(unsafe.Pointer(&name[0])), int32(len(name)), 0, uintptr(unsafe.Pointer(&payload[0])), int32(len(payload)), 0); errID != 0 {
 		t.Fatalf("SendGreeterUploadNativeClientStream() errID = %d", errID)
 	}
 }
@@ -320,6 +327,19 @@ import (
 	rpcruntime "rpccgo/rpcruntime"
 )
 
+type uploadOutput struct {
+	Count int32
+	SummaryPtr uintptr
+	SummaryLen int32
+}
+
+func finishUpload(ctx context.Context, handle int32, output *uploadOutput) int32 {
+	if output == nil {
+		output = &uploadOutput{}
+	}
+	return FinishGreeterUploadNativeClientStream(ctx, handle, &output.Count, &output.SummaryPtr, &output.SummaryLen)
+}
+
 func TestNativeClientStreamingCGOServerFinishFinalizesHandle(t *testing.T) {
 	v1.ResetGreeterDispatcherForIntegrationTest()
 	rpcruntime.ResetFreeCallbackForTesting()
@@ -336,11 +356,11 @@ func TestNativeClientStreamingCGOServerFinishFinalizesHandle(t *testing.T) {
 	sendUploadCGO(t, handle, "one", "ab")
 	sendUploadCGO(t, handle, "two", "cde")
 
-	output := &GreeterUploadNativeClientStreamOutput{}
-	if errID := FinishGreeterUploadNativeClientStream(context.Background(), handle, output); errID != 0 {
+	output := &uploadOutput{}
+	if errID := finishUpload(context.Background(), handle, output); errID != 0 {
 		t.Fatalf("FinishGreeterUploadNativeClientStream() errID = %d", errID)
 	}
-	if errID := FinishGreeterUploadNativeClientStream(context.Background(), handle, &GreeterUploadNativeClientStreamOutput{}); errID == 0 {
+	if errID := finishUpload(context.Background(), handle, &uploadOutput{}); errID == 0 {
 		t.Fatal("second Finish returned errID 0")
 	}
 	if output.Count != 2 {
@@ -354,7 +374,7 @@ func TestNativeClientStreamingCGOServerFinishFinalizesHandle(t *testing.T) {
 		t.Fatalf("free count after Finish = %d, want 1", got)
 	}
 
-	if errID := SendGreeterUploadNativeClientStream(context.Background(), handle, &GreeterUploadNativeClientStreamInput{}); errID == 0 {
+	if errID := SendGreeterUploadNativeClientStream(context.Background(), handle, 0, 0, 0, 0, 0, 0); errID == 0 {
 		t.Fatal("Send after cgo Finish returned errID 0")
 	}
 }
@@ -391,7 +411,7 @@ func TestNativeClientStreamingCGOServerCallbackErrorsPropagate(t *testing.T) {
 			return sendUploadCGOErr(handle, "one", "ab")
 		}, want: "forced send error"},
 		{name: "finish", mode: 3, run: func(t *testing.T, handle int32) int32 {
-			return FinishGreeterUploadNativeClientStream(context.Background(), handle, &GreeterUploadNativeClientStreamOutput{})
+			return finishUpload(context.Background(), handle, &uploadOutput{})
 		}, want: "forced finish error"},
 		{name: "cancel", mode: 4, run: func(t *testing.T, handle int32) int32 {
 			return CancelGreeterUploadNativeClientStream(context.Background(), handle)
@@ -435,8 +455,8 @@ func TestNativeClientStreamingCGOServerFinishErrorCleansOwnedOutput(t *testing.T
 	if errID != 0 {
 		t.Fatalf("StartGreeterUploadNativeClientStream() errID = %d", errID)
 	}
-	output := &GreeterUploadNativeClientStreamOutput{}
-	errID = FinishGreeterUploadNativeClientStream(context.Background(), handle, output)
+	output := &uploadOutput{}
+	errID = finishUpload(context.Background(), handle, output)
 	assertErrorTextContains(t, errID, "forced finish output error")
 	if got := frees(); got != 1 {
 		t.Fatalf("free count after Finish error = %d, want 1", got)
@@ -458,7 +478,7 @@ func TestNativeClientStreamingCGOServerCancelFinalizesHandle(t *testing.T) {
 	if got := greeterClientStreamCancelCount(); got != 1 {
 		t.Fatalf("cancel count = %d, want 1", got)
 	}
-	errID = SendGreeterUploadNativeClientStream(context.Background(), handle, &GreeterUploadNativeClientStreamInput{})
+	errID = SendGreeterUploadNativeClientStream(context.Background(), handle, 0, 0, 0, 0, 0, 0)
 	if errID == 0 {
 		t.Fatal("Send after cgo Cancel returned errID 0")
 	}
@@ -478,13 +498,7 @@ func sendUploadCGO(t *testing.T, handle int32, nameValue, payloadValue string) {
 func sendUploadCGOErr(handle int32, nameValue, payloadValue string) int32 {
 	name := []byte(nameValue)
 	payload := []byte(payloadValue)
-	input := &GreeterUploadNativeClientStreamInput{
-		NamePtr: uintptr(unsafe.Pointer(&name[0])),
-		NameLen: int32(len(name)),
-		PayloadPtr: uintptr(unsafe.Pointer(&payload[0])),
-		PayloadLen: int32(len(payload)),
-	}
-	return SendGreeterUploadNativeClientStream(context.Background(), handle, input)
+	return SendGreeterUploadNativeClientStream(context.Background(), handle, uintptr(unsafe.Pointer(&name[0])), int32(len(name)), 0, uintptr(unsafe.Pointer(&payload[0])), int32(len(payload)), 0)
 }
 
 func assertErrorTextContains(t *testing.T, errID int32, want string) {

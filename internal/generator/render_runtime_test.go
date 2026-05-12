@@ -58,6 +58,8 @@ func TestRenderRuntimeGlueDefinesServiceDispatcherAndRegistration(t *testing.T) 
 		"Native  AllServiceNativeAdapter",
 		"Message AllServiceMessageAdapter",
 		"var allServiceDispatcher rpcruntime.Dispatcher[AllServiceActiveAdapter]",
+		"func AllServiceDispatcherForRuntime() *rpcruntime.Dispatcher[AllServiceActiveAdapter] {",
+		"return &allServiceDispatcher",
 		"func registerAllServiceActiveServer(kind rpcruntime.ServerKind, adapter AllServiceNativeAdapter) (rpcruntime.AdapterSnapshot[AllServiceNativeAdapter], error) {",
 		"snapshot, err := allServiceDispatcher.Register(kind, rpcruntime.ServerContractNative, AllServiceActiveAdapter{Native: adapter})",
 		"type AllServiceCGONativeClientBridge struct{}",
@@ -133,17 +135,16 @@ func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleAndCoreStreamRegistry(t *tes
 	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"func (AllServiceCGONativeClientBridge) StartClientStream(ctx context.Context) (rpcruntime.StreamHandle, error) {",
-		"func (AllServiceCGONativeClientBridge) LoadClientStreamNativeStream(handle rpcruntime.StreamHandle) (AllServiceClientStreamNativeStreamSession, bool) {",
-		"return rpcruntime.LoadDispatcherStream[AllServiceActiveAdapter, AllServiceClientStreamNativeStreamSession](&allServiceDispatcher, handle)",
-		"func (AllServiceCGONativeClientBridge) TakeClientStreamNativeStream(handle rpcruntime.StreamHandle) (AllServiceClientStreamNativeStreamSession, bool) {",
-		"return rpcruntime.TakeDispatcherStream[AllServiceActiveAdapter, AllServiceClientStreamNativeStreamSession](&allServiceDispatcher, handle)",
+		"func AllServiceDispatcherForRuntime() *rpcruntime.Dispatcher[AllServiceActiveAdapter] {",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
-	assertGeneratedContentDoesNotContain(t, plugin,
+	assertGeneratedFileContentDoesNotContain(t, plugin, runtimeFile,
 		"rpcruntime.Handle",
 		" handle Handle",
 		"handle Handle",
+		"LoadClientStreamNativeStream",
+		"TakeClientStreamNativeStream",
 		"func loadAllServiceClientStreamNativeStream",
 		"func takeAllServiceClientStreamNativeStream",
 		"func deleteAllServiceClientStreamNativeStream",
@@ -163,14 +164,13 @@ func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleForMessageHelpers(t *testing
 	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"func (AllServiceCGOMessageClientBridge) StartClientStream(ctx context.Context) (rpcruntime.StreamHandle, error) {",
-		"func (AllServiceCGOMessageClientBridge) LoadClientStreamMessageStream(handle rpcruntime.StreamHandle) (AllServiceClientStreamMessageStreamSession, bool) {",
-		"return rpcruntime.LoadDispatcherStream[AllServiceActiveAdapter, AllServiceClientStreamMessageStreamSession](&allServiceDispatcher, handle)",
-		"func (AllServiceCGOMessageClientBridge) TakeClientStreamMessageStream(handle rpcruntime.StreamHandle) (AllServiceClientStreamMessageStreamSession, bool) {",
-		"return rpcruntime.TakeDispatcherStream[AllServiceActiveAdapter, AllServiceClientStreamMessageStreamSession](&allServiceDispatcher, handle)",
+		"func AllServiceDispatcherForRuntime() *rpcruntime.Dispatcher[AllServiceActiveAdapter] {",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
-	assertGeneratedContentDoesNotContain(t, plugin,
+	assertGeneratedFileContentDoesNotContain(t, plugin, runtimeFile,
+		"LoadClientStreamMessageStream",
+		"TakeClientStreamMessageStream",
 		"func loadAllServiceClientStreamMessageStream",
 		"func takeAllServiceClientStreamMessageStream",
 		"func deleteAllServiceClientStreamMessageStream",

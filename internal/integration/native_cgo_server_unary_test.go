@@ -60,6 +60,44 @@ import (
 
 type cgoOverrideGoServer struct{}
 
+type sayHelloInput struct {
+	NamePtr uintptr
+	NameLen int32
+	NameOwnership int32
+	PayloadPtr uintptr
+	PayloadLen int32
+	PayloadOwnership int32
+	Enabled int8
+}
+
+type sayHelloOutput struct {
+	Accepted int8
+	PayloadPtr uintptr
+	PayloadLen int32
+	NotePtr uintptr
+	NoteLen int32
+	ExtraPayloadPtr uintptr
+	ExtraPayloadLen int32
+}
+
+func callSayHello(ctx context.Context, input *sayHelloInput, output *sayHelloOutput) int32 {
+	if input == nil {
+		input = &sayHelloInput{}
+	}
+	if output == nil {
+		output = &sayHelloOutput{}
+	}
+	return CallGreeterSayHelloNativeUnary(ctx,
+		input.NamePtr, input.NameLen, input.NameOwnership,
+		input.PayloadPtr, input.PayloadLen, input.PayloadOwnership,
+		input.Enabled,
+		&output.Accepted,
+		&output.PayloadPtr, &output.PayloadLen,
+		&output.NotePtr, &output.NoteLen,
+		&output.ExtraPayloadPtr, &output.ExtraPayloadLen,
+	)
+}
+
 func (cgoOverrideGoServer) SayHello(context.Context, *rpcruntime.RpcString, *rpcruntime.RpcBytes, bool) (bool, []byte, string, []byte, error) {
 	return true, []byte("go-server"), "go", nil, nil
 }
@@ -79,15 +117,15 @@ func TestNativeCGOServerUnaryRoutesThroughDispatcher(t *testing.T) {
 
 	name := []byte("native")
 	payload := []byte("bytes")
-	input := &GreeterSayHelloNativeUnaryInput{
+	input := &sayHelloInput{
 		NamePtr: uintptr(unsafe.Pointer(&name[0])),
 		NameLen: int32(len(name)),
 		PayloadPtr: uintptr(unsafe.Pointer(&payload[0])),
 		PayloadLen: int32(len(payload)),
 		Enabled: 1,
 	}
-	output := &GreeterSayHelloNativeUnaryOutput{}
-	if errID := CallGreeterSayHelloNativeUnary(context.Background(), input, output); errID != 0 {
+	output := &sayHelloOutput{}
+	if errID := callSayHello(context.Background(), input, output); errID != 0 {
 		t.Fatalf("CallGreeterSayHelloNativeUnary() errID = %d", errID)
 	}
 	got := unsafe.Slice((*byte)(unsafe.Pointer(output.PayloadPtr)), output.PayloadLen)
@@ -119,7 +157,7 @@ func TestNativeCGOServerUnaryCallbackErrorPropagates(t *testing.T) {
 	if err := registerGreeterCGONativeServerErrorCallback(); err != nil {
 		t.Fatalf("registerGreeterCGONativeServerErrorCallback() error = %v", err)
 	}
-	errID := CallGreeterSayHelloNativeUnary(context.Background(), &GreeterSayHelloNativeUnaryInput{}, &GreeterSayHelloNativeUnaryOutput{})
+	errID := callSayHello(context.Background(), &sayHelloInput{}, &sayHelloOutput{})
 	if errID == 0 {
 		t.Fatal("callback error returned errID 0")
 	}
@@ -138,7 +176,7 @@ func TestNativeCGOServerUnaryUnknownCallbackErrorIDIsExplicit(t *testing.T) {
 	if err := registerGreeterCGONativeServerUnknownErrorCallback(); err != nil {
 		t.Fatalf("registerGreeterCGONativeServerUnknownErrorCallback() error = %v", err)
 	}
-	errID := CallGreeterSayHelloNativeUnary(context.Background(), &GreeterSayHelloNativeUnaryInput{}, &GreeterSayHelloNativeUnaryOutput{})
+	errID := callSayHello(context.Background(), &sayHelloInput{}, &sayHelloOutput{})
 	if errID == 0 {
 		t.Fatal("unknown callback error returned errID 0")
 	}
@@ -156,7 +194,7 @@ func TestNativeCGOServerUnaryOwnedOutputCleanupOnDecodeError(t *testing.T) {
 	if err := registerGreeterCGONativeServerNegativeLengthCallback(); err != nil {
 		t.Fatalf("registerGreeterCGONativeServerNegativeLengthCallback() error = %v", err)
 	}
-	errID := CallGreeterSayHelloNativeUnary(context.Background(), &GreeterSayHelloNativeUnaryInput{}, &GreeterSayHelloNativeUnaryOutput{})
+	errID := callSayHello(context.Background(), &sayHelloInput{}, &sayHelloOutput{})
 	if errID == 0 {
 		t.Fatal("negative length returned errID 0")
 	}
@@ -180,7 +218,7 @@ func TestNativeCGOServerUnaryOwnedOutputCleanupOnCallbackError(t *testing.T) {
 	if err := registerGreeterCGONativeServerPartialErrorCallback(); err != nil {
 		t.Fatalf("registerGreeterCGONativeServerPartialErrorCallback() error = %v", err)
 	}
-	errID := CallGreeterSayHelloNativeUnary(context.Background(), &GreeterSayHelloNativeUnaryInput{}, &GreeterSayHelloNativeUnaryOutput{})
+	errID := callSayHello(context.Background(), &sayHelloInput{}, &sayHelloOutput{})
 	if errID == 0 {
 		t.Fatal("partial callback error returned errID 0")
 	}
@@ -205,14 +243,14 @@ func TestNativeCGOServerUnaryOwnedOutputCleanupErrorPropagates(t *testing.T) {
 	}
 	name := []byte("native")
 	payload := []byte("bytes")
-	input := &GreeterSayHelloNativeUnaryInput{
+	input := &sayHelloInput{
 		NamePtr:    uintptr(unsafe.Pointer(&name[0])),
 		NameLen:    int32(len(name)),
 		PayloadPtr: uintptr(unsafe.Pointer(&payload[0])),
 		PayloadLen: int32(len(payload)),
 		Enabled:    1,
 	}
-	errID := CallGreeterSayHelloNativeUnary(context.Background(), input, &GreeterSayHelloNativeUnaryOutput{})
+	errID := callSayHello(context.Background(), input, &sayHelloOutput{})
 	if errID == 0 {
 		t.Fatal("missing free callback returned errID 0")
 	}
@@ -256,15 +294,15 @@ func assertUnaryPayload(t *testing.T, want string) {
 	t.Helper()
 	name := []byte("native")
 	payload := []byte("bytes")
-	input := &GreeterSayHelloNativeUnaryInput{
+	input := &sayHelloInput{
 		NamePtr:    uintptr(unsafe.Pointer(&name[0])),
 		NameLen:    int32(len(name)),
 		PayloadPtr: uintptr(unsafe.Pointer(&payload[0])),
 		PayloadLen: int32(len(payload)),
 		Enabled:    1,
 	}
-	output := &GreeterSayHelloNativeUnaryOutput{}
-	if errID := CallGreeterSayHelloNativeUnary(context.Background(), input, output); errID != 0 {
+	output := &sayHelloOutput{}
+	if errID := callSayHello(context.Background(), input, output); errID != 0 {
 		t.Fatalf("CallGreeterSayHelloNativeUnary() errID = %d", errID)
 	}
 	got := unsafe.Slice((*byte)(unsafe.Pointer(output.PayloadPtr)), output.PayloadLen)

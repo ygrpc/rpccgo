@@ -216,6 +216,70 @@ func (s *recordingServer) SayUnsupported(ctx context.Context, name *rpcruntime.R
 	return []byte("pinned"), "note", []byte("unsupported"), nil
 }
 
+type sayHelloInput struct {
+	NamePtr uintptr
+	NameLen int32
+	NameOwnership int32
+	PayloadPtr uintptr
+	PayloadLen int32
+	PayloadOwnership int32
+	Enabled int8
+}
+
+type sayHelloOutput struct {
+	Accepted int8
+	PayloadPtr uintptr
+	PayloadLen int32
+	NotePtr uintptr
+	NoteLen int32
+	ExtraPayloadPtr uintptr
+	ExtraPayloadLen int32
+}
+
+func callSayHello(ctx context.Context, input *sayHelloInput, output *sayHelloOutput) int32 {
+	if input == nil {
+		input = &sayHelloInput{}
+	}
+	if output == nil {
+		output = &sayHelloOutput{}
+	}
+	return CallGreeterSayHelloNativeUnary(ctx,
+		input.NamePtr, input.NameLen, input.NameOwnership,
+		input.PayloadPtr, input.PayloadLen, input.PayloadOwnership,
+		input.Enabled,
+		&output.Accepted,
+		&output.PayloadPtr, &output.PayloadLen,
+		&output.NotePtr, &output.NoteLen,
+		&output.ExtraPayloadPtr, &output.ExtraPayloadLen,
+	)
+}
+
+type unsupportedOutput struct {
+	PayloadPtr uintptr
+	PayloadLen int32
+	NotePtr uintptr
+	NoteLen int32
+	UnsupportedPtr uintptr
+	UnsupportedLen int32
+}
+
+func callSayUnsupported(ctx context.Context, input *sayHelloInput, output *unsupportedOutput) int32 {
+	if input == nil {
+		input = &sayHelloInput{}
+	}
+	if output == nil {
+		output = &unsupportedOutput{}
+	}
+	return CallGreeterSayUnsupportedNativeUnary(ctx,
+		input.NamePtr, input.NameLen, input.NameOwnership,
+		input.PayloadPtr, input.PayloadLen, input.PayloadOwnership,
+		input.Enabled,
+		&output.PayloadPtr, &output.PayloadLen,
+		&output.NotePtr, &output.NoteLen,
+		&output.UnsupportedPtr, &output.UnsupportedLen,
+	)
+}
+
 func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 	v1.ResetGreeterDispatcherForIntegrationTest()
 	server := &recordingServer{}
@@ -225,15 +289,15 @@ func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 
 	name := []byte("native")
 	payload := []byte("bytes")
-	input := &GreeterSayHelloNativeUnaryInput{
+	input := &sayHelloInput{
 		NamePtr: uintptr(unsafe.Pointer(&name[0])),
 		NameLen: int32(len(name)),
 		PayloadPtr: uintptr(unsafe.Pointer(&payload[0])),
 		PayloadLen: int32(len(payload)),
 		Enabled: 1,
 	}
-	output := &GreeterSayHelloNativeUnaryOutput{}
-	if errID := CallGreeterSayHelloNativeUnary(context.Background(), input, output); errID != 0 {
+	output := &sayHelloOutput{}
+	if errID := callSayHello(context.Background(), input, output); errID != 0 {
 		t.Fatalf("CallGreeterSayHelloNativeUnary() errID = %d", errID)
 	}
 	if !server.called {
@@ -257,15 +321,15 @@ func TestNativeUnaryTreatsNilPointerAsEmptyRequestInput(t *testing.T) {
 	if _, err := v1.RegisterGreeterGoNativeServer(server); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
-	input := &GreeterSayHelloNativeUnaryInput{
+	input := &sayHelloInput{
 		NamePtr: 0,
 		NameLen: 5,
 		PayloadPtr: 0,
 		PayloadLen: 5,
 		Enabled: 1,
 	}
-	output := &GreeterSayHelloNativeUnaryOutput{}
-	if errID := CallGreeterSayHelloNativeUnary(context.Background(), input, output); errID != 0 {
+	output := &sayHelloOutput{}
+	if errID := callSayHello(context.Background(), input, output); errID != 0 {
 		t.Fatalf("CallGreeterSayHelloNativeUnary() errID = %d", errID)
 	}
 	if !server.called || server.received == nil {
@@ -286,15 +350,15 @@ func TestNativeUnaryRejectsNegativeRequestLength(t *testing.T) {
 	}
 	name := []byte("native")
 	payload := []byte("bytes")
-	input := &GreeterSayHelloNativeUnaryInput{
+	input := &sayHelloInput{
 		NamePtr: uintptr(unsafe.Pointer(&name[0])),
 		NameLen: -1,
 		PayloadPtr: uintptr(unsafe.Pointer(&payload[0])),
 		PayloadLen: int32(len(payload)),
 		Enabled: 1,
 	}
-	output := &GreeterSayHelloNativeUnaryOutput{}
-	errID := CallGreeterSayHelloNativeUnary(context.Background(), input, output)
+	output := &sayHelloOutput{}
+	errID := callSayHello(context.Background(), input, output)
 	if errID == 0 {
 		t.Fatal("negative length returned errID 0")
 	}
@@ -315,15 +379,15 @@ func TestNativeUnaryInputOwnershipRelease(t *testing.T) {
 
 	borrowedName := []byte("native")
 	borrowedPayload := []byte("bytes")
-	borrowedInput := &GreeterSayHelloNativeUnaryInput{
+	borrowedInput := &sayHelloInput{
 		NamePtr: uintptr(unsafe.Pointer(&borrowedName[0])),
 		NameLen: int32(len(borrowedName)),
 		PayloadPtr: uintptr(unsafe.Pointer(&borrowedPayload[0])),
 		PayloadLen: int32(len(borrowedPayload)),
 		Enabled: 1,
 	}
-	borrowedOutput := &GreeterSayHelloNativeUnaryOutput{}
-	if errID := CallGreeterSayHelloNativeUnary(context.Background(), borrowedInput, borrowedOutput); errID != 0 {
+	borrowedOutput := &sayHelloOutput{}
+	if errID := callSayHello(context.Background(), borrowedInput, borrowedOutput); errID != 0 {
 		t.Fatalf("borrowed CallGreeterSayHelloNativeUnary() errID = %d", errID)
 	}
 	if len(released) != 0 {
@@ -337,7 +401,7 @@ func TestNativeUnaryInputOwnershipRelease(t *testing.T) {
 	ownedPayload := []byte("bytes")
 	ownedNamePtr := uintptr(unsafe.Pointer(&ownedName[0]))
 	ownedPayloadPtr := uintptr(unsafe.Pointer(&ownedPayload[0]))
-	ownedInput := &GreeterSayHelloNativeUnaryInput{
+	ownedInput := &sayHelloInput{
 		NamePtr: ownedNamePtr,
 		NameLen: int32(len(ownedName)),
 		NameOwnership: 1,
@@ -346,8 +410,8 @@ func TestNativeUnaryInputOwnershipRelease(t *testing.T) {
 		PayloadOwnership: 1,
 		Enabled: 1,
 	}
-	ownedOutput := &GreeterSayHelloNativeUnaryOutput{}
-	if errID := CallGreeterSayHelloNativeUnary(context.Background(), ownedInput, ownedOutput); errID != 0 {
+	ownedOutput := &sayHelloOutput{}
+	if errID := callSayHello(context.Background(), ownedInput, ownedOutput); errID != 0 {
 		t.Fatalf("owned CallGreeterSayHelloNativeUnary() errID = %d", errID)
 	}
 	if len(released) != 2 || released[0] != ownedNamePtr || released[1] != ownedPayloadPtr {
@@ -365,15 +429,15 @@ func TestNativeUnaryOutputReleaseCanBeCalledOnce(t *testing.T) {
 	}
 	name := []byte("native")
 	payload := []byte("bytes")
-	input := &GreeterSayHelloNativeUnaryInput{
+	input := &sayHelloInput{
 		NamePtr: uintptr(unsafe.Pointer(&name[0])),
 		NameLen: int32(len(name)),
 		PayloadPtr: uintptr(unsafe.Pointer(&payload[0])),
 		PayloadLen: int32(len(payload)),
 		Enabled: 1,
 	}
-	output := &GreeterSayHelloNativeUnaryOutput{}
-	if errID := CallGreeterSayHelloNativeUnary(context.Background(), input, output); errID != 0 {
+	output := &sayHelloOutput{}
+	if errID := callSayHello(context.Background(), input, output); errID != 0 {
 		t.Fatalf("CallGreeterSayHelloNativeUnary() errID = %d", errID)
 	}
 	if output.PayloadPtr == 0 || output.NotePtr == 0 {
@@ -406,15 +470,15 @@ func TestNativeUnaryPinFailureReleasesStagedOutput(t *testing.T) {
 
 	name := []byte("native")
 	payload := []byte("bytes")
-	input := &GreeterSayHelloNativeUnaryInput{
+	input := &sayHelloInput{
 		NamePtr: uintptr(unsafe.Pointer(&name[0])),
 		NameLen: int32(len(name)),
 		PayloadPtr: uintptr(unsafe.Pointer(&payload[0])),
 		PayloadLen: int32(len(payload)),
 		Enabled: 1,
 	}
-	output := &GreeterSayHelloNativeUnaryOutput{}
-	errID := CallGreeterSayHelloNativeUnary(context.Background(), input, output)
+	output := &sayHelloOutput{}
+	errID := callSayHello(context.Background(), input, output)
 	if errID == 0 {
 		t.Fatal("duplicate response backing slice returned errID 0")
 	}
@@ -440,13 +504,13 @@ func TestNativeUnaryOwnedReleaseErrorStoresError(t *testing.T) {
 	rpcruntime.ResetFreeCallbackForTesting()
 	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
 	name := []byte("native")
-	input := &GreeterSayHelloNativeUnaryInput{
+	input := &sayHelloInput{
 		NamePtr: uintptr(unsafe.Pointer(&name[0])),
 		NameLen: int32(len(name)),
 		NameOwnership: 1,
 	}
-	output := &GreeterSayHelloNativeUnaryOutput{}
-	errID := CallGreeterSayHelloNativeUnary(context.Background(), input, output)
+	output := &sayHelloOutput{}
+	errID := callSayHello(context.Background(), input, output)
 	if errID == 0 {
 		t.Fatal("owned release error returned errID 0")
 	}
@@ -458,9 +522,9 @@ func TestNativeUnaryOwnedReleaseErrorStoresError(t *testing.T) {
 
 func TestNativeUnaryMissingActiveServerStoresError(t *testing.T) {
 	v1.ResetGreeterDispatcherForIntegrationTest()
-	input := &GreeterSayHelloNativeUnaryInput{}
-	output := &GreeterSayHelloNativeUnaryOutput{}
-	errID := CallGreeterSayHelloNativeUnary(context.Background(), input, output)
+	input := &sayHelloInput{}
+	output := &sayHelloOutput{}
+	errID := callSayHello(context.Background(), input, output)
 	if errID == 0 {
 		t.Fatal("missing active server returned errID 0")
 	}
@@ -472,9 +536,9 @@ func TestNativeUnaryServerErrorStoresError(t *testing.T) {
 	if _, err := v1.RegisterGreeterGoNativeServer(&recordingServer{err: errors.New("server exploded")}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
-	input := &GreeterSayHelloNativeUnaryInput{}
-	output := &GreeterSayHelloNativeUnaryOutput{}
-	errID := CallGreeterSayHelloNativeUnary(context.Background(), input, output)
+	input := &sayHelloInput{}
+	output := &sayHelloOutput{}
+	errID := callSayHello(context.Background(), input, output)
 	if errID == 0 {
 		t.Fatal("server error returned errID 0")
 	}
@@ -489,9 +553,9 @@ func TestNativeUnaryMessageResponseFieldUsesBytesBoundary(t *testing.T) {
 	if _, err := v1.RegisterGreeterGoNativeServer(&recordingServer{allowAnyRequest: true}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
-	input := &GreeterSayUnsupportedNativeUnaryInput{}
-	output := &GreeterSayUnsupportedNativeUnaryOutput{}
-	if errID := CallGreeterSayUnsupportedNativeUnary(context.Background(), input, output); errID != 0 {
+	input := &sayHelloInput{}
+	output := &unsupportedOutput{}
+	if errID := callSayUnsupported(context.Background(), input, output); errID != 0 {
 		t.Fatalf("CallGreeterSayUnsupportedNativeUnary() errID = %d", errID)
 	}
 	if output.PayloadPtr == 0 || output.PayloadLen == 0 || output.NotePtr == 0 || output.NoteLen == 0 || output.UnsupportedPtr == 0 || output.UnsupportedLen == 0 {

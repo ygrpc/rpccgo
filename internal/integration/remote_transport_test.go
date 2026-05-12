@@ -378,7 +378,7 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 
 		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
-		assertNativeUnaryNoErr(t, CallGreeterUnaryNativeUnary(ctx, &GreeterUnaryNativeUnaryInput{}, &GreeterUnaryNativeUnaryOutput{}))
+		assertNativeUnaryNoErr(t, CallGreeterUnaryNativeUnary(ctx))
 	})
 
 	t.Run("grpc remote reuses converter for native client", func(t *testing.T) {
@@ -389,7 +389,7 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 
 		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
-		assertNativeUnaryNoErr(t, CallGreeterUnaryNativeUnary(ctx, &GreeterUnaryNativeUnaryInput{}, &GreeterUnaryNativeUnaryOutput{}))
+		assertNativeUnaryNoErr(t, CallGreeterUnaryNativeUnary(ctx))
 	})
 
 	t.Run("grpc remote client stream captures adapter snapshot", func(t *testing.T) {
