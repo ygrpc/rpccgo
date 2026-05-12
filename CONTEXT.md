@@ -16,6 +16,14 @@ _Avoid_: native
 新版架构中由 dispatcher 捕获并路由到的唯一服务实现。
 _Avoid_: provider bootstrap
 
+**Runtime core**:
+手写的 `rpcruntime` 包，承载跨 service 复用的 active slot、dispatcher 和 stream registry 等通用机制。
+_Avoid_: generated service runtime
+
+**Generated service runtime**:
+每个 service 生成的 `*.runtime.rpccgo.go`，只应承载 proto/service/method-specific 的 typed adapter、bridge 和 converter glue。
+_Avoid_: runtime core
+
 **Provider bootstrap**:
 旧项目通过 provider/registry/bootstrap 组装服务能力的架构模型；新版不回迁该模型。
 _Avoid_: active server
@@ -30,6 +38,11 @@ _Avoid_: active server
 - **Native** 只拍平 proto request/response 的顶层字段；nested message 作为整体 message bytes/wrapper 传递，不递归展开。
 - `NativeContract` 这类字段计划可以作为参数转换的中间表示保留；它不是最终 **Native** 边界。
 - **Active server** 是新版调度模型的一部分；它不能改变 **Native** 的字段级函数边界语义。
+- **Runtime core** 负责通用调度和 stream 存储；**Generated service runtime** 负责 service-specific typed glue，不应重复生成可由 runtime core 泛型函数直接表达的薄包装。
+- **Generated service runtime** 不应生成 per-method stream `load/take/delete` 薄包装；应在 generated bridge/client/server 代码中直接调用 **Runtime core** 的泛型 stream registry 函数。
+- Register helper 可留在 **Generated service runtime** 中，因为它们封装 service-specific active adapter 包装并返回更窄的 typed snapshot，不是纯 runtime core 薄包装。
+- Native/message client bridge 应留在 **Generated service runtime** 中，因为它表达 service-level active server contract 路由，并集中连接 native adapter、message adapter 与 converter glue。
+- 每个 service 的 dispatcher 应保留为 generated package-level 变量；不要引入 runtime core 全局 service registry，以避免回到旧 **Provider bootstrap** 模型。
 - 新版架构保留 dispatcher / active server；只恢复旧项目的 **Native** flat function boundary，不回迁旧 **Provider bootstrap**。
 - `@rpccgo:native` 的新版 adapter selection 规则保留；它可以同时启用默认 message adapter，但 **Native** 侧仍必须是 flat function boundary。
 - 旧 `go_role=go_client` / C provider 注册 Go client 能力不恢复；它属于旧 **Provider bootstrap** 架构，不是新版 **Native** 修复范围。

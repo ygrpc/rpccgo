@@ -71,10 +71,6 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P("}")
 	g.P()
 
-	for _, method := range streamingMethods {
-		renderRuntimeStreamHelpers(g, service.GoName, activeAdapterName, dispatcherName, method)
-		renderRuntimeMessageStreamHelpers(g, service.GoName, activeAdapterName, dispatcherName, method)
-	}
 	renderRuntimeCGOBridge(g, service.GoName, adapterName, activeAdapterName, dispatcherName, runtimeMethods, codecEnabled)
 	renderRuntimeMessageCGOBridge(g, service.GoName, messageAdapterName, activeAdapterName, dispatcherName, runtimeMethods, codecEnabled)
 
@@ -257,41 +253,6 @@ func renderRuntimeMessageSessionInterface(g *protogen.GeneratedFile, method runt
 	default:
 		g.P("Cancel(ctx context.Context) error")
 	}
-	g.P("}")
-	g.P()
-}
-
-func renderRuntimeStreamHelpers(g *protogen.GeneratedFile, serviceName, adapterName, dispatcherName string, method runtimeAdapterMethod) {
-	g.P("func load", serviceName, method.MethodGoName, "NativeStream(handle rpcruntime.StreamHandle) (", method.SessionName, ", bool) {")
-	g.P("return rpcruntime.LoadDispatcherStream[", adapterName, ", ", method.SessionName, "](&", dispatcherName, ", handle)")
-	g.P("}")
-	g.P()
-
-	g.P("func take", serviceName, method.MethodGoName, "NativeStream(handle rpcruntime.StreamHandle) (", method.SessionName, ", bool) {")
-	g.P("return rpcruntime.TakeDispatcherStream[", adapterName, ", ", method.SessionName, "](&", dispatcherName, ", handle)")
-	g.P("}")
-	g.P()
-
-	g.P("func delete", serviceName, method.MethodGoName, "NativeStream(handle rpcruntime.StreamHandle) bool {")
-	g.P("return rpcruntime.DeleteDispatcherStream[", adapterName, "](&", dispatcherName, ", handle)")
-	g.P("}")
-	g.P()
-}
-
-func renderRuntimeMessageStreamHelpers(g *protogen.GeneratedFile, serviceName, adapterName, dispatcherName string, method runtimeAdapterMethod) {
-	sessionName := methodMessageSessionName(method)
-	g.P("func load", serviceName, method.MethodGoName, "MessageStream(handle rpcruntime.StreamHandle) (", sessionName, ", bool) {")
-	g.P("return rpcruntime.LoadDispatcherStream[", adapterName, ", ", sessionName, "](&", dispatcherName, ", handle)")
-	g.P("}")
-	g.P()
-
-	g.P("func take", serviceName, method.MethodGoName, "MessageStream(handle rpcruntime.StreamHandle) (", sessionName, ", bool) {")
-	g.P("return rpcruntime.TakeDispatcherStream[", adapterName, ", ", sessionName, "](&", dispatcherName, ", handle)")
-	g.P("}")
-	g.P()
-
-	g.P("func delete", serviceName, method.MethodGoName, "MessageStream(handle rpcruntime.StreamHandle) bool {")
-	g.P("return rpcruntime.DeleteDispatcherStream[", adapterName, "](&", dispatcherName, ", handle)")
 	g.P("}")
 	g.P()
 }
@@ -565,19 +526,19 @@ func renderRuntimeMessageCGOStreamBridge(g *protogen.GeneratedFile, serviceName,
 	}
 
 	g.P("func (", bridgeName, ") Load", method.MethodGoName, "MessageStream(handle rpcruntime.StreamHandle) (", methodMessageSessionName(method), ", bool) {")
-	g.P("return load", serviceName, method.MethodGoName, "MessageStream(handle)")
+	g.P("return rpcruntime.LoadDispatcherStream[", activeAdapterName, ", ", methodMessageSessionName(method), "](&", dispatcherName, ", handle)")
 	g.P("}")
 	g.P()
 
 	g.P("func (", bridgeName, ") Take", method.MethodGoName, "MessageStream(handle rpcruntime.StreamHandle) (", methodMessageSessionName(method), ", bool) {")
-	g.P("return take", serviceName, method.MethodGoName, "MessageStream(handle)")
+	g.P("return rpcruntime.TakeDispatcherStream[", activeAdapterName, ", ", methodMessageSessionName(method), "](&", dispatcherName, ", handle)")
 	g.P("}")
 	g.P()
 
 	renderNativeToMessageStreamWrapper(g, serviceName, method)
 }
 
-func renderRuntimeMessageCGOStreamBridgeDirect(g *protogen.GeneratedFile, serviceName, bridgeName, adapterName, activeAdapterName, dispatcherName string, method runtimeAdapterMethod) {
+func renderRuntimeMessageCGOStreamBridgeDirect(g *protogen.GeneratedFile, serviceName, bridgeName, _ string, activeAdapterName, dispatcherName string, method runtimeAdapterMethod) {
 	switch method.StreamingKind {
 	case StreamingKindClientStreaming:
 		g.P("func (", bridgeName, ") Start", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
@@ -624,12 +585,12 @@ func renderRuntimeMessageCGOStreamBridgeDirect(g *protogen.GeneratedFile, servic
 	}
 
 	g.P("func (", bridgeName, ") Load", method.MethodGoName, "MessageStream(handle rpcruntime.StreamHandle) (", methodMessageSessionName(method), ", bool) {")
-	g.P("return load", serviceName, method.MethodGoName, "MessageStream(handle)")
+	g.P("return rpcruntime.LoadDispatcherStream[", activeAdapterName, ", ", methodMessageSessionName(method), "](&", dispatcherName, ", handle)")
 	g.P("}")
 	g.P()
 
 	g.P("func (", bridgeName, ") Take", method.MethodGoName, "MessageStream(handle rpcruntime.StreamHandle) (", methodMessageSessionName(method), ", bool) {")
-	g.P("return take", serviceName, method.MethodGoName, "MessageStream(handle)")
+	g.P("return rpcruntime.TakeDispatcherStream[", activeAdapterName, ", ", methodMessageSessionName(method), "](&", dispatcherName, ", handle)")
 	g.P("}")
 	g.P()
 }
@@ -814,12 +775,12 @@ func renderRuntimeCGOStreamBridge(g *protogen.GeneratedFile, serviceName, bridge
 	}
 
 	g.P("func (", bridgeName, ") Load", method.MethodGoName, "NativeStream(handle rpcruntime.StreamHandle) (", method.SessionName, ", bool) {")
-	g.P("return load", serviceName, method.MethodGoName, "NativeStream(handle)")
+	g.P("return rpcruntime.LoadDispatcherStream[", serviceName, "ActiveAdapter, ", method.SessionName, "](&", dispatcherName, ", handle)")
 	g.P("}")
 	g.P()
 
 	g.P("func (", bridgeName, ") Take", method.MethodGoName, "NativeStream(handle rpcruntime.StreamHandle) (", method.SessionName, ", bool) {")
-	g.P("return take", serviceName, method.MethodGoName, "NativeStream(handle)")
+	g.P("return rpcruntime.TakeDispatcherStream[", serviceName, "ActiveAdapter, ", method.SessionName, "](&", dispatcherName, ", handle)")
 	g.P("}")
 	g.P()
 
@@ -861,12 +822,12 @@ func renderRuntimeCGOStreamBridgeDirect(g *protogen.GeneratedFile, serviceName, 
 	}
 
 	g.P("func (", bridgeName, ") Load", method.MethodGoName, "NativeStream(handle rpcruntime.StreamHandle) (", method.SessionName, ", bool) {")
-	g.P("return load", serviceName, method.MethodGoName, "NativeStream(handle)")
+	g.P("return rpcruntime.LoadDispatcherStream[", serviceName, "ActiveAdapter, ", method.SessionName, "](&", dispatcherName, ", handle)")
 	g.P("}")
 	g.P()
 
 	g.P("func (", bridgeName, ") Take", method.MethodGoName, "NativeStream(handle rpcruntime.StreamHandle) (", method.SessionName, ", bool) {")
-	g.P("return take", serviceName, method.MethodGoName, "NativeStream(handle)")
+	g.P("return rpcruntime.TakeDispatcherStream[", serviceName, "ActiveAdapter, ", method.SessionName, "](&", dispatcherName, ", handle)")
 	g.P("}")
 	g.P()
 }
