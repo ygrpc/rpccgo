@@ -60,12 +60,12 @@ import (
 
 type cgoOverrideGoServer struct{}
 
-func (cgoOverrideGoServer) SayHello(context.Context, *v1.HelloRequest) (*v1.HelloReply, error) {
-	return &v1.HelloReply{Accepted: true, Payload: []byte("go-server"), Note: "go"}, nil
+func (cgoOverrideGoServer) SayHello(context.Context, *rpcruntime.RpcString, *rpcruntime.RpcBytes, bool) (bool, []byte, string, []byte, error) {
+	return true, []byte("go-server"), "go", nil, nil
 }
 
-func (cgoOverrideGoServer) SayUnsupported(context.Context, *v1.HelloRequest) (*v1.UnsupportedReply, error) {
-	return &v1.UnsupportedReply{}, nil
+func (cgoOverrideGoServer) SayUnsupported(context.Context, *rpcruntime.RpcString, *rpcruntime.RpcBytes, bool) ([]byte, string, []byte, error) {
+	return nil, "", nil, nil
 }
 
 func TestNativeCGOServerUnaryRoutesThroughDispatcher(t *testing.T) {
@@ -285,59 +285,20 @@ const nativeCGOServerUnaryFixtureCallbackSource = `package main
 
 extern int32_t StoreGreeterCGONativeServerErrorTextForExport(char* text, int32_t textLen);
 
-typedef struct GreeterSayHelloCGONativeUnaryRequest {
-uintptr_t NamePtr;
-int32_t NameLen;
-uintptr_t PayloadPtr;
-int32_t PayloadLen;
-int8_t Enabled;
-} GreeterSayHelloCGONativeUnaryRequest;
-
-typedef struct GreeterSayHelloCGONativeUnaryResponse {
-int8_t Accepted;
-uintptr_t PayloadPtr;
-int32_t PayloadLen;
-int32_t PayloadOwnership;
-uintptr_t NotePtr;
-int32_t NoteLen;
-int32_t NoteOwnership;
-uintptr_t ExtraPayloadPtr;
-int32_t ExtraPayloadLen;
-int32_t ExtraPayloadOwnership;
-} GreeterSayHelloCGONativeUnaryResponse;
-
-typedef struct GreeterSayUnsupportedCGONativeUnaryRequest {
-uintptr_t NamePtr;
-int32_t NameLen;
-uintptr_t PayloadPtr;
-int32_t PayloadLen;
-int8_t Enabled;
-} GreeterSayUnsupportedCGONativeUnaryRequest;
-
-typedef struct GreeterSayUnsupportedCGONativeUnaryResponse {
-uintptr_t PayloadPtr;
-int32_t PayloadLen;
-int32_t PayloadOwnership;
-uintptr_t NotePtr;
-int32_t NoteLen;
-int32_t NoteOwnership;
-uintptr_t Unsupported;
-} GreeterSayUnsupportedCGONativeUnaryResponse;
-
-typedef int32_t (*GreeterSayHelloCGONativeUnaryCallback)(GreeterSayHelloCGONativeUnaryRequest* input, GreeterSayHelloCGONativeUnaryResponse* output);
-typedef int32_t (*GreeterSayUnsupportedCGONativeUnaryCallback)(GreeterSayUnsupportedCGONativeUnaryRequest* input, GreeterSayUnsupportedCGONativeUnaryResponse* output);
+typedef int32_t (*GreeterSayHelloCGONativeUnaryCallback)(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t PayloadPtr, int32_t PayloadLen, int32_t PayloadOwnership, int8_t Enabled, int8_t* outAccepted, uintptr_t* outPayloadPtr, int32_t* outPayloadLen, int32_t* outPayloadOwnership, uintptr_t* outNotePtr, int32_t* outNoteLen, int32_t* outNoteOwnership, uintptr_t* outExtraPayloadPtr, int32_t* outExtraPayloadLen, int32_t* outExtraPayloadOwnership);
+typedef int32_t (*GreeterSayUnsupportedCGONativeUnaryCallback)(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t PayloadPtr, int32_t PayloadLen, int32_t PayloadOwnership, int8_t Enabled, uintptr_t* outPayloadPtr, int32_t* outPayloadLen, int32_t* outPayloadOwnership, uintptr_t* outNotePtr, int32_t* outNoteLen, int32_t* outNoteOwnership, uintptr_t* outUnsupportedPtr, int32_t* outUnsupportedLen, int32_t* outUnsupportedOwnership);
 
 typedef struct GreeterCGONativeServerCallbacks {
 GreeterSayHelloCGONativeUnaryCallback SayHello;
 GreeterSayUnsupportedCGONativeUnaryCallback SayUnsupported;
 } GreeterCGONativeServerCallbacks;
 
-static int32_t greeterSayHelloCallback(GreeterSayHelloCGONativeUnaryRequest* input, GreeterSayHelloCGONativeUnaryResponse* output) {
-	if (input == NULL || output == NULL) {
-		char msg[] = "callback input/output missing";
+static int32_t greeterSayHelloCallback(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t PayloadPtr, int32_t PayloadLen, int32_t PayloadOwnership, int8_t Enabled, int8_t* outAccepted, uintptr_t* outPayloadPtr, int32_t* outPayloadLen, int32_t* outPayloadOwnership, uintptr_t* outNotePtr, int32_t* outNoteLen, int32_t* outNoteOwnership, uintptr_t* outExtraPayloadPtr, int32_t* outExtraPayloadLen, int32_t* outExtraPayloadOwnership) {
+	if (outAccepted == NULL || outPayloadPtr == NULL || outPayloadLen == NULL || outPayloadOwnership == NULL) {
+		char msg[] = "callback output missing";
 		return StoreGreeterCGONativeServerErrorTextForExport(msg, sizeof(msg)-1);
 	}
-	if (input->NameLen != 6 || input->PayloadLen != 5 || input->Enabled != 1) {
+	if (NameLen != 6 || PayloadLen != 5 || Enabled != 1) {
 		char msg[] = "request did not reach cgo callback";
 		return StoreGreeterCGONativeServerErrorTextForExport(msg, sizeof(msg)-1);
 	}
@@ -347,47 +308,47 @@ static int32_t greeterSayHelloCallback(GreeterSayHelloCGONativeUnaryRequest* inp
 		return StoreGreeterCGONativeServerErrorTextForExport(msg, sizeof(msg)-1);
 	}
 	resp[0] = 'c'; resp[1] = 'g'; resp[2] = 'o'; resp[3] = '-'; resp[4] = 's'; resp[5] = 'e'; resp[6] = 'r'; resp[7] = 'v'; resp[8] = 'e'; resp[9] = 'r'; resp[10] = ':'; resp[11] = 'n'; resp[12] = 'a'; resp[13] = 't'; resp[14] = 'i'; resp[15] = 'v'; resp[16] = 'e';
-	output->Accepted = 1;
-	output->PayloadPtr = (uintptr_t)resp;
-	output->PayloadLen = 17;
-	output->PayloadOwnership = 1;
+	*outAccepted = 1;
+	*outPayloadPtr = (uintptr_t)resp;
+	*outPayloadLen = 17;
+	*outPayloadOwnership = 1;
 	return 0;
 }
 
-static int32_t greeterSayUnsupportedCallback(GreeterSayUnsupportedCGONativeUnaryRequest* input, GreeterSayUnsupportedCGONativeUnaryResponse* output) {
+static int32_t greeterSayUnsupportedCallback(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t PayloadPtr, int32_t PayloadLen, int32_t PayloadOwnership, int8_t Enabled, uintptr_t* outPayloadPtr, int32_t* outPayloadLen, int32_t* outPayloadOwnership, uintptr_t* outNotePtr, int32_t* outNoteLen, int32_t* outNoteOwnership, uintptr_t* outUnsupportedPtr, int32_t* outUnsupportedLen, int32_t* outUnsupportedOwnership) {
 	return 0;
 }
 
-static int32_t greeterErrorCallback(GreeterSayHelloCGONativeUnaryRequest* input, GreeterSayHelloCGONativeUnaryResponse* output) {
+static int32_t greeterErrorCallback(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t PayloadPtr, int32_t PayloadLen, int32_t PayloadOwnership, int8_t Enabled, int8_t* outAccepted, uintptr_t* outPayloadPtr, int32_t* outPayloadLen, int32_t* outPayloadOwnership, uintptr_t* outNotePtr, int32_t* outNoteLen, int32_t* outNoteOwnership, uintptr_t* outExtraPayloadPtr, int32_t* outExtraPayloadLen, int32_t* outExtraPayloadOwnership) {
 	char msg[] = "callback exploded";
 	return StoreGreeterCGONativeServerErrorTextForExport(msg, sizeof(msg)-1);
 }
 
-static int32_t greeterUnknownErrorCallback(GreeterSayHelloCGONativeUnaryRequest* input, GreeterSayHelloCGONativeUnaryResponse* output) {
+static int32_t greeterUnknownErrorCallback(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t PayloadPtr, int32_t PayloadLen, int32_t PayloadOwnership, int8_t Enabled, int8_t* outAccepted, uintptr_t* outPayloadPtr, int32_t* outPayloadLen, int32_t* outPayloadOwnership, uintptr_t* outNotePtr, int32_t* outNoteLen, int32_t* outNoteOwnership, uintptr_t* outExtraPayloadPtr, int32_t* outExtraPayloadLen, int32_t* outExtraPayloadOwnership) {
 	return 99999;
 }
 
-static int32_t greeterNegativeLengthCallback(GreeterSayHelloCGONativeUnaryRequest* input, GreeterSayHelloCGONativeUnaryResponse* output) {
+static int32_t greeterNegativeLengthCallback(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t PayloadPtr, int32_t PayloadLen, int32_t PayloadOwnership, int8_t Enabled, int8_t* outAccepted, uintptr_t* outPayloadPtr, int32_t* outPayloadLen, int32_t* outPayloadOwnership, uintptr_t* outNotePtr, int32_t* outNoteLen, int32_t* outNoteOwnership, uintptr_t* outExtraPayloadPtr, int32_t* outExtraPayloadLen, int32_t* outExtraPayloadOwnership) {
 	char* resp = (char*)malloc(1);
 	if (resp == NULL) {
 		char msg[] = "callback malloc failed";
 		return StoreGreeterCGONativeServerErrorTextForExport(msg, sizeof(msg)-1);
 	}
-	output->PayloadPtr = (uintptr_t)resp;
-	output->PayloadLen = -1;
-	output->PayloadOwnership = 1;
+	*outPayloadPtr = (uintptr_t)resp;
+	*outPayloadLen = -1;
+	*outPayloadOwnership = 1;
 	return 0;
 }
 
-static int32_t greeterPartialErrorCallback(GreeterSayHelloCGONativeUnaryRequest* input, GreeterSayHelloCGONativeUnaryResponse* output) {
+static int32_t greeterPartialErrorCallback(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t PayloadPtr, int32_t PayloadLen, int32_t PayloadOwnership, int8_t Enabled, int8_t* outAccepted, uintptr_t* outPayloadPtr, int32_t* outPayloadLen, int32_t* outPayloadOwnership, uintptr_t* outNotePtr, int32_t* outNoteLen, int32_t* outNoteOwnership, uintptr_t* outExtraPayloadPtr, int32_t* outExtraPayloadLen, int32_t* outExtraPayloadOwnership) {
 	char* resp = (char*)malloc(1);
 	if (resp == NULL) {
 		char msg[] = "callback malloc failed";
 		return StoreGreeterCGONativeServerErrorTextForExport(msg, sizeof(msg)-1);
 	}
-	output->PayloadPtr = (uintptr_t)resp;
-	output->PayloadLen = 1;
-	output->PayloadOwnership = 1;
+	*outPayloadPtr = (uintptr_t)resp;
+	*outPayloadLen = 1;
+	*outPayloadOwnership = 1;
 	char msg[] = "partial failure";
 	return StoreGreeterCGONativeServerErrorTextForExport(msg, sizeof(msg)-1);
 }

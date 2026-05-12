@@ -41,60 +41,51 @@ func CallGreeterSayHelloNativeUnary(ctx context.Context, input *GreeterSayHelloN
 	if output == nil {
 		return int32(rpcruntime.StoreError(errors.New("rpccgo: native unary client output is nil")))
 	}
-	req, err := decodeGreeterSayHelloNativeUnaryRequest(input)
+	nameValue, cityValue, err := decodeGreeterSayHelloNativeUnaryRequest(input)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
-	resp, err := proto.NewGreeterCGONativeClientBridge().SayHello(ctx, req)
+	messageResult, err := proto.NewGreeterCGONativeClientBridge().SayHello(ctx, nameValue, cityValue)
+	if cleanupErr := errors.Join(nameValue.Release(), cityValue.Release()); cleanupErr != nil {
+		err = errors.Join(err, cleanupErr)
+	}
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
-	if resp == nil {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: native unary server returned nil response")))
-	}
-	if err := encodeGreeterSayHelloNativeUnaryResponse(resp, output); err != nil {
+	if err := encodeGreeterSayHelloNativeUnaryResponse(messageResult, output); err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
 	return 0
 }
 
-func decodeGreeterSayHelloNativeUnaryRequest(input *GreeterSayHelloNativeUnaryInput) (*proto.SayHelloRequest, error) {
-	req := &proto.SayHelloRequest{}
+func decodeGreeterSayHelloNativeUnaryRequest(input *GreeterSayHelloNativeUnaryInput) (*rpcruntime.RpcString, *rpcruntime.RpcString, error) {
 	if _, err := rpcruntime.LengthFromInt32(input.NameLen); err != nil {
-		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", err)
+		return nil, nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", err)
 	}
-	var Name *rpcruntime.RpcString
+	var nameValue *rpcruntime.RpcString
 	if input.NamePtr == 0 || input.NameLen == 0 {
-		Name = rpcruntime.EmptyRpcString()
+		nameValue = rpcruntime.EmptyRpcString()
 	} else {
-		Name = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)
-	}
-	req.Name = Name.SafeString()
-	if err := Name.Release(); err != nil {
-		return nil, err
+		nameValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)
 	}
 	if _, err := rpcruntime.LengthFromInt32(input.CityLen); err != nil {
-		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", err)
+		return nil, nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", err)
 	}
-	var City *rpcruntime.RpcString
+	var cityValue *rpcruntime.RpcString
 	if input.CityPtr == 0 || input.CityLen == 0 {
-		City = rpcruntime.EmptyRpcString()
+		cityValue = rpcruntime.EmptyRpcString()
 	} else {
-		City = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.CityPtr)), input.CityLen, input.CityOwnership > 0)
+		cityValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.CityPtr)), input.CityLen, input.CityOwnership > 0)
 	}
-	req.City = City.SafeString()
-	if err := City.Release(); err != nil {
-		return nil, err
-	}
-	return req, nil
+	return nameValue, cityValue, nil
 }
 
-func encodeGreeterSayHelloNativeUnaryResponse(resp *proto.SayHelloResponse, output *GreeterSayHelloNativeUnaryOutput) error {
-	MessageLen, err := rpcruntime.LengthToInt32(len(resp.Message))
+func encodeGreeterSayHelloNativeUnaryResponse(messageResult string, output *GreeterSayHelloNativeUnaryOutput) error {
+	MessageLen, err := rpcruntime.LengthToInt32(len(messageResult))
 	if err != nil {
 		return err
 	}
-	data, MessagePtr, err := rpcruntime.PinString(resp.Message)
+	data, MessagePtr, err := rpcruntime.PinString(messageResult)
 	_ = data
 	if err != nil {
 		return err
@@ -141,11 +132,16 @@ func SendGreeterCollectNativeClientStream(ctx context.Context, handle int32, inp
 	if !ok {
 		return int32(rpcruntime.StoreError(greeterNativeClientStreamHandleInvalid))
 	}
-	req, err := decodeGreeterCollectNativeClientStreamRequest(input)
+	var err error
+	nameValue, cityValue, err := decodeGreeterCollectNativeClientStreamRequest(input)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
-	if err := session.Send(ctx, req); err != nil {
+	err = session.Send(ctx, nameValue, cityValue)
+	if cleanupErr := errors.Join(nameValue.Release(), cityValue.Release()); cleanupErr != nil {
+		err = errors.Join(err, cleanupErr)
+	}
+	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
 	return 0
@@ -162,14 +158,11 @@ func FinishGreeterCollectNativeClientStream(ctx context.Context, handle int32, o
 	if !ok {
 		return int32(rpcruntime.StoreError(greeterNativeClientStreamHandleInvalid))
 	}
-	resp, err := session.Finish(ctx)
+	messageResult, err := session.Finish(ctx)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
-	if resp == nil {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: native client stream server returned nil response")))
-	}
-	if err := encodeGreeterCollectNativeClientStreamResponse(resp, output); err != nil {
+	if err := encodeGreeterCollectNativeClientStreamResponse(messageResult, output); err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
 	return 0
@@ -189,43 +182,34 @@ func CancelGreeterCollectNativeClientStream(ctx context.Context, handle int32) i
 	return 0
 }
 
-func decodeGreeterCollectNativeClientStreamRequest(input *GreeterCollectNativeClientStreamInput) (*proto.SayHelloRequest, error) {
-	req := &proto.SayHelloRequest{}
+func decodeGreeterCollectNativeClientStreamRequest(input *GreeterCollectNativeClientStreamInput) (*rpcruntime.RpcString, *rpcruntime.RpcString, error) {
 	if _, err := rpcruntime.LengthFromInt32(input.NameLen); err != nil {
-		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", err)
+		return nil, nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", err)
 	}
-	var Name *rpcruntime.RpcString
+	var nameValue *rpcruntime.RpcString
 	if input.NamePtr == 0 || input.NameLen == 0 {
-		Name = rpcruntime.EmptyRpcString()
+		nameValue = rpcruntime.EmptyRpcString()
 	} else {
-		Name = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)
-	}
-	req.Name = Name.SafeString()
-	if err := Name.Release(); err != nil {
-		return nil, err
+		nameValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)
 	}
 	if _, err := rpcruntime.LengthFromInt32(input.CityLen); err != nil {
-		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", err)
+		return nil, nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", err)
 	}
-	var City *rpcruntime.RpcString
+	var cityValue *rpcruntime.RpcString
 	if input.CityPtr == 0 || input.CityLen == 0 {
-		City = rpcruntime.EmptyRpcString()
+		cityValue = rpcruntime.EmptyRpcString()
 	} else {
-		City = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.CityPtr)), input.CityLen, input.CityOwnership > 0)
+		cityValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.CityPtr)), input.CityLen, input.CityOwnership > 0)
 	}
-	req.City = City.SafeString()
-	if err := City.Release(); err != nil {
-		return nil, err
-	}
-	return req, nil
+	return nameValue, cityValue, nil
 }
 
-func encodeGreeterCollectNativeClientStreamResponse(resp *proto.SayHelloResponse, output *GreeterCollectNativeClientStreamOutput) error {
-	MessageLen, err := rpcruntime.LengthToInt32(len(resp.Message))
+func encodeGreeterCollectNativeClientStreamResponse(messageResult string, output *GreeterCollectNativeClientStreamOutput) error {
+	MessageLen, err := rpcruntime.LengthToInt32(len(messageResult))
 	if err != nil {
 		return err
 	}
-	data, MessagePtr, err := rpcruntime.PinString(resp.Message)
+	data, MessagePtr, err := rpcruntime.PinString(messageResult)
 	_ = data
 	if err != nil {
 		return err
@@ -257,11 +241,15 @@ func StartGreeterBroadcastNativeServerStream(ctx context.Context, input *Greeter
 	if input == nil {
 		return 0, int32(rpcruntime.StoreError(errors.New("rpccgo: native server stream input is nil")))
 	}
-	req, err := decodeGreeterBroadcastNativeServerStreamRequest(input)
+	var err error
+	nameValue, cityValue, err := decodeGreeterBroadcastNativeServerStreamRequest(input)
 	if err != nil {
 		return 0, int32(rpcruntime.StoreError(err))
 	}
-	handle, err := proto.NewGreeterCGONativeClientBridge().StartBroadcast(ctx, req)
+	handle, err := proto.NewGreeterCGONativeClientBridge().StartBroadcast(ctx, nameValue, cityValue)
+	if cleanupErr := errors.Join(nameValue.Release(), cityValue.Release()); cleanupErr != nil {
+		err = errors.Join(err, cleanupErr)
+	}
 	if err != nil {
 		return 0, int32(rpcruntime.StoreError(err))
 	}
@@ -279,14 +267,11 @@ func ReadGreeterBroadcastNativeServerStream(ctx context.Context, handle int32, o
 	if !ok {
 		return int32(rpcruntime.StoreError(greeterNativeClientStreamHandleInvalid))
 	}
-	resp, err := session.Recv(ctx)
+	messageResult, err := session.Recv(ctx)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
-	if resp == nil {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: native server stream server returned nil response")))
-	}
-	if err := encodeGreeterBroadcastNativeServerStreamResponse(resp, output); err != nil {
+	if err := encodeGreeterBroadcastNativeServerStreamResponse(messageResult, output); err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
 	return 0
@@ -322,43 +307,34 @@ func CancelGreeterBroadcastNativeServerStream(ctx context.Context, handle int32)
 	return 0
 }
 
-func decodeGreeterBroadcastNativeServerStreamRequest(input *GreeterBroadcastNativeServerStreamInput) (*proto.SayHelloRequest, error) {
-	req := &proto.SayHelloRequest{}
+func decodeGreeterBroadcastNativeServerStreamRequest(input *GreeterBroadcastNativeServerStreamInput) (*rpcruntime.RpcString, *rpcruntime.RpcString, error) {
 	if _, err := rpcruntime.LengthFromInt32(input.NameLen); err != nil {
-		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", err)
+		return nil, nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", err)
 	}
-	var Name *rpcruntime.RpcString
+	var nameValue *rpcruntime.RpcString
 	if input.NamePtr == 0 || input.NameLen == 0 {
-		Name = rpcruntime.EmptyRpcString()
+		nameValue = rpcruntime.EmptyRpcString()
 	} else {
-		Name = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)
-	}
-	req.Name = Name.SafeString()
-	if err := Name.Release(); err != nil {
-		return nil, err
+		nameValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)
 	}
 	if _, err := rpcruntime.LengthFromInt32(input.CityLen); err != nil {
-		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", err)
+		return nil, nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", err)
 	}
-	var City *rpcruntime.RpcString
+	var cityValue *rpcruntime.RpcString
 	if input.CityPtr == 0 || input.CityLen == 0 {
-		City = rpcruntime.EmptyRpcString()
+		cityValue = rpcruntime.EmptyRpcString()
 	} else {
-		City = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.CityPtr)), input.CityLen, input.CityOwnership > 0)
+		cityValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.CityPtr)), input.CityLen, input.CityOwnership > 0)
 	}
-	req.City = City.SafeString()
-	if err := City.Release(); err != nil {
-		return nil, err
-	}
-	return req, nil
+	return nameValue, cityValue, nil
 }
 
-func encodeGreeterBroadcastNativeServerStreamResponse(resp *proto.SayHelloResponse, output *GreeterBroadcastNativeServerStreamOutput) error {
-	MessageLen, err := rpcruntime.LengthToInt32(len(resp.Message))
+func encodeGreeterBroadcastNativeServerStreamResponse(messageResult string, output *GreeterBroadcastNativeServerStreamOutput) error {
+	MessageLen, err := rpcruntime.LengthToInt32(len(messageResult))
 	if err != nil {
 		return err
 	}
-	data, MessagePtr, err := rpcruntime.PinString(resp.Message)
+	data, MessagePtr, err := rpcruntime.PinString(messageResult)
 	_ = data
 	if err != nil {
 		return err
@@ -405,11 +381,16 @@ func SendGreeterChatNativeBidiStream(ctx context.Context, handle int32, input *G
 	if !ok {
 		return int32(rpcruntime.StoreError(greeterNativeClientStreamHandleInvalid))
 	}
-	req, err := decodeGreeterChatNativeBidiStreamRequest(input)
+	var err error
+	nameValue, cityValue, err := decodeGreeterChatNativeBidiStreamRequest(input)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
-	if err := session.Send(ctx, req); err != nil {
+	err = session.Send(ctx, nameValue, cityValue)
+	if cleanupErr := errors.Join(nameValue.Release(), cityValue.Release()); cleanupErr != nil {
+		err = errors.Join(err, cleanupErr)
+	}
+	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
 	return 0
@@ -426,14 +407,11 @@ func ReadGreeterChatNativeBidiStream(ctx context.Context, handle int32, output *
 	if !ok {
 		return int32(rpcruntime.StoreError(greeterNativeClientStreamHandleInvalid))
 	}
-	resp, err := session.Recv(ctx)
+	messageResult, err := session.Recv(ctx)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
-	if resp == nil {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: native bidi stream server returned nil response")))
-	}
-	if err := encodeGreeterChatNativeBidiStreamResponse(resp, output); err != nil {
+	if err := encodeGreeterChatNativeBidiStreamResponse(messageResult, output); err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
 	return 0
@@ -483,43 +461,34 @@ func CancelGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32 
 	return 0
 }
 
-func decodeGreeterChatNativeBidiStreamRequest(input *GreeterChatNativeBidiStreamInput) (*proto.SayHelloRequest, error) {
-	req := &proto.SayHelloRequest{}
+func decodeGreeterChatNativeBidiStreamRequest(input *GreeterChatNativeBidiStreamInput) (*rpcruntime.RpcString, *rpcruntime.RpcString, error) {
 	if _, err := rpcruntime.LengthFromInt32(input.NameLen); err != nil {
-		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", err)
+		return nil, nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", err)
 	}
-	var Name *rpcruntime.RpcString
+	var nameValue *rpcruntime.RpcString
 	if input.NamePtr == 0 || input.NameLen == 0 {
-		Name = rpcruntime.EmptyRpcString()
+		nameValue = rpcruntime.EmptyRpcString()
 	} else {
-		Name = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)
-	}
-	req.Name = Name.SafeString()
-	if err := Name.Release(); err != nil {
-		return nil, err
+		nameValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)
 	}
 	if _, err := rpcruntime.LengthFromInt32(input.CityLen); err != nil {
-		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", err)
+		return nil, nil, fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", err)
 	}
-	var City *rpcruntime.RpcString
+	var cityValue *rpcruntime.RpcString
 	if input.CityPtr == 0 || input.CityLen == 0 {
-		City = rpcruntime.EmptyRpcString()
+		cityValue = rpcruntime.EmptyRpcString()
 	} else {
-		City = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.CityPtr)), input.CityLen, input.CityOwnership > 0)
+		cityValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.CityPtr)), input.CityLen, input.CityOwnership > 0)
 	}
-	req.City = City.SafeString()
-	if err := City.Release(); err != nil {
-		return nil, err
-	}
-	return req, nil
+	return nameValue, cityValue, nil
 }
 
-func encodeGreeterChatNativeBidiStreamResponse(resp *proto.SayHelloResponse, output *GreeterChatNativeBidiStreamOutput) error {
-	MessageLen, err := rpcruntime.LengthToInt32(len(resp.Message))
+func encodeGreeterChatNativeBidiStreamResponse(messageResult string, output *GreeterChatNativeBidiStreamOutput) error {
+	MessageLen, err := rpcruntime.LengthToInt32(len(messageResult))
 	if err != nil {
 		return err
 	}
-	data, MessagePtr, err := rpcruntime.PinString(resp.Message)
+	data, MessagePtr, err := rpcruntime.PinString(messageResult)
 	_ = data
 	if err != nil {
 		return err

@@ -15,26 +15,26 @@ var (
 )
 
 type GreeterNativeServer interface {
-	SayHello(ctx context.Context, req *SayHelloRequest) (*SayHelloResponse, error)
+	SayHello(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error)
 	Collect(ctx context.Context) (GreeterCollectNativeClientStream, error)
-	Broadcast(ctx context.Context, req *SayHelloRequest) (GreeterBroadcastNativeServerStream, error)
+	Broadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (GreeterBroadcastNativeServerStream, error)
 	Chat(ctx context.Context) (GreeterChatNativeBidiStream, error)
 }
 
 type GreeterCollectNativeClientStream interface {
-	Send(ctx context.Context, req *SayHelloRequest) error
-	Finish(ctx context.Context) (*SayHelloResponse, error)
+	Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error
+	Finish(ctx context.Context) (string, error)
 	Cancel(ctx context.Context) error
 }
 
 type GreeterBroadcastNativeServerStream interface {
-	Recv(ctx context.Context) (*SayHelloResponse, error)
+	Recv(ctx context.Context) (string, error)
 	Cancel(ctx context.Context) error
 }
 
 type GreeterChatNativeBidiStream interface {
-	Send(ctx context.Context, req *SayHelloRequest) error
-	Recv(ctx context.Context) (*SayHelloResponse, error)
+	Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error
+	Recv(ctx context.Context) (string, error)
 	CloseSend(ctx context.Context) error
 	Cancel(ctx context.Context) error
 }
@@ -43,11 +43,8 @@ type greeterGoNativeAdapter struct {
 	server GreeterNativeServer
 }
 
-func (a *greeterGoNativeAdapter) SayHello(ctx context.Context, req *SayHelloRequest) (*SayHelloResponse, error) {
-	if req == nil {
-		return nil, greeterNativeRequestBridgeNotImplemented
-	}
-	return a.server.SayHello(ctx, req)
+func (a *greeterGoNativeAdapter) SayHello(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error) {
+	return a.server.SayHello(ctx, name, city)
 }
 
 func (a *greeterGoNativeAdapter) StartCollect(ctx context.Context) (GreeterCollectNativeStreamSession, error) {
@@ -65,19 +62,16 @@ type greeterCollectGoNativeClientStreamSession struct {
 	stream GreeterCollectNativeClientStream
 }
 
-func (s *greeterCollectGoNativeClientStreamSession) Send(ctx context.Context, req *SayHelloRequest) error {
+func (s *greeterCollectGoNativeClientStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
 	if s.stream == nil {
 		return greeterNativeStreamIsNil
 	}
-	if req == nil {
-		return greeterNativeRequestBridgeNotImplemented
-	}
-	return s.stream.Send(ctx, req)
+	return s.stream.Send(ctx, name, city)
 }
 
-func (s *greeterCollectGoNativeClientStreamSession) Finish(ctx context.Context) (*SayHelloResponse, error) {
+func (s *greeterCollectGoNativeClientStreamSession) Finish(ctx context.Context) (string, error) {
 	if s.stream == nil {
-		return nil, greeterNativeStreamIsNil
+		return "", greeterNativeStreamIsNil
 	}
 	return s.stream.Finish(ctx)
 }
@@ -89,11 +83,8 @@ func (s *greeterCollectGoNativeClientStreamSession) Cancel(ctx context.Context) 
 	return s.stream.Cancel(ctx)
 }
 
-func (a *greeterGoNativeAdapter) StartBroadcast(ctx context.Context, req *SayHelloRequest) (GreeterBroadcastNativeStreamSession, error) {
-	if req == nil {
-		return nil, greeterNativeRequestBridgeNotImplemented
-	}
-	stream, err := a.server.Broadcast(ctx, req)
+func (a *greeterGoNativeAdapter) StartBroadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (GreeterBroadcastNativeStreamSession, error) {
+	stream, err := a.server.Broadcast(ctx, name, city)
 	if err != nil {
 		return nil, err
 	}
@@ -107,9 +98,9 @@ type greeterBroadcastGoNativeServerStreamSession struct {
 	stream GreeterBroadcastNativeServerStream
 }
 
-func (s *greeterBroadcastGoNativeServerStreamSession) Recv(ctx context.Context) (*SayHelloResponse, error) {
+func (s *greeterBroadcastGoNativeServerStreamSession) Recv(ctx context.Context) (string, error) {
 	if s.stream == nil {
-		return nil, greeterNativeStreamIsNil
+		return "", greeterNativeStreamIsNil
 	}
 	return s.stream.Recv(ctx)
 }
@@ -136,19 +127,16 @@ type greeterChatGoNativeBidiStreamSession struct {
 	stream GreeterChatNativeBidiStream
 }
 
-func (s *greeterChatGoNativeBidiStreamSession) Send(ctx context.Context, req *SayHelloRequest) error {
+func (s *greeterChatGoNativeBidiStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
 	if s.stream == nil {
 		return greeterNativeStreamIsNil
 	}
-	if req == nil {
-		return greeterNativeRequestBridgeNotImplemented
-	}
-	return s.stream.Send(ctx, req)
+	return s.stream.Send(ctx, name, city)
 }
 
-func (s *greeterChatGoNativeBidiStreamSession) Recv(ctx context.Context) (*SayHelloResponse, error) {
+func (s *greeterChatGoNativeBidiStreamSession) Recv(ctx context.Context) (string, error) {
 	if s.stream == nil {
-		return nil, greeterNativeStreamIsNil
+		return "", greeterNativeStreamIsNil
 	}
 	return s.stream.Recv(ctx)
 }

@@ -7,25 +7,14 @@ import (
 /*
 #include <stdint.h>
 
-typedef struct GreeterSayHelloCGONativeUnaryRequest {
-uintptr_t NamePtr;
-int32_t NameLen;
-} GreeterSayHelloCGONativeUnaryRequest;
-
-typedef struct GreeterSayHelloCGONativeUnaryResponse {
-uintptr_t MessagePtr;
-int32_t MessageLen;
-int32_t MessageOwnership;
-} GreeterSayHelloCGONativeUnaryResponse;
-
-typedef int32_t (*GreeterSayHelloCGONativeUnaryCallback)(GreeterSayHelloCGONativeUnaryRequest* input, GreeterSayHelloCGONativeUnaryResponse* output);
+typedef int32_t (*GreeterSayHelloCGONativeUnaryCallback)(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership);
 
 typedef struct GreeterCGONativeServerCallbacks {
 GreeterSayHelloCGONativeUnaryCallback SayHello;
 } GreeterCGONativeServerCallbacks;
 
-static inline int32_t callGreeterSayHelloCGONativeUnaryCallback(GreeterSayHelloCGONativeUnaryCallback callback, GreeterSayHelloCGONativeUnaryRequest* input, GreeterSayHelloCGONativeUnaryResponse* output) {
-	return callback(input, output);
+static inline int32_t callGreeterSayHelloCGONativeUnaryCallback(GreeterSayHelloCGONativeUnaryCallback callback, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership) {
+	return callback(NamePtr, NameLen, NameOwnership, outMessagePtr, outMessageLen, outMessageOwnership);
 }
 
 */
@@ -41,6 +30,18 @@ import (
 
 // rpccgo native stage file for Greeter cgo native server
 
+type GreeterSayHelloCGONativeUnaryRequest struct {
+	NamePtr       C.uintptr_t
+	NameLen       C.int32_t
+	NameOwnership C.int32_t
+}
+
+type GreeterSayHelloCGONativeUnaryResponse struct {
+	MessagePtr       C.uintptr_t
+	MessageLen       C.int32_t
+	MessageOwnership C.int32_t
+}
+
 var (
 	greeterCGONativeServerCallbacksNil         = errors.New("rpccgo: Greeter cgo native server callbacks are nil")
 	greeterCGONativeServerUnaryCallbackMissing = errors.New("rpccgo: Greeter cgo native server unary callback is missing")
@@ -52,86 +53,83 @@ type greeterCGONativeAdapter struct {
 	callbacks C.GreeterCGONativeServerCallbacks
 }
 
-func (a *greeterCGONativeAdapter) SayHello(ctx context.Context, req *v1.SayHelloRequest) (*v1.SayHelloResponse, error) {
+func (a *greeterCGONativeAdapter) SayHello(ctx context.Context, name *rpcruntime.RpcString) (string, error) {
 	if a == nil {
-		return nil, greeterCGONativeServerCallbacksNil
+		return "", greeterCGONativeServerCallbacksNil
 	}
 	callback := a.callbacks.SayHello
 	if callback == nil {
-		return nil, greeterCGONativeServerUnaryCallbackMissing
+		return "", greeterCGONativeServerUnaryCallbackMissing
 	}
-	input, cleanup, err := encodeGreeterSayHelloCGONativeUnaryRequest(req)
+	input, cleanup, err := encodeGreeterSayHelloCGONativeUnaryRequest(name)
+	_ = input
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	defer cleanup()
-	output := &C.GreeterSayHelloCGONativeUnaryResponse{}
-	errID := int32(C.callGreeterSayHelloCGONativeUnaryCallback(callback, input, output))
+	output := &GreeterSayHelloCGONativeUnaryResponse{}
+	errID := int32(C.callGreeterSayHelloCGONativeUnaryCallback(callback, input.NamePtr, input.NameLen, input.NameOwnership, &output.MessagePtr, &output.MessageLen, &output.MessageOwnership))
 	if errID != 0 {
 		cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(output)
 		callbackErr := greeterCGONativeServerErrorFromID(errID)
 		if cleanupErr != nil {
-			return nil, errors.Join(callbackErr, cleanupErr)
+			return "", errors.Join(callbackErr, cleanupErr)
 		}
-		return nil, callbackErr
+		return "", callbackErr
 	}
-	resp, err := decodeGreeterSayHelloCGONativeUnaryResponse(output)
+	messageResult, err := decodeGreeterSayHelloCGONativeUnaryResponse(output)
 	cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(output)
 	if cleanupErr != nil {
 		if err != nil {
-			return nil, errors.Join(err, cleanupErr)
+			return "", errors.Join(err, cleanupErr)
 		}
-		return nil, cleanupErr
+		return "", cleanupErr
 	}
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return resp, nil
+	return messageResult, nil
 }
 
-func encodeGreeterSayHelloCGONativeUnaryRequest(req *v1.SayHelloRequest) (*C.GreeterSayHelloCGONativeUnaryRequest, func(), error) {
-	if req == nil {
-		return nil, func() {}, errors.New("rpccgo: cgo native server request is nil")
-	}
-	input := &C.GreeterSayHelloCGONativeUnaryRequest{}
+func encodeGreeterSayHelloCGONativeUnaryRequest(name *rpcruntime.RpcString) (*GreeterSayHelloCGONativeUnaryRequest, func(), error) {
+	input := &GreeterSayHelloCGONativeUnaryRequest{}
 	var pinned []uintptr
 	cleanup := func() {
 		for i := len(pinned) - 1; i >= 0; i-- {
 			rpcruntime.Release(pinned[i])
 		}
 	}
-	NameLen, err := rpcruntime.LengthToInt32(len(req.Name))
+	nameLen, err := rpcruntime.LengthToInt32(len(name.SafeString()))
 	if err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}
-	_, NamePtr, err := rpcruntime.PinString(req.Name)
+	_, namePtr, err := rpcruntime.PinString(name.SafeString())
 	if err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}
-	if NamePtr != 0 {
-		pinned = append(pinned, NamePtr)
+	if namePtr != 0 {
+		pinned = append(pinned, namePtr)
 	}
-	input.NamePtr = C.uintptr_t(NamePtr)
-	input.NameLen = C.int32_t(NameLen)
+	input.NamePtr = C.uintptr_t(namePtr)
+	input.NameLen = C.int32_t(nameLen)
 	return input, cleanup, nil
 }
 
-func decodeGreeterSayHelloCGONativeUnaryResponse(output *C.GreeterSayHelloCGONativeUnaryResponse) (*v1.SayHelloResponse, error) {
+func decodeGreeterSayHelloCGONativeUnaryResponse(output *GreeterSayHelloCGONativeUnaryResponse) (string, error) {
 	if output == nil {
-		return nil, errors.New("rpccgo: cgo native server response output is nil")
+		return "", errors.New("rpccgo: cgo native server response output is nil")
 	}
-	resp := &v1.SayHelloResponse{}
 	if _, err := rpcruntime.LengthFromInt32(int32(output.MessageLen)); err != nil {
-		return nil, fmt.Errorf("examples.minimal.greeter.v1.SayHelloResponse.message: %w", err)
+		return "", fmt.Errorf("examples.minimal.greeter.v1.SayHelloResponse.message: %w", err)
 	}
-	Message := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(output.MessagePtr))), int32(output.MessageLen), false)
-	resp.Message = Message.SafeString()
-	return resp, nil
+	MessageWrapper := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(output.MessagePtr))), int32(output.MessageLen), false)
+	messageResult := MessageWrapper.SafeString()
+	return messageResult, nil
 }
 
-func cleanupGreeterSayHelloCGONativeUnaryResponse(output *C.GreeterSayHelloCGONativeUnaryResponse) error {
+func cleanupGreeterSayHelloCGONativeUnaryResponse(output *GreeterSayHelloCGONativeUnaryResponse) error {
 	if output == nil {
 		return nil
 	}
@@ -173,7 +171,7 @@ func RegisterGreeterCGONativeServer(callbacks *C.GreeterCGONativeServerCallbacks
 }
 
 type GreeterGoCGONativeServerCallbacks struct {
-	SayHello func(ctx context.Context, input *C.GreeterSayHelloCGONativeUnaryRequest, output *C.GreeterSayHelloCGONativeUnaryResponse) int32
+	SayHello func(ctx context.Context, input *GreeterSayHelloCGONativeUnaryRequest, output *GreeterSayHelloCGONativeUnaryResponse) int32
 }
 
 func RegisterGreeterGoCGONativeServerForTesting(callbacks *GreeterGoCGONativeServerCallbacks) (rpcruntime.AdapterSnapshot[v1.GreeterNativeAdapter], error) {
@@ -190,34 +188,34 @@ type greeterGoCGONativeAdapter struct {
 	callbacks *GreeterGoCGONativeServerCallbacks
 }
 
-func (a *greeterGoCGONativeAdapter) SayHello(ctx context.Context, req *v1.SayHelloRequest) (*v1.SayHelloResponse, error) {
-	input, cleanup, err := encodeGreeterSayHelloCGONativeUnaryRequest(req)
+func (a *greeterGoCGONativeAdapter) SayHello(ctx context.Context, name *rpcruntime.RpcString) (string, error) {
+	input, cleanup, err := encodeGreeterSayHelloCGONativeUnaryRequest(name)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	defer cleanup()
-	output := &C.GreeterSayHelloCGONativeUnaryResponse{}
+	output := &GreeterSayHelloCGONativeUnaryResponse{}
 	errID := a.callbacks.SayHello(ctx, input, output)
 	if errID != 0 {
 		cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(output)
 		callbackErr := greeterCGONativeServerErrorFromID(errID)
 		if cleanupErr != nil {
-			return nil, errors.Join(callbackErr, cleanupErr)
+			return "", errors.Join(callbackErr, cleanupErr)
 		}
-		return nil, callbackErr
+		return "", callbackErr
 	}
-	resp, err := decodeGreeterSayHelloCGONativeUnaryResponse(output)
+	messageResult, err := decodeGreeterSayHelloCGONativeUnaryResponse(output)
 	cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(output)
 	if cleanupErr != nil {
 		if err != nil {
-			return nil, errors.Join(err, cleanupErr)
+			return "", errors.Join(err, cleanupErr)
 		}
-		return nil, cleanupErr
+		return "", cleanupErr
 	}
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return resp, nil
+	return messageResult, nil
 }
 
 //export StoreGreeterCGONativeServerErrorTextForExport

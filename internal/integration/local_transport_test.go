@@ -562,12 +562,12 @@ func assertGoNativeTransportCounters(t *testing.T) {
 	}
 }
 
-func (transportNativeServer) Unary(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
+func (transportNativeServer) Unary(context.Context) error {
 	transportGoNativeUnaryCalls++
 	if transportGoNativeUnaryErrEnabled {
-		return nil, errors.New("transport native unary boom")
+		return errors.New("transport native unary boom")
 	}
-	return &emptypb.Empty{}, nil
+	return nil
 }
 
 func (transportNativeServer) Upload(context.Context) (v1.GreeterUploadNativeClientStream, error) {
@@ -575,7 +575,7 @@ func (transportNativeServer) Upload(context.Context) (v1.GreeterUploadNativeClie
 	return transportNativeClientStream{}, nil
 }
 
-func (transportNativeServer) List(context.Context, *emptypb.Empty) (v1.GreeterListNativeServerStream, error) {
+func (transportNativeServer) List(context.Context) (v1.GreeterListNativeServerStream, error) {
 	transportGoNativeListStarts++
 	return &transportNativeServerStream{remaining: 1}, nil
 }
@@ -587,14 +587,14 @@ func (transportNativeServer) Chat(context.Context) (v1.GreeterChatNativeBidiStre
 
 type transportNativeClientStream struct{}
 
-func (transportNativeClientStream) Send(context.Context, *emptypb.Empty) error {
+func (transportNativeClientStream) Send(context.Context) error {
 	transportGoNativeUploadSends++
 	return nil
 }
 
-func (transportNativeClientStream) Finish(context.Context) (*emptypb.Empty, error) {
+func (transportNativeClientStream) Finish(context.Context) error {
 	transportGoNativeUploadFinishes++
-	return &emptypb.Empty{}, nil
+	return nil
 }
 
 func (transportNativeClientStream) Cancel(context.Context) error { return nil }
@@ -603,13 +603,13 @@ type transportNativeServerStream struct {
 	remaining int
 }
 
-func (s *transportNativeServerStream) Recv(context.Context) (*emptypb.Empty, error) {
+func (s *transportNativeServerStream) Recv(context.Context) error {
 	transportGoNativeListRecvs++
 	if s.remaining == 0 {
-		return nil, io.EOF
+		return io.EOF
 	}
 	s.remaining--
-	return &emptypb.Empty{}, nil
+	return nil
 }
 
 func (*transportNativeServerStream) Cancel(context.Context) error { return nil }
@@ -623,18 +623,18 @@ type transportNativeBidiStream struct {
 	remaining int
 }
 
-func (*transportNativeBidiStream) Send(context.Context, *emptypb.Empty) error {
+func (*transportNativeBidiStream) Send(context.Context) error {
 	transportGoNativeChatSends++
 	return nil
 }
 
-func (s *transportNativeBidiStream) Recv(context.Context) (*emptypb.Empty, error) {
+func (s *transportNativeBidiStream) Recv(context.Context) error {
 	transportGoNativeChatRecvs++
 	if s.remaining == 0 {
-		return nil, io.EOF
+		return io.EOF
 	}
 	s.remaining--
-	return &emptypb.Empty{}, nil
+	return nil
 }
 
 func (*transportNativeBidiStream) CloseSend(context.Context) error {

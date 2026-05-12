@@ -170,22 +170,22 @@ type chatGoStream struct {
 	canceled bool
 }
 
-func (s *chatGoStream) Send(ctx context.Context, req *v1.ChatRequest) error {
+func (s *chatGoStream) Send(ctx context.Context, name *rpcruntime.RpcString, seq int32) error {
 	if s.closed {
 		return errors.New("go bidi send closed")
 	}
-	s.names = append(s.names, req.Name)
-	s.seqs = append(s.seqs, req.Seq)
+	s.names = append(s.names, name.SafeString())
+	s.seqs = append(s.seqs, seq)
 	return nil
 }
 
-func (s *chatGoStream) Recv(ctx context.Context) (*v1.ChatReply, error) {
+func (s *chatGoStream) Recv(ctx context.Context) (int32, string, error) {
 	if s.read >= len(s.names) {
-		return nil, io.EOF
+		return 0, "", io.EOF
 	}
 	index := s.read
 	s.read++
-	return &v1.ChatReply{Ack: s.seqs[index], Message: s.names[index]}, nil
+	return s.seqs[index], s.names[index], nil
 }
 
 func (s *chatGoStream) CloseSend(ctx context.Context) error {
@@ -463,22 +463,9 @@ const nativeBidiStreamingCGOFixtureCallbackSource = `package main
 
 extern int32_t StoreGreeterCGONativeServerErrorTextForExport(char* text, int32_t textLen);
 
-typedef struct GreeterChatCGONativeBidiStreamRequest {
-uintptr_t NamePtr;
-int32_t NameLen;
-int32_t Seq;
-} GreeterChatCGONativeBidiStreamRequest;
-
-typedef struct GreeterChatCGONativeBidiStreamResponse {
-int32_t Ack;
-uintptr_t MessagePtr;
-int32_t MessageLen;
-int32_t MessageOwnership;
-} GreeterChatCGONativeBidiStreamResponse;
-
 typedef int32_t (*GreeterChatCGONativeBidiStreamStartCallback)(int32_t* stream);
-typedef int32_t (*GreeterChatCGONativeBidiStreamSendCallback)(int32_t stream, GreeterChatCGONativeBidiStreamRequest* input);
-typedef int32_t (*GreeterChatCGONativeBidiStreamRecvCallback)(int32_t stream, GreeterChatCGONativeBidiStreamResponse* output);
+typedef int32_t (*GreeterChatCGONativeBidiStreamSendCallback)(int32_t stream, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, int32_t Seq);
+typedef int32_t (*GreeterChatCGONativeBidiStreamRecvCallback)(int32_t stream, int32_t* outAck, uintptr_t* outMessagePtr, int32_t* outMessageLen, int32_t* outMessageOwnership);
 typedef int32_t (*GreeterChatCGONativeBidiStreamCloseSendCallback)(int32_t stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamDoneCallback)(int32_t stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamCancelCallback)(int32_t stream);
@@ -523,31 +510,31 @@ static int32_t greeterChatStart(int32_t* stream) {
 	return 0;
 }
 
-static int32_t greeterChatSend(int32_t stream, GreeterChatCGONativeBidiStreamRequest* input) {
+static int32_t greeterChatSend(int32_t stream, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, int32_t Seq) {
 	if (greeterBidiErrorMode == 2) {
 		return greeterBidiError("forced send error");
 	}
-	if (stream != greeterBidiStreamID || input == NULL) {
+	if (stream != greeterBidiStreamID) {
 		return greeterBidiError("bidi send did not reach cgo callback");
 	}
 	if (greeterBidiClosed) {
 		return greeterBidiError("cgo bidi send closed");
 	}
-	if (greeterBidiCount >= 8 || input->NameLen < 0 || input->NameLen >= 60) {
+	if (greeterBidiCount >= 8 || NameLen < 0 || NameLen >= 60) {
 		return greeterBidiError("bidi bad input");
 	}
-	memcpy(greeterBidiNames[greeterBidiCount], (void*)input->NamePtr, (size_t)input->NameLen);
-	greeterBidiNames[greeterBidiCount][input->NameLen] = 0;
-	greeterBidiSeqs[greeterBidiCount] = input->Seq;
+	memcpy(greeterBidiNames[greeterBidiCount], (void*)NamePtr, (size_t)NameLen);
+	greeterBidiNames[greeterBidiCount][NameLen] = 0;
+	greeterBidiSeqs[greeterBidiCount] = Seq;
 	greeterBidiCount += 1;
 	return 0;
 }
 
-static int32_t greeterChatRecv(int32_t stream, GreeterChatCGONativeBidiStreamResponse* output) {
+static int32_t greeterChatRecv(int32_t stream, int32_t* outAck, uintptr_t* outMessagePtr, int32_t* outMessageLen, int32_t* outMessageOwnership) {
 	if (greeterBidiErrorMode == 3) {
 		return greeterBidiError("forced recv error");
 	}
-	if (stream != greeterBidiStreamID || output == NULL) {
+	if (stream != greeterBidiStreamID || outAck == NULL || outMessagePtr == NULL || outMessageLen == NULL || outMessageOwnership == NULL) {
 		return greeterBidiError("bidi recv did not reach cgo callback");
 	}
 	if (greeterBidiRead >= greeterBidiCount) {
@@ -558,10 +545,10 @@ static int32_t greeterChatRecv(int32_t stream, GreeterChatCGONativeBidiStreamRes
 		return greeterBidiError("bidi malloc failed");
 	}
 	memcpy(msg, greeterBidiNames[greeterBidiRead], strlen(greeterBidiNames[greeterBidiRead]));
-	output->Ack = greeterBidiSeqs[greeterBidiRead];
-	output->MessagePtr = (uintptr_t)msg;
-	output->MessageLen = (int32_t)strlen(greeterBidiNames[greeterBidiRead]);
-	output->MessageOwnership = 1;
+	*outAck = greeterBidiSeqs[greeterBidiRead];
+	*outMessagePtr = (uintptr_t)msg;
+	*outMessageLen = (int32_t)strlen(greeterBidiNames[greeterBidiRead]);
+	*outMessageOwnership = 1;
 	greeterBidiRead += 1;
 	return 0;
 }

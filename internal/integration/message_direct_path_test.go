@@ -255,27 +255,18 @@ typedef struct GreeterCGOMessageServerCallbacks {
 	GreeterChatCGOMessageBidiStreamCancelCallback ChatCancel;
 } GreeterCGOMessageServerCallbacks;
 
-typedef struct GreeterUnaryCGONativeUnaryRequest {} GreeterUnaryCGONativeUnaryRequest;
-typedef struct GreeterUnaryCGONativeUnaryResponse {} GreeterUnaryCGONativeUnaryResponse;
-typedef struct GreeterUploadCGONativeClientStreamRequest {} GreeterUploadCGONativeClientStreamRequest;
-typedef struct GreeterUploadCGONativeClientStreamResponse {} GreeterUploadCGONativeClientStreamResponse;
-typedef struct GreeterListCGONativeServerStreamRequest {} GreeterListCGONativeServerStreamRequest;
-typedef struct GreeterListCGONativeServerStreamResponse {} GreeterListCGONativeServerStreamResponse;
-typedef struct GreeterChatCGONativeBidiStreamRequest {} GreeterChatCGONativeBidiStreamRequest;
-typedef struct GreeterChatCGONativeBidiStreamResponse {} GreeterChatCGONativeBidiStreamResponse;
-
-typedef int32_t (*GreeterUnaryCGONativeUnaryCallback)(GreeterUnaryCGONativeUnaryRequest* input, GreeterUnaryCGONativeUnaryResponse* output);
+typedef int32_t (*GreeterUnaryCGONativeUnaryCallback)(void);
 typedef int32_t (*GreeterUploadCGONativeClientStreamStartCallback)(int32_t* stream);
-typedef int32_t (*GreeterUploadCGONativeClientStreamSendCallback)(int32_t stream, GreeterUploadCGONativeClientStreamRequest* input);
-typedef int32_t (*GreeterUploadCGONativeClientStreamFinishCallback)(int32_t stream, GreeterUploadCGONativeClientStreamResponse* output);
+typedef int32_t (*GreeterUploadCGONativeClientStreamSendCallback)(int32_t stream);
+typedef int32_t (*GreeterUploadCGONativeClientStreamFinishCallback)(int32_t stream);
 typedef int32_t (*GreeterUploadCGONativeClientStreamCancelCallback)(int32_t stream);
-typedef int32_t (*GreeterListCGONativeServerStreamStartCallback)(GreeterListCGONativeServerStreamRequest* input, int32_t* stream);
-typedef int32_t (*GreeterListCGONativeServerStreamRecvCallback)(int32_t stream, GreeterListCGONativeServerStreamResponse* output);
+typedef int32_t (*GreeterListCGONativeServerStreamStartCallback)(int32_t* stream);
+typedef int32_t (*GreeterListCGONativeServerStreamRecvCallback)(int32_t stream);
 typedef int32_t (*GreeterListCGONativeServerStreamDoneCallback)(int32_t stream);
 typedef int32_t (*GreeterListCGONativeServerStreamCancelCallback)(int32_t stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamStartCallback)(int32_t* stream);
-typedef int32_t (*GreeterChatCGONativeBidiStreamSendCallback)(int32_t stream, GreeterChatCGONativeBidiStreamRequest* input);
-typedef int32_t (*GreeterChatCGONativeBidiStreamRecvCallback)(int32_t stream, GreeterChatCGONativeBidiStreamResponse* output);
+typedef int32_t (*GreeterChatCGONativeBidiStreamSendCallback)(int32_t stream);
+typedef int32_t (*GreeterChatCGONativeBidiStreamRecvCallback)(int32_t stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamCloseSendCallback)(int32_t stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamDoneCallback)(int32_t stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamCancelCallback)(int32_t stream);
@@ -506,7 +497,7 @@ static GreeterCGOMessageServerCallbacks greeterMessageCallbacks(void) {
 	return callbacks;
 }
 
-static int32_t nativeGreeterUnary(GreeterUnaryCGONativeUnaryRequest* input, GreeterUnaryCGONativeUnaryResponse* output) {
+static int32_t nativeGreeterUnary(void) {
 	nativeUnaryCalls++;
 	if (nativeUnaryError) {
 		return 99997;
@@ -520,12 +511,12 @@ static int32_t nativeGreeterUploadStart(int32_t* stream) {
 	return 0;
 }
 
-static int32_t nativeGreeterUploadSend(int32_t stream, GreeterUploadCGONativeClientStreamRequest* input) {
+static int32_t nativeGreeterUploadSend(int32_t stream) {
 	nativeUploadSends++;
 	return 0;
 }
 
-static int32_t nativeGreeterUploadFinish(int32_t stream, GreeterUploadCGONativeClientStreamResponse* output) {
+static int32_t nativeGreeterUploadFinish(int32_t stream) {
 	nativeUploadFinishes++;
 	return 0;
 }
@@ -535,13 +526,13 @@ static int32_t nativeGreeterUploadCancel(int32_t stream) {
 	return 0;
 }
 
-static int32_t nativeGreeterListStart(GreeterListCGONativeServerStreamRequest* input, int32_t* stream) {
+static int32_t nativeGreeterListStart(int32_t* stream) {
 	nativeListStarts++;
 	*stream = 505;
 	return 0;
 }
 
-static int32_t nativeGreeterListRecv(int32_t stream, GreeterListCGONativeServerStreamResponse* output) {
+static int32_t nativeGreeterListRecv(int32_t stream) {
 	nativeListRecvs++;
 	return 0;
 }
@@ -562,12 +553,12 @@ static int32_t nativeGreeterChatStart(int32_t* stream) {
 	return 0;
 }
 
-static int32_t nativeGreeterChatSend(int32_t stream, GreeterChatCGONativeBidiStreamRequest* input) {
+static int32_t nativeGreeterChatSend(int32_t stream) {
 	nativeChatSends++;
 	return 0;
 }
 
-static int32_t nativeGreeterChatRecv(int32_t stream, GreeterChatCGONativeBidiStreamResponse* output) {
+static int32_t nativeGreeterChatRecv(int32_t stream) {
 	nativeChatRecvs++;
 	return 0;
 }
@@ -779,7 +770,6 @@ import (
 	"unsafe"
 
 	v1 "example.com/messagedirect/test/v1"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	rpcruntime "rpccgo/rpcruntime"
 )
 
@@ -1330,15 +1320,15 @@ func TestNativeContractMismatch(t *testing.T) {
 
 type mismatchNativeServer struct{}
 
-func (mismatchNativeServer) Unary(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	return &emptypb.Empty{}, nil
+func (mismatchNativeServer) Unary(context.Context) error {
+	return nil
 }
 
 func (mismatchNativeServer) Upload(context.Context) (v1.GreeterUploadNativeClientStream, error) {
 	return mismatchNativeClientStream{}, nil
 }
 
-func (mismatchNativeServer) List(context.Context, *emptypb.Empty) (v1.GreeterListNativeServerStream, error) {
+func (mismatchNativeServer) List(context.Context) (v1.GreeterListNativeServerStream, error) {
 	return mismatchNativeServerStream{}, nil
 }
 
@@ -1348,24 +1338,24 @@ func (mismatchNativeServer) Chat(context.Context) (v1.GreeterChatNativeBidiStrea
 
 type mismatchNativeClientStream struct{}
 
-func (mismatchNativeClientStream) Send(context.Context, *emptypb.Empty) error { return nil }
-func (mismatchNativeClientStream) Finish(context.Context) (*emptypb.Empty, error) {
-	return &emptypb.Empty{}, nil
+func (mismatchNativeClientStream) Send(context.Context) error { return nil }
+func (mismatchNativeClientStream) Finish(context.Context) error {
+	return nil
 }
 func (mismatchNativeClientStream) Cancel(context.Context) error { return nil }
 
 type mismatchNativeServerStream struct{}
 
-func (mismatchNativeServerStream) Recv(context.Context) (*emptypb.Empty, error) {
-	return &emptypb.Empty{}, nil
+func (mismatchNativeServerStream) Recv(context.Context) error {
+	return nil
 }
 func (mismatchNativeServerStream) Cancel(context.Context) error { return nil }
 
 type mismatchNativeBidiStream struct{}
 
-func (mismatchNativeBidiStream) Send(context.Context, *emptypb.Empty) error { return nil }
-func (mismatchNativeBidiStream) Recv(context.Context) (*emptypb.Empty, error) {
-	return &emptypb.Empty{}, nil
+func (mismatchNativeBidiStream) Send(context.Context) error { return nil }
+func (mismatchNativeBidiStream) Recv(context.Context) error {
+	return nil
 }
 func (mismatchNativeBidiStream) CloseSend(context.Context) error { return nil }
 func (mismatchNativeBidiStream) Cancel(context.Context) error { return nil }

@@ -8,21 +8,22 @@ import (
 	"strings"
 
 	greeterv1 "example.com/rpccgo-full/proto"
+	rpcruntime "rpccgo/rpcruntime"
 )
 
 type Greeter struct{}
 
-func (Greeter) SayHello(_ context.Context, req *greeterv1.SayHelloRequest) (*greeterv1.SayHelloResponse, error) {
-	return &greeterv1.SayHelloResponse{Message: format(req.GetName(), req.GetCity())}, nil
+func (Greeter) SayHello(_ context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error) {
+	return format(name.SafeString(), city.SafeString()), nil
 }
 
 func (Greeter) Collect(_ context.Context) (greeterv1.GreeterCollectNativeClientStream, error) {
 	return &collectStream{}, nil
 }
 
-func (Greeter) Broadcast(_ context.Context, req *greeterv1.SayHelloRequest) (greeterv1.GreeterBroadcastNativeServerStream, error) {
+func (Greeter) Broadcast(_ context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (greeterv1.GreeterBroadcastNativeServerStream, error) {
 	return &broadcastStream{
-		name:      req.GetName(),
+		name:      name.SafeString(),
 		remaining: 2,
 	}, nil
 }
@@ -35,13 +36,13 @@ type collectStream struct {
 	names []string
 }
 
-func (s *collectStream) Send(_ context.Context, req *greeterv1.SayHelloRequest) error {
-	s.names = append(s.names, req.GetName())
+func (s *collectStream) Send(_ context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
+	s.names = append(s.names, name.SafeString())
 	return nil
 }
 
-func (s *collectStream) Finish(context.Context) (*greeterv1.SayHelloResponse, error) {
-	return &greeterv1.SayHelloResponse{Message: "collect:" + strings.Join(s.names, ",")}, nil
+func (s *collectStream) Finish(context.Context) (string, error) {
+	return "collect:" + strings.Join(s.names, ","), nil
 }
 
 func (*collectStream) Cancel(context.Context) error {
@@ -53,13 +54,13 @@ type broadcastStream struct {
 	remaining int
 }
 
-func (s *broadcastStream) Recv(context.Context) (*greeterv1.SayHelloResponse, error) {
+func (s *broadcastStream) Recv(context.Context) (string, error) {
 	if s.remaining == 0 {
-		return nil, io.EOF
+		return "", io.EOF
 	}
 	index := 2 - s.remaining
 	s.remaining--
-	return &greeterv1.SayHelloResponse{Message: fmt.Sprintf("broadcast[%d]:%s", index, s.name)}, nil
+	return fmt.Sprintf("broadcast[%d]:%s", index, s.name), nil
 }
 
 func (*broadcastStream) Cancel(context.Context) error {
@@ -68,27 +69,27 @@ func (*broadcastStream) Cancel(context.Context) error {
 
 type chatStream struct {
 	closed bool
-	queue  []*greeterv1.SayHelloRequest
+	queue  []string
 }
 
-func (s *chatStream) Send(_ context.Context, req *greeterv1.SayHelloRequest) error {
+func (s *chatStream) Send(_ context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
 	if s.closed {
 		return errors.New("chat send closed")
 	}
-	s.queue = append(s.queue, req)
+	s.queue = append(s.queue, name.SafeString())
 	return nil
 }
 
-func (s *chatStream) Recv(context.Context) (*greeterv1.SayHelloResponse, error) {
+func (s *chatStream) Recv(context.Context) (string, error) {
 	if len(s.queue) == 0 {
 		if s.closed {
-			return nil, io.EOF
+			return "", io.EOF
 		}
-		return nil, errors.New("chat receive before send")
+		return "", errors.New("chat receive before send")
 	}
-	req := s.queue[0]
+	name := s.queue[0]
 	s.queue = s.queue[1:]
-	return &greeterv1.SayHelloResponse{Message: "chat:" + req.GetName()}, nil
+	return "chat:" + name, nil
 }
 
 func (s *chatStream) CloseSend(context.Context) error {

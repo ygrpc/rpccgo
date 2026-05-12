@@ -157,8 +157,8 @@ type listGoServer struct {
 	stream *listGoStream
 }
 
-func (s *listGoServer) List(ctx context.Context, req *v1.ListRequest) (v1.GreeterListNativeServerStream, error) {
-	s.stream = &listGoStream{prefix: s.label + req.Prefix, limit: req.Limit}
+func (s *listGoServer) List(ctx context.Context, prefix *rpcruntime.RpcString, limit int32) (v1.GreeterListNativeServerStream, error) {
+	s.stream = &listGoStream{prefix: s.label + prefix.SafeString(), limit: limit}
 	return s.stream, nil
 }
 
@@ -169,12 +169,12 @@ type listGoStream struct {
 	canceled bool
 }
 
-func (s *listGoStream) Recv(ctx context.Context) (*v1.ListReply, error) {
+func (s *listGoStream) Recv(ctx context.Context) (int32, string, error) {
 	if s.index >= s.limit {
-		return nil, io.EOF
+		return 0, "", io.EOF
 	}
 	s.index++
-	return &v1.ListReply{Index: s.index, Name: s.prefix + ":" + string(rune('0'+s.index))}, nil
+	return s.index, s.prefix + ":" + string(rune('0'+s.index)), nil
 }
 
 func (s *listGoStream) Cancel(ctx context.Context) error {
@@ -442,21 +442,8 @@ const nativeServerStreamingCGOFixtureCallbackSource = `package main
 
 extern int32_t StoreGreeterCGONativeServerErrorTextForExport(char* text, int32_t textLen);
 
-typedef struct GreeterListCGONativeServerStreamRequest {
-uintptr_t PrefixPtr;
-int32_t PrefixLen;
-int32_t Limit;
-} GreeterListCGONativeServerStreamRequest;
-
-typedef struct GreeterListCGONativeServerStreamResponse {
-int32_t Index;
-uintptr_t NamePtr;
-int32_t NameLen;
-int32_t NameOwnership;
-} GreeterListCGONativeServerStreamResponse;
-
-typedef int32_t (*GreeterListCGONativeServerStreamStartCallback)(GreeterListCGONativeServerStreamRequest* input, int32_t* stream);
-typedef int32_t (*GreeterListCGONativeServerStreamRecvCallback)(int32_t stream, GreeterListCGONativeServerStreamResponse* output);
+typedef int32_t (*GreeterListCGONativeServerStreamStartCallback)(uintptr_t PrefixPtr, int32_t PrefixLen, int32_t PrefixOwnership, int32_t Limit, int32_t* stream);
+typedef int32_t (*GreeterListCGONativeServerStreamRecvCallback)(int32_t stream, int32_t* outIndex, uintptr_t* outNamePtr, int32_t* outNameLen, int32_t* outNameOwnership);
 typedef int32_t (*GreeterListCGONativeServerStreamDoneCallback)(int32_t stream);
 typedef int32_t (*GreeterListCGONativeServerStreamCancelCallback)(int32_t stream);
 
@@ -479,33 +466,33 @@ static int32_t greeterServerStreamError(const char* text) {
 	return StoreGreeterCGONativeServerErrorTextForExport((char*)text, (int32_t)strlen(text));
 }
 
-static int32_t greeterListStart(GreeterListCGONativeServerStreamRequest* input, int32_t* stream) {
+static int32_t greeterListStart(uintptr_t PrefixPtr, int32_t PrefixLen, int32_t PrefixOwnership, int32_t Limit, int32_t* stream) {
 	if (greeterServerStreamErrorMode == 1) {
 		return greeterServerStreamError("forced start error");
 	}
-	if (input == NULL || stream == NULL) {
+	if (stream == NULL) {
 		return greeterServerStreamError("server stream start missing input");
 	}
-	int32_t n = input->PrefixLen;
+	int32_t n = PrefixLen;
 	if (n < 0 || n >= 60) {
 		return greeterServerStreamError("server stream bad prefix");
 	}
-	memcpy(greeterServerStreamPrefix, (void*)input->PrefixPtr, (size_t)n);
+	memcpy(greeterServerStreamPrefix, (void*)PrefixPtr, (size_t)n);
 	greeterServerStreamPrefix[n] = 0;
 	greeterServerStreamID = 71;
 	greeterServerStreamIndex = 0;
-	greeterServerStreamLimit = input->Limit;
+	greeterServerStreamLimit = Limit;
 	greeterServerStreamCancels = 0;
 	greeterServerStreamDones = 0;
 	*stream = greeterServerStreamID;
 	return 0;
 }
 
-static int32_t greeterListRecv(int32_t stream, GreeterListCGONativeServerStreamResponse* output) {
+static int32_t greeterListRecv(int32_t stream, int32_t* outIndex, uintptr_t* outNamePtr, int32_t* outNameLen, int32_t* outNameOwnership) {
 	if (greeterServerStreamErrorMode == 2) {
 		return greeterServerStreamError("forced recv error");
 	}
-	if (stream != greeterServerStreamID || output == NULL) {
+	if (stream != greeterServerStreamID || outIndex == NULL || outNamePtr == NULL || outNameLen == NULL || outNameOwnership == NULL) {
 		return greeterServerStreamError("server stream recv did not reach cgo callback");
 	}
 	if (greeterServerStreamIndex >= greeterServerStreamLimit) {
@@ -519,10 +506,10 @@ static int32_t greeterListRecv(int32_t stream, GreeterListCGONativeServerStreamR
 		return greeterServerStreamError("name malloc failed");
 	}
 	memcpy(name, buf, (size_t)n);
-	output->Index = greeterServerStreamIndex;
-	output->NamePtr = (uintptr_t)name;
-	output->NameLen = n;
-	output->NameOwnership = 1;
+	*outIndex = greeterServerStreamIndex;
+	*outNamePtr = (uintptr_t)name;
+	*outNameLen = n;
+	*outNameOwnership = 1;
 	return 0;
 }
 

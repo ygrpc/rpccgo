@@ -10,19 +10,22 @@ import (
 
 func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) {
 	file := completeServicePlanTestFile()
-	plugin := newTestPlugin(t, "paths=source_relative", file)
+	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/complete_service_plan.proto", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	plans, err := Generate(plugin)
 	if err != nil {
-		t.Fatalf("GenerateWithOptions() error = %v", err)
+		t.Fatalf("Generate() error = %v", err)
+	}
+	if err := RenderNativeStageFiles(plugin, plans[0]); err != nil {
+		t.Fatalf("RenderNativeStageFiles() error = %v", err)
 	}
 
 	const nativeServerFile = "test/v1/complete_service_plan.all_service.server.native.rpccgo.go"
 	for _, fragment := range []string{
 		"type AllServiceNativeServer interface {",
-		"Unary(ctx context.Context, req *AllRequest) (*AllReply, error)",
+		"Unary(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (bool, []byte, error)",
 		"ClientStream(ctx context.Context) (AllServiceClientStreamNativeClientStream, error)",
-		"ServerStream(ctx context.Context, req *AllRequest) (AllServiceServerStreamNativeServerStream, error)",
+		"ServerStream(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (AllServiceServerStreamNativeServerStream, error)",
 		"BidiStream(ctx context.Context) (AllServiceBidiStreamNativeBidiStream, error)",
 		`allServiceNativeRequestBridgeNotImplemented`,
 		`allServiceNativeStreamBridgeNotImplemented`,
@@ -32,14 +35,13 @@ func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) 
 		`errors.New("rpccgo: native stream is nil")`,
 		"type allServiceGoNativeAdapter struct {",
 		"server AllServiceNativeServer",
-		"func (a *allServiceGoNativeAdapter) Unary(ctx context.Context, req *AllRequest) (*AllReply, error) {",
-		"return nil, allServiceNativeRequestBridgeNotImplemented",
-		"return a.server.Unary(ctx, req)",
+		"func (a *allServiceGoNativeAdapter) Unary(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (bool, []byte, error) {",
+		"return a.server.Unary(ctx, name, enabled, child)",
 		"func (a *allServiceGoNativeAdapter) StartClientStream(ctx context.Context) (AllServiceClientStreamNativeStreamSession, error) {",
 		"if stream == nil {",
 		"return nil, allServiceNativeStreamIsNil",
-		"func (a *allServiceGoNativeAdapter) StartServerStream(ctx context.Context, req *AllRequest) (AllServiceServerStreamNativeStreamSession, error) {",
-		"stream, err := a.server.ServerStream(ctx, req)",
+		"func (a *allServiceGoNativeAdapter) StartServerStream(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (AllServiceServerStreamNativeStreamSession, error) {",
+		"stream, err := a.server.ServerStream(ctx, name, enabled, child)",
 		"return &allServiceServerStreamGoNativeServerStreamSession{stream: stream}, nil",
 		"func (a *allServiceGoNativeAdapter) StartBidiStream(ctx context.Context) (AllServiceBidiStreamNativeStreamSession, error) {",
 		"stream, err := a.server.BidiStream(ctx)",
@@ -50,32 +52,42 @@ func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) 
 	} {
 		assertGeneratedContentContains(t, plugin, nativeServerFile, fragment)
 	}
-	assertGeneratedContentDoesNotContain(t, plugin, "ctx, nil")
+	assertGeneratedFileContentDoesNotContain(t, plugin, nativeServerFile,
+		"Unary(ctx context.Context, req *AllRequest)",
+		"(*AllReply, error)",
+		"StartServerStream(ctx context.Context, req *AllRequest)",
+		"Send(ctx context.Context, req *AllRequest) error",
+		"Recv(ctx context.Context) (*AllReply, error)",
+		"ctx, nil",
+	)
 	assertGeneratedContentDoesNotContain(t, plugin, "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf")
 }
 
 func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
 	file := completeServicePlanTestFile()
-	plugin := newTestPlugin(t, "paths=source_relative", file)
+	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/complete_service_plan.proto", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	plans, err := Generate(plugin)
 	if err != nil {
-		t.Fatalf("GenerateWithOptions() error = %v", err)
+		t.Fatalf("Generate() error = %v", err)
+	}
+	if err := RenderNativeStageFiles(plugin, plans[0]); err != nil {
+		t.Fatalf("RenderNativeStageFiles() error = %v", err)
 	}
 
 	const nativeServerFile = "test/v1/complete_service_plan.all_service.server.native.rpccgo.go"
 	for _, fragment := range []string{
 		"type AllServiceClientStreamNativeClientStream interface {",
-		"Send(ctx context.Context, req *AllRequest) error",
-		"Finish(ctx context.Context) (*AllReply, error)",
+		"Send(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) error",
+		"Finish(ctx context.Context) (bool, []byte, error)",
 		"Cancel(ctx context.Context) error",
-		"return s.stream.Send(ctx, req)",
+		"return s.stream.Send(ctx, name, enabled, child)",
 		"return s.stream.Finish(ctx)",
 		"if s.stream == nil {",
 		"return allServiceNativeStreamIsNil",
 		"return s.stream.Cancel(ctx)",
 		"type AllServiceServerStreamNativeServerStream interface {",
-		"Recv(ctx context.Context) (*AllReply, error)",
+		"Recv(ctx context.Context) (bool, []byte, error)",
 		"type allServiceServerStreamGoNativeServerStreamSession struct {",
 		"stream AllServiceServerStreamNativeServerStream",
 		"return s.stream.Recv(ctx)",
@@ -190,7 +202,7 @@ func TestRenderNativeServerRejectsGeneratedSymbolCollisions(t *testing.T) {
 
 func TestRenderNativeServerGeneratedSourceCompiles(t *testing.T) {
 	file := completeServicePlanTestFile()
-	plugin := newTestPlugin(t, "paths=source_relative", file)
+	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/complete_service_plan.proto", file)
 
 	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
 	if err != nil {

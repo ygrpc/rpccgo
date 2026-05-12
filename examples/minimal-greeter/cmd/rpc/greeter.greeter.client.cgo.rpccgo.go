@@ -38,47 +38,42 @@ func CallGreeterSayHelloNativeUnary(ctx context.Context, input *GreeterSayHelloN
 	if output == nil {
 		return int32(rpcruntime.StoreError(errors.New("rpccgo: native unary client output is nil")))
 	}
-	req, err := decodeGreeterSayHelloNativeUnaryRequest(input)
+	nameValue, err := decodeGreeterSayHelloNativeUnaryRequest(input)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
-	resp, err := v1.NewGreeterCGONativeClientBridge().SayHello(ctx, req)
+	messageResult, err := v1.NewGreeterCGONativeClientBridge().SayHello(ctx, nameValue)
+	if cleanupErr := errors.Join(nameValue.Release()); cleanupErr != nil {
+		err = errors.Join(err, cleanupErr)
+	}
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
-	if resp == nil {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: native unary server returned nil response")))
-	}
-	if err := encodeGreeterSayHelloNativeUnaryResponse(resp, output); err != nil {
+	if err := encodeGreeterSayHelloNativeUnaryResponse(messageResult, output); err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
 	return 0
 }
 
-func decodeGreeterSayHelloNativeUnaryRequest(input *GreeterSayHelloNativeUnaryInput) (*v1.SayHelloRequest, error) {
-	req := &v1.SayHelloRequest{}
+func decodeGreeterSayHelloNativeUnaryRequest(input *GreeterSayHelloNativeUnaryInput) (*rpcruntime.RpcString, error) {
 	if _, err := rpcruntime.LengthFromInt32(input.NameLen); err != nil {
 		return nil, fmt.Errorf("examples.minimal.greeter.v1.SayHelloRequest.name: %w", err)
 	}
-	var Name *rpcruntime.RpcString
+	var nameValue *rpcruntime.RpcString
 	if input.NamePtr == 0 || input.NameLen == 0 {
-		Name = rpcruntime.EmptyRpcString()
+		nameValue = rpcruntime.EmptyRpcString()
 	} else {
-		Name = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)
+		nameValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.NamePtr)), input.NameLen, input.NameOwnership > 0)
 	}
-	req.Name = Name.SafeString()
-	if err := Name.Release(); err != nil {
-		return nil, err
-	}
-	return req, nil
+	return nameValue, nil
 }
 
-func encodeGreeterSayHelloNativeUnaryResponse(resp *v1.SayHelloResponse, output *GreeterSayHelloNativeUnaryOutput) error {
-	MessageLen, err := rpcruntime.LengthToInt32(len(resp.Message))
+func encodeGreeterSayHelloNativeUnaryResponse(messageResult string, output *GreeterSayHelloNativeUnaryOutput) error {
+	MessageLen, err := rpcruntime.LengthToInt32(len(messageResult))
 	if err != nil {
 		return err
 	}
-	data, MessagePtr, err := rpcruntime.PinString(resp.Message)
+	data, MessagePtr, err := rpcruntime.PinString(messageResult)
 	_ = data
 	if err != nil {
 		return err

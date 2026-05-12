@@ -9,7 +9,7 @@ import (
 // rpccgo service runtime stage file for Greeter
 
 type GreeterNativeAdapter interface {
-	SayHello(ctx context.Context, req *SayHelloRequest) (*SayHelloResponse, error)
+	SayHello(ctx context.Context, name *rpcruntime.RpcString) (string, error)
 }
 
 type GreeterMessageAdapter interface {
@@ -43,8 +43,8 @@ func registerGreeterMessageActiveServer(kind rpcruntime.ServerKind, adapter Gree
 
 type GreeterCGONativeClientBridge struct{}
 
-func (GreeterCGONativeClientBridge) SayHello(ctx context.Context, req *SayHelloRequest) (*SayHelloResponse, error) {
-	var resp *SayHelloResponse
+func (GreeterCGONativeClientBridge) SayHello(ctx context.Context, name *rpcruntime.RpcString) (string, error) {
+	var messageResult string
 	err := greeterDispatcher.Invoke(ctx, func(ctx context.Context, snapshot rpcruntime.AdapterSnapshot[GreeterActiveAdapter]) error {
 		switch snapshot.Contract {
 		case rpcruntime.ServerContractNative:
@@ -52,13 +52,13 @@ func (GreeterCGONativeClientBridge) SayHello(ctx context.Context, req *SayHelloR
 				return greeterNativeContractMismatchErr
 			}
 			var callErr error
-			resp, callErr = snapshot.Adapter.Native.SayHello(ctx, req)
+			messageResult, callErr = snapshot.Adapter.Native.SayHello(ctx, name)
 			return callErr
 		case rpcruntime.ServerContractMessage:
 			if snapshot.Adapter.Message == nil {
 				return greeterNativeContractMismatchErr
 			}
-			messageReq, err := convertGreeterSayHelloNativeToMessageRequest(req)
+			messageReq, err := convertGreeterSayHelloNativeToMessageRequest(name)
 			if err != nil {
 				return err
 			}
@@ -66,20 +66,17 @@ func (GreeterCGONativeClientBridge) SayHello(ctx context.Context, req *SayHelloR
 			if err != nil {
 				return err
 			}
-			nativeResp, err := convertGreeterSayHelloMessageToNativeResponse(messageResp)
-			if err != nil {
-				return err
-			}
-			resp = nativeResp
-			return nil
+			var callErr error
+			messageResult, callErr = convertGreeterSayHelloMessageToNativeResponse(messageResp)
+			return callErr
 		default:
 			return greeterNativeContractMismatchErr
 		}
 	})
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return resp, nil
+	return messageResult, nil
 }
 
 func NewGreeterCGONativeClientBridge() GreeterCGONativeClientBridge {
@@ -107,15 +104,15 @@ func (GreeterCGOMessageClientBridge) SayHello(ctx context.Context, req []byte) (
 			if snapshot.Adapter.Native == nil {
 				return greeterMessageContractMismatchErr
 			}
-			nativeReq, err := convertGreeterSayHelloMessageToNativeRequest(req)
+			name, err := convertGreeterSayHelloMessageToNativeRequest(req)
 			if err != nil {
 				return err
 			}
-			nativeResp, err := snapshot.Adapter.Native.SayHello(ctx, nativeReq)
+			messageResult, err := snapshot.Adapter.Native.SayHello(ctx, name)
 			if err != nil {
 				return err
 			}
-			messageResp, err := convertGreeterSayHelloNativeToMessageResponse(nativeResp)
+			messageResp, err := convertGreeterSayHelloNativeToMessageResponse(messageResult)
 			if err != nil {
 				return err
 			}

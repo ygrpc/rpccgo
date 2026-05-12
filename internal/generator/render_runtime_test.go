@@ -29,26 +29,29 @@ func TestRenderRuntimeGlueImportsRPCRuntimeOnly(t *testing.T) {
 
 func TestRenderRuntimeGlueDefinesServiceDispatcherAndRegistration(t *testing.T) {
 	file := completeServicePlanTestFile()
-	plugin := newTestPlugin(t, "paths=source_relative", file)
+	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/complete_service_plan.proto", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	plans, err := Generate(plugin)
 	if err != nil {
-		t.Fatalf("GenerateWithOptions() error = %v", err)
+		t.Fatalf("Generate() error = %v", err)
+	}
+	if err := RenderNativeStageFiles(plugin, plans[0]); err != nil {
+		t.Fatalf("RenderNativeStageFiles() error = %v", err)
 	}
 
 	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"type AllServiceNativeAdapter interface {",
-		"Unary(ctx context.Context, req *AllRequest) (*AllReply, error)",
+		"Unary(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (bool, []byte, error)",
 		"StartClientStream(ctx context.Context) (AllServiceClientStreamNativeStreamSession, error)",
-		"StartServerStream(ctx context.Context, req *AllRequest) (AllServiceServerStreamNativeStreamSession, error)",
+		"StartServerStream(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (AllServiceServerStreamNativeStreamSession, error)",
 		"StartBidiStream(ctx context.Context) (AllServiceBidiStreamNativeStreamSession, error)",
 		"type AllServiceClientStreamNativeStreamSession interface {",
-		"Send(ctx context.Context, req *AllRequest) error",
-		"Finish(ctx context.Context) (*AllReply, error)",
+		"Send(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) error",
+		"Finish(ctx context.Context) (bool, []byte, error)",
 		"Cancel(ctx context.Context) error",
 		"type AllServiceServerStreamNativeStreamSession interface {",
-		"Recv(ctx context.Context) (*AllReply, error)",
+		"Recv(ctx context.Context) (bool, []byte, error)",
 		"type AllServiceBidiStreamNativeStreamSession interface {",
 		"CloseSend(ctx context.Context) error",
 		"type AllServiceActiveAdapter struct {",
@@ -58,10 +61,12 @@ func TestRenderRuntimeGlueDefinesServiceDispatcherAndRegistration(t *testing.T) 
 		"func registerAllServiceActiveServer(kind rpcruntime.ServerKind, adapter AllServiceNativeAdapter) (rpcruntime.AdapterSnapshot[AllServiceNativeAdapter], error) {",
 		"snapshot, err := allServiceDispatcher.Register(kind, rpcruntime.ServerContractNative, AllServiceActiveAdapter{Native: adapter})",
 		"type AllServiceCGONativeClientBridge struct{}",
-		"func (AllServiceCGONativeClientBridge) Unary(ctx context.Context, req *AllRequest) (*AllReply, error) {",
-		"if snapshot.Contract != rpcruntime.ServerContractNative || snapshot.Adapter.Native == nil {",
+		"func (AllServiceCGONativeClientBridge) Unary(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (bool, []byte, error) {",
+		"if snapshot.Adapter.Native == nil {",
 		"return allServiceNativeContractMismatchErr",
-		"resp, callErr = snapshot.Adapter.Native.Unary(ctx, req)",
+		"var acceptedResult bool",
+		"var payloadResult []byte",
+		"acceptedResult, payloadResult, callErr = snapshot.Adapter.Native.Unary(ctx, name, enabled, child)",
 		"func NewAllServiceCGONativeClientBridge() AllServiceCGONativeClientBridge {",
 		"func RegisterAllServiceCGONativeActiveServer(kind rpcruntime.ServerKind, adapter AllServiceNativeAdapter) (rpcruntime.AdapterSnapshot[AllServiceNativeAdapter], error) {",
 	} {
@@ -193,19 +198,19 @@ func TestRenderRuntimeStageFilesWrapsNativeStreamsForMessageClientCodec(t *testi
 		"return &allServiceClientStreamNativeToMessageStreamSession{native: nativeSession}, nil",
 		"type allServiceClientStreamNativeToMessageStreamSession struct {",
 		"native AllServiceClientStreamNativeStreamSession",
-		"nativeReq, err := convertAllServiceClientStreamMessageToNativeRequest(req)",
-		"return s.native.Send(ctx, nativeReq)",
-		"nativeResp, err := s.native.Finish(ctx)",
-		"return convertAllServiceClientStreamNativeToMessageResponse(nativeResp)",
-		"nativeReq, err := convertAllServiceServerStreamMessageToNativeRequest(req)",
-		"nativeSession, err := snapshot.Adapter.Native.StartServerStream(ctx, nativeReq)",
+		"name, enabled, child, err := convertAllServiceClientStreamMessageToNativeRequest(req)",
+		"return s.native.Send(ctx, name, enabled, child)",
+		"acceptedResult, payloadResult, err := s.native.Finish(ctx)",
+		"return convertAllServiceClientStreamNativeToMessageResponse(acceptedResult, payloadResult)",
+		"name, enabled, child, err := convertAllServiceServerStreamMessageToNativeRequest(req)",
+		"nativeSession, err := snapshot.Adapter.Native.StartServerStream(ctx, name, enabled, child)",
 		"return &allServiceServerStreamNativeToMessageStreamSession{native: nativeSession}, nil",
-		"nativeResp, err := s.native.Recv(ctx)",
-		"return convertAllServiceServerStreamNativeToMessageResponse(nativeResp)",
+		"acceptedResult, payloadResult, err := s.native.Recv(ctx)",
+		"return convertAllServiceServerStreamNativeToMessageResponse(acceptedResult, payloadResult)",
 		"nativeSession, err := snapshot.Adapter.Native.StartBidiStream(ctx)",
 		"return &allServiceBidiStreamNativeToMessageStreamSession{native: nativeSession}, nil",
-		"nativeReq, err := convertAllServiceBidiStreamMessageToNativeRequest(req)",
-		"return convertAllServiceBidiStreamNativeToMessageResponse(nativeResp)",
+		"name, enabled, child, err := convertAllServiceBidiStreamMessageToNativeRequest(req)",
+		"return convertAllServiceBidiStreamNativeToMessageResponse(acceptedResult, payloadResult)",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
@@ -226,11 +231,11 @@ func TestRenderRuntimeStageFilesWrapsMessageStreamsForNativeClientCodec(t *testi
 		"return &allServiceClientStreamMessageToNativeStreamSession{message: messageSession}, nil",
 		"type allServiceClientStreamMessageToNativeStreamSession struct {",
 		"message AllServiceClientStreamMessageStreamSession",
-		"messageReq, err := convertAllServiceClientStreamNativeToMessageRequest(req)",
+		"messageReq, err := convertAllServiceClientStreamNativeToMessageRequest(name, enabled, child)",
 		"return s.message.Send(ctx, messageReq)",
 		"messageResp, err := s.message.Finish(ctx)",
 		"return convertAllServiceClientStreamMessageToNativeResponse(messageResp)",
-		"messageReq, err := convertAllServiceServerStreamNativeToMessageRequest(req)",
+		"messageReq, err := convertAllServiceServerStreamNativeToMessageRequest(name, enabled, child)",
 		"messageSession, err := snapshot.Adapter.Message.StartServerStreamMessage(ctx, messageReq)",
 		"return &allServiceServerStreamMessageToNativeStreamSession{message: messageSession}, nil",
 		"messageResp, err := s.message.Recv(ctx)",
@@ -238,7 +243,7 @@ func TestRenderRuntimeStageFilesWrapsMessageStreamsForNativeClientCodec(t *testi
 		"return s.message.Done(ctx)",
 		"messageSession, err := snapshot.Adapter.Message.StartBidiStreamMessage(ctx)",
 		"return &allServiceBidiStreamMessageToNativeStreamSession{message: messageSession}, nil",
-		"messageReq, err := convertAllServiceBidiStreamNativeToMessageRequest(req)",
+		"messageReq, err := convertAllServiceBidiStreamNativeToMessageRequest(name, enabled, child)",
 		"return convertAllServiceBidiStreamMessageToNativeResponse(messageResp)",
 		"return s.message.CloseSend(ctx)",
 	} {
@@ -356,8 +361,7 @@ func TestRenderRuntimeGeneratedSourceCompilesWithImportedMessages(t *testing.T) 
 	tmp := t.TempDir()
 	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {
 		return strings.Contains(name, ".runtime.rpccgo.go") ||
-			strings.Contains(name, ".server.native.rpccgo.go") ||
-			strings.Contains(name, ".client.cgo.rpccgo.go")
+			strings.Contains(name, ".server.native.rpccgo.go")
 	})
 	target := filepath.Join(tmp, "common/v1/common_stubs.go")
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {

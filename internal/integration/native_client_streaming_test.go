@@ -167,18 +167,18 @@ type uploadGoStream struct {
 	canceled bool
 }
 
-func (s *uploadGoStream) Send(ctx context.Context, req *v1.UploadRequest) error {
-	s.names = append(s.names, req.Name)
-	s.payloads = append(s.payloads, string(req.Payload))
+func (s *uploadGoStream) Send(ctx context.Context, name *rpcruntime.RpcString, payload *rpcruntime.RpcBytes) error {
+	s.names = append(s.names, name.SafeString())
+	s.payloads = append(s.payloads, string(payload.SafeBytes()))
 	return nil
 }
 
-func (s *uploadGoStream) Finish(ctx context.Context) (*v1.UploadReply, error) {
+func (s *uploadGoStream) Finish(ctx context.Context) (int32, string, error) {
 	prefix := s.label
 	if prefix != "" {
 		prefix += ":"
 	}
-	return &v1.UploadReply{Count: int32(len(s.payloads)), Summary: prefix+strings.Join(s.names, ",")+":"+strings.Join(s.payloads, "|")}, nil
+	return int32(len(s.payloads)), prefix+strings.Join(s.names, ",")+":"+strings.Join(s.payloads, "|"), nil
 }
 
 func (s *uploadGoStream) Cancel(ctx context.Context) error {

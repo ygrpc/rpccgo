@@ -3,6 +3,7 @@ package generator
 import (
 	"fmt"
 	"path"
+	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
 )
@@ -78,18 +79,30 @@ func renderNativeUnaryClient(g *protogen.GeneratedFile, service ServicePlan, met
 	g.P("if output == nil {")
 	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native unary client output is nil")))`)
 	g.P("}")
-	g.P("req, err := ", nativeUnaryClientDecoderName(service, method), "(input)")
+	requestNames := nativeClientRequestValueNames(method.NativeContract.RequestFields)
+	responseNames := nativeClientResponseValueNames(method.NativeContract.ResponseFields)
+	if requestNames == "" {
+		g.P("if err := ", nativeUnaryClientDecoderName(service, method), "(input); err != nil {")
+		g.P("return int32(rpcruntime.StoreError(err))")
+		g.P("}")
+	} else {
+		g.P(requestNames, ", err := ", nativeUnaryClientDecoderName(service, method), "(input)")
+		g.P("if err != nil {")
+		g.P("return int32(rpcruntime.StoreError(err))")
+		g.P("}")
+	}
+	if responseNames == "" {
+		g.P("err := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().", method.GoName, "(ctx", nativeGoCallSuffix(requestNames), ")")
+	} else {
+		g.P(responseNames, ", err := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().", method.GoName, "(ctx", nativeGoCallSuffix(requestNames), ")")
+	}
+	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.NativeContract.RequestFields), "); cleanupErr != nil {")
+	g.P("err = errors.Join(err, cleanupErr)")
+	g.P("}")
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
-	g.P("resp, err := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().", method.GoName, "(ctx, req)")
-	g.P("if err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("if resp == nil {")
-	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native unary server returned nil response")))`)
-	g.P("}")
-	g.P("if err := ", nativeUnaryClientEncoderName(service, method), "(resp, output); err != nil {")
+	g.P("if err := ", nativeUnaryClientEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), "output); err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return 0")
@@ -137,11 +150,24 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, service Servic
 	g.P("if !ok {")
 	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
 	g.P("}")
-	g.P("req, err := ", nativeClientStreamingDecoderName(service, method), "(input)")
-	g.P("if err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
+	requestNames := nativeClientRequestValueNames(method.NativeContract.RequestFields)
+	responseNames := nativeClientResponseValueNames(method.NativeContract.ResponseFields)
+	g.P("var err error")
+	if requestNames == "" {
+		g.P("if err := ", nativeClientStreamingDecoderName(service, method), "(input); err != nil {")
+		g.P("return int32(rpcruntime.StoreError(err))")
+		g.P("}")
+	} else {
+		g.P(requestNames, ", err := ", nativeClientStreamingDecoderName(service, method), "(input)")
+		g.P("if err != nil {")
+		g.P("return int32(rpcruntime.StoreError(err))")
+		g.P("}")
+	}
+	g.P("err = session.Send(ctx", nativeGoCallSuffix(requestNames), ")")
+	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.NativeContract.RequestFields), "); cleanupErr != nil {")
+	g.P("err = errors.Join(err, cleanupErr)")
 	g.P("}")
-	g.P("if err := session.Send(ctx, req); err != nil {")
+	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return 0")
@@ -159,14 +185,15 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, service Servic
 	g.P("if !ok {")
 	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
 	g.P("}")
-	g.P("resp, err := session.Finish(ctx)")
+	if responseNames == "" {
+		g.P("err := session.Finish(ctx)")
+	} else {
+		g.P(responseNames, ", err := session.Finish(ctx)")
+	}
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
-	g.P("if resp == nil {")
-	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native client stream server returned nil response")))`)
-	g.P("}")
-	g.P("if err := ", nativeClientStreamingEncoderName(service, method), "(resp, output); err != nil {")
+	g.P("if err := ", nativeClientStreamingEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), "output); err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return 0")
@@ -213,11 +240,22 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, service Servic
 	g.P("if input == nil {")
 	g.P(`return 0, int32(rpcruntime.StoreError(errors.New("rpccgo: native server stream input is nil")))`)
 	g.P("}")
-	g.P("req, err := ", nativeServerStreamingDecoderName(service, method), "(input)")
-	g.P("if err != nil {")
-	g.P("return 0, int32(rpcruntime.StoreError(err))")
+	requestNames := nativeClientRequestValueNames(method.NativeContract.RequestFields)
+	g.P("var err error")
+	if requestNames == "" {
+		g.P("if err := ", nativeServerStreamingDecoderName(service, method), "(input); err != nil {")
+		g.P("return 0, int32(rpcruntime.StoreError(err))")
+		g.P("}")
+	} else {
+		g.P(requestNames, ", err := ", nativeServerStreamingDecoderName(service, method), "(input)")
+		g.P("if err != nil {")
+		g.P("return 0, int32(rpcruntime.StoreError(err))")
+		g.P("}")
+	}
+	g.P("handle, err := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Start", method.GoName, "(ctx", nativeGoCallSuffix(requestNames), ")")
+	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.NativeContract.RequestFields), "); cleanupErr != nil {")
+	g.P("err = errors.Join(err, cleanupErr)")
 	g.P("}")
-	g.P("handle, err := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Start", method.GoName, "(ctx, req)")
 	g.P("if err != nil {")
 	g.P("return 0, int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -236,14 +274,16 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, service Servic
 	g.P("if !ok {")
 	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
 	g.P("}")
-	g.P("resp, err := session.Recv(ctx)")
+	responseNames := nativeClientResponseValueNames(method.NativeContract.ResponseFields)
+	if responseNames == "" {
+		g.P("err := session.Recv(ctx)")
+	} else {
+		g.P(responseNames, ", err := session.Recv(ctx)")
+	}
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
-	g.P("if resp == nil {")
-	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native server stream server returned nil response")))`)
-	g.P("}")
-	g.P("if err := ", nativeServerStreamingEncoderName(service, method), "(resp, output); err != nil {")
+	g.P("if err := ", nativeServerStreamingEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), "output); err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return 0")
@@ -323,11 +363,24 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServiceP
 	g.P("if !ok {")
 	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
 	g.P("}")
-	g.P("req, err := ", nativeBidiStreamingDecoderName(service, method), "(input)")
-	g.P("if err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
+	requestNames := nativeClientRequestValueNames(method.NativeContract.RequestFields)
+	responseNames := nativeClientResponseValueNames(method.NativeContract.ResponseFields)
+	g.P("var err error")
+	if requestNames == "" {
+		g.P("if err := ", nativeBidiStreamingDecoderName(service, method), "(input); err != nil {")
+		g.P("return int32(rpcruntime.StoreError(err))")
+		g.P("}")
+	} else {
+		g.P(requestNames, ", err := ", nativeBidiStreamingDecoderName(service, method), "(input)")
+		g.P("if err != nil {")
+		g.P("return int32(rpcruntime.StoreError(err))")
+		g.P("}")
+	}
+	g.P("err = session.Send(ctx", nativeGoCallSuffix(requestNames), ")")
+	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.NativeContract.RequestFields), "); cleanupErr != nil {")
+	g.P("err = errors.Join(err, cleanupErr)")
 	g.P("}")
-	g.P("if err := session.Send(ctx, req); err != nil {")
+	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return 0")
@@ -345,14 +398,15 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServiceP
 	g.P("if !ok {")
 	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
 	g.P("}")
-	g.P("resp, err := session.Recv(ctx)")
+	if responseNames == "" {
+		g.P("err := session.Recv(ctx)")
+	} else {
+		g.P(responseNames, ", err := session.Recv(ctx)")
+	}
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
-	g.P("if resp == nil {")
-	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: native bidi stream server returned nil response")))`)
-	g.P("}")
-	g.P("if err := ", nativeBidiStreamingEncoderName(service, method), "(resp, output); err != nil {")
+	g.P("if err := ", nativeBidiStreamingEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), "output); err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return 0")
@@ -421,7 +475,7 @@ func renderNativeClientFields(g *protogen.GeneratedFile, fields []FieldPlan, out
 			if !output {
 				g.P(field.GoName, "Ownership int32")
 			}
-		case NativeABIShapeScalar:
+		case NativeABIShapeScalar, NativeABIShapeMessageBytes:
 			renderNativeScalarField(g, field, output)
 		default:
 			g.P(field.GoName, " uintptr")
@@ -439,7 +493,7 @@ func renderNativeScalarField(g *protogen.GeneratedFile, field FieldPlan, output 
 		g.P(field.GoName, " float32")
 	case FieldKindDouble:
 		g.P(field.GoName, " float64")
-	case FieldKindString, FieldKindBytes:
+	case FieldKindString, FieldKindBytes, FieldKindMessage:
 		if output {
 			g.P(field.GoName, "Ptr uintptr")
 			g.P(field.GoName, "Len int32")
@@ -454,286 +508,210 @@ func renderNativeScalarField(g *protogen.GeneratedFile, field FieldPlan, output 
 }
 
 func renderNativeUnaryRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, inputName, unsupportedError string) {
-	g.P("func ", nativeUnaryClientDecoderName(service, method), "(input *", inputName, ") (", nativeGoMessageType(g, method.Request), ", error) {")
-	g.P("req := &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Request.GoName, GoImportPath: protogen.GoImportPath(method.Request.GoImportPath)}), "{}")
-	for _, field := range method.NativeContract.RequestFields {
-		renderNativeRequestFieldDecode(g, field, unsupportedError)
-	}
-	g.P("return req, nil")
-	g.P("}")
-	g.P()
+	renderNativeClientRequestDecoder(g, nativeUnaryClientDecoderName(service, method), inputName, method.NativeContract.RequestFields, unsupportedError)
 }
 
 func renderNativeClientStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, inputName, unsupportedError string) {
-	g.P("func ", nativeClientStreamingDecoderName(service, method), "(input *", inputName, ") (", nativeGoMessageType(g, method.Request), ", error) {")
-	g.P("req := &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Request.GoName, GoImportPath: protogen.GoImportPath(method.Request.GoImportPath)}), "{}")
-	for _, field := range method.NativeContract.RequestFields {
-		renderNativeRequestFieldDecode(g, field, unsupportedError)
-	}
-	g.P("return req, nil")
-	g.P("}")
-	g.P()
+	renderNativeClientRequestDecoder(g, nativeClientStreamingDecoderName(service, method), inputName, method.NativeContract.RequestFields, unsupportedError)
 }
 
 func renderNativeServerStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, inputName, unsupportedError string) {
-	g.P("func ", nativeServerStreamingDecoderName(service, method), "(input *", inputName, ") (", nativeGoMessageType(g, method.Request), ", error) {")
-	g.P("req := &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Request.GoName, GoImportPath: protogen.GoImportPath(method.Request.GoImportPath)}), "{}")
-	for _, field := range method.NativeContract.RequestFields {
-		renderNativeRequestFieldDecode(g, field, unsupportedError)
-	}
-	g.P("return req, nil")
-	g.P("}")
-	g.P()
+	renderNativeClientRequestDecoder(g, nativeServerStreamingDecoderName(service, method), inputName, method.NativeContract.RequestFields, unsupportedError)
 }
 
 func renderNativeBidiStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, inputName, unsupportedError string) {
-	g.P("func ", nativeBidiStreamingDecoderName(service, method), "(input *", inputName, ") (", nativeGoMessageType(g, method.Request), ", error) {")
-	g.P("req := &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Request.GoName, GoImportPath: protogen.GoImportPath(method.Request.GoImportPath)}), "{}")
-	for _, field := range method.NativeContract.RequestFields {
-		renderNativeRequestFieldDecode(g, field, unsupportedError)
+	renderNativeClientRequestDecoder(g, nativeBidiStreamingDecoderName(service, method), inputName, method.NativeContract.RequestFields, unsupportedError)
+}
+
+func renderNativeClientRequestDecoder(g *protogen.GeneratedFile, name, inputName string, fields []FieldPlan, unsupportedError string) {
+	returns := nativeGoRequestReturns(g, fields)
+	g.P("func ", name, "(input *", inputName, ") (", returns, ") {")
+	for _, field := range fields {
+		renderNativeRequestFieldDecode(g, fields, field, unsupportedError)
 	}
-	g.P("return req, nil")
+	argNames := nativeClientRequestValueNames(fields)
+	if argNames == "" {
+		g.P("return nil")
+	} else {
+		g.P("return ", argNames, ", nil")
+	}
 	g.P("}")
 	g.P()
 }
 
-func renderNativeRequestFieldDecode(g *protogen.GeneratedFile, field FieldPlan, unsupportedError string) {
+func renderNativeRequestFieldDecode(g *protogen.GeneratedFile, fields []FieldPlan, field FieldPlan, unsupportedError string) {
+	name := nativeClientValueName(field)
+	errReturn := func(errExpr string) string { return nativeClientZeroReturns(fields, errExpr) }
 	switch field.Native.Shape {
 	case NativeABIShapeBoolByte:
-		g.P("req.", field.GoName, " = input.", field.GoName, " != 0")
+		g.P(name, " := input.", field.GoName, " != 0")
 	case NativeABIShapeBoolByteBufferWrapper:
-		g.P("if _, err := rpcruntime.LengthFromInt32(input.", field.GoName, "Len); err != nil {")
-		g.P(`return nil, fmt.Errorf("`, field.FullName, `: %w", err)`)
-		g.P("}")
-		g.P("var ", field.GoName, " *rpcruntime.RpcBoolRepeat")
-		g.P("if input.", field.GoName, "Ptr == 0 || input.", field.GoName, "Len == 0 {")
-		g.P(field.GoName, " = rpcruntime.EmptyRpcBoolRepeat()")
-		g.P("} else {")
-		g.P("var decodeErr error")
-		g.P(field.GoName, ", decodeErr = rpcruntime.NewRpcBoolRepeatChecked((*byte)(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
-		g.P("if decodeErr != nil {")
-		g.P(`return nil, fmt.Errorf("`, field.FullName, `: %w", decodeErr)`)
-		g.P("}")
-		g.P("}")
-		g.P("req.", field.GoName, " = ", field.GoName, ".SafeSlice()")
-		g.P("if err := ", field.GoName, ".Release(); err != nil {")
-		g.P("return nil, err")
-		g.P("}")
+		renderNativeClientRepeatedDecode(g, fields, field, name, "byte", "rpcruntime.RpcBoolRepeat", "rpcruntime.EmptyRpcBoolRepeat()", "rpcruntime.NewRpcBoolRepeatChecked", errReturn)
 	case NativeABIShapeRepeated:
-		g.P("if _, err := rpcruntime.LengthFromInt32(input.", field.GoName, "Len); err != nil {")
-		g.P(`return nil, fmt.Errorf("`, field.FullName, `: %w", err)`)
-		g.P("}")
 		switch field.Kind {
 		case FieldKindSignedInt32:
-			g.P("var ", field.GoName, " *rpcruntime.RpcRepeat[int32]")
-			g.P("if input.", field.GoName, "Ptr == 0 || input.", field.GoName, "Len == 0 {")
-			g.P(field.GoName, " = rpcruntime.EmptyRpcRepeat[int32]()")
-			g.P("} else {")
-			g.P("var decodeErr error")
-			g.P(field.GoName, ", decodeErr = rpcruntime.NewRpcRepeatChecked((*int32)(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
-			g.P("if decodeErr != nil {")
-			g.P(`return nil, fmt.Errorf("`, field.FullName, `: %w", decodeErr)`)
-			g.P("}")
-			g.P("}")
-			g.P("req.", field.GoName, " = ", field.GoName, ".SafeSlice()")
-			g.P("if err := ", field.GoName, ".Release(); err != nil {")
-			g.P("return nil, err")
-			g.P("}")
+			renderNativeClientRepeatedDecode(g, fields, field, name, "int32", "rpcruntime.RpcRepeat[int32]", "rpcruntime.EmptyRpcRepeat[int32]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
 		case FieldKindSignedInt64:
-			g.P("var ", field.GoName, " *rpcruntime.RpcRepeat[int64]")
-			g.P("if input.", field.GoName, "Ptr == 0 || input.", field.GoName, "Len == 0 {")
-			g.P(field.GoName, " = rpcruntime.EmptyRpcRepeat[int64]()")
-			g.P("} else {")
-			g.P("var decodeErr error")
-			g.P(field.GoName, ", decodeErr = rpcruntime.NewRpcRepeatChecked((*int64)(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
-			g.P("if decodeErr != nil {")
-			g.P(`return nil, fmt.Errorf("`, field.FullName, `: %w", decodeErr)`)
-			g.P("}")
-			g.P("}")
-			g.P("req.", field.GoName, " = ", field.GoName, ".SafeSlice()")
-			g.P("if err := ", field.GoName, ".Release(); err != nil {")
-			g.P("return nil, err")
-			g.P("}")
+			renderNativeClientRepeatedDecode(g, fields, field, name, "int64", "rpcruntime.RpcRepeat[int64]", "rpcruntime.EmptyRpcRepeat[int64]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
 		case FieldKindFloat:
-			g.P("var ", field.GoName, " *rpcruntime.RpcRepeat[float32]")
-			g.P("if input.", field.GoName, "Ptr == 0 || input.", field.GoName, "Len == 0 {")
-			g.P(field.GoName, " = rpcruntime.EmptyRpcRepeat[float32]()")
-			g.P("} else {")
-			g.P("var decodeErr error")
-			g.P(field.GoName, ", decodeErr = rpcruntime.NewRpcRepeatChecked((*float32)(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
-			g.P("if decodeErr != nil {")
-			g.P(`return nil, fmt.Errorf("`, field.FullName, `: %w", decodeErr)`)
-			g.P("}")
-			g.P("}")
-			g.P("req.", field.GoName, " = ", field.GoName, ".SafeSlice()")
-			g.P("if err := ", field.GoName, ".Release(); err != nil {")
-			g.P("return nil, err")
-			g.P("}")
+			renderNativeClientRepeatedDecode(g, fields, field, name, "float32", "rpcruntime.RpcRepeat[float32]", "rpcruntime.EmptyRpcRepeat[float32]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
 		case FieldKindDouble:
-			g.P("var ", field.GoName, " *rpcruntime.RpcRepeat[float64]")
-			g.P("if input.", field.GoName, "Ptr == 0 || input.", field.GoName, "Len == 0 {")
-			g.P(field.GoName, " = rpcruntime.EmptyRpcRepeat[float64]()")
-			g.P("} else {")
-			g.P("var decodeErr error")
-			g.P(field.GoName, ", decodeErr = rpcruntime.NewRpcRepeatChecked((*float64)(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
-			g.P("if decodeErr != nil {")
-			g.P(`return nil, fmt.Errorf("`, field.FullName, `: %w", decodeErr)`)
-			g.P("}")
-			g.P("}")
-			g.P("req.", field.GoName, " = ", field.GoName, ".SafeSlice()")
-			g.P("if err := ", field.GoName, ".Release(); err != nil {")
-			g.P("return nil, err")
-			g.P("}")
+			renderNativeClientRepeatedDecode(g, fields, field, name, "float64", "rpcruntime.RpcRepeat[float64]", "rpcruntime.EmptyRpcRepeat[float64]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
 		case FieldKindEnum:
-			g.P("var ", field.GoName, " *rpcruntime.RpcRepeat[int32]")
-			g.P("if input.", field.GoName, "Ptr == 0 || input.", field.GoName, "Len == 0 {")
-			g.P(field.GoName, " = rpcruntime.EmptyRpcRepeat[int32]()")
-			g.P("} else {")
-			g.P("var decodeErr error")
-			g.P(field.GoName, ", decodeErr = rpcruntime.NewRpcRepeatChecked((*int32)(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
-			g.P("if decodeErr != nil {")
-			g.P(`return nil, fmt.Errorf("`, field.FullName, `: %w", decodeErr)`)
-			g.P("}")
-			g.P("}")
-			g.P(field.GoName, "Raw := ", field.GoName, ".SafeSlice()")
-			g.P("req.", field.GoName, " = make([]", nativeGoEnumType(g, field), ", len(", field.GoName, "Raw))")
-			g.P("for i := range ", field.GoName, "Raw {")
-			g.P("req.", field.GoName, "[i] = ", nativeGoEnumType(g, field), "(", field.GoName, "Raw[i])")
-			g.P("}")
-			g.P("if err := ", field.GoName, ".Release(); err != nil {")
-			g.P("return nil, err")
-			g.P("}")
+			renderNativeClientRepeatedDecode(g, fields, field, name, "int32", "rpcruntime.RpcRepeat[int32]", "rpcruntime.EmptyRpcRepeat[int32]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
 		default:
-			g.P("return nil, ", unsupportedError)
+			g.P("return ", errReturn(unsupportedError))
 		}
-	case NativeABIShapeScalar:
+	case NativeABIShapeScalar, NativeABIShapeMessageBytes:
 		switch field.Kind {
 		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble:
-			g.P("req.", field.GoName, " = input.", field.GoName)
+			g.P(name, " := input.", field.GoName)
 		case FieldKindEnum:
-			g.P("req.", field.GoName, " = ", nativeGoEnumType(g, field), "(input.", field.GoName, ")")
+			g.P(name, " := ", nativeGoEnumType(g, field), "(input.", field.GoName, ")")
 		case FieldKindString:
-			g.P("if _, err := rpcruntime.LengthFromInt32(input.", field.GoName, "Len); err != nil {")
-			g.P(`return nil, fmt.Errorf("`, field.FullName, `: %w", err)`)
-			g.P("}")
-			g.P("var ", field.GoName, " *rpcruntime.RpcString")
-			g.P("if input.", field.GoName, "Ptr == 0 || input.", field.GoName, "Len == 0 {")
-			g.P(field.GoName, " = rpcruntime.EmptyRpcString()")
-			g.P("} else {")
-			g.P(field.GoName, " = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
-			g.P("}")
-			g.P("req.", field.GoName, " = ", field.GoName, ".SafeString()")
-			g.P("if err := ", field.GoName, ".Release(); err != nil {")
-			g.P("return nil, err")
-			g.P("}")
-		case FieldKindBytes:
-			g.P("if _, err := rpcruntime.LengthFromInt32(input.", field.GoName, "Len); err != nil {")
-			g.P(`return nil, fmt.Errorf("`, field.FullName, `: %w", err)`)
-			g.P("}")
-			g.P("var ", field.GoName, " *rpcruntime.RpcBytes")
-			g.P("if input.", field.GoName, "Ptr == 0 || input.", field.GoName, "Len == 0 {")
-			g.P(field.GoName, " = rpcruntime.EmptyRpcBytes()")
-			g.P("} else {")
-			g.P(field.GoName, " = rpcruntime.NewRpcBytes((*byte)(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
-			g.P("}")
-			g.P("req.", field.GoName, " = ", field.GoName, ".SafeBytes()")
-			g.P("if err := ", field.GoName, ".Release(); err != nil {")
-			g.P("return nil, err")
-			g.P("}")
+			renderNativeClientStringDecode(g, fields, field, name, errReturn)
+		case FieldKindBytes, FieldKindMessage:
+			renderNativeClientBytesDecode(g, fields, field, name, errReturn)
 		default:
-			g.P("return nil, ", unsupportedError)
+			g.P("return ", errReturn(unsupportedError))
 		}
-	default:
-		g.P("return nil, ", unsupportedError)
 	}
+}
+
+func nativeGoRequestReturns(g *protogen.GeneratedFile, fields []FieldPlan) string {
+	returns := make([]string, 0, len(fields)+1)
+	for _, field := range fields {
+		returns = append(returns, nativeGoRequestFieldType(g, field))
+	}
+	returns = append(returns, "error")
+	return strings.Join(returns, ", ")
+}
+
+func nativeClientValueName(field FieldPlan) string {
+	return lowerInitial(field.GoName) + "Value"
+}
+
+func nativeClientResponseValueName(field FieldPlan) string {
+	return lowerInitial(field.GoName) + "Result"
+}
+
+func nativeClientRequestValueNames(fields []FieldPlan) string {
+	names := make([]string, 0, len(fields))
+	for _, field := range fields {
+		names = append(names, nativeClientValueName(field))
+	}
+	return strings.Join(names, ", ")
+}
+
+func nativeClientResponseValueNames(fields []FieldPlan) string {
+	names := make([]string, 0, len(fields))
+	for _, field := range fields {
+		names = append(names, nativeClientResponseValueName(field))
+	}
+	return strings.Join(names, ", ")
+}
+
+func nativeClientZeroReturns(fields []FieldPlan, errExpr string) string {
+	values := make([]string, 0, len(fields)+1)
+	for _, field := range fields {
+		values = append(values, nativeGoRequestZeroValue(field))
+	}
+	values = append(values, errExpr)
+	return strings.Join(values, ", ")
+}
+
+func nativeClientRequestCleanupError(fields []FieldPlan) string {
+	parts := make([]string, 0, len(fields))
+	for _, field := range fields {
+		if !nativeClientFieldNeedsRequestRelease(field) {
+			continue
+		}
+		parts = append(parts, nativeClientValueName(field)+".Release()")
+	}
+	return strings.Join(parts, ", ")
+}
+
+func nativeClientFieldNeedsRequestRelease(field FieldPlan) bool {
+	switch field.Native.Shape {
+	case NativeABIShapeBoolByteBufferWrapper, NativeABIShapeRepeated:
+		return true
+	case NativeABIShapeScalar, NativeABIShapeMessageBytes:
+		return field.Kind == FieldKindString || field.Kind == FieldKindBytes || field.Kind == FieldKindMessage
+	default:
+		return false
+	}
+}
+
+func nativeGoRequestZeroValue(field FieldPlan) string {
+	if field.Repeated || field.Kind == FieldKindString || field.Kind == FieldKindBytes || field.Kind == FieldKindMessage {
+		return "nil"
+	}
+	return nativeGoZeroValue(field)
+}
+
+func renderNativeClientRepeatedDecode(g *protogen.GeneratedFile, fields []FieldPlan, field FieldPlan, name, elemType, wrapperType, emptyExpr, ctor string, errReturn func(string) string) {
+	g.P("if _, err := rpcruntime.LengthFromInt32(input.", field.GoName, "Len); err != nil {")
+	g.P(`return `, errReturn(`fmt.Errorf("`+field.FullName+`: %w", err)`))
+	g.P("}")
+	g.P("var ", name, " *", wrapperType)
+	g.P("if input.", field.GoName, "Ptr == 0 || input.", field.GoName, "Len == 0 {")
+	g.P(name, " = ", emptyExpr)
+	g.P("} else {")
+	g.P("var decodeErr error")
+	g.P(name, ", decodeErr = ", ctor, "((*", elemType, ")(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
+	g.P("if decodeErr != nil {")
+	g.P(`return `, errReturn(`fmt.Errorf("`+field.FullName+`: %w", decodeErr)`))
+	g.P("}")
+	g.P("}")
+}
+
+func renderNativeClientStringDecode(g *protogen.GeneratedFile, fields []FieldPlan, field FieldPlan, name string, errReturn func(string) string) {
+	g.P("if _, err := rpcruntime.LengthFromInt32(input.", field.GoName, "Len); err != nil {")
+	g.P(`return `, errReturn(`fmt.Errorf("`+field.FullName+`: %w", err)`))
+	g.P("}")
+	g.P("var ", name, " *rpcruntime.RpcString")
+	g.P("if input.", field.GoName, "Ptr == 0 || input.", field.GoName, "Len == 0 {")
+	g.P(name, " = rpcruntime.EmptyRpcString()")
+	g.P("} else {")
+	g.P(name, " = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
+	g.P("}")
+}
+
+func renderNativeClientBytesDecode(g *protogen.GeneratedFile, fields []FieldPlan, field FieldPlan, name string, errReturn func(string) string) {
+	g.P("if _, err := rpcruntime.LengthFromInt32(input.", field.GoName, "Len); err != nil {")
+	g.P(`return `, errReturn(`fmt.Errorf("`+field.FullName+`: %w", err)`))
+	g.P("}")
+	g.P("var ", name, " *rpcruntime.RpcBytes")
+	g.P("if input.", field.GoName, "Ptr == 0 || input.", field.GoName, "Len == 0 {")
+	g.P(name, " = rpcruntime.EmptyRpcBytes()")
+	g.P("} else {")
+	g.P(name, " = rpcruntime.NewRpcBytes((*byte)(unsafe.Pointer(input.", field.GoName, "Ptr)), input.", field.GoName, "Len, input.", field.GoName, "Ownership > 0)")
+	g.P("}")
 }
 
 func renderNativeUnaryResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, outputName, unsupportedError string) {
-	g.P("func ", nativeUnaryClientEncoderName(service, method), "(resp ", nativeGoMessageType(g, method.Response), ", output *", outputName, ") error {")
-	for _, field := range method.NativeContract.ResponseFields {
-		renderNativeResponseFieldValidate(g, field, unsupportedError)
-	}
-	var pinned []FieldPlan
-	for _, field := range method.NativeContract.ResponseFields {
-		renderNativeResponseFieldStage(g, field, pinned)
-		if nativeClientFieldPinsOutput(field) {
-			pinned = append(pinned, field)
-		}
-	}
-	for _, field := range method.NativeContract.ResponseFields {
-		renderNativeResponseFieldCommit(g, field)
-	}
-	g.P("return nil")
-	g.P("}")
-	g.P()
+	renderNativeClientResponseEncoder(g, nativeUnaryClientEncoderName(service, method), outputName, method.NativeContract.ResponseFields, unsupportedError)
 }
 
 func renderNativeClientStreamingResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, outputName, unsupportedError string) {
-	g.P("func ", nativeClientStreamingEncoderName(service, method), "(resp ", nativeGoMessageType(g, method.Response), ", output *", outputName, ") error {")
-	for _, field := range method.NativeContract.ResponseFields {
-		renderNativeResponseFieldValidate(g, field, unsupportedError)
-	}
-	var pinned []FieldPlan
-	for _, field := range method.NativeContract.ResponseFields {
-		renderNativeResponseFieldStage(g, field, pinned)
-		if nativeClientFieldPinsOutput(field) {
-			pinned = append(pinned, field)
-		}
-	}
-	for _, field := range method.NativeContract.ResponseFields {
-		renderNativeResponseFieldCommit(g, field)
-	}
-	g.P("return nil")
-	g.P("}")
-	g.P()
+	renderNativeClientResponseEncoder(g, nativeClientStreamingEncoderName(service, method), outputName, method.NativeContract.ResponseFields, unsupportedError)
 }
 
 func renderNativeServerStreamingResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, outputName, unsupportedError string) {
-	g.P("func ", nativeServerStreamingEncoderName(service, method), "(resp ", nativeGoMessageType(g, method.Response), ", output *", outputName, ") error {")
-	for _, field := range method.NativeContract.ResponseFields {
-		renderNativeResponseFieldValidate(g, field, unsupportedError)
-	}
-	var pinned []FieldPlan
-	for _, field := range method.NativeContract.ResponseFields {
-		renderNativeResponseFieldStage(g, field, pinned)
-		if nativeClientFieldPinsOutput(field) {
-			pinned = append(pinned, field)
-		}
-	}
-	for _, field := range method.NativeContract.ResponseFields {
-		renderNativeResponseFieldCommit(g, field)
-	}
-	g.P("return nil")
-	g.P("}")
-	g.P()
+	renderNativeClientResponseEncoder(g, nativeServerStreamingEncoderName(service, method), outputName, method.NativeContract.ResponseFields, unsupportedError)
 }
 
 func renderNativeBidiStreamingResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, outputName, unsupportedError string) {
-	g.P("func ", nativeBidiStreamingEncoderName(service, method), "(resp ", nativeGoMessageType(g, method.Response), ", output *", outputName, ") error {")
-	for _, field := range method.NativeContract.ResponseFields {
-		renderNativeResponseFieldValidate(g, field, unsupportedError)
-	}
-	var pinned []FieldPlan
-	for _, field := range method.NativeContract.ResponseFields {
-		renderNativeResponseFieldStage(g, field, pinned)
-		if nativeClientFieldPinsOutput(field) {
-			pinned = append(pinned, field)
-		}
-	}
-	for _, field := range method.NativeContract.ResponseFields {
-		renderNativeResponseFieldCommit(g, field)
-	}
-	g.P("return nil")
-	g.P("}")
-	g.P()
+	renderNativeClientResponseEncoder(g, nativeBidiStreamingEncoderName(service, method), outputName, method.NativeContract.ResponseFields, unsupportedError)
 }
 
 func renderNativeResponseFieldValidate(g *protogen.GeneratedFile, field FieldPlan, unsupportedError string) {
+	name := nativeClientResponseValueName(field)
 	switch field.Native.Shape {
 	case NativeABIShapeBoolByte:
 		return
 	case NativeABIShapeBoolByteBufferWrapper:
-		g.P(field.GoName, "Len, err := rpcruntime.LengthToInt32(len(resp.", field.GoName, "))")
+		g.P(field.GoName, "Len, err := rpcruntime.LengthToInt32(len(", name, "))")
 		g.P("if err != nil {")
 		g.P("return err")
 		g.P("}")
@@ -741,18 +719,18 @@ func renderNativeResponseFieldValidate(g *protogen.GeneratedFile, field FieldPla
 	case NativeABIShapeRepeated:
 		switch field.Kind {
 		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble, FieldKindEnum:
-			g.P(field.GoName, "Len, err := rpcruntime.LengthToInt32(len(resp.", field.GoName, "))")
+			g.P(field.GoName, "Len, err := rpcruntime.LengthToInt32(len(", name, "))")
 			g.P("if err != nil {")
 			g.P("return err")
 			g.P("}")
 			return
 		}
-	case NativeABIShapeScalar:
+	case NativeABIShapeScalar, NativeABIShapeMessageBytes:
 		switch field.Kind {
 		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble, FieldKindEnum:
 			return
-		case FieldKindString, FieldKindBytes:
-			g.P(field.GoName, "Len, err := rpcruntime.LengthToInt32(len(resp.", field.GoName, "))")
+		case FieldKindString, FieldKindBytes, FieldKindMessage:
+			g.P(field.GoName, "Len, err := rpcruntime.LengthToInt32(len(", name, "))")
 			g.P("if err != nil {")
 			g.P("return err")
 			g.P("}")
@@ -763,20 +741,21 @@ func renderNativeResponseFieldValidate(g *protogen.GeneratedFile, field FieldPla
 }
 
 func renderNativeResponseFieldStage(g *protogen.GeneratedFile, field FieldPlan, pinned []FieldPlan) {
+	name := nativeClientResponseValueName(field)
 	switch field.Native.Shape {
 	case NativeABIShapeBoolByte:
-		g.P("var ", field.GoName, "Value int8")
-		g.P("if resp.", field.GoName, " {")
-		g.P(field.GoName, "Value = 1")
+		g.P("var ", name, "Value int8")
+		g.P("if ", name, " {")
+		g.P(name, "Value = 1")
 		g.P("}")
 	case NativeABIShapeBoolByteBufferWrapper:
-		g.P(field.GoName, "Bytes := make([]byte, len(resp.", field.GoName, "))")
-		g.P("for i := range resp.", field.GoName, " {")
-		g.P("if resp.", field.GoName, "[i] {")
-		g.P(field.GoName, "Bytes[i] = 1")
+		g.P(name, "Bytes := make([]byte, len(", name, "))")
+		g.P("for i := range ", name, " {")
+		g.P("if ", name, "[i] {")
+		g.P(name, "Bytes[i] = 1")
 		g.P("}")
 		g.P("}")
-		g.P(field.GoName, "Ptr, err := rpcruntime.PinBytes(", field.GoName, "Bytes)")
+		g.P(field.GoName, "Ptr, err := rpcruntime.PinBytes(", name, "Bytes)")
 		g.P("if err != nil {")
 		renderReleasePinnedOutputFields(g, pinned)
 		g.P("return err")
@@ -785,40 +764,40 @@ func renderNativeResponseFieldStage(g *protogen.GeneratedFile, field FieldPlan, 
 	case NativeABIShapeRepeated:
 		switch field.Kind {
 		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble:
-			g.P(field.GoName, "Ptr, err := rpcruntime.PinSlice(resp.", field.GoName, ")")
+			g.P(field.GoName, "Ptr, err := rpcruntime.PinSlice(", name, ")")
 			g.P("if err != nil {")
 			renderReleasePinnedOutputFields(g, pinned)
 			g.P("return err")
 			g.P("}")
 			g.P("_ = ", field.GoName, "Ptr")
 		case FieldKindEnum:
-			g.P(field.GoName, "Values := make([]int32, len(resp.", field.GoName, "))")
-			g.P("for i := range resp.", field.GoName, " {")
-			g.P(field.GoName, "Values[i] = int32(resp.", field.GoName, "[i])")
+			g.P(name, "Values := make([]int32, len(", name, "))")
+			g.P("for i := range ", name, " {")
+			g.P(name, "Values[i] = int32(", name, "[i])")
 			g.P("}")
-			g.P(field.GoName, "Ptr, err := rpcruntime.PinSlice(", field.GoName, "Values)")
+			g.P(field.GoName, "Ptr, err := rpcruntime.PinSlice(", name, "Values)")
 			g.P("if err != nil {")
 			renderReleasePinnedOutputFields(g, pinned)
 			g.P("return err")
 			g.P("}")
 			g.P("_ = ", field.GoName, "Ptr")
 		}
-	case NativeABIShapeScalar:
+	case NativeABIShapeScalar, NativeABIShapeMessageBytes:
 		switch field.Kind {
 		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble:
-			g.P(field.GoName, "Value := resp.", field.GoName)
+			g.P(name, "Value := ", name)
 		case FieldKindEnum:
-			g.P(field.GoName, "Value := int32(resp.", field.GoName, ")")
+			g.P(name, "Value := int32(", name, ")")
 		case FieldKindString:
-			g.P("data, ", field.GoName, "Ptr, err := rpcruntime.PinString(resp.", field.GoName, ")")
+			g.P("data, ", field.GoName, "Ptr, err := rpcruntime.PinString(", name, ")")
 			g.P("_ = data")
 			g.P("if err != nil {")
 			renderReleasePinnedOutputFields(g, pinned)
 			g.P("return err")
 			g.P("}")
 			g.P("_ = ", field.GoName, "Ptr")
-		case FieldKindBytes:
-			g.P(field.GoName, "Ptr, err := rpcruntime.PinBytes(resp.", field.GoName, ")")
+		case FieldKindBytes, FieldKindMessage:
+			g.P(field.GoName, "Ptr, err := rpcruntime.PinBytes(", name, ")")
 			g.P("if err != nil {")
 			renderReleasePinnedOutputFields(g, pinned)
 			g.P("return err")
@@ -834,18 +813,57 @@ func renderReleasePinnedOutputFields(g *protogen.GeneratedFile, fields []FieldPl
 	}
 }
 
+func renderNativeClientResponseEncoder(g *protogen.GeneratedFile, name, outputName string, fields []FieldPlan, unsupportedError string) {
+	g.P("func ", name, "(", nativeGoRequestArgsForResponse(g, fields), "output *", outputName, ") error {")
+	for _, field := range fields {
+		renderNativeResponseFieldValidate(g, field, unsupportedError)
+	}
+	var pinned []FieldPlan
+	for _, field := range fields {
+		renderNativeResponseFieldStage(g, field, pinned)
+		if nativeClientFieldPinsOutput(field) {
+			pinned = append(pinned, field)
+		}
+	}
+	for _, field := range fields {
+		renderNativeResponseFieldCommit(g, field)
+	}
+	g.P("return nil")
+	g.P("}")
+	g.P()
+}
+
+func nativeGoRequestArgsForResponse(g *protogen.GeneratedFile, fields []FieldPlan) string {
+	if len(fields) == 0 {
+		return ""
+	}
+	parts := make([]string, 0, len(fields))
+	for _, field := range fields {
+		parts = append(parts, nativeClientResponseValueName(field)+" "+nativeGoResponseFieldType(g, field))
+	}
+	return strings.Join(parts, ", ") + ", "
+}
+
+func nativeClientEncoderCallArgs(args string) string {
+	if args == "" {
+		return ""
+	}
+	return args + ", "
+}
+
 func renderNativeResponseFieldCommit(g *protogen.GeneratedFile, field FieldPlan) {
+	name := nativeClientResponseValueName(field)
 	switch field.Native.Shape {
 	case NativeABIShapeBoolByte:
-		g.P("output.", field.GoName, " = ", field.GoName, "Value")
+		g.P("output.", field.GoName, " = ", name, "Value")
 	case NativeABIShapeBoolByteBufferWrapper, NativeABIShapeRepeated:
 		g.P("output.", field.GoName, "Ptr = ", field.GoName, "Ptr")
 		g.P("output.", field.GoName, "Len = ", field.GoName, "Len")
-	case NativeABIShapeScalar:
+	case NativeABIShapeScalar, NativeABIShapeMessageBytes:
 		switch field.Kind {
 		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble, FieldKindEnum:
-			g.P("output.", field.GoName, " = ", field.GoName, "Value")
-		case FieldKindString, FieldKindBytes:
+			g.P("output.", field.GoName, " = ", name, "Value")
+		case FieldKindString, FieldKindBytes, FieldKindMessage:
 			g.P("output.", field.GoName, "Ptr = ", field.GoName, "Ptr")
 			g.P("output.", field.GoName, "Len = ", field.GoName, "Len")
 		}
@@ -1037,7 +1055,7 @@ func nativeClientFieldPinsOutput(field FieldPlan) bool {
 }
 
 func nativeClientInputFieldSymbols(field FieldPlan) []string {
-	if field.Native.Shape == NativeABIShapeScalar && (field.Kind == FieldKindString || field.Kind == FieldKindBytes) {
+	if field.Native.Shape == NativeABIShapeScalar && (field.Kind == FieldKindString || field.Kind == FieldKindBytes || field.Kind == FieldKindMessage) {
 		return []string{field.GoName + "Ptr", field.GoName + "Len", field.GoName + "Ownership"}
 	}
 	if field.Native.Shape == NativeABIShapeRepeated || field.Native.Shape == NativeABIShapeBoolByteBufferWrapper {

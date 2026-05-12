@@ -7,73 +7,21 @@ import (
 /*
 #include <stdint.h>
 
-typedef struct GreeterSayHelloCGONativeUnaryRequest {
-uintptr_t NamePtr;
-int32_t NameLen;
-uintptr_t CityPtr;
-int32_t CityLen;
-} GreeterSayHelloCGONativeUnaryRequest;
-
-typedef struct GreeterSayHelloCGONativeUnaryResponse {
-uintptr_t MessagePtr;
-int32_t MessageLen;
-int32_t MessageOwnership;
-} GreeterSayHelloCGONativeUnaryResponse;
-
-typedef int32_t (*GreeterSayHelloCGONativeUnaryCallback)(GreeterSayHelloCGONativeUnaryRequest* input, GreeterSayHelloCGONativeUnaryResponse* output);
-
-typedef struct GreeterCollectCGONativeClientStreamRequest {
-uintptr_t NamePtr;
-int32_t NameLen;
-uintptr_t CityPtr;
-int32_t CityLen;
-} GreeterCollectCGONativeClientStreamRequest;
-
-typedef struct GreeterCollectCGONativeClientStreamResponse {
-uintptr_t MessagePtr;
-int32_t MessageLen;
-int32_t MessageOwnership;
-} GreeterCollectCGONativeClientStreamResponse;
+typedef int32_t (*GreeterSayHelloCGONativeUnaryCallback)(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t CityPtr, int32_t CityLen, int32_t CityOwnership, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership);
 
 typedef int32_t (*GreeterCollectCGONativeClientStreamStartCallback)(int32_t* stream);
-typedef int32_t (*GreeterCollectCGONativeClientStreamSendCallback)(int32_t stream, GreeterCollectCGONativeClientStreamRequest* input);
-typedef int32_t (*GreeterCollectCGONativeClientStreamFinishCallback)(int32_t stream, GreeterCollectCGONativeClientStreamResponse* output);
+typedef int32_t (*GreeterCollectCGONativeClientStreamSendCallback)(int32_t stream, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t CityPtr, int32_t CityLen, int32_t CityOwnership);
+typedef int32_t (*GreeterCollectCGONativeClientStreamFinishCallback)(int32_t stream, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership);
 typedef int32_t (*GreeterCollectCGONativeClientStreamCancelCallback)(int32_t stream);
 
-typedef struct GreeterBroadcastCGONativeServerStreamRequest {
-uintptr_t NamePtr;
-int32_t NameLen;
-uintptr_t CityPtr;
-int32_t CityLen;
-} GreeterBroadcastCGONativeServerStreamRequest;
-
-typedef struct GreeterBroadcastCGONativeServerStreamResponse {
-uintptr_t MessagePtr;
-int32_t MessageLen;
-int32_t MessageOwnership;
-} GreeterBroadcastCGONativeServerStreamResponse;
-
-typedef int32_t (*GreeterBroadcastCGONativeServerStreamStartCallback)(GreeterBroadcastCGONativeServerStreamRequest* input, int32_t* stream);
-typedef int32_t (*GreeterBroadcastCGONativeServerStreamRecvCallback)(int32_t stream, GreeterBroadcastCGONativeServerStreamResponse* output);
+typedef int32_t (*GreeterBroadcastCGONativeServerStreamStartCallback)(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t CityPtr, int32_t CityLen, int32_t CityOwnership, int32_t *outStream);
+typedef int32_t (*GreeterBroadcastCGONativeServerStreamRecvCallback)(int32_t stream, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership);
 typedef int32_t (*GreeterBroadcastCGONativeServerStreamDoneCallback)(int32_t stream);
 typedef int32_t (*GreeterBroadcastCGONativeServerStreamCancelCallback)(int32_t stream);
 
-typedef struct GreeterChatCGONativeBidiStreamRequest {
-uintptr_t NamePtr;
-int32_t NameLen;
-uintptr_t CityPtr;
-int32_t CityLen;
-} GreeterChatCGONativeBidiStreamRequest;
-
-typedef struct GreeterChatCGONativeBidiStreamResponse {
-uintptr_t MessagePtr;
-int32_t MessageLen;
-int32_t MessageOwnership;
-} GreeterChatCGONativeBidiStreamResponse;
-
 typedef int32_t (*GreeterChatCGONativeBidiStreamStartCallback)(int32_t* stream);
-typedef int32_t (*GreeterChatCGONativeBidiStreamSendCallback)(int32_t stream, GreeterChatCGONativeBidiStreamRequest* input);
-typedef int32_t (*GreeterChatCGONativeBidiStreamRecvCallback)(int32_t stream, GreeterChatCGONativeBidiStreamResponse* output);
+typedef int32_t (*GreeterChatCGONativeBidiStreamSendCallback)(int32_t stream, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t CityPtr, int32_t CityLen, int32_t CityOwnership);
+typedef int32_t (*GreeterChatCGONativeBidiStreamRecvCallback)(int32_t stream, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership);
 typedef int32_t (*GreeterChatCGONativeBidiStreamCloseSendCallback)(int32_t stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamDoneCallback)(int32_t stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamCancelCallback)(int32_t stream);
@@ -96,32 +44,32 @@ GreeterChatCGONativeBidiStreamDoneCallback ChatDone;
 GreeterChatCGONativeBidiStreamCancelCallback ChatCancel;
 } GreeterCGONativeServerCallbacks;
 
-static inline int32_t callGreeterSayHelloCGONativeUnaryCallback(GreeterSayHelloCGONativeUnaryCallback callback, GreeterSayHelloCGONativeUnaryRequest* input, GreeterSayHelloCGONativeUnaryResponse* output) {
-	return callback(input, output);
+static inline int32_t callGreeterSayHelloCGONativeUnaryCallback(GreeterSayHelloCGONativeUnaryCallback callback, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t CityPtr, int32_t CityLen, int32_t CityOwnership, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership) {
+	return callback(NamePtr, NameLen, NameOwnership, CityPtr, CityLen, CityOwnership, outMessagePtr, outMessageLen, outMessageOwnership);
 }
 
 static inline int32_t callGreeterCollectCGONativeClientStreamStartCallback(GreeterCollectCGONativeClientStreamStartCallback callback, int32_t* stream) {
 	return callback(stream);
 }
 
-static inline int32_t callGreeterCollectCGONativeClientStreamSendCallback(GreeterCollectCGONativeClientStreamSendCallback callback, int32_t stream, GreeterCollectCGONativeClientStreamRequest* input) {
-	return callback(stream, input);
+static inline int32_t callGreeterCollectCGONativeClientStreamSendCallback(GreeterCollectCGONativeClientStreamSendCallback callback, int32_t stream, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t CityPtr, int32_t CityLen, int32_t CityOwnership) {
+	return callback(stream, NamePtr, NameLen, NameOwnership, CityPtr, CityLen, CityOwnership);
 }
 
-static inline int32_t callGreeterCollectCGONativeClientStreamFinishCallback(GreeterCollectCGONativeClientStreamFinishCallback callback, int32_t stream, GreeterCollectCGONativeClientStreamResponse* output) {
-	return callback(stream, output);
+static inline int32_t callGreeterCollectCGONativeClientStreamFinishCallback(GreeterCollectCGONativeClientStreamFinishCallback callback, int32_t stream, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership) {
+	return callback(stream, outMessagePtr, outMessageLen, outMessageOwnership);
 }
 
 static inline int32_t callGreeterCollectCGONativeClientStreamCancelCallback(GreeterCollectCGONativeClientStreamCancelCallback callback, int32_t stream) {
 	return callback(stream);
 }
 
-static inline int32_t callGreeterBroadcastCGONativeServerStreamStartCallback(GreeterBroadcastCGONativeServerStreamStartCallback callback, GreeterBroadcastCGONativeServerStreamRequest* input, int32_t* stream) {
-	return callback(input, stream);
+static inline int32_t callGreeterBroadcastCGONativeServerStreamStartCallback(GreeterBroadcastCGONativeServerStreamStartCallback callback, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t CityPtr, int32_t CityLen, int32_t CityOwnership, int32_t* stream) {
+	return callback(NamePtr, NameLen, NameOwnership, CityPtr, CityLen, CityOwnership, stream);
 }
 
-static inline int32_t callGreeterBroadcastCGONativeServerStreamRecvCallback(GreeterBroadcastCGONativeServerStreamRecvCallback callback, int32_t stream, GreeterBroadcastCGONativeServerStreamResponse* output) {
-	return callback(stream, output);
+static inline int32_t callGreeterBroadcastCGONativeServerStreamRecvCallback(GreeterBroadcastCGONativeServerStreamRecvCallback callback, int32_t stream, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership) {
+	return callback(stream, outMessagePtr, outMessageLen, outMessageOwnership);
 }
 
 static inline int32_t callGreeterBroadcastCGONativeServerStreamDoneCallback(GreeterBroadcastCGONativeServerStreamDoneCallback callback, int32_t stream) {
@@ -136,12 +84,12 @@ static inline int32_t callGreeterChatCGONativeBidiStreamStartCallback(GreeterCha
 	return callback(stream);
 }
 
-static inline int32_t callGreeterChatCGONativeBidiStreamSendCallback(GreeterChatCGONativeBidiStreamSendCallback callback, int32_t stream, GreeterChatCGONativeBidiStreamRequest* input) {
-	return callback(stream, input);
+static inline int32_t callGreeterChatCGONativeBidiStreamSendCallback(GreeterChatCGONativeBidiStreamSendCallback callback, int32_t stream, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t CityPtr, int32_t CityLen, int32_t CityOwnership) {
+	return callback(stream, NamePtr, NameLen, NameOwnership, CityPtr, CityLen, CityOwnership);
 }
 
-static inline int32_t callGreeterChatCGONativeBidiStreamRecvCallback(GreeterChatCGONativeBidiStreamRecvCallback callback, int32_t stream, GreeterChatCGONativeBidiStreamResponse* output) {
-	return callback(stream, output);
+static inline int32_t callGreeterChatCGONativeBidiStreamRecvCallback(GreeterChatCGONativeBidiStreamRecvCallback callback, int32_t stream, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership) {
+	return callback(stream, outMessagePtr, outMessageLen, outMessageOwnership);
 }
 
 static inline int32_t callGreeterChatCGONativeBidiStreamCloseSendCallback(GreeterChatCGONativeBidiStreamCloseSendCallback callback, int32_t stream) {
@@ -169,6 +117,66 @@ import (
 
 // rpccgo native stage file for Greeter cgo native server
 
+type GreeterSayHelloCGONativeUnaryRequest struct {
+	NamePtr       C.uintptr_t
+	NameLen       C.int32_t
+	NameOwnership C.int32_t
+	CityPtr       C.uintptr_t
+	CityLen       C.int32_t
+	CityOwnership C.int32_t
+}
+
+type GreeterSayHelloCGONativeUnaryResponse struct {
+	MessagePtr       C.uintptr_t
+	MessageLen       C.int32_t
+	MessageOwnership C.int32_t
+}
+
+type GreeterCollectCGONativeClientStreamRequest struct {
+	NamePtr       C.uintptr_t
+	NameLen       C.int32_t
+	NameOwnership C.int32_t
+	CityPtr       C.uintptr_t
+	CityLen       C.int32_t
+	CityOwnership C.int32_t
+}
+
+type GreeterCollectCGONativeClientStreamResponse struct {
+	MessagePtr       C.uintptr_t
+	MessageLen       C.int32_t
+	MessageOwnership C.int32_t
+}
+
+type GreeterBroadcastCGONativeServerStreamRequest struct {
+	NamePtr       C.uintptr_t
+	NameLen       C.int32_t
+	NameOwnership C.int32_t
+	CityPtr       C.uintptr_t
+	CityLen       C.int32_t
+	CityOwnership C.int32_t
+}
+
+type GreeterBroadcastCGONativeServerStreamResponse struct {
+	MessagePtr       C.uintptr_t
+	MessageLen       C.int32_t
+	MessageOwnership C.int32_t
+}
+
+type GreeterChatCGONativeBidiStreamRequest struct {
+	NamePtr       C.uintptr_t
+	NameLen       C.int32_t
+	NameOwnership C.int32_t
+	CityPtr       C.uintptr_t
+	CityLen       C.int32_t
+	CityOwnership C.int32_t
+}
+
+type GreeterChatCGONativeBidiStreamResponse struct {
+	MessagePtr       C.uintptr_t
+	MessageLen       C.int32_t
+	MessageOwnership C.int32_t
+}
+
 var (
 	greeterCGONativeServerCallbacksNil         = errors.New("rpccgo: Greeter cgo native server callbacks are nil")
 	greeterCGONativeServerUnaryCallbackMissing = errors.New("rpccgo: Greeter cgo native server unary callback is missing")
@@ -180,41 +188,42 @@ type greeterCGONativeAdapter struct {
 	callbacks C.GreeterCGONativeServerCallbacks
 }
 
-func (a *greeterCGONativeAdapter) SayHello(ctx context.Context, req *proto.SayHelloRequest) (*proto.SayHelloResponse, error) {
+func (a *greeterCGONativeAdapter) SayHello(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error) {
 	if a == nil {
-		return nil, greeterCGONativeServerCallbacksNil
+		return "", greeterCGONativeServerCallbacksNil
 	}
 	callback := a.callbacks.SayHello
 	if callback == nil {
-		return nil, greeterCGONativeServerUnaryCallbackMissing
+		return "", greeterCGONativeServerUnaryCallbackMissing
 	}
-	input, cleanup, err := encodeGreeterSayHelloCGONativeUnaryRequest(req)
+	input, cleanup, err := encodeGreeterSayHelloCGONativeUnaryRequest(name, city)
+	_ = input
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	defer cleanup()
-	output := &C.GreeterSayHelloCGONativeUnaryResponse{}
-	errID := int32(C.callGreeterSayHelloCGONativeUnaryCallback(callback, input, output))
+	output := &GreeterSayHelloCGONativeUnaryResponse{}
+	errID := int32(C.callGreeterSayHelloCGONativeUnaryCallback(callback, input.NamePtr, input.NameLen, input.NameOwnership, input.CityPtr, input.CityLen, input.CityOwnership, &output.MessagePtr, &output.MessageLen, &output.MessageOwnership))
 	if errID != 0 {
 		cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(output)
 		callbackErr := greeterCGONativeServerErrorFromID(errID)
 		if cleanupErr != nil {
-			return nil, errors.Join(callbackErr, cleanupErr)
+			return "", errors.Join(callbackErr, cleanupErr)
 		}
-		return nil, callbackErr
+		return "", callbackErr
 	}
-	resp, err := decodeGreeterSayHelloCGONativeUnaryResponse(output)
+	messageResult, err := decodeGreeterSayHelloCGONativeUnaryResponse(output)
 	cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(output)
 	if cleanupErr != nil {
 		if err != nil {
-			return nil, errors.Join(err, cleanupErr)
+			return "", errors.Join(err, cleanupErr)
 		}
-		return nil, cleanupErr
+		return "", cleanupErr
 	}
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return resp, nil
+	return messageResult, nil
 }
 
 func (a *greeterCGONativeAdapter) StartCollect(ctx context.Context) (proto.GreeterCollectNativeStreamSession, error) {
@@ -237,42 +246,43 @@ type greeterCollectCGONativeClientStreamSession struct {
 	stream    C.int32_t
 }
 
-func (s *greeterCollectCGONativeClientStreamSession) Send(ctx context.Context, req *proto.SayHelloRequest) error {
-	input, cleanup, err := encodeGreeterCollectCGONativeClientStreamRequest(req)
+func (s *greeterCollectCGONativeClientStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
+	input, cleanup, err := encodeGreeterCollectCGONativeClientStreamRequest(name, city)
+	_ = input
 	if err != nil {
 		return err
 	}
 	defer cleanup()
-	errID := int32(C.callGreeterCollectCGONativeClientStreamSendCallback(s.callbacks.CollectSend, s.stream, input))
+	errID := int32(C.callGreeterCollectCGONativeClientStreamSendCallback(s.callbacks.CollectSend, s.stream, input.NamePtr, input.NameLen, input.NameOwnership, input.CityPtr, input.CityLen, input.CityOwnership))
 	if errID != 0 {
 		return greeterCGONativeServerErrorFromID(errID)
 	}
 	return nil
 }
 
-func (s *greeterCollectCGONativeClientStreamSession) Finish(ctx context.Context) (*proto.SayHelloResponse, error) {
-	output := &C.GreeterCollectCGONativeClientStreamResponse{}
-	errID := int32(C.callGreeterCollectCGONativeClientStreamFinishCallback(s.callbacks.CollectFinish, s.stream, output))
+func (s *greeterCollectCGONativeClientStreamSession) Finish(ctx context.Context) (string, error) {
+	output := &GreeterCollectCGONativeClientStreamResponse{}
+	errID := int32(C.callGreeterCollectCGONativeClientStreamFinishCallback(s.callbacks.CollectFinish, s.stream, &output.MessagePtr, &output.MessageLen, &output.MessageOwnership))
 	if errID != 0 {
 		cleanupErr := cleanupGreeterCollectCGONativeClientStreamResponse(output)
 		callbackErr := greeterCGONativeServerErrorFromID(errID)
 		if cleanupErr != nil {
-			return nil, errors.Join(callbackErr, cleanupErr)
+			return "", errors.Join(callbackErr, cleanupErr)
 		}
-		return nil, callbackErr
+		return "", callbackErr
 	}
-	resp, err := decodeGreeterCollectCGONativeClientStreamResponse(output)
+	messageResult, err := decodeGreeterCollectCGONativeClientStreamResponse(output)
 	cleanupErr := cleanupGreeterCollectCGONativeClientStreamResponse(output)
 	if cleanupErr != nil {
 		if err != nil {
-			return nil, errors.Join(err, cleanupErr)
+			return "", errors.Join(err, cleanupErr)
 		}
-		return nil, cleanupErr
+		return "", cleanupErr
 	}
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return resp, nil
+	return messageResult, nil
 }
 
 func (s *greeterCollectCGONativeClientStreamSession) Cancel(ctx context.Context) error {
@@ -283,20 +293,21 @@ func (s *greeterCollectCGONativeClientStreamSession) Cancel(ctx context.Context)
 	return nil
 }
 
-func (a *greeterCGONativeAdapter) StartBroadcast(ctx context.Context, req *proto.SayHelloRequest) (proto.GreeterBroadcastNativeStreamSession, error) {
+func (a *greeterCGONativeAdapter) StartBroadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (proto.GreeterBroadcastNativeStreamSession, error) {
 	if a == nil {
 		return nil, greeterCGONativeServerCallbacksNil
 	}
 	if a.callbacks.BroadcastStart == nil || a.callbacks.BroadcastRecv == nil || a.callbacks.BroadcastDone == nil || a.callbacks.BroadcastCancel == nil {
 		return nil, greeterCGONativeServerStreamNotImplemented
 	}
-	input, cleanup, err := encodeGreeterBroadcastCGONativeServerStreamRequest(req)
+	input, cleanup, err := encodeGreeterBroadcastCGONativeServerStreamRequest(name, city)
+	_ = input
 	if err != nil {
 		return nil, err
 	}
 	defer cleanup()
 	var stream C.int32_t
-	errID := int32(C.callGreeterBroadcastCGONativeServerStreamStartCallback(a.callbacks.BroadcastStart, input, &stream))
+	errID := int32(C.callGreeterBroadcastCGONativeServerStreamStartCallback(a.callbacks.BroadcastStart, input.NamePtr, input.NameLen, input.NameOwnership, input.CityPtr, input.CityLen, input.CityOwnership, &stream))
 	if errID != 0 {
 		return nil, greeterCGONativeServerErrorFromID(errID)
 	}
@@ -308,29 +319,29 @@ type greeterBroadcastCGONativeServerStreamSession struct {
 	stream    C.int32_t
 }
 
-func (s *greeterBroadcastCGONativeServerStreamSession) Recv(ctx context.Context) (*proto.SayHelloResponse, error) {
-	output := &C.GreeterBroadcastCGONativeServerStreamResponse{}
-	errID := int32(C.callGreeterBroadcastCGONativeServerStreamRecvCallback(s.callbacks.BroadcastRecv, s.stream, output))
+func (s *greeterBroadcastCGONativeServerStreamSession) Recv(ctx context.Context) (string, error) {
+	output := &GreeterBroadcastCGONativeServerStreamResponse{}
+	errID := int32(C.callGreeterBroadcastCGONativeServerStreamRecvCallback(s.callbacks.BroadcastRecv, s.stream, &output.MessagePtr, &output.MessageLen, &output.MessageOwnership))
 	if errID != 0 {
 		cleanupErr := cleanupGreeterBroadcastCGONativeServerStreamResponse(output)
 		callbackErr := greeterCGONativeServerErrorFromID(errID)
 		if cleanupErr != nil {
-			return nil, errors.Join(callbackErr, cleanupErr)
+			return "", errors.Join(callbackErr, cleanupErr)
 		}
-		return nil, callbackErr
+		return "", callbackErr
 	}
-	resp, err := decodeGreeterBroadcastCGONativeServerStreamResponse(output)
+	messageResult, err := decodeGreeterBroadcastCGONativeServerStreamResponse(output)
 	cleanupErr := cleanupGreeterBroadcastCGONativeServerStreamResponse(output)
 	if cleanupErr != nil {
 		if err != nil {
-			return nil, errors.Join(err, cleanupErr)
+			return "", errors.Join(err, cleanupErr)
 		}
-		return nil, cleanupErr
+		return "", cleanupErr
 	}
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return resp, nil
+	return messageResult, nil
 }
 
 func (s *greeterBroadcastCGONativeServerStreamSession) Done(ctx context.Context) error {
@@ -369,42 +380,43 @@ type greeterChatCGONativeBidiStreamSession struct {
 	stream    C.int32_t
 }
 
-func (s *greeterChatCGONativeBidiStreamSession) Send(ctx context.Context, req *proto.SayHelloRequest) error {
-	input, cleanup, err := encodeGreeterChatCGONativeBidiStreamRequest(req)
+func (s *greeterChatCGONativeBidiStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
+	input, cleanup, err := encodeGreeterChatCGONativeBidiStreamRequest(name, city)
+	_ = input
 	if err != nil {
 		return err
 	}
 	defer cleanup()
-	errID := int32(C.callGreeterChatCGONativeBidiStreamSendCallback(s.callbacks.ChatSend, s.stream, input))
+	errID := int32(C.callGreeterChatCGONativeBidiStreamSendCallback(s.callbacks.ChatSend, s.stream, input.NamePtr, input.NameLen, input.NameOwnership, input.CityPtr, input.CityLen, input.CityOwnership))
 	if errID != 0 {
 		return greeterCGONativeServerErrorFromID(errID)
 	}
 	return nil
 }
 
-func (s *greeterChatCGONativeBidiStreamSession) Recv(ctx context.Context) (*proto.SayHelloResponse, error) {
-	output := &C.GreeterChatCGONativeBidiStreamResponse{}
-	errID := int32(C.callGreeterChatCGONativeBidiStreamRecvCallback(s.callbacks.ChatRecv, s.stream, output))
+func (s *greeterChatCGONativeBidiStreamSession) Recv(ctx context.Context) (string, error) {
+	output := &GreeterChatCGONativeBidiStreamResponse{}
+	errID := int32(C.callGreeterChatCGONativeBidiStreamRecvCallback(s.callbacks.ChatRecv, s.stream, &output.MessagePtr, &output.MessageLen, &output.MessageOwnership))
 	if errID != 0 {
 		cleanupErr := cleanupGreeterChatCGONativeBidiStreamResponse(output)
 		callbackErr := greeterCGONativeServerErrorFromID(errID)
 		if cleanupErr != nil {
-			return nil, errors.Join(callbackErr, cleanupErr)
+			return "", errors.Join(callbackErr, cleanupErr)
 		}
-		return nil, callbackErr
+		return "", callbackErr
 	}
-	resp, err := decodeGreeterChatCGONativeBidiStreamResponse(output)
+	messageResult, err := decodeGreeterChatCGONativeBidiStreamResponse(output)
 	cleanupErr := cleanupGreeterChatCGONativeBidiStreamResponse(output)
 	if cleanupErr != nil {
 		if err != nil {
-			return nil, errors.Join(err, cleanupErr)
+			return "", errors.Join(err, cleanupErr)
 		}
-		return nil, cleanupErr
+		return "", cleanupErr
 	}
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return resp, nil
+	return messageResult, nil
 }
 
 func (s *greeterChatCGONativeBidiStreamSession) CloseSend(ctx context.Context) error {
@@ -431,64 +443,60 @@ func (s *greeterChatCGONativeBidiStreamSession) Cancel(ctx context.Context) erro
 	return nil
 }
 
-func encodeGreeterSayHelloCGONativeUnaryRequest(req *proto.SayHelloRequest) (*C.GreeterSayHelloCGONativeUnaryRequest, func(), error) {
-	if req == nil {
-		return nil, func() {}, errors.New("rpccgo: cgo native server request is nil")
-	}
-	input := &C.GreeterSayHelloCGONativeUnaryRequest{}
+func encodeGreeterSayHelloCGONativeUnaryRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) (*GreeterSayHelloCGONativeUnaryRequest, func(), error) {
+	input := &GreeterSayHelloCGONativeUnaryRequest{}
 	var pinned []uintptr
 	cleanup := func() {
 		for i := len(pinned) - 1; i >= 0; i-- {
 			rpcruntime.Release(pinned[i])
 		}
 	}
-	NameLen, err := rpcruntime.LengthToInt32(len(req.Name))
+	nameLen, err := rpcruntime.LengthToInt32(len(name.SafeString()))
 	if err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}
-	_, NamePtr, err := rpcruntime.PinString(req.Name)
+	_, namePtr, err := rpcruntime.PinString(name.SafeString())
 	if err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}
-	if NamePtr != 0 {
-		pinned = append(pinned, NamePtr)
+	if namePtr != 0 {
+		pinned = append(pinned, namePtr)
 	}
-	input.NamePtr = C.uintptr_t(NamePtr)
-	input.NameLen = C.int32_t(NameLen)
-	CityLen, err := rpcruntime.LengthToInt32(len(req.City))
+	input.NamePtr = C.uintptr_t(namePtr)
+	input.NameLen = C.int32_t(nameLen)
+	cityLen, err := rpcruntime.LengthToInt32(len(city.SafeString()))
 	if err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}
-	_, CityPtr, err := rpcruntime.PinString(req.City)
+	_, cityPtr, err := rpcruntime.PinString(city.SafeString())
 	if err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}
-	if CityPtr != 0 {
-		pinned = append(pinned, CityPtr)
+	if cityPtr != 0 {
+		pinned = append(pinned, cityPtr)
 	}
-	input.CityPtr = C.uintptr_t(CityPtr)
-	input.CityLen = C.int32_t(CityLen)
+	input.CityPtr = C.uintptr_t(cityPtr)
+	input.CityLen = C.int32_t(cityLen)
 	return input, cleanup, nil
 }
 
-func decodeGreeterSayHelloCGONativeUnaryResponse(output *C.GreeterSayHelloCGONativeUnaryResponse) (*proto.SayHelloResponse, error) {
+func decodeGreeterSayHelloCGONativeUnaryResponse(output *GreeterSayHelloCGONativeUnaryResponse) (string, error) {
 	if output == nil {
-		return nil, errors.New("rpccgo: cgo native server response output is nil")
+		return "", errors.New("rpccgo: cgo native server response output is nil")
 	}
-	resp := &proto.SayHelloResponse{}
 	if _, err := rpcruntime.LengthFromInt32(int32(output.MessageLen)); err != nil {
-		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloResponse.message: %w", err)
+		return "", fmt.Errorf("examples.full.greeter.v1.SayHelloResponse.message: %w", err)
 	}
-	Message := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(output.MessagePtr))), int32(output.MessageLen), false)
-	resp.Message = Message.SafeString()
-	return resp, nil
+	MessageWrapper := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(output.MessagePtr))), int32(output.MessageLen), false)
+	messageResult := MessageWrapper.SafeString()
+	return messageResult, nil
 }
 
-func cleanupGreeterSayHelloCGONativeUnaryResponse(output *C.GreeterSayHelloCGONativeUnaryResponse) error {
+func cleanupGreeterSayHelloCGONativeUnaryResponse(output *GreeterSayHelloCGONativeUnaryResponse) error {
 	if output == nil {
 		return nil
 	}
@@ -504,64 +512,60 @@ func cleanupGreeterSayHelloCGONativeUnaryResponse(output *C.GreeterSayHelloCGONa
 	return cleanupErr
 }
 
-func encodeGreeterCollectCGONativeClientStreamRequest(req *proto.SayHelloRequest) (*C.GreeterCollectCGONativeClientStreamRequest, func(), error) {
-	if req == nil {
-		return nil, func() {}, errors.New("rpccgo: cgo native server request is nil")
-	}
-	input := &C.GreeterCollectCGONativeClientStreamRequest{}
+func encodeGreeterCollectCGONativeClientStreamRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) (*GreeterCollectCGONativeClientStreamRequest, func(), error) {
+	input := &GreeterCollectCGONativeClientStreamRequest{}
 	var pinned []uintptr
 	cleanup := func() {
 		for i := len(pinned) - 1; i >= 0; i-- {
 			rpcruntime.Release(pinned[i])
 		}
 	}
-	NameLen, err := rpcruntime.LengthToInt32(len(req.Name))
+	nameLen, err := rpcruntime.LengthToInt32(len(name.SafeString()))
 	if err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}
-	_, NamePtr, err := rpcruntime.PinString(req.Name)
+	_, namePtr, err := rpcruntime.PinString(name.SafeString())
 	if err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}
-	if NamePtr != 0 {
-		pinned = append(pinned, NamePtr)
+	if namePtr != 0 {
+		pinned = append(pinned, namePtr)
 	}
-	input.NamePtr = C.uintptr_t(NamePtr)
-	input.NameLen = C.int32_t(NameLen)
-	CityLen, err := rpcruntime.LengthToInt32(len(req.City))
+	input.NamePtr = C.uintptr_t(namePtr)
+	input.NameLen = C.int32_t(nameLen)
+	cityLen, err := rpcruntime.LengthToInt32(len(city.SafeString()))
 	if err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}
-	_, CityPtr, err := rpcruntime.PinString(req.City)
+	_, cityPtr, err := rpcruntime.PinString(city.SafeString())
 	if err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}
-	if CityPtr != 0 {
-		pinned = append(pinned, CityPtr)
+	if cityPtr != 0 {
+		pinned = append(pinned, cityPtr)
 	}
-	input.CityPtr = C.uintptr_t(CityPtr)
-	input.CityLen = C.int32_t(CityLen)
+	input.CityPtr = C.uintptr_t(cityPtr)
+	input.CityLen = C.int32_t(cityLen)
 	return input, cleanup, nil
 }
 
-func decodeGreeterCollectCGONativeClientStreamResponse(output *C.GreeterCollectCGONativeClientStreamResponse) (*proto.SayHelloResponse, error) {
+func decodeGreeterCollectCGONativeClientStreamResponse(output *GreeterCollectCGONativeClientStreamResponse) (string, error) {
 	if output == nil {
-		return nil, errors.New("rpccgo: cgo native server response output is nil")
+		return "", errors.New("rpccgo: cgo native server response output is nil")
 	}
-	resp := &proto.SayHelloResponse{}
 	if _, err := rpcruntime.LengthFromInt32(int32(output.MessageLen)); err != nil {
-		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloResponse.message: %w", err)
+		return "", fmt.Errorf("examples.full.greeter.v1.SayHelloResponse.message: %w", err)
 	}
-	Message := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(output.MessagePtr))), int32(output.MessageLen), false)
-	resp.Message = Message.SafeString()
-	return resp, nil
+	MessageWrapper := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(output.MessagePtr))), int32(output.MessageLen), false)
+	messageResult := MessageWrapper.SafeString()
+	return messageResult, nil
 }
 
-func cleanupGreeterCollectCGONativeClientStreamResponse(output *C.GreeterCollectCGONativeClientStreamResponse) error {
+func cleanupGreeterCollectCGONativeClientStreamResponse(output *GreeterCollectCGONativeClientStreamResponse) error {
 	if output == nil {
 		return nil
 	}
@@ -577,64 +581,60 @@ func cleanupGreeterCollectCGONativeClientStreamResponse(output *C.GreeterCollect
 	return cleanupErr
 }
 
-func encodeGreeterBroadcastCGONativeServerStreamRequest(req *proto.SayHelloRequest) (*C.GreeterBroadcastCGONativeServerStreamRequest, func(), error) {
-	if req == nil {
-		return nil, func() {}, errors.New("rpccgo: cgo native server request is nil")
-	}
-	input := &C.GreeterBroadcastCGONativeServerStreamRequest{}
+func encodeGreeterBroadcastCGONativeServerStreamRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) (*GreeterBroadcastCGONativeServerStreamRequest, func(), error) {
+	input := &GreeterBroadcastCGONativeServerStreamRequest{}
 	var pinned []uintptr
 	cleanup := func() {
 		for i := len(pinned) - 1; i >= 0; i-- {
 			rpcruntime.Release(pinned[i])
 		}
 	}
-	NameLen, err := rpcruntime.LengthToInt32(len(req.Name))
+	nameLen, err := rpcruntime.LengthToInt32(len(name.SafeString()))
 	if err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}
-	_, NamePtr, err := rpcruntime.PinString(req.Name)
+	_, namePtr, err := rpcruntime.PinString(name.SafeString())
 	if err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}
-	if NamePtr != 0 {
-		pinned = append(pinned, NamePtr)
+	if namePtr != 0 {
+		pinned = append(pinned, namePtr)
 	}
-	input.NamePtr = C.uintptr_t(NamePtr)
-	input.NameLen = C.int32_t(NameLen)
-	CityLen, err := rpcruntime.LengthToInt32(len(req.City))
+	input.NamePtr = C.uintptr_t(namePtr)
+	input.NameLen = C.int32_t(nameLen)
+	cityLen, err := rpcruntime.LengthToInt32(len(city.SafeString()))
 	if err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}
-	_, CityPtr, err := rpcruntime.PinString(req.City)
+	_, cityPtr, err := rpcruntime.PinString(city.SafeString())
 	if err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}
-	if CityPtr != 0 {
-		pinned = append(pinned, CityPtr)
+	if cityPtr != 0 {
+		pinned = append(pinned, cityPtr)
 	}
-	input.CityPtr = C.uintptr_t(CityPtr)
-	input.CityLen = C.int32_t(CityLen)
+	input.CityPtr = C.uintptr_t(cityPtr)
+	input.CityLen = C.int32_t(cityLen)
 	return input, cleanup, nil
 }
 
-func decodeGreeterBroadcastCGONativeServerStreamResponse(output *C.GreeterBroadcastCGONativeServerStreamResponse) (*proto.SayHelloResponse, error) {
+func decodeGreeterBroadcastCGONativeServerStreamResponse(output *GreeterBroadcastCGONativeServerStreamResponse) (string, error) {
 	if output == nil {
-		return nil, errors.New("rpccgo: cgo native server response output is nil")
+		return "", errors.New("rpccgo: cgo native server response output is nil")
 	}
-	resp := &proto.SayHelloResponse{}
 	if _, err := rpcruntime.LengthFromInt32(int32(output.MessageLen)); err != nil {
-		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloResponse.message: %w", err)
+		return "", fmt.Errorf("examples.full.greeter.v1.SayHelloResponse.message: %w", err)
 	}
-	Message := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(output.MessagePtr))), int32(output.MessageLen), false)
-	resp.Message = Message.SafeString()
-	return resp, nil
+	MessageWrapper := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(output.MessagePtr))), int32(output.MessageLen), false)
+	messageResult := MessageWrapper.SafeString()
+	return messageResult, nil
 }
 
-func cleanupGreeterBroadcastCGONativeServerStreamResponse(output *C.GreeterBroadcastCGONativeServerStreamResponse) error {
+func cleanupGreeterBroadcastCGONativeServerStreamResponse(output *GreeterBroadcastCGONativeServerStreamResponse) error {
 	if output == nil {
 		return nil
 	}
@@ -650,64 +650,60 @@ func cleanupGreeterBroadcastCGONativeServerStreamResponse(output *C.GreeterBroad
 	return cleanupErr
 }
 
-func encodeGreeterChatCGONativeBidiStreamRequest(req *proto.SayHelloRequest) (*C.GreeterChatCGONativeBidiStreamRequest, func(), error) {
-	if req == nil {
-		return nil, func() {}, errors.New("rpccgo: cgo native server request is nil")
-	}
-	input := &C.GreeterChatCGONativeBidiStreamRequest{}
+func encodeGreeterChatCGONativeBidiStreamRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) (*GreeterChatCGONativeBidiStreamRequest, func(), error) {
+	input := &GreeterChatCGONativeBidiStreamRequest{}
 	var pinned []uintptr
 	cleanup := func() {
 		for i := len(pinned) - 1; i >= 0; i-- {
 			rpcruntime.Release(pinned[i])
 		}
 	}
-	NameLen, err := rpcruntime.LengthToInt32(len(req.Name))
+	nameLen, err := rpcruntime.LengthToInt32(len(name.SafeString()))
 	if err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}
-	_, NamePtr, err := rpcruntime.PinString(req.Name)
+	_, namePtr, err := rpcruntime.PinString(name.SafeString())
 	if err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}
-	if NamePtr != 0 {
-		pinned = append(pinned, NamePtr)
+	if namePtr != 0 {
+		pinned = append(pinned, namePtr)
 	}
-	input.NamePtr = C.uintptr_t(NamePtr)
-	input.NameLen = C.int32_t(NameLen)
-	CityLen, err := rpcruntime.LengthToInt32(len(req.City))
+	input.NamePtr = C.uintptr_t(namePtr)
+	input.NameLen = C.int32_t(nameLen)
+	cityLen, err := rpcruntime.LengthToInt32(len(city.SafeString()))
 	if err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}
-	_, CityPtr, err := rpcruntime.PinString(req.City)
+	_, cityPtr, err := rpcruntime.PinString(city.SafeString())
 	if err != nil {
 		cleanup()
 		return nil, func() {}, err
 	}
-	if CityPtr != 0 {
-		pinned = append(pinned, CityPtr)
+	if cityPtr != 0 {
+		pinned = append(pinned, cityPtr)
 	}
-	input.CityPtr = C.uintptr_t(CityPtr)
-	input.CityLen = C.int32_t(CityLen)
+	input.CityPtr = C.uintptr_t(cityPtr)
+	input.CityLen = C.int32_t(cityLen)
 	return input, cleanup, nil
 }
 
-func decodeGreeterChatCGONativeBidiStreamResponse(output *C.GreeterChatCGONativeBidiStreamResponse) (*proto.SayHelloResponse, error) {
+func decodeGreeterChatCGONativeBidiStreamResponse(output *GreeterChatCGONativeBidiStreamResponse) (string, error) {
 	if output == nil {
-		return nil, errors.New("rpccgo: cgo native server response output is nil")
+		return "", errors.New("rpccgo: cgo native server response output is nil")
 	}
-	resp := &proto.SayHelloResponse{}
 	if _, err := rpcruntime.LengthFromInt32(int32(output.MessageLen)); err != nil {
-		return nil, fmt.Errorf("examples.full.greeter.v1.SayHelloResponse.message: %w", err)
+		return "", fmt.Errorf("examples.full.greeter.v1.SayHelloResponse.message: %w", err)
 	}
-	Message := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(output.MessagePtr))), int32(output.MessageLen), false)
-	resp.Message = Message.SafeString()
-	return resp, nil
+	MessageWrapper := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(output.MessagePtr))), int32(output.MessageLen), false)
+	messageResult := MessageWrapper.SafeString()
+	return messageResult, nil
 }
 
-func cleanupGreeterChatCGONativeBidiStreamResponse(output *C.GreeterChatCGONativeBidiStreamResponse) error {
+func cleanupGreeterChatCGONativeBidiStreamResponse(output *GreeterChatCGONativeBidiStreamResponse) error {
 	if output == nil {
 		return nil
 	}
@@ -758,18 +754,18 @@ func RegisterGreeterCGONativeServer(callbacks *C.GreeterCGONativeServerCallbacks
 }
 
 type GreeterGoCGONativeServerCallbacks struct {
-	SayHello        func(ctx context.Context, input *C.GreeterSayHelloCGONativeUnaryRequest, output *C.GreeterSayHelloCGONativeUnaryResponse) int32
+	SayHello        func(ctx context.Context, input *GreeterSayHelloCGONativeUnaryRequest, output *GreeterSayHelloCGONativeUnaryResponse) int32
 	CollectStart    func(ctx context.Context, stream *C.int32_t) int32
-	CollectSend     func(ctx context.Context, stream C.int32_t, input *C.GreeterCollectCGONativeClientStreamRequest) int32
-	CollectFinish   func(ctx context.Context, stream C.int32_t, output *C.GreeterCollectCGONativeClientStreamResponse) int32
+	CollectSend     func(ctx context.Context, stream C.int32_t, input *GreeterCollectCGONativeClientStreamRequest) int32
+	CollectFinish   func(ctx context.Context, stream C.int32_t, output *GreeterCollectCGONativeClientStreamResponse) int32
 	CollectCancel   func(ctx context.Context, stream C.int32_t) int32
-	BroadcastStart  func(ctx context.Context, input *C.GreeterBroadcastCGONativeServerStreamRequest, stream *C.int32_t) int32
-	BroadcastRecv   func(ctx context.Context, stream C.int32_t, output *C.GreeterBroadcastCGONativeServerStreamResponse) int32
+	BroadcastStart  func(ctx context.Context, input *GreeterBroadcastCGONativeServerStreamRequest, stream *C.int32_t) int32
+	BroadcastRecv   func(ctx context.Context, stream C.int32_t, output *GreeterBroadcastCGONativeServerStreamResponse) int32
 	BroadcastDone   func(ctx context.Context, stream C.int32_t) int32
 	BroadcastCancel func(ctx context.Context, stream C.int32_t) int32
 	ChatStart       func(ctx context.Context, stream *C.int32_t) int32
-	ChatSend        func(ctx context.Context, stream C.int32_t, input *C.GreeterChatCGONativeBidiStreamRequest) int32
-	ChatRecv        func(ctx context.Context, stream C.int32_t, output *C.GreeterChatCGONativeBidiStreamResponse) int32
+	ChatSend        func(ctx context.Context, stream C.int32_t, input *GreeterChatCGONativeBidiStreamRequest) int32
+	ChatRecv        func(ctx context.Context, stream C.int32_t, output *GreeterChatCGONativeBidiStreamResponse) int32
 	ChatCloseSend   func(ctx context.Context, stream C.int32_t) int32
 	ChatDone        func(ctx context.Context, stream C.int32_t) int32
 	ChatCancel      func(ctx context.Context, stream C.int32_t) int32
@@ -798,34 +794,34 @@ type greeterGoCGONativeAdapter struct {
 	callbacks *GreeterGoCGONativeServerCallbacks
 }
 
-func (a *greeterGoCGONativeAdapter) SayHello(ctx context.Context, req *proto.SayHelloRequest) (*proto.SayHelloResponse, error) {
-	input, cleanup, err := encodeGreeterSayHelloCGONativeUnaryRequest(req)
+func (a *greeterGoCGONativeAdapter) SayHello(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error) {
+	input, cleanup, err := encodeGreeterSayHelloCGONativeUnaryRequest(name, city)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	defer cleanup()
-	output := &C.GreeterSayHelloCGONativeUnaryResponse{}
+	output := &GreeterSayHelloCGONativeUnaryResponse{}
 	errID := a.callbacks.SayHello(ctx, input, output)
 	if errID != 0 {
 		cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(output)
 		callbackErr := greeterCGONativeServerErrorFromID(errID)
 		if cleanupErr != nil {
-			return nil, errors.Join(callbackErr, cleanupErr)
+			return "", errors.Join(callbackErr, cleanupErr)
 		}
-		return nil, callbackErr
+		return "", callbackErr
 	}
-	resp, err := decodeGreeterSayHelloCGONativeUnaryResponse(output)
+	messageResult, err := decodeGreeterSayHelloCGONativeUnaryResponse(output)
 	cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(output)
 	if cleanupErr != nil {
 		if err != nil {
-			return nil, errors.Join(err, cleanupErr)
+			return "", errors.Join(err, cleanupErr)
 		}
-		return nil, cleanupErr
+		return "", cleanupErr
 	}
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return resp, nil
+	return messageResult, nil
 }
 
 func (a *greeterGoCGONativeAdapter) StartCollect(ctx context.Context) (proto.GreeterCollectNativeStreamSession, error) {
@@ -842,8 +838,9 @@ type greeterCollectGoCGONativeClientStreamSession struct {
 	stream    C.int32_t
 }
 
-func (s *greeterCollectGoCGONativeClientStreamSession) Send(ctx context.Context, req *proto.SayHelloRequest) error {
-	input, cleanup, err := encodeGreeterCollectCGONativeClientStreamRequest(req)
+func (s *greeterCollectGoCGONativeClientStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
+	input, cleanup, err := encodeGreeterCollectCGONativeClientStreamRequest(name, city)
+	_ = input
 	if err != nil {
 		return err
 	}
@@ -855,29 +852,29 @@ func (s *greeterCollectGoCGONativeClientStreamSession) Send(ctx context.Context,
 	return nil
 }
 
-func (s *greeterCollectGoCGONativeClientStreamSession) Finish(ctx context.Context) (*proto.SayHelloResponse, error) {
-	output := &C.GreeterCollectCGONativeClientStreamResponse{}
+func (s *greeterCollectGoCGONativeClientStreamSession) Finish(ctx context.Context) (string, error) {
+	output := &GreeterCollectCGONativeClientStreamResponse{}
 	errID := s.callbacks.CollectFinish(ctx, s.stream, output)
 	if errID != 0 {
 		cleanupErr := cleanupGreeterCollectCGONativeClientStreamResponse(output)
 		callbackErr := greeterCGONativeServerErrorFromID(errID)
 		if cleanupErr != nil {
-			return nil, errors.Join(callbackErr, cleanupErr)
+			return "", errors.Join(callbackErr, cleanupErr)
 		}
-		return nil, callbackErr
+		return "", callbackErr
 	}
-	resp, err := decodeGreeterCollectCGONativeClientStreamResponse(output)
+	messageResult, err := decodeGreeterCollectCGONativeClientStreamResponse(output)
 	cleanupErr := cleanupGreeterCollectCGONativeClientStreamResponse(output)
 	if cleanupErr != nil {
 		if err != nil {
-			return nil, errors.Join(err, cleanupErr)
+			return "", errors.Join(err, cleanupErr)
 		}
-		return nil, cleanupErr
+		return "", cleanupErr
 	}
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return resp, nil
+	return messageResult, nil
 }
 
 func (s *greeterCollectGoCGONativeClientStreamSession) Cancel(ctx context.Context) error {
@@ -888,8 +885,9 @@ func (s *greeterCollectGoCGONativeClientStreamSession) Cancel(ctx context.Contex
 	return nil
 }
 
-func (a *greeterGoCGONativeAdapter) StartBroadcast(ctx context.Context, req *proto.SayHelloRequest) (proto.GreeterBroadcastNativeStreamSession, error) {
-	input, cleanup, err := encodeGreeterBroadcastCGONativeServerStreamRequest(req)
+func (a *greeterGoCGONativeAdapter) StartBroadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (proto.GreeterBroadcastNativeStreamSession, error) {
+	input, cleanup, err := encodeGreeterBroadcastCGONativeServerStreamRequest(name, city)
+	_ = input
 	if err != nil {
 		return nil, err
 	}
@@ -907,29 +905,29 @@ type greeterBroadcastGoCGONativeServerStreamSession struct {
 	stream    C.int32_t
 }
 
-func (s *greeterBroadcastGoCGONativeServerStreamSession) Recv(ctx context.Context) (*proto.SayHelloResponse, error) {
-	output := &C.GreeterBroadcastCGONativeServerStreamResponse{}
+func (s *greeterBroadcastGoCGONativeServerStreamSession) Recv(ctx context.Context) (string, error) {
+	output := &GreeterBroadcastCGONativeServerStreamResponse{}
 	errID := s.callbacks.BroadcastRecv(ctx, s.stream, output)
 	if errID != 0 {
 		cleanupErr := cleanupGreeterBroadcastCGONativeServerStreamResponse(output)
 		callbackErr := greeterCGONativeServerErrorFromID(errID)
 		if cleanupErr != nil {
-			return nil, errors.Join(callbackErr, cleanupErr)
+			return "", errors.Join(callbackErr, cleanupErr)
 		}
-		return nil, callbackErr
+		return "", callbackErr
 	}
-	resp, err := decodeGreeterBroadcastCGONativeServerStreamResponse(output)
+	messageResult, err := decodeGreeterBroadcastCGONativeServerStreamResponse(output)
 	cleanupErr := cleanupGreeterBroadcastCGONativeServerStreamResponse(output)
 	if cleanupErr != nil {
 		if err != nil {
-			return nil, errors.Join(err, cleanupErr)
+			return "", errors.Join(err, cleanupErr)
 		}
-		return nil, cleanupErr
+		return "", cleanupErr
 	}
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return resp, nil
+	return messageResult, nil
 }
 
 func (s *greeterBroadcastGoCGONativeServerStreamSession) Done(ctx context.Context) error {
@@ -962,8 +960,9 @@ type greeterChatGoCGONativeBidiStreamSession struct {
 	stream    C.int32_t
 }
 
-func (s *greeterChatGoCGONativeBidiStreamSession) Send(ctx context.Context, req *proto.SayHelloRequest) error {
-	input, cleanup, err := encodeGreeterChatCGONativeBidiStreamRequest(req)
+func (s *greeterChatGoCGONativeBidiStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
+	input, cleanup, err := encodeGreeterChatCGONativeBidiStreamRequest(name, city)
+	_ = input
 	if err != nil {
 		return err
 	}
@@ -975,29 +974,29 @@ func (s *greeterChatGoCGONativeBidiStreamSession) Send(ctx context.Context, req 
 	return nil
 }
 
-func (s *greeterChatGoCGONativeBidiStreamSession) Recv(ctx context.Context) (*proto.SayHelloResponse, error) {
-	output := &C.GreeterChatCGONativeBidiStreamResponse{}
+func (s *greeterChatGoCGONativeBidiStreamSession) Recv(ctx context.Context) (string, error) {
+	output := &GreeterChatCGONativeBidiStreamResponse{}
 	errID := s.callbacks.ChatRecv(ctx, s.stream, output)
 	if errID != 0 {
 		cleanupErr := cleanupGreeterChatCGONativeBidiStreamResponse(output)
 		callbackErr := greeterCGONativeServerErrorFromID(errID)
 		if cleanupErr != nil {
-			return nil, errors.Join(callbackErr, cleanupErr)
+			return "", errors.Join(callbackErr, cleanupErr)
 		}
-		return nil, callbackErr
+		return "", callbackErr
 	}
-	resp, err := decodeGreeterChatCGONativeBidiStreamResponse(output)
+	messageResult, err := decodeGreeterChatCGONativeBidiStreamResponse(output)
 	cleanupErr := cleanupGreeterChatCGONativeBidiStreamResponse(output)
 	if cleanupErr != nil {
 		if err != nil {
-			return nil, errors.Join(err, cleanupErr)
+			return "", errors.Join(err, cleanupErr)
 		}
-		return nil, cleanupErr
+		return "", cleanupErr
 	}
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return resp, nil
+	return messageResult, nil
 }
 
 func (s *greeterChatGoCGONativeBidiStreamSession) CloseSend(ctx context.Context) error {

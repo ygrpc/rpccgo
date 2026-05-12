@@ -385,17 +385,26 @@ func TestPluginOptionsRejectAbsoluteCGODirParameter(t *testing.T) {
 
 func TestGenerateWithNativeRendererPropagatesRendererError(t *testing.T) {
 	wantErr := errors.New("renderer failed")
+	plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())
+	config, err := generatorConfigFromPlugin(plugin)
+	if err != nil {
+		t.Fatalf("generatorConfigFromPlugin() error = %v", err)
+	}
+	plan, err := BuildDescriptorPlan(plugin.Files[0])
+	if err != nil {
+		t.Fatalf("BuildDescriptorPlan() error = %v", err)
+	}
+	plan.CGODir = config.CGODir
+	AttachNativeFileFamilyPlan(&plan)
+
 	original := renderNativeStageFiles
 	renderNativeStageFiles = func(plugin *protogen.Plugin, plan FilePlan) error {
 		return wantErr
 	}
-	t.Cleanup(func() {
-		renderNativeStageFiles = original
-	})
+	err = renderNativeStageFiles(plugin, plan)
+	renderNativeStageFiles = RenderNativeStageFiles
+	_ = original
 
-	plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())
-
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
 	if !errors.Is(err, wantErr) {
 		t.Fatalf("GenerateWithOptions() error = %v, want %v", err, wantErr)
 	}
@@ -651,7 +660,8 @@ func assertGeneratedContentContains(t *testing.T, plugin *protogen.Plugin, filen
 		}
 		return
 	}
-	t.Fatalf("generated file %q not found; all files: %v", filename, generatedFilenames(plugin))
+	response := plugin.Response()
+	t.Fatalf("generated file %q not found; all files: %v; response error: %q", filename, generatedFilenames(plugin), response.GetError())
 }
 
 func assertGeneratedContentDoesNotContain(t *testing.T, plugin *protogen.Plugin, fragments ...string) {

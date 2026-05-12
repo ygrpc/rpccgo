@@ -15,18 +15,15 @@ var (
 )
 
 type GreeterNativeServer interface {
-	SayHello(ctx context.Context, req *SayHelloRequest) (*SayHelloResponse, error)
+	SayHello(ctx context.Context, name *rpcruntime.RpcString) (string, error)
 }
 
 type greeterGoNativeAdapter struct {
 	server GreeterNativeServer
 }
 
-func (a *greeterGoNativeAdapter) SayHello(ctx context.Context, req *SayHelloRequest) (*SayHelloResponse, error) {
-	if req == nil {
-		return nil, greeterNativeRequestBridgeNotImplemented
-	}
-	return a.server.SayHello(ctx, req)
+func (a *greeterGoNativeAdapter) SayHello(ctx context.Context, name *rpcruntime.RpcString) (string, error) {
+	return a.server.SayHello(ctx, name)
 }
 
 func RegisterGreeterGoNativeServer(server GreeterNativeServer) (rpcruntime.AdapterSnapshot[GreeterNativeAdapter], error) {

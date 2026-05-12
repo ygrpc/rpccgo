@@ -144,7 +144,6 @@ const repeatedNativeABIFixtureTestSource = `package main
 
 import (
 	context "context"
-	errors "errors"
 	slices "slices"
 	strings "strings"
 	testing "testing"
@@ -157,19 +156,17 @@ import (
 
 type repeatedGoNativeServer struct{}
 
-func (repeatedGoNativeServer) Echo(ctx context.Context, req *repeatedv1.RepeatedRequest) (*repeatedv1.RepeatedReply, error) {
-	if req == nil {
-		return nil, errors.New("request is nil")
+func (repeatedGoNativeServer) Echo(ctx context.Context, scores *rpcruntime.RpcRepeat[int32], flags *rpcruntime.RpcBoolRepeat) ([]int32, []bool, error) {
+	outScores := append([]int32(nil), scores.SafeSlice()...)
+	for i := range outScores {
+		outScores[i] += 10
 	}
-	scores := append([]int32(nil), req.Scores...)
-	for i := range scores {
-		scores[i] += 10
+	inFlags := flags.SafeSlice()
+	outFlags := make([]bool, len(inFlags))
+	for i, flag := range inFlags {
+		outFlags[i] = !flag
 	}
-	flags := make([]bool, len(req.Flags))
-	for i := range req.Flags {
-		flags[i] = !req.Flags[i]
-	}
-	return &repeatedv1.RepeatedReply{Scores: scores, Flags: flags}, nil
+	return outScores, outFlags, nil
 }
 
 func TestRepeatedNativeABI(t *testing.T) {
@@ -191,7 +188,8 @@ func TestRepeatedNativeABI(t *testing.T) {
 		}
 		output := &RepeatedGreeterEchoNativeUnaryOutput{}
 		if errID := CallRepeatedGreeterEchoNativeUnary(context.Background(), input, output); errID != 0 {
-			t.Fatalf("CallRepeatedGreeterEchoNativeUnary() errID = %d", errID)
+			text, _, _ := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+			t.Fatalf("CallRepeatedGreeterEchoNativeUnary() errID = %d: %s", errID, text)
 		}
 		t.Cleanup(func() { releaseRepeatedOutput(output) })
 
@@ -220,7 +218,8 @@ func TestRepeatedNativeABI(t *testing.T) {
 		}
 		output := &RepeatedGreeterEchoNativeUnaryOutput{}
 		if errID := CallRepeatedGreeterEchoNativeUnary(context.Background(), input, output); errID != 0 {
-			t.Fatalf("CallRepeatedGreeterEchoNativeUnary() errID = %d", errID)
+			text, _, _ := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+			t.Fatalf("CallRepeatedGreeterEchoNativeUnary() errID = %d: %s", errID, text)
 		}
 		t.Cleanup(func() { releaseRepeatedOutput(output) })
 

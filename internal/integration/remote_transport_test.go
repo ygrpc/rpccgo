@@ -131,7 +131,6 @@ import (
 
 	remotev1 "example.com/remotetransport/remote/v1"
 	grpc "google.golang.org/grpc"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 func main() {
@@ -196,8 +195,8 @@ type cancelObserverGreeter struct {
 	signalFile string
 }
 
-func (s cancelObserverGreeter) Unary(context.Context, *emptypb.Empty) (*emptypb.Empty, error) {
-	return &emptypb.Empty{}, nil
+func (s cancelObserverGreeter) Unary(context.Context) error {
+	return nil
 }
 
 func (s cancelObserverGreeter) Upload(ctx context.Context) (remotev1.GreeterUploadNativeClientStream, error) {
@@ -206,7 +205,7 @@ func (s cancelObserverGreeter) Upload(ctx context.Context) (remotev1.GreeterUplo
 	return stream, nil
 }
 
-func (s cancelObserverGreeter) List(context.Context, *emptypb.Empty) (remotev1.GreeterListNativeServerStream, error) {
+func (s cancelObserverGreeter) List(context.Context) (remotev1.GreeterListNativeServerStream, error) {
 	return &cancelObserverListStream{}, nil
 }
 
@@ -226,17 +225,17 @@ func (s *cancelObserverUploadStream) watchCancel() {
 	writeCancelSignal(s.signalFile, "upload")
 }
 
-func (s *cancelObserverUploadStream) Send(context.Context, *emptypb.Empty) error {
+func (s *cancelObserverUploadStream) Send(context.Context) error {
 	return nil
 }
 
-func (s *cancelObserverUploadStream) Finish(context.Context) (*emptypb.Empty, error) {
+func (s *cancelObserverUploadStream) Finish(context.Context) error {
 	select {
 	case <-s.ctx.Done():
 		writeCancelSignal(s.signalFile, "upload")
-		return nil, s.ctx.Err()
+		return s.ctx.Err()
 	case <-time.After(5 * time.Second):
-		return nil, errors.New("cancel observer upload stream timed out waiting for cancellation")
+		return errors.New("cancel observer upload stream timed out waiting for cancellation")
 	}
 }
 
@@ -247,8 +246,8 @@ func (s *cancelObserverUploadStream) Cancel(context.Context) error {
 
 type cancelObserverListStream struct{}
 
-func (*cancelObserverListStream) Recv(context.Context) (*emptypb.Empty, error) {
-	return nil, errors.New("cancel observer list stream is not used")
+func (*cancelObserverListStream) Recv(context.Context) error {
+	return errors.New("cancel observer list stream is not used")
 }
 
 func (*cancelObserverListStream) Done(context.Context) error {
@@ -269,17 +268,17 @@ func (s *cancelObserverChatStream) watchCancel() {
 	writeCancelSignal(s.signalFile, "chat")
 }
 
-func (*cancelObserverChatStream) Send(context.Context, *emptypb.Empty) error {
+func (*cancelObserverChatStream) Send(context.Context) error {
 	return nil
 }
 
-func (s *cancelObserverChatStream) Recv(context.Context) (*emptypb.Empty, error) {
+func (s *cancelObserverChatStream) Recv(context.Context) error {
 	select {
 	case <-s.ctx.Done():
 		writeCancelSignal(s.signalFile, "chat")
-		return nil, s.ctx.Err()
+		return s.ctx.Err()
 	case <-time.After(5 * time.Second):
-		return nil, errors.New("cancel observer chat stream timed out waiting for cancellation")
+		return errors.New("cancel observer chat stream timed out waiting for cancellation")
 	}
 }
 

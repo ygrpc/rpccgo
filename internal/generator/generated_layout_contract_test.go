@@ -55,7 +55,7 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"func RegisterGreeterGoNativeServer(server GreeterNativeServer) (rpcruntime.AdapterSnapshot[GreeterNativeAdapter], error) {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.codec.rpccgo.go",
-		"func convertGreeterSayHelloMessageToNativeRequest(data []byte) (*HelloRequest, error) {",
+		"func convertGreeterSayHelloMessageToNativeRequest(data []byte) error {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.connect.rpccgo.go",
 		"func NewGreeterConnectHandler(options ...connect.HandlerOption) (string, http.Handler) {",

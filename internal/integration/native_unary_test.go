@@ -196,23 +196,24 @@ type recordingServer struct {
 	allowAnyRequest bool
 }
 
-func (s *recordingServer) SayHello(ctx context.Context, req *v1.HelloRequest) (*v1.HelloReply, error) {
+func (s *recordingServer) SayHello(ctx context.Context, name *rpcruntime.RpcString, payload *rpcruntime.RpcBytes, enabled bool) (bool, []byte, string, []byte, error) {
 	s.called = true
+	req := &v1.HelloRequest{Name: name.SafeString(), Payload: payload.SafeBytes(), Enabled: enabled}
 	s.received = req
 	if s.err != nil {
-		return nil, s.err
+		return false, nil, "", nil, s.err
 	}
 	if !s.allowAnyRequest && (req.Name != "native" || string(req.Payload) != "bytes" || !req.Enabled) {
-		return nil, errors.New("request did not cross native bridge")
+		return false, nil, "", nil, errors.New("request did not cross native bridge")
 	}
 	if s.response != nil {
-		return s.response, nil
+		return s.response.Accepted, s.response.Payload, s.response.Note, s.response.ExtraPayload, nil
 	}
-	return &v1.HelloReply{Accepted: true, Payload: []byte("dispatcher:"+req.Name), Note: "ok"}, nil
+	return true, []byte("dispatcher:"+req.Name), "ok", nil, nil
 }
 
-func (s *recordingServer) SayUnsupported(ctx context.Context, req *v1.HelloRequest) (*v1.UnsupportedReply, error) {
-	return &v1.UnsupportedReply{Payload: []byte("pinned"), Note: "note", Unsupported: &v1.Child{}}, nil
+func (s *recordingServer) SayUnsupported(ctx context.Context, name *rpcruntime.RpcString, payload *rpcruntime.RpcBytes, enabled bool) ([]byte, string, []byte, error) {
+	return []byte("pinned"), "note", []byte("unsupported"), nil
 }
 
 func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
@@ -433,7 +434,7 @@ func TestNativeUnaryPinFailureReleasesStagedOutput(t *testing.T) {
 
 func TestNativeUnaryOwnedReleaseErrorStoresError(t *testing.T) {
 	v1.ResetGreeterDispatcherForIntegrationTest()
-	if _, err := v1.RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
+	if _, err := v1.RegisterGreeterGoNativeServer(&recordingServer{allowAnyRequest: true}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 	rpcruntime.ResetFreeCallbackForTesting()
@@ -483,20 +484,22 @@ func TestNativeUnaryServerErrorStoresError(t *testing.T) {
 	}
 }
 
-func TestNativeUnaryOutputStagingLeavesOutputUntouchedOnUnsupportedResponse(t *testing.T) {
+func TestNativeUnaryMessageResponseFieldUsesBytesBoundary(t *testing.T) {
 	v1.ResetGreeterDispatcherForIntegrationTest()
-	if _, err := v1.RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
+	if _, err := v1.RegisterGreeterGoNativeServer(&recordingServer{allowAnyRequest: true}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 	input := &GreeterSayUnsupportedNativeUnaryInput{}
 	output := &GreeterSayUnsupportedNativeUnaryOutput{}
-	errID := CallGreeterSayUnsupportedNativeUnary(context.Background(), input, output)
-	if errID == 0 {
-		t.Fatal("unsupported response returned errID 0")
+	if errID := CallGreeterSayUnsupportedNativeUnary(context.Background(), input, output); errID != 0 {
+		t.Fatalf("CallGreeterSayUnsupportedNativeUnary() errID = %d", errID)
 	}
-	if output.PayloadPtr != 0 || output.PayloadLen != 0 || output.NotePtr != 0 || output.NoteLen != 0 {
-		t.Fatalf("output was partially committed on error: %#v", output)
+	if output.PayloadPtr == 0 || output.PayloadLen == 0 || output.NotePtr == 0 || output.NoteLen == 0 || output.UnsupportedPtr == 0 || output.UnsupportedLen == 0 {
+		t.Fatalf("output missing bytes-boundary fields: %#v", output)
 	}
+	rpcruntime.Release(output.PayloadPtr)
+	rpcruntime.Release(output.NotePtr)
+	rpcruntime.Release(output.UnsupportedPtr)
 }
 
 func assertNativeErrContains(t *testing.T, errID int32, want string) {
