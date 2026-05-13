@@ -5,6 +5,7 @@ import (
 	errors "errors"
 	fmt "fmt"
 	io "io"
+	rpcruntime "rpccgo/rpcruntime"
 	http "net/http"
 	connect "connectrpc.com/connect"
 	proto "google.golang.org/protobuf/proto"
@@ -65,32 +66,32 @@ func greeterConnectCollect(ctx context.Context, stream *connect.ClientStream[Say
 	if err != nil {
 		return nil, err
 	}
-	session, ok := bridge.LoadCollectMessageStream(handle)
+	session, ok := rpcruntime.LoadDispatcherStream[GreeterActiveAdapter, GreeterCollectMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
 	if !ok {
 		return nil, errors.New("rpccgo: connect message stream handle is invalid")
 	}
 	for stream.Receive() {
 		reqData, err := proto.Marshal(stream.Msg())
 		if err != nil {
-			if terminal, ok := bridge.TakeCollectMessageStream(handle); ok {
+			if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterCollectMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
 				_ = terminal.Cancel(ctx)
 			}
 			return nil, fmt.Errorf("rpccgo: connect stream request protobuf marshal failed: %w", err)
 		}
 		if err := session.Send(ctx, reqData); err != nil {
-			if terminal, ok := bridge.TakeCollectMessageStream(handle); ok {
+			if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterCollectMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
 				_ = terminal.Cancel(ctx)
 			}
 			return nil, err
 		}
 	}
 	if err := stream.Err(); err != nil {
-		if terminal, ok := bridge.TakeCollectMessageStream(handle); ok {
+		if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterCollectMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
 			_ = terminal.Cancel(ctx)
 		}
 		return nil, err
 	}
-	terminal, ok := bridge.TakeCollectMessageStream(handle)
+	terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterCollectMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
 	if !ok {
 		return nil, errors.New("rpccgo: connect message stream handle is invalid")
 	}
@@ -118,14 +119,14 @@ func greeterConnectBroadcast(ctx context.Context, req *connect.Request[SayHelloR
 	if err != nil {
 		return err
 	}
-	session, ok := bridge.LoadBroadcastMessageStream(handle)
+	session, ok := rpcruntime.LoadDispatcherStream[GreeterActiveAdapter, GreeterBroadcastMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
 	if !ok {
 		return errors.New("rpccgo: connect message stream handle is invalid")
 	}
 	for {
 		respData, err := session.Recv(ctx)
 		if err != nil {
-			terminal, ok := bridge.TakeBroadcastMessageStream(handle)
+			terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterBroadcastMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
 			if !ok {
 				return errors.New("rpccgo: connect message stream handle is invalid")
 			}
@@ -137,13 +138,13 @@ func greeterConnectBroadcast(ctx context.Context, req *connect.Request[SayHelloR
 		}
 		resp := new(SayHelloResponse)
 		if err := proto.Unmarshal(respData, resp); err != nil {
-			if terminal, ok := bridge.TakeBroadcastMessageStream(handle); ok {
+			if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterBroadcastMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
 				_ = terminal.Cancel(ctx)
 			}
 			return fmt.Errorf("rpccgo: connect stream response protobuf unmarshal failed: %w", err)
 		}
 		if err := stream.Send(resp); err != nil {
-			if terminal, ok := bridge.TakeBroadcastMessageStream(handle); ok {
+			if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterBroadcastMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
 				_ = terminal.Cancel(ctx)
 			}
 			return err
@@ -157,7 +158,7 @@ func greeterConnectChat(ctx context.Context, stream *connect.BidiStream[SayHello
 	if err != nil {
 		return err
 	}
-	session, ok := bridge.LoadChatMessageStream(handle)
+	session, ok := rpcruntime.LoadDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
 	if !ok {
 		return errors.New("rpccgo: connect message stream handle is invalid")
 	}
@@ -167,27 +168,27 @@ func greeterConnectChat(ctx context.Context, stream *connect.BidiStream[SayHello
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			if terminal, ok := bridge.TakeChatMessageStream(handle); ok {
+			if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
 				_ = terminal.Cancel(ctx)
 			}
 			return err
 		}
 		reqData, err := proto.Marshal(req)
 		if err != nil {
-			if terminal, ok := bridge.TakeChatMessageStream(handle); ok {
+			if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
 				_ = terminal.Cancel(ctx)
 			}
 			return fmt.Errorf("rpccgo: connect bidi request protobuf marshal failed: %w", err)
 		}
 		if err := session.Send(ctx, reqData); err != nil {
-			if terminal, ok := bridge.TakeChatMessageStream(handle); ok {
+			if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
 				_ = terminal.Cancel(ctx)
 			}
 			return err
 		}
 		respData, err := session.Recv(ctx)
 		if err != nil {
-			terminal, ok := bridge.TakeChatMessageStream(handle)
+			terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
 			if !ok {
 				return errors.New("rpccgo: connect message stream handle is invalid")
 			}
@@ -199,20 +200,20 @@ func greeterConnectChat(ctx context.Context, stream *connect.BidiStream[SayHello
 		}
 		resp := new(SayHelloResponse)
 		if err := proto.Unmarshal(respData, resp); err != nil {
-			if terminal, ok := bridge.TakeChatMessageStream(handle); ok {
+			if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
 				_ = terminal.Cancel(ctx)
 			}
 			return fmt.Errorf("rpccgo: connect bidi response protobuf unmarshal failed: %w", err)
 		}
 		if err := stream.Send(resp); err != nil {
-			if terminal, ok := bridge.TakeChatMessageStream(handle); ok {
+			if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
 				_ = terminal.Cancel(ctx)
 			}
 			return err
 		}
 	}
 	if err := session.CloseSend(ctx); err != nil {
-		if terminal, ok := bridge.TakeChatMessageStream(handle); ok {
+		if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
 			_ = terminal.Cancel(ctx)
 		}
 		return err
@@ -220,7 +221,7 @@ func greeterConnectChat(ctx context.Context, stream *connect.BidiStream[SayHello
 	for {
 		respData, err := session.Recv(ctx)
 		if err != nil {
-			terminal, ok := bridge.TakeChatMessageStream(handle)
+			terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
 			if !ok {
 				return errors.New("rpccgo: connect message stream handle is invalid")
 			}
@@ -232,13 +233,13 @@ func greeterConnectChat(ctx context.Context, stream *connect.BidiStream[SayHello
 		}
 		resp := new(SayHelloResponse)
 		if err := proto.Unmarshal(respData, resp); err != nil {
-			if terminal, ok := bridge.TakeChatMessageStream(handle); ok {
+			if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
 				_ = terminal.Cancel(ctx)
 			}
 			return fmt.Errorf("rpccgo: connect bidi response protobuf unmarshal failed: %w", err)
 		}
 		if err := stream.Send(resp); err != nil {
-			if terminal, ok := bridge.TakeChatMessageStream(handle); ok {
+			if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
 				_ = terminal.Cancel(ctx)
 			}
 			return err

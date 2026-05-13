@@ -167,11 +167,18 @@ func httpClient() interface {
 func assertNativeUnary(t *testing.T, ctx context.Context, name, city, want string) {
 	t.Helper()
 
-	output := &GreeterSayHelloNativeUnaryOutput{}
-	if errID := CallGreeterSayHelloNativeUnary(ctx, nativeUnaryInput(name, city), output); errID != 0 {
+	input := nativeInput(name, city)
+	var messagePtr uintptr
+	var messageLen int32
+	if errID := CallGreeterSayHelloNativeUnary(
+		ctx,
+		input.namePtr(), input.nameLen(), 0,
+		input.cityPtr(), input.cityLen(), 0,
+		&messagePtr, &messageLen,
+	); errID != 0 {
 		t.Fatalf("CallGreeterSayHelloNativeUnary() error id = %d", errID)
 	}
-	assertNativeOutput(t, output.MessagePtr, output.MessageLen, want)
+	assertNativeOutput(t, messagePtr, messageLen, want)
 }
 
 func assertNativeCollect(t *testing.T, ctx context.Context, names []string, want string) {
@@ -182,30 +189,43 @@ func assertNativeCollect(t *testing.T, ctx context.Context, names []string, want
 		t.Fatalf("StartGreeterCollectNativeClientStream() error id = %d", errID)
 	}
 	for _, name := range names {
-		if errID := SendGreeterCollectNativeClientStream(ctx, handle, nativeCollectInput(name, "local")); errID != 0 {
+		input := nativeInput(name, "local")
+		if errID := SendGreeterCollectNativeClientStream(
+			ctx,
+			handle,
+			input.namePtr(), input.nameLen(), 0,
+			input.cityPtr(), input.cityLen(), 0,
+		); errID != 0 {
 			t.Fatalf("SendGreeterCollectNativeClientStream() error id = %d", errID)
 		}
 	}
-	output := &GreeterCollectNativeClientStreamOutput{}
-	if errID := FinishGreeterCollectNativeClientStream(ctx, handle, output); errID != 0 {
+	var messagePtr uintptr
+	var messageLen int32
+	if errID := FinishGreeterCollectNativeClientStream(ctx, handle, &messagePtr, &messageLen); errID != 0 {
 		t.Fatalf("FinishGreeterCollectNativeClientStream() error id = %d", errID)
 	}
-	assertNativeOutput(t, output.MessagePtr, output.MessageLen, want)
+	assertNativeOutput(t, messagePtr, messageLen, want)
 }
 
 func assertNativeBroadcast(t *testing.T, ctx context.Context, name string, wants []string) {
 	t.Helper()
 
-	handle, errID := StartGreeterBroadcastNativeServerStream(ctx, nativeBroadcastInput(name, "local"))
+	input := nativeInput(name, "local")
+	handle, errID := StartGreeterBroadcastNativeServerStream(
+		ctx,
+		input.namePtr(), input.nameLen(), 0,
+		input.cityPtr(), input.cityLen(), 0,
+	)
 	if errID != 0 {
 		t.Fatalf("StartGreeterBroadcastNativeServerStream() error id = %d", errID)
 	}
 	for _, want := range wants {
-		output := &GreeterBroadcastNativeServerStreamOutput{}
-		if errID := ReadGreeterBroadcastNativeServerStream(ctx, handle, output); errID != 0 {
+		var messagePtr uintptr
+		var messageLen int32
+		if errID := ReadGreeterBroadcastNativeServerStream(ctx, handle, &messagePtr, &messageLen); errID != 0 {
 			t.Fatalf("ReadGreeterBroadcastNativeServerStream() error id = %d", errID)
 		}
-		assertNativeOutput(t, output.MessagePtr, output.MessageLen, want)
+		assertNativeOutput(t, messagePtr, messageLen, want)
 	}
 	if errID := DoneGreeterBroadcastNativeServerStream(ctx, handle); errID != 0 {
 		t.Fatalf("DoneGreeterBroadcastNativeServerStream() error id = %d", errID)
@@ -219,14 +239,21 @@ func assertNativeChat(t *testing.T, ctx context.Context, name, want string) {
 	if errID != 0 {
 		t.Fatalf("StartGreeterChatNativeBidiStream() error id = %d", errID)
 	}
-	if errID := SendGreeterChatNativeBidiStream(ctx, handle, nativeChatInput(name, "local")); errID != 0 {
+	input := nativeInput(name, "local")
+	if errID := SendGreeterChatNativeBidiStream(
+		ctx,
+		handle,
+		input.namePtr(), input.nameLen(), 0,
+		input.cityPtr(), input.cityLen(), 0,
+	); errID != 0 {
 		t.Fatalf("SendGreeterChatNativeBidiStream() error id = %d", errID)
 	}
-	output := &GreeterChatNativeBidiStreamOutput{}
-	if errID := ReadGreeterChatNativeBidiStream(ctx, handle, output); errID != 0 {
+	var messagePtr uintptr
+	var messageLen int32
+	if errID := ReadGreeterChatNativeBidiStream(ctx, handle, &messagePtr, &messageLen); errID != 0 {
 		t.Fatalf("ReadGreeterChatNativeBidiStream() error id = %d", errID)
 	}
-	assertNativeOutput(t, output.MessagePtr, output.MessageLen, want)
+	assertNativeOutput(t, messagePtr, messageLen, want)
 	if errID := CloseSendGreeterChatNativeBidiStream(ctx, handle); errID != 0 {
 		t.Fatalf("CloseSendGreeterChatNativeBidiStream() error id = %d", errID)
 	}
@@ -321,48 +348,32 @@ func cgoErrorText(errorID int32) string {
 	return string(data)
 }
 
-func nativeUnaryInput(name, city string) *GreeterSayHelloNativeUnaryInput {
-	nameBytes := []byte(name)
-	cityBytes := []byte(city)
-	return &GreeterSayHelloNativeUnaryInput{
-		NamePtr: uintptr(unsafe.Pointer(unsafe.SliceData(nameBytes))),
-		NameLen: int32(len(nameBytes)),
-		CityPtr: uintptr(unsafe.Pointer(unsafe.SliceData(cityBytes))),
-		CityLen: int32(len(cityBytes)),
+type nativeInputArgs struct {
+	name []byte
+	city []byte
+}
+
+func nativeInput(name, city string) nativeInputArgs {
+	return nativeInputArgs{
+		name: []byte(name),
+		city: []byte(city),
 	}
 }
 
-func nativeCollectInput(name, city string) *GreeterCollectNativeClientStreamInput {
-	nameBytes := []byte(name)
-	cityBytes := []byte(city)
-	return &GreeterCollectNativeClientStreamInput{
-		NamePtr: uintptr(unsafe.Pointer(unsafe.SliceData(nameBytes))),
-		NameLen: int32(len(nameBytes)),
-		CityPtr: uintptr(unsafe.Pointer(unsafe.SliceData(cityBytes))),
-		CityLen: int32(len(cityBytes)),
-	}
+func (a nativeInputArgs) namePtr() uintptr {
+	return bytesPtr(a.name)
 }
 
-func nativeBroadcastInput(name, city string) *GreeterBroadcastNativeServerStreamInput {
-	nameBytes := []byte(name)
-	cityBytes := []byte(city)
-	return &GreeterBroadcastNativeServerStreamInput{
-		NamePtr: uintptr(unsafe.Pointer(unsafe.SliceData(nameBytes))),
-		NameLen: int32(len(nameBytes)),
-		CityPtr: uintptr(unsafe.Pointer(unsafe.SliceData(cityBytes))),
-		CityLen: int32(len(cityBytes)),
-	}
+func (a nativeInputArgs) nameLen() int32 {
+	return int32(len(a.name))
 }
 
-func nativeChatInput(name, city string) *GreeterChatNativeBidiStreamInput {
-	nameBytes := []byte(name)
-	cityBytes := []byte(city)
-	return &GreeterChatNativeBidiStreamInput{
-		NamePtr: uintptr(unsafe.Pointer(unsafe.SliceData(nameBytes))),
-		NameLen: int32(len(nameBytes)),
-		CityPtr: uintptr(unsafe.Pointer(unsafe.SliceData(cityBytes))),
-		CityLen: int32(len(cityBytes)),
-	}
+func (a nativeInputArgs) cityPtr() uintptr {
+	return bytesPtr(a.city)
+}
+
+func (a nativeInputArgs) cityLen() int32 {
+	return int32(len(a.city))
 }
 
 func messageRequestBytes(t *testing.T, name, city string) []byte {

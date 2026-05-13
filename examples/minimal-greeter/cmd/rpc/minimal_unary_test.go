@@ -17,19 +17,23 @@ func TestMinimalNativeAndMessageClients(t *testing.T) {
 	}
 
 	name := []byte("native")
-	nativeInput := &GreeterSayHelloNativeUnaryInput{
-		NamePtr: uintptr(unsafe.Pointer(&name[0])),
-		NameLen: int32(len(name)),
-	}
-	nativeOutput := &GreeterSayHelloNativeUnaryOutput{}
-	if errID := CallGreeterSayHelloNativeUnary(context.Background(), nativeInput, nativeOutput); errID != 0 {
+	var nativeMessagePtr uintptr
+	var nativeMessageLen int32
+	if errID := CallGreeterSayHelloNativeUnary(
+		context.Background(),
+		uintptr(unsafe.Pointer(unsafe.SliceData(name))),
+		int32(len(name)),
+		0,
+		&nativeMessagePtr,
+		&nativeMessageLen,
+	); errID != 0 {
 		t.Fatalf("CallGreeterSayHelloNativeUnary() error id = %d", errID)
 	}
-	nativeMessage := unsafe.Slice((*byte)(unsafe.Pointer(nativeOutput.MessagePtr)), nativeOutput.MessageLen)
+	nativeMessage := unsafe.Slice((*byte)(unsafe.Pointer(nativeMessagePtr)), nativeMessageLen)
 	if got := string(nativeMessage); got != "hello, native" {
 		t.Fatalf("native response = %q, want hello, native", got)
 	}
-	rpcruntime.Release(nativeOutput.MessagePtr)
+	rpcruntime.Release(nativeMessagePtr)
 
 	messageInput, err := proto.Marshal(&greeterv1.SayHelloRequest{Name: "message"})
 	if err != nil {
