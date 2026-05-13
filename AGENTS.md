@@ -7,7 +7,6 @@
 - 接到任务时先判断简单任务或复杂任务。
 - 简单任务先复述需求和假设，最多提出 3 个关键问题，等用户确认后再动手；如果用户已经明确批准执行，可以直接进入实现。
 - 复杂任务先用设计/计划流程拆清楚边界；已有计划时按计划执行，不重复讨论。
-- 当前项目文档和新文件命名不要再使用 `stage`、`Stage`、`stage-8` 或“阶段”来描述路线图、发布验证或当前工作；使用 `release verification`、`release checklist`、`implementation plan` 等非阶段命名。
 - 遇到 bug 先写能复现的测试，再修复到测试通过。
 - shell 命令默认加 `rtk` 前缀。
 - 文件编辑必须使用 `apply_patch`，不要用 shell 重定向或脚本直接写文件。
@@ -117,3 +116,17 @@ rtk rg -n "uint32|uint64|Uint32|Uint64|u32|u64|uint32_t|uint64_t" . -g '!AGENTS.
 ```
 
 - 如果命令因为本机临时环境问题失败，不要把本机 workaround 写入项目文档；只在当前执行记录中说明。
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs are tracked in GitHub Issues for `ygrpc/rpccgo`. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Use the default five-label triage vocabulary. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+This is a single-context repo with root `CONTEXT.md` and `docs/adr/`. See `docs/agents/domain.md`.

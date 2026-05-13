@@ -5,6 +5,7 @@ import (
 	errors "errors"
 	io "io"
 	rpcruntime "rpccgo/rpcruntime"
+	sync "sync"
 	grpc "google.golang.org/grpc"
 	codes "google.golang.org/grpc/codes"
 	status "google.golang.org/grpc/status"
@@ -215,87 +216,87 @@ func greeterChatGRPC(stream grpc.BidiStreamingServer[SayHelloRequest, SayHelloRe
 	if !ok {
 		return errors.New("rpccgo: grpc message stream handle is invalid")
 	}
-	for {
-		req, err := stream.Recv()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
-				_ = terminal.Cancel(stream.Context())
-			}
-			return err
-		}
-		reqData, err := proto.Marshal(req)
-		if err != nil {
-			if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
-				_ = terminal.Cancel(stream.Context())
-			}
-			return status.Errorf(codes.Internal, "rpccgo: grpc bidi request protobuf marshal failed: %v", err)
-		}
-		if err := session.Send(stream.Context(), reqData); err != nil {
-			if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
-				_ = terminal.Cancel(stream.Context())
-			}
-			return err
-		}
-		respData, err := session.Recv(stream.Context())
-		if err != nil {
+	var terminalOnce sync.Once
+	finish := func(done bool) error {
+		var finishErr error
+		terminalOnce.Do(func() {
 			terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
 			if !ok {
-				return errors.New("rpccgo: grpc message stream handle is invalid")
+				finishErr = errors.New("rpccgo: grpc message stream handle is invalid")
+				return
 			}
-			if errors.Is(err, io.EOF) {
-				return terminal.Done(stream.Context())
+			if done {
+				finishErr = terminal.Done(stream.Context())
+				return
 			}
-			_ = terminal.Cancel(stream.Context())
-			return err
+			finishErr = terminal.Cancel(stream.Context())
+		})
+		return finishErr
+	}
+	receiveErrCh := make(chan error, 1)
+	sendErrCh := make(chan error, 1)
+	go func() {
+		for {
+			req, err := stream.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					receiveErrCh <- session.CloseSend(stream.Context())
+					return
+				}
+				receiveErrCh <- err
+				return
+			}
+			reqData, err := proto.Marshal(req)
+			if err != nil {
+				receiveErrCh <- status.Errorf(codes.Internal, "rpccgo: grpc bidi request protobuf marshal failed: %v", err)
+				return
+			}
+			if err := session.Send(stream.Context(), reqData); err != nil {
+				receiveErrCh <- err
+				return
+			}
 		}
-		resp := new(SayHelloResponse)
-		if err := proto.Unmarshal(respData, resp); err != nil {
-			if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
-				_ = terminal.Cancel(stream.Context())
+	}()
+	go func() {
+		for {
+			respData, err := session.Recv(stream.Context())
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					sendErrCh <- finish(true)
+					return
+				}
+				sendErrCh <- err
+				return
 			}
-			return status.Errorf(codes.Internal, "rpccgo: grpc bidi response protobuf unmarshal failed: %v", err)
+			resp := new(SayHelloResponse)
+			if err := proto.Unmarshal(respData, resp); err != nil {
+				sendErrCh <- status.Errorf(codes.Internal, "rpccgo: grpc bidi response protobuf unmarshal failed: %v", err)
+				return
+			}
+			if err := stream.Send(resp); err != nil {
+				sendErrCh <- err
+				return
+			}
 		}
-		if err := stream.Send(resp); err != nil {
-			if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
-				_ = terminal.Cancel(stream.Context())
+	}()
+	for receiveErrCh != nil || sendErrCh != nil {
+		select {
+		case err := <-receiveErrCh:
+			receiveErrCh = nil
+			if err != nil {
+				_ = finish(false)
+				return err
 			}
-			return err
+		case err := <-sendErrCh:
+			sendErrCh = nil
+			if err != nil {
+				_ = finish(false)
+				return err
+			}
+			if receiveErrCh == nil {
+				return nil
+			}
 		}
 	}
-	if err := session.CloseSend(stream.Context()); err != nil {
-		if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
-			_ = terminal.Cancel(stream.Context())
-		}
-		return err
-	}
-	for {
-		respData, err := session.Recv(stream.Context())
-		if err != nil {
-			terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-			if !ok {
-				return errors.New("rpccgo: grpc message stream handle is invalid")
-			}
-			if errors.Is(err, io.EOF) {
-				return terminal.Done(stream.Context())
-			}
-			_ = terminal.Cancel(stream.Context())
-			return err
-		}
-		resp := new(SayHelloResponse)
-		if err := proto.Unmarshal(respData, resp); err != nil {
-			if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
-				_ = terminal.Cancel(stream.Context())
-			}
-			return status.Errorf(codes.Internal, "rpccgo: grpc bidi response protobuf unmarshal failed: %v", err)
-		}
-		if err := stream.Send(resp); err != nil {
-			if terminal, ok := rpcruntime.TakeDispatcherStream[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle)); ok {
-				_ = terminal.Cancel(stream.Context())
-			}
-			return err
-		}
-	}
+	return nil
 }

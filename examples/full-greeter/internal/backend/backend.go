@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync"
 
 	greeterv1 "example.com/rpccgo-full/proto"
 	rpcruntime "rpccgo/rpcruntime"
@@ -68,37 +69,73 @@ func (*broadcastStream) Cancel(context.Context) error {
 }
 
 type chatStream struct {
+	mu     sync.Mutex
+	notify chan struct{}
 	closed bool
 	queue  []string
 }
 
 func (s *chatStream) Send(_ context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if s.closed {
 		return errors.New("chat send closed")
 	}
 	s.queue = append(s.queue, name.SafeString())
+	s.signalLocked()
 	return nil
 }
 
-func (s *chatStream) Recv(context.Context) (string, error) {
+func (s *chatStream) Recv(ctx context.Context) (string, error) {
+	s.mu.Lock()
+	for len(s.queue) == 0 && !s.closed {
+		notify := s.notifyLocked()
+		s.mu.Unlock()
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-notify:
+		}
+		s.mu.Lock()
+	}
 	if len(s.queue) == 0 {
+		s.mu.Unlock()
 		if s.closed {
 			return "", io.EOF
 		}
-		return "", errors.New("chat receive before send")
+		return "", ctx.Err()
 	}
 	name := s.queue[0]
 	s.queue = s.queue[1:]
+	s.mu.Unlock()
 	return "chat:" + name, nil
 }
 
 func (s *chatStream) CloseSend(context.Context) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.closed = true
+	s.signalLocked()
 	return nil
 }
 
 func (*chatStream) Cancel(context.Context) error {
 	return nil
+}
+
+func (s *chatStream) notifyLocked() <-chan struct{} {
+	if s.notify == nil {
+		s.notify = make(chan struct{})
+	}
+	return s.notify
+}
+
+func (s *chatStream) signalLocked() {
+	if s.notify == nil {
+		return
+	}
+	close(s.notify)
+	s.notify = nil
 }
 
 func format(name, city string) string {
