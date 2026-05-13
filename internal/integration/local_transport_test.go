@@ -28,7 +28,7 @@ func TestLocalTransportAcceptance(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/message_direct_path_callbacks.go"), messageDirectPathFixtureCallbackSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/local_transport_test.go"), localTransportFixtureTestSource)
 
-	cmd := exec.Command("go", "test", "./test/v1/cgo", "-run", "^TestLocalTransportAcceptance$", "-count=1")
+	cmd := exec.Command("go", "test", "./test/v1/cgo", "-run", "^TestLocalTransportAcceptance$", "-count=1", "-timeout=10s")
 	cmd.Dir = tmp
 	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
 	out, err := cmd.CombinedOutput()
@@ -88,6 +88,7 @@ import (
 	httptest "net/http/httptest"
 	strings "strings"
 	"testing"
+	time "time"
 
 	connect "connectrpc.com/connect"
 	v1 "example.com/messagedirect/test/v1"
@@ -201,6 +202,54 @@ func TestLocalTransportAcceptance(t *testing.T) {
 		}
 		if got := greeterMessageChatDonesForIntegration(); got != 1 {
 			t.Fatalf("message chat dones = %d, want 1", got)
+		}
+	})
+
+	t.Run("connect bidi supports independent response pump", func(t *testing.T) {
+		resetTransportGoNativeCounters()
+		setTransportGoNativeChatResponses(2)
+		if _, err := v1.RegisterGreeterGoNativeServer(transportNativeServer{}); err != nil {
+			t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
+		}
+		httpClient, baseURL, closeServer := startConnectTransport(t)
+		defer closeServer()
+
+		if got := connectBidiOneRequestTwoResponsesCall(t, httpClient, baseURL); got != 2 {
+			t.Fatalf("connect bidi responses = %d, want 2", got)
+		}
+
+		if got := transportGoNativeChatStarts; got != 1 {
+			t.Fatalf("transport native chat starts = %d, want 1", got)
+		}
+		if got := transportGoNativeChatSends; got != 1 {
+			t.Fatalf("transport native chat sends = %d, want 1", got)
+		}
+		if got := transportGoNativeChatRecvs; got != 3 {
+			t.Fatalf("transport native chat recvs = %d, want 3 including EOF", got)
+		}
+	})
+
+	t.Run("grpc bidi supports independent response pump", func(t *testing.T) {
+		resetTransportGoNativeCounters()
+		setTransportGoNativeChatResponses(2)
+		if _, err := v1.RegisterGreeterGoNativeServer(transportNativeServer{}); err != nil {
+			t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
+		}
+		conn, closeConn := startGRPCTransport(t)
+		defer closeConn()
+
+		if got := grpcBidiOneRequestTwoResponsesCall(t, conn); got != 2 {
+			t.Fatalf("grpc bidi responses = %d, want 2", got)
+		}
+
+		if got := transportGoNativeChatStarts; got != 1 {
+			t.Fatalf("transport native chat starts = %d, want 1", got)
+		}
+		if got := transportGoNativeChatSends; got != 1 {
+			t.Fatalf("transport native chat sends = %d, want 1", got)
+		}
+		if got := transportGoNativeChatRecvs; got != 3 {
+			t.Fatalf("transport native chat recvs = %d, want 3 including EOF", got)
 		}
 	})
 
@@ -411,6 +460,42 @@ func connectBidiStreamCall(t *testing.T, httpClient *http.Client, baseURL string
 	return count
 }
 
+func connectBidiOneRequestTwoResponsesCall(t *testing.T, httpClient *http.Client, baseURL string) int {
+	t.Helper()
+	client := connect.NewClient[emptypb.Empty, emptypb.Empty](httpClient, baseURL+v1.GreeterChatConnectProcedure)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	stream := client.CallBidiStream(ctx)
+	if err := stream.Send(&emptypb.Empty{}); err != nil {
+		t.Fatalf("connect bidi two-response Send() error = %v", err)
+	}
+	count := 0
+	resp, err := stream.Receive()
+	if err != nil {
+		t.Fatalf("connect bidi two-response first Receive() error = %v", err)
+	}
+	if resp == nil {
+		t.Fatal("connect bidi two-response first response = nil")
+	}
+	count++
+	resp, err = stream.Receive()
+	if err != nil {
+		t.Fatalf("connect bidi two-response second Receive() error = %v", err)
+	}
+	if resp == nil {
+		t.Fatal("connect bidi two-response second response = nil")
+	}
+	count++
+	if err := stream.CloseRequest(); err != nil {
+		t.Fatalf("connect bidi two-response CloseRequest() error = %v", err)
+	}
+	_, err = stream.Receive()
+	if !errors.Is(err, io.EOF) {
+		t.Fatalf("connect bidi two-response final Receive() error = %v, want io.EOF", err)
+	}
+	return count
+}
+
 func grpcUnaryCall(t *testing.T, conn grpc.ClientConnInterface) {
 	t.Helper()
 	var reply emptypb.Empty
@@ -490,6 +575,45 @@ func grpcBidiStreamCall(t *testing.T, conn grpc.ClientConnInterface) int {
 	return 1
 }
 
+func grpcBidiOneRequestTwoResponsesCall(t *testing.T, conn grpc.ClientConnInterface) int {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	stream, err := conn.NewStream(ctx, &grpc.StreamDesc{ClientStreams: true, ServerStreams: true}, "/test.v1.Greeter/Chat")
+	if err != nil {
+		t.Fatalf("grpc NewStream(chat two-response) error = %v", err)
+	}
+	client := &grpc.GenericClientStream[emptypb.Empty, emptypb.Empty]{ClientStream: stream}
+	if err := client.Send(&emptypb.Empty{}); err != nil {
+		t.Fatalf("grpc chat two-response Send() error = %v", err)
+	}
+	count := 0
+	resp, err := client.Recv()
+	if err != nil {
+		t.Fatalf("grpc chat two-response first Recv() error = %v", err)
+	}
+	if resp == nil {
+		t.Fatal("grpc chat two-response first response = nil")
+	}
+	count++
+	resp, err = client.Recv()
+	if err != nil {
+		t.Fatalf("grpc chat two-response second Recv() error = %v", err)
+	}
+	if resp == nil {
+		t.Fatal("grpc chat two-response second response = nil")
+	}
+	count++
+	if err := client.CloseSend(); err != nil {
+		t.Fatalf("grpc chat two-response CloseSend() error = %v", err)
+	}
+	_, err = client.Recv()
+	if !errors.Is(err, io.EOF) {
+		t.Fatalf("grpc chat two-response final Recv() error = %v, want io.EOF", err)
+	}
+	return count
+}
+
 type transportNativeServer struct{}
 
 var (
@@ -505,6 +629,7 @@ var (
 	transportGoNativeChatRecvs       int
 	transportGoNativeChatCloseSends  int
 	transportGoNativeChatCancels     int
+	transportGoNativeChatResponses   int
 	transportGoNativeUnaryErrEnabled bool
 )
 
@@ -521,11 +646,16 @@ func resetTransportGoNativeCounters() {
 	transportGoNativeChatRecvs = 0
 	transportGoNativeChatCloseSends = 0
 	transportGoNativeChatCancels = 0
+	transportGoNativeChatResponses = 1
 	transportGoNativeUnaryErrEnabled = false
 }
 
 func setTransportGoNativeUnaryError(enabled bool) {
 	transportGoNativeUnaryErrEnabled = enabled
+}
+
+func setTransportGoNativeChatResponses(count int) {
+	transportGoNativeChatResponses = count
 }
 
 func assertGoNativeTransportCounters(t *testing.T) {
@@ -582,7 +712,7 @@ func (transportNativeServer) List(context.Context) (v1.GreeterListNativeServerSt
 
 func (transportNativeServer) Chat(context.Context) (v1.GreeterChatNativeBidiStream, error) {
 	transportGoNativeChatStarts++
-	return &transportNativeBidiStream{remaining: 1}, nil
+	return &transportNativeBidiStream{remaining: transportGoNativeChatResponses}, nil
 }
 
 type transportNativeClientStream struct{}
