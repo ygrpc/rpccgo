@@ -39,7 +39,7 @@ func renderCodecFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan
 	g.P(`proto "google.golang.org/protobuf/proto"`)
 	g.P(")")
 	g.P()
-	g.P("// rpccgo native message codec stage file for ", service.GoName)
+	g.P("// rpccgo native message codec generated file for ", service.GoName)
 	g.P()
 	g.P("var ", lowerInitial(service.GoName), `NativeMessageCodecNotReadyErr = errors.New("rpccgo: native message codec is not implemented in this build")`)
 	g.P()

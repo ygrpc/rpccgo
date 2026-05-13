@@ -11,7 +11,7 @@ import (
 	proto "google.golang.org/protobuf/proto"
 )
 
-// rpccgo message direct stage file for Greeter grpc local server adapter
+// rpccgo message direct generated file for Greeter grpc local server adapter
 
 type GreeterGRPCHandler interface{}
 

@@ -236,15 +236,15 @@ func nativeStageMarker(service ServicePlan, file GeneratedFilePlan) string {
 	name := file.Filename
 	switch {
 	case strings.Contains(name, ".runtime.rpccgo.go"):
-		return strings.Join([]string{"rpccgo service runtime stage file for", service.GoName}, " ")
+		return strings.Join([]string{"rpccgo service runtime generated file for", service.GoName}, " ")
 	case strings.Contains(name, ".server.native.rpccgo.go"):
-		return strings.Join([]string{"rpccgo native stage file for", service.GoName, "go native server"}, " ")
+		return strings.Join([]string{"rpccgo native generated file for", service.GoName, "go native server"}, " ")
 	case strings.Contains(name, ".server.cgo.rpccgo.go"):
-		return strings.Join([]string{"rpccgo native stage file for", service.GoName, "cgo native server"}, " ")
+		return strings.Join([]string{"rpccgo native generated file for", service.GoName, "cgo native server"}, " ")
 	case strings.Contains(name, ".client.cgo.rpccgo.go"):
-		return strings.Join([]string{"rpccgo native stage file for", service.GoName, "cgo native client"}, " ")
+		return strings.Join([]string{"rpccgo native generated file for", service.GoName, "cgo native client"}, " ")
 	default:
-		return strings.Join([]string{"rpccgo service stage file for", service.GoName, "unknown"}, " ")
+		return strings.Join([]string{"rpccgo service generated file for", service.GoName, "unknown"}, " ")
 	}
 }
 
@@ -252,20 +252,20 @@ func messageStageMarker(service ServicePlan, file GeneratedFilePlan) string {
 	name := file.Filename
 	switch {
 	case strings.Contains(name, ".runtime.rpccgo.go"):
-		return strings.Join([]string{"rpccgo message direct stage file for", service.GoName, "runtime"}, " ")
+		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "runtime"}, " ")
 	case strings.Contains(name, ".server.cgo.rpccgo.go"), strings.Contains(name, ".server.message.cgo.rpccgo.go"):
-		return strings.Join([]string{"rpccgo message direct stage file for", service.GoName, "cgo message server callbacks"}, " ")
+		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "cgo message server callbacks"}, " ")
 	case strings.Contains(name, ".client.cgo.rpccgo.go"), strings.Contains(name, ".client.message.cgo.rpccgo.go"):
-		return strings.Join([]string{"rpccgo message direct stage file for", service.GoName, "cgo message client"}, " ")
+		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "cgo message client"}, " ")
 	case strings.Contains(name, ".server.connect.rpccgo.go"):
-		return strings.Join([]string{"rpccgo message direct stage file for", service.GoName, "connect local server adapter"}, " ")
+		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "connect local server adapter"}, " ")
 	case strings.Contains(name, ".server.grpc.rpccgo.go"):
-		return strings.Join([]string{"rpccgo message direct stage file for", service.GoName, "grpc local server adapter"}, " ")
+		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "grpc local server adapter"}, " ")
 	case strings.Contains(name, ".remote.connect.rpccgo.go"):
-		return strings.Join([]string{"rpccgo message direct stage file for", service.GoName, "connect remote server adapter"}, " ")
+		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "connect remote server adapter"}, " ")
 	case strings.Contains(name, ".remote.grpc.rpccgo.go"):
-		return strings.Join([]string{"rpccgo message direct stage file for", service.GoName, "grpc remote server adapter"}, " ")
+		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "grpc remote server adapter"}, " ")
 	default:
-		return strings.Join([]string{"rpccgo message direct stage file for", service.GoName, "unknown"}, " ")
+		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "unknown"}, " ")
 	}
 }

@@ -28,7 +28,7 @@ import (
 	unsafe "unsafe"
 )
 
-// rpccgo native stage file for Greeter cgo native server
+// rpccgo native generated file for Greeter cgo native server
 
 type GreeterSayHelloCGONativeUnaryRequest struct {
 	NamePtr       C.uintptr_t

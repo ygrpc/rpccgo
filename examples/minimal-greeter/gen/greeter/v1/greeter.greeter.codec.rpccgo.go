@@ -8,7 +8,7 @@ import (
 	proto "google.golang.org/protobuf/proto"
 )
 
-// rpccgo native message codec stage file for Greeter
+// rpccgo native message codec generated file for Greeter
 
 var greeterNativeMessageCodecNotReadyErr = errors.New("rpccgo: native message codec is not implemented in this build")
 

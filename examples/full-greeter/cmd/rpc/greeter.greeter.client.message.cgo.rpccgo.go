@@ -13,7 +13,7 @@ import (
 	unsafe "unsafe"
 )
 
-// rpccgo message direct stage file for Greeter cgo message client
+// rpccgo message direct generated file for Greeter cgo message client
 
 type GreeterMessageOutput struct {
 	DataPtr uintptr

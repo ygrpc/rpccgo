@@ -12,7 +12,7 @@ import (
 	rpcruntime "rpccgo/rpcruntime"
 )
 
-// rpccgo message direct stage file for Greeter connect remote server adapter
+// rpccgo message direct generated file for Greeter connect remote server adapter
 
 var _ *http.Client
 var _ GreeterMessageAdapter = (*GreeterConnectRemoteServer)(nil)

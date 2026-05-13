@@ -11,7 +11,7 @@ import (
 	rpcruntime "rpccgo/rpcruntime"
 )
 
-// rpccgo message direct stage file for Greeter grpc remote server adapter
+// rpccgo message direct generated file for Greeter grpc remote server adapter
 
 const GreeterCollectGRPCFullMethodName = "/examples.full.greeter.v1.Greeter/Collect"
 const GreeterBroadcastGRPCFullMethodName = "/examples.full.greeter.v1.Greeter/Broadcast"

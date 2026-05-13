@@ -30,7 +30,7 @@ import (
 	unsafe "unsafe"
 )
 
-// rpccgo message direct stage file for Greeter cgo message server callbacks
+// rpccgo message direct generated file for Greeter cgo message server callbacks
 
 var (
 	greeterCGOMessageServerCallbacksNil         = errors.New("rpccgo: Greeter cgo message server callbacks are nil")

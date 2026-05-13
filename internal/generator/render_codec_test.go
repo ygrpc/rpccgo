@@ -23,7 +23,7 @@ func TestRenderCodecFilesEmitsServiceCodecFile(t *testing.T) {
 		`errors "errors"`,
 		`fmt "fmt"`,
 		`proto "google.golang.org/protobuf/proto"`,
-		"rpccgo native message codec stage file for Greeter",
+		"rpccgo native message codec generated file for Greeter",
 		`var greeterNativeMessageCodecNotReadyErr = errors.New("rpccgo: native message codec is not implemented in this build")`,
 		"func convertGreeterSayHelloMessageToNativeRequest(data []byte) error {",
 		"if err := proto.Unmarshal(data, &msg); err != nil {",
@@ -138,7 +138,7 @@ func TestRenderStageFilesEmitsCodecWithoutRemoteAdapterFiles(t *testing.T) {
 	})
 	assertNoGeneratedFilenameContains(t, plugin, ".connect.", ".grpc.", ".remote.")
 	assertGeneratedContentDoesNotContain(t, plugin, ".remote.")
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.codec.rpccgo.go", "rpccgo native message codec stage file for Greeter")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.codec.rpccgo.go", "rpccgo native message codec generated file for Greeter")
 }
 
 func TestDirectPathRenderersDoNotEmitCodecFiles(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	rpcruntime "rpccgo/rpcruntime"
 )
 
-// rpccgo native stage file for Greeter go native server
+// rpccgo native generated file for Greeter go native server
 
 var (
 	greeterNativeRequestBridgeNotImplemented = errors.New("rpccgo: native request bridge is not implemented")

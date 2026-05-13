@@ -7,6 +7,7 @@
 - 接到任务时先判断简单任务或复杂任务。
 - 简单任务先复述需求和假设，最多提出 3 个关键问题，等用户确认后再动手；如果用户已经明确批准执行，可以直接进入实现。
 - 复杂任务先用设计/计划流程拆清楚边界；已有计划时按计划执行，不重复讨论。
+- 当前项目文档和新文件命名不要再使用 `stage`、`Stage`、`stage-8` 或“阶段”来描述路线图、发布验证或当前工作；使用 `release verification`、`release checklist`、`implementation plan` 等非阶段命名。
 - 遇到 bug 先写能复现的测试，再修复到测试通过。
 - shell 命令默认加 `rtk` 前缀。
 - 文件编辑必须使用 `apply_patch`，不要用 shell 重定向或脚本直接写文件。
@@ -82,7 +83,7 @@ connect client 和 grpc client 属于标准 RPC client，不进入 rpccgo client
 - `examples/`：用户可运行示例。
 - `rpcruntime/`：通用 runtime primitive。
 - `docs/specs/`：定稿设计文档。
-- `docs/plans/`：项目路线图和实施计划。
+- `docs/release/`：发布验证清单。
 
 ## 技术栈
 
@@ -99,7 +100,7 @@ connect client 和 grpc client 属于标准 RPC client，不进入 rpccgo client
 
 - 旧项目路径：`/home/zenghp/github.com/ygrpc/rpccgo-old`。
 - 迁移旧代码前必须说明该代码的作用，以及为什么迁移比重写更合适。
-- 阶段 0 只迁移 service 无关的 `rpcruntime` primitive。
+- 旧代码迁移应从 service 无关的 `rpcruntime` primitive 这类低耦合能力开始。
 - 不要提前迁移旧 `active_slot.go`、旧 generator、旧 integration 或旧 bootstrap 模型。
 - 不要把旧项目的多 registry、多 provider bootstrap、framework selector 带进新版架构。
 - 如果旧代码与新版 signed ABI、单 dispatcher、单 active server 约束冲突，必须按新版约束调整。

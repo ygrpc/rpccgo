@@ -9,7 +9,7 @@ import (
 	proto "google.golang.org/protobuf/proto"
 )
 
-// rpccgo message direct stage file for Greeter connect local server adapter
+// rpccgo message direct generated file for Greeter connect local server adapter
 
 const GreeterConnectServiceName = "examples.minimal.greeter.v1.Greeter"
 const GreeterConnectServicePathPrefix = "/examples.minimal.greeter.v1.Greeter/"

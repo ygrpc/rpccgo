@@ -6,7 +6,7 @@ import (
 	rpcruntime "rpccgo/rpcruntime"
 )
 
-// rpccgo service runtime stage file for Greeter
+// rpccgo service runtime generated file for Greeter
 
 type GreeterNativeAdapter interface {
 	SayHello(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error)

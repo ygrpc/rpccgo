@@ -12,7 +12,7 @@ import (
 	unsafe "unsafe"
 )
 
-// rpccgo native stage file for Greeter cgo native client
+// rpccgo native generated file for Greeter cgo native client
 
 var greeterNativeClientUnsupportedField = errors.New("rpccgo: native unary client field bridge is not implemented")
 var greeterNativeClientStreamHandleInvalid = errors.New("rpccgo: native client stream handle is invalid")
