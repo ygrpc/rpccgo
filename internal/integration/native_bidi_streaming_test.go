@@ -157,9 +157,25 @@ type chatGoServer struct {
 	stream *chatGoStream
 }
 
-func (s *chatGoServer) Chat(ctx context.Context) (v1.GreeterChatNativeBidiStream, error) {
+func (s *chatGoServer) Chat(ctx context.Context, stream v1.GreeterChatNativeBidiStream) error {
 	s.stream = &chatGoStream{}
-	return s.stream, nil
+	for {
+		name, seq, err := stream.Recv(ctx)
+		if err == io.EOF {
+			s.stream.closed = true
+			return nil
+		}
+		if err != nil {
+			s.stream.canceled = true
+			return err
+		}
+		s.stream.names = append(s.stream.names, name.SafeString())
+		s.stream.seqs = append(s.stream.seqs, seq)
+		if err := stream.Send(ctx, seq, name.SafeString()); err != nil {
+			s.stream.canceled = true
+			return err
+		}
+	}
 }
 
 type chatGoStream struct {
@@ -242,7 +258,7 @@ func TestNativeBidiStreamingGoServerLifecycle(t *testing.T) {
 	if errID := CloseSendGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
 		t.Fatalf("CloseSendGreeterChatNativeBidiStream() errID = %d", errID)
 	}
-	assertErrorTextContainsBidi(t, sendChatErr(context.Background(), handle, chatInput("third", 3)), "go bidi send closed")
+	assertErrorTextContainsBidi(t, sendChatErr(context.Background(), handle, chatInput("third", 3)), "native stream is closed")
 	assertChatRead(t, handle, 2, "second")
 	assertErrorTextContainsBidi(t, readChat(context.Background(), handle, &chatOutput{}), "EOF")
 	if errID := DoneGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {

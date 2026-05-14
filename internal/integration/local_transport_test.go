@@ -700,82 +700,53 @@ func (transportNativeServer) Unary(context.Context) error {
 	return nil
 }
 
-func (transportNativeServer) Upload(context.Context) (v1.GreeterUploadNativeClientStream, error) {
+func (transportNativeServer) Upload(ctx context.Context, stream v1.GreeterUploadNativeClientStream) error {
 	transportGoNativeUploadStarts++
-	return transportNativeClientStream{}, nil
-}
-
-func (transportNativeServer) List(context.Context) (v1.GreeterListNativeServerStream, error) {
-	transportGoNativeListStarts++
-	return &transportNativeServerStream{remaining: 1}, nil
-}
-
-func (transportNativeServer) Chat(context.Context) (v1.GreeterChatNativeBidiStream, error) {
-	transportGoNativeChatStarts++
-	return &transportNativeBidiStream{remaining: transportGoNativeChatResponses}, nil
-}
-
-type transportNativeClientStream struct{}
-
-func (transportNativeClientStream) Send(context.Context) error {
-	transportGoNativeUploadSends++
-	return nil
-}
-
-func (transportNativeClientStream) Finish(context.Context) error {
+	for {
+		err := stream.Recv(ctx)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		transportGoNativeUploadSends++
+	}
 	transportGoNativeUploadFinishes++
 	return nil
 }
 
-func (transportNativeClientStream) Cancel(context.Context) error { return nil }
-
-type transportNativeServerStream struct {
-	remaining int
-}
-
-func (s *transportNativeServerStream) Recv(context.Context) error {
+func (transportNativeServer) List(ctx context.Context, stream v1.GreeterListNativeServerStream) error {
+	transportGoNativeListStarts++
 	transportGoNativeListRecvs++
-	if s.remaining == 0 {
-		return io.EOF
+	if err := stream.Send(ctx); err != nil {
+		return err
 	}
-	s.remaining--
-	return nil
-}
-
-func (*transportNativeServerStream) Cancel(context.Context) error { return nil }
-
-func (*transportNativeServerStream) Done(context.Context) error {
+	transportGoNativeListRecvs++
 	transportGoNativeListDones++
 	return nil
 }
 
-type transportNativeBidiStream struct {
-	remaining int
-}
-
-func (*transportNativeBidiStream) Send(context.Context) error {
-	transportGoNativeChatSends++
-	return nil
-}
-
-func (s *transportNativeBidiStream) Recv(context.Context) error {
-	transportGoNativeChatRecvs++
-	if s.remaining == 0 {
-		return io.EOF
+func (transportNativeServer) Chat(ctx context.Context, stream v1.GreeterChatNativeBidiStream) error {
+	transportGoNativeChatStarts++
+	for {
+		err := stream.Recv(ctx)
+		if err == io.EOF {
+			transportGoNativeChatRecvs++
+			transportGoNativeChatCloseSends++
+			return nil
+		}
+		if err != nil {
+			transportGoNativeChatCancels++
+			return err
+		}
+		transportGoNativeChatSends++
+		for i := 0; i < transportGoNativeChatResponses; i++ {
+			if err := stream.Send(ctx); err != nil {
+				return err
+			}
+			transportGoNativeChatRecvs++
+		}
 	}
-	s.remaining--
-	return nil
 }
-
-func (*transportNativeBidiStream) CloseSend(context.Context) error {
-	transportGoNativeChatCloseSends++
-	return nil
-}
-
-func (*transportNativeBidiStream) Cancel(context.Context) error {
-	transportGoNativeChatCancels++
-	return nil
-}
-
-func (*transportNativeBidiStream) Done(context.Context) error { return nil }
 `

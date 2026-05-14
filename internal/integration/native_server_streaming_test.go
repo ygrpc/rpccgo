@@ -157,9 +157,16 @@ type listGoServer struct {
 	stream *listGoStream
 }
 
-func (s *listGoServer) List(ctx context.Context, prefix *rpcruntime.RpcString, limit int32) (v1.GreeterListNativeServerStream, error) {
+func (s *listGoServer) List(ctx context.Context, prefix *rpcruntime.RpcString, limit int32, stream v1.GreeterListNativeServerStream) error {
 	s.stream = &listGoStream{prefix: s.label + prefix.SafeString(), limit: limit}
-	return s.stream, nil
+	for s.stream.index < s.stream.limit {
+		s.stream.index++
+		if err := stream.Send(ctx, s.stream.index, s.stream.prefix+":"+string(rune('0'+s.stream.index))); err != nil {
+			s.stream.canceled = true
+			return err
+		}
+	}
+	return nil
 }
 
 type listGoStream struct {
@@ -258,7 +265,7 @@ func TestNativeServerStreamingGoServerCancelFinalizesHandle(t *testing.T) {
 	if _, err := v1.RegisterGreeterGoNativeServer(server); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
-	handle, errID := startList(context.Background(), listInput("go", 1))
+	handle, errID := startList(context.Background(), listInput("go", 32))
 	if errID != 0 {
 		t.Fatalf("StartGreeterListNativeServerStream() errID = %d", errID)
 	}

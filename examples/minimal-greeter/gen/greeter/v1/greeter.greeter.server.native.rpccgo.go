@@ -12,6 +12,7 @@ var (
 	greeterNativeRequestBridgeNotImplemented = errors.New("rpccgo: native request bridge is not implemented")
 	greeterNativeStreamBridgeNotImplemented  = errors.New("rpccgo: native stream bridge is not implemented")
 	greeterNativeStreamIsNil                 = errors.New("rpccgo: native stream is nil")
+	greeterNativeStreamClosed                = errors.New("rpccgo: native stream is closed")
 )
 
 type GreeterNativeServer interface {

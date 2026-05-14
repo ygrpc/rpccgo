@@ -765,6 +765,7 @@ const messageDirectPathFixtureTestSource = `package main
 
 import (
 	context "context"
+	io "io"
 	strings "strings"
 	"testing"
 	"unsafe"
@@ -1324,41 +1325,39 @@ func (mismatchNativeServer) Unary(context.Context) error {
 	return nil
 }
 
-func (mismatchNativeServer) Upload(context.Context) (v1.GreeterUploadNativeClientStream, error) {
-	return mismatchNativeClientStream{}, nil
+func (mismatchNativeServer) Upload(ctx context.Context, stream v1.GreeterUploadNativeClientStream) error {
+	for {
+		err := stream.Recv(ctx)
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+	}
 }
 
-func (mismatchNativeServer) List(context.Context) (v1.GreeterListNativeServerStream, error) {
-	return mismatchNativeServerStream{}, nil
-}
-
-func (mismatchNativeServer) Chat(context.Context) (v1.GreeterChatNativeBidiStream, error) {
-	return mismatchNativeBidiStream{}, nil
-}
-
-type mismatchNativeClientStream struct{}
-
-func (mismatchNativeClientStream) Send(context.Context) error { return nil }
-func (mismatchNativeClientStream) Finish(context.Context) error {
+func (mismatchNativeServer) List(ctx context.Context, stream v1.GreeterListNativeServerStream) error {
+	if err := stream.Send(ctx); err != nil {
+		return err
+	}
 	return nil
 }
-func (mismatchNativeClientStream) Cancel(context.Context) error { return nil }
 
-type mismatchNativeServerStream struct{}
-
-func (mismatchNativeServerStream) Recv(context.Context) error {
-	return nil
+func (mismatchNativeServer) Chat(ctx context.Context, stream v1.GreeterChatNativeBidiStream) error {
+	for {
+		err := stream.Recv(ctx)
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if err := stream.Send(ctx); err != nil {
+			return err
+		}
+	}
 }
-func (mismatchNativeServerStream) Cancel(context.Context) error { return nil }
-
-type mismatchNativeBidiStream struct{}
-
-func (mismatchNativeBidiStream) Send(context.Context) error { return nil }
-func (mismatchNativeBidiStream) Recv(context.Context) error {
-	return nil
-}
-func (mismatchNativeBidiStream) CloseSend(context.Context) error { return nil }
-func (mismatchNativeBidiStream) Cancel(context.Context) error { return nil }
 
 func assertMessageErrContains(t *testing.T, errID int32, wants ...string) {
 	t.Helper()

@@ -23,6 +23,12 @@ func renderNativeServerFile(plugin *protogen.Plugin, plan FilePlan, service Serv
 	g.P("import (")
 	g.P(`context "context"`)
 	g.P(`errors "errors"`)
+	if nativeServerHasStreamingMethod(service) {
+		g.P(`io "io"`)
+	}
+	if nativeServerHasClientInputStreamingMethod(service) {
+		g.P(`sync "sync"`)
+	}
 	g.P(`rpcruntime "rpccgo/rpcruntime"`)
 	g.P(")")
 	g.P()
@@ -33,6 +39,7 @@ func renderNativeServerFile(plugin *protogen.Plugin, plan FilePlan, service Serv
 	g.P(errorNames.RequestBridgeNotImplemented, ` = errors.New("rpccgo: native request bridge is not implemented")`)
 	g.P(errorNames.StreamBridgeNotImplemented, ` = errors.New("rpccgo: native stream bridge is not implemented")`)
 	g.P(errorNames.StreamIsNil, ` = errors.New("rpccgo: native stream is nil")`)
+	g.P(errorNames.StreamClosed, ` = errors.New("rpccgo: native stream is closed")`)
 	g.P(")")
 	g.P()
 
@@ -55,11 +62,11 @@ func renderGoNativeServerInterface(g *protogen.GeneratedFile, service ServicePla
 		case StreamingKindUnary:
 			g.P(method.GoName, "(ctx context.Context", requestParams, ") (", responseReturns, ")")
 		case StreamingKindClientStreaming:
-			g.P(method.GoName, "(ctx context.Context) (", service.GoName, method.GoName, "NativeClientStream, error)")
+			g.P(method.GoName, "(ctx context.Context, stream ", service.GoName, method.GoName, "NativeClientStream) (", responseReturns, ")")
 		case StreamingKindServerStreaming:
-			g.P(method.GoName, "(ctx context.Context", requestParams, ") (", service.GoName, method.GoName, "NativeServerStream, error)")
+			g.P(method.GoName, "(ctx context.Context", requestParams, ", stream ", service.GoName, method.GoName, "NativeServerStream) error")
 		case StreamingKindBidiStreaming:
-			g.P(method.GoName, "(ctx context.Context) (", service.GoName, method.GoName, "NativeBidiStream, error)")
+			g.P(method.GoName, "(ctx context.Context, stream ", service.GoName, method.GoName, "NativeBidiStream) error")
 		}
 	}
 	g.P("}")
@@ -70,29 +77,28 @@ func renderGoNativeStreamInterfaces(g *protogen.GeneratedFile, service ServicePl
 	for _, method := range service.Methods {
 		requestParams := nativeGoRequestParams(g, method.NativeContract.RequestFields)
 		responseReturns := nativeGoResponseReturns(g, method.NativeContract.ResponseFields)
+		requestReturns := nativeGoRequestReturns(g, method.NativeContract.RequestFields)
+		responseParams := nativeGoResponseParams(g, method.NativeContract.ResponseFields)
 		switch method.Streaming {
 		case StreamingKindClientStreaming:
 			g.P("type ", service.GoName, method.GoName, "NativeClientStream interface {")
-			g.P("Send(ctx context.Context", requestParams, ") error")
-			g.P("Finish(ctx context.Context) (", responseReturns, ")")
-			g.P("Cancel(ctx context.Context) error")
+			g.P("Recv(ctx context.Context) (", requestReturns, ")")
 			g.P("}")
 			g.P()
 		case StreamingKindServerStreaming:
 			g.P("type ", service.GoName, method.GoName, "NativeServerStream interface {")
-			g.P("Recv(ctx context.Context) (", responseReturns, ")")
-			g.P("Cancel(ctx context.Context) error")
+			g.P("Send(ctx context.Context", responseParams, ") error")
 			g.P("}")
 			g.P()
 		case StreamingKindBidiStreaming:
 			g.P("type ", service.GoName, method.GoName, "NativeBidiStream interface {")
-			g.P("Send(ctx context.Context", requestParams, ") error")
-			g.P("Recv(ctx context.Context) (", responseReturns, ")")
-			g.P("CloseSend(ctx context.Context) error")
-			g.P("Cancel(ctx context.Context) error")
+			g.P("Recv(ctx context.Context) (", requestReturns, ")")
+			g.P("Send(ctx context.Context", responseParams, ") error")
 			g.P("}")
 			g.P()
 		}
+		_ = requestParams
+		_ = responseReturns
 	}
 }
 
@@ -143,78 +149,130 @@ func renderGoNativeUnaryAdapterMethod(g *protogen.GeneratedFile, adapterName str
 
 func renderGoNativeClientStreamAdapterMethod(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, errorNames nativeServerErrorNames) {
 	sessionName := service.GoName + method.GoName + "NativeStreamSession"
+	receiver := lowerInitial(service.GoName) + method.GoName + "GoNativeClientStreamSession"
 	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context) (", sessionName, ", error) {")
-	g.P("stream, err := a.server.", method.GoName, "(ctx)")
-	g.P("if err != nil {")
-	g.P("return nil, err")
+	g.P("streamCtx, cancel := context.WithCancel(ctx)")
+	g.P("session := &", receiver, "{")
+	g.P("ctx: streamCtx,")
+	g.P("cancel: cancel,")
+	g.P("requests: make(chan ", receiver, "Request, 16),")
+	g.P("sendDone: make(chan struct{}),")
+	g.P("done: make(chan struct{}),")
 	g.P("}")
-	g.P("if stream == nil {")
-	g.P("return nil, ", errorNames.StreamIsNil)
-	g.P("}")
-	g.P("return &", lowerInitial(service.GoName), method.GoName, "GoNativeClientStreamSession{stream: stream}, nil")
+	g.P("go func() {")
+	g.P("defer close(session.done)")
+	g.P(renderNativeClientStreamResultAssignment(method), "a.server.", method.GoName, "(streamCtx, session)")
+	g.P("}()")
+	g.P("return session, nil")
 	g.P("}")
 	g.P()
 
-	g.P("type ", lowerInitial(service.GoName), method.GoName, "GoNativeClientStreamSession struct {")
-	g.P("stream ", service.GoName, method.GoName, "NativeClientStream")
+	renderNativeRequestEnvelope(g, receiver+"Request", method.NativeContract.RequestFields)
+	renderNativeClientStreamResult(g, receiver+"Result", method.NativeContract.ResponseFields)
+	g.P("type ", receiver, " struct {")
+	g.P("ctx context.Context")
+	g.P("cancel context.CancelFunc")
+	g.P("requests chan ", receiver, "Request")
+	g.P("sendDone chan struct{}")
+	g.P("closeSendOnce sync.Once")
+	g.P("done chan struct{}")
+	g.P("result ", receiver, "Result")
 	g.P("}")
 	g.P()
-	renderGoNativeClientStreamSend(g, lowerInitial(service.GoName)+method.GoName+"GoNativeClientStreamSession", method, errorNames)
-	renderGoNativeClientStreamFinish(g, lowerInitial(service.GoName)+method.GoName+"GoNativeClientStreamSession", method, errorNames)
-	renderCancelForwarder(g, lowerInitial(service.GoName)+method.GoName+"GoNativeClientStreamSession", errorNames)
+	renderGoNativeClientStreamFacadeRecv(g, receiver, method)
+	renderGoNativeClientStreamSend(g, receiver, method, errorNames)
+	renderGoNativeClientStreamFinish(g, receiver, method, errorNames)
+	renderGeneratedStreamCancel(g, receiver)
 }
 
 func renderGoNativeServerStreamAdapterMethod(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, errorNames nativeServerErrorNames) {
 	sessionName := service.GoName + method.GoName + "NativeStreamSession"
+	receiver := lowerInitial(service.GoName) + method.GoName + "GoNativeServerStreamSession"
 	requestParams := nativeGoRequestParams(g, method.NativeContract.RequestFields)
 	requestArgs := nativeGoRequestArgNames(method.NativeContract.RequestFields)
 	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context", requestParams, ") (", sessionName, ", error) {")
+	g.P("streamCtx, cancel := context.WithCancel(ctx)")
+	g.P("session := &", receiver, "{")
+	g.P("ctx: streamCtx,")
+	g.P("cancel: cancel,")
+	g.P("responses: make(chan ", receiver, "Response, 16),")
+	g.P("done: make(chan struct{}),")
+	g.P("}")
+	g.P("go func() {")
+	g.P("defer close(session.done)")
+	g.P("defer close(session.responses)")
 	if len(method.NativeContract.RequestFields) == 0 {
-		g.P("stream, err := a.server.", method.GoName, "(ctx)")
+		g.P("session.err = a.server.", method.GoName, "(streamCtx, session)")
 	} else {
-		g.P("stream, err := a.server.", method.GoName, "(ctx, ", requestArgs, ")")
+		g.P("session.err = a.server.", method.GoName, "(streamCtx, ", requestArgs, ", session)")
 	}
-	g.P("if err != nil {")
-	g.P("return nil, err")
-	g.P("}")
-	g.P("if stream == nil {")
-	g.P("return nil, ", errorNames.StreamIsNil)
-	g.P("}")
-	g.P("return &", lowerInitial(service.GoName), method.GoName, "GoNativeServerStreamSession{stream: stream}, nil")
+	g.P("}()")
+	g.P("return session, nil")
 	g.P("}")
 	g.P()
 
-	g.P("type ", lowerInitial(service.GoName), method.GoName, "GoNativeServerStreamSession struct {")
-	g.P("stream ", service.GoName, method.GoName, "NativeServerStream")
+	renderNativeResponseEnvelope(g, receiver+"Response", method.NativeContract.ResponseFields)
+	g.P("type ", receiver, " struct {")
+	g.P("ctx context.Context")
+	g.P("cancel context.CancelFunc")
+	g.P("responses chan ", receiver, "Response")
+	g.P("done chan struct{}")
+	g.P("err error")
 	g.P("}")
 	g.P()
-	renderGoNativeServerStreamRecv(g, lowerInitial(service.GoName)+method.GoName+"GoNativeServerStreamSession", method, errorNames)
-	renderCancelForwarder(g, lowerInitial(service.GoName)+method.GoName+"GoNativeServerStreamSession", errorNames)
+	renderGoNativeServerStreamFacadeSend(g, receiver, method, errorNames)
+	renderGoNativeServerStreamRecv(g, receiver, method, errorNames)
+	renderGeneratedStreamDone(g, receiver)
+	renderGeneratedStreamCancel(g, receiver)
 }
 
 func renderGoNativeBidiStreamAdapterMethod(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, errorNames nativeServerErrorNames) {
 	sessionName := service.GoName + method.GoName + "NativeStreamSession"
+	receiver := lowerInitial(service.GoName) + method.GoName + "GoNativeBidiStreamSession"
+	facadeName := lowerInitial(service.GoName) + method.GoName + "GoNativeBidiStreamFacade"
 	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context) (", sessionName, ", error) {")
-	g.P("stream, err := a.server.", method.GoName, "(ctx)")
-	g.P("if err != nil {")
-	g.P("return nil, err")
+	g.P("streamCtx, cancel := context.WithCancel(ctx)")
+	g.P("session := &", receiver, "{")
+	g.P("ctx: streamCtx,")
+	g.P("cancel: cancel,")
+	g.P("requests: make(chan ", receiver, "Request, 16),")
+	g.P("sendDone: make(chan struct{}),")
+	g.P("responses: make(chan ", receiver, "Response, 16),")
+	g.P("done: make(chan struct{}),")
 	g.P("}")
-	g.P("if stream == nil {")
-	g.P("return nil, ", errorNames.StreamIsNil)
-	g.P("}")
-	g.P("return &", lowerInitial(service.GoName), method.GoName, "GoNativeBidiStreamSession{stream: stream}, nil")
+	g.P("go func() {")
+	g.P("defer close(session.done)")
+	g.P("defer close(session.responses)")
+	g.P("session.err = a.server.", method.GoName, "(streamCtx, &", facadeName, "{session: session})")
+	g.P("}()")
+	g.P("return session, nil")
 	g.P("}")
 	g.P()
 
-	g.P("type ", lowerInitial(service.GoName), method.GoName, "GoNativeBidiStreamSession struct {")
-	g.P("stream ", service.GoName, method.GoName, "NativeBidiStream")
+	renderNativeRequestEnvelope(g, receiver+"Request", method.NativeContract.RequestFields)
+	renderNativeResponseEnvelope(g, receiver+"Response", method.NativeContract.ResponseFields)
+	g.P("type ", receiver, " struct {")
+	g.P("ctx context.Context")
+	g.P("cancel context.CancelFunc")
+	g.P("requests chan ", receiver, "Request")
+	g.P("sendDone chan struct{}")
+	g.P("closeSendOnce sync.Once")
+	g.P("responses chan ", receiver, "Response")
+	g.P("done chan struct{}")
+	g.P("err error")
 	g.P("}")
 	g.P()
-	receiver := lowerInitial(service.GoName) + method.GoName + "GoNativeBidiStreamSession"
+	g.P("type ", facadeName, " struct {")
+	g.P("session *", receiver)
+	g.P("}")
+	g.P()
+	renderGoNativeBidiStreamFacadeRecv(g, facadeName, method)
+	renderGoNativeBidiStreamFacadeSend(g, facadeName, receiver+"Response", method, errorNames)
 	renderGoNativeBidiStreamSend(g, receiver, method, errorNames)
 	renderGoNativeBidiStreamRecv(g, receiver, method, errorNames)
 	renderGoNativeBidiStreamCloseSend(g, receiver, errorNames)
-	renderCancelForwarder(g, receiver, errorNames)
+	renderGeneratedStreamDone(g, receiver)
+	renderGeneratedStreamCancel(g, receiver)
 }
 
 func renderGoNativeFallbackAdapterMethod(g *protogen.GeneratedFile, adapterName string, method runtimeAdapterMethod) {
@@ -228,42 +286,187 @@ func renderGoNativeFallbackAdapterMethod(g *protogen.GeneratedFile, adapterName 
 	g.P()
 }
 
-func renderGoNativeClientStreamSend(g *protogen.GeneratedFile, receiver string, method MethodPlan, errorNames nativeServerErrorNames) {
-	requestParams := nativeGoRequestParams(g, method.NativeContract.RequestFields)
-	requestArgs := nativeGoRequestArgNames(method.NativeContract.RequestFields)
-	g.P("func (s *", receiver, ") Send(ctx context.Context", requestParams, ") error {")
-	g.P("if s.stream == nil {")
-	g.P("return ", errorNames.StreamIsNil)
-	g.P("}")
+func renderGoNativeClientStreamFacadeRecv(g *protogen.GeneratedFile, receiver string, method MethodPlan) {
+	requestReturns := nativeGoRequestReturns(g, method.NativeContract.RequestFields)
+	ctxZeroReturns := nativeGoRequestZeroReturns(method.NativeContract.RequestFields, "ctx.Err()")
+	streamCtxZeroReturns := nativeGoRequestZeroReturns(method.NativeContract.RequestFields, "s.ctx.Err()")
+	eofReturns := nativeGoRequestZeroReturns(method.NativeContract.RequestFields, "io.EOF")
+	g.P("func (s *", receiver, ") Recv(ctx context.Context) (", requestReturns, ") {")
+	g.P("select {")
 	if len(method.NativeContract.RequestFields) == 0 {
-		g.P("return s.stream.Send(ctx)")
+		g.P("case <-s.requests:")
 	} else {
-		g.P("return s.stream.Send(ctx, ", requestArgs, ")")
+		g.P("case req := <-s.requests:")
 	}
+	g.P("return ", nativeResultReturn("req", method.NativeContract.RequestFields))
+	g.P("default:")
+	g.P("}")
+	g.P("select {")
+	g.P("case <-ctx.Done():")
+	g.P("return ", ctxZeroReturns)
+	g.P("case <-s.ctx.Done():")
+	g.P("return ", streamCtxZeroReturns)
+	if len(method.NativeContract.RequestFields) == 0 {
+		g.P("case <-s.requests:")
+	} else {
+		g.P("case req := <-s.requests:")
+	}
+	g.P("return ", nativeResultReturn("req", method.NativeContract.RequestFields))
+	g.P("case <-s.sendDone:")
+	g.P("return ", eofReturns)
+	g.P("}")
 	g.P("}")
 	g.P()
 }
 
+func renderGoNativeClientStreamSend(g *protogen.GeneratedFile, receiver string, method MethodPlan, errorNames nativeServerErrorNames) {
+	requestParams := nativeGoRequestParams(g, method.NativeContract.RequestFields)
+	requestArgs := nativeGoRequestArgNames(method.NativeContract.RequestFields)
+	g.P("func (s *", receiver, ") Send(ctx context.Context", requestParams, ") error {")
+	g.P("select {")
+	g.P("case <-s.sendDone:")
+	g.P("return ", errorNames.StreamClosed)
+	g.P("default:")
+	g.P("}")
+	g.P("req := ", receiver, "Request{", nativeEnvelopeLiteral(method.NativeContract.RequestFields), "}")
+	g.P("select {")
+	g.P("case <-ctx.Done():")
+	g.P("return ctx.Err()")
+	g.P("case <-s.ctx.Done():")
+	g.P("return s.ctx.Err()")
+	g.P("case <-s.done:")
+	g.P("if s.result.err != nil {")
+	g.P("return s.result.err")
+	g.P("}")
+	g.P("return ", errorNames.StreamClosed)
+	g.P("case <-s.sendDone:")
+	g.P("return ", errorNames.StreamClosed)
+	g.P("case s.requests <- req:")
+	g.P("return nil")
+	g.P("}")
+	g.P("}")
+	g.P()
+	_ = requestArgs
+}
+
 func renderGoNativeClientStreamFinish(g *protogen.GeneratedFile, receiver string, method MethodPlan, errorNames nativeServerErrorNames) {
 	responseReturns := nativeGoResponseReturns(g, method.NativeContract.ResponseFields)
-	zeroReturns := nativeGoZeroReturns(method.NativeContract.ResponseFields, errorNames.StreamIsNil)
+	zeroReturns := nativeGoZeroReturns(method.NativeContract.ResponseFields, "ctx.Err()")
 	g.P("func (s *", receiver, ") Finish(ctx context.Context) (", responseReturns, ") {")
-	g.P("if s.stream == nil {")
+	g.P("s.closeSendOnce.Do(func() { close(s.sendDone) })")
+	g.P("select {")
+	g.P("case <-ctx.Done():")
 	g.P("return ", zeroReturns)
+	g.P("case <-s.done:")
+	g.P("return ", nativeResultReturn("s.result", method.NativeContract.ResponseFields))
 	g.P("}")
-	g.P("return s.stream.Finish(ctx)")
+	g.P("}")
+	g.P()
+	_ = errorNames
+}
+
+func renderGoNativeServerStreamFacadeSend(g *protogen.GeneratedFile, receiver string, method MethodPlan, errorNames nativeServerErrorNames) {
+	responseParams := nativeGoResponseParams(g, method.NativeContract.ResponseFields)
+	g.P("func (s *", receiver, ") Send(ctx context.Context", responseParams, ") error {")
+	g.P("resp := ", receiver, "Response{", nativeEnvelopeLiteral(method.NativeContract.ResponseFields), "}")
+	g.P("select {")
+	g.P("case <-ctx.Done():")
+	g.P("return ctx.Err()")
+	g.P("case <-s.ctx.Done():")
+	g.P("return s.ctx.Err()")
+	g.P("case <-s.done:")
+	g.P("if s.err != nil {")
+	g.P("return s.err")
+	g.P("}")
+	g.P("return ", errorNames.StreamClosed)
+	g.P("case s.responses <- resp:")
+	g.P("return nil")
+	g.P("}")
 	g.P("}")
 	g.P()
 }
 
 func renderGoNativeServerStreamRecv(g *protogen.GeneratedFile, receiver string, method MethodPlan, errorNames nativeServerErrorNames) {
 	responseReturns := nativeGoResponseReturns(g, method.NativeContract.ResponseFields)
-	zeroReturns := nativeGoZeroReturns(method.NativeContract.ResponseFields, errorNames.StreamIsNil)
+	ctxZeroReturns := nativeGoZeroReturns(method.NativeContract.ResponseFields, "ctx.Err()")
+	streamCtxZeroReturns := nativeGoZeroReturns(method.NativeContract.ResponseFields, "s.ctx.Err()")
+	eofReturns := nativeGoZeroReturns(method.NativeContract.ResponseFields, "io.EOF")
+	errReturns := nativeGoZeroReturns(method.NativeContract.ResponseFields, "s.err")
 	g.P("func (s *", receiver, ") Recv(ctx context.Context) (", responseReturns, ") {")
-	g.P("if s.stream == nil {")
-	g.P("return ", zeroReturns)
+	g.P("select {")
+	g.P("case <-ctx.Done():")
+	g.P("return ", ctxZeroReturns)
+	g.P("case <-s.ctx.Done():")
+	g.P("return ", streamCtxZeroReturns)
+	if len(method.NativeContract.ResponseFields) == 0 {
+		g.P("case _, ok := <-s.responses:")
+	} else {
+		g.P("case resp, ok := <-s.responses:")
+	}
+	g.P("if ok {")
+	g.P("return ", nativeResultReturn("resp", method.NativeContract.ResponseFields))
 	g.P("}")
-	g.P("return s.stream.Recv(ctx)")
+	g.P("<-s.done")
+	g.P("if s.err != nil {")
+	g.P("return ", errReturns)
+	g.P("}")
+	g.P("return ", eofReturns)
+	g.P("}")
+	g.P("}")
+	g.P()
+	_ = errorNames
+}
+
+func renderGoNativeBidiStreamFacadeRecv(g *protogen.GeneratedFile, receiver string, method MethodPlan) {
+	requestReturns := nativeGoRequestReturns(g, method.NativeContract.RequestFields)
+	ctxZeroReturns := nativeGoRequestZeroReturns(method.NativeContract.RequestFields, "ctx.Err()")
+	streamCtxZeroReturns := nativeGoRequestZeroReturns(method.NativeContract.RequestFields, "s.session.ctx.Err()")
+	eofReturns := nativeGoRequestZeroReturns(method.NativeContract.RequestFields, "io.EOF")
+	g.P("func (s *", receiver, ") Recv(ctx context.Context) (", requestReturns, ") {")
+	g.P("select {")
+	if len(method.NativeContract.RequestFields) == 0 {
+		g.P("case <-s.session.requests:")
+	} else {
+		g.P("case req := <-s.session.requests:")
+	}
+	g.P("return ", nativeResultReturn("req", method.NativeContract.RequestFields))
+	g.P("default:")
+	g.P("}")
+	g.P("select {")
+	g.P("case <-ctx.Done():")
+	g.P("return ", ctxZeroReturns)
+	g.P("case <-s.session.ctx.Done():")
+	g.P("return ", streamCtxZeroReturns)
+	if len(method.NativeContract.RequestFields) == 0 {
+		g.P("case <-s.session.requests:")
+	} else {
+		g.P("case req := <-s.session.requests:")
+	}
+	g.P("return ", nativeResultReturn("req", method.NativeContract.RequestFields))
+	g.P("case <-s.session.sendDone:")
+	g.P("return ", eofReturns)
+	g.P("}")
+	g.P("}")
+	g.P()
+}
+
+func renderGoNativeBidiStreamFacadeSend(g *protogen.GeneratedFile, receiver, responseType string, method MethodPlan, errorNames nativeServerErrorNames) {
+	responseParams := nativeGoResponseParams(g, method.NativeContract.ResponseFields)
+	g.P("func (s *", receiver, ") Send(ctx context.Context", responseParams, ") error {")
+	g.P("resp := ", responseType, "{", nativeEnvelopeLiteral(method.NativeContract.ResponseFields), "}")
+	g.P("select {")
+	g.P("case <-ctx.Done():")
+	g.P("return ctx.Err()")
+	g.P("case <-s.session.ctx.Done():")
+	g.P("return s.session.ctx.Err()")
+	g.P("case <-s.session.done:")
+	g.P("if s.session.err != nil {")
+	g.P("return s.session.err")
+	g.P("}")
+	g.P("return ", errorNames.StreamClosed)
+	g.P("case s.session.responses <- resp:")
+	g.P("return nil")
+	g.P("}")
 	g.P("}")
 	g.P()
 }
@@ -272,48 +475,161 @@ func renderGoNativeBidiStreamSend(g *protogen.GeneratedFile, receiver string, me
 	requestParams := nativeGoRequestParams(g, method.NativeContract.RequestFields)
 	requestArgs := nativeGoRequestArgNames(method.NativeContract.RequestFields)
 	g.P("func (s *", receiver, ") Send(ctx context.Context", requestParams, ") error {")
-	g.P("if s.stream == nil {")
-	g.P("return ", errorNames.StreamIsNil)
+	g.P("select {")
+	g.P("case <-s.sendDone:")
+	g.P("return ", errorNames.StreamClosed)
+	g.P("default:")
 	g.P("}")
-	if len(method.NativeContract.RequestFields) == 0 {
-		g.P("return s.stream.Send(ctx)")
+	g.P("req := ", receiver, "Request{", nativeEnvelopeLiteral(method.NativeContract.RequestFields), "}")
+	g.P("select {")
+	g.P("case <-ctx.Done():")
+	g.P("return ctx.Err()")
+	g.P("case <-s.ctx.Done():")
+	g.P("return s.ctx.Err()")
+	g.P("case <-s.done:")
+	g.P("if s.err != nil {")
+	g.P("return s.err")
+	g.P("}")
+	g.P("return ", errorNames.StreamClosed)
+	g.P("case <-s.sendDone:")
+	g.P("return ", errorNames.StreamClosed)
+	g.P("case s.requests <- req:")
+	g.P("return nil")
+	g.P("}")
+	g.P("}")
+	g.P()
+	_ = requestArgs
+}
+
+func renderGoNativeBidiStreamRecv(g *protogen.GeneratedFile, receiver string, method MethodPlan, errorNames nativeServerErrorNames) {
+	responseReturns := nativeGoResponseReturns(g, method.NativeContract.ResponseFields)
+	ctxZeroReturns := nativeGoZeroReturns(method.NativeContract.ResponseFields, "ctx.Err()")
+	streamCtxZeroReturns := nativeGoZeroReturns(method.NativeContract.ResponseFields, "s.ctx.Err()")
+	eofReturns := nativeGoZeroReturns(method.NativeContract.ResponseFields, "io.EOF")
+	errReturns := nativeGoZeroReturns(method.NativeContract.ResponseFields, "s.err")
+	g.P("func (s *", receiver, ") Recv(ctx context.Context) (", responseReturns, ") {")
+	g.P("select {")
+	g.P("case <-ctx.Done():")
+	g.P("return ", ctxZeroReturns)
+	g.P("case <-s.ctx.Done():")
+	g.P("return ", streamCtxZeroReturns)
+	if len(method.NativeContract.ResponseFields) == 0 {
+		g.P("case _, ok := <-s.responses:")
 	} else {
-		g.P("return s.stream.Send(ctx, ", requestArgs, ")")
+		g.P("case resp, ok := <-s.responses:")
+	}
+	g.P("if ok {")
+	g.P("return ", nativeResultReturn("resp", method.NativeContract.ResponseFields))
+	g.P("}")
+	g.P("<-s.done")
+	g.P("if s.err != nil {")
+	g.P("return ", errReturns)
+	g.P("}")
+	g.P("return ", eofReturns)
+	g.P("}")
+	g.P("}")
+	g.P()
+	_ = errorNames
+}
+
+func renderGoNativeBidiStreamCloseSend(g *protogen.GeneratedFile, receiver string, errorNames nativeServerErrorNames) {
+	g.P("func (s *", receiver, ") CloseSend(ctx context.Context) error {")
+	g.P("s.closeSendOnce.Do(func() { close(s.sendDone) })")
+	g.P("return nil")
+	g.P("}")
+	g.P()
+	_ = errorNames
+}
+
+func renderGeneratedStreamCancel(g *protogen.GeneratedFile, receiver string) {
+	g.P("func (s *", receiver, ") Cancel(ctx context.Context) error {")
+	g.P("s.cancel()")
+	g.P("select {")
+	g.P("case <-ctx.Done():")
+	g.P("return ctx.Err()")
+	g.P("case <-s.done:")
+	g.P("return nil")
+	g.P("}")
+	g.P("}")
+	g.P()
+}
+
+func renderGeneratedStreamDone(g *protogen.GeneratedFile, receiver string) {
+	g.P("func (s *", receiver, ") Done(ctx context.Context) error {")
+	g.P("select {")
+	g.P("case <-ctx.Done():")
+	g.P("return ctx.Err()")
+	g.P("case <-s.done:")
+	g.P("return s.err")
+	g.P("}")
+	g.P("}")
+	g.P()
+}
+
+func renderNativeRequestEnvelope(g *protogen.GeneratedFile, name string, fields []FieldPlan) {
+	g.P("type ", name, " struct {")
+	for _, field := range fields {
+		g.P(lowerInitial(field.GoName), " ", nativeGoRequestFieldType(g, field))
 	}
 	g.P("}")
 	g.P()
 }
 
-func renderGoNativeBidiStreamRecv(g *protogen.GeneratedFile, receiver string, method MethodPlan, errorNames nativeServerErrorNames) {
-	responseReturns := nativeGoResponseReturns(g, method.NativeContract.ResponseFields)
-	zeroReturns := nativeGoZeroReturns(method.NativeContract.ResponseFields, errorNames.StreamIsNil)
-	g.P("func (s *", receiver, ") Recv(ctx context.Context) (", responseReturns, ") {")
-	g.P("if s.stream == nil {")
-	g.P("return ", zeroReturns)
-	g.P("}")
-	g.P("return s.stream.Recv(ctx)")
+func renderNativeResponseEnvelope(g *protogen.GeneratedFile, name string, fields []FieldPlan) {
+	g.P("type ", name, " struct {")
+	for _, field := range fields {
+		g.P(lowerInitial(field.GoName), " ", nativeGoResponseFieldType(g, field))
+	}
 	g.P("}")
 	g.P()
 }
 
-func renderGoNativeBidiStreamCloseSend(g *protogen.GeneratedFile, receiver string, errorNames nativeServerErrorNames) {
-	g.P("func (s *", receiver, ") CloseSend(ctx context.Context) error {")
-	g.P("if s.stream == nil {")
-	g.P("return ", errorNames.StreamIsNil)
-	g.P("}")
-	g.P("return s.stream.CloseSend(ctx)")
+func renderNativeClientStreamResult(g *protogen.GeneratedFile, name string, fields []FieldPlan) {
+	g.P("type ", name, " struct {")
+	for _, field := range fields {
+		g.P(lowerInitial(field.GoName), " ", nativeGoResponseFieldType(g, field))
+	}
+	g.P("err error")
 	g.P("}")
 	g.P()
 }
 
-func renderCancelForwarder(g *protogen.GeneratedFile, receiver string, errorNames nativeServerErrorNames) {
-	g.P("func (s *", receiver, ") Cancel(ctx context.Context) error {")
-	g.P("if s.stream == nil {")
-	g.P("return ", errorNames.StreamIsNil)
-	g.P("}")
-	g.P("return s.stream.Cancel(ctx)")
-	g.P("}")
-	g.P()
+func renderNativeClientStreamResultAssignment(method MethodPlan) string {
+	names := nativeEnvelopeFieldNames(method.NativeContract.ResponseFields)
+	if names == "" {
+		return "session.result.err = "
+	}
+	return "session.result." + strings.ReplaceAll(names, ", ", ", session.result.") + ", session.result.err = "
+}
+
+func nativeEnvelopeLiteral(fields []FieldPlan) string {
+	parts := make([]string, 0, len(fields))
+	for _, field := range fields {
+		name := lowerInitial(field.GoName)
+		parts = append(parts, name+": "+name)
+	}
+	return strings.Join(parts, ", ")
+}
+
+func nativeResultReturn(prefix string, fields []FieldPlan) string {
+	parts := make([]string, 0, len(fields)+1)
+	for _, field := range fields {
+		parts = append(parts, prefix+"."+lowerInitial(field.GoName))
+	}
+	if prefix == "s.result" {
+		parts = append(parts, prefix+".err")
+	} else {
+		parts = append(parts, "nil")
+	}
+	return strings.Join(parts, ", ")
+}
+
+func nativeEnvelopeFieldNames(fields []FieldPlan) string {
+	names := make([]string, 0, len(fields))
+	for _, field := range fields {
+		names = append(names, lowerInitial(field.GoName))
+	}
+	return strings.Join(names, ", ")
 }
 
 func renderGoNativeRegistration(g *protogen.GeneratedFile, service ServicePlan, serverName, adapterName string) {
@@ -510,6 +826,7 @@ type nativeServerErrorNames struct {
 	RequestBridgeNotImplemented string
 	StreamBridgeNotImplemented  string
 	StreamIsNil                 string
+	StreamClosed                string
 }
 
 func nativeServerErrorNamesFor(service ServicePlan) nativeServerErrorNames {
@@ -518,7 +835,26 @@ func nativeServerErrorNamesFor(service ServicePlan) nativeServerErrorNames {
 		RequestBridgeNotImplemented: prefix + "NativeRequestBridgeNotImplemented",
 		StreamBridgeNotImplemented:  prefix + "NativeStreamBridgeNotImplemented",
 		StreamIsNil:                 prefix + "NativeStreamIsNil",
+		StreamClosed:                prefix + "NativeStreamClosed",
 	}
+}
+
+func nativeServerHasStreamingMethod(service ServicePlan) bool {
+	for _, method := range service.Methods {
+		if method.Streaming != StreamingKindUnary {
+			return true
+		}
+	}
+	return false
+}
+
+func nativeServerHasClientInputStreamingMethod(service ServicePlan) bool {
+	for _, method := range service.Methods {
+		if method.Streaming == StreamingKindClientStreaming || method.Streaming == StreamingKindBidiStreaming {
+			return true
+		}
+	}
+	return false
 }
 
 func validateNativeServerSymbols(service ServicePlan) error {

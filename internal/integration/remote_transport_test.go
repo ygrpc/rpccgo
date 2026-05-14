@@ -199,101 +199,24 @@ func (s cancelObserverGreeter) Unary(context.Context) error {
 	return nil
 }
 
-func (s cancelObserverGreeter) Upload(ctx context.Context) (remotev1.GreeterUploadNativeClientStream, error) {
-	stream := &cancelObserverUploadStream{ctx: ctx, signalFile: s.signalFile}
-	go stream.watchCancel()
-	return stream, nil
-}
-
-func (s cancelObserverGreeter) List(context.Context) (remotev1.GreeterListNativeServerStream, error) {
-	return &cancelObserverListStream{}, nil
-}
-
-func (s cancelObserverGreeter) Chat(ctx context.Context) (remotev1.GreeterChatNativeBidiStream, error) {
-	stream := &cancelObserverChatStream{ctx: ctx, signalFile: s.signalFile}
-	go stream.watchCancel()
-	return stream, nil
-}
-
-type cancelObserverUploadStream struct {
-	ctx        context.Context
-	signalFile string
-}
-
-func (s *cancelObserverUploadStream) watchCancel() {
-	<-s.ctx.Done()
+func (s cancelObserverGreeter) Upload(ctx context.Context, stream remotev1.GreeterUploadNativeClientStream) error {
+	<-ctx.Done()
 	writeCancelSignal(s.signalFile, "upload")
+	return ctx.Err()
 }
 
-func (s *cancelObserverUploadStream) Send(context.Context) error {
-	return nil
-}
-
-func (s *cancelObserverUploadStream) Finish(context.Context) error {
-	select {
-	case <-s.ctx.Done():
-		writeCancelSignal(s.signalFile, "upload")
-		return s.ctx.Err()
-	case <-time.After(5 * time.Second):
-		return errors.New("cancel observer upload stream timed out waiting for cancellation")
-	}
-}
-
-func (s *cancelObserverUploadStream) Cancel(context.Context) error {
-	writeCancelSignal(s.signalFile, "upload")
-	return nil
-}
-
-type cancelObserverListStream struct{}
-
-func (*cancelObserverListStream) Recv(context.Context) error {
+func (s cancelObserverGreeter) List(ctx context.Context, stream remotev1.GreeterListNativeServerStream) error {
 	return errors.New("cancel observer list stream is not used")
 }
 
-func (*cancelObserverListStream) Done(context.Context) error {
-	return nil
-}
-
-func (*cancelObserverListStream) Cancel(context.Context) error {
-	return nil
-}
-
-type cancelObserverChatStream struct {
-	ctx        context.Context
-	signalFile string
-}
-
-func (s *cancelObserverChatStream) watchCancel() {
-	<-s.ctx.Done()
-	writeCancelSignal(s.signalFile, "chat")
-}
-
-func (*cancelObserverChatStream) Send(context.Context) error {
-	return nil
-}
-
-func (s *cancelObserverChatStream) Recv(context.Context) error {
+func (s cancelObserverGreeter) Chat(ctx context.Context, stream remotev1.GreeterChatNativeBidiStream) error {
 	select {
-	case <-s.ctx.Done():
+	case <-ctx.Done():
 		writeCancelSignal(s.signalFile, "chat")
-		return s.ctx.Err()
+		return ctx.Err()
 	case <-time.After(5 * time.Second):
 		return errors.New("cancel observer chat stream timed out waiting for cancellation")
 	}
-}
-
-func (*cancelObserverChatStream) CloseSend(context.Context) error {
-	return nil
-}
-
-func (s *cancelObserverChatStream) Done(context.Context) error {
-	writeCancelSignal(s.signalFile, "chat")
-	return nil
-}
-
-func (s *cancelObserverChatStream) Cancel(context.Context) error {
-	writeCancelSignal(s.signalFile, "chat")
-	return nil
 }
 
 func writeCancelSignal(path, signal string) {

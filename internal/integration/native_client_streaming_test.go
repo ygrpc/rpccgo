@@ -142,6 +142,7 @@ const nativeClientStreamingGoFixtureTestSource = `package main
 
 import (
 	context "context"
+	io "io"
 	strings "strings"
 	"testing"
 	"unsafe"
@@ -155,9 +156,21 @@ type uploadGoServer struct {
 	stream *uploadGoStream
 }
 
-func (s *uploadGoServer) Upload(ctx context.Context) (v1.GreeterUploadNativeClientStream, error) {
+func (s *uploadGoServer) Upload(ctx context.Context, stream v1.GreeterUploadNativeClientStream) (int32, string, error) {
 	s.stream = &uploadGoStream{label: s.label}
-	return s.stream, nil
+	for {
+		name, payload, err := stream.Recv(ctx)
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			s.stream.canceled = true
+			return 0, "", err
+		}
+		s.stream.names = append(s.stream.names, name.SafeString())
+		s.stream.payloads = append(s.stream.payloads, string(payload.SafeBytes()))
+	}
+	return s.stream.Finish(ctx)
 }
 
 type uploadGoStream struct {
