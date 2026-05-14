@@ -9,8 +9,15 @@ import (
 )
 
 func RenderNativeStageFiles(plugin *protogen.Plugin, plan FilePlan) error {
+	return renderNativeStageFilesWithSupport(plugin, plan, map[string]bool{})
+}
+
+func renderNativeStageFilesWithSupport(plugin *protogen.Plugin, plan FilePlan, rendered map[string]bool) error {
 	if plugin == nil {
 		return fmt.Errorf("generator plugin is nil")
+	}
+	if err := renderCGOExportSupportFileOnce(plugin, plan, rendered); err != nil {
+		return err
 	}
 
 	for _, service := range plan.Services {
@@ -60,6 +67,10 @@ func RenderStageFiles(plugin *protogen.Plugin, plan FilePlan) error {
 		return fmt.Errorf("generator plugin is nil")
 	}
 
+	sharedRendered := make(map[string]bool)
+	if err := renderCGOExportSupportFileOnce(plugin, plan, sharedRendered); err != nil {
+		return err
+	}
 	for _, service := range plan.Services {
 		rendered := make(map[string]bool)
 		if err := renderSharedRuntimeOnce(plugin, plan, service, rendered); err != nil {
@@ -70,7 +81,7 @@ func RenderStageFiles(plugin *protogen.Plugin, plan FilePlan) error {
 		nativeService.NativeFileFamily.Runtime.Enabled = false
 		nativePlan := plan
 		nativePlan.Services = []ServicePlan{nativeService}
-		if err := RenderNativeStageFiles(plugin, nativePlan); err != nil {
+		if err := renderNativeStageFilesWithSupport(plugin, nativePlan, sharedRendered); err != nil {
 			return err
 		}
 		markRendered(rendered, nativeService.NativeFileFamily.NativeServer)
@@ -83,7 +94,7 @@ func RenderStageFiles(plugin *protogen.Plugin, plan FilePlan) error {
 		avoidRenderedFilenames(rendered, &messageService.MessageFileFamily.CGOMessageClient, "message")
 		messagePlan := plan
 		messagePlan.Services = []ServicePlan{messageService}
-		if err := RenderMessageStageFiles(plugin, messagePlan); err != nil {
+		if err := renderMessageStageFilesWithSupport(plugin, messagePlan, sharedRendered); err != nil {
 			return err
 		}
 		markRendered(rendered, messageService.MessageFileFamily.ConnectServer)
@@ -147,8 +158,15 @@ func qualifiedGeneratedFilename(filename, qualifier string) string {
 }
 
 func RenderMessageStageFiles(plugin *protogen.Plugin, plan FilePlan) error {
+	return renderMessageStageFilesWithSupport(plugin, plan, map[string]bool{})
+}
+
+func renderMessageStageFilesWithSupport(plugin *protogen.Plugin, plan FilePlan, rendered map[string]bool) error {
 	if plugin == nil {
 		return fmt.Errorf("generator plugin is nil")
+	}
+	if err := renderCGOExportSupportFileOnce(plugin, plan, rendered); err != nil {
+		return err
 	}
 
 	for _, service := range plan.Services {

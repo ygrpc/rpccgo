@@ -27,7 +27,7 @@ func Generate() error {
 	return runWithBinDir(binDir, "go", "generate", "./...")
 }
 
-// Test verifies the full transport and streaming matrix.
+// Test verifies the full transport matrix and the real c-shared C client demo.
 func Test() error {
 	binDir, cleanup, err := installProtocPlugins()
 	if err != nil {
@@ -37,10 +37,13 @@ func Test() error {
 	if err := runWithBinDir(binDir, "go", "generate", "./..."); err != nil {
 		return err
 	}
-	return runWithBinDir(binDir, "go", "test", "./cmd/rpc", "-run", "^TestFullGreeterTransportAndStreamingMatrix$", "-count=1")
+	if err := runWithBinDir(binDir, "go", "test", "./cmd/rpc", "-run", "^TestFullGreeterTransportAndStreamingMatrix$", "-count=1"); err != nil {
+		return err
+	}
+	return buildAndRunCClient()
 }
 
-// Run regenerates the example, starts the server, runs the client, and exits.
+// Run regenerates the example, runs the real C client demo, then starts the remote server and Go client.
 func Run() error {
 	binDir, cleanup, err := installProtocPlugins()
 	if err != nil {
@@ -48,6 +51,9 @@ func Run() error {
 	}
 	defer cleanup()
 	if err := runWithBinDir(binDir, "go", "generate", "./..."); err != nil {
+		return err
+	}
+	if err := buildAndRunCClient(); err != nil {
 		return err
 	}
 	connectAddr, err := reserveTCPAddr()
@@ -112,6 +118,42 @@ func installProtocPlugins() (string, func(), error) {
 		}
 	}
 	return binDir, cleanup, nil
+}
+
+func buildAndRunCClient() error {
+	artifactDir, err := os.MkdirTemp("", "rpccgo-full-c-shared-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(artifactDir)
+
+	libPath := filepath.Join(artifactDir, "librpccgo_full_greeter.so")
+	headerPath := filepath.Join(artifactDir, "librpccgo_full_greeter.h")
+	callerPath := filepath.Join(artifactDir, "full-greeter-caller")
+
+	if err := runWithEnv(map[string]string{"GOFLAGS": "-mod=mod"}, "go", "build", "-buildmode=c-shared", "-o", libPath, "./cmd/rpc"); err != nil {
+		return err
+	}
+	if _, err := os.Stat(headerPath); err != nil {
+		return fmt.Errorf("c-shared header missing: %w", err)
+	}
+	if err := runWithEnv(nil,
+		"cc",
+		"-std=c11",
+		"-Wall",
+		"-Wextra",
+		"-o", callerPath,
+		"./c/main.c",
+		"-I"+artifactDir,
+		"-L"+artifactDir,
+		"-lrpccgo_full_greeter",
+		"-Wl,-rpath,$ORIGIN",
+	); err != nil {
+		return err
+	}
+	return runWithEnv(map[string]string{
+		"LD_LIBRARY_PATH": artifactDir + string(os.PathListSeparator) + os.Getenv("LD_LIBRARY_PATH"),
+	}, callerPath)
 }
 
 func runWithBinDir(binDir string, name string, args ...string) error {

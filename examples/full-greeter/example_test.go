@@ -10,13 +10,7 @@ import (
 
 func TestFullGreeterGenerate(t *testing.T) {
 	binDir := installProtocPlugins(t)
-
-	cmd := exec.Command("go", "generate", "./...")
-	cmd.Env = testEnvWithBinDir(binDir)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("go generate failed: %v\n%s", err, out)
-	}
+	generateFullGreeter(t, binDir)
 
 	for _, path := range []string{
 		"proto/greeter.pb.go",
@@ -26,6 +20,7 @@ func TestFullGreeterGenerate(t *testing.T) {
 		"proto/greeter.greeter.server.grpc.rpccgo.go",
 		"proto/greeter.greeter.remote.connect.rpccgo.go",
 		"proto/greeter.greeter.remote.grpc.rpccgo.go",
+		"cmd/rpc/greeter.exports.cgo.rpccgo.go",
 		"cmd/rpc/greeter.greeter.client.cgo.rpccgo.go",
 		"cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go",
 	} {
@@ -33,22 +28,64 @@ func TestFullGreeterGenerate(t *testing.T) {
 			t.Fatalf("generated file %s missing: %v", path, err)
 		}
 	}
+
+	assertFileContains(t, "cmd/rpc/greeter.exports.cgo.rpccgo.go", "//export rpccgo_take_error_text")
+	assertFileContains(t, "cmd/rpc/greeter.exports.cgo.rpccgo.go", "//export rpccgo_release")
+	assertFileContains(t, "cmd/rpc/greeter.greeter.client.cgo.rpccgo.go", "//export rpccgo_native_go_Greeter_SayHello")
+	assertFileContains(t, "cmd/rpc/greeter.greeter.client.cgo.rpccgo.go", "//export rpccgo_native_go_Greeter_Collect_start")
+	assertFileContains(t, "cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go", "//export rpccgo_msg_go_Greeter_SayHello")
 }
 
 func TestFullGreeterExample(t *testing.T) {
 	binDir := installProtocPlugins(t)
-
-	generate := exec.Command("go", "generate", "./...")
-	generate.Env = testEnvWithBinDir(binDir)
-	if out, err := generate.CombinedOutput(); err != nil {
-		t.Fatalf("go generate failed: %v\n%s", err, out)
-	}
+	generateFullGreeter(t, binDir)
 
 	cmd := exec.Command("go", "test", "./cmd/rpc", "-run", "^TestFullGreeterTransportAndStreamingMatrix$", "-count=1")
 	cmd.Env = testEnvWithBinDir(binDir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("full example failed: %v\n%s", err, out)
+	}
+}
+
+func TestFullGreeterCSharedClientExample(t *testing.T) {
+	binDir := installProtocPlugins(t)
+	generateFullGreeter(t, binDir)
+
+	artifactDir := t.TempDir()
+	headerPath, callerPath := buildFullGreeterCSharedArtifacts(t, artifactDir)
+
+	header, err := os.ReadFile(headerPath)
+	if err != nil {
+		t.Fatalf("read c-shared header error = %v", err)
+	}
+	for _, symbol := range []string{
+		"rpccgo_native_go_Greeter_SayHello",
+		"rpccgo_native_go_Greeter_Collect_start",
+		"rpccgo_msg_go_Greeter_SayHello",
+		"rpccgo_take_error_text",
+		"rpccgo_release",
+		"rpccgo_full_greeter_register_native_server",
+	} {
+		if !bytes.Contains(header, []byte(symbol)) {
+			t.Fatalf("c-shared header missing %q", symbol)
+		}
+	}
+
+	cmd := exec.Command(callerPath)
+	cmd.Env = append(os.Environ(), "LD_LIBRARY_PATH="+artifactDir+string(os.PathListSeparator)+os.Getenv("LD_LIBRARY_PATH"))
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("c client example failed: %v\n%s", err, out)
+	}
+	for _, marker := range []string{
+		"native unary: hello ffi from c",
+		"native collect: collect:ada,grace",
+		"native output error: rpccgo: native client output pointer is nil",
+	} {
+		if !bytes.Contains(out, []byte(marker)) {
+			t.Fatalf("c client output missing %q\n%s", marker, out)
+		}
 	}
 }
 
@@ -82,6 +119,67 @@ func installProtocPlugins(t *testing.T) string {
 	return binDir
 }
 
+func generateFullGreeter(t *testing.T, binDir string) {
+	t.Helper()
+
+	cmd := exec.Command("go", "generate", "./...")
+	cmd.Env = testEnvWithBinDir(binDir)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("go generate failed: %v\n%s", err, out)
+	}
+}
+
+func buildFullGreeterCSharedArtifacts(t *testing.T, artifactDir string) (string, string) {
+	t.Helper()
+
+	libPath := filepath.Join(artifactDir, "librpccgo_full_greeter.so")
+	headerPath := filepath.Join(artifactDir, "librpccgo_full_greeter.h")
+	callerPath := filepath.Join(artifactDir, "full-greeter-caller")
+
+	build := exec.Command("go", "build", "-buildmode=c-shared", "-o", libPath, "./cmd/rpc")
+	build.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
+	out, err := build.CombinedOutput()
+	if err != nil {
+		t.Fatalf("build c-shared library failed: %v\n%s", err, out)
+	}
+	if _, err := os.Stat(headerPath); err != nil {
+		t.Fatalf("c-shared header missing: %v", err)
+	}
+
+	compile := exec.Command(
+		"cc",
+		"-std=c11",
+		"-Wall",
+		"-Wextra",
+		"-o", callerPath,
+		"./c/main.c",
+		"-I"+artifactDir,
+		"-L"+artifactDir,
+		"-lrpccgo_full_greeter",
+		"-Wl,-rpath,$ORIGIN",
+	)
+	compile.Env = os.Environ()
+	out, err = compile.CombinedOutput()
+	if err != nil {
+		t.Fatalf("compile c client failed: %v\n%s", err, out)
+	}
+
+	return headerPath, callerPath
+}
+
+func assertFileContains(t *testing.T, path, fragment string) {
+	t.Helper()
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s error = %v", path, err)
+	}
+	if !bytes.Contains(data, []byte(fragment)) {
+		t.Fatalf("%s missing %q", path, fragment)
+	}
+}
+
 func testEnvWithBinDir(binDir string) []string {
 	return append(os.Environ(),
 		"GOFLAGS=-mod=mod",
@@ -89,7 +187,3 @@ func testEnvWithBinDir(binDir string) []string {
 	)
 }
 
-func repoPath(elem ...string) string {
-	parts := append([]string{"..", ".."}, elem...)
-	return filepath.Join(parts...)
-}

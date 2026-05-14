@@ -13,6 +13,11 @@ func renderMessageClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service 
 
 	g.P("package main")
 	g.P()
+	g.P("/*")
+	g.P("#include <stdint.h>")
+	g.P("*/")
+	g.P(`import "C"`)
+	g.P()
 	g.P("import (")
 	g.P(`context "context"`)
 	g.P(`errors "errors"`)
@@ -80,6 +85,7 @@ func renderMessageUnaryClient(g *protogen.GeneratedFile, service ServicePlan, me
 	g.P("return 0")
 	g.P("}")
 	g.P()
+	renderMessageCExportWrappers(g, service, method)
 
 	g.P("func ", messageBytesFromABIName(service, method, "Request"), "(ptr uintptr, length int32) ([]byte, error) {")
 	renderMessageBytesFromABIBody(g, "request")
@@ -291,6 +297,8 @@ func renderMessageClientBytesHelpers(g *protogen.GeneratedFile, service ServiceP
 	renderMessageBytesToABIBody(g)
 	g.P("}")
 	g.P()
+
+	renderMessageCExportWrappers(g, service, method)
 }
 
 func renderMessageBytesFromABIBody(g *protogen.GeneratedFile, label string) {
@@ -431,4 +439,202 @@ func messageBytesFromABIName(service ServicePlan, method MethodPlan, suffix stri
 
 func messageBytesToABIName(service ServicePlan, method MethodPlan, suffix string) string {
 	return fmt.Sprintf("encode%s%sMessage%sBytes", service.GoName, method.GoName, suffix)
+}
+
+func renderMessageCExportWrappers(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
+	switch method.Streaming {
+	case StreamingKindUnary:
+		renderMessageUnaryCExportWrapper(g, service, method)
+	case StreamingKindClientStreaming:
+		renderMessageClientStreamingCExportWrappers(g, service, method)
+	case StreamingKindServerStreaming:
+		renderMessageServerStreamingCExportWrappers(g, service, method)
+	case StreamingKindBidiStreaming:
+		renderMessageBidiStreamingCExportWrappers(g, service, method)
+	}
+}
+
+func renderMessageUnaryCExportWrapper(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
+	exportName := messageCExportFuncName(service, method, "")
+	g.P("//export ", exportName)
+	g.P("func ", exportName, "(requestPtr C.uintptr_t, requestLen C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {")
+	renderMessageCExportOutputValidation(g)
+	g.P("var output ", service.GoName, "MessageOutput")
+	g.P("errID := ", messageUnaryClientFuncName(service, method), "(context.Background(), uintptr(requestPtr), int32(requestLen), &output)")
+	g.P("if errID != 0 {")
+	g.P("return C.int32_t(errID)")
+	g.P("}")
+	g.P("*responsePtr = C.uintptr_t(output.DataPtr)")
+	g.P("*responseLen = C.int32_t(output.DataLen)")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+}
+
+func renderMessageClientStreamingCExportWrappers(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
+	startName := messageCExportFuncName(service, method, "start")
+	g.P("//export ", startName)
+	g.P("func ", startName, "(handle *C.int32_t) C.int32_t {")
+	renderMessageCExportHandleValidation(g)
+	g.P("handleValue, errID := ", messageClientStreamingStartFuncName(service, method), "(context.Background())")
+	g.P("if errID != 0 {")
+	g.P("return C.int32_t(errID)")
+	g.P("}")
+	g.P("*handle = C.int32_t(handleValue)")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+
+	sendName := messageCExportFuncName(service, method, "send")
+	g.P("//export ", sendName)
+	g.P("func ", sendName, "(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {")
+	g.P("return C.int32_t(", messageClientStreamingSendFuncName(service, method), "(context.Background(), int32(handle), uintptr(requestPtr), int32(requestLen)))")
+	g.P("}")
+	g.P()
+
+	finishName := messageCExportFuncName(service, method, "finish")
+	g.P("//export ", finishName)
+	g.P("func ", finishName, "(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {")
+	renderMessageCExportOutputValidation(g)
+	g.P("var output ", service.GoName, "MessageOutput")
+	g.P("errID := ", messageClientStreamingFinishFuncName(service, method), "(context.Background(), int32(handle), &output)")
+	g.P("if errID != 0 {")
+	g.P("return C.int32_t(errID)")
+	g.P("}")
+	g.P("*responsePtr = C.uintptr_t(output.DataPtr)")
+	g.P("*responseLen = C.int32_t(output.DataLen)")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+
+	cancelName := messageCExportFuncName(service, method, "cancel")
+	g.P("//export ", cancelName)
+	g.P("func ", cancelName, "(handle C.int32_t) C.int32_t {")
+	g.P("return C.int32_t(", messageClientStreamingCancelFuncName(service, method), "(context.Background(), int32(handle)))")
+	g.P("}")
+	g.P()
+}
+
+func renderMessageServerStreamingCExportWrappers(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
+	startName := messageCExportFuncName(service, method, "start")
+	g.P("//export ", startName)
+	g.P("func ", startName, "(requestPtr C.uintptr_t, requestLen C.int32_t, handle *C.int32_t) C.int32_t {")
+	renderMessageCExportHandleValidation(g)
+	g.P("handleValue, errID := ", messageServerStreamingStartFuncName(service, method), "(context.Background(), uintptr(requestPtr), int32(requestLen))")
+	g.P("if errID != 0 {")
+	g.P("return C.int32_t(errID)")
+	g.P("}")
+	g.P("*handle = C.int32_t(handleValue)")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+
+	readName := messageCExportFuncName(service, method, "read")
+	g.P("//export ", readName)
+	g.P("func ", readName, "(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {")
+	renderMessageCExportOutputValidation(g)
+	g.P("var output ", service.GoName, "MessageOutput")
+	g.P("errID := ", messageServerStreamingReadFuncName(service, method), "(context.Background(), int32(handle), &output)")
+	g.P("if errID != 0 {")
+	g.P("return C.int32_t(errID)")
+	g.P("}")
+	g.P("*responsePtr = C.uintptr_t(output.DataPtr)")
+	g.P("*responseLen = C.int32_t(output.DataLen)")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+
+	doneName := messageCExportFuncName(service, method, "done")
+	g.P("//export ", doneName)
+	g.P("func ", doneName, "(handle C.int32_t) C.int32_t {")
+	g.P("return C.int32_t(", messageServerStreamingDoneFuncName(service, method), "(context.Background(), int32(handle)))")
+	g.P("}")
+	g.P()
+
+	cancelName := messageCExportFuncName(service, method, "cancel")
+	g.P("//export ", cancelName)
+	g.P("func ", cancelName, "(handle C.int32_t) C.int32_t {")
+	g.P("return C.int32_t(", messageServerStreamingCancelFuncName(service, method), "(context.Background(), int32(handle)))")
+	g.P("}")
+	g.P()
+}
+
+func renderMessageBidiStreamingCExportWrappers(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
+	startName := messageCExportFuncName(service, method, "start")
+	g.P("//export ", startName)
+	g.P("func ", startName, "(handle *C.int32_t) C.int32_t {")
+	renderMessageCExportHandleValidation(g)
+	g.P("handleValue, errID := ", messageBidiStreamingStartFuncName(service, method), "(context.Background())")
+	g.P("if errID != 0 {")
+	g.P("return C.int32_t(errID)")
+	g.P("}")
+	g.P("*handle = C.int32_t(handleValue)")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+
+	sendName := messageCExportFuncName(service, method, "send")
+	g.P("//export ", sendName)
+	g.P("func ", sendName, "(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {")
+	g.P("return C.int32_t(", messageBidiStreamingSendFuncName(service, method), "(context.Background(), int32(handle), uintptr(requestPtr), int32(requestLen)))")
+	g.P("}")
+	g.P()
+
+	readName := messageCExportFuncName(service, method, "read")
+	g.P("//export ", readName)
+	g.P("func ", readName, "(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {")
+	renderMessageCExportOutputValidation(g)
+	g.P("var output ", service.GoName, "MessageOutput")
+	g.P("errID := ", messageBidiStreamingReadFuncName(service, method), "(context.Background(), int32(handle), &output)")
+	g.P("if errID != 0 {")
+	g.P("return C.int32_t(errID)")
+	g.P("}")
+	g.P("*responsePtr = C.uintptr_t(output.DataPtr)")
+	g.P("*responseLen = C.int32_t(output.DataLen)")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+
+	closeSendName := messageCExportFuncName(service, method, "close_send")
+	g.P("//export ", closeSendName)
+	g.P("func ", closeSendName, "(handle C.int32_t) C.int32_t {")
+	g.P("return C.int32_t(", messageBidiStreamingCloseSendFuncName(service, method), "(context.Background(), int32(handle)))")
+	g.P("}")
+	g.P()
+
+	cancelName := messageCExportFuncName(service, method, "cancel")
+	g.P("//export ", cancelName)
+	g.P("func ", cancelName, "(handle C.int32_t) C.int32_t {")
+	g.P("return C.int32_t(", messageBidiStreamingCancelFuncName(service, method), "(context.Background(), int32(handle)))")
+	g.P("}")
+	g.P()
+}
+
+func renderMessageCExportOutputValidation(g *protogen.GeneratedFile) {
+	g.P("if responsePtr != nil {")
+	g.P("*responsePtr = 0")
+	g.P("}")
+	g.P("if responseLen != nil {")
+	g.P("*responseLen = 0")
+	g.P("}")
+	g.P("if responsePtr == nil || responseLen == nil {")
+	g.P(`return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client output pointer is nil")))`)
+	g.P("}")
+}
+
+func renderMessageCExportHandleValidation(g *protogen.GeneratedFile) {
+	g.P("if handle != nil {")
+	g.P("*handle = 0")
+	g.P("}")
+	g.P("if handle == nil {")
+	g.P(`return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client handle pointer is nil")))`)
+	g.P("}")
+}
+
+func messageCExportFuncName(service ServicePlan, method MethodPlan, operation string) string {
+	name := "rpccgo_msg_go_" + service.GoName + "_" + method.GoName
+	if operation != "" {
+		name += "_" + operation
+	}
+	return name
 }

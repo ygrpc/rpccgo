@@ -4,6 +4,11 @@ import (
 	v1 "example.com/rpccgo-minimal/gen/greeter/v1"
 )
 
+/*
+#include <stdint.h>
+*/
+import "C"
+
 import (
 	context "context"
 	errors "errors"
@@ -90,4 +95,21 @@ func encodeGreeterSayHelloNativeUnaryResponse(messageResult string, outMessagePt
 	*outMessagePtr = messagePtrValue
 	*outMessageLen = messageLenValue
 	return nil
+}
+
+//export rpccgo_native_go_Greeter_SayHello
+func rpccgo_native_go_Greeter_SayHello(NamePtr uintptr, NameLen int32, NameOwnership int32, outMessagePtr *uintptr, outMessageLen *int32) C.int32_t {
+	if outMessagePtr != nil {
+		*outMessagePtr = 0
+	}
+	if outMessageLen != nil {
+		*outMessageLen = 0
+	}
+	if outMessagePtr == nil {
+		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: native client output pointer is nil")))
+	}
+	if outMessageLen == nil {
+		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: native client output pointer is nil")))
+	}
+	return C.int32_t(CallGreeterSayHelloNativeUnary(context.Background(), uintptr(NamePtr), int32(NameLen), int32(NameOwnership), (*uintptr)(unsafe.Pointer(outMessagePtr)), (*int32)(unsafe.Pointer(outMessageLen))))
 }

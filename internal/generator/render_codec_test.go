@@ -130,6 +130,7 @@ func TestRenderStageFilesEmitsCodecWithoutRemoteAdapterFiles(t *testing.T) {
 
 	assertGeneratedFilenames(t, plugin, []string{
 		"test/v1/greeter.greeter.runtime.rpccgo.go",
+		"test/v1/cgo/greeter.exports.cgo.rpccgo.go",
 		"test/v1/greeter.greeter.server.native.rpccgo.go",
 		"test/v1/cgo/greeter.greeter.server.cgo.rpccgo.go",
 		"test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go",

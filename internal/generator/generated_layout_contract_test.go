@@ -13,6 +13,7 @@ func TestGeneratedLayoutContract(t *testing.T) {
 	assertGeneratedFilenames(t, plugin, []string{
 		"test/v1/greeter.greeter.runtime.rpccgo.go",
 		"test/v1/greeter.greeter.server.native.rpccgo.go",
+		"test/cmd/rpc/greeter.exports.cgo.rpccgo.go",
 		"test/cmd/rpc/greeter.greeter.server.cgo.rpccgo.go",
 		"test/cmd/rpc/greeter.greeter.client.cgo.rpccgo.go",
 		"test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go",
@@ -30,6 +31,7 @@ func TestGeneratedLayoutContract(t *testing.T) {
 	assertGeneratedPackage(t, plugin, "test/v1/greeter.greeter.server.grpc.rpccgo.go", "package testv1")
 	assertGeneratedPackage(t, plugin, "test/v1/greeter.greeter.remote.connect.rpccgo.go", "package testv1")
 	assertGeneratedPackage(t, plugin, "test/v1/greeter.greeter.remote.grpc.rpccgo.go", "package testv1")
+	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.exports.cgo.rpccgo.go", "package main")
 	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.server.cgo.rpccgo.go", "package main")
 	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.client.cgo.rpccgo.go", "package main")
 	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go", "package main")
@@ -73,13 +75,19 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"func RegisterGreeterCGONativeServer(callbacks *C.GreeterCGONativeServerCallbacks) (rpcruntime.AdapterSnapshot[v1.GreeterNativeAdapter], error) {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.client.cgo.rpccgo.go",
-		"func CallGreeterSayHelloNativeUnary(ctx context.Context) int32 {",
+		"//export rpccgo_native_go_Greeter_SayHello",
+	)
+	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.exports.cgo.rpccgo.go",
+		"//export rpccgo_take_error_text",
+	)
+	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.exports.cgo.rpccgo.go",
+		"//export rpccgo_release",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go",
 		"func RegisterGreeterCGOMessageServer(callbacks *C.GreeterCGOMessageServerCallbacks) (rpcruntime.AdapterSnapshot[v1.GreeterMessageAdapter], error) {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go",
-		"func CallGreeterSayHelloMessageUnary(ctx context.Context, requestPtr uintptr, requestLen int32, output *GreeterMessageOutput) int32 {",
+		"func CallGreeterSayHelloMessageUnary",
 	)
 }
 

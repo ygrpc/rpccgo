@@ -4,6 +4,11 @@ import (
 	proto "example.com/rpccgo-full/proto"
 )
 
+/*
+#include <stdint.h>
+*/
+import "C"
+
 import (
 	context "context"
 	errors "errors"
@@ -47,6 +52,27 @@ func CallGreeterSayHelloMessageUnary(ctx context.Context, requestPtr uintptr, re
 	}
 	output.DataPtr = ptr
 	output.DataLen = length
+	return 0
+}
+
+//export rpccgo_msg_go_Greeter_SayHello
+func rpccgo_msg_go_Greeter_SayHello(requestPtr C.uintptr_t, requestLen C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
+	if responsePtr != nil {
+		*responsePtr = 0
+	}
+	if responseLen != nil {
+		*responseLen = 0
+	}
+	if responsePtr == nil || responseLen == nil {
+		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client output pointer is nil")))
+	}
+	var output GreeterMessageOutput
+	errID := CallGreeterSayHelloMessageUnary(context.Background(), uintptr(requestPtr), int32(requestLen), &output)
+	if errID != 0 {
+		return C.int32_t(errID)
+	}
+	*responsePtr = C.uintptr_t(output.DataPtr)
+	*responseLen = C.int32_t(output.DataLen)
 	return 0
 }
 
@@ -170,6 +196,53 @@ func encodeGreeterCollectMessageResponseBytes(data []byte) (uintptr, int32, erro
 	return ptr, length, nil
 }
 
+//export rpccgo_msg_go_Greeter_Collect_start
+func rpccgo_msg_go_Greeter_Collect_start(handle *C.int32_t) C.int32_t {
+	if handle != nil {
+		*handle = 0
+	}
+	if handle == nil {
+		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client handle pointer is nil")))
+	}
+	handleValue, errID := StartGreeterCollectMessageClientStream(context.Background())
+	if errID != 0 {
+		return C.int32_t(errID)
+	}
+	*handle = C.int32_t(handleValue)
+	return 0
+}
+
+//export rpccgo_msg_go_Greeter_Collect_send
+func rpccgo_msg_go_Greeter_Collect_send(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {
+	return C.int32_t(SendGreeterCollectMessageClientStream(context.Background(), int32(handle), uintptr(requestPtr), int32(requestLen)))
+}
+
+//export rpccgo_msg_go_Greeter_Collect_finish
+func rpccgo_msg_go_Greeter_Collect_finish(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
+	if responsePtr != nil {
+		*responsePtr = 0
+	}
+	if responseLen != nil {
+		*responseLen = 0
+	}
+	if responsePtr == nil || responseLen == nil {
+		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client output pointer is nil")))
+	}
+	var output GreeterMessageOutput
+	errID := FinishGreeterCollectMessageClientStream(context.Background(), int32(handle), &output)
+	if errID != 0 {
+		return C.int32_t(errID)
+	}
+	*responsePtr = C.uintptr_t(output.DataPtr)
+	*responseLen = C.int32_t(output.DataLen)
+	return 0
+}
+
+//export rpccgo_msg_go_Greeter_Collect_cancel
+func rpccgo_msg_go_Greeter_Collect_cancel(handle C.int32_t) C.int32_t {
+	return C.int32_t(CancelGreeterCollectMessageClientStream(context.Background(), int32(handle)))
+}
+
 func StartGreeterBroadcastMessageServerStream(ctx context.Context, requestPtr uintptr, requestLen int32) (int32, int32) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -267,6 +340,53 @@ func encodeGreeterBroadcastMessageResponseBytes(data []byte) (uintptr, int32, er
 		return 0, 0, err
 	}
 	return ptr, length, nil
+}
+
+//export rpccgo_msg_go_Greeter_Broadcast_start
+func rpccgo_msg_go_Greeter_Broadcast_start(requestPtr C.uintptr_t, requestLen C.int32_t, handle *C.int32_t) C.int32_t {
+	if handle != nil {
+		*handle = 0
+	}
+	if handle == nil {
+		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client handle pointer is nil")))
+	}
+	handleValue, errID := StartGreeterBroadcastMessageServerStream(context.Background(), uintptr(requestPtr), int32(requestLen))
+	if errID != 0 {
+		return C.int32_t(errID)
+	}
+	*handle = C.int32_t(handleValue)
+	return 0
+}
+
+//export rpccgo_msg_go_Greeter_Broadcast_read
+func rpccgo_msg_go_Greeter_Broadcast_read(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
+	if responsePtr != nil {
+		*responsePtr = 0
+	}
+	if responseLen != nil {
+		*responseLen = 0
+	}
+	if responsePtr == nil || responseLen == nil {
+		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client output pointer is nil")))
+	}
+	var output GreeterMessageOutput
+	errID := ReadGreeterBroadcastMessageServerStream(context.Background(), int32(handle), &output)
+	if errID != 0 {
+		return C.int32_t(errID)
+	}
+	*responsePtr = C.uintptr_t(output.DataPtr)
+	*responseLen = C.int32_t(output.DataLen)
+	return 0
+}
+
+//export rpccgo_msg_go_Greeter_Broadcast_done
+func rpccgo_msg_go_Greeter_Broadcast_done(handle C.int32_t) C.int32_t {
+	return C.int32_t(DoneGreeterBroadcastMessageServerStream(context.Background(), int32(handle)))
+}
+
+//export rpccgo_msg_go_Greeter_Broadcast_cancel
+func rpccgo_msg_go_Greeter_Broadcast_cancel(handle C.int32_t) C.int32_t {
+	return C.int32_t(CancelGreeterBroadcastMessageServerStream(context.Background(), int32(handle)))
 }
 
 func StartGreeterChatMessageBidiStream(ctx context.Context) (int32, int32) {
@@ -394,4 +514,56 @@ func encodeGreeterChatMessageResponseBytes(data []byte) (uintptr, int32, error) 
 		return 0, 0, err
 	}
 	return ptr, length, nil
+}
+
+//export rpccgo_msg_go_Greeter_Chat_start
+func rpccgo_msg_go_Greeter_Chat_start(handle *C.int32_t) C.int32_t {
+	if handle != nil {
+		*handle = 0
+	}
+	if handle == nil {
+		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client handle pointer is nil")))
+	}
+	handleValue, errID := StartGreeterChatMessageBidiStream(context.Background())
+	if errID != 0 {
+		return C.int32_t(errID)
+	}
+	*handle = C.int32_t(handleValue)
+	return 0
+}
+
+//export rpccgo_msg_go_Greeter_Chat_send
+func rpccgo_msg_go_Greeter_Chat_send(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {
+	return C.int32_t(SendGreeterChatMessageBidiStream(context.Background(), int32(handle), uintptr(requestPtr), int32(requestLen)))
+}
+
+//export rpccgo_msg_go_Greeter_Chat_read
+func rpccgo_msg_go_Greeter_Chat_read(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
+	if responsePtr != nil {
+		*responsePtr = 0
+	}
+	if responseLen != nil {
+		*responseLen = 0
+	}
+	if responsePtr == nil || responseLen == nil {
+		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client output pointer is nil")))
+	}
+	var output GreeterMessageOutput
+	errID := ReadGreeterChatMessageBidiStream(context.Background(), int32(handle), &output)
+	if errID != 0 {
+		return C.int32_t(errID)
+	}
+	*responsePtr = C.uintptr_t(output.DataPtr)
+	*responseLen = C.int32_t(output.DataLen)
+	return 0
+}
+
+//export rpccgo_msg_go_Greeter_Chat_close_send
+func rpccgo_msg_go_Greeter_Chat_close_send(handle C.int32_t) C.int32_t {
+	return C.int32_t(CloseSendGreeterChatMessageBidiStream(context.Background(), int32(handle)))
+}
+
+//export rpccgo_msg_go_Greeter_Chat_cancel
+func rpccgo_msg_go_Greeter_Chat_cancel(handle C.int32_t) C.int32_t {
+	return C.int32_t(CancelGreeterChatMessageBidiStream(context.Background(), int32(handle)))
 }

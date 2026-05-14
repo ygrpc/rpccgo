@@ -4,6 +4,11 @@ import (
 	v1 "example.com/rpccgo-minimal/gen/greeter/v1"
 )
 
+/*
+#include <stdint.h>
+*/
+import "C"
+
 import (
 	context "context"
 	errors "errors"
@@ -47,6 +52,27 @@ func CallGreeterSayHelloMessageUnary(ctx context.Context, requestPtr uintptr, re
 	}
 	output.DataPtr = ptr
 	output.DataLen = length
+	return 0
+}
+
+//export rpccgo_msg_go_Greeter_SayHello
+func rpccgo_msg_go_Greeter_SayHello(requestPtr C.uintptr_t, requestLen C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
+	if responsePtr != nil {
+		*responsePtr = 0
+	}
+	if responseLen != nil {
+		*responseLen = 0
+	}
+	if responsePtr == nil || responseLen == nil {
+		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client output pointer is nil")))
+	}
+	var output GreeterMessageOutput
+	errID := CallGreeterSayHelloMessageUnary(context.Background(), uintptr(requestPtr), int32(requestLen), &output)
+	if errID != 0 {
+		return C.int32_t(errID)
+	}
+	*responsePtr = C.uintptr_t(output.DataPtr)
+	*responseLen = C.int32_t(output.DataLen)
 	return 0
 }
 
