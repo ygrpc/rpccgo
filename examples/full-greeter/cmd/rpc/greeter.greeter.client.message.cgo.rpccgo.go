@@ -55,8 +55,8 @@ func CallGreeterSayHelloMessageUnary(ctx context.Context, requestPtr uintptr, re
 	return 0
 }
 
-//export rpccgo_msg_go_Greeter_SayHello
-func rpccgo_msg_go_Greeter_SayHello(requestPtr C.uintptr_t, requestLen C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
+//export rpccgo_msg_greeterv1_Greeter_SayHello
+func rpccgo_msg_greeterv1_Greeter_SayHello(requestPtr C.uintptr_t, requestLen C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
 	if responsePtr != nil {
 		*responsePtr = 0
 	}
@@ -196,8 +196,8 @@ func encodeGreeterCollectMessageResponseBytes(data []byte) (uintptr, int32, erro
 	return ptr, length, nil
 }
 
-//export rpccgo_msg_go_Greeter_Collect_start
-func rpccgo_msg_go_Greeter_Collect_start(handle *C.int32_t) C.int32_t {
+//export rpccgo_msg_greeterv1_Greeter_Collect_start
+func rpccgo_msg_greeterv1_Greeter_Collect_start(handle *C.int32_t) C.int32_t {
 	if handle != nil {
 		*handle = 0
 	}
@@ -212,13 +212,13 @@ func rpccgo_msg_go_Greeter_Collect_start(handle *C.int32_t) C.int32_t {
 	return 0
 }
 
-//export rpccgo_msg_go_Greeter_Collect_send
-func rpccgo_msg_go_Greeter_Collect_send(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {
+//export rpccgo_msg_greeterv1_Greeter_Collect_send
+func rpccgo_msg_greeterv1_Greeter_Collect_send(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {
 	return C.int32_t(SendGreeterCollectMessageClientStream(context.Background(), int32(handle), uintptr(requestPtr), int32(requestLen)))
 }
 
-//export rpccgo_msg_go_Greeter_Collect_finish
-func rpccgo_msg_go_Greeter_Collect_finish(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
+//export rpccgo_msg_greeterv1_Greeter_Collect_finish
+func rpccgo_msg_greeterv1_Greeter_Collect_finish(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
 	if responsePtr != nil {
 		*responsePtr = 0
 	}
@@ -238,8 +238,8 @@ func rpccgo_msg_go_Greeter_Collect_finish(handle C.int32_t, responsePtr *C.uintp
 	return 0
 }
 
-//export rpccgo_msg_go_Greeter_Collect_cancel
-func rpccgo_msg_go_Greeter_Collect_cancel(handle C.int32_t) C.int32_t {
+//export rpccgo_msg_greeterv1_Greeter_Collect_cancel
+func rpccgo_msg_greeterv1_Greeter_Collect_cancel(handle C.int32_t) C.int32_t {
 	return C.int32_t(CancelGreeterCollectMessageClientStream(context.Background(), int32(handle)))
 }
 
@@ -342,8 +342,8 @@ func encodeGreeterBroadcastMessageResponseBytes(data []byte) (uintptr, int32, er
 	return ptr, length, nil
 }
 
-//export rpccgo_msg_go_Greeter_Broadcast_start
-func rpccgo_msg_go_Greeter_Broadcast_start(requestPtr C.uintptr_t, requestLen C.int32_t, handle *C.int32_t) C.int32_t {
+//export rpccgo_msg_greeterv1_Greeter_Broadcast_start
+func rpccgo_msg_greeterv1_Greeter_Broadcast_start(requestPtr C.uintptr_t, requestLen C.int32_t, handle *C.int32_t) C.int32_t {
 	if handle != nil {
 		*handle = 0
 	}
@@ -358,8 +358,8 @@ func rpccgo_msg_go_Greeter_Broadcast_start(requestPtr C.uintptr_t, requestLen C.
 	return 0
 }
 
-//export rpccgo_msg_go_Greeter_Broadcast_read
-func rpccgo_msg_go_Greeter_Broadcast_read(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
+//export rpccgo_msg_greeterv1_Greeter_Broadcast_read
+func rpccgo_msg_greeterv1_Greeter_Broadcast_read(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
 	if responsePtr != nil {
 		*responsePtr = 0
 	}
@@ -379,13 +379,13 @@ func rpccgo_msg_go_Greeter_Broadcast_read(handle C.int32_t, responsePtr *C.uintp
 	return 0
 }
 
-//export rpccgo_msg_go_Greeter_Broadcast_done
-func rpccgo_msg_go_Greeter_Broadcast_done(handle C.int32_t) C.int32_t {
+//export rpccgo_msg_greeterv1_Greeter_Broadcast_done
+func rpccgo_msg_greeterv1_Greeter_Broadcast_done(handle C.int32_t) C.int32_t {
 	return C.int32_t(DoneGreeterBroadcastMessageServerStream(context.Background(), int32(handle)))
 }
 
-//export rpccgo_msg_go_Greeter_Broadcast_cancel
-func rpccgo_msg_go_Greeter_Broadcast_cancel(handle C.int32_t) C.int32_t {
+//export rpccgo_msg_greeterv1_Greeter_Broadcast_cancel
+func rpccgo_msg_greeterv1_Greeter_Broadcast_cancel(handle C.int32_t) C.int32_t {
 	return C.int32_t(CancelGreeterBroadcastMessageServerStream(context.Background(), int32(handle)))
 }
 
@@ -516,8 +516,8 @@ func encodeGreeterChatMessageResponseBytes(data []byte) (uintptr, int32, error) 
 	return ptr, length, nil
 }
 
-//export rpccgo_msg_go_Greeter_Chat_start
-func rpccgo_msg_go_Greeter_Chat_start(handle *C.int32_t) C.int32_t {
+//export rpccgo_msg_greeterv1_Greeter_Chat_start
+func rpccgo_msg_greeterv1_Greeter_Chat_start(handle *C.int32_t) C.int32_t {
 	if handle != nil {
 		*handle = 0
 	}
@@ -532,13 +532,13 @@ func rpccgo_msg_go_Greeter_Chat_start(handle *C.int32_t) C.int32_t {
 	return 0
 }
 
-//export rpccgo_msg_go_Greeter_Chat_send
-func rpccgo_msg_go_Greeter_Chat_send(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {
+//export rpccgo_msg_greeterv1_Greeter_Chat_send
+func rpccgo_msg_greeterv1_Greeter_Chat_send(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {
 	return C.int32_t(SendGreeterChatMessageBidiStream(context.Background(), int32(handle), uintptr(requestPtr), int32(requestLen)))
 }
 
-//export rpccgo_msg_go_Greeter_Chat_read
-func rpccgo_msg_go_Greeter_Chat_read(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
+//export rpccgo_msg_greeterv1_Greeter_Chat_read
+func rpccgo_msg_greeterv1_Greeter_Chat_read(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
 	if responsePtr != nil {
 		*responsePtr = 0
 	}
@@ -558,12 +558,12 @@ func rpccgo_msg_go_Greeter_Chat_read(handle C.int32_t, responsePtr *C.uintptr_t,
 	return 0
 }
 
-//export rpccgo_msg_go_Greeter_Chat_close_send
-func rpccgo_msg_go_Greeter_Chat_close_send(handle C.int32_t) C.int32_t {
+//export rpccgo_msg_greeterv1_Greeter_Chat_close_send
+func rpccgo_msg_greeterv1_Greeter_Chat_close_send(handle C.int32_t) C.int32_t {
 	return C.int32_t(CloseSendGreeterChatMessageBidiStream(context.Background(), int32(handle)))
 }
 
-//export rpccgo_msg_go_Greeter_Chat_cancel
-func rpccgo_msg_go_Greeter_Chat_cancel(handle C.int32_t) C.int32_t {
+//export rpccgo_msg_greeterv1_Greeter_Chat_cancel
+func rpccgo_msg_greeterv1_Greeter_Chat_cancel(handle C.int32_t) C.int32_t {
 	return C.int32_t(CancelGreeterChatMessageBidiStream(context.Background(), int32(handle)))
 }

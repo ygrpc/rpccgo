@@ -29,7 +29,7 @@ func TestRenderMessageClientCGODefinesUnaryExportSurface(t *testing.T) {
 		"DataPtr uintptr",
 		"DataLen int32",
 		"func CallGreeterUnaryMessageUnary(ctx context.Context, requestPtr uintptr, requestLen int32, output *GreeterMessageOutput) int32 {",
-		"//export rpccgo_msg_go_Greeter_Unary",
+		"//export rpccgo_msg_testv1_Greeter_Unary",
 		"func StartGreeterUploadMessageClientStream(ctx context.Context) (int32, int32) {",
 		"func SendGreeterUploadMessageClientStream(ctx context.Context, handle int32, requestPtr uintptr, requestLen int32) int32 {",
 		"func FinishGreeterUploadMessageClientStream(ctx context.Context, handle int32, output *GreeterMessageOutput) int32 {",
@@ -62,5 +62,5 @@ func TestRenderMessageClientCGODefinesUnaryExportSurface(t *testing.T) {
 	} {
 		assertGeneratedContentContains(t, plugin, cgoClientFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, cgoClientFile, "LoadUploadMessageStream", "TakeUploadMessageStream", "LoadListMessageStream", "TakeListMessageStream", "LoadChatMessageStream", "TakeChatMessageStream")
+	assertGeneratedFileContentDoesNotContain(t, plugin, cgoClientFile, "LoadUploadMessageStream", "TakeUploadMessageStream", "LoadListMessageStream", "TakeListMessageStream", "LoadChatMessageStream", "TakeChatMessageStream", "rpccgo_msg_go_Greeter_Unary")
 }

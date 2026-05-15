@@ -29,8 +29,8 @@ func TestMinimalGreeterGenerate(t *testing.T) {
 
 	assertFileContains(t, "cmd/rpc/greeter.exports.cgo.rpccgo.go", "//export rpccgo_take_error_text")
 	assertFileContains(t, "cmd/rpc/greeter.exports.cgo.rpccgo.go", "//export rpccgo_release")
-	assertFileContains(t, "cmd/rpc/greeter.greeter.client.cgo.rpccgo.go", "//export rpccgo_native_go_Greeter_SayHello")
-	assertFileContains(t, "cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go", "//export rpccgo_msg_go_Greeter_SayHello")
+	assertFileContains(t, "cmd/rpc/greeter.greeter.client.cgo.rpccgo.go", "//export rpccgo_native_greeterv1_Greeter_SayHello")
+	assertFileContains(t, "cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go", "//export rpccgo_msg_greeterv1_Greeter_SayHello")
 }
 
 func TestMinimalGreeterExample(t *testing.T) {
@@ -57,8 +57,8 @@ func TestMinimalGreeterCSharedClientExample(t *testing.T) {
 		t.Fatalf("read c-shared header error = %v", err)
 	}
 	for _, symbol := range []string{
-		"rpccgo_native_go_Greeter_SayHello",
-		"rpccgo_msg_go_Greeter_SayHello",
+		"rpccgo_native_greeterv1_Greeter_SayHello",
+		"rpccgo_msg_greeterv1_Greeter_SayHello",
 		"rpccgo_take_error_text",
 		"rpccgo_release",
 		"rpccgo_minimal_greeter_register_native_server",

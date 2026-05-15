@@ -55,8 +55,8 @@ func CallGreeterSayHelloMessageUnary(ctx context.Context, requestPtr uintptr, re
 	return 0
 }
 
-//export rpccgo_msg_go_Greeter_SayHello
-func rpccgo_msg_go_Greeter_SayHello(requestPtr C.uintptr_t, requestLen C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
+//export rpccgo_msg_greeterv1_Greeter_SayHello
+func rpccgo_msg_greeterv1_Greeter_SayHello(requestPtr C.uintptr_t, requestLen C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
 	if responsePtr != nil {
 		*responsePtr = 0
 	}

@@ -47,7 +47,7 @@ static void run_native_unary_demo(void) {
   const char *name = "ffi";
   const char *city = "c";
 
-  assert_status_ok(rpccgo_native_go_Greeter_SayHello(
+  assert_status_ok(rpccgo_native_greeterv1_Greeter_SayHello(
                        (uintptr_t)name, 3, 0,
                        (uintptr_t)city, 1, 0,
                        &message_ptr, &message_len),
@@ -68,19 +68,19 @@ static void run_native_collect_demo(void) {
   const char *name1 = "ada";
   const char *name2 = "grace";
 
-  assert_status_ok(rpccgo_native_go_Greeter_Collect_start(&handle),
+  assert_status_ok(rpccgo_native_greeterv1_Greeter_Collect_start(&handle),
                    "native collect start error:");
-  assert_status_ok(rpccgo_native_go_Greeter_Collect_send(
+  assert_status_ok(rpccgo_native_greeterv1_Greeter_Collect_send(
                        handle,
                        (uintptr_t)name1, 3, 0,
                        (uintptr_t)city, 1, 0),
                    "native collect send ada error:");
-  assert_status_ok(rpccgo_native_go_Greeter_Collect_send(
+  assert_status_ok(rpccgo_native_greeterv1_Greeter_Collect_send(
                        handle,
                        (uintptr_t)name2, 5, 0,
                        (uintptr_t)city, 1, 0),
                    "native collect send grace error:");
-  assert_status_ok(rpccgo_native_go_Greeter_Collect_finish(handle, &message_ptr, &message_len),
+  assert_status_ok(rpccgo_native_greeterv1_Greeter_Collect_finish(handle, &message_ptr, &message_len),
                    "native collect finish error:");
   assert_string_equals("native collect", (const char *)message_ptr, message_len,
                        "collect:ada,grace");
@@ -93,7 +93,7 @@ static void run_native_collect_demo(void) {
 static void run_output_error_demo(void) {
   const char *name = "ffi";
   const char *city = "c";
-  int32_t err_id = rpccgo_native_go_Greeter_SayHello(
+  int32_t err_id = rpccgo_native_greeterv1_Greeter_SayHello(
       (uintptr_t)name, 3, 0,
       (uintptr_t)city, 1, 0,
       NULL, NULL);

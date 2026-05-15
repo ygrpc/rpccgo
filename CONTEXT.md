@@ -37,6 +37,9 @@ _Avoid_: active server
 - **Native** 与 **Message contract** 是不同 contract；**Native** 不应退化成 request/response struct 或 message 指针边界。
 - **Native** 的字段级函数边界必须覆盖 Go server interface、Go native client API、C callback ABI，以及 streaming 的 start/send/recv/finish/close/cancel 相关边界。
 - C 侧 **Native** callback 必须使用字段级参数列表，例如 `field_ptr/field_len/ownership` 和输出字段指针参数；不能接收 generated `Request*` / `Response*` struct。
+- 跨 runtime 的 C **Native** ABI 不能以 `struct` 或 `struct*` 作为调用边界参数；callback table 也必须拆成 flat callback 参数或逐项注册。
+- C **Native** server callback 允许按 method 分开注册；首次注册任一 callback 即可把该 service 激活为 **Active server**，未注册的 method 在真正调用时返回 callback-missing 错误。
+- C 导出符号命名以 `<contract> + <namespace> + <service> + <method> + <operation>` 组成；`namespace` 默认取 Go package name，冲突时由用户显式覆盖，不使用调用端/实现端语言前缀区分方向。
 - Go **Native** server 输入字段类型沿用旧 wrapper：`string -> *rpcruntime.RpcString`、`bytes/message -> *rpcruntime.RpcBytes`、`repeated scalar -> *rpcruntime.RpcRepeat[T]`、`repeated bool -> *rpcruntime.RpcBoolRepeat`。
 - 由 **Message contract** 适配到 **Native** 时，请求侧 wrapper 只应作为 **Call-scoped borrowed view** 存在；其底层数据只保证在该次 generated bridge 同步 native 调用期间有效。
 - Go **Native** server 返回值沿用旧 flat 返回：response 顶层字段按 Go 值/slice 顺序返回，最后一个返回值固定是 `error`。

@@ -148,13 +148,12 @@ func TestRenderMessageStageFilesEmitsDirectPathFileFamily(t *testing.T) {
 
 		const messageServerFile = "test/v1/cgo/message_contract.greeter.server.message.cgo.rpccgo.go"
 		for _, fragment := range []string{
-			"typedef struct GreeterCGOMessageServerCallbacks {",
-			"GreeterUnaryCGOMessageUnaryCallback Unary;",
-			"GreeterUploadCGOMessageClientStreamStartCallback UploadStart;",
-			"GreeterListCGOMessageServerStreamRecvCallback ListRecv;",
-			"GreeterChatCGOMessageBidiStreamCloseSendCallback ChatCloseSend;",
-			"func RegisterGreeterCGOMessageServer",
-			"return v1.RegisterGreeterCGOMessageActiveServer(rpcruntime.ServerKindCGOMessage",
+			"C.GreeterUnaryCGOMessageUnaryCallback",
+			"GreeterUploadCGOMessageClientStreamStartCallback",
+			"GreeterListCGOMessageServerStreamRecvCallback",
+			"GreeterChatCGOMessageBidiStreamCloseSendCallback",
+			"//export rpccgo_msg_testv1_Greeter_Unary_register",
+			"v1.RegisterGreeterCGOMessageActiveServer(rpcruntime.ServerKindCGOMessage",
 		} {
 			assertGeneratedContentContains(t, plugin, messageServerFile, fragment)
 		}

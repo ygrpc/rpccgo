@@ -47,19 +47,19 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	for _, method := range service.Methods {
 		switch method.Streaming {
 		case StreamingKindUnary:
-			renderNativeUnaryClient(g, service, method, errorName, servicePackage)
+			renderNativeUnaryClient(g, plan, service, method, errorName, servicePackage)
 		case StreamingKindClientStreaming:
-			renderNativeClientStreamingClient(g, service, method, errorName, streamHandleErrorName, servicePackage)
+			renderNativeClientStreamingClient(g, plan, service, method, errorName, streamHandleErrorName, servicePackage)
 		case StreamingKindServerStreaming:
-			renderNativeServerStreamingClient(g, service, method, errorName, streamHandleErrorName, servicePackage)
+			renderNativeServerStreamingClient(g, plan, service, method, errorName, streamHandleErrorName, servicePackage)
 		case StreamingKindBidiStreaming:
-			renderNativeBidiStreamingClient(g, service, method, errorName, streamHandleErrorName, servicePackage)
+			renderNativeBidiStreamingClient(g, plan, service, method, errorName, streamHandleErrorName, servicePackage)
 		}
 	}
 	return nil
 }
 
-func renderNativeUnaryClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError, servicePackage string) {
+func renderNativeUnaryClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, unsupportedError, servicePackage string) {
 	funcName := nativeUnaryClientFuncName(service, method)
 	requestParams := nativeClientRequestParams(method.NativeContract.RequestFields)
 	requestArgs := nativeClientRequestCallArgs(method.NativeContract.RequestFields)
@@ -107,10 +107,10 @@ func renderNativeUnaryClient(g *protogen.GeneratedFile, service ServicePlan, met
 
 	renderNativeUnaryRequestDecoder(g, service, method, unsupportedError)
 	renderNativeUnaryResponseEncoder(g, service, method, unsupportedError)
-	renderNativeCExportWrappers(g, service, method)
+	renderNativeCExportWrappers(g, plan, service, method)
 }
 
-func renderNativeClientStreamingClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError, servicePackage string) {
+func renderNativeClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError, servicePackage string) {
 	requestParams := nativeClientRequestParams(method.NativeContract.RequestFields)
 	requestArgs := nativeClientRequestCallArgs(method.NativeContract.RequestFields)
 	responseParams := nativeClientResponseOutputParams(method.NativeContract.ResponseFields)
@@ -199,10 +199,10 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, service Servic
 
 	renderNativeClientStreamingRequestDecoder(g, service, method, unsupportedError)
 	renderNativeClientStreamingResponseEncoder(g, service, method, unsupportedError)
-	renderNativeCExportWrappers(g, service, method)
+	renderNativeCExportWrappers(g, plan, service, method)
 }
 
-func renderNativeServerStreamingClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError, servicePackage string) {
+func renderNativeServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError, servicePackage string) {
 	requestParams := nativeClientRequestParams(method.NativeContract.RequestFields)
 	requestArgs := nativeClientRequestCallArgs(method.NativeContract.RequestFields)
 	responseParams := nativeClientResponseOutputParams(method.NativeContract.ResponseFields)
@@ -294,10 +294,10 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, service Servic
 
 	renderNativeServerStreamingRequestDecoder(g, service, method, unsupportedError)
 	renderNativeServerStreamingResponseEncoder(g, service, method, unsupportedError)
-	renderNativeCExportWrappers(g, service, method)
+	renderNativeCExportWrappers(g, plan, service, method)
 }
 
-func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError, servicePackage string) {
+func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError, servicePackage string) {
 	requestParams := nativeClientRequestParams(method.NativeContract.RequestFields)
 	requestArgs := nativeClientRequestCallArgs(method.NativeContract.RequestFields)
 	responseParams := nativeClientResponseOutputParams(method.NativeContract.ResponseFields)
@@ -414,7 +414,7 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, service ServiceP
 
 	renderNativeBidiStreamingRequestDecoder(g, service, method, unsupportedError)
 	renderNativeBidiStreamingResponseEncoder(g, service, method, unsupportedError)
-	renderNativeCExportWrappers(g, service, method)
+	renderNativeCExportWrappers(g, plan, service, method)
 }
 
 func nativeClientRequestParams(fields []FieldPlan) string {
@@ -747,21 +747,21 @@ func renderNativeUnaryResponseEncoder(g *protogen.GeneratedFile, service Service
 	renderNativeClientResponseEncoder(g, nativeUnaryClientEncoderName(service, method), method.NativeContract.ResponseFields, unsupportedError)
 }
 
-func renderNativeCExportWrappers(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
+func renderNativeCExportWrappers(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan) {
 	switch method.Streaming {
 	case StreamingKindUnary:
-		renderNativeUnaryCExportWrapper(g, service, method)
+		renderNativeUnaryCExportWrapper(g, plan, service, method)
 	case StreamingKindClientStreaming:
-		renderNativeClientStreamingCExportWrappers(g, service, method)
+		renderNativeClientStreamingCExportWrappers(g, plan, service, method)
 	case StreamingKindServerStreaming:
-		renderNativeServerStreamingCExportWrappers(g, service, method)
+		renderNativeServerStreamingCExportWrappers(g, plan, service, method)
 	case StreamingKindBidiStreaming:
-		renderNativeBidiStreamingCExportWrappers(g, service, method)
+		renderNativeBidiStreamingCExportWrappers(g, plan, service, method)
 	}
 }
 
-func renderNativeUnaryCExportWrapper(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
-	exportName := nativeCExportFuncName(service, method, "")
+func renderNativeUnaryCExportWrapper(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan) {
+	exportName := nativeCExportFuncName(plan, service, method, "")
 	g.P("//export ", exportName)
 	g.P("func ", exportName, "(", nativeCExportUnaryParams(service, method), ") C.int32_t {")
 	renderNativeCExportOutputValidation(g, method.NativeContract.ResponseFields)
@@ -771,8 +771,8 @@ func renderNativeUnaryCExportWrapper(g *protogen.GeneratedFile, service ServiceP
 }
 
 
-func renderNativeClientStreamingCExportWrappers(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
-	startName := nativeCExportFuncName(service, method, "start")
+func renderNativeClientStreamingCExportWrappers(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan) {
+	startName := nativeCExportFuncName(plan, service, method, "start")
 	g.P("//export ", startName)
 	g.P("func ", startName, "(handle *C.int32_t) C.int32_t {")
 	renderNativeCExportHandleValidation(g)
@@ -785,14 +785,14 @@ func renderNativeClientStreamingCExportWrappers(g *protogen.GeneratedFile, servi
 	g.P("}")
 	g.P()
 
-	sendName := nativeCExportFuncName(service, method, "send")
+	sendName := nativeCExportFuncName(plan, service, method, "send")
 	g.P("//export ", sendName)
 	g.P("func ", sendName, "(", nativeCExportParamJoin("handle C.int32_t", nativeCExportInputParams(service, method)), ") C.int32_t {")
 	g.P("return C.int32_t(", nativeClientStreamingSendFuncName(service, method), "(context.Background(), int32(handle)", nativeCExportCallSuffix(nativeCExportGoArgs(service, method)), "))")
 	g.P("}")
 	g.P()
 
-	finishName := nativeCExportFuncName(service, method, "finish")
+	finishName := nativeCExportFuncName(plan, service, method, "finish")
 	g.P("//export ", finishName)
 	g.P("func ", finishName, "(", nativeCExportParamJoin("handle C.int32_t", nativeCExportOutputParams(service, method)), ") C.int32_t {")
 	renderNativeCExportOutputValidation(g, method.NativeContract.ResponseFields)
@@ -800,7 +800,7 @@ func renderNativeClientStreamingCExportWrappers(g *protogen.GeneratedFile, servi
 	g.P("}")
 	g.P()
 
-	cancelName := nativeCExportFuncName(service, method, "cancel")
+	cancelName := nativeCExportFuncName(plan, service, method, "cancel")
 	g.P("//export ", cancelName)
 	g.P("func ", cancelName, "(handle C.int32_t) C.int32_t {")
 	g.P("return C.int32_t(", nativeClientStreamingCancelFuncName(service, method), "(context.Background(), int32(handle)))")
@@ -808,8 +808,8 @@ func renderNativeClientStreamingCExportWrappers(g *protogen.GeneratedFile, servi
 	g.P()
 }
 
-func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
-	startName := nativeCExportFuncName(service, method, "start")
+func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan) {
+	startName := nativeCExportFuncName(plan, service, method, "start")
 	g.P("//export ", startName)
 	g.P("func ", startName, "(", nativeCExportParamJoin(nativeCExportInputParams(service, method), "handle *C.int32_t"), ") C.int32_t {")
 	renderNativeCExportHandleValidation(g)
@@ -822,7 +822,7 @@ func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, servi
 	g.P("}")
 	g.P()
 
-	readName := nativeCExportFuncName(service, method, "read")
+	readName := nativeCExportFuncName(plan, service, method, "read")
 	g.P("//export ", readName)
 	g.P("func ", readName, "(", nativeCExportParamJoin("handle C.int32_t", nativeCExportOutputParams(service, method)), ") C.int32_t {")
 	renderNativeCExportOutputValidation(g, method.NativeContract.ResponseFields)
@@ -830,14 +830,14 @@ func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, servi
 	g.P("}")
 	g.P()
 
-	doneName := nativeCExportFuncName(service, method, "done")
+	doneName := nativeCExportFuncName(plan, service, method, "done")
 	g.P("//export ", doneName)
 	g.P("func ", doneName, "(handle C.int32_t) C.int32_t {")
 	g.P("return C.int32_t(", nativeServerStreamingDoneFuncName(service, method), "(context.Background(), int32(handle)))")
 	g.P("}")
 	g.P()
 
-	cancelName := nativeCExportFuncName(service, method, "cancel")
+	cancelName := nativeCExportFuncName(plan, service, method, "cancel")
 	g.P("//export ", cancelName)
 	g.P("func ", cancelName, "(handle C.int32_t) C.int32_t {")
 	g.P("return C.int32_t(", nativeServerStreamingCancelFuncName(service, method), "(context.Background(), int32(handle)))")
@@ -845,8 +845,8 @@ func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, servi
 	g.P()
 }
 
-func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
-	startName := nativeCExportFuncName(service, method, "start")
+func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan) {
+	startName := nativeCExportFuncName(plan, service, method, "start")
 	g.P("//export ", startName)
 	g.P("func ", startName, "(handle *C.int32_t) C.int32_t {")
 	renderNativeCExportHandleValidation(g)
@@ -859,14 +859,14 @@ func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, service
 	g.P("}")
 	g.P()
 
-	sendName := nativeCExportFuncName(service, method, "send")
+	sendName := nativeCExportFuncName(plan, service, method, "send")
 	g.P("//export ", sendName)
 	g.P("func ", sendName, "(", nativeCExportParamJoin("handle C.int32_t", nativeCExportInputParams(service, method)), ") C.int32_t {")
 	g.P("return C.int32_t(", nativeBidiStreamingSendFuncName(service, method), "(context.Background(), int32(handle)", nativeCExportCallSuffix(nativeCExportGoArgs(service, method)), "))")
 	g.P("}")
 	g.P()
 
-	readName := nativeCExportFuncName(service, method, "read")
+	readName := nativeCExportFuncName(plan, service, method, "read")
 	g.P("//export ", readName)
 	g.P("func ", readName, "(", nativeCExportParamJoin("handle C.int32_t", nativeCExportOutputParams(service, method)), ") C.int32_t {")
 	renderNativeCExportOutputValidation(g, method.NativeContract.ResponseFields)
@@ -874,14 +874,14 @@ func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, service
 	g.P("}")
 	g.P()
 
-	closeSendName := nativeCExportFuncName(service, method, "close_send")
+	closeSendName := nativeCExportFuncName(plan, service, method, "close_send")
 	g.P("//export ", closeSendName)
 	g.P("func ", closeSendName, "(handle C.int32_t) C.int32_t {")
 	g.P("return C.int32_t(", nativeBidiStreamingCloseSendFuncName(service, method), "(context.Background(), int32(handle)))")
 	g.P("}")
 	g.P()
 
-	cancelName := nativeCExportFuncName(service, method, "cancel")
+	cancelName := nativeCExportFuncName(plan, service, method, "cancel")
 	g.P("//export ", cancelName)
 	g.P("func ", cancelName, "(handle C.int32_t) C.int32_t {")
 	g.P("return C.int32_t(", nativeBidiStreamingCancelFuncName(service, method), "(context.Background(), int32(handle)))")
@@ -921,8 +921,8 @@ func renderNativeCExportHandleValidation(g *protogen.GeneratedFile) {
 	g.P("}")
 }
 
-func nativeCExportFuncName(service ServicePlan, method MethodPlan, operation string) string {
-	name := "rpccgo_native_go_" + service.GoName + "_" + method.GoName
+func nativeCExportFuncName(plan FilePlan, service ServicePlan, method MethodPlan, operation string) string {
+	name := "rpccgo_native_" + plan.GoPackageName + "_" + service.GoName + "_" + method.GoName
 	if operation != "" {
 		name += "_" + operation
 	}

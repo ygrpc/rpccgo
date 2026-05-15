@@ -1,0 +1,3 @@
+# Use a flat namespaced C ABI for native exports
+
+rpccgo uses flat C ABI boundaries for native exports: cross-runtime calls must not pass `struct` or `struct*`, C native server callbacks are registered per method instead of through a callback table struct, and missing callbacks fail only when that method is invoked. Exported C symbols use `rpccgo_<contract>_<namespace>_<Service>_<Method>[_<operation>]`, where `namespace` defaults to the Go package name and can be explicitly overridden on collision; this keeps symbols short while avoiding the old collision-prone `rpccgo_native_go_<Service>_<Method>` shape and avoids embedding endpoint-language prefixes that add no information once operation names distinguish call and registration APIs.

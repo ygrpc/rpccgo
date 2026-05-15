@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestRenderMessageServerCGODefinesUnaryCallbackTableAndRegistration(t *testing.T) {
+func TestRenderMessageServerCGODefinesFlatMethodRegistration(t *testing.T) {
 	file := messageCgoTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
@@ -32,11 +32,9 @@ func TestRenderMessageServerCGODefinesUnaryCallbackTableAndRegistration(t *testi
 		"rpcruntime.TakeErrorText",
 		"unknown error id",
 		"typedef int32_t (*GreeterUnaryCGOMessageUnaryCallback)(uintptr_t request_ptr, int32_t request_len, uintptr_t* response_ptr, int32_t* response_len);",
-		"typedef struct GreeterCGOMessageServerCallbacks {",
-		"GreeterUnaryCGOMessageUnaryCallback Unary;",
 		"static inline int32_t callGreeterUnaryCGOMessageUnary(GreeterUnaryCGOMessageUnaryCallback callback, uintptr_t request_ptr, int32_t request_len, uintptr_t* response_ptr, int32_t* response_len) {",
 		"type greeterCGOMessageAdapter struct {",
-		"callbacks C.GreeterCGOMessageServerCallbacks",
+		"C.GreeterUnaryCGOMessageUnaryCallback",
 		"func (a *greeterCGOMessageAdapter) UnaryMessage(ctx context.Context, req []byte) ([]byte, error) {",
 		"func (a *greeterCGOMessageAdapter) StartUploadMessage(ctx context.Context) (v1.GreeterUploadMessageStreamSession, error) {",
 		"func (a *greeterCGOMessageAdapter) StartListMessage(ctx context.Context, req []byte) (v1.GreeterListMessageStreamSession, error) {",
@@ -48,21 +46,23 @@ func TestRenderMessageServerCGODefinesUnaryCallbackTableAndRegistration(t *testi
 		"decodeGreeterListCGOMessageResponseBytes",
 		"decodeGreeterChatCGOMessageResponseBytes",
 		"if err := protobuf.Unmarshal(resp, &v1.HelloReply{}); err != nil {",
-		"func RegisterGreeterCGOMessageServer(callbacks *C.GreeterCGOMessageServerCallbacks) (rpcruntime.AdapterSnapshot[v1.GreeterMessageAdapter], error) {",
-		"return v1.RegisterGreeterCGOMessageActiveServer(rpcruntime.ServerKindCGOMessage, &greeterCGOMessageAdapter{callbacks: callbacksCopy})",
-		"callbacksCopy := *callbacks",
+		"//export rpccgo_msg_testv1_Greeter_Unary_register",
+		"v1.RegisterGreeterCGOMessageActiveServer(rpcruntime.ServerKindCGOMessage, greeterCGOMessageServerAdapter)",
+		"func rpccgo_msg_testv1_Greeter_Unary_register(callback C.GreeterUnaryCGOMessageUnaryCallback) C.int32_t {",
 		"func greeterCGOMessageServerError(errID int32) error {",
 		"if ok {",
 	} {
 		assertGeneratedContentContains(t, plugin, cgoServerFile, fragment)
 	}
 
+	assertGeneratedFileContentDoesNotContain(t, plugin, cgoServerFile, "typedef struct GreeterCGOMessageServerCallbacks", "callbacks C.GreeterCGOMessageServerCallbacks", "func RegisterGreeterCGOMessageServer")
+
 	for _, file := range plugin.Response().GetFile() {
 		if file.GetName() != cgoServerFile {
 			continue
 		}
 		content := file.GetContent()
-		closeSend := "errID := int32(C.callGreeterChatCGOMessageBidiStreamCloseSend(s.callbacks.ChatCloseSend, C.int32_t(s.stream)))"
+		closeSend := "errID := int32(C.callGreeterChatCGOMessageBidiStreamCloseSend(s.closeSend, C.int32_t(s.stream)))"
 		markClosed := "s.lifecycle.MarkSendClosed()"
 		if closeSendIndex, markClosedIndex := strings.Index(content, closeSend), strings.Index(content, markClosed); closeSendIndex < 0 || markClosedIndex < 0 || markClosedIndex < closeSendIndex {
 			t.Fatalf("generated CloseSend lifecycle order invalid: CloseSend index=%d MarkSendClosed index=%d", closeSendIndex, markClosedIndex)

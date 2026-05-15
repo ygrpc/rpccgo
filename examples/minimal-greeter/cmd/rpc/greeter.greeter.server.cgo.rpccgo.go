@@ -9,10 +9,6 @@ import (
 
 typedef int32_t (*GreeterSayHelloCGONativeUnaryCallback)(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership);
 
-typedef struct GreeterCGONativeServerCallbacks {
-GreeterSayHelloCGONativeUnaryCallback SayHello;
-} GreeterCGONativeServerCallbacks;
-
 static inline int32_t callGreeterSayHelloCGONativeUnaryCallback(GreeterSayHelloCGONativeUnaryCallback callback, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership) {
 	return callback(NamePtr, NameLen, NameOwnership, outMessagePtr, outMessageLen, outMessageOwnership);
 }
@@ -25,6 +21,7 @@ import (
 	errors "errors"
 	fmt "fmt"
 	rpcruntime "rpccgo/rpcruntime"
+	sync "sync"
 	unsafe "unsafe"
 )
 
@@ -47,17 +44,19 @@ var (
 	greeterCGONativeServerUnaryCallbackMissing = errors.New("rpccgo: Greeter cgo native server unary callback is missing")
 	greeterCGONativeServerUnsupportedField     = errors.New("rpccgo: cgo native server field bridge is not implemented")
 	greeterCGONativeServerStreamNotImplemented = errors.New("rpccgo: cgo native server streaming is not implemented")
+	greeterCGONativeServerAdapterMu            sync.Mutex
+	greeterCGONativeServerAdapter              = &greeterCGONativeAdapter{}
 )
 
 type greeterCGONativeAdapter struct {
-	callbacks C.GreeterCGONativeServerCallbacks
+	SayHelloCallback C.GreeterSayHelloCGONativeUnaryCallback
 }
 
 func (a *greeterCGONativeAdapter) SayHello(ctx context.Context, name *rpcruntime.RpcString) (string, error) {
 	if a == nil {
 		return "", greeterCGONativeServerCallbacksNil
 	}
-	callback := a.callbacks.SayHello
+	callback := a.SayHelloCallback
 	if callback == nil {
 		return "", greeterCGONativeServerUnaryCallbackMissing
 	}
@@ -159,15 +158,19 @@ func greeterCGONativeServerErrorFromID(errID int32) error {
 	return fmt.Errorf("rpccgo: cgo native server callback returned unknown error id %d", errID)
 }
 
-func RegisterGreeterCGONativeServer(callbacks *C.GreeterCGONativeServerCallbacks) (rpcruntime.AdapterSnapshot[v1.GreeterNativeAdapter], error) {
-	if callbacks == nil {
-		return rpcruntime.AdapterSnapshot[v1.GreeterNativeAdapter]{}, greeterCGONativeServerCallbacksNil
+//export rpccgo_native_greeterv1_Greeter_SayHello_register
+func rpccgo_native_greeterv1_Greeter_SayHello_register(callback C.GreeterSayHelloCGONativeUnaryCallback) C.int32_t {
+	if callback == nil {
+		return C.int32_t(rpcruntime.StoreError(greeterCGONativeServerUnaryCallbackMissing))
 	}
-	if callbacks.SayHello == nil {
-		return rpcruntime.AdapterSnapshot[v1.GreeterNativeAdapter]{}, greeterCGONativeServerUnaryCallbackMissing
+	greeterCGONativeServerAdapterMu.Lock()
+	defer greeterCGONativeServerAdapterMu.Unlock()
+	greeterCGONativeServerAdapter.SayHelloCallback = callback
+	_, err := v1.RegisterGreeterCGONativeActiveServer(rpcruntime.ServerKindCGONative, greeterCGONativeServerAdapter)
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
 	}
-	callbacksCopy := *callbacks
-	return v1.RegisterGreeterCGONativeActiveServer(rpcruntime.ServerKindCGONative, &greeterCGONativeAdapter{callbacks: callbacksCopy})
+	return 0
 }
 
 type GreeterGoCGONativeServerCallbacks struct {

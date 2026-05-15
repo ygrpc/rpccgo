@@ -18,3 +18,5 @@ require (
 )
 
 replace rpccgo => ../..
+
+tool github.com/magefile/mage

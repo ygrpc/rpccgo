@@ -97,8 +97,8 @@ func encodeGreeterSayHelloNativeUnaryResponse(messageResult string, outMessagePt
 	return nil
 }
 
-//export rpccgo_native_go_Greeter_SayHello
-func rpccgo_native_go_Greeter_SayHello(NamePtr uintptr, NameLen int32, NameOwnership int32, outMessagePtr *uintptr, outMessageLen *int32) C.int32_t {
+//export rpccgo_native_greeterv1_Greeter_SayHello
+func rpccgo_native_greeterv1_Greeter_SayHello(NamePtr uintptr, NameLen int32, NameOwnership int32, outMessagePtr *uintptr, outMessageLen *int32) C.int32_t {
 	if outMessagePtr != nil {
 		*outMessagePtr = 0
 	}

@@ -72,10 +72,10 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"func RegisterGreeterGRPCRemoteServer(conn grpc.ClientConnInterface) (rpcruntime.AdapterSnapshot[GreeterMessageAdapter], error) {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.server.cgo.rpccgo.go",
-		"func RegisterGreeterCGONativeServer(callbacks *C.GreeterCGONativeServerCallbacks) (rpcruntime.AdapterSnapshot[v1.GreeterNativeAdapter], error) {",
+		"//export rpccgo_native_testv1_Greeter_SayHello_register",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.client.cgo.rpccgo.go",
-		"//export rpccgo_native_go_Greeter_SayHello",
+		"//export rpccgo_native_testv1_Greeter_SayHello",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.exports.cgo.rpccgo.go",
 		"//export rpccgo_take_error_text",
@@ -84,7 +84,7 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"//export rpccgo_release",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go",
-		"func RegisterGreeterCGOMessageServer(callbacks *C.GreeterCGOMessageServerCallbacks) (rpcruntime.AdapterSnapshot[v1.GreeterMessageAdapter], error) {",
+		"//export rpccgo_msg_testv1_Greeter_SayHello_register",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go",
 		"func CallGreeterSayHelloMessageUnary",

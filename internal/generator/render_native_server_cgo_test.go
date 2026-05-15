@@ -11,7 +11,7 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-func TestRenderNativeServerCGODefinesUnaryCallbackTableAdapterAndRegistration(t *testing.T) {
+func TestRenderNativeServerCGODefinesPerMethodCallbackRegistration(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
@@ -26,23 +26,45 @@ func TestRenderNativeServerCGODefinesUnaryCallbackTableAdapterAndRegistration(t 
 		`import "C"`,
 		`v1 "example.com/test/v1"`,
 		"typedef int32_t (*AllServiceUnaryCGONativeUnaryCallback)(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, int8_t Enabled, uintptr_t ChildPtr, int32_t ChildLen, int32_t ChildOwnership, int8_t *outAccepted, uintptr_t *outPayloadPtr, int32_t *outPayloadLen, int32_t *outPayloadOwnership);",
-		"typedef struct AllServiceCGONativeServerCallbacks {",
-		"AllServiceUnaryCGONativeUnaryCallback Unary;",
 		"static inline int32_t callAllServiceUnaryCGONativeUnaryCallback",
 		"return callback(NamePtr, NameLen, NameOwnership, Enabled, ChildPtr, ChildLen, ChildOwnership, outAccepted, outPayloadPtr, outPayloadLen, outPayloadOwnership);",
 		`rpcruntime "rpccgo/rpcruntime"`,
+		`sync "sync"`,
 		`unsafe "unsafe"`,
+		"allServiceCGONativeServerAdapterMu            sync.Mutex",
+		"allServiceCGONativeServerAdapter              = &allServiceCGONativeAdapter{}",
 		"type allServiceCGONativeAdapter struct {",
-		"callbacks C.AllServiceCGONativeServerCallbacks",
-		"func RegisterAllServiceCGONativeServer(callbacks *C.AllServiceCGONativeServerCallbacks) (rpcruntime.AdapterSnapshot[v1.AllServiceNativeAdapter], error) {",
-		"callbacksCopy := *callbacks",
-		"return v1.RegisterAllServiceCGONativeActiveServer(rpcruntime.ServerKindCGONative, &allServiceCGONativeAdapter{callbacks: callbacksCopy})",
+		"UnaryCallback       C.AllServiceUnaryCGONativeUnaryCallback",
+		"ClientStreamSend    C.AllServiceClientStreamCGONativeClientStreamSendCallback",
+		"ServerStreamRecv    C.AllServiceServerStreamCGONativeServerStreamRecvCallback",
+		"BidiStreamCloseSend C.AllServiceBidiStreamCGONativeBidiStreamCloseSendCallback",
+		"//export rpccgo_native_testv1_AllService_Unary_register",
+		"func rpccgo_native_testv1_AllService_Unary_register(callback C.AllServiceUnaryCGONativeUnaryCallback) C.int32_t {",
+		"allServiceCGONativeServerAdapter.UnaryCallback = callback",
+		"_, err := v1.RegisterAllServiceCGONativeActiveServer(rpcruntime.ServerKindCGONative, allServiceCGONativeServerAdapter)",
+		"//export rpccgo_native_testv1_AllService_ClientStream_register",
+		"func rpccgo_native_testv1_AllService_ClientStream_register(start C.AllServiceClientStreamCGONativeClientStreamStartCallback, send C.AllServiceClientStreamCGONativeClientStreamSendCallback, finish C.AllServiceClientStreamCGONativeClientStreamFinishCallback, cancel C.AllServiceClientStreamCGONativeClientStreamCancelCallback) C.int32_t {",
+		"return &allServiceClientStreamCGONativeClientStreamSession{send: a.ClientStreamSend, finish: a.ClientStreamFinish, cancel: a.ClientStreamCancel, stream: stream}, nil",
+		"type allServiceClientStreamCGONativeClientStreamSession struct {",
+		"send C.AllServiceClientStreamCGONativeClientStreamSendCallback",
+		"finish C.AllServiceClientStreamCGONativeClientStreamFinishCallback",
+		"cancel C.AllServiceClientStreamCGONativeClientStreamCancelCallback",
+		"errID := int32(C.callAllServiceClientStreamCGONativeClientStreamSendCallback(s.send, s.stream",
+		"//export rpccgo_native_testv1_AllService_ServerStream_register",
+		"return &allServiceServerStreamCGONativeServerStreamSession{recv: a.ServerStreamRecv, done: a.ServerStreamDone, cancel: a.ServerStreamCancel, stream: stream}, nil",
+		"recv C.AllServiceServerStreamCGONativeServerStreamRecvCallback",
+		"done C.AllServiceServerStreamCGONativeServerStreamDoneCallback",
+		"errID := int32(C.callAllServiceServerStreamCGONativeServerStreamRecvCallback(s.recv, s.stream",
+		"//export rpccgo_native_testv1_AllService_BidiStream_register",
+		"return &allServiceBidiStreamCGONativeBidiStreamSession{send: a.BidiStreamSend, recv: a.BidiStreamRecv, closeSend: a.BidiStreamCloseSend, done: a.BidiStreamDone, cancel: a.BidiStreamCancel, stream: stream}, nil",
+		"closeSend C.AllServiceBidiStreamCGONativeBidiStreamCloseSendCallback",
+		"errID := int32(C.callAllServiceBidiStreamCGONativeBidiStreamCloseSendCallback(s.closeSend, s.stream))",
 		"type AllServiceGoCGONativeServerCallbacks struct {",
 		"func RegisterAllServiceGoCGONativeServerForTesting(callbacks *AllServiceGoCGONativeServerCallbacks) (rpcruntime.AdapterSnapshot[v1.AllServiceNativeAdapter], error) {",
 		`errors.New("rpccgo: AllService cgo native server callbacks are nil")`,
 		`errors.New("rpccgo: AllService cgo native server unary callback is missing")`,
 		`errors.New("rpccgo: cgo native server streaming is not implemented")`,
-		"callback := a.callbacks.Unary",
+		"callback := a.UnaryCallback",
 		"errID := int32(C.callAllServiceUnaryCGONativeUnaryCallback(callback, input.NamePtr, input.NameLen, input.NameOwnership, input.Enabled, input.ChildPtr, input.ChildLen, input.ChildOwnership, &output.Accepted, &output.PayloadPtr, &output.PayloadLen, &output.PayloadOwnership))",
 		"callbackErr := allServiceCGONativeServerErrorFromID(errID)",
 		"return false, nil, errors.Join(callbackErr, cleanupErr)",
@@ -62,7 +84,19 @@ func TestRenderNativeServerCGODefinesUnaryCallbackTableAdapterAndRegistration(t 
 	} {
 		assertGeneratedContentContains(t, plugin, cgoServerFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, cgoServerFile, "registerAllServiceActiveServer", "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf", "* input", "* output")
+	assertGeneratedFileContentDoesNotContain(t, plugin, cgoServerFile,
+		"typedef struct AllServiceCGONativeServerCallbacks",
+		"callbacks C.AllServiceCGONativeServerCallbacks",
+		"func RegisterAllServiceCGONativeServer(callbacks *C.AllServiceCGONativeServerCallbacks)",
+		"callbacksCopy := *callbacks",
+		"callbacks: callbacksCopy",
+		"registerAllServiceActiveServer",
+		"connectrpc.com/connect",
+		"google.golang.org/grpc",
+		"google.golang.org/protobuf",
+		"* input",
+		"* output",
+	)
 }
 
 func TestRenderNativeServerCGOScalarOnlyGeneratedSourceCompiles(t *testing.T) {

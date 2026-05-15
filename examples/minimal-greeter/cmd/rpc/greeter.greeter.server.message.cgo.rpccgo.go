@@ -9,10 +9,6 @@ import (
 
 typedef int32_t (*GreeterSayHelloCGOMessageUnaryCallback)(uintptr_t request_ptr, int32_t request_len, uintptr_t* response_ptr, int32_t* response_len);
 
-typedef struct GreeterCGOMessageServerCallbacks {
-GreeterSayHelloCGOMessageUnaryCallback SayHello;
-} GreeterCGOMessageServerCallbacks;
-
 static inline int32_t callGreeterSayHelloCGOMessageUnary(GreeterSayHelloCGOMessageUnaryCallback callback, uintptr_t request_ptr, int32_t request_len, uintptr_t* response_ptr, int32_t* response_len) {
 	return callback(request_ptr, request_len, response_ptr, response_len);
 }
@@ -27,6 +23,7 @@ import (
 	io "io"
 	protobuf "google.golang.org/protobuf/proto"
 	rpcruntime "rpccgo/rpcruntime"
+	sync "sync"
 	unsafe "unsafe"
 )
 
@@ -35,17 +32,19 @@ import (
 var (
 	greeterCGOMessageServerCallbacksNil         = errors.New("rpccgo: Greeter cgo message server callbacks are nil")
 	greeterCGOMessageServerUnaryCallbackMissing = errors.New("rpccgo: Greeter cgo message server unary callback is missing")
+	greeterCGOMessageServerAdapterMu            sync.Mutex
+	greeterCGOMessageServerAdapter              = &greeterCGOMessageAdapter{}
 )
 
 type greeterCGOMessageAdapter struct {
-	callbacks C.GreeterCGOMessageServerCallbacks
+	SayHello C.GreeterSayHelloCGOMessageUnaryCallback
 }
 
 func (a *greeterCGOMessageAdapter) SayHelloMessage(ctx context.Context, req []byte) ([]byte, error) {
 	if a == nil {
 		return nil, greeterCGOMessageServerCallbacksNil
 	}
-	callback := a.callbacks.SayHello
+	callback := a.SayHello
 	if callback == nil {
 		return nil, greeterCGOMessageServerUnaryCallbackMissing
 	}
@@ -89,15 +88,19 @@ func decodeGreeterSayHelloCGOMessageResponseBytes(responsePtr C.uintptr_t, respo
 	return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(uintptr(responsePtr))), int(responseLen))...), nil
 }
 
-func RegisterGreeterCGOMessageServer(callbacks *C.GreeterCGOMessageServerCallbacks) (rpcruntime.AdapterSnapshot[v1.GreeterMessageAdapter], error) {
-	if callbacks == nil {
-		return rpcruntime.AdapterSnapshot[v1.GreeterMessageAdapter]{}, greeterCGOMessageServerCallbacksNil
+//export rpccgo_msg_greeterv1_Greeter_SayHello_register
+func rpccgo_msg_greeterv1_Greeter_SayHello_register(callback C.GreeterSayHelloCGOMessageUnaryCallback) C.int32_t {
+	if callback == nil {
+		return C.int32_t(rpcruntime.StoreError(greeterCGOMessageServerUnaryCallbackMissing))
 	}
-	if callbacks.SayHello == nil {
-		return rpcruntime.AdapterSnapshot[v1.GreeterMessageAdapter]{}, greeterCGOMessageServerUnaryCallbackMissing
+	greeterCGOMessageServerAdapterMu.Lock()
+	defer greeterCGOMessageServerAdapterMu.Unlock()
+	greeterCGOMessageServerAdapter.SayHello = callback
+	_, err := v1.RegisterGreeterCGOMessageActiveServer(rpcruntime.ServerKindCGOMessage, greeterCGOMessageServerAdapter)
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
 	}
-	callbacksCopy := *callbacks
-	return v1.RegisterGreeterCGOMessageActiveServer(rpcruntime.ServerKindCGOMessage, &greeterCGOMessageAdapter{callbacks: callbacksCopy})
+	return 0
 }
 
 func greeterCGOMessageServerError(errID int32) error {
