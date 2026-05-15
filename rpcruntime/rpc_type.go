@@ -53,6 +53,7 @@ var (
 	emptyRpcString = &RpcString{}
 )
 
+// NewRpcBytes returns an RpcBytes wrapper for ptr and length.
 func NewRpcBytes(ptr *byte, length int32, ownership bool) *RpcBytes {
 	rpc, err := NewRpcBytesChecked(ptr, length, ownership)
 	if err != nil {
@@ -61,11 +62,19 @@ func NewRpcBytes(ptr *byte, length int32, ownership bool) *RpcBytes {
 	return rpc
 }
 
+// NewRpcBytesChecked returns an RpcBytes wrapper after validating length.
 func NewRpcBytesChecked(ptr *byte, length int32, ownership bool) (*RpcBytes, error) {
 	if _, err := LengthFromInt32(length); err != nil {
 		return nil, fmt.Errorf("NewRpcBytes: %w", err)
 	}
 	return newRpcBytesUnchecked(ptr, length, ownership), nil
+}
+
+// NewRpcBytesView returns a borrowed RpcBytes view tied to owner reachability.
+func NewRpcBytesView(ptr *byte, length int32, owner any) *RpcBytes {
+	rpc := NewRpcBytes(ptr, length, false)
+	runtime.KeepAlive(owner)
+	return rpc
 }
 
 func newRpcBytesUnchecked(ptr *byte, length int32, ownership bool) *RpcBytes {
@@ -78,6 +87,7 @@ func newRpcBytesUnchecked(ptr *byte, length int32, ownership bool) *RpcBytes {
 	return rpc
 }
 
+// NewRpcString returns an RpcString wrapper for ptr and length.
 func NewRpcString(ptr *byte, length int32, ownership bool) *RpcString {
 	rpc, err := NewRpcStringChecked(ptr, length, ownership)
 	if err != nil {
@@ -86,11 +96,19 @@ func NewRpcString(ptr *byte, length int32, ownership bool) *RpcString {
 	return rpc
 }
 
+// NewRpcStringChecked returns an RpcString wrapper after validating length.
 func NewRpcStringChecked(ptr *byte, length int32, ownership bool) (*RpcString, error) {
 	if _, err := LengthFromInt32(length); err != nil {
 		return nil, fmt.Errorf("NewRpcString: %w", err)
 	}
 	return newRpcStringUnchecked(ptr, length, ownership), nil
+}
+
+// NewRpcStringView returns a borrowed RpcString view tied to owner reachability.
+func NewRpcStringView(ptr *byte, length int32, owner any) *RpcString {
+	rpc := NewRpcString(ptr, length, false)
+	runtime.KeepAlive(owner)
+	return rpc
 }
 
 func newRpcStringUnchecked(ptr *byte, length int32, ownership bool) *RpcString {

@@ -24,6 +24,10 @@ _Avoid_: generated service runtime
 每个 service 生成的 `*.runtime.rpccgo.go`，只应承载 proto/service/method-specific 的 typed adapter、bridge 和 converter glue。
 _Avoid_: runtime core
 
+**Call-scoped borrowed view**:
+仅在一次 generated message→native bridge 调用同步执行期间有效的 borrowed wrapper 视图；不得把 wrapper 本身跨调用保存。
+_Avoid_: owned wrapper, long-lived native input
+
 **Provider bootstrap**:
 旧项目通过 provider/registry/bootstrap 组装服务能力的架构模型；新版不回迁该模型。
 _Avoid_: active server
@@ -34,6 +38,7 @@ _Avoid_: active server
 - **Native** 的字段级函数边界必须覆盖 Go server interface、Go native client API、C callback ABI，以及 streaming 的 start/send/recv/finish/close/cancel 相关边界。
 - C 侧 **Native** callback 必须使用字段级参数列表，例如 `field_ptr/field_len/ownership` 和输出字段指针参数；不能接收 generated `Request*` / `Response*` struct。
 - Go **Native** server 输入字段类型沿用旧 wrapper：`string -> *rpcruntime.RpcString`、`bytes/message -> *rpcruntime.RpcBytes`、`repeated scalar -> *rpcruntime.RpcRepeat[T]`、`repeated bool -> *rpcruntime.RpcBoolRepeat`。
+- 由 **Message contract** 适配到 **Native** 时，请求侧 wrapper 只应作为 **Call-scoped borrowed view** 存在；其底层数据只保证在该次 generated bridge 同步 native 调用期间有效。
 - Go **Native** server 返回值沿用旧 flat 返回：response 顶层字段按 Go 值/slice 顺序返回，最后一个返回值固定是 `error`。
 - **Native** 只拍平 proto request/response 的顶层字段；nested message 作为整体 message bytes/wrapper 传递，不递归展开。
 - `NativeContract` 这类字段计划可以作为参数转换的中间表示保留；它不是最终 **Native** 边界。

@@ -301,20 +301,18 @@ func (GreeterCGOMessageClientBridge) SayHello(ctx context.Context, req []byte) (
 			if snapshot.Adapter.Native == nil {
 				return greeterMessageContractMismatchErr
 			}
-			name, city, err := convertGreeterSayHelloMessageToNativeRequest(req)
-			if err != nil {
-				return err
-			}
-			messageResult, err := snapshot.Adapter.Native.SayHello(ctx, name, city)
-			if err != nil {
-				return err
-			}
-			messageResp, err := convertGreeterSayHelloNativeToMessageResponse(messageResult)
-			if err != nil {
-				return err
-			}
-			resp = messageResp
-			return nil
+			return withGreeterSayHelloMessageToNativeRequest(req, func(name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
+				messageResult, err := snapshot.Adapter.Native.SayHello(ctx, name, city)
+				if err != nil {
+					return err
+				}
+				messageResp, err := convertGreeterSayHelloNativeToMessageResponse(messageResult)
+				if err != nil {
+					return err
+				}
+				resp = messageResp
+				return nil
+			})
 		default:
 			return greeterMessageContractMismatchErr
 		}
@@ -357,11 +355,9 @@ type greeterCollectNativeToMessageStreamSession struct {
 }
 
 func (s *greeterCollectNativeToMessageStreamSession) Send(ctx context.Context, req []byte) error {
-	name, city, err := convertGreeterCollectMessageToNativeRequest(req)
-	if err != nil {
-		return err
-	}
-	return s.native.Send(ctx, name, city)
+	return withGreeterCollectMessageToNativeRequest(req, func(name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
+		return s.native.Send(ctx, name, city)
+	})
 }
 
 func (s *greeterCollectNativeToMessageStreamSession) Finish(ctx context.Context) ([]byte, error) {
@@ -388,15 +384,19 @@ func (GreeterCGOMessageClientBridge) StartBroadcast(ctx context.Context, req []b
 			if snapshot.Adapter.Native == nil {
 				return nil, greeterMessageContractMismatchErr
 			}
-			name, city, err := convertGreeterBroadcastMessageToNativeRequest(req)
+			var session any
+			err := withGreeterBroadcastMessageToNativeRequest(req, func(name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
+				nativeSession, err := snapshot.Adapter.Native.StartBroadcast(ctx, name, city)
+				if err != nil {
+					return err
+				}
+				session = &greeterBroadcastNativeToMessageStreamSession{native: nativeSession}
+				return nil
+			})
 			if err != nil {
 				return nil, err
 			}
-			nativeSession, err := snapshot.Adapter.Native.StartBroadcast(ctx, name, city)
-			if err != nil {
-				return nil, err
-			}
-			return &greeterBroadcastNativeToMessageStreamSession{native: nativeSession}, nil
+			return session, nil
 		default:
 			return nil, greeterMessageContractMismatchErr
 		}
@@ -462,11 +462,9 @@ type greeterChatNativeToMessageStreamSession struct {
 }
 
 func (s *greeterChatNativeToMessageStreamSession) Send(ctx context.Context, req []byte) error {
-	name, city, err := convertGreeterChatMessageToNativeRequest(req)
-	if err != nil {
-		return err
-	}
-	return s.native.Send(ctx, name, city)
+	return withGreeterChatMessageToNativeRequest(req, func(name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
+		return s.native.Send(ctx, name, city)
+	})
 }
 
 func (s *greeterChatNativeToMessageStreamSession) Recv(ctx context.Context) ([]byte, error) {

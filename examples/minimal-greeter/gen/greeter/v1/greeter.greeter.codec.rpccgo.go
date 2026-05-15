@@ -3,6 +3,7 @@ package greeterv1
 import (
 	errors "errors"
 	fmt "fmt"
+	goruntime "runtime"
 	rpcruntime "rpccgo/rpcruntime"
 	unsafe "unsafe"
 	proto "google.golang.org/protobuf/proto"
@@ -12,22 +13,21 @@ import (
 
 var greeterNativeMessageCodecNotReadyErr = errors.New("rpccgo: native message codec is not implemented in this build")
 
-func convertGreeterSayHelloMessageToNativeRequest(data []byte) (*rpcruntime.RpcString, error) {
+func withGreeterSayHelloMessageToNativeRequest(data []byte, fn func(name *rpcruntime.RpcString) error) error {
 	var msg SayHelloRequest
 	if err := proto.Unmarshal(data, &msg); err != nil {
-		return nil, err
+		return err
 	}
-	name := rpcruntime.NewRpcString(nil, 0, false)
+	msgOwner := &msg
+	var name *rpcruntime.RpcString
 	if msg.Name != "" {
-		data, ptr, err := rpcruntime.PinString(msg.Name)
-		_ = data
-		if err != nil {
-			return nil, err
-		}
-		defer rpcruntime.Release(ptr)
-		name = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(ptr)), int32(len(msg.Name)), false)
+		name = rpcruntime.NewRpcStringView(unsafe.StringData(msg.Name), int32(len(msg.Name)), msgOwner)
+	} else {
+		name = rpcruntime.EmptyRpcString()
 	}
-	return name, nil
+	err := fn(name)
+	goruntime.KeepAlive(&msg)
+	return err
 }
 
 func convertGreeterSayHelloNativeToMessageRequest(name *rpcruntime.RpcString) ([]byte, error) {

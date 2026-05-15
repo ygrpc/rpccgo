@@ -63,6 +63,12 @@ func NewRpcRepeatChecked[T NativeRepeatElem](ptr *T, length int32, ownership boo
 	return newRpcRepeatUnchecked(ptr, length, ownership), nil
 }
 
+func NewRpcRepeatView[T NativeRepeatElem](ptr *T, length int32, owner any) *RpcRepeat[T] {
+	rpc := NewRpcRepeat(ptr, length, false)
+	runtime.KeepAlive(owner)
+	return rpc
+}
+
 func newRpcRepeatUnchecked[T NativeRepeatElem](ptr *T, length int32, ownership bool) *RpcRepeat[T] {
 	rpc := &RpcRepeat[T]{
 		ptr:       ptr,
@@ -86,6 +92,12 @@ func NewRpcBoolRepeatChecked(ptr *byte, length int32, ownership bool) (*RpcBoolR
 		return nil, fmt.Errorf("NewRpcBoolRepeat: %w", err)
 	}
 	return newRpcBoolRepeatUnchecked(ptr, length, ownership), nil
+}
+
+func NewRpcBoolRepeatView(ptr *byte, length int32, owner any) *RpcBoolRepeat {
+	rpc := NewRpcBoolRepeat(ptr, length, false)
+	runtime.KeepAlive(owner)
+	return rpc
 }
 
 func newRpcBoolRepeatUnchecked(ptr *byte, length int32, ownership bool) *RpcBoolRepeat {

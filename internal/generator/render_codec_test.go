@@ -25,7 +25,7 @@ func TestRenderCodecFilesEmitsServiceCodecFile(t *testing.T) {
 		`proto "google.golang.org/protobuf/proto"`,
 		"rpccgo native message codec generated file for Greeter",
 		`var greeterNativeMessageCodecNotReadyErr = errors.New("rpccgo: native message codec is not implemented in this build")`,
-		"func convertGreeterSayHelloMessageToNativeRequest(data []byte) error {",
+		"func withGreeterSayHelloMessageToNativeRequest(data []byte, fn func(",
 		"if err := proto.Unmarshal(data, &msg); err != nil {",
 		"return err",
 		"func convertGreeterSayHelloNativeToMessageRequest() ([]byte, error) {",
@@ -75,7 +75,7 @@ func TestCodecMessageToNativeRendersProtobufUnmarshalAndErrors(t *testing.T) {
 
 	const codecFile = "test/v1/greeter.greeter.codec.rpccgo.go"
 	for _, fragment := range []string{
-		"func convertGreeterSayHelloMessageToNativeRequest(data []byte) error {",
+		"func withGreeterSayHelloMessageToNativeRequest(data []byte, fn func(",
 		"if err := proto.Unmarshal(data, &msg); err != nil {",
 		"return err",
 		"func convertGreeterSayHelloMessageToNativeResponse(data []byte) error {",
@@ -109,6 +109,34 @@ func TestCodecNativeToMessageRendersProtobufMarshalAndErrors(t *testing.T) {
 	} {
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)
 	}
+}
+
+func TestCodecMessageToNativeRequestUsesOwnerRetainedViewsAndCanonicalEmptyWrappers(t *testing.T) {
+	file := completeServicePlanTestFile()
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	plans, err := Generate(plugin)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	if err := RenderCodecFiles(plugin, plans[0]); err != nil {
+		t.Fatalf("RenderCodecFiles() error = %v", err)
+	}
+
+	const codecFile = "test/v1/complete_service_plan.all_service.codec.rpccgo.go"
+	for _, fragment := range []string{
+		"msgOwner := &msg",
+		"name = rpcruntime.EmptyRpcString()",
+		"child = rpcruntime.EmptyRpcBytes()",
+		"name = rpcruntime.NewRpcStringView(unsafe.StringData(msg.Name), int32(len(msg.Name)), msgOwner)",
+		"child = rpcruntime.NewRpcBytesView(unsafe.SliceData(msg.Child), int32(len(msg.Child)), msgOwner)",
+		"err := fn(name, enabled, child)",
+		"goruntime.KeepAlive(&msg)",
+		"return err",
+	} {
+		assertGeneratedContentContains(t, plugin, codecFile, fragment)
+	}
+	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "PinString(", "PinBytes(", "PinSlice(", "defer rpcruntime.Release(ptr)", "cleanup := func()", "rpcruntime.NewRpcString(nil, 0, false)", "rpcruntime.NewRpcBytes(nil, 0, false)")
 }
 
 func TestRenderStageFilesEmitsCodecWithoutRemoteAdapterFiles(t *testing.T) {

@@ -371,16 +371,7 @@ func renderRuntimeMessageCGOBridge(g *protogen.GeneratedFile, serviceName, adapt
 			g.P("if snapshot.Adapter.Native == nil {")
 			g.P("return ", lowerInitial(serviceName), "MessageContractMismatchErr")
 			g.P("}")
-			if method.NativeArgNames == "" {
-				g.P("if err := ", codecMessageToNativeRequestName(ServicePlan{GoName: serviceName}, MethodPlan{GoName: method.MethodGoName}), "(req); err != nil {")
-				g.P("return err")
-				g.P("}")
-			} else {
-				g.P(method.NativeArgNames, ", err := ", codecMessageToNativeRequestName(ServicePlan{GoName: serviceName}, MethodPlan{GoName: method.MethodGoName}), "(req)")
-				g.P("if err != nil {")
-				g.P("return err")
-				g.P("}")
-			}
+			g.P("return ", codecMessageToNativeRequestName(ServicePlan{GoName: serviceName}, MethodPlan{GoName: method.MethodGoName}), "(req, func(", strings.TrimPrefix(method.NativeArgs, ", "), ") error {")
 			if method.NativeNames == "" {
 				g.P("err := snapshot.Adapter.Native.", method.AdapterName, "(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
 			} else {
@@ -395,6 +386,7 @@ func renderRuntimeMessageCGOBridge(g *protogen.GeneratedFile, serviceName, adapt
 			g.P("}")
 			g.P("resp = messageResp")
 			g.P("return nil")
+			g.P("})")
 		} else {
 			g.P("return ", lowerInitial(serviceName), "MessageContractMismatchErr")
 		}
@@ -475,21 +467,19 @@ func renderRuntimeMessageCGOStreamBridge(g *protogen.GeneratedFile, serviceName,
 		g.P("if snapshot.Adapter.Native == nil {")
 		g.P("return nil, ", lowerInitial(serviceName), "MessageContractMismatchErr")
 		g.P("}")
-		if method.NativeArgNames == "" {
-			g.P("if err := ", codecMessageToNativeRequestName(ServicePlan{GoName: serviceName}, MethodPlan{GoName: method.MethodGoName}), "(req); err != nil {")
-			g.P("return nil, err")
-			g.P("}")
-		} else {
-			g.P(method.NativeArgNames, ", err := ", codecMessageToNativeRequestName(ServicePlan{GoName: serviceName}, MethodPlan{GoName: method.MethodGoName}), "(req)")
-			g.P("if err != nil {")
-			g.P("return nil, err")
-			g.P("}")
-		}
+		g.P("var session any")
+		g.P("err := ", codecMessageToNativeRequestName(ServicePlan{GoName: serviceName}, MethodPlan{GoName: method.MethodGoName}), "(req, func(", strings.TrimPrefix(method.NativeArgs, ", "), ") error {")
 		g.P("nativeSession, err := snapshot.Adapter.Native.", method.AdapterName, "(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
+		g.P("if err != nil {")
+		g.P("return err")
+		g.P("}")
+		g.P("session = &", nativeToMessageStreamWrapperName(serviceName, method), "{native: nativeSession}")
+		g.P("return nil")
+		g.P("})")
 		g.P("if err != nil {")
 		g.P("return nil, err")
 		g.P("}")
-		g.P("return &", nativeToMessageStreamWrapperName(serviceName, method), "{native: nativeSession}, nil")
+		g.P("return session, nil")
 		g.P("default:")
 		g.P("return nil, ", lowerInitial(serviceName), "MessageContractMismatchErr")
 		g.P("}")
@@ -607,17 +597,9 @@ func renderNativeToMessageStreamWrapper(g *protogen.GeneratedFile, serviceName s
 
 func renderNativeToMessageSend(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod, wrapperName string) {
 	g.P("func (s *", wrapperName, ") Send(ctx context.Context, req []byte) error {")
-	if method.NativeArgNames == "" {
-		g.P("if err := ", codecMessageToNativeRequestName(ServicePlan{GoName: serviceName}, MethodPlan{GoName: method.MethodGoName}), "(req); err != nil {")
-		g.P("return err")
-		g.P("}")
-	} else {
-		g.P(method.NativeArgNames, ", err := ", codecMessageToNativeRequestName(ServicePlan{GoName: serviceName}, MethodPlan{GoName: method.MethodGoName}), "(req)")
-		g.P("if err != nil {")
-		g.P("return err")
-		g.P("}")
-	}
+	g.P("return ", codecMessageToNativeRequestName(ServicePlan{GoName: serviceName}, MethodPlan{GoName: method.MethodGoName}), "(req, func(", strings.TrimPrefix(method.NativeArgs, ", "), ") error {")
 	g.P("return s.native.Send(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
+	g.P("})")
 	g.P("}")
 	g.P()
 }
