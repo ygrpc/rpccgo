@@ -52,7 +52,6 @@ func renderNativeServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	adapterName := lowerInitial(service.GoName) + "CGONativeAdapter"
 	renderCGONativeServerAdapter(g, service, runtimeMethods, adapterName, errorNames, servicePackage)
 	renderCGONativeServerRegistration(g, plan, service, errorNames, servicePackage)
-	renderCGONativeServerGoHelper(g, service, runtimeMethods, errorNames, servicePackage)
 	renderCGONativeServerErrorStoreExport(g, service)
 	return nil
 }
@@ -1203,6 +1202,7 @@ func renderCGONativeServerResponseTextDecode(g *protogen.GeneratedFile, field Fi
 }
 
 func renderCGONativeServerRegistration(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, errorNames nativeServerCGOErrorNames, servicePackage string) {
+	adapterName := lowerInitial(service.GoName) + "CGONativeServerAdapter"
 	for _, method := range service.Methods {
 		exportName := nativeCExportFuncName(plan, service, method, "register")
 		switch method.Streaming {
@@ -1210,44 +1210,50 @@ func renderCGONativeServerRegistration(g *protogen.GeneratedFile, plan FilePlan,
 			g.P("//export ", exportName)
 			g.P("func ", exportName, "(callback C.", nativeCGOServerCallbackName(service, method), ") C.int32_t {")
 			g.P("if callback == nil { return C.int32_t(rpcruntime.StoreError(", errorNames.UnaryCallbackMissing, ")) }")
-			g.P(lowerInitial(service.GoName), "CGONativeServerAdapterMu.Lock()")
-			g.P("defer ", lowerInitial(service.GoName), "CGONativeServerAdapterMu.Unlock()")
-			g.P(lowerInitial(service.GoName), "CGONativeServerAdapter.", method.GoName, "Callback = callback")
+			g.P(adapterName, "Mu.Lock()")
+			g.P("defer ", adapterName, "Mu.Unlock()")
+			g.P("next := *", adapterName)
+			g.P("next.", method.GoName, "Callback = callback")
 		case StreamingKindClientStreaming:
 			g.P("//export ", exportName)
 			g.P("func ", exportName, "(start C.", nativeCGOServerClientStreamStartCallbackName(service, method), ", send C.", nativeCGOServerClientStreamSendCallbackName(service, method), ", finish C.", nativeCGOServerClientStreamFinishCallbackName(service, method), ", cancel C.", nativeCGOServerClientStreamCancelCallbackName(service, method), ") C.int32_t {")
 			g.P("if start == nil || send == nil || finish == nil || cancel == nil { return C.int32_t(rpcruntime.StoreError(", errorNames.StreamNotImplemented, ")) }")
-			g.P(lowerInitial(service.GoName), "CGONativeServerAdapterMu.Lock()")
-			g.P("defer ", lowerInitial(service.GoName), "CGONativeServerAdapterMu.Unlock()")
-			g.P(lowerInitial(service.GoName), "CGONativeServerAdapter.", method.GoName, "Start = start")
-			g.P(lowerInitial(service.GoName), "CGONativeServerAdapter.", method.GoName, "Send = send")
-			g.P(lowerInitial(service.GoName), "CGONativeServerAdapter.", method.GoName, "Finish = finish")
-			g.P(lowerInitial(service.GoName), "CGONativeServerAdapter.", method.GoName, "Cancel = cancel")
+			g.P(adapterName, "Mu.Lock()")
+			g.P("defer ", adapterName, "Mu.Unlock()")
+			g.P("next := *", adapterName)
+			g.P("next.", method.GoName, "Start = start")
+			g.P("next.", method.GoName, "Send = send")
+			g.P("next.", method.GoName, "Finish = finish")
+			g.P("next.", method.GoName, "Cancel = cancel")
 		case StreamingKindServerStreaming:
 			g.P("//export ", exportName)
 			g.P("func ", exportName, "(start C.", nativeCGOServerServerStreamStartCallbackName(service, method), ", recv C.", nativeCGOServerServerStreamRecvCallbackName(service, method), ", done C.", nativeCGOServerServerStreamDoneCallbackName(service, method), ", cancel C.", nativeCGOServerServerStreamCancelCallbackName(service, method), ") C.int32_t {")
 			g.P("if start == nil || recv == nil || done == nil || cancel == nil { return C.int32_t(rpcruntime.StoreError(", errorNames.StreamNotImplemented, ")) }")
-			g.P(lowerInitial(service.GoName), "CGONativeServerAdapterMu.Lock()")
-			g.P("defer ", lowerInitial(service.GoName), "CGONativeServerAdapterMu.Unlock()")
-			g.P(lowerInitial(service.GoName), "CGONativeServerAdapter.", method.GoName, "Start = start")
-			g.P(lowerInitial(service.GoName), "CGONativeServerAdapter.", method.GoName, "Recv = recv")
-			g.P(lowerInitial(service.GoName), "CGONativeServerAdapter.", method.GoName, "Done = done")
-			g.P(lowerInitial(service.GoName), "CGONativeServerAdapter.", method.GoName, "Cancel = cancel")
+			g.P(adapterName, "Mu.Lock()")
+			g.P("defer ", adapterName, "Mu.Unlock()")
+			g.P("next := *", adapterName)
+			g.P("next.", method.GoName, "Start = start")
+			g.P("next.", method.GoName, "Recv = recv")
+			g.P("next.", method.GoName, "Done = done")
+			g.P("next.", method.GoName, "Cancel = cancel")
 		case StreamingKindBidiStreaming:
 			g.P("//export ", exportName)
 			g.P("func ", exportName, "(start C.", nativeCGOServerBidiStreamStartCallbackName(service, method), ", send C.", nativeCGOServerBidiStreamSendCallbackName(service, method), ", recv C.", nativeCGOServerBidiStreamRecvCallbackName(service, method), ", closeSend C.", nativeCGOServerBidiStreamCloseSendCallbackName(service, method), ", done C.", nativeCGOServerBidiStreamDoneCallbackName(service, method), ", cancel C.", nativeCGOServerBidiStreamCancelCallbackName(service, method), ") C.int32_t {")
 			g.P("if start == nil || send == nil || recv == nil || closeSend == nil || done == nil || cancel == nil { return C.int32_t(rpcruntime.StoreError(", errorNames.StreamNotImplemented, ")) }")
-			g.P(lowerInitial(service.GoName), "CGONativeServerAdapterMu.Lock()")
-			g.P("defer ", lowerInitial(service.GoName), "CGONativeServerAdapterMu.Unlock()")
-			g.P(lowerInitial(service.GoName), "CGONativeServerAdapter.", method.GoName, "Start = start")
-			g.P(lowerInitial(service.GoName), "CGONativeServerAdapter.", method.GoName, "Send = send")
-			g.P(lowerInitial(service.GoName), "CGONativeServerAdapter.", method.GoName, "Recv = recv")
-			g.P(lowerInitial(service.GoName), "CGONativeServerAdapter.", method.GoName, "CloseSend = closeSend")
-			g.P(lowerInitial(service.GoName), "CGONativeServerAdapter.", method.GoName, "Done = done")
-			g.P(lowerInitial(service.GoName), "CGONativeServerAdapter.", method.GoName, "Cancel = cancel")
+			g.P(adapterName, "Mu.Lock()")
+			g.P("defer ", adapterName, "Mu.Unlock()")
+			g.P("next := *", adapterName)
+			g.P("next.", method.GoName, "Start = start")
+			g.P("next.", method.GoName, "Send = send")
+			g.P("next.", method.GoName, "Recv = recv")
+			g.P("next.", method.GoName, "CloseSend = closeSend")
+			g.P("next.", method.GoName, "Done = done")
+			g.P("next.", method.GoName, "Cancel = cancel")
 		}
-		g.P("_, err := ", servicePackage, "Register", service.GoName, "CGONativeActiveServer(rpcruntime.ServerKindCGONative, ", lowerInitial(service.GoName), "CGONativeServerAdapter)")
+		g.P("nextAdapter := &next")
+		g.P("_, err := ", servicePackage, "Register", service.GoName, "CGONativeActiveServer(rpcruntime.ServerKindCGONative, nextAdapter)")
 		g.P("if err != nil { return C.int32_t(rpcruntime.StoreError(err)) }")
+		g.P(adapterName, " = nextAdapter")
 		g.P("return 0")
 		g.P("}")
 		g.P()
@@ -1288,7 +1294,7 @@ func renderCGONativeServerClientStreamRequestEncoder(g *protogen.GeneratedFile, 
 }
 
 func renderCGONativeServerClientStreamResponseDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerClientStreamResponseDecoderName(service, method), method.NativeContract.ResponseFields, errorNames)
+	renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerClientStreamResponseDecoderName(service, method), method.NativeContract.ResponseFields, errorNames)
 }
 
 func renderCGONativeServerClientStreamResponseCleanup(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
@@ -1300,7 +1306,7 @@ func renderCGONativeServerServerStreamRequestEncoder(g *protogen.GeneratedFile, 
 }
 
 func renderCGONativeServerServerStreamResponseDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerServerStreamResponseDecoderName(service, method), method.NativeContract.ResponseFields, errorNames)
+	renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerServerStreamResponseDecoderName(service, method), method.NativeContract.ResponseFields, errorNames)
 }
 
 func renderCGONativeServerServerStreamResponseCleanup(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
@@ -1312,388 +1318,11 @@ func renderCGONativeServerBidiStreamRequestEncoder(g *protogen.GeneratedFile, se
 }
 
 func renderCGONativeServerBidiStreamResponseDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerBidiStreamResponseDecoderName(service, method), method.NativeContract.ResponseFields, errorNames)
+	renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerBidiStreamResponseDecoderName(service, method), method.NativeContract.ResponseFields, errorNames)
 }
 
 func renderCGONativeServerBidiStreamResponseCleanup(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	renderCGONativeServerFlatResponseCleanup(g, nativeCGOServerBidiStreamResponseCleanupName(service, method), method.NativeContract.ResponseFields)
-}
-
-func renderCGONativeServerGoHelper(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeAdapterMethod, errorNames nativeServerCGOErrorNames, servicePackage string) {
-	helperName := service.GoName + "GoCGONativeServerCallbacks"
-	byName := make(map[string]MethodPlan, len(service.Methods))
-	for _, method := range service.Methods {
-		byName[method.GoName] = method
-	}
-	g.P("type ", helperName, " struct {")
-	for _, method := range service.Methods {
-		switch method.Streaming {
-		case StreamingKindUnary:
-			g.P(method.GoName, " func(ctx context.Context", nativeCGOServerPrefixedParams(", ", nativeCGOServerFlatValueParams(method.NativeContract.RequestFields)), nativeCGOServerPrefixedParams(", ", nativeCGOServerFlatPointerParams(method.NativeContract.ResponseFields)), ") int32")
-		case StreamingKindClientStreaming:
-			g.P(method.GoName, "Start func(ctx context.Context, stream *C.int32_t) int32")
-			g.P(method.GoName, "Send func(ctx context.Context, stream C.int32_t", nativeCGOServerPrefixedParams(", ", nativeCGOServerFlatValueParams(method.NativeContract.RequestFields)), ") int32")
-			g.P(method.GoName, "Finish func(ctx context.Context, stream C.int32_t", nativeCGOServerPrefixedParams(", ", nativeCGOServerFlatPointerParams(method.NativeContract.ResponseFields)), ") int32")
-			g.P(method.GoName, "Cancel func(ctx context.Context, stream C.int32_t) int32")
-		case StreamingKindServerStreaming:
-			g.P(method.GoName, "Start func(ctx context.Context", nativeCGOServerPrefixedParams(", ", nativeCGOServerFlatValueParams(method.NativeContract.RequestFields)), ", stream *C.int32_t) int32")
-			g.P(method.GoName, "Recv func(ctx context.Context, stream C.int32_t", nativeCGOServerPrefixedParams(", ", nativeCGOServerFlatPointerParams(method.NativeContract.ResponseFields)), ") int32")
-			g.P(method.GoName, "Done func(ctx context.Context, stream C.int32_t) int32")
-			g.P(method.GoName, "Cancel func(ctx context.Context, stream C.int32_t) int32")
-		case StreamingKindBidiStreaming:
-			g.P(method.GoName, "Start func(ctx context.Context, stream *C.int32_t) int32")
-			g.P(method.GoName, "Send func(ctx context.Context, stream C.int32_t", nativeCGOServerPrefixedParams(", ", nativeCGOServerFlatValueParams(method.NativeContract.RequestFields)), ") int32")
-			g.P(method.GoName, "Recv func(ctx context.Context, stream C.int32_t", nativeCGOServerPrefixedParams(", ", nativeCGOServerFlatPointerParams(method.NativeContract.ResponseFields)), ") int32")
-			g.P(method.GoName, "CloseSend func(ctx context.Context, stream C.int32_t) int32")
-			g.P(method.GoName, "Done func(ctx context.Context, stream C.int32_t) int32")
-			g.P(method.GoName, "Cancel func(ctx context.Context, stream C.int32_t) int32")
-		}
-	}
-	g.P("}")
-	g.P()
-	g.P("func Register", service.GoName, "GoCGONativeServerForTesting(callbacks *", helperName, ") (rpcruntime.AdapterSnapshot[", servicePackage, service.GoName, "NativeAdapter], error) {")
-	g.P("if callbacks == nil {")
-	g.P("return rpcruntime.AdapterSnapshot[", servicePackage, service.GoName, "NativeAdapter]{}, ", errorNames.CallbacksNil)
-	g.P("}")
-	for _, method := range service.Methods {
-		switch method.Streaming {
-		case StreamingKindUnary:
-			g.P("if callbacks.", method.GoName, " == nil {")
-			g.P("return rpcruntime.AdapterSnapshot[", servicePackage, service.GoName, "NativeAdapter]{}, ", errorNames.UnaryCallbackMissing)
-			g.P("}")
-		case StreamingKindClientStreaming:
-			g.P("if callbacks.", method.GoName, "Start == nil || callbacks.", method.GoName, "Send == nil || callbacks.", method.GoName, "Finish == nil || callbacks.", method.GoName, "Cancel == nil {")
-			g.P("return rpcruntime.AdapterSnapshot[", servicePackage, service.GoName, "NativeAdapter]{}, ", errorNames.StreamNotImplemented)
-			g.P("}")
-		case StreamingKindServerStreaming:
-			g.P("if callbacks.", method.GoName, "Start == nil || callbacks.", method.GoName, "Recv == nil || callbacks.", method.GoName, "Done == nil || callbacks.", method.GoName, "Cancel == nil {")
-			g.P("return rpcruntime.AdapterSnapshot[", servicePackage, service.GoName, "NativeAdapter]{}, ", errorNames.StreamNotImplemented)
-			g.P("}")
-		case StreamingKindBidiStreaming:
-			g.P("if callbacks.", method.GoName, "Start == nil || callbacks.", method.GoName, "Send == nil || callbacks.", method.GoName, "Recv == nil || callbacks.", method.GoName, "CloseSend == nil || callbacks.", method.GoName, "Done == nil || callbacks.", method.GoName, "Cancel == nil {")
-			g.P("return rpcruntime.AdapterSnapshot[", servicePackage, service.GoName, "NativeAdapter]{}, ", errorNames.StreamNotImplemented)
-			g.P("}")
-		}
-	}
-	g.P("return ", servicePackage, "Register", service.GoName, "CGONativeActiveServer(rpcruntime.ServerKindCGONative, &", lowerInitial(service.GoName), "GoCGONativeAdapter{callbacks: callbacks})")
-	g.P("}")
-	g.P()
-	g.P("type ", lowerInitial(service.GoName), "GoCGONativeAdapter struct {")
-	g.P("callbacks *", helperName)
-	g.P("}")
-	g.P()
-	for _, method := range service.Methods {
-		switch method.Streaming {
-		case StreamingKindUnary:
-			g.P("func (a *", lowerInitial(service.GoName), "GoCGONativeAdapter) ", method.GoName, "(ctx context.Context", nativeGoRequestParams(g, method.NativeContract.RequestFields), ") (", nativeGoResponseReturns(g, method.NativeContract.ResponseFields), ") {")
-			g.P(nativeCGOServerRequestEncoderAssignArgs(method.NativeContract.RequestFields), " := ", nativeCGOServerRequestEncoderName(service, method), "(", nativeCGOServerRequestEncoderCallArgs(method.NativeContract.RequestFields), ")")
-			g.P("if err != nil {")
-			g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "err"))
-			g.P("}")
-			g.P("defer cleanup()")
-			renderCGONativeServerResponseLocals(g, method.NativeContract.ResponseFields)
-			g.P("errID := a.callbacks.", method.GoName, "(ctx", nativeCGOServerGoCallSuffix(nativeCGOServerGoInputCallArgs(method.NativeContract.RequestFields)), nativeCGOServerGoCallSuffix(nativeCGOServerGoOutputCallArgs(method.NativeContract.ResponseFields)), ")")
-			g.P("if errID != 0 {")
-			g.P("cleanupErr := ", nativeCGOServerResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.NativeContract.ResponseFields), ")")
-			g.P("callbackErr := ", nativeCGOServerErrorIDHelperName(service), "(errID)")
-			g.P("if cleanupErr != nil {")
-			g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "errors.Join(callbackErr, cleanupErr)"))
-			g.P("}")
-			g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "callbackErr"))
-			g.P("}")
-			responseNames := nativeGoResponseResultNames(method.NativeContract.ResponseFields)
-			if responseNames == "" {
-				g.P("err = ", nativeCGOServerResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.NativeContract.ResponseFields), ")")
-			} else {
-				g.P(responseNames, ", err := ", nativeCGOServerResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.NativeContract.ResponseFields), ")")
-			}
-			g.P("cleanupErr := ", nativeCGOServerResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.NativeContract.ResponseFields), ")")
-			g.P("if cleanupErr != nil {")
-			g.P("if err != nil {")
-			g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "errors.Join(err, cleanupErr)"))
-			g.P("}")
-			g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "cleanupErr"))
-			g.P("}")
-			g.P("if err != nil {")
-			g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "err"))
-			g.P("}")
-			if responseNames == "" {
-				g.P("return nil")
-			} else {
-				g.P("return ", responseNames, ", nil")
-			}
-			g.P("}")
-			g.P()
-		case StreamingKindClientStreaming:
-			renderGoCGONativeServerClientStreamAdapter(g, service, method, servicePackage)
-		case StreamingKindServerStreaming:
-			renderGoCGONativeServerServerStreamAdapter(g, service, method, servicePackage)
-		case StreamingKindBidiStreaming:
-			renderGoCGONativeServerBidiStreamAdapter(g, service, method, servicePackage)
-		}
-	}
-	for _, runtimeMethod := range methods {
-		method, ok := byName[runtimeMethod.MethodGoName]
-		if ok && (method.Streaming == StreamingKindUnary || method.Streaming == StreamingKindClientStreaming || method.Streaming == StreamingKindServerStreaming || method.Streaming == StreamingKindBidiStreaming) {
-			continue
-		}
-		renderCGONativeServerStreamingFallback(g, lowerInitial(service.GoName)+"GoCGONativeAdapter", runtimeMethod, errorNames)
-	}
-}
-
-func renderGoCGONativeServerClientStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage string) {
-	sessionName := servicePackage + service.GoName + method.GoName + "NativeStreamSession"
-	adapterName := lowerInitial(service.GoName) + "GoCGONativeAdapter"
-	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context) (", sessionName, ", error) {")
-	g.P("var stream C.int32_t")
-	g.P("errID := a.callbacks.", method.GoName, "Start(ctx, &stream)")
-	g.P("if errID != 0 {")
-	g.P("return nil, ", nativeCGOServerErrorIDHelperName(service), "(errID)")
-	g.P("}")
-	g.P("return &", lowerInitial(service.GoName), method.GoName, "GoCGONativeClientStreamSession{callbacks: a.callbacks, stream: stream}, nil")
-	g.P("}")
-	g.P()
-
-	g.P("type ", lowerInitial(service.GoName), method.GoName, "GoCGONativeClientStreamSession struct {")
-	g.P("callbacks *", service.GoName, "GoCGONativeServerCallbacks")
-	g.P("stream C.int32_t")
-	g.P("}")
-	g.P()
-
-	receiver := lowerInitial(service.GoName) + method.GoName + "GoCGONativeClientStreamSession"
-	g.P("func (s *", receiver, ") Send(ctx context.Context", nativeGoRequestParams(g, method.NativeContract.RequestFields), ") error {")
-	g.P(nativeCGOServerRequestEncoderAssignArgs(method.NativeContract.RequestFields), " := ", nativeCGOServerClientStreamRequestEncoderName(service, method), "(", nativeCGOServerRequestEncoderCallArgs(method.NativeContract.RequestFields), ")")
-	g.P("if err != nil {")
-	g.P("return err")
-	g.P("}")
-	g.P("defer cleanup()")
-	g.P("errID := s.callbacks.", method.GoName, "Send(ctx, s.stream", nativeCGOServerGoCallSuffix(nativeCGOServerGoInputCallArgs(method.NativeContract.RequestFields)), ")")
-	g.P("if errID != 0 {")
-	g.P("return ", nativeCGOServerErrorIDHelperName(service), "(errID)")
-	g.P("}")
-	g.P("return nil")
-	g.P("}")
-	g.P()
-
-	g.P("func (s *", receiver, ") Finish(ctx context.Context) (", nativeGoResponseReturns(g, method.NativeContract.ResponseFields), ") {")
-	renderCGONativeServerResponseLocals(g, method.NativeContract.ResponseFields)
-	g.P("errID := s.callbacks.", method.GoName, "Finish(ctx, s.stream", nativeCGOServerGoCallSuffix(nativeCGOServerGoOutputCallArgs(method.NativeContract.ResponseFields)), ")")
-	g.P("if errID != 0 {")
-	g.P("cleanupErr := ", nativeCGOServerClientStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.NativeContract.ResponseFields), ")")
-	g.P("callbackErr := ", nativeCGOServerErrorIDHelperName(service), "(errID)")
-	g.P("if cleanupErr != nil {")
-	g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "errors.Join(callbackErr, cleanupErr)"))
-	g.P("}")
-	g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "callbackErr"))
-	g.P("}")
-	responseNames := nativeGoResponseResultNames(method.NativeContract.ResponseFields)
-	if responseNames == "" {
-		g.P("err := ", nativeCGOServerClientStreamResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.NativeContract.ResponseFields), ")")
-	} else {
-		g.P(responseNames, ", err := ", nativeCGOServerClientStreamResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.NativeContract.ResponseFields), ")")
-	}
-	g.P("cleanupErr := ", nativeCGOServerClientStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.NativeContract.ResponseFields), ")")
-	g.P("if cleanupErr != nil {")
-	g.P("if err != nil {")
-	g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "errors.Join(err, cleanupErr)"))
-	g.P("}")
-	g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "cleanupErr"))
-	g.P("}")
-	g.P("if err != nil {")
-	g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "err"))
-	g.P("}")
-	if responseNames == "" {
-		g.P("return nil")
-	} else {
-		g.P("return ", responseNames, ", nil")
-	}
-	g.P("}")
-	g.P()
-
-	g.P("func (s *", receiver, ") Cancel(ctx context.Context) error {")
-	g.P("errID := s.callbacks.", method.GoName, "Cancel(ctx, s.stream)")
-	g.P("if errID != 0 {")
-	g.P("return ", nativeCGOServerErrorIDHelperName(service), "(errID)")
-	g.P("}")
-	g.P("return nil")
-	g.P("}")
-	g.P()
-}
-
-func renderGoCGONativeServerServerStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage string) {
-	sessionName := servicePackage + service.GoName + method.GoName + "NativeStreamSession"
-	adapterName := lowerInitial(service.GoName) + "GoCGONativeAdapter"
-	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context", nativeGoRequestParams(g, method.NativeContract.RequestFields), ") (", sessionName, ", error) {")
-	g.P(nativeCGOServerRequestEncoderAssignArgs(method.NativeContract.RequestFields), " := ", nativeCGOServerServerStreamRequestEncoderName(service, method), "(", nativeCGOServerRequestEncoderCallArgs(method.NativeContract.RequestFields), ")")
-	g.P("if err != nil {")
-	g.P("return nil, err")
-	g.P("}")
-	g.P("defer cleanup()")
-	g.P("var stream C.int32_t")
-	g.P("errID := a.callbacks.", method.GoName, "Start(ctx", nativeCGOServerGoCallSuffix(nativeCGOServerGoInputCallArgs(method.NativeContract.RequestFields)), ", &stream)")
-	g.P("if errID != 0 {")
-	g.P("return nil, ", nativeCGOServerErrorIDHelperName(service), "(errID)")
-	g.P("}")
-	g.P("return &", lowerInitial(service.GoName), method.GoName, "GoCGONativeServerStreamSession{callbacks: a.callbacks, stream: stream}, nil")
-	g.P("}")
-	g.P()
-
-	g.P("type ", lowerInitial(service.GoName), method.GoName, "GoCGONativeServerStreamSession struct {")
-	g.P("callbacks *", service.GoName, "GoCGONativeServerCallbacks")
-	g.P("stream C.int32_t")
-	g.P("}")
-	g.P()
-
-	receiver := lowerInitial(service.GoName) + method.GoName + "GoCGONativeServerStreamSession"
-	g.P("func (s *", receiver, ") Recv(ctx context.Context) (", nativeGoResponseReturns(g, method.NativeContract.ResponseFields), ") {")
-	renderCGONativeServerResponseLocals(g, method.NativeContract.ResponseFields)
-	g.P("errID := s.callbacks.", method.GoName, "Recv(ctx, s.stream", nativeCGOServerGoCallSuffix(nativeCGOServerGoOutputCallArgs(method.NativeContract.ResponseFields)), ")")
-	g.P("if errID != 0 {")
-	g.P("cleanupErr := ", nativeCGOServerServerStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.NativeContract.ResponseFields), ")")
-	g.P("callbackErr := ", nativeCGOServerErrorIDHelperName(service), "(errID)")
-	g.P("if cleanupErr != nil {")
-	g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "errors.Join(callbackErr, cleanupErr)"))
-	g.P("}")
-	g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "callbackErr"))
-	g.P("}")
-	responseNames := nativeGoResponseResultNames(method.NativeContract.ResponseFields)
-	if responseNames == "" {
-		g.P("err := ", nativeCGOServerServerStreamResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.NativeContract.ResponseFields), ")")
-	} else {
-		g.P(responseNames, ", err := ", nativeCGOServerServerStreamResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.NativeContract.ResponseFields), ")")
-	}
-	g.P("cleanupErr := ", nativeCGOServerServerStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.NativeContract.ResponseFields), ")")
-	g.P("if cleanupErr != nil {")
-	g.P("if err != nil {")
-	g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "errors.Join(err, cleanupErr)"))
-	g.P("}")
-	g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "cleanupErr"))
-	g.P("}")
-	g.P("if err != nil {")
-	g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "err"))
-	g.P("}")
-	if responseNames == "" {
-		g.P("return nil")
-	} else {
-		g.P("return ", responseNames, ", nil")
-	}
-	g.P("}")
-	g.P()
-
-	g.P("func (s *", receiver, ") Done(ctx context.Context) error {")
-	g.P("errID := s.callbacks.", method.GoName, "Done(ctx, s.stream)")
-	g.P("if errID != 0 {")
-	g.P("return ", nativeCGOServerErrorIDHelperName(service), "(errID)")
-	g.P("}")
-	g.P("return nil")
-	g.P("}")
-	g.P()
-
-	g.P("func (s *", receiver, ") Cancel(ctx context.Context) error {")
-	g.P("errID := s.callbacks.", method.GoName, "Cancel(ctx, s.stream)")
-	g.P("if errID != 0 {")
-	g.P("return ", nativeCGOServerErrorIDHelperName(service), "(errID)")
-	g.P("}")
-	g.P("return nil")
-	g.P("}")
-	g.P()
-}
-
-func renderGoCGONativeServerBidiStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage string) {
-	sessionName := servicePackage + service.GoName + method.GoName + "NativeStreamSession"
-	adapterName := lowerInitial(service.GoName) + "GoCGONativeAdapter"
-	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context) (", sessionName, ", error) {")
-	g.P("var stream C.int32_t")
-	g.P("errID := a.callbacks.", method.GoName, "Start(ctx, &stream)")
-	g.P("if errID != 0 {")
-	g.P("return nil, ", nativeCGOServerErrorIDHelperName(service), "(errID)")
-	g.P("}")
-	g.P("return &", lowerInitial(service.GoName), method.GoName, "GoCGONativeBidiStreamSession{callbacks: a.callbacks, stream: stream}, nil")
-	g.P("}")
-	g.P()
-
-	g.P("type ", lowerInitial(service.GoName), method.GoName, "GoCGONativeBidiStreamSession struct {")
-	g.P("callbacks *", service.GoName, "GoCGONativeServerCallbacks")
-	g.P("stream C.int32_t")
-	g.P("}")
-	g.P()
-
-	receiver := lowerInitial(service.GoName) + method.GoName + "GoCGONativeBidiStreamSession"
-	g.P("func (s *", receiver, ") Send(ctx context.Context", nativeGoRequestParams(g, method.NativeContract.RequestFields), ") error {")
-	g.P(nativeCGOServerRequestEncoderAssignArgs(method.NativeContract.RequestFields), " := ", nativeCGOServerBidiStreamRequestEncoderName(service, method), "(", nativeCGOServerRequestEncoderCallArgs(method.NativeContract.RequestFields), ")")
-	g.P("if err != nil {")
-	g.P("return err")
-	g.P("}")
-	g.P("defer cleanup()")
-	g.P("errID := s.callbacks.", method.GoName, "Send(ctx, s.stream", nativeCGOServerGoCallSuffix(nativeCGOServerGoInputCallArgs(method.NativeContract.RequestFields)), ")")
-	g.P("if errID != 0 {")
-	g.P("return ", nativeCGOServerErrorIDHelperName(service), "(errID)")
-	g.P("}")
-	g.P("return nil")
-	g.P("}")
-	g.P()
-
-	g.P("func (s *", receiver, ") Recv(ctx context.Context) (", nativeGoResponseReturns(g, method.NativeContract.ResponseFields), ") {")
-	renderCGONativeServerResponseLocals(g, method.NativeContract.ResponseFields)
-	g.P("errID := s.callbacks.", method.GoName, "Recv(ctx, s.stream", nativeCGOServerGoCallSuffix(nativeCGOServerGoOutputCallArgs(method.NativeContract.ResponseFields)), ")")
-	g.P("if errID != 0 {")
-	g.P("cleanupErr := ", nativeCGOServerBidiStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.NativeContract.ResponseFields), ")")
-	g.P("callbackErr := ", nativeCGOServerErrorIDHelperName(service), "(errID)")
-	g.P("if cleanupErr != nil {")
-	g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "errors.Join(callbackErr, cleanupErr)"))
-	g.P("}")
-	g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "callbackErr"))
-	g.P("}")
-	responseNames := nativeGoResponseResultNames(method.NativeContract.ResponseFields)
-	if responseNames == "" {
-		g.P("err := ", nativeCGOServerBidiStreamResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.NativeContract.ResponseFields), ")")
-	} else {
-		g.P(responseNames, ", err := ", nativeCGOServerBidiStreamResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.NativeContract.ResponseFields), ")")
-	}
-	g.P("cleanupErr := ", nativeCGOServerBidiStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.NativeContract.ResponseFields), ")")
-	g.P("if cleanupErr != nil {")
-	g.P("if err != nil {")
-	g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "errors.Join(err, cleanupErr)"))
-	g.P("}")
-	g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "cleanupErr"))
-	g.P("}")
-	g.P("if err != nil {")
-	g.P("return ", nativeGoZeroReturns(method.NativeContract.ResponseFields, "err"))
-	g.P("}")
-	if responseNames == "" {
-		g.P("return nil")
-	} else {
-		g.P("return ", responseNames, ", nil")
-	}
-	g.P("}")
-	g.P()
-
-	g.P("func (s *", receiver, ") CloseSend(ctx context.Context) error {")
-	g.P("errID := s.callbacks.", method.GoName, "CloseSend(ctx, s.stream)")
-	g.P("if errID != 0 {")
-	g.P("return ", nativeCGOServerErrorIDHelperName(service), "(errID)")
-	g.P("}")
-	g.P("return nil")
-	g.P("}")
-	g.P()
-
-	g.P("func (s *", receiver, ") Done(ctx context.Context) error {")
-	g.P("errID := s.callbacks.", method.GoName, "Done(ctx, s.stream)")
-	g.P("if errID != 0 {")
-	g.P("return ", nativeCGOServerErrorIDHelperName(service), "(errID)")
-	g.P("}")
-	g.P("return nil")
-	g.P("}")
-	g.P()
-
-	g.P("func (s *", receiver, ") Cancel(ctx context.Context) error {")
-	g.P("errID := s.callbacks.", method.GoName, "Cancel(ctx, s.stream)")
-	g.P("if errID != 0 {")
-	g.P("return ", nativeCGOServerErrorIDHelperName(service), "(errID)")
-	g.P("}")
-	g.P("return nil")
-	g.P("}")
-	g.P()
 }
 
 func renderCGONativeServerErrorStoreExport(g *protogen.GeneratedFile, service ServicePlan) {
@@ -2039,12 +1668,8 @@ func validateNativeServerCGOSymbols(plan FilePlan, service ServicePlan) error {
 
 	errorNames := nativeServerCGOErrorNamesFor(service)
 	for symbol, source := range map[string]string{
-		service.GoName + "CGONativeServerCallbacks":                    errorNames.CallbacksNil,
-		service.GoName + "GoCGONativeServerCallbacks":                  service.FullName + " go helper callbacks",
 		lowerInitial(service.GoName) + "CGONativeAdapter":              service.FullName + " adapter",
-		lowerInitial(service.GoName) + "GoCGONativeAdapter":            service.FullName + " go helper adapter",
 		"Register" + service.GoName + "CGONativeServer":                service.FullName + " registration",
-		"Register" + service.GoName + "GoCGONativeServerForTesting":    service.FullName + " go helper registration",
 		"Store" + service.GoName + "CGONativeServerErrorTextForExport": service.FullName + " error text export",
 		nativeCGOServerErrorIDHelperName(service):                      service.FullName + " error id helper",
 		errorNames.CallbacksNil:                                        errorNames.CallbacksNil,
@@ -2175,47 +1800,6 @@ func validateNativeServerCGOSymbols(plan FilePlan, service ServicePlan) error {
 			return err
 		}
 	}
-	if err := validateNativeServerCGOCallbackFields(service); err != nil {
-		return err
-	}
-	return nil
-}
-
-func validateNativeServerCGOCallbackFields(service ServicePlan) error {
-	seen := make(map[string]string)
-	add := func(field, source string) error {
-		if previous, exists := seen[field]; exists {
-			return fmt.Errorf("native server cgo callback field %s for %s collides with %s", field, source, previous)
-		}
-		seen[field] = source
-		return nil
-	}
-	for _, method := range service.Methods {
-		switch method.Streaming {
-		case StreamingKindUnary:
-			if err := add(method.GoName, method.FullName+" unary callback"); err != nil {
-				return err
-			}
-		case StreamingKindClientStreaming:
-			for _, suffix := range []string{"Start", "Send", "Finish", "Cancel"} {
-				if err := add(method.GoName+suffix, method.FullName+" client stream "+suffix+" callback"); err != nil {
-					return err
-				}
-			}
-		case StreamingKindServerStreaming:
-			for _, suffix := range []string{"Start", "Recv", "Done", "Cancel"} {
-				if err := add(method.GoName+suffix, method.FullName+" server stream "+suffix+" callback"); err != nil {
-					return err
-				}
-			}
-		case StreamingKindBidiStreaming:
-			for _, suffix := range []string{"Start", "Send", "Recv", "CloseSend", "Done", "Cancel"} {
-				if err := add(method.GoName+suffix, method.FullName+" bidi stream "+suffix+" callback"); err != nil {
-					return err
-				}
-			}
-		}
-	}
 	return nil
 }
 
@@ -2230,12 +1814,8 @@ func addNativeServerCGOGeneratedSymbols(seen map[string]string, service ServiceP
 	}
 	errorNames := nativeServerCGOErrorNamesFor(service)
 	for symbol, source := range map[string]string{
-		service.GoName + "CGONativeServerCallbacks":                    errorNames.CallbacksNil,
-		service.GoName + "GoCGONativeServerCallbacks":                  service.FullName + " go helper callbacks",
 		lowerInitial(service.GoName) + "CGONativeAdapter":              service.FullName + " adapter",
-		lowerInitial(service.GoName) + "GoCGONativeAdapter":            service.FullName + " go helper adapter",
 		"Register" + service.GoName + "CGONativeServer":                service.FullName + " registration",
-		"Register" + service.GoName + "GoCGONativeServerForTesting":    service.FullName + " go helper registration",
 		"Store" + service.GoName + "CGONativeServerErrorTextForExport": service.FullName + " error text export",
 		nativeCGOServerErrorIDHelperName(service):                      service.FullName + " error id helper",
 		errorNames.CallbacksNil:                                        errorNames.CallbacksNil,

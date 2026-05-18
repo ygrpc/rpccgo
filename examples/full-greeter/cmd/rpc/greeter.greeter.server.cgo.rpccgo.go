@@ -675,11 +675,14 @@ func rpccgo_native_greeterv1_Greeter_SayHello_register(callback C.GreeterSayHell
 	}
 	greeterCGONativeServerAdapterMu.Lock()
 	defer greeterCGONativeServerAdapterMu.Unlock()
-	greeterCGONativeServerAdapter.SayHelloCallback = callback
-	_, err := proto.RegisterGreeterCGONativeActiveServer(rpcruntime.ServerKindCGONative, greeterCGONativeServerAdapter)
+	next := *greeterCGONativeServerAdapter
+	next.SayHelloCallback = callback
+	nextAdapter := &next
+	_, err := proto.RegisterGreeterCGONativeActiveServer(rpcruntime.ServerKindCGONative, nextAdapter)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
+	greeterCGONativeServerAdapter = nextAdapter
 	return 0
 }
 
@@ -690,14 +693,17 @@ func rpccgo_native_greeterv1_Greeter_Collect_register(start C.GreeterCollectCGON
 	}
 	greeterCGONativeServerAdapterMu.Lock()
 	defer greeterCGONativeServerAdapterMu.Unlock()
-	greeterCGONativeServerAdapter.CollectStart = start
-	greeterCGONativeServerAdapter.CollectSend = send
-	greeterCGONativeServerAdapter.CollectFinish = finish
-	greeterCGONativeServerAdapter.CollectCancel = cancel
-	_, err := proto.RegisterGreeterCGONativeActiveServer(rpcruntime.ServerKindCGONative, greeterCGONativeServerAdapter)
+	next := *greeterCGONativeServerAdapter
+	next.CollectStart = start
+	next.CollectSend = send
+	next.CollectFinish = finish
+	next.CollectCancel = cancel
+	nextAdapter := &next
+	_, err := proto.RegisterGreeterCGONativeActiveServer(rpcruntime.ServerKindCGONative, nextAdapter)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
+	greeterCGONativeServerAdapter = nextAdapter
 	return 0
 }
 
@@ -708,14 +714,17 @@ func rpccgo_native_greeterv1_Greeter_Broadcast_register(start C.GreeterBroadcast
 	}
 	greeterCGONativeServerAdapterMu.Lock()
 	defer greeterCGONativeServerAdapterMu.Unlock()
-	greeterCGONativeServerAdapter.BroadcastStart = start
-	greeterCGONativeServerAdapter.BroadcastRecv = recv
-	greeterCGONativeServerAdapter.BroadcastDone = done
-	greeterCGONativeServerAdapter.BroadcastCancel = cancel
-	_, err := proto.RegisterGreeterCGONativeActiveServer(rpcruntime.ServerKindCGONative, greeterCGONativeServerAdapter)
+	next := *greeterCGONativeServerAdapter
+	next.BroadcastStart = start
+	next.BroadcastRecv = recv
+	next.BroadcastDone = done
+	next.BroadcastCancel = cancel
+	nextAdapter := &next
+	_, err := proto.RegisterGreeterCGONativeActiveServer(rpcruntime.ServerKindCGONative, nextAdapter)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
+	greeterCGONativeServerAdapter = nextAdapter
 	return 0
 }
 
@@ -726,292 +735,20 @@ func rpccgo_native_greeterv1_Greeter_Chat_register(start C.GreeterChatCGONativeB
 	}
 	greeterCGONativeServerAdapterMu.Lock()
 	defer greeterCGONativeServerAdapterMu.Unlock()
-	greeterCGONativeServerAdapter.ChatStart = start
-	greeterCGONativeServerAdapter.ChatSend = send
-	greeterCGONativeServerAdapter.ChatRecv = recv
-	greeterCGONativeServerAdapter.ChatCloseSend = closeSend
-	greeterCGONativeServerAdapter.ChatDone = done
-	greeterCGONativeServerAdapter.ChatCancel = cancel
-	_, err := proto.RegisterGreeterCGONativeActiveServer(rpcruntime.ServerKindCGONative, greeterCGONativeServerAdapter)
+	next := *greeterCGONativeServerAdapter
+	next.ChatStart = start
+	next.ChatSend = send
+	next.ChatRecv = recv
+	next.ChatCloseSend = closeSend
+	next.ChatDone = done
+	next.ChatCancel = cancel
+	nextAdapter := &next
+	_, err := proto.RegisterGreeterCGONativeActiveServer(rpcruntime.ServerKindCGONative, nextAdapter)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
+	greeterCGONativeServerAdapter = nextAdapter
 	return 0
-}
-
-type GreeterGoCGONativeServerCallbacks struct {
-	SayHello        func(ctx context.Context, namePtr C.uintptr_t, nameLen C.int32_t, nameOwnership C.int32_t, cityPtr C.uintptr_t, cityLen C.int32_t, cityOwnership C.int32_t, outMessagePtr *C.uintptr_t, outMessageLen *C.int32_t, outMessageOwnership *C.int32_t) int32
-	CollectStart    func(ctx context.Context, stream *C.int32_t) int32
-	CollectSend     func(ctx context.Context, stream C.int32_t, namePtr C.uintptr_t, nameLen C.int32_t, nameOwnership C.int32_t, cityPtr C.uintptr_t, cityLen C.int32_t, cityOwnership C.int32_t) int32
-	CollectFinish   func(ctx context.Context, stream C.int32_t, outMessagePtr *C.uintptr_t, outMessageLen *C.int32_t, outMessageOwnership *C.int32_t) int32
-	CollectCancel   func(ctx context.Context, stream C.int32_t) int32
-	BroadcastStart  func(ctx context.Context, namePtr C.uintptr_t, nameLen C.int32_t, nameOwnership C.int32_t, cityPtr C.uintptr_t, cityLen C.int32_t, cityOwnership C.int32_t, stream *C.int32_t) int32
-	BroadcastRecv   func(ctx context.Context, stream C.int32_t, outMessagePtr *C.uintptr_t, outMessageLen *C.int32_t, outMessageOwnership *C.int32_t) int32
-	BroadcastDone   func(ctx context.Context, stream C.int32_t) int32
-	BroadcastCancel func(ctx context.Context, stream C.int32_t) int32
-	ChatStart       func(ctx context.Context, stream *C.int32_t) int32
-	ChatSend        func(ctx context.Context, stream C.int32_t, namePtr C.uintptr_t, nameLen C.int32_t, nameOwnership C.int32_t, cityPtr C.uintptr_t, cityLen C.int32_t, cityOwnership C.int32_t) int32
-	ChatRecv        func(ctx context.Context, stream C.int32_t, outMessagePtr *C.uintptr_t, outMessageLen *C.int32_t, outMessageOwnership *C.int32_t) int32
-	ChatCloseSend   func(ctx context.Context, stream C.int32_t) int32
-	ChatDone        func(ctx context.Context, stream C.int32_t) int32
-	ChatCancel      func(ctx context.Context, stream C.int32_t) int32
-}
-
-func RegisterGreeterGoCGONativeServerForTesting(callbacks *GreeterGoCGONativeServerCallbacks) (rpcruntime.AdapterSnapshot[proto.GreeterNativeAdapter], error) {
-	if callbacks == nil {
-		return rpcruntime.AdapterSnapshot[proto.GreeterNativeAdapter]{}, greeterCGONativeServerCallbacksNil
-	}
-	if callbacks.SayHello == nil {
-		return rpcruntime.AdapterSnapshot[proto.GreeterNativeAdapter]{}, greeterCGONativeServerUnaryCallbackMissing
-	}
-	if callbacks.CollectStart == nil || callbacks.CollectSend == nil || callbacks.CollectFinish == nil || callbacks.CollectCancel == nil {
-		return rpcruntime.AdapterSnapshot[proto.GreeterNativeAdapter]{}, greeterCGONativeServerStreamNotImplemented
-	}
-	if callbacks.BroadcastStart == nil || callbacks.BroadcastRecv == nil || callbacks.BroadcastDone == nil || callbacks.BroadcastCancel == nil {
-		return rpcruntime.AdapterSnapshot[proto.GreeterNativeAdapter]{}, greeterCGONativeServerStreamNotImplemented
-	}
-	if callbacks.ChatStart == nil || callbacks.ChatSend == nil || callbacks.ChatRecv == nil || callbacks.ChatCloseSend == nil || callbacks.ChatDone == nil || callbacks.ChatCancel == nil {
-		return rpcruntime.AdapterSnapshot[proto.GreeterNativeAdapter]{}, greeterCGONativeServerStreamNotImplemented
-	}
-	return proto.RegisterGreeterCGONativeActiveServer(rpcruntime.ServerKindCGONative, &greeterGoCGONativeAdapter{callbacks: callbacks})
-}
-
-type greeterGoCGONativeAdapter struct {
-	callbacks *GreeterGoCGONativeServerCallbacks
-}
-
-func (a *greeterGoCGONativeAdapter) SayHello(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error) {
-	namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership, cleanup, err := encodeGreeterSayHelloCGONativeUnaryRequest(name, city)
-	if err != nil {
-		return "", err
-	}
-	defer cleanup()
-	var outMessagePtr C.uintptr_t
-	var outMessageLen C.int32_t
-	var outMessageOwnership C.int32_t
-	errID := a.callbacks.SayHello(ctx, namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership, &outMessagePtr, &outMessageLen, &outMessageOwnership)
-	if errID != 0 {
-		cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(outMessagePtr, outMessageLen, outMessageOwnership)
-		callbackErr := greeterCGONativeServerErrorFromID(errID)
-		if cleanupErr != nil {
-			return "", errors.Join(callbackErr, cleanupErr)
-		}
-		return "", callbackErr
-	}
-	messageResult, err := decodeGreeterSayHelloCGONativeUnaryResponse(outMessagePtr, outMessageLen, outMessageOwnership)
-	cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(outMessagePtr, outMessageLen, outMessageOwnership)
-	if cleanupErr != nil {
-		if err != nil {
-			return "", errors.Join(err, cleanupErr)
-		}
-		return "", cleanupErr
-	}
-	if err != nil {
-		return "", err
-	}
-	return messageResult, nil
-}
-
-func (a *greeterGoCGONativeAdapter) StartCollect(ctx context.Context) (proto.GreeterCollectNativeStreamSession, error) {
-	var stream C.int32_t
-	errID := a.callbacks.CollectStart(ctx, &stream)
-	if errID != 0 {
-		return nil, greeterCGONativeServerErrorFromID(errID)
-	}
-	return &greeterCollectGoCGONativeClientStreamSession{callbacks: a.callbacks, stream: stream}, nil
-}
-
-type greeterCollectGoCGONativeClientStreamSession struct {
-	callbacks *GreeterGoCGONativeServerCallbacks
-	stream    C.int32_t
-}
-
-func (s *greeterCollectGoCGONativeClientStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
-	namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership, cleanup, err := encodeGreeterCollectCGONativeClientStreamRequest(name, city)
-	if err != nil {
-		return err
-	}
-	defer cleanup()
-	errID := s.callbacks.CollectSend(ctx, s.stream, namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership)
-	if errID != 0 {
-		return greeterCGONativeServerErrorFromID(errID)
-	}
-	return nil
-}
-
-func (s *greeterCollectGoCGONativeClientStreamSession) Finish(ctx context.Context) (string, error) {
-	var outMessagePtr C.uintptr_t
-	var outMessageLen C.int32_t
-	var outMessageOwnership C.int32_t
-	errID := s.callbacks.CollectFinish(ctx, s.stream, &outMessagePtr, &outMessageLen, &outMessageOwnership)
-	if errID != 0 {
-		cleanupErr := cleanupGreeterCollectCGONativeClientStreamResponse(outMessagePtr, outMessageLen, outMessageOwnership)
-		callbackErr := greeterCGONativeServerErrorFromID(errID)
-		if cleanupErr != nil {
-			return "", errors.Join(callbackErr, cleanupErr)
-		}
-		return "", callbackErr
-	}
-	messageResult, err := decodeGreeterCollectCGONativeClientStreamResponse(outMessagePtr, outMessageLen, outMessageOwnership)
-	cleanupErr := cleanupGreeterCollectCGONativeClientStreamResponse(outMessagePtr, outMessageLen, outMessageOwnership)
-	if cleanupErr != nil {
-		if err != nil {
-			return "", errors.Join(err, cleanupErr)
-		}
-		return "", cleanupErr
-	}
-	if err != nil {
-		return "", err
-	}
-	return messageResult, nil
-}
-
-func (s *greeterCollectGoCGONativeClientStreamSession) Cancel(ctx context.Context) error {
-	errID := s.callbacks.CollectCancel(ctx, s.stream)
-	if errID != 0 {
-		return greeterCGONativeServerErrorFromID(errID)
-	}
-	return nil
-}
-
-func (a *greeterGoCGONativeAdapter) StartBroadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (proto.GreeterBroadcastNativeStreamSession, error) {
-	namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership, cleanup, err := encodeGreeterBroadcastCGONativeServerStreamRequest(name, city)
-	if err != nil {
-		return nil, err
-	}
-	defer cleanup()
-	var stream C.int32_t
-	errID := a.callbacks.BroadcastStart(ctx, namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership, &stream)
-	if errID != 0 {
-		return nil, greeterCGONativeServerErrorFromID(errID)
-	}
-	return &greeterBroadcastGoCGONativeServerStreamSession{callbacks: a.callbacks, stream: stream}, nil
-}
-
-type greeterBroadcastGoCGONativeServerStreamSession struct {
-	callbacks *GreeterGoCGONativeServerCallbacks
-	stream    C.int32_t
-}
-
-func (s *greeterBroadcastGoCGONativeServerStreamSession) Recv(ctx context.Context) (string, error) {
-	var outMessagePtr C.uintptr_t
-	var outMessageLen C.int32_t
-	var outMessageOwnership C.int32_t
-	errID := s.callbacks.BroadcastRecv(ctx, s.stream, &outMessagePtr, &outMessageLen, &outMessageOwnership)
-	if errID != 0 {
-		cleanupErr := cleanupGreeterBroadcastCGONativeServerStreamResponse(outMessagePtr, outMessageLen, outMessageOwnership)
-		callbackErr := greeterCGONativeServerErrorFromID(errID)
-		if cleanupErr != nil {
-			return "", errors.Join(callbackErr, cleanupErr)
-		}
-		return "", callbackErr
-	}
-	messageResult, err := decodeGreeterBroadcastCGONativeServerStreamResponse(outMessagePtr, outMessageLen, outMessageOwnership)
-	cleanupErr := cleanupGreeterBroadcastCGONativeServerStreamResponse(outMessagePtr, outMessageLen, outMessageOwnership)
-	if cleanupErr != nil {
-		if err != nil {
-			return "", errors.Join(err, cleanupErr)
-		}
-		return "", cleanupErr
-	}
-	if err != nil {
-		return "", err
-	}
-	return messageResult, nil
-}
-
-func (s *greeterBroadcastGoCGONativeServerStreamSession) Done(ctx context.Context) error {
-	errID := s.callbacks.BroadcastDone(ctx, s.stream)
-	if errID != 0 {
-		return greeterCGONativeServerErrorFromID(errID)
-	}
-	return nil
-}
-
-func (s *greeterBroadcastGoCGONativeServerStreamSession) Cancel(ctx context.Context) error {
-	errID := s.callbacks.BroadcastCancel(ctx, s.stream)
-	if errID != 0 {
-		return greeterCGONativeServerErrorFromID(errID)
-	}
-	return nil
-}
-
-func (a *greeterGoCGONativeAdapter) StartChat(ctx context.Context) (proto.GreeterChatNativeStreamSession, error) {
-	var stream C.int32_t
-	errID := a.callbacks.ChatStart(ctx, &stream)
-	if errID != 0 {
-		return nil, greeterCGONativeServerErrorFromID(errID)
-	}
-	return &greeterChatGoCGONativeBidiStreamSession{callbacks: a.callbacks, stream: stream}, nil
-}
-
-type greeterChatGoCGONativeBidiStreamSession struct {
-	callbacks *GreeterGoCGONativeServerCallbacks
-	stream    C.int32_t
-}
-
-func (s *greeterChatGoCGONativeBidiStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
-	namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership, cleanup, err := encodeGreeterChatCGONativeBidiStreamRequest(name, city)
-	if err != nil {
-		return err
-	}
-	defer cleanup()
-	errID := s.callbacks.ChatSend(ctx, s.stream, namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership)
-	if errID != 0 {
-		return greeterCGONativeServerErrorFromID(errID)
-	}
-	return nil
-}
-
-func (s *greeterChatGoCGONativeBidiStreamSession) Recv(ctx context.Context) (string, error) {
-	var outMessagePtr C.uintptr_t
-	var outMessageLen C.int32_t
-	var outMessageOwnership C.int32_t
-	errID := s.callbacks.ChatRecv(ctx, s.stream, &outMessagePtr, &outMessageLen, &outMessageOwnership)
-	if errID != 0 {
-		cleanupErr := cleanupGreeterChatCGONativeBidiStreamResponse(outMessagePtr, outMessageLen, outMessageOwnership)
-		callbackErr := greeterCGONativeServerErrorFromID(errID)
-		if cleanupErr != nil {
-			return "", errors.Join(callbackErr, cleanupErr)
-		}
-		return "", callbackErr
-	}
-	messageResult, err := decodeGreeterChatCGONativeBidiStreamResponse(outMessagePtr, outMessageLen, outMessageOwnership)
-	cleanupErr := cleanupGreeterChatCGONativeBidiStreamResponse(outMessagePtr, outMessageLen, outMessageOwnership)
-	if cleanupErr != nil {
-		if err != nil {
-			return "", errors.Join(err, cleanupErr)
-		}
-		return "", cleanupErr
-	}
-	if err != nil {
-		return "", err
-	}
-	return messageResult, nil
-}
-
-func (s *greeterChatGoCGONativeBidiStreamSession) CloseSend(ctx context.Context) error {
-	errID := s.callbacks.ChatCloseSend(ctx, s.stream)
-	if errID != 0 {
-		return greeterCGONativeServerErrorFromID(errID)
-	}
-	return nil
-}
-
-func (s *greeterChatGoCGONativeBidiStreamSession) Done(ctx context.Context) error {
-	errID := s.callbacks.ChatDone(ctx, s.stream)
-	if errID != 0 {
-		return greeterCGONativeServerErrorFromID(errID)
-	}
-	return nil
-}
-
-func (s *greeterChatGoCGONativeBidiStreamSession) Cancel(ctx context.Context) error {
-	errID := s.callbacks.ChatCancel(ctx, s.stream)
-	if errID != 0 {
-		return greeterCGONativeServerErrorFromID(errID)
-	}
-	return nil
 }
 
 //export StoreGreeterCGONativeServerErrorTextForExport

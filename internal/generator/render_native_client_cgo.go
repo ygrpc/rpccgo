@@ -723,7 +723,11 @@ func renderNativeClientStringDecode(g *protogen.GeneratedFile, _ []FieldPlan, fi
 	g.P("if ", field.GoName, "Ptr == 0 || ", field.GoName, "Len == 0 {")
 	g.P(name, " = rpcruntime.EmptyRpcString()")
 	g.P("} else {")
-	g.P(name, " = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(", field.GoName, "Ptr)), ", field.GoName, "Len, ", field.GoName, "Ownership > 0)")
+	g.P("var decodeErr error")
+	g.P(name, ", decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(", field.GoName, "Ptr)), ", field.GoName, "Len, ", field.GoName, "Ownership > 0)")
+	g.P("if decodeErr != nil {")
+	g.P(`return `, errReturn(`fmt.Errorf("`+field.FullName+`: %w", decodeErr)`))
+	g.P("}")
 	g.P("}")
 }
 
@@ -735,7 +739,11 @@ func renderNativeClientBytesDecode(g *protogen.GeneratedFile, _ []FieldPlan, fie
 	g.P("if ", field.GoName, "Ptr == 0 || ", field.GoName, "Len == 0 {")
 	g.P(name, " = rpcruntime.EmptyRpcBytes()")
 	g.P("} else {")
-	g.P(name, " = rpcruntime.NewRpcBytes((*byte)(unsafe.Pointer(", field.GoName, "Ptr)), ", field.GoName, "Len, ", field.GoName, "Ownership > 0)")
+	g.P("var decodeErr error")
+	g.P(name, ", decodeErr = rpcruntime.NewRpcBytesChecked((*byte)(unsafe.Pointer(", field.GoName, "Ptr)), ", field.GoName, "Len, ", field.GoName, "Ownership > 0)")
+	g.P("if decodeErr != nil {")
+	g.P(`return `, errReturn(`fmt.Errorf("`+field.FullName+`: %w", decodeErr)`))
+	g.P("}")
 	g.P("}")
 }
 
@@ -766,7 +774,6 @@ func renderNativeUnaryCExportWrapper(g *protogen.GeneratedFile, plan FilePlan, s
 	g.P("}")
 	g.P()
 }
-
 
 func renderNativeClientStreamingCExportWrappers(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan) {
 	startName := nativeCExportFuncName(plan, service, method, "start")

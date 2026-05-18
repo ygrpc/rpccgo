@@ -35,7 +35,10 @@ func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
 		"if _, err := rpcruntime.LengthFromInt32(NameLen); err != nil {",
 		"if NamePtr == 0 || NameLen == 0 {",
 		"nameValue = rpcruntime.EmptyRpcString()",
-		"nameValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(NamePtr)), NameLen, NameOwnership > 0)",
+		"var decodeErr error",
+		"nameValue, decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(NamePtr)), NameLen, NameOwnership > 0)",
+		"if decodeErr != nil {",
+		`fmt.Errorf("test.v1.AllRequest.name: %w", decodeErr)`,
 		"NameOwnership > 0",
 		"var acceptedResultValue int8",
 		"acceptedResultValue = 1",
@@ -47,7 +50,7 @@ func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
 	} {
 		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "type AllServiceUnaryNativeUnaryInput struct", "type AllServiceUnaryNativeUnaryOutput struct", "PayloadOwnership *int32", "allServiceDispatcher", "loadAllService", "takeAllService", "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf")
+	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "type AllServiceUnaryNativeUnaryInput struct", "type AllServiceUnaryNativeUnaryOutput struct", "PayloadOwnership *int32", "allServiceDispatcher", "loadAllService", "takeAllService", "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf", "rpcruntime.NewRpcString((*byte)(unsafe.Pointer(NamePtr))")
 }
 
 func TestRenderNativeClientCGOStreamsUseDispatcherAccessor(t *testing.T) {
@@ -86,7 +89,10 @@ func TestRenderNativeClientCGOHandlesBytesOwnershipAndPinnedOutputRelease(t *tes
 		"PayloadOwnership int32",
 		"if PayloadPtr == 0 || PayloadLen == 0 {",
 		"payloadValue = rpcruntime.EmptyRpcBytes()",
-		"payloadValue = rpcruntime.NewRpcBytes((*byte)(unsafe.Pointer(PayloadPtr)), PayloadLen, PayloadOwnership > 0)",
+		"var decodeErr error",
+		"payloadValue, decodeErr = rpcruntime.NewRpcBytesChecked((*byte)(unsafe.Pointer(PayloadPtr)), PayloadLen, PayloadOwnership > 0)",
+		"if decodeErr != nil {",
+		`fmt.Errorf("test.v1.HelloRequest.payload: %w", decodeErr)`,
 		"PayloadOwnership > 0",
 		"payloadResult, noteResult, extraPayloadResult, err := v1.NewGreeterCGONativeClientBridge().SayHello(ctx, payloadValue)",
 		"payloadPtrValue, err := rpcruntime.PinBytes(payloadResult)",
@@ -98,7 +104,7 @@ func TestRenderNativeClientCGOHandlesBytesOwnershipAndPinnedOutputRelease(t *tes
 	} {
 		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "PayloadOwnership *int32", "NoteOwnership")
+	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "PayloadOwnership *int32", "NoteOwnership", "rpcruntime.NewRpcBytes((*byte)(unsafe.Pointer(PayloadPtr))")
 }
 
 func TestRenderNativeClientCGOSupportsEnumAsInt32(t *testing.T) {

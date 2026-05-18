@@ -112,6 +112,9 @@ func renderCodecMessageToNativeRequestFunction(g *protogen.GeneratedFile, name, 
 	renderCodecMessageToNativeRequestValues(g, fields, "msg", argNames, "")
 	g.P("err := fn(", argNames, ")")
 	g.P("goruntime.KeepAlive(&msg)")
+	for _, owner := range codecMessageToNativeRequestRawOwners(fields) {
+		g.P("goruntime.KeepAlive(", owner, ")")
+	}
 	g.P("return err")
 	g.P("}")
 	g.P()
@@ -216,6 +219,16 @@ func codecRequestNeedsOwner(fields []FieldPlan) bool {
 		}
 	}
 	return false
+}
+
+func codecMessageToNativeRequestRawOwners(fields []FieldPlan) []string {
+	var owners []string
+	for _, field := range fields {
+		if field.Repeated && (field.Kind == FieldKindBool || field.Kind == FieldKindEnum) {
+			owners = append(owners, lowerInitial(field.GoName)+"Raw")
+		}
+	}
+	return owners
 }
 
 func renderCodecMessageToNativeValues(g *protogen.GeneratedFile, fields []FieldPlan, msgName, returnNames, _ string) {

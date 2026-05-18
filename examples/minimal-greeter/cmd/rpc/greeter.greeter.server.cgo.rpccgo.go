@@ -147,62 +147,15 @@ func rpccgo_native_greeterv1_Greeter_SayHello_register(callback C.GreeterSayHell
 	}
 	greeterCGONativeServerAdapterMu.Lock()
 	defer greeterCGONativeServerAdapterMu.Unlock()
-	greeterCGONativeServerAdapter.SayHelloCallback = callback
-	_, err := v1.RegisterGreeterCGONativeActiveServer(rpcruntime.ServerKindCGONative, greeterCGONativeServerAdapter)
+	next := *greeterCGONativeServerAdapter
+	next.SayHelloCallback = callback
+	nextAdapter := &next
+	_, err := v1.RegisterGreeterCGONativeActiveServer(rpcruntime.ServerKindCGONative, nextAdapter)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
+	greeterCGONativeServerAdapter = nextAdapter
 	return 0
-}
-
-type GreeterGoCGONativeServerCallbacks struct {
-	SayHello func(ctx context.Context, namePtr C.uintptr_t, nameLen C.int32_t, nameOwnership C.int32_t, outMessagePtr *C.uintptr_t, outMessageLen *C.int32_t, outMessageOwnership *C.int32_t) int32
-}
-
-func RegisterGreeterGoCGONativeServerForTesting(callbacks *GreeterGoCGONativeServerCallbacks) (rpcruntime.AdapterSnapshot[v1.GreeterNativeAdapter], error) {
-	if callbacks == nil {
-		return rpcruntime.AdapterSnapshot[v1.GreeterNativeAdapter]{}, greeterCGONativeServerCallbacksNil
-	}
-	if callbacks.SayHello == nil {
-		return rpcruntime.AdapterSnapshot[v1.GreeterNativeAdapter]{}, greeterCGONativeServerUnaryCallbackMissing
-	}
-	return v1.RegisterGreeterCGONativeActiveServer(rpcruntime.ServerKindCGONative, &greeterGoCGONativeAdapter{callbacks: callbacks})
-}
-
-type greeterGoCGONativeAdapter struct {
-	callbacks *GreeterGoCGONativeServerCallbacks
-}
-
-func (a *greeterGoCGONativeAdapter) SayHello(ctx context.Context, name *rpcruntime.RpcString) (string, error) {
-	namePtr, nameLen, nameOwnership, cleanup, err := encodeGreeterSayHelloCGONativeUnaryRequest(name)
-	if err != nil {
-		return "", err
-	}
-	defer cleanup()
-	var outMessagePtr C.uintptr_t
-	var outMessageLen C.int32_t
-	var outMessageOwnership C.int32_t
-	errID := a.callbacks.SayHello(ctx, namePtr, nameLen, nameOwnership, &outMessagePtr, &outMessageLen, &outMessageOwnership)
-	if errID != 0 {
-		cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(outMessagePtr, outMessageLen, outMessageOwnership)
-		callbackErr := greeterCGONativeServerErrorFromID(errID)
-		if cleanupErr != nil {
-			return "", errors.Join(callbackErr, cleanupErr)
-		}
-		return "", callbackErr
-	}
-	messageResult, err := decodeGreeterSayHelloCGONativeUnaryResponse(outMessagePtr, outMessageLen, outMessageOwnership)
-	cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(outMessagePtr, outMessageLen, outMessageOwnership)
-	if cleanupErr != nil {
-		if err != nil {
-			return "", errors.Join(err, cleanupErr)
-		}
-		return "", cleanupErr
-	}
-	if err != nil {
-		return "", err
-	}
-	return messageResult, nil
 }
 
 //export StoreGreeterCGONativeServerErrorTextForExport

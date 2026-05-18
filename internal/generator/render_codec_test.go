@@ -139,6 +139,33 @@ func TestCodecMessageToNativeRequestUsesOwnerRetainedViewsAndCanonicalEmptyWrapp
 	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "PinString(", "PinBytes(", "PinSlice(", "defer rpcruntime.Release(ptr)", "cleanup := func()", "rpcruntime.NewRpcString(nil, 0, false)", "rpcruntime.NewRpcBytes(nil, 0, false)")
 }
 
+func TestCodecMessageToNativeRequestKeepsRepeatedBoolAndEnumRawOwnersAlive(t *testing.T) {
+	file := nativeServerRepeatedFile()
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	plans, err := Generate(plugin)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	if err := RenderCodecFiles(plugin, plans[0]); err != nil {
+		t.Fatalf("RenderCodecFiles() error = %v", err)
+	}
+
+	const codecFile = "test/v1/native_repeated.repeated_service.codec.rpccgo.go"
+	for _, fragment := range []string{
+		"flagsRaw := make([]byte, len(msg.Flags))",
+		"flags = rpcruntime.NewRpcBoolRepeatView(unsafe.SliceData(flagsRaw), int32(len(flagsRaw)), flagsRaw)",
+		"moodsRaw := make([]int32, len(msg.Moods))",
+		"moods = rpcruntime.NewRpcRepeatView[int32](unsafe.SliceData(moodsRaw), int32(len(moodsRaw)), moodsRaw)",
+		"err := fn(scores, flags, counts, ratios, moods)",
+		"goruntime.KeepAlive(&msg)",
+		"goruntime.KeepAlive(flagsRaw)",
+		"goruntime.KeepAlive(moodsRaw)",
+	} {
+		assertGeneratedContentContains(t, plugin, codecFile, fragment)
+	}
+}
+
 func TestRenderStageFilesEmitsCodecWithoutRemoteAdapterFiles(t *testing.T) {
 	file := simpleTestFile()
 	setSimpleServiceComment(t, file, "@rpccgo: native\n")

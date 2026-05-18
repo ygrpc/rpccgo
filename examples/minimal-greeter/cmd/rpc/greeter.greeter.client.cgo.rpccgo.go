@@ -62,7 +62,11 @@ func decodeGreeterSayHelloNativeUnaryRequest(NamePtr uintptr, NameLen int32, Nam
 	if NamePtr == 0 || NameLen == 0 {
 		nameValue = rpcruntime.EmptyRpcString()
 	} else {
-		nameValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(NamePtr)), NameLen, NameOwnership > 0)
+		var decodeErr error
+		nameValue, decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(NamePtr)), NameLen, NameOwnership > 0)
+		if decodeErr != nil {
+			return nil, errors.Join(fmt.Errorf("examples.minimal.greeter.v1.SayHelloRequest.name: %w", decodeErr), cleanupDecoded())
+		}
 	}
 	decoded = append(decoded, nameValue)
 	return nameValue, nil

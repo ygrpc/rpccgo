@@ -40,10 +40,17 @@ func TestRenderNativeServerCGODefinesPerMethodCallbackRegistration(t *testing.T)
 		"BidiStreamCloseSend C.AllServiceBidiStreamCGONativeBidiStreamCloseSendCallback",
 		"//export rpccgo_native_testv1_AllService_Unary_register",
 		"func rpccgo_native_testv1_AllService_Unary_register(callback C.AllServiceUnaryCGONativeUnaryCallback) C.int32_t {",
-		"allServiceCGONativeServerAdapter.UnaryCallback = callback",
-		"_, err := v1.RegisterAllServiceCGONativeActiveServer(rpcruntime.ServerKindCGONative, allServiceCGONativeServerAdapter)",
+		"next := *allServiceCGONativeServerAdapter",
+		"next.UnaryCallback = callback",
+		"nextAdapter := &next",
+		"_, err := v1.RegisterAllServiceCGONativeActiveServer(rpcruntime.ServerKindCGONative, nextAdapter)",
+		"allServiceCGONativeServerAdapter = nextAdapter",
 		"//export rpccgo_native_testv1_AllService_ClientStream_register",
 		"func rpccgo_native_testv1_AllService_ClientStream_register(start C.AllServiceClientStreamCGONativeClientStreamStartCallback, send C.AllServiceClientStreamCGONativeClientStreamSendCallback, finish C.AllServiceClientStreamCGONativeClientStreamFinishCallback, cancel C.AllServiceClientStreamCGONativeClientStreamCancelCallback) C.int32_t {",
+		"next.ClientStreamStart = start",
+		"next.ClientStreamSend = send",
+		"next.ClientStreamFinish = finish",
+		"next.ClientStreamCancel = cancel",
 		"return &allServiceClientStreamCGONativeClientStreamSession{send: a.ClientStreamSend, finish: a.ClientStreamFinish, cancel: a.ClientStreamCancel, stream: stream}, nil",
 		"type allServiceClientStreamCGONativeClientStreamSession struct {",
 		"send C.AllServiceClientStreamCGONativeClientStreamSendCallback",
@@ -59,8 +66,6 @@ func TestRenderNativeServerCGODefinesPerMethodCallbackRegistration(t *testing.T)
 		"return &allServiceBidiStreamCGONativeBidiStreamSession{send: a.BidiStreamSend, recv: a.BidiStreamRecv, closeSend: a.BidiStreamCloseSend, done: a.BidiStreamDone, cancel: a.BidiStreamCancel, stream: stream}, nil",
 		"closeSend C.AllServiceBidiStreamCGONativeBidiStreamCloseSendCallback",
 		"errID := int32(C.callAllServiceBidiStreamCGONativeBidiStreamCloseSendCallback(s.closeSend, s.stream))",
-		"type AllServiceGoCGONativeServerCallbacks struct {",
-		"func RegisterAllServiceGoCGONativeServerForTesting(callbacks *AllServiceGoCGONativeServerCallbacks) (rpcruntime.AdapterSnapshot[v1.AllServiceNativeAdapter], error) {",
 		`errors.New("rpccgo: AllService cgo native server callbacks are nil")`,
 		`errors.New("rpccgo: AllService cgo native server unary callback is missing")`,
 		`errors.New("rpccgo: cgo native server streaming is not implemented")`,
@@ -100,6 +105,11 @@ func TestRenderNativeServerCGODefinesPerMethodCallbackRegistration(t *testing.T)
 		"*AllServiceUnaryCGONativeUnaryResponse",
 		"* input",
 		"* output",
+		"GoCGONativeServerCallbacks",
+		"GoCGONativeServerForTesting",
+		"GoCGONativeAdapter",
+		"allServiceCGONativeServerAdapter.UnaryCallback = callback",
+		"allServiceCGONativeServerAdapter.ClientStreamStart = start",
 	)
 }
 
@@ -204,38 +214,8 @@ func TestRenderNativeServerCGORejectsGeneratedSymbolCollisions(t *testing.T) {
 	}
 }
 
-func TestRenderNativeServerCGORejectsCallbackFieldCollisions(t *testing.T) {
-	plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())
-	plan := nativeServerCGOCollisionTestFilePlan("Greeter", []MethodPlan{
-		{
-			Name:      "UploadStart",
-			GoName:    "UploadStart",
-			FullName:  "test.v1.Greeter.UploadStart",
-			Streaming: StreamingKindUnary,
-			Request:   MethodIOPlan{GoName: "HelloRequest", GoImportPath: "example.com/test/v1", FullName: "test.v1.HelloRequest"},
-			Response:  MethodIOPlan{GoName: "HelloReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.HelloReply"},
-		},
-		{
-			Name:      "Upload",
-			GoName:    "Upload",
-			FullName:  "test.v1.Greeter.Upload",
-			Streaming: StreamingKindClientStreaming,
-			Request:   MethodIOPlan{GoName: "HelloRequest", GoImportPath: "example.com/test/v1", FullName: "test.v1.HelloRequest"},
-			Response:  MethodIOPlan{GoName: "HelloReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.HelloReply"},
-		},
-	})
-
-	err := RenderNativeStageFiles(plugin, plan)
-	if err == nil {
-		t.Fatal("RenderNativeStageFiles() error = nil, want callback field collision")
-	}
-	if got := err.Error(); !strings.Contains(got, "UploadStart") || !strings.Contains(got, "callback field") || !strings.Contains(got, "collides") {
-		t.Fatalf("RenderNativeStageFiles() error = %q, want callback field collision for UploadStart", got)
-	}
-}
-
 func TestRenderNativeServerCGORejectsPackageAndSiblingSymbolCollisions(t *testing.T) {
-	t.Run("package enum collides with callback table", func(t *testing.T) {
+	t.Run("package enum collides with cgo adapter", func(t *testing.T) {
 		plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())
 		plan := nativeServerCGOCollisionTestFilePlan("Greeter", []MethodPlan{{
 			Name:      "SayHello",
@@ -246,8 +226,8 @@ func TestRenderNativeServerCGORejectsPackageAndSiblingSymbolCollisions(t *testin
 			Response:  MethodIOPlan{GoName: "HelloReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.HelloReply"},
 		}})
 		plan.TopLevelSymbols = []TopLevelSymbolPlan{{
-			GoName:   "GreeterCGONativeServerCallbacks",
-			FullName: "test.v1.GreeterCGONativeServerCallbacks",
+			GoName:   "greeterCGONativeAdapter",
+			FullName: "test.v1.greeterCGONativeAdapter",
 			Kind:     TopLevelSymbolKindEnum,
 		}}
 
@@ -255,7 +235,7 @@ func TestRenderNativeServerCGORejectsPackageAndSiblingSymbolCollisions(t *testin
 		if err == nil {
 			t.Fatal("RenderNativeStageFiles() error = nil, want package symbol collision")
 		}
-		if got := err.Error(); !strings.Contains(got, "GreeterCGONativeServerCallbacks") || !strings.Contains(got, "collides") {
+		if got := err.Error(); !strings.Contains(got, "greeterCGONativeAdapter") || !strings.Contains(got, "collides") {
 			t.Fatalf("RenderNativeStageFiles() error = %q, want package collision", got)
 		}
 	})

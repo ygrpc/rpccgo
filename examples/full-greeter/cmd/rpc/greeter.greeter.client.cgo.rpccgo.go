@@ -62,7 +62,11 @@ func decodeGreeterSayHelloNativeUnaryRequest(NamePtr uintptr, NameLen int32, Nam
 	if NamePtr == 0 || NameLen == 0 {
 		nameValue = rpcruntime.EmptyRpcString()
 	} else {
-		nameValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(NamePtr)), NameLen, NameOwnership > 0)
+		var decodeErr error
+		nameValue, decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(NamePtr)), NameLen, NameOwnership > 0)
+		if decodeErr != nil {
+			return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", decodeErr), cleanupDecoded())
+		}
 	}
 	decoded = append(decoded, nameValue)
 	if _, err := rpcruntime.LengthFromInt32(CityLen); err != nil {
@@ -72,7 +76,11 @@ func decodeGreeterSayHelloNativeUnaryRequest(NamePtr uintptr, NameLen int32, Nam
 	if CityPtr == 0 || CityLen == 0 {
 		cityValue = rpcruntime.EmptyRpcString()
 	} else {
-		cityValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(CityPtr)), CityLen, CityOwnership > 0)
+		var decodeErr error
+		cityValue, decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(CityPtr)), CityLen, CityOwnership > 0)
+		if decodeErr != nil {
+			return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", decodeErr), cleanupDecoded())
+		}
 	}
 	decoded = append(decoded, cityValue)
 	return nameValue, cityValue, nil
@@ -210,7 +218,11 @@ func decodeGreeterCollectNativeClientStreamRequest(NamePtr uintptr, NameLen int3
 	if NamePtr == 0 || NameLen == 0 {
 		nameValue = rpcruntime.EmptyRpcString()
 	} else {
-		nameValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(NamePtr)), NameLen, NameOwnership > 0)
+		var decodeErr error
+		nameValue, decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(NamePtr)), NameLen, NameOwnership > 0)
+		if decodeErr != nil {
+			return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", decodeErr), cleanupDecoded())
+		}
 	}
 	decoded = append(decoded, nameValue)
 	if _, err := rpcruntime.LengthFromInt32(CityLen); err != nil {
@@ -220,7 +232,11 @@ func decodeGreeterCollectNativeClientStreamRequest(NamePtr uintptr, NameLen int3
 	if CityPtr == 0 || CityLen == 0 {
 		cityValue = rpcruntime.EmptyRpcString()
 	} else {
-		cityValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(CityPtr)), CityLen, CityOwnership > 0)
+		var decodeErr error
+		cityValue, decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(CityPtr)), CityLen, CityOwnership > 0)
+		if decodeErr != nil {
+			return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", decodeErr), cleanupDecoded())
+		}
 	}
 	decoded = append(decoded, cityValue)
 	return nameValue, cityValue, nil
@@ -387,7 +403,11 @@ func decodeGreeterBroadcastNativeServerStreamRequest(NamePtr uintptr, NameLen in
 	if NamePtr == 0 || NameLen == 0 {
 		nameValue = rpcruntime.EmptyRpcString()
 	} else {
-		nameValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(NamePtr)), NameLen, NameOwnership > 0)
+		var decodeErr error
+		nameValue, decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(NamePtr)), NameLen, NameOwnership > 0)
+		if decodeErr != nil {
+			return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", decodeErr), cleanupDecoded())
+		}
 	}
 	decoded = append(decoded, nameValue)
 	if _, err := rpcruntime.LengthFromInt32(CityLen); err != nil {
@@ -397,7 +417,11 @@ func decodeGreeterBroadcastNativeServerStreamRequest(NamePtr uintptr, NameLen in
 	if CityPtr == 0 || CityLen == 0 {
 		cityValue = rpcruntime.EmptyRpcString()
 	} else {
-		cityValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(CityPtr)), CityLen, CityOwnership > 0)
+		var decodeErr error
+		cityValue, decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(CityPtr)), CityLen, CityOwnership > 0)
+		if decodeErr != nil {
+			return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", decodeErr), cleanupDecoded())
+		}
 	}
 	decoded = append(decoded, cityValue)
 	return nameValue, cityValue, nil
@@ -593,7 +617,11 @@ func decodeGreeterChatNativeBidiStreamRequest(NamePtr uintptr, NameLen int32, Na
 	if NamePtr == 0 || NameLen == 0 {
 		nameValue = rpcruntime.EmptyRpcString()
 	} else {
-		nameValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(NamePtr)), NameLen, NameOwnership > 0)
+		var decodeErr error
+		nameValue, decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(NamePtr)), NameLen, NameOwnership > 0)
+		if decodeErr != nil {
+			return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", decodeErr), cleanupDecoded())
+		}
 	}
 	decoded = append(decoded, nameValue)
 	if _, err := rpcruntime.LengthFromInt32(CityLen); err != nil {
@@ -603,7 +631,11 @@ func decodeGreeterChatNativeBidiStreamRequest(NamePtr uintptr, NameLen int32, Na
 	if CityPtr == 0 || CityLen == 0 {
 		cityValue = rpcruntime.EmptyRpcString()
 	} else {
-		cityValue = rpcruntime.NewRpcString((*byte)(unsafe.Pointer(CityPtr)), CityLen, CityOwnership > 0)
+		var decodeErr error
+		cityValue, decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(CityPtr)), CityLen, CityOwnership > 0)
+		if decodeErr != nil {
+			return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", decodeErr), cleanupDecoded())
+		}
 	}
 	decoded = append(decoded, cityValue)
 	return nameValue, cityValue, nil
