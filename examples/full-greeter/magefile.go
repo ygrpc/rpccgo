@@ -14,6 +14,7 @@ import (
 
 var protocPluginPackages = []string{
 	"google.golang.org/protobuf/cmd/protoc-gen-go",
+	"connectrpc.com/connect/cmd/protoc-gen-connect-go",
 	"../../cmd/protoc-gen-rpc-cgo",
 }
 
@@ -60,10 +61,6 @@ func Run() error {
 	if err != nil {
 		return err
 	}
-	grpcAddr, err := reserveTCPAddr()
-	if err != nil {
-		return err
-	}
 	serverBin := filepath.Join(os.TempDir(), "rpccgo-full-server-"+strconv.FormatInt(time.Now().UnixNano(), 10))
 	if err := runWithEnv(map[string]string{"GOFLAGS": "-mod=mod"}, "go", "build", "-o", serverBin, "./cmd/server"); err != nil {
 		return err
@@ -76,7 +73,6 @@ func Run() error {
 	server.Env = append(os.Environ(),
 		"GOFLAGS=-mod=mod",
 		"RPCCGO_FULL_CONNECT_ADDR="+connectAddr,
-		"RPCCGO_FULL_GRPC_ADDR="+grpcAddr,
 	)
 	if err := server.Start(); err != nil {
 		return err
@@ -90,13 +86,9 @@ func Run() error {
 	if err := waitForTCP(connectAddr); err != nil {
 		return err
 	}
-	if err := waitForTCP(grpcAddr); err != nil {
-		return err
-	}
 	return runWithEnv(map[string]string{
 		"GOFLAGS":                 "-mod=mod",
 		"RPCCGO_FULL_CONNECT_URL": "http://" + connectAddr,
-		"RPCCGO_FULL_GRPC_ADDR":   grpcAddr,
 	}, "go", "run", "./cmd/client")
 }
 

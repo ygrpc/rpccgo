@@ -14,6 +14,7 @@ import (
 
 var protocPluginPackages = []string{
 	"google.golang.org/protobuf/cmd/protoc-gen-go",
+	"connectrpc.com/connect/cmd/protoc-gen-connect-go",
 	"../../cmd/protoc-gen-rpc-cgo",
 }
 

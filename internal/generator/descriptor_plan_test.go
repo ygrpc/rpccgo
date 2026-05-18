@@ -120,9 +120,9 @@ func TestBuildDescriptorPlanBuildsCompleteServicePlans(t *testing.T) {
 		"DefaultService":       {AdapterTokenMessageConnect},
 		"ConnectService":       {AdapterTokenMessageConnect},
 		"GrpcService":          {AdapterTokenMessageGRPC},
-		"MessageService":       {AdapterTokenMessageConnect, AdapterTokenMessageGRPC},
+		"MessageService":       {AdapterTokenMessageConnect},
 		"ConnectNativeService": {AdapterTokenMessageConnect, AdapterTokenNative},
-		"AllService":           {AdapterTokenMessageConnect, AdapterTokenMessageGRPC, AdapterTokenNative},
+		"AllService":           {AdapterTokenMessageConnect, AdapterTokenNative},
 		"NativeOnlyService":    {AdapterTokenMessageConnect, AdapterTokenNative},
 	}
 	for name, wantTokens := range wantServices {
@@ -351,9 +351,9 @@ func completeServicePlanTestFile() *descriptorpb.FileDescriptorProto {
 		"",
 		"@rpccgo: msg-connect\n",
 		"@rpccgo: msg-grpc\n",
-		"@rpccgo: msg-connect|msg-grpc\n",
+		"@rpccgo: msg-connect\n",
 		"@rpccgo: msg-connect|native\n",
-		"@rpccgo: msg-connect|msg-grpc|native\n",
+		"@rpccgo: msg-connect|native\n",
 		"@rpccgo: native\n",
 	})
 	return file

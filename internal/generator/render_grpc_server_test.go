@@ -4,6 +4,15 @@ import "testing"
 
 func TestRenderGRPCServerFileEmitsServiceDesc(t *testing.T) {
 	file := completeServicePlanTestFile()
+	file.SourceCodeInfo = completeServicePlanServiceComments([]string{
+		"",
+		"@rpccgo: msg-connect\n",
+		"@rpccgo: msg-grpc\n",
+		"@rpccgo: msg-connect\n",
+		"@rpccgo: msg-connect|native\n",
+		"@rpccgo: msg-grpc|native\n",
+		"@rpccgo: native\n",
+	})
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	if _, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true}); err != nil {

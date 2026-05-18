@@ -620,6 +620,7 @@ static void setGreeterServerStreamErrorMode(int32_t mode) {
 import "C"
 
 import (
+	"errors"
 	"sync/atomic"
 	"unsafe"
 
@@ -628,8 +629,18 @@ import (
 
 func registerGreeterServerStreamCGONativeServerCallbacks() error {
 	callbacks := C.greeterServerStreamCallbacks()
-	_, err := RegisterGreeterCGONativeServer(&callbacks)
-	return err
+	errID := rpccgo_native_testv1_Greeter_List_register(callbacks.ListStart, callbacks.ListRecv, callbacks.ListDone, callbacks.ListCancel)
+	if errID == 0 {
+		return nil
+	}
+	text, ptr, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+	if !ok {
+		return nil
+	}
+	if ptr != 0 {
+		rpcruntime.Release(ptr)
+	}
+	return errors.New(string(text))
 }
 
 func greeterServerStreamCancelCount() int32 {

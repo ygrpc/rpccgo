@@ -19,18 +19,14 @@ func TestGeneratedLayoutContract(t *testing.T) {
 		"test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go",
 		"test/cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go",
 		"test/v1/greeter.greeter.server.connect.rpccgo.go",
-		"test/v1/greeter.greeter.server.grpc.rpccgo.go",
 		"test/v1/greeter.greeter.remote.connect.rpccgo.go",
-		"test/v1/greeter.greeter.remote.grpc.rpccgo.go",
 		"test/v1/greeter.greeter.codec.rpccgo.go",
 	})
 	assertGeneratedPackage(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "package testv1")
 	assertGeneratedPackage(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go", "package testv1")
 	assertGeneratedPackage(t, plugin, "test/v1/greeter.greeter.codec.rpccgo.go", "package testv1")
 	assertGeneratedPackage(t, plugin, "test/v1/greeter.greeter.server.connect.rpccgo.go", "package testv1")
-	assertGeneratedPackage(t, plugin, "test/v1/greeter.greeter.server.grpc.rpccgo.go", "package testv1")
 	assertGeneratedPackage(t, plugin, "test/v1/greeter.greeter.remote.connect.rpccgo.go", "package testv1")
-	assertGeneratedPackage(t, plugin, "test/v1/greeter.greeter.remote.grpc.rpccgo.go", "package testv1")
 	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.exports.cgo.rpccgo.go", "package main")
 	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.server.cgo.rpccgo.go", "package main")
 	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.client.cgo.rpccgo.go", "package main")
@@ -62,14 +58,8 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.connect.rpccgo.go",
 		"func NewGreeterConnectHandler(options ...connect.HandlerOption) (string, http.Handler) {",
 	)
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.grpc.rpccgo.go",
-		"func RegisterGreeterGRPCServer(registrar grpc.ServiceRegistrar) error {",
-	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.remote.connect.rpccgo.go",
-		"func RegisterGreeterConnectRemoteServer(httpClient connect.HTTPClient, baseURL string, options ...connect.ClientOption) (rpcruntime.AdapterSnapshot[GreeterMessageAdapter], error) {",
-	)
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.remote.grpc.rpccgo.go",
-		"func RegisterGreeterGRPCRemoteServer(conn grpc.ClientConnInterface) (rpcruntime.AdapterSnapshot[GreeterMessageAdapter], error) {",
+		"func RegisterGreeterConnectRemoteServer(client GreeterClient) (rpcruntime.AdapterSnapshot[GreeterMessageAdapter], error) {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.server.cgo.rpccgo.go",
 		"//export rpccgo_native_testv1_Greeter_SayHello_register",
@@ -120,7 +110,7 @@ func newGeneratedLayoutPlugin(t *testing.T) *protogen.Plugin {
 	t.Helper()
 
 	file := simpleTestFile()
-	setSimpleServiceComment(t, file, "@rpccgo: msg-connect|msg-grpc|native\n")
+	setSimpleServiceComment(t, file, "@rpccgo: msg-connect|native\n")
 	plugin := newTestPlugin(t, "paths=source_relative,cgo_dir=../cmd/rpc", file)
 	if _, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true}); err != nil {
 		t.Fatalf("GenerateWithOptions(RenderStageFiles) error = %v", err)

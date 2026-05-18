@@ -299,7 +299,7 @@ func TestRenderStageFilesEmitsMixedNativeAndMessageCGOFamilies(t *testing.T) {
 
 func TestRenderStageFilesEmitsLocalTransportAdaptersByServiceToken(t *testing.T) {
 	file := simpleTestFile()
-	setSimpleServiceComment(t, file, "@rpccgo: msg-connect|msg-grpc|native\n")
+	setSimpleServiceComment(t, file, "@rpccgo: msg-connect|native\n")
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	if _, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true}); err != nil {
@@ -315,35 +315,56 @@ func TestRenderStageFilesEmitsLocalTransportAdaptersByServiceToken(t *testing.T)
 		"test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go",
 		"test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go",
 		"test/v1/greeter.greeter.server.connect.rpccgo.go",
-		"test/v1/greeter.greeter.server.grpc.rpccgo.go",
 		"test/v1/greeter.greeter.remote.connect.rpccgo.go",
-		"test/v1/greeter.greeter.remote.grpc.rpccgo.go",
 		"test/v1/greeter.greeter.codec.rpccgo.go",
 	})
 }
 
 func TestRenderStageFilesEmitsRemoteTransportAdaptersByServiceToken(t *testing.T) {
-	file := simpleTestFile()
-	setSimpleServiceComment(t, file, "@rpccgo: msg-connect|msg-grpc|native\n")
-	plugin := newTestPlugin(t, "paths=source_relative", file)
+	t.Run("connect", func(t *testing.T) {
+		file := simpleTestFile()
+		setSimpleServiceComment(t, file, "@rpccgo: msg-connect|native\n")
+		plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	if _, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true}); err != nil {
-		t.Fatalf("GenerateWithOptions(RenderStageFiles) error = %v", err)
-	}
+		if _, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true}); err != nil {
+			t.Fatalf("GenerateWithOptions(RenderStageFiles) error = %v", err)
+		}
 
-	assertGeneratedFilenames(t, plugin, []string{
-		"test/v1/cgo/greeter.exports.cgo.rpccgo.go",
-		"test/v1/greeter.greeter.runtime.rpccgo.go",
-		"test/v1/greeter.greeter.server.native.rpccgo.go",
-		"test/v1/cgo/greeter.greeter.server.cgo.rpccgo.go",
-		"test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go",
-		"test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go",
-		"test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go",
-		"test/v1/greeter.greeter.server.connect.rpccgo.go",
-		"test/v1/greeter.greeter.server.grpc.rpccgo.go",
-		"test/v1/greeter.greeter.remote.connect.rpccgo.go",
-		"test/v1/greeter.greeter.remote.grpc.rpccgo.go",
-		"test/v1/greeter.greeter.codec.rpccgo.go",
+		assertGeneratedFilenames(t, plugin, []string{
+			"test/v1/cgo/greeter.exports.cgo.rpccgo.go",
+			"test/v1/greeter.greeter.runtime.rpccgo.go",
+			"test/v1/greeter.greeter.server.native.rpccgo.go",
+			"test/v1/cgo/greeter.greeter.server.cgo.rpccgo.go",
+			"test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go",
+			"test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go",
+			"test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go",
+			"test/v1/greeter.greeter.server.connect.rpccgo.go",
+			"test/v1/greeter.greeter.remote.connect.rpccgo.go",
+			"test/v1/greeter.greeter.codec.rpccgo.go",
+		})
+	})
+
+	t.Run("grpc", func(t *testing.T) {
+		file := simpleTestFile()
+		setSimpleServiceComment(t, file, "@rpccgo: msg-grpc|native\n")
+		plugin := newTestPlugin(t, "paths=source_relative", file)
+
+		if _, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true}); err != nil {
+			t.Fatalf("GenerateWithOptions(RenderStageFiles) error = %v", err)
+		}
+
+		assertGeneratedFilenames(t, plugin, []string{
+			"test/v1/cgo/greeter.exports.cgo.rpccgo.go",
+			"test/v1/greeter.greeter.runtime.rpccgo.go",
+			"test/v1/greeter.greeter.server.native.rpccgo.go",
+			"test/v1/cgo/greeter.greeter.server.cgo.rpccgo.go",
+			"test/v1/cgo/greeter.greeter.client.cgo.rpccgo.go",
+			"test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go",
+			"test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go",
+			"test/v1/greeter.greeter.server.grpc.rpccgo.go",
+			"test/v1/greeter.greeter.remote.grpc.rpccgo.go",
+			"test/v1/greeter.greeter.codec.rpccgo.go",
+		})
 	})
 }
 

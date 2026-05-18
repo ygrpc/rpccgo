@@ -50,6 +50,9 @@ _Avoid_: active server
 - **Generated service runtime** 不应生成 per-method stream `load/take/delete` 薄包装；应在 generated bridge/client/server 代码中直接调用 **Runtime core** 的泛型 stream registry 函数。
 - Register helper 可留在 **Generated service runtime** 中，因为它们封装 service-specific active adapter 包装并返回更窄的 typed snapshot，不是纯 runtime core 薄包装。
 - Native/message client bridge 应留在 **Generated service runtime** 中，因为它表达 service-level active server contract 路由，并集中连接 native adapter、message adapter 与 converter glue。
+- **Message contract** remote adapter 使用标准 transport client 作为外部能力；rpccgo generated code 不应构造 per-method client。
+- **Message contract** remote adapter 只转发 protobuf message payload 和 error；metadata/header/trailer 不属于当前 contract。
+- 一个 service 的 generated output 只能选择一个 message transport（connect 或 gRPC），避免标准 transport client API 在同包内重名。
 - 每个 service 的 dispatcher 应保留为 generated package-level 变量；不要引入 runtime core 全局 service registry，以避免回到旧 **Provider bootstrap** 模型。
 - 新版架构保留 dispatcher / active server；只恢复旧项目的 **Native** flat function boundary，不回迁旧 **Provider bootstrap**。
 - `@rpccgo:native` 的新版 adapter selection 规则保留；它可以同时启用默认 message adapter，但 **Native** 侧仍必须是 flat function boundary。

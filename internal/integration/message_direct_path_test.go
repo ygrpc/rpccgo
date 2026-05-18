@@ -662,8 +662,7 @@ func registerGreeterMessageCallbacksForIntegration() error {
 	C.setMessageStreamEOFMode(0)
 	C.setInvalidMessageResponse(0)
 	callbacks := C.greeterMessageCallbacks()
-	_, err := RegisterGreeterCGOMessageServer(&callbacks)
-	return err
+	return registerGreeterMessageCallbacks(callbacks)
 }
 
 func registerGreeterMessageCallbacksWithoutResetForIntegration() error {
@@ -672,8 +671,7 @@ func registerGreeterMessageCallbacksWithoutResetForIntegration() error {
 	C.setMessageStreamEOFMode(0)
 	C.setInvalidMessageResponse(0)
 	callbacks := C.greeterMessageCallbacks()
-	_, err := RegisterGreeterCGOMessageServer(&callbacks)
-	return err
+	return registerGreeterMessageCallbacks(callbacks)
 }
 
 func registerGreeterNativeCallbacksForIntegration() error {
@@ -681,8 +679,46 @@ func registerGreeterNativeCallbacksForIntegration() error {
 	C.resetMessageCounters()
 	C.setNativeUnaryError(0)
 	callbacks := C.greeterNativeCallbacks()
-	_, err := RegisterGreeterCGONativeServer(&callbacks)
-	return err
+	return registerGreeterNativeCallbacks(callbacks)
+}
+
+func registerGreeterMessageCallbacks(callbacks C.GreeterCGOMessageServerCallbacks) error {
+	for _, errID := range []C.int32_t{
+		rpccgo_msg_testv1_Greeter_Unary_register(callbacks.Unary),
+		rpccgo_msg_testv1_Greeter_Upload_register(callbacks.UploadStart, callbacks.UploadSend, callbacks.UploadFinish, callbacks.UploadCancel),
+		rpccgo_msg_testv1_Greeter_List_register(callbacks.ListStart, callbacks.ListRecv, callbacks.ListDone, callbacks.ListCancel),
+		rpccgo_msg_testv1_Greeter_Chat_register(callbacks.ChatStart, callbacks.ChatSend, callbacks.ChatRecv, callbacks.ChatCloseSend, callbacks.ChatDone, callbacks.ChatCancel),
+	} {
+		if errID != 0 {
+			return cgoFixtureStoredError(errID)
+		}
+	}
+	return nil
+}
+
+func registerGreeterNativeCallbacks(callbacks C.GreeterCGONativeServerCallbacks) error {
+	for _, errID := range []C.int32_t{
+		rpccgo_native_testv1_Greeter_Unary_register(callbacks.Unary),
+		rpccgo_native_testv1_Greeter_Upload_register(callbacks.UploadStart, callbacks.UploadSend, callbacks.UploadFinish, callbacks.UploadCancel),
+		rpccgo_native_testv1_Greeter_List_register(callbacks.ListStart, callbacks.ListRecv, callbacks.ListDone, callbacks.ListCancel),
+		rpccgo_native_testv1_Greeter_Chat_register(callbacks.ChatStart, callbacks.ChatSend, callbacks.ChatRecv, callbacks.ChatCloseSend, callbacks.ChatDone, callbacks.ChatCancel),
+	} {
+		if errID != 0 {
+			return cgoFixtureStoredError(errID)
+		}
+	}
+	return nil
+}
+
+func cgoFixtureStoredError(errID C.int32_t) error {
+	text, ptr, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+	if !ok {
+		return errors.New("missing cgo fixture error")
+	}
+	if ptr != 0 {
+		rpcruntime.Release(ptr)
+	}
+	return errors.New(string(text))
 }
 
 func setGreeterNativeUnaryErrorForIntegration(enabled bool) {

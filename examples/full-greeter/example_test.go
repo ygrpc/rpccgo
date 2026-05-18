@@ -16,10 +16,9 @@ func TestFullGreeterGenerate(t *testing.T) {
 		"proto/greeter.pb.go",
 		"proto/greeter.greeter.runtime.rpccgo.go",
 		"proto/greeter.greeter.server.native.rpccgo.go",
+		"proto/greeter.connect.go",
 		"proto/greeter.greeter.server.connect.rpccgo.go",
-		"proto/greeter.greeter.server.grpc.rpccgo.go",
 		"proto/greeter.greeter.remote.connect.rpccgo.go",
-		"proto/greeter.greeter.remote.grpc.rpccgo.go",
 		"cmd/rpc/greeter.exports.cgo.rpccgo.go",
 		"cmd/rpc/greeter.greeter.client.cgo.rpccgo.go",
 		"cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go",
@@ -107,6 +106,7 @@ func installProtocPlugins(t *testing.T) string {
 	binDir := t.TempDir()
 	for _, pkg := range []string{
 		"google.golang.org/protobuf/cmd/protoc-gen-go",
+		"connectrpc.com/connect/cmd/protoc-gen-connect-go",
 		"../../cmd/protoc-gen-rpc-cgo",
 	} {
 		cmd := exec.Command("go", "install", pkg)
@@ -186,4 +186,3 @@ func testEnvWithBinDir(binDir string) []string {
 		"PATH="+binDir+string(os.PathListSeparator)+os.Getenv("PATH"),
 	)
 }
-

@@ -16,8 +16,6 @@ import (
 	"example.com/rpccgo-full/internal/backend"
 	greeterv1 "example.com/rpccgo-full/proto"
 	"golang.org/x/net/http2"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 	rpcruntime "rpccgo/rpcruntime"
 )
@@ -43,27 +41,14 @@ func TestFullGreeterTransportAndStreamingMatrix(t *testing.T) {
 	t.Run("connect_remote", func(t *testing.T) {
 		remote := startExampleServer(t)
 
-		if _, err := greeterv1.RegisterGreeterConnectRemoteServer(httpClient(), "http://"+remote.connectAddr); err != nil {
+		client := greeterv1.NewGreeterClient(httpClient(), "http://"+remote.connectAddr)
+		if _, err := greeterv1.RegisterGreeterConnectRemoteServer(client); err != nil {
 			t.Fatalf("RegisterGreeterConnectRemoteServer() error = %v", err)
 		}
 		assertMessageUnary(t, ctx, "connect", "remote", "hello connect from remote")
 		assertMessageCollect(t, ctx, []string{"connect", "collect"}, "collect:connect,collect")
 		assertMessageBroadcast(t, ctx, "connect-broadcast", []string{"broadcast[0]:connect-broadcast", "broadcast[1]:connect-broadcast"})
 		assertMessageChat(t, ctx, "connect-chat", "chat:connect-chat")
-	})
-
-	t.Run("grpc_remote", func(t *testing.T) {
-		remote := startExampleServer(t)
-		conn := newGRPCConn(t, remote.grpcAddr)
-		defer conn.Close()
-
-		if _, err := greeterv1.RegisterGreeterGRPCRemoteServer(conn); err != nil {
-			t.Fatalf("RegisterGreeterGRPCRemoteServer() error = %v", err)
-		}
-		assertMessageUnary(t, ctx, "grpc", "remote", "hello grpc from remote")
-		assertMessageCollect(t, ctx, []string{"grpc", "collect"}, "collect:grpc,collect")
-		assertMessageBroadcast(t, ctx, "grpc-broadcast", []string{"broadcast[0]:grpc-broadcast", "broadcast[1]:grpc-broadcast"})
-		assertMessageChat(t, ctx, "grpc-chat", "chat:grpc-chat")
 	})
 }
 
@@ -74,25 +59,14 @@ func registerNativeServer(t *testing.T) {
 	}
 }
 
-func newGRPCConn(t *testing.T, addr string) *grpc.ClientConn {
-	t.Helper()
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		t.Fatalf("grpc.NewClient() error = %v", err)
-	}
-	return conn
-}
-
 type exampleServer struct {
 	connectAddr string
-	grpcAddr    string
 }
 
 func startExampleServer(t *testing.T) exampleServer {
 	t.Helper()
 
 	connectAddr := reserveTCPAddr(t)
-	grpcAddr := reserveTCPAddr(t)
 	serverBin := filepath.Join(t.TempDir(), "full-example-server-"+strconv.FormatInt(time.Now().UnixNano(), 10))
 	build := exec.Command("go", "build", "-o", serverBin, "./cmd/server")
 	build.Dir = "../.."
@@ -106,7 +80,6 @@ func startExampleServer(t *testing.T) exampleServer {
 	cmd.Env = append(os.Environ(),
 		"GOFLAGS=-mod=mod",
 		"RPCCGO_FULL_CONNECT_ADDR="+connectAddr,
-		"RPCCGO_FULL_GRPC_ADDR="+grpcAddr,
 	)
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("start full example server error = %v", err)
@@ -119,8 +92,7 @@ func startExampleServer(t *testing.T) exampleServer {
 	})
 
 	waitForTCP(t, connectAddr)
-	waitForTCP(t, grpcAddr)
-	return exampleServer{connectAddr: connectAddr, grpcAddr: grpcAddr}
+	return exampleServer{connectAddr: connectAddr}
 }
 
 func reserveTCPAddr(t *testing.T) string {

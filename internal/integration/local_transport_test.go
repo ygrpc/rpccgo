@@ -65,7 +65,7 @@ func newLocalTransportTestPlugin(t *testing.T, goPackage string) *protogen.Plugi
 				SourceCodeInfo: &descriptorpb.SourceCodeInfo{Location: []*descriptorpb.SourceCodeInfo_Location{{
 					Path:            []int32{6, 0},
 					Span:            []int32{0, 0, 0},
-					LeadingComments: proto.String("@rpccgo: msg-connect|msg-grpc|native\n"),
+					LeadingComments: proto.String("@rpccgo: msg-connect|native\n"),
 				}}},
 			},
 		},
@@ -83,7 +83,6 @@ import (
 	context "context"
 	errors "errors"
 	io "io"
-	net "net"
 	http "net/http"
 	httptest "net/http/httptest"
 	strings "strings"
@@ -92,9 +91,6 @@ import (
 
 	connect "connectrpc.com/connect"
 	v1 "example.com/messagedirect/test/v1"
-	grpc "google.golang.org/grpc"
-	insecure "google.golang.org/grpc/credentials/insecure"
-	bufconn "google.golang.org/grpc/test/bufconn"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -152,58 +148,6 @@ func TestLocalTransportAcceptance(t *testing.T) {
 		}
 	})
 
-	t.Run("grpc routes to cgo message server", func(t *testing.T) {
-		registerTransportMessageServer(t)
-		setGreeterMessageStreamEOFModeForIntegration(true)
-		conn, closeConn := startGRPCTransport(t)
-		defer closeConn()
-
-		grpcUnaryCall(t, conn)
-		grpcClientStreamCall(t, conn)
-		if got := grpcServerStreamCall(t, conn); got != 1 {
-			t.Fatalf("grpc server stream messages = %d, want 1", got)
-		}
-		if got := grpcBidiStreamCall(t, conn); got != 1 {
-			t.Fatalf("grpc bidi responses = %d, want 1", got)
-		}
-
-		if got := greeterMessageUnaryCallsForIntegration(); got != 1 {
-			t.Fatalf("message unary calls = %d, want 1", got)
-		}
-		if got := greeterMessageUploadStartsForIntegration(); got != 1 {
-			t.Fatalf("message upload starts = %d, want 1", got)
-		}
-		if got := greeterMessageUploadSendsForIntegration(); got != 1 {
-			t.Fatalf("message upload sends = %d, want 1", got)
-		}
-		if got := greeterMessageUploadFinishesForIntegration(); got != 1 {
-			t.Fatalf("message upload finishes = %d, want 1", got)
-		}
-		if got := greeterMessageListStartsForIntegration(); got != 1 {
-			t.Fatalf("message list starts = %d, want 1", got)
-		}
-		if got := greeterMessageListRecvsForIntegration(); got != 2 {
-			t.Fatalf("message list recvs = %d, want 2 including EOF probe", got)
-		}
-		if got := greeterMessageListDonesForIntegration(); got != 1 {
-			t.Fatalf("message list dones = %d, want 1", got)
-		}
-		if got := greeterMessageChatStartsForIntegration(); got != 1 {
-			t.Fatalf("message chat starts = %d, want 1", got)
-		}
-		if got := greeterMessageChatSendsForIntegration(); got != 1 {
-			t.Fatalf("message chat sends = %d, want 1", got)
-		}
-		if got := greeterMessageChatRecvsForIntegration(); got != 2 {
-			t.Fatalf("message chat recvs = %d, want 2 including EOF probe", got)
-		}
-		if got := greeterMessageChatCloseSendsForIntegration(); got != 1 {
-			t.Fatalf("message chat close sends = %d, want 1", got)
-		}
-		if got := greeterMessageChatDonesForIntegration(); got != 1 {
-			t.Fatalf("message chat dones = %d, want 1", got)
-		}
-	})
 
 	t.Run("connect bidi supports independent response pump", func(t *testing.T) {
 		resetTransportGoNativeCounters()
@@ -229,29 +173,6 @@ func TestLocalTransportAcceptance(t *testing.T) {
 		}
 	})
 
-	t.Run("grpc bidi supports independent response pump", func(t *testing.T) {
-		resetTransportGoNativeCounters()
-		setTransportGoNativeChatResponses(2)
-		if _, err := v1.RegisterGreeterGoNativeServer(transportNativeServer{}); err != nil {
-			t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
-		}
-		conn, closeConn := startGRPCTransport(t)
-		defer closeConn()
-
-		if got := grpcBidiOneRequestTwoResponsesCall(t, conn); got != 2 {
-			t.Fatalf("grpc bidi responses = %d, want 2", got)
-		}
-
-		if got := transportGoNativeChatStarts; got != 1 {
-			t.Fatalf("transport native chat starts = %d, want 1", got)
-		}
-		if got := transportGoNativeChatSends; got != 1 {
-			t.Fatalf("transport native chat sends = %d, want 1", got)
-		}
-		if got := transportGoNativeChatRecvs; got != 3 {
-			t.Fatalf("transport native chat recvs = %d, want 3 including EOF", got)
-		}
-	})
 
 	t.Run("connect converts into go native server", func(t *testing.T) {
 		registerTransportGoNativeServer(t)
@@ -270,22 +191,6 @@ func TestLocalTransportAcceptance(t *testing.T) {
 		assertGoNativeTransportCounters(t)
 	})
 
-	t.Run("grpc converts into go native server", func(t *testing.T) {
-		registerTransportGoNativeServer(t)
-		conn, closeConn := startGRPCTransport(t)
-		defer closeConn()
-
-		grpcUnaryCall(t, conn)
-		grpcClientStreamCall(t, conn)
-		if got := grpcServerStreamCall(t, conn); got != 1 {
-			t.Fatalf("grpc server stream messages = %d, want 1", got)
-		}
-		if got := grpcBidiStreamCall(t, conn); got != 1 {
-			t.Fatalf("grpc bidi responses = %d, want 1", got)
-		}
-
-		assertGoNativeTransportCounters(t)
-	})
 
 	t.Run("connect surfaces downstream errors", func(t *testing.T) {
 		registerTransportMessageServer(t)
@@ -300,18 +205,6 @@ func TestLocalTransportAcceptance(t *testing.T) {
 		}
 	})
 
-	t.Run("grpc surfaces downstream errors", func(t *testing.T) {
-		registerTransportGoNativeServer(t)
-		setTransportGoNativeUnaryError(true)
-		conn, closeConn := startGRPCTransport(t)
-		defer closeConn()
-
-		var reply emptypb.Empty
-		err := conn.Invoke(context.Background(), "/test.v1.Greeter/Unary", &emptypb.Empty{}, &reply)
-		if err == nil || !strings.Contains(err.Error(), "transport native unary boom") {
-			t.Fatalf("grpc unary error = %v, want transport native unary boom", err)
-		}
-	})
 
 	t.Run("connect stream snapshot stays on original server", func(t *testing.T) {
 		registerTransportGoNativeServer(t)
@@ -368,33 +261,6 @@ func startConnectTransport(t *testing.T) (*http.Client, string, func()) {
 	server.EnableHTTP2 = true
 	server.StartTLS()
 	return server.Client(), server.URL, server.Close
-}
-
-func startGRPCTransport(t *testing.T) (*grpc.ClientConn, func()) {
-	t.Helper()
-	listener := bufconn.Listen(1 << 20)
-	server := grpc.NewServer()
-	if err := v1.RegisterGreeterGRPCServer(server); err != nil {
-		t.Fatalf("RegisterGreeterGRPCServer() error = %v", err)
-	}
-	go func() {
-		_ = server.Serve(listener)
-	}()
-	conn, err := grpc.NewClient(
-		"passthrough:///rpccgo-local-transport",
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithContextDialer(func(ctx context.Context, target string) (net.Conn, error) {
-			return listener.DialContext(ctx)
-		}),
-	)
-	if err != nil {
-		t.Fatalf("grpc.NewClient() error = %v", err)
-	}
-	return conn, func() {
-		_ = conn.Close()
-		server.Stop()
-		_ = listener.Close()
-	}
 }
 
 func connectUnaryCall(t *testing.T, httpClient *http.Client, baseURL string) {
@@ -492,124 +358,6 @@ func connectBidiOneRequestTwoResponsesCall(t *testing.T, httpClient *http.Client
 	_, err = stream.Receive()
 	if !errors.Is(err, io.EOF) {
 		t.Fatalf("connect bidi two-response final Receive() error = %v, want io.EOF", err)
-	}
-	return count
-}
-
-func grpcUnaryCall(t *testing.T, conn grpc.ClientConnInterface) {
-	t.Helper()
-	var reply emptypb.Empty
-	if err := conn.Invoke(context.Background(), "/test.v1.Greeter/Unary", &emptypb.Empty{}, &reply); err != nil {
-		t.Fatalf("grpc Invoke() error = %v", err)
-	}
-}
-
-func grpcClientStreamCall(t *testing.T, conn grpc.ClientConnInterface) {
-	t.Helper()
-	stream, err := conn.NewStream(context.Background(), &grpc.StreamDesc{ClientStreams: true}, "/test.v1.Greeter/Upload")
-	if err != nil {
-		t.Fatalf("grpc NewStream(upload) error = %v", err)
-	}
-	client := &grpc.GenericClientStream[emptypb.Empty, emptypb.Empty]{ClientStream: stream}
-	if err := client.Send(&emptypb.Empty{}); err != nil {
-		t.Fatalf("grpc upload Send() error = %v", err)
-	}
-	if _, err := client.CloseAndRecv(); err != nil {
-		t.Fatalf("grpc upload CloseAndRecv() error = %v", err)
-	}
-}
-
-func grpcServerStreamCall(t *testing.T, conn grpc.ClientConnInterface) int {
-	t.Helper()
-	stream, err := conn.NewStream(context.Background(), &grpc.StreamDesc{ServerStreams: true}, "/test.v1.Greeter/List")
-	if err != nil {
-		t.Fatalf("grpc NewStream(list) error = %v", err)
-	}
-	client := &grpc.GenericClientStream[emptypb.Empty, emptypb.Empty]{ClientStream: stream}
-	if err := client.Send(&emptypb.Empty{}); err != nil {
-		t.Fatalf("grpc list Send() error = %v", err)
-	}
-	if err := client.CloseSend(); err != nil {
-		t.Fatalf("grpc list CloseSend() error = %v", err)
-	}
-	count := 0
-	for {
-		resp, err := client.Recv()
-		if errors.Is(err, io.EOF) {
-			return count
-		}
-		if err != nil {
-			t.Fatalf("grpc list Recv() error = %v", err)
-		}
-		if resp == nil {
-			t.Fatal("grpc list response = nil")
-		}
-		count++
-	}
-}
-
-func grpcBidiStreamCall(t *testing.T, conn grpc.ClientConnInterface) int {
-	t.Helper()
-	stream, err := conn.NewStream(context.Background(), &grpc.StreamDesc{ClientStreams: true, ServerStreams: true}, "/test.v1.Greeter/Chat")
-	if err != nil {
-		t.Fatalf("grpc NewStream(chat) error = %v", err)
-	}
-	client := &grpc.GenericClientStream[emptypb.Empty, emptypb.Empty]{ClientStream: stream}
-	if err := client.Send(&emptypb.Empty{}); err != nil {
-		t.Fatalf("grpc chat Send() error = %v", err)
-	}
-	resp, err := client.Recv()
-	if err != nil {
-		t.Fatalf("grpc chat Recv() first error = %v", err)
-	}
-	if resp == nil {
-		t.Fatal("grpc chat first response = nil")
-	}
-	if err := client.CloseSend(); err != nil {
-		t.Fatalf("grpc chat CloseSend() error = %v", err)
-	}
-	_, err = client.Recv()
-	if !errors.Is(err, io.EOF) {
-		t.Fatalf("grpc chat final Recv() error = %v, want io.EOF", err)
-	}
-	return 1
-}
-
-func grpcBidiOneRequestTwoResponsesCall(t *testing.T, conn grpc.ClientConnInterface) int {
-	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	stream, err := conn.NewStream(ctx, &grpc.StreamDesc{ClientStreams: true, ServerStreams: true}, "/test.v1.Greeter/Chat")
-	if err != nil {
-		t.Fatalf("grpc NewStream(chat two-response) error = %v", err)
-	}
-	client := &grpc.GenericClientStream[emptypb.Empty, emptypb.Empty]{ClientStream: stream}
-	if err := client.Send(&emptypb.Empty{}); err != nil {
-		t.Fatalf("grpc chat two-response Send() error = %v", err)
-	}
-	count := 0
-	resp, err := client.Recv()
-	if err != nil {
-		t.Fatalf("grpc chat two-response first Recv() error = %v", err)
-	}
-	if resp == nil {
-		t.Fatal("grpc chat two-response first response = nil")
-	}
-	count++
-	resp, err = client.Recv()
-	if err != nil {
-		t.Fatalf("grpc chat two-response second Recv() error = %v", err)
-	}
-	if resp == nil {
-		t.Fatal("grpc chat two-response second response = nil")
-	}
-	count++
-	if err := client.CloseSend(); err != nil {
-		t.Fatalf("grpc chat two-response CloseSend() error = %v", err)
-	}
-	_, err = client.Recv()
-	if !errors.Is(err, io.EOF) {
-		t.Fatalf("grpc chat two-response final Recv() error = %v, want io.EOF", err)
 	}
 	return count
 }

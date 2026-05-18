@@ -33,8 +33,10 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 	writeRemoteTransportGeneratedModule(t, tmp, remotePlugin, localPlugin)
 	writeFile(t, filepath.Join(tmp, "remote/v1/message_integration_reset.go"), strings.ReplaceAll(messageDirectPathResetSource, "package testv1", "package remotev1"))
 	writeFile(t, filepath.Join(tmp, "local/v1/message_integration_reset.go"), strings.ReplaceAll(messageDirectPathResetSource, "package testv1", "package localv1"))
-	writeFile(t, filepath.Join(tmp, "remote/v1/cgo/message_direct_path_callbacks.go"), strings.ReplaceAll(messageDirectPathFixtureCallbackSource, "example.com/messagedirect/test/v1", "example.com/remotetransport/remote/v1"))
-	writeFile(t, filepath.Join(tmp, "local/v1/cgo/message_direct_path_callbacks.go"), strings.ReplaceAll(messageDirectPathFixtureCallbackSource, "example.com/messagedirect/test/v1", "example.com/remotetransport/local/v1"))
+	writeFile(t, filepath.Join(tmp, "remote/v1/remote_transport.connect.go"), strings.ReplaceAll(remoteTransportConnectClientSource, "package testv1", "package remotev1"))
+	writeFile(t, filepath.Join(tmp, "local/v1/remote_transport.connect.go"), strings.ReplaceAll(remoteTransportConnectClientSource, "package testv1", "package localv1"))
+	writeFile(t, filepath.Join(tmp, "remote/v1/cgo/message_direct_path_callbacks.go"), strings.ReplaceAll(strings.ReplaceAll(messageDirectPathFixtureCallbackSource, "example.com/messagedirect/test/v1", "example.com/remotetransport/remote/v1"), "testv1", "remotev1"))
+	writeFile(t, filepath.Join(tmp, "local/v1/cgo/message_direct_path_callbacks.go"), strings.ReplaceAll(strings.ReplaceAll(messageDirectPathFixtureCallbackSource, "example.com/messagedirect/test/v1", "example.com/remotetransport/local/v1"), "testv1", "localv1"))
 	writeFile(t, filepath.Join(tmp, "remote/v1/cgo/remote_server_main.go"), remoteTransportServerMainSource)
 	writeFile(t, filepath.Join(tmp, "local/v1/cgo/remote_transport_test.go"), remoteTransportLocalFixtureTestSource)
 
@@ -87,7 +89,7 @@ func newRemoteTransportTestPlugin(t *testing.T, protoPath, goPackage string) *pr
 				SourceCodeInfo: &descriptorpb.SourceCodeInfo{Location: []*descriptorpb.SourceCodeInfo_Location{{
 					Path:            []int32{6, 0},
 					Span:            []int32{0, 0, 0},
-					LeadingComments: proto.String("@rpccgo: msg-connect|msg-grpc|native\n"),
+					LeadingComments: proto.String("@rpccgo: msg-connect|native\n"),
 				}}},
 			},
 		},
@@ -105,7 +107,7 @@ func writeRemoteTransportGeneratedModule(t *testing.T, root string, plugins ...*
 	if err != nil {
 		t.Fatalf("filepath.Abs() error = %v", err)
 	}
-	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/remotetransport\n\ngo 1.24.4\n\nrequire (\n\tconnectrpc.com/connect v1.19.1\n\tgoogle.golang.org/grpc v1.79.3\n\tgoogle.golang.org/protobuf v1.36.11\n\trpccgo v0.0.0\n)\n\nreplace rpccgo => "+repoRoot+"\n")
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/remotetransport\n\ngo 1.24.4\n\nrequire (\n\tconnectrpc.com/connect v1.19.1\n\tgoogle.golang.org/protobuf v1.36.11\n\trpccgo v0.0.0\n)\n\nreplace rpccgo => "+repoRoot+"\n")
 	writeFile(t, filepath.Join(root, "go.sum"), "google.golang.org/protobuf v1.36.11 h1:fV6ZwhNocDyBLK0dj+fg8ektcVegBBuEolpbTQyBNVE=\ngoogle.golang.org/protobuf v1.36.11/go.mod h1:HTf+CrKn2C3g5S8VImy6tdcUvCska2kB7j23XfzDpco=\n")
 	for _, plugin := range plugins {
 		for _, generated := range plugin.Response().GetFile() {
@@ -113,6 +115,65 @@ func writeRemoteTransportGeneratedModule(t *testing.T, root string, plugins ...*
 		}
 	}
 }
+
+const remoteTransportConnectClientSource = `package testv1
+
+import (
+	context "context"
+	strings "strings"
+
+	connect "connectrpc.com/connect"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
+)
+
+type GreeterClient interface {
+	Unary(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	Upload(context.Context) (*connect.ClientStreamForClientSimple[emptypb.Empty, emptypb.Empty], error)
+	List(context.Context, *emptypb.Empty) (*connect.ServerStreamForClient[emptypb.Empty], error)
+	Chat(context.Context) (*connect.BidiStreamForClientSimple[emptypb.Empty, emptypb.Empty], error)
+}
+
+type greeterClient struct {
+	unary  *connect.Client[emptypb.Empty, emptypb.Empty]
+	upload *connect.Client[emptypb.Empty, emptypb.Empty]
+	list   *connect.Client[emptypb.Empty, emptypb.Empty]
+	chat   *connect.Client[emptypb.Empty, emptypb.Empty]
+}
+
+func NewGreeterClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) GreeterClient {
+	baseURL = strings.TrimRight(baseURL, "/")
+	return &greeterClient{
+		unary:  connect.NewClient[emptypb.Empty, emptypb.Empty](httpClient, baseURL+GreeterUnaryConnectProcedure, opts...),
+		upload: connect.NewClient[emptypb.Empty, emptypb.Empty](httpClient, baseURL+GreeterUploadConnectProcedure, opts...),
+		list:   connect.NewClient[emptypb.Empty, emptypb.Empty](httpClient, baseURL+GreeterListConnectProcedure, opts...),
+		chat:   connect.NewClient[emptypb.Empty, emptypb.Empty](httpClient, baseURL+GreeterChatConnectProcedure, opts...),
+	}
+}
+
+func (c *greeterClient) Unary(ctx context.Context, request *emptypb.Empty) (*emptypb.Empty, error) {
+	response, err := c.unary.CallUnary(ctx, connect.NewRequest(request))
+	if err != nil {
+		return nil, err
+	}
+	return response.Msg, nil
+}
+
+func (c *greeterClient) Upload(ctx context.Context) (*connect.ClientStreamForClientSimple[emptypb.Empty, emptypb.Empty], error) {
+	return c.upload.CallClientStreamSimple(ctx)
+}
+
+func (c *greeterClient) List(ctx context.Context, request *emptypb.Empty) (*connect.ServerStreamForClient[emptypb.Empty], error) {
+	stream, err := c.list.CallServerStream(ctx, connect.NewRequest(request))
+	if err != nil {
+		return nil, err
+	}
+	return stream, nil
+}
+
+func (c *greeterClient) Chat(ctx context.Context) (*connect.BidiStreamForClientSimple[emptypb.Empty, emptypb.Empty], error) {
+	return c.chat.CallBidiStreamSimple(ctx)
+}
+`
 
 const remoteTransportServerMainSource = `package main
 
@@ -130,7 +191,6 @@ import (
 	time "time"
 
 	remotev1 "example.com/remotetransport/remote/v1"
-	grpc "google.golang.org/grpc"
 )
 
 func main() {
@@ -175,17 +235,6 @@ func main() {
 		}()
 		<-stop
 		_ = server.Close()
-	case "grpc":
-		server := grpc.NewServer()
-		if err := remotev1.RegisterGreeterGRPCServer(server); err != nil {
-			panic(err)
-		}
-		fmt.Println(listener.Addr().String())
-		go func() {
-			_ = server.Serve(listener)
-		}()
-		<-stop
-		server.Stop()
 	default:
 		panic("unknown transport: " + *transport)
 	}
@@ -267,8 +316,6 @@ import (
 	time "time"
 
 	localv1 "example.com/remotetransport/local/v1"
-	grpc "google.golang.org/grpc"
-	insecure "google.golang.org/grpc/credentials/insecure"
 	rpcruntime "rpccgo/rpcruntime"
 )
 
@@ -277,17 +324,6 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 		remote := startRemoteTransportServer(t, "connect", false)
 		defer remote.close()
 		registerConnectRemote(t, remote)
-
-		ctx, cancel := remoteTransportCallContext(t)
-		defer cancel()
-		assertMessageNoErr(t, CallGreeterUnaryMessageUnary(ctx, 0, 0, &GreeterMessageOutput{}))
-	})
-
-	t.Run("grpc remote routes message client to remote cgo message server", func(t *testing.T) {
-		remote := startRemoteTransportServer(t, "grpc", false)
-		defer remote.close()
-		closeRemoteClient := registerGRPCRemote(t, remote)
-		defer closeRemoteClient()
 
 		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
@@ -304,22 +340,10 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 		assertNativeUnaryNoErr(t, CallGreeterUnaryNativeUnary(ctx))
 	})
 
-	t.Run("grpc remote reuses converter for native client", func(t *testing.T) {
-		remote := startRemoteTransportServer(t, "grpc", false)
+	t.Run("connect remote client stream captures adapter snapshot", func(t *testing.T) {
+		remote := startRemoteTransportServer(t, "connect", false)
 		defer remote.close()
-		closeRemoteClient := registerGRPCRemote(t, remote)
-		defer closeRemoteClient()
-
-		ctx, cancel := remoteTransportCallContext(t)
-		defer cancel()
-		assertNativeUnaryNoErr(t, CallGreeterUnaryNativeUnary(ctx))
-	})
-
-	t.Run("grpc remote client stream captures adapter snapshot", func(t *testing.T) {
-		remote := startRemoteTransportServer(t, "grpc", false)
-		defer remote.close()
-		closeRemoteClient := registerGRPCRemote(t, remote)
-		defer closeRemoteClient()
+		registerConnectRemote(t, remote)
 
 		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
@@ -365,36 +389,6 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 		remote := startRemoteTransportCancelObserverServer(t, "connect")
 		defer remote.close()
 		registerConnectRemote(t, remote)
-
-		ctx, cancel := remoteTransportCallContext(t)
-		defer cancel()
-		handle, errID := StartGreeterChatMessageBidiStream(ctx)
-		assertMessageNoErr(t, errID)
-		assertMessageNoErr(t, SendGreeterChatMessageBidiStream(ctx, handle, 0, 0))
-		assertMessageNoErr(t, CancelGreeterChatMessageBidiStream(ctx, handle))
-		remote.waitForCancelSignal(t, "chat")
-	})
-
-	t.Run("grpc remote client stream cancel notifies remote context", func(t *testing.T) {
-		remote := startRemoteTransportCancelObserverServer(t, "grpc")
-		defer remote.close()
-		closeRemoteClient := registerGRPCRemote(t, remote)
-		defer closeRemoteClient()
-
-		ctx, cancel := remoteTransportCallContext(t)
-		defer cancel()
-		handle, errID := StartGreeterUploadMessageClientStream(ctx)
-		assertMessageNoErr(t, errID)
-		assertMessageNoErr(t, SendGreeterUploadMessageClientStream(ctx, handle, 0, 0))
-		assertMessageNoErr(t, CancelGreeterUploadMessageClientStream(ctx, handle))
-		remote.waitForCancelSignal(t, "upload")
-	})
-
-	t.Run("grpc remote bidi cancel notifies remote context", func(t *testing.T) {
-		remote := startRemoteTransportCancelObserverServer(t, "grpc")
-		defer remote.close()
-		closeRemoteClient := registerGRPCRemote(t, remote)
-		defer closeRemoteClient()
 
 		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
@@ -595,29 +589,10 @@ func waitForRemoteTransportPort(t *testing.T, addr string) {
 func registerConnectRemote(t *testing.T, remote remoteTransportProcess) {
 	t.Helper()
 	localv1.ResetGreeterDispatcherForIntegrationTest()
-	if _, err := localv1.RegisterGreeterConnectRemoteServer(http.DefaultClient, "http://"+remote.addr); err != nil {
+	client := localv1.NewGreeterClient(http.DefaultClient, "http://"+remote.addr)
+	if _, err := localv1.RegisterGreeterConnectRemoteServer(client); err != nil {
 		t.Fatalf("RegisterGreeterConnectRemoteServer() error = %v", err)
 	}
-}
-
-func registerGRPCRemote(t *testing.T, remote remoteTransportProcess) func() {
-	t.Helper()
-	localv1.ResetGreeterDispatcherForIntegrationTest()
-	conn, err := grpc.NewClient(
-		"passthrough:///"+remote.addr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithContextDialer(func(ctx context.Context, target string) (net.Conn, error) {
-			return net.Dial("tcp", remote.addr)
-		}),
-	)
-	if err != nil {
-		t.Fatalf("grpc.NewClient() error = %v", err)
-	}
-	if _, err := localv1.RegisterGreeterGRPCRemoteServer(conn); err != nil {
-		_ = conn.Close()
-		t.Fatalf("RegisterGreeterGRPCRemoteServer() error = %v", err)
-	}
-	return func() { _ = conn.Close() }
 }
 
 func assertMessageNoErr(t *testing.T, errID int32) {

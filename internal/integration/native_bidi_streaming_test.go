@@ -682,6 +682,7 @@ static void setGreeterBidiErrorMode(int32_t mode) {
 import "C"
 
 import (
+	"errors"
 	"sync/atomic"
 	"unsafe"
 
@@ -690,8 +691,18 @@ import (
 
 func registerGreeterBidiCGONativeServerCallbacks() error {
 	callbacks := C.greeterBidiCallbacks()
-	_, err := RegisterGreeterCGONativeServer(&callbacks)
-	return err
+	errID := rpccgo_native_testv1_Greeter_Chat_register(callbacks.ChatStart, callbacks.ChatSend, callbacks.ChatRecv, callbacks.ChatCloseSend, callbacks.ChatDone, callbacks.ChatCancel)
+	if errID == 0 {
+		return nil
+	}
+	text, ptr, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+	if !ok {
+		return nil
+	}
+	if ptr != 0 {
+		rpcruntime.Release(ptr)
+	}
+	return errors.New(string(text))
 }
 
 func greeterBidiCancelCount() int32 {

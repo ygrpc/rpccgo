@@ -126,13 +126,28 @@ static int getRepeatedMessageUnaryCalls(void) { return repeatedMessageUnaryCalls
 */
 import "C"
 
-import repeatedv1 "example.com/repeatednativeabi/repeated/v1"
+import (
+	errors "errors"
+
+	repeatedv1 "example.com/repeatednativeabi/repeated/v1"
+	rpcruntime "rpccgo/rpcruntime"
+)
 
 func registerRepeatedGreeterMessageCallbacksForIntegration() error {
 	repeatedv1.ResetRepeatedGreeterDispatcherForIntegrationTest()
 	callbacks := C.repeatedGreeterMessageCallbacks()
-	_, err := RegisterRepeatedGreeterCGOMessageServer(&callbacks)
-	return err
+	errID := rpccgo_msg_repeatedv1_RepeatedGreeter_Echo_register(callbacks.Echo)
+	if errID == 0 {
+		return nil
+	}
+	text, ptr, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+	if !ok {
+		return errors.New("missing repeated message registration error")
+	}
+	if ptr != 0 {
+		rpcruntime.Release(ptr)
+	}
+	return errors.New(string(text))
 }
 
 func repeatedMessageUnaryCallsForIntegration() int {

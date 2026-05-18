@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
@@ -14,8 +13,6 @@ import (
 	connect "connectrpc.com/connect"
 	greeterv1 "example.com/rpccgo-full/proto"
 	"golang.org/x/net/http2"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -26,15 +23,7 @@ func main() {
 
 func run(ctx context.Context) error {
 	connectBaseURL := strings.TrimRight(envOrDefault("RPCCGO_FULL_CONNECT_URL", "http://127.0.0.1:8081"), "/")
-	grpcAddr := envOrDefault("RPCCGO_FULL_GRPC_ADDR", "127.0.0.1:8082")
-
-	if err := runConnectDemo(ctx, connectBaseURL); err != nil {
-		return err
-	}
-	if err := runGRPCDemo(ctx, grpcAddr); err != nil {
-		return err
-	}
-	return nil
+	return runConnectDemo(ctx, connectBaseURL)
 }
 
 func runConnectDemo(ctx context.Context, baseURL string) error {
@@ -62,43 +51,6 @@ func runConnectDemo(ctx context.Context, baseURL string) error {
 		return err
 	}
 	fmt.Println("connect client-stream:", collectResp.Msg.GetMessage())
-	return nil
-}
-
-func runGRPCDemo(ctx context.Context, addr string) error {
-	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return err
-	}
-	defer conn.Close()
-
-	unaryResp := new(greeterv1.SayHelloResponse)
-	if err := conn.Invoke(ctx, greeterv1.GreeterSayHelloGRPCFullMethodName, &greeterv1.SayHelloRequest{Name: "grpc-demo", City: "local"}, unaryResp); err != nil {
-		return err
-	}
-	fmt.Println("grpc unary:", unaryResp.GetMessage())
-
-	stream, err := conn.NewStream(ctx, &grpc.StreamDesc{ServerStreams: true}, greeterv1.GreeterBroadcastGRPCFullMethodName)
-	if err != nil {
-		return err
-	}
-	client := &grpc.GenericClientStream[greeterv1.SayHelloRequest, greeterv1.SayHelloResponse]{ClientStream: stream}
-	if err := client.Send(&greeterv1.SayHelloRequest{Name: "grpc-broadcast"}); err != nil {
-		return err
-	}
-	if err := client.CloseSend(); err != nil {
-		return err
-	}
-	for {
-		resp, err := client.Recv()
-		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			return err
-		}
-		fmt.Println("grpc server-stream:", resp.GetMessage())
-	}
 	return nil
 }
 

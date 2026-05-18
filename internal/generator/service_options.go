@@ -75,6 +75,9 @@ func parseServiceRPCCGODirective(directive string) (AdapterSelection, error) {
 	if len(seen) == 1 && seen[AdapterTokenNative] {
 		seen[AdapterTokenMessageConnect] = true
 	}
+	if seen[AdapterTokenMessageConnect] && seen[AdapterTokenMessageGRPC] {
+		return AdapterSelection{}, fmt.Errorf("@rpccgo message transport must select exactly one of msg-connect or msg-grpc")
+	}
 
 	return adapterSelectionFromSet(seen), nil
 }

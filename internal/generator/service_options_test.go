@@ -27,11 +27,6 @@ func TestParseServiceRPCCGOOptions(t *testing.T) {
 			want:     []AdapterToken{AdapterTokenMessageGRPC},
 		},
 		{
-			name:     "parses both message adapters",
-			comments: "@rpccgo:msg-connect|msg-grpc",
-			want:     []AdapterToken{AdapterTokenMessageConnect, AdapterTokenMessageGRPC},
-		},
-		{
 			name:     "parses message connect plus native",
 			comments: "@rpccgo:msg-connect|native",
 			want:     []AdapterToken{AdapterTokenMessageConnect, AdapterTokenNative},
@@ -42,19 +37,14 @@ func TestParseServiceRPCCGOOptions(t *testing.T) {
 			want:     []AdapterToken{AdapterTokenMessageGRPC, AdapterTokenNative},
 		},
 		{
-			name:     "parses all adapters",
-			comments: "@rpccgo:msg-connect|msg-grpc|native",
-			want:     []AdapterToken{AdapterTokenMessageConnect, AdapterTokenMessageGRPC, AdapterTokenNative},
-		},
-		{
 			name:     "expands native only to msg connect plus native",
 			comments: "@rpccgo:native",
 			want:     []AdapterToken{AdapterTokenMessageConnect, AdapterTokenNative},
 		},
 		{
 			name:     "deduplicates and canonicalizes adapter tokens",
-			comments: "@rpccgo:native|msg-grpc|msg-connect|native|msg-grpc",
-			want:     []AdapterToken{AdapterTokenMessageConnect, AdapterTokenMessageGRPC, AdapterTokenNative},
+			comments: "@rpccgo:native|msg-grpc|native|msg-grpc",
+			want:     []AdapterToken{AdapterTokenMessageGRPC, AdapterTokenNative},
 		},
 		{
 			name: "finds annotation in service leading comments",
@@ -123,6 +113,16 @@ func TestParseServiceRPCCGOOptionsErrors(t *testing.T) {
 			name:        "repeated colon is rejected",
 			comments:    "@rpccgo:msg-connect:msg-grpc",
 			wantMessage: "invalid @rpccgo directive",
+		},
+		{
+			name:        "simultaneous message transports are rejected",
+			comments:    "@rpccgo:msg-connect|msg-grpc",
+			wantMessage: "@rpccgo message transport must select exactly one of msg-connect or msg-grpc",
+		},
+		{
+			name:        "simultaneous message transports with native are rejected",
+			comments:    "@rpccgo:msg-connect|msg-grpc|native",
+			wantMessage: "@rpccgo message transport must select exactly one of msg-connect or msg-grpc",
 		},
 		{
 			name:        "conflicting repeated directives are rejected",

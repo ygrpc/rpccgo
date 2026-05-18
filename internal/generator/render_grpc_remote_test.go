@@ -4,6 +4,15 @@ import "testing"
 
 func TestRenderGRPCRemoteFileEmitsMessageAdapter(t *testing.T) {
 	file := completeServicePlanTestFile()
+	file.SourceCodeInfo = completeServicePlanServiceComments([]string{
+		"",
+		"@rpccgo: msg-connect\n",
+		"@rpccgo: msg-grpc\n",
+		"@rpccgo: msg-connect\n",
+		"@rpccgo: msg-connect|native\n",
+		"@rpccgo: msg-grpc|native\n",
+		"@rpccgo: native\n",
+	})
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
 	if _, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true}); err != nil {
@@ -15,25 +24,29 @@ func TestRenderGRPCRemoteFileEmitsMessageAdapter(t *testing.T) {
 		`grpc "google.golang.org/grpc"`,
 		`proto "google.golang.org/protobuf/proto"`,
 		"type AllServiceGRPCRemoteServer struct {",
-		"conn grpc.ClientConnInterface",
-		"func NewAllServiceGRPCRemoteServer(conn grpc.ClientConnInterface) (*AllServiceGRPCRemoteServer, error) {",
-		"func RegisterAllServiceGRPCRemoteServer(conn grpc.ClientConnInterface) (rpcruntime.AdapterSnapshot[AllServiceMessageAdapter], error) {",
+		"client AllServiceClient",
+		"func NewAllServiceGRPCRemoteServer(client AllServiceClient) (*AllServiceGRPCRemoteServer, error) {",
+		`return nil, errors.New("rpccgo: grpc remote client is nil")`,
+		"func RegisterAllServiceGRPCRemoteServer(client AllServiceClient) (rpcruntime.AdapterSnapshot[AllServiceMessageAdapter], error) {",
 		"return RegisterAllServiceCGOMessageActiveServer(rpcruntime.ServerKindGRPCRemote, adapter)",
 		"func (s *AllServiceGRPCRemoteServer) UnaryMessage(ctx context.Context, req []byte) ([]byte, error) {",
-		"err := s.conn.Invoke(ctx, AllServiceUnaryGRPCFullMethodName, request, response)",
+		"response, err := s.client.Unary(ctx, request)",
 		"func (s *AllServiceGRPCRemoteServer) StartClientStreamMessage(ctx context.Context) (AllServiceClientStreamMessageStreamSession, error) {",
 		"streamCtx, cancel := context.WithCancel(ctx)",
-		"stream, err := s.conn.NewStream(streamCtx, &grpc.StreamDesc{ClientStreams: true}, AllServiceClientStreamGRPCFullMethodName)",
+		"stream, err := s.client.ClientStream(streamCtx)",
+		"stream grpc.ClientStreamingClient[AllRequest, AllReply]",
 		"cancel context.CancelFunc",
 		"cancel: cancel",
 		"s.cancel()",
 		"return s.stream.CloseSend()",
 		"func (s *AllServiceGRPCRemoteServer) StartServerStreamMessage(ctx context.Context, req []byte) (AllServiceServerStreamMessageStreamSession, error) {",
-		"stream, err := s.conn.NewStream(streamCtx, &grpc.StreamDesc{ServerStreams: true}, AllServiceServerStreamGRPCFullMethodName)",
+		"stream, err := s.client.ServerStream(streamCtx, request)",
+		"stream grpc.ServerStreamingClient[AllReply]",
 		"func (s *AllServiceGRPCRemoteServer) StartBidiStreamMessage(ctx context.Context) (AllServiceBidiStreamMessageStreamSession, error) {",
-		"stream, err := s.conn.NewStream(streamCtx, &grpc.StreamDesc{ClientStreams: true, ServerStreams: true}, AllServiceBidiStreamGRPCFullMethodName)",
+		"stream, err := s.client.BidiStream(streamCtx)",
+		"stream grpc.BidiStreamingClient[AllRequest, AllReply]",
 	} {
 		assertGeneratedContentContains(t, plugin, remoteFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, remoteFile, "connectrpc.com/connect", "panic(", "ClientModel")
+	assertGeneratedFileContentDoesNotContain(t, plugin, remoteFile, "connectrpc.com/connect", "panic(", "ClientModel", "ClientConnInterface", ".Invoke(", ".NewStream(", "GRPCFullMethodName")
 }

@@ -23,30 +23,22 @@ func renderGRPCRemoteFile(plugin *protogen.Plugin, plan FilePlan, service Servic
 	g.P("// ", messageStageMarker(service, file))
 	g.P()
 
-	for _, method := range service.Methods {
-		if method.Streaming == StreamingKindUnary {
-			continue
-		}
-		g.P("const ", grpcFullMethodConstName(service, method), ` = "/`, service.FullName, `/`, method.Name, `"`)
-	}
-	g.P()
-
 	typeName := service.GoName + "GRPCRemoteServer"
 	g.P("type ", typeName, " struct {")
-	g.P("conn grpc.ClientConnInterface")
+	g.P("client ", service.GoName, "Client")
 	g.P("}")
 	g.P()
 
-	g.P("func New", typeName, "(conn grpc.ClientConnInterface) (*", typeName, ", error) {")
-	g.P("if conn == nil {")
-	g.P(`return nil, errors.New("rpccgo: grpc remote client connection is nil")`)
+	g.P("func New", typeName, "(client ", service.GoName, "Client) (*", typeName, ", error) {")
+	g.P("if client == nil {")
+	g.P(`return nil, errors.New("rpccgo: grpc remote client is nil")`)
 	g.P("}")
-	g.P("return &", typeName, "{conn: conn}, nil")
+	g.P("return &", typeName, "{client: client}, nil")
 	g.P("}")
 	g.P()
 
-	g.P("func Register", typeName, "(conn grpc.ClientConnInterface) (rpcruntime.AdapterSnapshot[", service.GoName, "MessageAdapter], error) {")
-	g.P("adapter, err := New", typeName, "(conn)")
+	g.P("func Register", typeName, "(client ", service.GoName, "Client) (rpcruntime.AdapterSnapshot[", service.GoName, "MessageAdapter], error) {")
+	g.P("adapter, err := New", typeName, "(client)")
 	g.P("if err != nil {")
 	g.P("return rpcruntime.AdapterSnapshot[", service.GoName, "MessageAdapter]{}, err")
 	g.P("}")
@@ -57,7 +49,7 @@ func renderGRPCRemoteFile(plugin *protogen.Plugin, plan FilePlan, service Servic
 	for _, method := range service.Methods {
 		switch method.Streaming {
 		case StreamingKindUnary:
-			renderGRPCRemoteUnary(g, service, method, typeName)
+			renderGRPCRemoteUnary(g, method, typeName)
 		case StreamingKindClientStreaming:
 			renderGRPCRemoteClientStreaming(g, service, method, typeName)
 		case StreamingKindServerStreaming:
@@ -70,20 +62,18 @@ func renderGRPCRemoteFile(plugin *protogen.Plugin, plan FilePlan, service Servic
 	return nil
 }
 
-func renderGRPCRemoteUnary(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, typeName string) {
+func renderGRPCRemoteUnary(g *protogen.GeneratedFile, method MethodPlan, typeName string) {
 	reqType := qualifiedMethodType(g, method.Request)
-	respType := qualifiedMethodType(g, method.Response)
 
 	g.P("func (s *", typeName, ") ", method.GoName, "Message(ctx context.Context, req []byte) ([]byte, error) {")
-	g.P("if s == nil || s.conn == nil {")
-	g.P(`return nil, errors.New("rpccgo: grpc remote server is nil")`)
+	g.P("if s == nil || s.client == nil {")
+	g.P(`return nil, errors.New("rpccgo: grpc remote client is nil")`)
 	g.P("}")
 	g.P("request := new(", reqType, ")")
 	g.P("if err := proto.Unmarshal(req, request); err != nil {")
 	g.P(`return nil, status.Errorf(codes.InvalidArgument, "rpccgo: grpc remote request protobuf unmarshal failed: %v", err)`)
 	g.P("}")
-	g.P("response := new(", respType, ")")
-	g.P("err := s.conn.Invoke(ctx, ", grpcFullMethodConstName(service, method), ", request, response)")
+	g.P("response, err := s.client.", method.GoName, "(ctx, request)")
 	g.P("if err != nil {")
 	g.P("return nil, err")
 	g.P("}")
@@ -102,21 +92,21 @@ func renderGRPCRemoteClientStreaming(g *protogen.GeneratedFile, service ServiceP
 	sessionType := service.GoName + method.GoName + "GRPCRemoteClientStreamSession"
 
 	g.P("func (s *", typeName, ") Start", method.GoName, "Message(ctx context.Context) (", service.GoName, method.GoName, "MessageStreamSession, error) {")
-	g.P("if s == nil || s.conn == nil {")
-	g.P(`return nil, errors.New("rpccgo: grpc remote server is nil")`)
+	g.P("if s == nil || s.client == nil {")
+	g.P(`return nil, errors.New("rpccgo: grpc remote client is nil")`)
 	g.P("}")
 	g.P("streamCtx, cancel := context.WithCancel(ctx)")
-	g.P("stream, err := s.conn.NewStream(streamCtx, &grpc.StreamDesc{ClientStreams: true}, ", grpcFullMethodConstName(service, method), ")")
+	g.P("stream, err := s.client.", method.GoName, "(streamCtx)")
 	g.P("if err != nil {")
 	g.P("cancel()")
 	g.P("return nil, err")
 	g.P("}")
-	g.P("return &", sessionType, "{stream: &grpc.GenericClientStream[", reqType, ", ", respType, "]{ClientStream: stream}, cancel: cancel}, nil")
+	g.P("return &", sessionType, "{stream: stream, cancel: cancel}, nil")
 	g.P("}")
 	g.P()
 
 	g.P("type ", sessionType, " struct {")
-	g.P("stream *grpc.GenericClientStream[", reqType, ", ", respType, "]")
+	g.P("stream grpc.ClientStreamingClient[", reqType, ", ", respType, "]")
 	g.P("cancel context.CancelFunc")
 	g.P("}")
 	g.P()
@@ -175,35 +165,25 @@ func renderGRPCRemoteServerStreaming(g *protogen.GeneratedFile, service ServiceP
 	sessionType := service.GoName + method.GoName + "GRPCRemoteServerStreamSession"
 
 	g.P("func (s *", typeName, ") Start", method.GoName, "Message(ctx context.Context, req []byte) (", service.GoName, method.GoName, "MessageStreamSession, error) {")
-	g.P("if s == nil || s.conn == nil {")
-	g.P(`return nil, errors.New("rpccgo: grpc remote server is nil")`)
+	g.P("if s == nil || s.client == nil {")
+	g.P(`return nil, errors.New("rpccgo: grpc remote client is nil")`)
+	g.P("}")
+	g.P("request := new(", reqType, ")")
+	g.P("if err := proto.Unmarshal(req, request); err != nil {")
+	g.P(`return nil, status.Errorf(codes.InvalidArgument, "rpccgo: grpc remote request protobuf unmarshal failed: %v", err)`)
 	g.P("}")
 	g.P("streamCtx, cancel := context.WithCancel(ctx)")
-	g.P("stream, err := s.conn.NewStream(streamCtx, &grpc.StreamDesc{ServerStreams: true}, ", grpcFullMethodConstName(service, method), ")")
+	g.P("stream, err := s.client.", method.GoName, "(streamCtx, request)")
 	g.P("if err != nil {")
 	g.P("cancel()")
 	g.P("return nil, err")
 	g.P("}")
-	g.P("request := new(", reqType, ")")
-	g.P("if err := proto.Unmarshal(req, request); err != nil {")
-	g.P("cancel()")
-	g.P(`return nil, status.Errorf(codes.InvalidArgument, "rpccgo: grpc remote request protobuf unmarshal failed: %v", err)`)
-	g.P("}")
-	g.P("client := &grpc.GenericClientStream[", reqType, ", ", respType, "]{ClientStream: stream}")
-	g.P("if err := client.Send(request); err != nil {")
-	g.P("cancel()")
-	g.P("return nil, err")
-	g.P("}")
-	g.P("if err := client.CloseSend(); err != nil {")
-	g.P("cancel()")
-	g.P("return nil, err")
-	g.P("}")
-	g.P("return &", sessionType, "{stream: client, cancel: cancel}, nil")
+	g.P("return &", sessionType, "{stream: stream, cancel: cancel}, nil")
 	g.P("}")
 	g.P()
 
 	g.P("type ", sessionType, " struct {")
-	g.P("stream *grpc.GenericClientStream[", reqType, ", ", respType, "]")
+	g.P("stream grpc.ServerStreamingClient[", respType, "]")
 	g.P("cancel context.CancelFunc")
 	g.P("}")
 	g.P()
@@ -256,21 +236,21 @@ func renderGRPCRemoteBidiStreaming(g *protogen.GeneratedFile, service ServicePla
 	sessionType := service.GoName + method.GoName + "GRPCRemoteBidiStreamSession"
 
 	g.P("func (s *", typeName, ") Start", method.GoName, "Message(ctx context.Context) (", service.GoName, method.GoName, "MessageStreamSession, error) {")
-	g.P("if s == nil || s.conn == nil {")
-	g.P(`return nil, errors.New("rpccgo: grpc remote server is nil")`)
+	g.P("if s == nil || s.client == nil {")
+	g.P(`return nil, errors.New("rpccgo: grpc remote client is nil")`)
 	g.P("}")
 	g.P("streamCtx, cancel := context.WithCancel(ctx)")
-	g.P("stream, err := s.conn.NewStream(streamCtx, &grpc.StreamDesc{ClientStreams: true, ServerStreams: true}, ", grpcFullMethodConstName(service, method), ")")
+	g.P("stream, err := s.client.", method.GoName, "(streamCtx)")
 	g.P("if err != nil {")
 	g.P("cancel()")
 	g.P("return nil, err")
 	g.P("}")
-	g.P("return &", sessionType, "{stream: &grpc.GenericClientStream[", reqType, ", ", respType, "]{ClientStream: stream}, cancel: cancel}, nil")
+	g.P("return &", sessionType, "{stream: stream, cancel: cancel}, nil")
 	g.P("}")
 	g.P()
 
 	g.P("type ", sessionType, " struct {")
-	g.P("stream *grpc.GenericClientStream[", reqType, ", ", respType, "]")
+	g.P("stream grpc.BidiStreamingClient[", reqType, ", ", respType, "]")
 	g.P("cancel context.CancelFunc")
 	g.P("}")
 	g.P()

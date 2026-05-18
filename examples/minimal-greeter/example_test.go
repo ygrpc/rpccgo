@@ -14,6 +14,7 @@ func TestMinimalGreeterGenerate(t *testing.T) {
 
 	for _, path := range []string{
 		"gen/greeter/v1/greeter.pb.go",
+		"gen/greeter/v1/greeter.connect.go",
 		"gen/greeter/v1/greeter.greeter.runtime.rpccgo.go",
 		"gen/greeter/v1/greeter.greeter.server.native.rpccgo.go",
 		"gen/greeter/v1/greeter.greeter.server.connect.rpccgo.go",
@@ -102,6 +103,7 @@ func installProtocPlugins(t *testing.T) string {
 	binDir := t.TempDir()
 	for _, pkg := range []string{
 		"google.golang.org/protobuf/cmd/protoc-gen-go",
+		"connectrpc.com/connect/cmd/protoc-gen-connect-go",
 		"../../cmd/protoc-gen-rpc-cgo",
 	} {
 		cmd := exec.Command("go", "install", pkg)
