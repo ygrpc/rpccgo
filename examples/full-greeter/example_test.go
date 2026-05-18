@@ -64,7 +64,6 @@ func TestFullGreeterCSharedClientExample(t *testing.T) {
 		"rpccgo_msg_greeterv1_Greeter_SayHello",
 		"rpccgo_take_error_text",
 		"rpccgo_release",
-		"rpccgo_full_greeter_register_native_server",
 	} {
 		if !bytes.Contains(header, []byte(symbol)) {
 			t.Fatalf("c-shared header missing %q", symbol)

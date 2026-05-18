@@ -115,8 +115,6 @@ static void run_output_error_demo(void) {
 }
 
 int main(void) {
-  assert_status_ok(rpccgo_full_greeter_register_native_server(),
-                   "register native server error:");
   run_native_unary_demo();
   run_native_collect_demo();
   run_output_error_demo();

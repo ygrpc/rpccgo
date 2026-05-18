@@ -77,8 +77,6 @@ static void run_output_error_demo(void) {
 }
 
 int main(void) {
-  assert_status_ok(rpccgo_minimal_greeter_register_native_server(),
-                   "register native server error:");
   run_native_unary_demo();
   run_output_error_demo();
   return 0;
