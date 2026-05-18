@@ -132,7 +132,6 @@ func renderMessageClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan
 	g.P("func ", messageClientStreamingFinishFuncName(service, method), "(ctx context.Context, handle int32, output *", service.GoName, "MessageOutput) int32 {")
 	renderMessageClientTakeSessionPrefix(g, service, method, servicePackage, true)
 	g.P("resp, err := session.Finish(ctx)")
-	renderMessageClientDeleteSession(g, service, servicePackage)
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -145,7 +144,6 @@ func renderMessageClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan
 	g.P("func ", messageClientStreamingCancelFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
 	renderMessageClientTakeSessionPrefix(g, service, method, servicePackage, false)
 	g.P("err := session.Cancel(ctx)")
-	renderMessageClientDeleteSession(g, service, servicePackage)
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -191,7 +189,6 @@ func renderMessageServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan
 	g.P("func ", messageServerStreamingDoneFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
 	renderMessageClientTakeSessionPrefix(g, service, method, servicePackage, false)
 	g.P("err := session.Done(ctx)")
-	renderMessageClientDeleteSession(g, service, servicePackage)
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -202,7 +199,6 @@ func renderMessageServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan
 	g.P("func ", messageServerStreamingCancelFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
 	renderMessageClientTakeSessionPrefix(g, service, method, servicePackage, false)
 	g.P("err := session.Cancel(ctx)")
-	renderMessageClientDeleteSession(g, service, servicePackage)
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -266,7 +262,6 @@ func renderMessageBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, 
 	g.P("func ", messageBidiStreamingDoneFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
 	renderMessageClientTakeSessionPrefix(g, service, method, servicePackage, false)
 	g.P("err := session.Done(ctx)")
-	renderMessageClientDeleteSession(g, service, servicePackage)
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -277,7 +272,6 @@ func renderMessageBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, 
 	g.P("func ", messageBidiStreamingCancelFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
 	renderMessageClientTakeSessionPrefix(g, service, method, servicePackage, false)
 	g.P("err := session.Cancel(ctx)")
-	renderMessageClientDeleteSession(g, service, servicePackage)
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -342,14 +336,10 @@ func renderMessageClientTakeSessionPrefix(g *protogen.GeneratedFile, service Ser
 		g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: message stream output is nil")))`)
 		g.P("}")
 	}
-	g.P("session, ok := rpcruntime.LoadDispatcherStream[", servicePackage, service.GoName, "ActiveAdapter, ", messageClientMessageStreamSessionName(service, method, servicePackage), "](", servicePackage, service.GoName, "DispatcherForRuntime(), rpcruntime.StreamHandle(handle))")
+	g.P("session, ok := rpcruntime.TakeDispatcherStream[", servicePackage, service.GoName, "ActiveAdapter, ", messageClientMessageStreamSessionName(service, method, servicePackage), "](", servicePackage, service.GoName, "DispatcherForRuntime(), rpcruntime.StreamHandle(handle))")
 	g.P("if !ok {")
 	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: message client stream handle is invalid")))`)
 	g.P("}")
-}
-
-func renderMessageClientDeleteSession(g *protogen.GeneratedFile, service ServicePlan, servicePackage string) {
-	g.P("rpcruntime.DeleteDispatcherStream[", servicePackage, service.GoName, "ActiveAdapter](", servicePackage, service.GoName, "DispatcherForRuntime(), rpcruntime.StreamHandle(handle))")
 }
 
 func messageClientMessageStreamSessionName(service ServicePlan, method MethodPlan, servicePackage string) string {

@@ -27,18 +27,6 @@ import (
 
 // rpccgo native generated file for Greeter cgo native server
 
-type GreeterSayHelloCGONativeUnaryRequest struct {
-	NamePtr       C.uintptr_t
-	NameLen       C.int32_t
-	NameOwnership C.int32_t
-}
-
-type GreeterSayHelloCGONativeUnaryResponse struct {
-	MessagePtr       C.uintptr_t
-	MessageLen       C.int32_t
-	MessageOwnership C.int32_t
-}
-
 var (
 	greeterCGONativeServerCallbacksNil         = errors.New("rpccgo: Greeter cgo native server callbacks are nil")
 	greeterCGONativeServerUnaryCallbackMissing = errors.New("rpccgo: Greeter cgo native server unary callback is missing")
@@ -60,24 +48,25 @@ func (a *greeterCGONativeAdapter) SayHello(ctx context.Context, name *rpcruntime
 	if callback == nil {
 		return "", greeterCGONativeServerUnaryCallbackMissing
 	}
-	input, cleanup, err := encodeGreeterSayHelloCGONativeUnaryRequest(name)
-	_ = input
+	namePtr, nameLen, nameOwnership, cleanup, err := encodeGreeterSayHelloCGONativeUnaryRequest(name)
 	if err != nil {
 		return "", err
 	}
 	defer cleanup()
-	output := &GreeterSayHelloCGONativeUnaryResponse{}
-	errID := int32(C.callGreeterSayHelloCGONativeUnaryCallback(callback, input.NamePtr, input.NameLen, input.NameOwnership, &output.MessagePtr, &output.MessageLen, &output.MessageOwnership))
+	var outMessagePtr C.uintptr_t
+	var outMessageLen C.int32_t
+	var outMessageOwnership C.int32_t
+	errID := int32(C.callGreeterSayHelloCGONativeUnaryCallback(callback, namePtr, nameLen, nameOwnership, &outMessagePtr, &outMessageLen, &outMessageOwnership))
 	if errID != 0 {
-		cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(output)
+		cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(outMessagePtr, outMessageLen, outMessageOwnership)
 		callbackErr := greeterCGONativeServerErrorFromID(errID)
 		if cleanupErr != nil {
 			return "", errors.Join(callbackErr, cleanupErr)
 		}
 		return "", callbackErr
 	}
-	messageResult, err := decodeGreeterSayHelloCGONativeUnaryResponse(output)
-	cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(output)
+	messageResult, err := decodeGreeterSayHelloCGONativeUnaryResponse(outMessagePtr, outMessageLen, outMessageOwnership)
+	cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(outMessagePtr, outMessageLen, outMessageOwnership)
 	if cleanupErr != nil {
 		if err != nil {
 			return "", errors.Join(err, cleanupErr)
@@ -90,56 +79,49 @@ func (a *greeterCGONativeAdapter) SayHello(ctx context.Context, name *rpcruntime
 	return messageResult, nil
 }
 
-func encodeGreeterSayHelloCGONativeUnaryRequest(name *rpcruntime.RpcString) (*GreeterSayHelloCGONativeUnaryRequest, func(), error) {
-	input := &GreeterSayHelloCGONativeUnaryRequest{}
+func encodeGreeterSayHelloCGONativeUnaryRequest(name *rpcruntime.RpcString) (C.uintptr_t, C.int32_t, C.int32_t, func(), error) {
+	var namePtr C.uintptr_t
+	var nameLen C.int32_t
+	var nameOwnership C.int32_t
 	var pinned []uintptr
 	cleanup := func() {
 		for i := len(pinned) - 1; i >= 0; i-- {
 			rpcruntime.Release(pinned[i])
 		}
 	}
-	nameLen, err := rpcruntime.LengthToInt32(len(name.SafeString()))
+	nameLenValue, err := rpcruntime.LengthToInt32(len(name.SafeString()))
 	if err != nil {
 		cleanup()
-		return nil, func() {}, err
+		return 0, 0, 0, func() {}, err
 	}
-	_, namePtr, err := rpcruntime.PinString(name.SafeString())
+	_, namePtrValue, err := rpcruntime.PinString(name.SafeString())
 	if err != nil {
 		cleanup()
-		return nil, func() {}, err
+		return 0, 0, 0, func() {}, err
 	}
-	if namePtr != 0 {
-		pinned = append(pinned, namePtr)
+	if namePtrValue != 0 {
+		pinned = append(pinned, namePtrValue)
 	}
-	input.NamePtr = C.uintptr_t(namePtr)
-	input.NameLen = C.int32_t(nameLen)
-	return input, cleanup, nil
+	namePtr = C.uintptr_t(namePtrValue)
+	nameLen = C.int32_t(nameLenValue)
+	return namePtr, nameLen, nameOwnership, cleanup, nil
 }
 
-func decodeGreeterSayHelloCGONativeUnaryResponse(output *GreeterSayHelloCGONativeUnaryResponse) (string, error) {
-	if output == nil {
-		return "", errors.New("rpccgo: cgo native server response output is nil")
-	}
-	if _, err := rpcruntime.LengthFromInt32(int32(output.MessageLen)); err != nil {
+func decodeGreeterSayHelloCGONativeUnaryResponse(messagePtr C.uintptr_t, messageLen C.int32_t, messageOwnership C.int32_t) (string, error) {
+	if _, err := rpcruntime.LengthFromInt32(int32(messageLen)); err != nil {
 		return "", fmt.Errorf("examples.minimal.greeter.v1.SayHelloResponse.message: %w", err)
 	}
-	MessageWrapper := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(output.MessagePtr))), int32(output.MessageLen), false)
-	messageResult := MessageWrapper.SafeString()
+	messageWrapper := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(messagePtr))), int32(messageLen), false)
+	messageResult := messageWrapper.SafeString()
 	return messageResult, nil
 }
 
-func cleanupGreeterSayHelloCGONativeUnaryResponse(output *GreeterSayHelloCGONativeUnaryResponse) error {
-	if output == nil {
-		return nil
-	}
+func cleanupGreeterSayHelloCGONativeUnaryResponse(messagePtr C.uintptr_t, messageLen C.int32_t, messageOwnership C.int32_t) error {
 	var cleanupErr error
-	if output.MessageOwnership > 0 && output.MessagePtr != 0 {
-		if err := rpcruntime.ReleaseC(unsafe.Pointer(uintptr(output.MessagePtr)), true, "examples.minimal.greeter.v1.SayHelloResponse.message"); err != nil {
+	if messageOwnership > 0 && messagePtr != 0 {
+		if err := rpcruntime.ReleaseC(unsafe.Pointer(uintptr(messagePtr)), true, "examples.minimal.greeter.v1.SayHelloResponse.message"); err != nil {
 			cleanupErr = errors.Join(cleanupErr, err)
 		}
-		output.MessagePtr = 0
-		output.MessageLen = 0
-		output.MessageOwnership = 0
 	}
 	return cleanupErr
 }
@@ -174,7 +156,7 @@ func rpccgo_native_greeterv1_Greeter_SayHello_register(callback C.GreeterSayHell
 }
 
 type GreeterGoCGONativeServerCallbacks struct {
-	SayHello func(ctx context.Context, input *GreeterSayHelloCGONativeUnaryRequest, output *GreeterSayHelloCGONativeUnaryResponse) int32
+	SayHello func(ctx context.Context, namePtr C.uintptr_t, nameLen C.int32_t, nameOwnership C.int32_t, outMessagePtr *C.uintptr_t, outMessageLen *C.int32_t, outMessageOwnership *C.int32_t) int32
 }
 
 func RegisterGreeterGoCGONativeServerForTesting(callbacks *GreeterGoCGONativeServerCallbacks) (rpcruntime.AdapterSnapshot[v1.GreeterNativeAdapter], error) {
@@ -192,23 +174,25 @@ type greeterGoCGONativeAdapter struct {
 }
 
 func (a *greeterGoCGONativeAdapter) SayHello(ctx context.Context, name *rpcruntime.RpcString) (string, error) {
-	input, cleanup, err := encodeGreeterSayHelloCGONativeUnaryRequest(name)
+	namePtr, nameLen, nameOwnership, cleanup, err := encodeGreeterSayHelloCGONativeUnaryRequest(name)
 	if err != nil {
 		return "", err
 	}
 	defer cleanup()
-	output := &GreeterSayHelloCGONativeUnaryResponse{}
-	errID := a.callbacks.SayHello(ctx, input, output)
+	var outMessagePtr C.uintptr_t
+	var outMessageLen C.int32_t
+	var outMessageOwnership C.int32_t
+	errID := a.callbacks.SayHello(ctx, namePtr, nameLen, nameOwnership, &outMessagePtr, &outMessageLen, &outMessageOwnership)
 	if errID != 0 {
-		cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(output)
+		cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(outMessagePtr, outMessageLen, outMessageOwnership)
 		callbackErr := greeterCGONativeServerErrorFromID(errID)
 		if cleanupErr != nil {
 			return "", errors.Join(callbackErr, cleanupErr)
 		}
 		return "", callbackErr
 	}
-	messageResult, err := decodeGreeterSayHelloCGONativeUnaryResponse(output)
-	cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(output)
+	messageResult, err := decodeGreeterSayHelloCGONativeUnaryResponse(outMessagePtr, outMessageLen, outMessageOwnership)
+	cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(outMessagePtr, outMessageLen, outMessageOwnership)
 	if cleanupErr != nil {
 		if err != nil {
 			return "", errors.Join(err, cleanupErr)

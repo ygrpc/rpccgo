@@ -535,23 +535,9 @@ const nativeClientStreamingCGOFixtureCallbackSource = `package main
 
 extern int32_t StoreGreeterCGONativeServerErrorTextForExport(char* text, int32_t textLen);
 
-typedef struct GreeterUploadCGONativeClientStreamRequest {
-uintptr_t NamePtr;
-int32_t NameLen;
-uintptr_t PayloadPtr;
-int32_t PayloadLen;
-} GreeterUploadCGONativeClientStreamRequest;
-
-typedef struct GreeterUploadCGONativeClientStreamResponse {
-int32_t Count;
-uintptr_t SummaryPtr;
-int32_t SummaryLen;
-int32_t SummaryOwnership;
-} GreeterUploadCGONativeClientStreamResponse;
-
 typedef int32_t (*GreeterUploadCGONativeClientStreamStartCallback)(int32_t* stream);
-typedef int32_t (*GreeterUploadCGONativeClientStreamSendCallback)(int32_t stream, GreeterUploadCGONativeClientStreamRequest* input);
-typedef int32_t (*GreeterUploadCGONativeClientStreamFinishCallback)(int32_t stream, GreeterUploadCGONativeClientStreamResponse* output);
+typedef int32_t (*GreeterUploadCGONativeClientStreamSendCallback)(int32_t stream, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t PayloadPtr, int32_t PayloadLen, int32_t PayloadOwnership);
+typedef int32_t (*GreeterUploadCGONativeClientStreamFinishCallback)(int32_t stream, int32_t *outCount, uintptr_t *outSummaryPtr, int32_t *outSummaryLen, int32_t *outSummaryOwnership);
 typedef int32_t (*GreeterUploadCGONativeClientStreamCancelCallback)(int32_t stream);
 
 typedef struct GreeterCGONativeServerCallbacks {
@@ -587,21 +573,21 @@ static int32_t greeterUploadStart(int32_t* stream) {
 	return 0;
 }
 
-static int32_t greeterUploadSend(int32_t stream, GreeterUploadCGONativeClientStreamRequest* input) {
+static int32_t greeterUploadSend(int32_t stream, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t PayloadPtr, int32_t PayloadLen, int32_t PayloadOwnership) {
 	if (greeterStreamErrorMode == 2) {
 		return greeterForcedError("forced send error");
 	}
-	if (stream != greeterStreamID || input == NULL) {
+	if (stream != greeterStreamID) {
 		char msg[] = "stream send did not reach cgo callback";
 		return StoreGreeterCGONativeServerErrorTextForExport(msg, sizeof(msg)-1);
 	}
 	greeterStreamCount += 1;
-	greeterStreamBytes += input->PayloadLen;
+	greeterStreamBytes += PayloadLen;
 	return 0;
 }
 
-static int32_t greeterUploadFinish(int32_t stream, GreeterUploadCGONativeClientStreamResponse* output) {
-	if (stream != greeterStreamID || output == NULL) {
+static int32_t greeterUploadFinish(int32_t stream, int32_t *outCount, uintptr_t *outSummaryPtr, int32_t *outSummaryLen, int32_t *outSummaryOwnership) {
+	if (stream != greeterStreamID || outCount == NULL || outSummaryPtr == NULL || outSummaryLen == NULL || outSummaryOwnership == NULL) {
 		char msg[] = "stream finish did not reach cgo callback";
 		return StoreGreeterCGONativeServerErrorTextForExport(msg, sizeof(msg)-1);
 	}
@@ -611,10 +597,10 @@ static int32_t greeterUploadFinish(int32_t stream, GreeterUploadCGONativeClientS
 		return StoreGreeterCGONativeServerErrorTextForExport(msg, sizeof(msg)-1);
 	}
 	summary[0] = 'c'; summary[1] = 'g'; summary[2] = 'o'; summary[3] = ':'; summary[4] = '2'; summary[5] = ':'; summary[6] = '5';
-	output->Count = greeterStreamCount;
-	output->SummaryPtr = (uintptr_t)summary;
-	output->SummaryLen = 7;
-	output->SummaryOwnership = 1;
+	*outCount = greeterStreamCount;
+	*outSummaryPtr = (uintptr_t)summary;
+	*outSummaryLen = 7;
+	*outSummaryOwnership = 1;
 	if (greeterStreamErrorMode == 3) {
 		return greeterForcedError("forced finish error");
 	}
