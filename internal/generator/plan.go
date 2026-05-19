@@ -92,18 +92,14 @@ type TopLevelSymbolPlan struct {
 }
 
 type MethodPlan struct {
-	Name            string
-	GoName          string
-	FullName        string
-	Streaming       StreamingKind
-	Request         MethodIOPlan
-	Response        MethodIOPlan
-	NativeContract  NativeContractPlan
-	MessageContract MessageContractPlan
-	Lifecycle       LifecyclePlan
-	NeedsCodec      bool
-	RequestBody     []FieldPlan
-	ResponseBody    []FieldPlan
+	Name        string
+	GoName      string
+	FullName    string
+	Streaming   StreamingKind
+	Request     MethodIOPlan
+	Response    MethodIOPlan
+	NeedsCodec  bool
+	RenderShape MethodRenderPlan
 }
 
 func (p MethodPlan) HasIdentity() bool {

@@ -103,7 +103,7 @@ type runtimeAdapterMethod struct {
 	NativeArgNames string
 	NativeNames    string
 	NativeVarDecls []string
-	StreamingKind  StreamingKind
+	SessionKind    SessionKind
 	Streaming      bool
 }
 
@@ -134,17 +134,24 @@ func buildRuntimeAdapterMethods(g *protogen.GeneratedFile, service ServicePlan) 
 }
 
 func runtimeAdapterMethodFor(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) (runtimeAdapterMethod, error) {
-	sessionName := service.GoName + method.GoName + "NativeStreamSession"
-	nativeArgs := nativeGoRequestParams(g, method.NativeContract.RequestFields)
-	nativeReturns := nativeGoResponseReturns(g, method.NativeContract.ResponseFields)
-	nativeZero := nativeGoZeroReturns(method.NativeContract.ResponseFields, `errors.New("rpccgo native server method is not implemented")`)
-	nativeErrZero := nativeGoZeroReturns(method.NativeContract.ResponseFields, "err")
-	nativeArgNames := nativeGoRequestArgNames(method.NativeContract.RequestFields)
-	nativeResultNames := nativeGoResponseResultNames(method.NativeContract.ResponseFields)
-	nativeVarDecls := nativeGoResponseResultVarDecls(g, method.NativeContract.ResponseFields)
+	if err := ValidateMethodRenderPlan(method); err != nil {
+		return runtimeAdapterMethod{}, err
+	}
+	shape := method.RenderShape
+	nativeFields := shape.Conversion.MessageToNative.Native.Request
+	responseFields := shape.Conversion.MessageToNative.Native.Response
+	sessionName := shape.Symbols.NativeSessionType
+	nativeArgs := nativeGoRequestParams(g, nativeFields)
+	nativeReturns := nativeGoResponseReturns(g, responseFields)
+	nativeZero := nativeGoZeroReturns(responseFields, `errors.New("rpccgo native server method is not implemented")`)
+	nativeErrZero := nativeGoZeroReturns(responseFields, "err")
+	nativeArgNames := nativeGoRequestArgNames(nativeFields)
+	nativeResultNames := nativeGoResponseResultNames(responseFields)
+	nativeVarDecls := nativeGoResponseResultVarDecls(g, responseFields)
 	rendered := runtimeAdapterMethod{
 		SourceFullName: method.FullName,
 		MethodGoName:   method.GoName,
+		AdapterName:    shape.Symbols.NativeAdapterMethod,
 		SessionName:    sessionName,
 		NativeArgs:     nativeArgs,
 		NativeReturns:  nativeReturns,
@@ -153,28 +160,17 @@ func runtimeAdapterMethodFor(g *protogen.GeneratedFile, service ServicePlan, met
 		NativeArgNames: nativeArgNames,
 		NativeNames:    nativeResultNames,
 		NativeVarDecls: nativeVarDecls,
-		StreamingKind:  method.Streaming,
+		SessionKind:    shape.Session.Kind,
+		Streaming:      shape.Session.Kind != SessionKindNone,
 	}
-	switch method.Streaming {
-	case StreamingKindUnary:
-		rendered.AdapterName = method.GoName
+	if !rendered.Streaming {
 		rendered.AdapterArgs = nativeArgs
 		rendered.AdapterResult = " (" + nativeReturns + ")"
-	case StreamingKindClientStreaming:
-		rendered.AdapterName = "Start" + method.GoName
-		rendered.AdapterResult = " (" + sessionName + ", error)"
-		rendered.Streaming = true
-	case StreamingKindServerStreaming:
-		rendered.AdapterName = "Start" + method.GoName
+		return rendered, nil
+	}
+	rendered.AdapterResult = " (" + sessionName + ", error)"
+	if hasRenderOperation(shape.Session, SessionOperationStart) && shape.Session.Kind == SessionKindServer {
 		rendered.AdapterArgs = nativeArgs
-		rendered.AdapterResult = " (" + sessionName + ", error)"
-		rendered.Streaming = true
-	case StreamingKindBidiStreaming:
-		rendered.AdapterName = "Start" + method.GoName
-		rendered.AdapterResult = " (" + sessionName + ", error)"
-		rendered.Streaming = true
-	default:
-		return runtimeAdapterMethod{}, fmt.Errorf("%s has unknown streaming kind %d", method.FullName, method.Streaming)
 	}
 	return rendered, nil
 }
@@ -196,18 +192,27 @@ func runtimeStreamingMethods(methods []runtimeAdapterMethod) []runtimeAdapterMet
 	return streaming
 }
 
+func hasRenderOperation(session SessionRenderPlan, kind SessionOperationKind) bool {
+	for _, op := range session.Operations {
+		if op.Kind == kind && op.Enabled {
+			return true
+		}
+	}
+	return false
+}
+
 func renderRuntimeSessionInterface(g *protogen.GeneratedFile, method runtimeAdapterMethod) {
 	g.P("type ", method.SessionName, " interface {")
-	switch method.StreamingKind {
-	case StreamingKindClientStreaming:
+	switch method.SessionKind {
+	case SessionKindClient:
 		g.P("Send(ctx context.Context", method.NativeArgs, ") error")
 		g.P("Finish(ctx context.Context) (", method.NativeReturns, ")")
 		g.P("Cancel(ctx context.Context) error")
-	case StreamingKindServerStreaming:
+	case SessionKindServer:
 		g.P("Recv(ctx context.Context) (", method.NativeReturns, ")")
 		g.P("Done(ctx context.Context) error")
 		g.P("Cancel(ctx context.Context) error")
-	case StreamingKindBidiStreaming:
+	case SessionKindBidi:
 		g.P("Send(ctx context.Context", method.NativeArgs, ") error")
 		g.P("Recv(ctx context.Context) (", method.NativeReturns, ")")
 		g.P("CloseSend(ctx context.Context) error")
@@ -223,14 +228,14 @@ func renderRuntimeSessionInterface(g *protogen.GeneratedFile, method runtimeAdap
 func renderRuntimeMessageAdapter(g *protogen.GeneratedFile, service ServicePlan, adapterName string, methods []runtimeAdapterMethod) {
 	g.P("type ", adapterName, " interface {")
 	for _, method := range methods {
-		switch method.StreamingKind {
-		case StreamingKindUnary:
+		switch method.SessionKind {
+		case SessionKindNone:
 			g.P(method.AdapterName, "Message(ctx context.Context, req []byte) ([]byte, error)")
-		case StreamingKindClientStreaming:
+		case SessionKindClient:
 			g.P("Start", method.MethodGoName, "Message(ctx context.Context) (", service.GoName, method.MethodGoName, "MessageStreamSession, error)")
-		case StreamingKindServerStreaming:
+		case SessionKindServer:
 			g.P("Start", method.MethodGoName, "Message(ctx context.Context, req []byte) (", service.GoName, method.MethodGoName, "MessageStreamSession, error)")
-		case StreamingKindBidiStreaming:
+		case SessionKindBidi:
 			g.P("Start", method.MethodGoName, "Message(ctx context.Context) (", service.GoName, method.MethodGoName, "MessageStreamSession, error)")
 		}
 	}
@@ -249,16 +254,16 @@ func renderRuntimeActiveAdapter(g *protogen.GeneratedFile, activeAdapterName, na
 func renderRuntimeMessageSessionInterface(g *protogen.GeneratedFile, method runtimeAdapterMethod) {
 	sessionName := methodMessageSessionName(method)
 	g.P("type ", sessionName, " interface {")
-	switch method.StreamingKind {
-	case StreamingKindClientStreaming:
+	switch method.SessionKind {
+	case SessionKindClient:
 		g.P("Send(ctx context.Context, req []byte) error")
 		g.P("Finish(ctx context.Context) ([]byte, error)")
 		g.P("Cancel(ctx context.Context) error")
-	case StreamingKindServerStreaming:
+	case SessionKindServer:
 		g.P("Recv(ctx context.Context) ([]byte, error)")
 		g.P("Done(ctx context.Context) error")
 		g.P("Cancel(ctx context.Context) error")
-	case StreamingKindBidiStreaming:
+	case SessionKindBidi:
 		g.P("Send(ctx context.Context, req []byte) error")
 		g.P("Recv(ctx context.Context) ([]byte, error)")
 		g.P("CloseSend(ctx context.Context) error")
@@ -394,12 +399,12 @@ func renderRuntimeActiveRouterMessageUnary(g *protogen.GeneratedFile, serviceNam
 }
 
 func renderRuntimeActiveRouterNativeStream(g *protogen.GeneratedFile, serviceName, routerTypeName, activeAdapterName string, method runtimeAdapterMethod, codecEnabled bool) {
-	switch method.StreamingKind {
-	case StreamingKindClientStreaming:
+	switch method.SessionKind {
+	case SessionKindClient:
 		g.P("func (r ", routerTypeName, ") startNative", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
-	case StreamingKindServerStreaming:
+	case SessionKindServer:
 		g.P("func (r ", routerTypeName, ") startNative", method.MethodGoName, "(ctx context.Context", method.NativeArgs, ") (rpcruntime.StreamHandle, error) {")
-	case StreamingKindBidiStreaming:
+	case SessionKindBidi:
 		g.P("func (r ", routerTypeName, ") startNative", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
 	default:
 		return
@@ -410,10 +415,10 @@ func renderRuntimeActiveRouterNativeStream(g *protogen.GeneratedFile, serviceNam
 	g.P("if snapshot.Adapter.Native == nil {")
 	g.P("return nil, ", serviceName, "NativeAdapterUnavailableErr")
 	g.P("}")
-	switch method.StreamingKind {
-	case StreamingKindClientStreaming, StreamingKindBidiStreaming:
+	switch method.SessionKind {
+	case SessionKindClient, SessionKindBidi:
 		g.P("return snapshot.Adapter.Native.", method.AdapterName, "(ctx)")
-	case StreamingKindServerStreaming:
+	case SessionKindServer:
 		g.P("return snapshot.Adapter.Native.", method.AdapterName, "(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
 	}
 	g.P("case rpcruntime.ServerContractMessage:")
@@ -421,14 +426,14 @@ func renderRuntimeActiveRouterNativeStream(g *protogen.GeneratedFile, serviceNam
 	g.P("return nil, ", serviceName, "MessageAdapterUnavailableErr")
 	g.P("}")
 	if codecEnabled {
-		switch method.StreamingKind {
-		case StreamingKindClientStreaming, StreamingKindBidiStreaming:
+		switch method.SessionKind {
+		case SessionKindClient, SessionKindBidi:
 			g.P("messageSession, err := snapshot.Adapter.Message.Start", method.MethodGoName, "Message(ctx)")
 			g.P("if err != nil {")
 			g.P("return nil, err")
 			g.P("}")
 			g.P("return &", messageToNativeStreamWrapperName(serviceName, method), "{message: messageSession}, nil")
-		case StreamingKindServerStreaming:
+		case SessionKindServer:
 			g.P("messageReq, err := ", codecNativeRequestToMessageName(ServicePlan{GoName: serviceName}, MethodPlan{GoName: method.MethodGoName}), "(", method.NativeArgNames, ")")
 			g.P("if err != nil {")
 			g.P("return nil, err")
@@ -454,12 +459,12 @@ func renderRuntimeActiveRouterNativeStream(g *protogen.GeneratedFile, serviceNam
 }
 
 func renderRuntimeActiveRouterMessageStream(g *protogen.GeneratedFile, serviceName, routerTypeName, activeAdapterName string, method runtimeAdapterMethod, codecEnabled bool) {
-	switch method.StreamingKind {
-	case StreamingKindClientStreaming:
+	switch method.SessionKind {
+	case SessionKindClient:
 		g.P("func (r ", routerTypeName, ") startMessage", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
-	case StreamingKindServerStreaming:
+	case SessionKindServer:
 		g.P("func (r ", routerTypeName, ") startMessage", method.MethodGoName, "(ctx context.Context, req []byte) (rpcruntime.StreamHandle, error) {")
-	case StreamingKindBidiStreaming:
+	case SessionKindBidi:
 		g.P("func (r ", routerTypeName, ") startMessage", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
 	default:
 		return
@@ -470,10 +475,10 @@ func renderRuntimeActiveRouterMessageStream(g *protogen.GeneratedFile, serviceNa
 	g.P("if snapshot.Adapter.Message == nil {")
 	g.P("return nil, ", serviceName, "MessageAdapterUnavailableErr")
 	g.P("}")
-	switch method.StreamingKind {
-	case StreamingKindClientStreaming, StreamingKindBidiStreaming:
+	switch method.SessionKind {
+	case SessionKindClient, SessionKindBidi:
 		g.P("return snapshot.Adapter.Message.Start", method.MethodGoName, "Message(ctx)")
-	case StreamingKindServerStreaming:
+	case SessionKindServer:
 		g.P("return snapshot.Adapter.Message.Start", method.MethodGoName, "Message(ctx, req)")
 	}
 	g.P("case rpcruntime.ServerContractNative:")
@@ -481,14 +486,14 @@ func renderRuntimeActiveRouterMessageStream(g *protogen.GeneratedFile, serviceNa
 	g.P("return nil, ", serviceName, "NativeAdapterUnavailableErr")
 	g.P("}")
 	if codecEnabled {
-		switch method.StreamingKind {
-		case StreamingKindClientStreaming, StreamingKindBidiStreaming:
+		switch method.SessionKind {
+		case SessionKindClient, SessionKindBidi:
 			g.P("nativeSession, err := snapshot.Adapter.Native.", method.AdapterName, "(ctx)")
 			g.P("if err != nil {")
 			g.P("return nil, err")
 			g.P("}")
 			g.P("return &", nativeToMessageStreamWrapperName(serviceName, method), "{native: nativeSession}, nil")
-		case StreamingKindServerStreaming:
+		case SessionKindServer:
 			g.P("var session any")
 			g.P("err := ", codecMessageToNativeRequestName(ServicePlan{GoName: serviceName}, MethodPlan{GoName: method.MethodGoName}), "(req, func(", strings.TrimPrefix(method.NativeArgs, ", "), ") error {")
 			g.P("nativeSession, err := snapshot.Adapter.Native.", method.AdapterName, "(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
@@ -537,11 +542,11 @@ func renderRuntimeCGOBridge(g *protogen.GeneratedFile, serviceName, adapterName,
 		if !method.Streaming {
 			continue
 		}
-		switch method.StreamingKind {
-		case StreamingKindClientStreaming, StreamingKindBidiStreaming:
+		switch method.SessionKind {
+		case SessionKindClient, SessionKindBidi:
 			g.P("func (", bridgeName, ") Start", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
 			g.P("return ", routerName, ".startNative", method.MethodGoName, "(ctx)")
-		case StreamingKindServerStreaming:
+		case SessionKindServer:
 			g.P("func (", bridgeName, ") Start", method.MethodGoName, "(ctx context.Context", method.NativeArgs, ") (rpcruntime.StreamHandle, error) {")
 			g.P("return ", routerName, ".startNative", method.MethodGoName, "(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
 		}
@@ -580,11 +585,11 @@ func renderRuntimeMessageCGOBridge(g *protogen.GeneratedFile, serviceName, adapt
 		if !method.Streaming {
 			continue
 		}
-		switch method.StreamingKind {
-		case StreamingKindClientStreaming, StreamingKindBidiStreaming:
+		switch method.SessionKind {
+		case SessionKindClient, SessionKindBidi:
 			g.P("func (", bridgeName, ") Start", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
 			g.P("return ", routerName, ".startMessage", method.MethodGoName, "(ctx)")
-		case StreamingKindServerStreaming:
+		case SessionKindServer:
 			g.P("func (", bridgeName, ") Start", method.MethodGoName, "(ctx context.Context, req []byte) (rpcruntime.StreamHandle, error) {")
 			g.P("return ", routerName, ".startMessage", method.MethodGoName, "(ctx, req)")
 		}
@@ -609,16 +614,16 @@ func renderNativeToMessageStreamWrapper(g *protogen.GeneratedFile, serviceName s
 	g.P("native ", method.SessionName)
 	g.P("}")
 	g.P()
-	switch method.StreamingKind {
-	case StreamingKindClientStreaming:
+	switch method.SessionKind {
+	case SessionKindClient:
 		renderNativeToMessageSend(g, serviceName, method, wrapperName)
 		renderNativeToMessageFinish(g, serviceName, method, wrapperName)
 		renderNativeToMessageCancel(g, wrapperName)
-	case StreamingKindServerStreaming:
+	case SessionKindServer:
 		renderNativeToMessageRecv(g, serviceName, method, wrapperName)
 		renderNativeToMessageDone(g, wrapperName)
 		renderNativeToMessageCancel(g, wrapperName)
-	case StreamingKindBidiStreaming:
+	case SessionKindBidi:
 		renderNativeToMessageSend(g, serviceName, method, wrapperName)
 		renderNativeToMessageRecv(g, serviceName, method, wrapperName)
 		renderNativeToMessageCloseSend(g, wrapperName)
@@ -693,16 +698,16 @@ func renderMessageToNativeStreamWrapper(g *protogen.GeneratedFile, serviceName s
 	g.P("message ", methodMessageSessionName(method))
 	g.P("}")
 	g.P()
-	switch method.StreamingKind {
-	case StreamingKindClientStreaming:
+	switch method.SessionKind {
+	case SessionKindClient:
 		renderMessageToNativeSend(g, serviceName, method, wrapperName)
 		renderMessageToNativeFinish(g, serviceName, method, wrapperName)
 		renderMessageToNativeCancel(g, wrapperName)
-	case StreamingKindServerStreaming:
+	case SessionKindServer:
 		renderMessageToNativeRecv(g, serviceName, method, wrapperName)
 		renderMessageToNativeDone(g, wrapperName)
 		renderMessageToNativeCancel(g, wrapperName)
-	case StreamingKindBidiStreaming:
+	case SessionKindBidi:
 		renderMessageToNativeSend(g, serviceName, method, wrapperName)
 		renderMessageToNativeRecv(g, serviceName, method, wrapperName)
 		renderMessageToNativeCloseSend(g, wrapperName)

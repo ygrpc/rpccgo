@@ -219,10 +219,10 @@ func TestRenderNativeClientCGORejectsGeneratedHelperCollisions(t *testing.T) {
 				Streaming: StreamingKindUnary,
 				Request:   MethodIOPlan{GoName: "AllRequest", GoImportPath: "example.com/test/v1", FullName: "test.v1.AllRequest"},
 				Response:  MethodIOPlan{GoName: "AllReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.AllReply"},
-				NativeContract: NativeContractPlan{RequestFields: []FieldPlan{
+				RenderShape: MethodRenderPlan{Conversion: ConversionRenderPlan{MessageToNative: ConversionShapePlan{Native: MethodIOShapePlan{Request: []FieldPlan{
 					{GoName: "Name", FullName: "test.v1.AllRequest.name", Kind: FieldKindString, Native: NativeFieldPlan{Kind: NativeFieldKindString, Shape: NativeABIShapeScalar}},
 					{GoName: "NamePtr", FullName: "test.v1.AllRequest.name_ptr", Kind: FieldKindSignedInt32, Native: NativeFieldPlan{Kind: NativeFieldKindSignedNumeric, Shape: NativeABIShapeScalar}},
-				}},
+				}}}}},
 			},
 			wantError: "NamePtr",
 		},
@@ -235,10 +235,10 @@ func TestRenderNativeClientCGORejectsGeneratedHelperCollisions(t *testing.T) {
 				Streaming: StreamingKindUnary,
 				Request:   MethodIOPlan{GoName: "AllRequest", GoImportPath: "example.com/test/v1", FullName: "test.v1.AllRequest"},
 				Response:  MethodIOPlan{GoName: "AllReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.AllReply"},
-				NativeContract: NativeContractPlan{ResponseFields: []FieldPlan{
+				RenderShape: MethodRenderPlan{Conversion: ConversionRenderPlan{MessageToNative: ConversionShapePlan{Native: MethodIOShapePlan{Response: []FieldPlan{
 					{GoName: "Payload", FullName: "test.v1.AllReply.payload", Kind: FieldKindBytes, Native: NativeFieldPlan{Kind: NativeFieldKindBytes, Shape: NativeABIShapeScalar}},
 					{GoName: "PayloadLen", FullName: "test.v1.AllReply.payload_len", Kind: FieldKindSignedInt32, Native: NativeFieldPlan{Kind: NativeFieldKindSignedNumeric, Shape: NativeABIShapeScalar}},
-				}},
+				}}}}},
 			},
 			wantError: "PayloadLen",
 		},

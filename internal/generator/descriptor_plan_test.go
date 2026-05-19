@@ -230,14 +230,14 @@ func assertCompleteMethodContracts(t *testing.T, method MethodPlan) {
 	if method.Request.GoName == "" || method.Response.GoName == "" {
 		t.Fatalf("%s request/response descriptor metadata is missing", method.FullName)
 	}
-	if method.MessageContract.RequestType != method.Request || method.MessageContract.ResponseType != method.Response {
-		t.Fatalf("%s MessageContract = %#v, want request/response IO metadata", method.FullName, method.MessageContract)
+	if method.RenderShape.Conversion.MessageToNative.Direction != ConversionDirectionMessageToNative || method.RenderShape.Conversion.NativeToMessage.Direction != ConversionDirectionNativeToMessage {
+		t.Fatalf("%s MessageContract = %#v, want request/response IO metadata", method.FullName, method.RenderShape.Conversion)
 	}
-	if len(method.NativeContract.RequestFields) == 0 || len(method.NativeContract.ResponseFields) == 0 {
+	if len(method.RenderShape.Conversion.MessageToNative.Native.Request) == 0 || len(method.RenderShape.Conversion.MessageToNative.Native.Response) == 0 {
 		t.Fatalf("%s NativeContract missing request or response fields", method.FullName)
 	}
-	if len(method.RequestBody) != len(method.NativeContract.RequestFields) || len(method.ResponseBody) != len(method.NativeContract.ResponseFields) {
-		t.Fatalf("%s request/response bodies do not match native contract fields", method.FullName)
+	if method.RenderShape.Symbols.NativeAdapterMethod == "" || method.RenderShape.Errors.NativeAdapterUnavailableErr == "" {
+		t.Fatalf("%s render symbols/errors are incomplete", method.FullName)
 	}
 }
 

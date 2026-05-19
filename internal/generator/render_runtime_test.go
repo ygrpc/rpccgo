@@ -272,8 +272,8 @@ func TestRenderRuntimeRejectsUnknownStreamingKind(t *testing.T) {
 	if err == nil {
 		t.Fatal("RenderNativeStageFiles() error = nil, want unknown streaming kind error")
 	}
-	if got := err.Error(); !strings.Contains(got, "Mystery") || !strings.Contains(got, "unknown streaming kind") {
-		t.Fatalf("RenderNativeStageFiles() error = %q, want method name and unknown streaming kind", got)
+	if got := err.Error(); !strings.Contains(got, "Mystery") || !strings.Contains(got, "render session") {
+		t.Fatalf("RenderNativeStageFiles() error = %q, want method name and render-shape validation error", got)
 	}
 }
 
@@ -286,8 +286,8 @@ func TestRenderRuntimeRejectsAdapterMethodSymbolCollision(t *testing.T) {
 			Name:   "Greeter",
 			GoName: "Greeter",
 			Methods: []MethodPlan{
-				{Name: "StartFoo", GoName: "StartFoo", FullName: "test.v1.Greeter.StartFoo", Streaming: StreamingKindUnary},
-				{Name: "Foo", GoName: "Foo", FullName: "test.v1.Greeter.Foo", Streaming: StreamingKindClientStreaming},
+				runtimeTestMethod("StartFoo", StreamingKindUnary, "StartFoo", "StartFooMessage", SessionKindNone),
+				runtimeTestMethod("Foo", StreamingKindClientStreaming, "StartFoo", "StartFooMessage", SessionKindClient),
 			},
 			NativeFileFamily: NativeFileFamilyPlan{
 				Runtime: GeneratedFilePlan{Filename: "test/v1/greeter.greeter.runtime.rpccgo.go", Enabled: true},
@@ -302,6 +302,23 @@ func TestRenderRuntimeRejectsAdapterMethodSymbolCollision(t *testing.T) {
 	if got := err.Error(); !strings.Contains(got, "StartFoo") || !strings.Contains(got, "collides") {
 		t.Fatalf("RenderNativeStageFiles() error = %q, want colliding adapter method name", got)
 	}
+}
+
+func runtimeTestMethod(name string, streaming StreamingKind, nativeAdapterMethod string, messageAdapterMethod string, sessionKind SessionKind) MethodPlan {
+	method := MethodPlan{Name: name, GoName: name, FullName: "test.v1.Greeter." + name, Streaming: streaming}
+	method.RenderShape = MethodRenderPlan{
+		Session: SessionRenderPlan{Kind: sessionKind},
+		Conversion: ConversionRenderPlan{MessageToNative: ConversionShapePlan{Native: MethodIOShapePlan{}}},
+		Symbols: RenderSymbolsPlan{NativeAdapterMethod: nativeAdapterMethod, MessageAdapterMethod: messageAdapterMethod},
+		Errors: RenderErrorsPlan{NativeAdapterUnavailableErr: "GreeterNativeAdapterUnavailableErr", MessageAdapterUnavailableErr: "GreeterMessageAdapterUnavailableErr", UnknownActiveContractErr: "GreeterUnknownActiveContractErr", NativeMessageConverterErr: "GreeterNativeMessageConverterUnavailableErr"},
+	}
+	if sessionKind != SessionKindNone {
+		method.RenderShape.Session.Operations = []SessionOperationPlan{{Kind: SessionOperationStart, Enabled: true}}
+		method.RenderShape.Terminal = TerminalRenderPlan{Kind: TerminalKindFinish, Operation: SessionOperationStart, ReleasesHandle: true}
+		method.RenderShape.Symbols.NativeSessionType = "Greeter" + name + "NativeStreamSession"
+		method.RenderShape.Symbols.MessageSessionType = "Greeter" + name + "MessageStreamSession"
+	}
+	return method
 }
 
 func TestRenderRuntimeGeneratedSourceCompiles(t *testing.T) {

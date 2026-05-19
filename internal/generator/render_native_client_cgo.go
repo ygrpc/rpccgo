@@ -61,10 +61,10 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 
 func renderNativeUnaryClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, unsupportedError, servicePackage string) {
 	funcName := nativeUnaryClientFuncName(service, method)
-	requestParams := nativeClientRequestParams(method.NativeContract.RequestFields)
-	requestArgs := nativeClientRequestCallArgs(method.NativeContract.RequestFields)
-	responseParams := nativeClientResponseOutputParams(method.NativeContract.ResponseFields)
-	responseArgs := nativeClientResponseOutputCallArgs(method.NativeContract.ResponseFields)
+	requestParams := nativeClientRequestParams(method.RenderShape.Conversion.MessageToNative.Native.Request)
+	requestArgs := nativeClientRequestCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Request)
+	responseParams := nativeClientResponseOutputParams(method.RenderShape.Conversion.MessageToNative.Native.Response)
+	responseArgs := nativeClientResponseOutputCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Response)
 
 	g.P("func ", funcName, "(ctx context.Context", nativeClientAppendParams("", requestParams, responseParams), ") int32 {")
 	g.P("if ctx == nil {")
@@ -75,8 +75,8 @@ func renderNativeUnaryClient(g *protogen.GeneratedFile, plan FilePlan, service S
 		g.P("return int32(rpcruntime.StoreError(err))")
 		g.P("}")
 	}
-	requestNames := nativeClientRequestValueNames(method.NativeContract.RequestFields)
-	responseNames := nativeClientResponseValueNames(method.NativeContract.ResponseFields)
+	requestNames := nativeClientRequestValueNames(method.RenderShape.Conversion.MessageToNative.Native.Request)
+	responseNames := nativeClientResponseValueNames(method.RenderShape.Conversion.MessageToNative.Native.Response)
 	if requestNames == "" {
 		g.P("if err := ", nativeUnaryClientDecoderName(service, method), "(", requestArgs, "); err != nil {")
 		g.P("return int32(rpcruntime.StoreError(err))")
@@ -92,7 +92,7 @@ func renderNativeUnaryClient(g *protogen.GeneratedFile, plan FilePlan, service S
 	} else {
 		g.P(responseNames, ", err := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().", method.GoName, "(ctx", nativeGoCallSuffix(requestNames), ")")
 	}
-	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.NativeContract.RequestFields), "); cleanupErr != nil {")
+	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.RenderShape.Conversion.MessageToNative.Native.Request), "); cleanupErr != nil {")
 	g.P("err = errors.Join(err, cleanupErr)")
 	g.P("}")
 	g.P("if err != nil {")
@@ -111,10 +111,10 @@ func renderNativeUnaryClient(g *protogen.GeneratedFile, plan FilePlan, service S
 }
 
 func renderNativeClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError, servicePackage string) {
-	requestParams := nativeClientRequestParams(method.NativeContract.RequestFields)
-	requestArgs := nativeClientRequestCallArgs(method.NativeContract.RequestFields)
-	responseParams := nativeClientResponseOutputParams(method.NativeContract.ResponseFields)
-	responseArgs := nativeClientResponseOutputCallArgs(method.NativeContract.ResponseFields)
+	requestParams := nativeClientRequestParams(method.RenderShape.Conversion.MessageToNative.Native.Request)
+	requestArgs := nativeClientRequestCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Request)
+	responseParams := nativeClientResponseOutputParams(method.RenderShape.Conversion.MessageToNative.Native.Response)
+	responseArgs := nativeClientResponseOutputCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Response)
 
 	g.P("func ", nativeClientStreamingStartFuncName(service, method), "(ctx context.Context) (int32, int32) {")
 	g.P("if ctx == nil {")
@@ -133,8 +133,8 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan,
 	g.P("ctx = context.Background()")
 	g.P("}")
 	renderNativeClientLoadNativeStream(g, service, method, invalidHandleError, servicePackage)
-	requestNames := nativeClientRequestValueNames(method.NativeContract.RequestFields)
-	responseNames := nativeClientResponseValueNames(method.NativeContract.ResponseFields)
+	requestNames := nativeClientRequestValueNames(method.RenderShape.Conversion.MessageToNative.Native.Request)
+	responseNames := nativeClientResponseValueNames(method.RenderShape.Conversion.MessageToNative.Native.Response)
 	g.P("var err error")
 	if requestNames == "" {
 		g.P("if err := ", nativeClientStreamingDecoderName(service, method), "(", requestArgs, "); err != nil {")
@@ -147,7 +147,7 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan,
 		g.P("}")
 	}
 	g.P("err = session.Send(ctx", nativeGoCallSuffix(requestNames), ")")
-	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.NativeContract.RequestFields), "); cleanupErr != nil {")
+	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.RenderShape.Conversion.MessageToNative.Native.Request), "); cleanupErr != nil {")
 	g.P("err = errors.Join(err, cleanupErr)")
 	g.P("}")
 	g.P("if err != nil {")
@@ -201,16 +201,16 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan,
 }
 
 func renderNativeServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError, servicePackage string) {
-	requestParams := nativeClientRequestParams(method.NativeContract.RequestFields)
-	requestArgs := nativeClientRequestCallArgs(method.NativeContract.RequestFields)
-	responseParams := nativeClientResponseOutputParams(method.NativeContract.ResponseFields)
-	responseArgs := nativeClientResponseOutputCallArgs(method.NativeContract.ResponseFields)
+	requestParams := nativeClientRequestParams(method.RenderShape.Conversion.MessageToNative.Native.Request)
+	requestArgs := nativeClientRequestCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Request)
+	responseParams := nativeClientResponseOutputParams(method.RenderShape.Conversion.MessageToNative.Native.Response)
+	responseArgs := nativeClientResponseOutputCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Response)
 
 	g.P("func ", nativeServerStreamingStartFuncName(service, method), "(ctx context.Context", nativeClientAppendParams("", requestParams), ") (int32, int32) {")
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	requestNames := nativeClientRequestValueNames(method.NativeContract.RequestFields)
+	requestNames := nativeClientRequestValueNames(method.RenderShape.Conversion.MessageToNative.Native.Request)
 	g.P("var err error")
 	if requestNames == "" {
 		g.P("if err := ", nativeServerStreamingDecoderName(service, method), "(", requestArgs, "); err != nil {")
@@ -223,7 +223,7 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan,
 		g.P("}")
 	}
 	g.P("handle, err := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Start", method.GoName, "(ctx", nativeGoCallSuffix(requestNames), ")")
-	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.NativeContract.RequestFields), "); cleanupErr != nil {")
+	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.RenderShape.Conversion.MessageToNative.Native.Request), "); cleanupErr != nil {")
 	g.P("err = errors.Join(err, cleanupErr)")
 	g.P("}")
 	g.P("if err != nil {")
@@ -237,7 +237,7 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan,
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	responseNames := nativeClientResponseValueNames(method.NativeContract.ResponseFields)
+	responseNames := nativeClientResponseValueNames(method.RenderShape.Conversion.MessageToNative.Native.Response)
 	if responseParams != "" {
 		g.P("if err := ", nativeServerStreamingOutputValidatorName(service, method), "(", responseArgs, "); err != nil {")
 		g.P("return int32(rpcruntime.StoreError(err))")
@@ -291,10 +291,10 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan,
 }
 
 func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError, servicePackage string) {
-	requestParams := nativeClientRequestParams(method.NativeContract.RequestFields)
-	requestArgs := nativeClientRequestCallArgs(method.NativeContract.RequestFields)
-	responseParams := nativeClientResponseOutputParams(method.NativeContract.ResponseFields)
-	responseArgs := nativeClientResponseOutputCallArgs(method.NativeContract.ResponseFields)
+	requestParams := nativeClientRequestParams(method.RenderShape.Conversion.MessageToNative.Native.Request)
+	requestArgs := nativeClientRequestCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Request)
+	responseParams := nativeClientResponseOutputParams(method.RenderShape.Conversion.MessageToNative.Native.Response)
+	responseArgs := nativeClientResponseOutputCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Response)
 
 	g.P("func ", nativeBidiStreamingStartFuncName(service, method), "(ctx context.Context) (int32, int32) {")
 	g.P("if ctx == nil {")
@@ -313,8 +313,8 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, s
 	g.P("ctx = context.Background()")
 	g.P("}")
 	renderNativeClientLoadNativeStream(g, service, method, invalidHandleError, servicePackage)
-	requestNames := nativeClientRequestValueNames(method.NativeContract.RequestFields)
-	responseNames := nativeClientResponseValueNames(method.NativeContract.ResponseFields)
+	requestNames := nativeClientRequestValueNames(method.RenderShape.Conversion.MessageToNative.Native.Request)
+	responseNames := nativeClientResponseValueNames(method.RenderShape.Conversion.MessageToNative.Native.Response)
 	g.P("var err error")
 	if requestNames == "" {
 		g.P("if err := ", nativeBidiStreamingDecoderName(service, method), "(", requestArgs, "); err != nil {")
@@ -327,7 +327,7 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, s
 		g.P("}")
 	}
 	g.P("err = session.Send(ctx", nativeGoCallSuffix(requestNames), ")")
-	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.NativeContract.RequestFields), "); cleanupErr != nil {")
+	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.RenderShape.Conversion.MessageToNative.Native.Request), "); cleanupErr != nil {")
 	g.P("err = errors.Join(err, cleanupErr)")
 	g.P("}")
 	g.P("if err != nil {")
@@ -533,19 +533,19 @@ func nativeClientNativeStreamSessionName(service ServicePlan, method MethodPlan,
 }
 
 func renderNativeUnaryRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
-	renderNativeClientRequestDecoder(g, nativeUnaryClientDecoderName(service, method), method.NativeContract.RequestFields, unsupportedError)
+	renderNativeClientRequestDecoder(g, nativeUnaryClientDecoderName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Request, unsupportedError)
 }
 
 func renderNativeClientStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
-	renderNativeClientRequestDecoder(g, nativeClientStreamingDecoderName(service, method), method.NativeContract.RequestFields, unsupportedError)
+	renderNativeClientRequestDecoder(g, nativeClientStreamingDecoderName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Request, unsupportedError)
 }
 
 func renderNativeServerStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
-	renderNativeClientRequestDecoder(g, nativeServerStreamingDecoderName(service, method), method.NativeContract.RequestFields, unsupportedError)
+	renderNativeClientRequestDecoder(g, nativeServerStreamingDecoderName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Request, unsupportedError)
 }
 
 func renderNativeBidiStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
-	renderNativeClientRequestDecoder(g, nativeBidiStreamingDecoderName(service, method), method.NativeContract.RequestFields, unsupportedError)
+	renderNativeClientRequestDecoder(g, nativeBidiStreamingDecoderName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Request, unsupportedError)
 }
 
 func renderNativeClientRequestDecoder(g *protogen.GeneratedFile, name string, fields []FieldPlan, unsupportedError string) {
@@ -742,8 +742,8 @@ func renderNativeClientBytesDecode(g *protogen.GeneratedFile, _ []FieldPlan, fie
 }
 
 func renderNativeUnaryResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
-	renderNativeClientOutputValidator(g, nativeUnaryClientOutputValidatorName(service, method), method.NativeContract.ResponseFields)
-	renderNativeClientResponseEncoder(g, nativeUnaryClientEncoderName(service, method), method.NativeContract.ResponseFields, unsupportedError)
+	renderNativeClientOutputValidator(g, nativeUnaryClientOutputValidatorName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Response)
+	renderNativeClientResponseEncoder(g, nativeUnaryClientEncoderName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Response, unsupportedError)
 }
 
 func renderNativeCExportWrappers(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan) {
@@ -763,7 +763,7 @@ func renderNativeUnaryCExportWrapper(g *protogen.GeneratedFile, plan FilePlan, s
 	exportName := nativeCExportFuncName(plan, service, method, "")
 	g.P("//export ", exportName)
 	g.P("func ", exportName, "(", nativeCExportUnaryParams(service, method), ") C.int32_t {")
-	renderNativeCExportOutputValidation(g, method.NativeContract.ResponseFields)
+	renderNativeCExportOutputValidation(g, method.RenderShape.Conversion.MessageToNative.Native.Response)
 	g.P("return C.int32_t(", nativeUnaryClientFuncName(service, method), "(context.Background()", nativeCExportCallSuffix(nativeCExportGoArgs(service, method), nativeCExportOutputGoArgs(service, method)), "))")
 	g.P("}")
 	g.P()
@@ -793,8 +793,8 @@ func renderNativeClientStreamingCExportWrappers(g *protogen.GeneratedFile, plan 
 	finishName := nativeCExportFuncName(plan, service, method, "finish")
 	g.P("//export ", finishName)
 	g.P("func ", finishName, "(", nativeCExportParamJoin("handle C.int32_t", nativeCExportOutputParams(service, method)), ") C.int32_t {")
-	renderNativeCExportOutputValidation(g, method.NativeContract.ResponseFields)
-	g.P("return C.int32_t(", nativeClientStreamingFinishFuncName(service, method), "(context.Background(), int32(handle)", nativeCExportOutputArgs(method.NativeContract.ResponseFields), "))")
+	renderNativeCExportOutputValidation(g, method.RenderShape.Conversion.MessageToNative.Native.Response)
+	g.P("return C.int32_t(", nativeClientStreamingFinishFuncName(service, method), "(context.Background(), int32(handle)", nativeCExportOutputArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), "))")
 	g.P("}")
 	g.P()
 
@@ -823,8 +823,8 @@ func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, plan 
 	readName := nativeCExportFuncName(plan, service, method, "read")
 	g.P("//export ", readName)
 	g.P("func ", readName, "(", nativeCExportParamJoin("handle C.int32_t", nativeCExportOutputParams(service, method)), ") C.int32_t {")
-	renderNativeCExportOutputValidation(g, method.NativeContract.ResponseFields)
-	g.P("return C.int32_t(", nativeServerStreamingReadFuncName(service, method), "(context.Background(), int32(handle)", nativeCExportOutputArgs(method.NativeContract.ResponseFields), "))")
+	renderNativeCExportOutputValidation(g, method.RenderShape.Conversion.MessageToNative.Native.Response)
+	g.P("return C.int32_t(", nativeServerStreamingReadFuncName(service, method), "(context.Background(), int32(handle)", nativeCExportOutputArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), "))")
 	g.P("}")
 	g.P()
 
@@ -867,8 +867,8 @@ func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, plan Fi
 	readName := nativeCExportFuncName(plan, service, method, "read")
 	g.P("//export ", readName)
 	g.P("func ", readName, "(", nativeCExportParamJoin("handle C.int32_t", nativeCExportOutputParams(service, method)), ") C.int32_t {")
-	renderNativeCExportOutputValidation(g, method.NativeContract.ResponseFields)
-	g.P("return C.int32_t(", nativeBidiStreamingReadFuncName(service, method), "(context.Background(), int32(handle)", nativeCExportOutputArgs(method.NativeContract.ResponseFields), "))")
+	renderNativeCExportOutputValidation(g, method.RenderShape.Conversion.MessageToNative.Native.Response)
+	g.P("return C.int32_t(", nativeBidiStreamingReadFuncName(service, method), "(context.Background(), int32(handle)", nativeCExportOutputArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), "))")
 	g.P("}")
 	g.P()
 
@@ -905,7 +905,7 @@ func renderNativeCExportOutputValidation(g *protogen.GeneratedFile, fields []Fie
 }
 
 func renderNativeCExportOutputCommit(g *protogen.GeneratedFile, _ ServicePlan, method MethodPlan) {
-	for _, field := range method.NativeContract.ResponseFields {
+	for _, field := range method.RenderShape.Conversion.MessageToNative.Native.Response {
 		renderNativeResponseFieldCommit(g, field)
 	}
 }
@@ -941,7 +941,7 @@ func nativeCExportUnaryParams(service ServicePlan, method MethodPlan) string {
 
 func nativeCExportInputParams(_ ServicePlan, method MethodPlan) string {
 	parts := make([]string, 0)
-	for _, field := range method.NativeContract.RequestFields {
+	for _, field := range method.RenderShape.Conversion.MessageToNative.Native.Request {
 		for _, param := range nativeClientInputFieldSymbols(field) {
 			parts = append(parts, param+" "+nativeClientRequestParamType(field, param))
 		}
@@ -951,7 +951,7 @@ func nativeCExportInputParams(_ ServicePlan, method MethodPlan) string {
 
 func nativeCExportOutputParams(_ ServicePlan, method MethodPlan) string {
 	parts := make([]string, 0)
-	for _, field := range method.NativeContract.ResponseFields {
+	for _, field := range method.RenderShape.Conversion.MessageToNative.Native.Response {
 		for _, param := range nativeClientOutputFieldSymbols(field) {
 			parts = append(parts, param+" *"+nativeClientOutputParamType(field, param))
 		}
@@ -979,7 +979,7 @@ func nativeCExportCallSuffix(parts ...string) string {
 
 func nativeCExportGoArgs(_ ServicePlan, method MethodPlan) string {
 	args := make([]string, 0)
-	for _, field := range method.NativeContract.RequestFields {
+	for _, field := range method.RenderShape.Conversion.MessageToNative.Native.Request {
 		for _, symbol := range nativeClientInputFieldSymbols(field) {
 			args = append(args, nativeCExportGoArg(symbol, field))
 		}
@@ -989,7 +989,7 @@ func nativeCExportGoArgs(_ ServicePlan, method MethodPlan) string {
 
 func nativeCExportOutputGoArgs(_ ServicePlan, method MethodPlan) string {
 	args := make([]string, 0)
-	for _, field := range method.NativeContract.ResponseFields {
+	for _, field := range method.RenderShape.Conversion.MessageToNative.Native.Response {
 		for _, symbol := range nativeClientOutputFieldSymbols(field) {
 			args = append(args, nativeCExportOutputGoArg(symbol, field))
 		}
@@ -1025,18 +1025,18 @@ func nativeCExportOutputGoArg(symbol string, field FieldPlan) string {
 }
 
 func renderNativeClientStreamingResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
-	renderNativeClientOutputValidator(g, nativeClientStreamingOutputValidatorName(service, method), method.NativeContract.ResponseFields)
-	renderNativeClientResponseEncoder(g, nativeClientStreamingEncoderName(service, method), method.NativeContract.ResponseFields, unsupportedError)
+	renderNativeClientOutputValidator(g, nativeClientStreamingOutputValidatorName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Response)
+	renderNativeClientResponseEncoder(g, nativeClientStreamingEncoderName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Response, unsupportedError)
 }
 
 func renderNativeServerStreamingResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
-	renderNativeClientOutputValidator(g, nativeServerStreamingOutputValidatorName(service, method), method.NativeContract.ResponseFields)
-	renderNativeClientResponseEncoder(g, nativeServerStreamingEncoderName(service, method), method.NativeContract.ResponseFields, unsupportedError)
+	renderNativeClientOutputValidator(g, nativeServerStreamingOutputValidatorName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Response)
+	renderNativeClientResponseEncoder(g, nativeServerStreamingEncoderName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Response, unsupportedError)
 }
 
 func renderNativeBidiStreamingResponseEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
-	renderNativeClientOutputValidator(g, nativeBidiStreamingOutputValidatorName(service, method), method.NativeContract.ResponseFields)
-	renderNativeClientResponseEncoder(g, nativeBidiStreamingEncoderName(service, method), method.NativeContract.ResponseFields, unsupportedError)
+	renderNativeClientOutputValidator(g, nativeBidiStreamingOutputValidatorName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Response)
+	renderNativeClientResponseEncoder(g, nativeBidiStreamingEncoderName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Response, unsupportedError)
 }
 
 func renderNativeResponseFieldValidate(g *protogen.GeneratedFile, field FieldPlan, unsupportedError string) {
@@ -1389,7 +1389,7 @@ func nativeClientNeedsFmt(service ServicePlan) bool {
 		if method.Streaming != StreamingKindUnary && method.Streaming != StreamingKindClientStreaming && method.Streaming != StreamingKindServerStreaming && method.Streaming != StreamingKindBidiStreaming {
 			continue
 		}
-		for _, field := range method.NativeContract.RequestFields {
+		for _, field := range method.RenderShape.Conversion.MessageToNative.Native.Request {
 			if (field.Native.Shape == NativeABIShapeScalar || field.Native.Shape == NativeABIShapeMessageBytes) && (field.Kind == FieldKindString || field.Kind == FieldKindBytes || field.Kind == FieldKindMessage) {
 				return true
 			}
@@ -1403,7 +1403,7 @@ func nativeClientNeedsFmt(service ServicePlan) bool {
 
 func nativeClientNeedsUnsafe(service ServicePlan) bool {
 	for _, method := range service.Methods {
-		for _, field := range method.NativeContract.RequestFields {
+		for _, field := range method.RenderShape.Conversion.MessageToNative.Native.Request {
 			if (field.Native.Shape == NativeABIShapeScalar || field.Native.Shape == NativeABIShapeMessageBytes) && (field.Kind == FieldKindString || field.Kind == FieldKindBytes || field.Kind == FieldKindMessage) {
 				return true
 			}
@@ -1411,7 +1411,7 @@ func nativeClientNeedsUnsafe(service ServicePlan) bool {
 				return true
 			}
 		}
-		if len(method.NativeContract.ResponseFields) > 0 {
+		if len(method.RenderShape.Conversion.MessageToNative.Native.Response) > 0 {
 			return true
 		}
 	}
@@ -1511,10 +1511,10 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 			if err := addGenerated(nativeUnaryClientOutputValidatorName(service, method), method.FullName+" unary output validator"); err != nil {
 				return err
 			}
-			if err := validateNativeClientFlatFields(method.FullName+" unary request", method.NativeContract.RequestFields, nativeClientInputFieldSymbols); err != nil {
+			if err := validateNativeClientFlatFields(method.FullName+" unary request", method.RenderShape.Conversion.MessageToNative.Native.Request, nativeClientInputFieldSymbols); err != nil {
 				return err
 			}
-			if err := validateNativeClientFlatFields(method.FullName+" unary response", method.NativeContract.ResponseFields, nativeClientOutputFieldSymbols); err != nil {
+			if err := validateNativeClientFlatFields(method.FullName+" unary response", method.RenderShape.Conversion.MessageToNative.Native.Response, nativeClientOutputFieldSymbols); err != nil {
 				return err
 			}
 		case StreamingKindClientStreaming:
@@ -1534,10 +1534,10 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 					return err
 				}
 			}
-			if err := validateNativeClientFlatFields(method.FullName+" client stream request", method.NativeContract.RequestFields, nativeClientInputFieldSymbols); err != nil {
+			if err := validateNativeClientFlatFields(method.FullName+" client stream request", method.RenderShape.Conversion.MessageToNative.Native.Request, nativeClientInputFieldSymbols); err != nil {
 				return err
 			}
-			if err := validateNativeClientFlatFields(method.FullName+" client stream response", method.NativeContract.ResponseFields, nativeClientOutputFieldSymbols); err != nil {
+			if err := validateNativeClientFlatFields(method.FullName+" client stream response", method.RenderShape.Conversion.MessageToNative.Native.Response, nativeClientOutputFieldSymbols); err != nil {
 				return err
 			}
 		case StreamingKindServerStreaming:
@@ -1557,10 +1557,10 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 					return err
 				}
 			}
-			if err := validateNativeClientFlatFields(method.FullName+" server stream request", method.NativeContract.RequestFields, nativeClientInputFieldSymbols); err != nil {
+			if err := validateNativeClientFlatFields(method.FullName+" server stream request", method.RenderShape.Conversion.MessageToNative.Native.Request, nativeClientInputFieldSymbols); err != nil {
 				return err
 			}
-			if err := validateNativeClientFlatFields(method.FullName+" server stream response", method.NativeContract.ResponseFields, nativeClientOutputFieldSymbols); err != nil {
+			if err := validateNativeClientFlatFields(method.FullName+" server stream response", method.RenderShape.Conversion.MessageToNative.Native.Response, nativeClientOutputFieldSymbols); err != nil {
 				return err
 			}
 		case StreamingKindBidiStreaming:
@@ -1582,10 +1582,10 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 					return err
 				}
 			}
-			if err := validateNativeClientFlatFields(method.FullName+" bidi stream request", method.NativeContract.RequestFields, nativeClientInputFieldSymbols); err != nil {
+			if err := validateNativeClientFlatFields(method.FullName+" bidi stream request", method.RenderShape.Conversion.MessageToNative.Native.Request, nativeClientInputFieldSymbols); err != nil {
 				return err
 			}
-			if err := validateNativeClientFlatFields(method.FullName+" bidi stream response", method.NativeContract.ResponseFields, nativeClientOutputFieldSymbols); err != nil {
+			if err := validateNativeClientFlatFields(method.FullName+" bidi stream response", method.RenderShape.Conversion.MessageToNative.Native.Response, nativeClientOutputFieldSymbols); err != nil {
 				return err
 			}
 		}

@@ -52,7 +52,7 @@ func renderCodecFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan
 
 func codecNeedsRuntime(service ServicePlan) bool {
 	for _, method := range service.Methods {
-		for _, field := range append(method.NativeContract.RequestFields, method.NativeContract.ResponseFields...) {
+		for _, field := range append(method.RenderShape.Conversion.MessageToNative.Native.Request, method.RenderShape.Conversion.MessageToNative.Native.Response...) {
 			if field.Kind == FieldKindString || field.Kind == FieldKindBytes || field.Kind == FieldKindMessage || field.Repeated {
 				return true
 			}
@@ -72,32 +72,32 @@ func renderCodecMethodStubs(g *protogen.GeneratedFile, service ServicePlan, meth
 	renderCodecMessageToNativeRequestFunction(g,
 		codecMessageToNativeRequestName(service, method),
 		requestType,
-		nativeGoRequestParams(g, method.NativeContract.RequestFields),
-		method.NativeContract.RequestFields,
-		nativeGoResponseValueNames(method.NativeContract.RequestFields),
+		nativeGoRequestParams(g, method.RenderShape.Conversion.MessageToNative.Native.Request),
+		method.RenderShape.Conversion.MessageToNative.Native.Request,
+		nativeGoResponseValueNames(method.RenderShape.Conversion.MessageToNative.Native.Request),
 	)
 	renderCodecNativeToMessageFunction(g,
 		codecNativeRequestToMessageName(service, method),
 		requestType,
-		nativeGoRequestParams(g, method.NativeContract.RequestFields),
-		method.NativeContract.RequestFields,
+		nativeGoRequestParams(g, method.RenderShape.Conversion.MessageToNative.Native.Request),
+		method.RenderShape.Conversion.MessageToNative.Native.Request,
 		"request",
 		renderCodecNativeRequestValuesToMessage,
 	)
 	renderCodecMessageToNativeFunction(g,
 		codecMessageToNativeResponseName(service, method),
 		responseType,
-		nativeGoResponseReturns(g, method.NativeContract.ResponseFields),
-		nativeGoZeroReturns(method.NativeContract.ResponseFields, "err"),
-		method.NativeContract.ResponseFields,
-		nativeGoResponseValueNames(method.NativeContract.ResponseFields),
+		nativeGoResponseReturns(g, method.RenderShape.Conversion.MessageToNative.Native.Response),
+		nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "err"),
+		method.RenderShape.Conversion.MessageToNative.Native.Response,
+		nativeGoResponseValueNames(method.RenderShape.Conversion.MessageToNative.Native.Response),
 		renderCodecMessageToNativeValues,
 	)
 	renderCodecNativeToMessageFunction(g,
 		codecNativeResponseToMessageName(service, method),
 		responseType,
-		nativeGoResponseParams(g, method.NativeContract.ResponseFields),
-		method.NativeContract.ResponseFields,
+		nativeGoResponseParams(g, method.RenderShape.Conversion.MessageToNative.Native.Response),
+		method.RenderShape.Conversion.MessageToNative.Native.Response,
 		"response",
 		renderCodecNativeValuesToMessage,
 	)

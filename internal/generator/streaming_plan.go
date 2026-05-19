@@ -2,29 +2,16 @@ package generator
 
 import "fmt"
 
-func BuildStreamingPlan(method MethodPlan) (MethodPlan, error) {
-	lifecycle, err := expectedLifecyclePlan(method.Streaming)
+func BuildStreamingPlan(method MethodPlan, facts methodContractFacts, serviceName string) (MethodPlan, error) {
+	renderShape, err := BuildMethodRenderPlan(method, facts, serviceName)
 	if err != nil {
-		return MethodPlan{}, fmt.Errorf("method %s: %w", methodPlanName(method), err)
+		return MethodPlan{}, err
 	}
-	method.Lifecycle = lifecycle
-
-	if err := ValidateStreamingLifecyclePlan(method); err != nil {
+	method.RenderShape = renderShape
+	if err := ValidateMethodRenderPlan(method); err != nil {
 		return MethodPlan{}, err
 	}
 	return method, nil
-}
-
-func ValidateStreamingLifecyclePlan(method MethodPlan) error {
-	want, err := expectedLifecyclePlan(method.Streaming)
-	if err != nil {
-		return fmt.Errorf("method %s: %w", methodPlanName(method), err)
-	}
-	if method.Lifecycle != want {
-		return fmt.Errorf("method %s %s: invalid lifecycle matrix: got %#v, want %#v",
-			methodPlanName(method), streamingKindName(method.Streaming), method.Lifecycle, want)
-	}
-	return nil
 }
 
 func expectedLifecyclePlan(streaming StreamingKind) (LifecyclePlan, error) {
