@@ -14,8 +14,8 @@ func TestDispatcherCaptureBeforeRegisterReturnsError(t *testing.T) {
 	if err == nil {
 		t.Fatalf("expected capture error, got snapshot %#v", snapshot)
 	}
-	if !strings.Contains(err.Error(), "active server") {
-		t.Fatalf("unexpected capture error %q, want it to mention active server", err.Error())
+	if !errors.Is(err, ErrNoActiveServer) {
+		t.Fatalf("unexpected capture error %v, want ErrNoActiveServer", err)
 	}
 }
 

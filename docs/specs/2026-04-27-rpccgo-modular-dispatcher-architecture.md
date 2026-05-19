@@ -53,20 +53,51 @@ flowchart LR
     GRPCRemote --> GRPCClient --> RemoteGRPCServer
 ```
 
-运行时只有一个监听入口。监听入口收到请求后进入 generated service dispatcher；dispatcher 根据 active server slot 选择当前 server adapter，并在 native/message contract 不匹配时调用 generated converter。
+运行时只有一个监听入口。监听入口收到请求后进入 generated service runtime 的 active router；active router 根据 active server slot 选择当前 server adapter，并在 native/message contract 不匹配时调用 generated converter。底层 dispatcher 只保留通用 snapshot capture 与 stream registry primitive。
 
 ## 核心概念
 
 ### Dispatcher
 
-dispatcher 是 generated service 的唯一调用调度入口。cgo native client 和 cgo message client 都通过 dispatcher 发起调用。dispatcher 负责：
+dispatcher 是 generated service 的底层调度 primitive。cgo native client 和 cgo message client 不直接展开 active server routing，而是进入 generated service runtime 内的 active router；active router 复用 dispatcher 完成 snapshot capture 与 stream registry 操作。dispatcher 负责：
 
-1. 读取当前 active server。
-2. 判断 client request 是 native contract 还是 message contract。
-3. 判断 active server adapter 接收 native contract 还是 message contract。
-4. 在 contract 匹配时直接调用 server adapter。
-5. 在 contract 不匹配时调用 generated converter 完成 native/message 转换。
-6. 在 stream `Start` 时捕获 active server snapshot，并让后续 stream 操作固定路由到该 snapshot。
+1. 保存并读取当前 active server snapshot。
+2. 为 unary 调用提供 capture/invoke primitive。
+3. 在 stream `Start` 时捕获 active server snapshot。
+4. 保存转换后的 stream session，并让后续 stream 操作固定路由到该 session。
+
+### Active Router
+
+active router 是 generated service runtime 内部的 package-private typed routing layer，不作为外部用户 API。它按调用端 contract 与 RPC method 生成入口，例如 `InvokeNativeSayHello`、`InvokeMessageSayHello`、`StartNativeCollect`、`StartMessageCollect`。router 内部再根据 active server contract 选择直调还是执行 native/message 转换。核心形态如下：
+
+```text
+GreeterCGONativeClientBridge.SayHello
+  -> greeterRouter.InvokeNativeSayHello(ctx, name, city)
+
+GreeterCGOMessageClientBridge.SayHello
+  -> greeterRouter.InvokeMessageSayHello(ctx, req)
+```
+
+unary 处理链路如下：
+
+```text
+capture active server snapshot
+  -> match active server contract
+      native active + native caller: direct native call
+      message active + native caller: native request -> message request -> message call -> native response
+      message active + message caller: direct message call
+      native active + message caller: message request -> native request -> native call -> message response
+  -> precise routing / adapter / converter error
+```
+
+active router 的调用方法保持 package-private，但其外部可观察错误应使用 exported sentinel vars，便于用户用 `errors.Is` 判断路由失败类型。没有 active server 是 runtime core 的通用失败，使用 `rpcruntime.ErrNoActiveServer`；service-specific 失败不沿用旧的 `native/message contract mismatch` 宽泛文案。通用 service-specific 失败不按 native caller/message caller 方向拆分，按 service + 失败分类命名，例如 `GreeterNativeMessageConverterUnavailableErr`、`GreeterNativeAdapterUnavailableErr`、`GreeterMessageAdapterUnavailableErr`、`GreeterUnknownActiveContractErr`。错误至少区分以下情况：
+
+- 当前 dispatcher 没有 active server，返回 `rpcruntime.ErrNoActiveServer`。
+- active server contract 无法服务调用端 contract，且当前生成物没有对应 native/message converter。
+- active server snapshot 的 contract 与 adapter 字段不一致，例如 native contract 下 native adapter 为 nil。
+- active server snapshot contract 是未知值。
+
+这些错误以 package-level sentinel `var` 导出，不做 method 级动态包装；router 直接返回它们，便于 `errors.Is`。
 
 ### Active Server Slot
 
@@ -170,13 +201,28 @@ contract 匹配时 dispatcher 不做额外转换。
 
 streaming 规则：
 
-- `Start` 捕获当前 active server adapter。
-- `Send`、`Finish`、`CloseSend`、`Cancel` 都通过 handle 找回启动时捕获的 session。
+- `Start` 由 active router 做 active server 选择，并通过 dispatcher 捕获当前 active server adapter。
+- `Start` 将 native session、message session，或转换后的 stream wrapper 存入 dispatcher 的 stream registry。
+- `Send`、`Finish`、`Recv`、`Done`、`CloseSend`、`Cancel` 都通过 handle 找回启动时固定的 session。
 - `Cancel` 必须向 adapter 传播取消，并让 session 进入终态。
 - `Finish` 只用于 client streaming。
 - `CloseSend` 只用于 bidi streaming。
 - `onRead` 和 `onDone` 用于 server streaming 与 bidi streaming。
 - native streaming 和 message streaming 使用相同 session 生命周期，不再维护两套语义。
+
+streaming `Start` 处理链路如下：
+
+```text
+StartNativeCollect
+  -> greeterRouter.StartNativeCollect(ctx)
+      -> dispatcher.StartStream(...)
+          -> capture active server snapshot
+          -> choose native session or message-to-native wrapper
+          -> store final session in stream registry
+  -> stream handle
+```
+
+后续 stream 操作不重新选择 active server；它们只通过 handle 找回 `Start` 时存入 registry 的 session，并按 stream lifecycle 规则推进或终结该 session。
 
 ## 模块边界
 

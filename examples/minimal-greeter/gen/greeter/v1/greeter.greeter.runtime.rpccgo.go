@@ -22,8 +22,11 @@ type GreeterActiveAdapter struct {
 }
 
 var greeterDispatcher rpcruntime.Dispatcher[GreeterActiveAdapter]
-var greeterNativeContractMismatchErr = errors.New("rpccgo: native contract mismatch: active server is message and native/message converter is not enabled")
-var greeterMessageContractMismatchErr = errors.New("rpccgo: message contract mismatch: active server is native and native/message converter is not enabled")
+var greeterRouter = greeterActiveRouter{dispatcher: &greeterDispatcher}
+var GreeterNativeMessageConverterUnavailableErr = errors.New("rpccgo: native/message converter is not enabled")
+var GreeterNativeAdapterUnavailableErr = errors.New("rpccgo: native adapter is unavailable")
+var GreeterMessageAdapterUnavailableErr = errors.New("rpccgo: message adapter is unavailable")
+var GreeterUnknownActiveContractErr = errors.New("rpccgo: unknown active server contract")
 
 func GreeterDispatcherForRuntime() *rpcruntime.Dispatcher[GreeterActiveAdapter] {
 	return &greeterDispatcher
@@ -45,22 +48,24 @@ func registerGreeterMessageActiveServer(kind rpcruntime.ServerKind, adapter Gree
 	return rpcruntime.AdapterSnapshot[GreeterMessageAdapter]{Kind: snapshot.Kind, Contract: snapshot.Contract, Version: snapshot.Version, Adapter: adapter}, nil
 }
 
-type GreeterCGONativeClientBridge struct{}
+type greeterActiveRouter struct {
+	dispatcher *rpcruntime.Dispatcher[GreeterActiveAdapter]
+}
 
-func (GreeterCGONativeClientBridge) SayHello(ctx context.Context, name *rpcruntime.RpcString) (string, error) {
+func (r greeterActiveRouter) invokeNativeSayHello(ctx context.Context, name *rpcruntime.RpcString) (string, error) {
 	var messageResult string
-	err := greeterDispatcher.Invoke(ctx, func(ctx context.Context, snapshot rpcruntime.AdapterSnapshot[GreeterActiveAdapter]) error {
+	err := r.dispatcher.Invoke(ctx, func(ctx context.Context, snapshot rpcruntime.AdapterSnapshot[GreeterActiveAdapter]) error {
 		switch snapshot.Contract {
 		case rpcruntime.ServerContractNative:
 			if snapshot.Adapter.Native == nil {
-				return greeterNativeContractMismatchErr
+				return GreeterNativeAdapterUnavailableErr
 			}
 			var callErr error
 			messageResult, callErr = snapshot.Adapter.Native.SayHello(ctx, name)
 			return callErr
 		case rpcruntime.ServerContractMessage:
 			if snapshot.Adapter.Message == nil {
-				return greeterNativeContractMismatchErr
+				return GreeterMessageAdapterUnavailableErr
 			}
 			messageReq, err := convertGreeterSayHelloNativeToMessageRequest(name)
 			if err != nil {
@@ -74,7 +79,7 @@ func (GreeterCGONativeClientBridge) SayHello(ctx context.Context, name *rpcrunti
 			messageResult, callErr = convertGreeterSayHelloMessageToNativeResponse(messageResp)
 			return callErr
 		default:
-			return greeterNativeContractMismatchErr
+			return GreeterUnknownActiveContractErr
 		}
 	})
 	if err != nil {
@@ -83,30 +88,20 @@ func (GreeterCGONativeClientBridge) SayHello(ctx context.Context, name *rpcrunti
 	return messageResult, nil
 }
 
-func NewGreeterCGONativeClientBridge() GreeterCGONativeClientBridge {
-	return GreeterCGONativeClientBridge{}
-}
-
-func RegisterGreeterCGONativeActiveServer(kind rpcruntime.ServerKind, adapter GreeterNativeAdapter) (rpcruntime.AdapterSnapshot[GreeterNativeAdapter], error) {
-	return registerGreeterActiveServer(kind, adapter)
-}
-
-type GreeterCGOMessageClientBridge struct{}
-
-func (GreeterCGOMessageClientBridge) SayHello(ctx context.Context, req []byte) ([]byte, error) {
+func (r greeterActiveRouter) invokeMessageSayHello(ctx context.Context, req []byte) ([]byte, error) {
 	var resp []byte
-	err := greeterDispatcher.Invoke(ctx, func(ctx context.Context, snapshot rpcruntime.AdapterSnapshot[GreeterActiveAdapter]) error {
+	err := r.dispatcher.Invoke(ctx, func(ctx context.Context, snapshot rpcruntime.AdapterSnapshot[GreeterActiveAdapter]) error {
 		switch snapshot.Contract {
 		case rpcruntime.ServerContractMessage:
 			if snapshot.Adapter.Message == nil {
-				return greeterMessageContractMismatchErr
+				return GreeterMessageAdapterUnavailableErr
 			}
 			var callErr error
 			resp, callErr = snapshot.Adapter.Message.SayHelloMessage(ctx, req)
 			return callErr
 		case rpcruntime.ServerContractNative:
 			if snapshot.Adapter.Native == nil {
-				return greeterMessageContractMismatchErr
+				return GreeterNativeAdapterUnavailableErr
 			}
 			return withGreeterSayHelloMessageToNativeRequest(req, func(name *rpcruntime.RpcString) error {
 				messageResult, err := snapshot.Adapter.Native.SayHello(ctx, name)
@@ -121,13 +116,33 @@ func (GreeterCGOMessageClientBridge) SayHello(ctx context.Context, req []byte) (
 				return nil
 			})
 		default:
-			return greeterMessageContractMismatchErr
+			return GreeterUnknownActiveContractErr
 		}
 	})
 	if err != nil {
 		return nil, err
 	}
 	return resp, nil
+}
+
+type GreeterCGONativeClientBridge struct{}
+
+func (GreeterCGONativeClientBridge) SayHello(ctx context.Context, name *rpcruntime.RpcString) (string, error) {
+	return greeterRouter.invokeNativeSayHello(ctx, name)
+}
+
+func NewGreeterCGONativeClientBridge() GreeterCGONativeClientBridge {
+	return GreeterCGONativeClientBridge{}
+}
+
+func RegisterGreeterCGONativeActiveServer(kind rpcruntime.ServerKind, adapter GreeterNativeAdapter) (rpcruntime.AdapterSnapshot[GreeterNativeAdapter], error) {
+	return registerGreeterActiveServer(kind, adapter)
+}
+
+type GreeterCGOMessageClientBridge struct{}
+
+func (GreeterCGOMessageClientBridge) SayHello(ctx context.Context, req []byte) ([]byte, error) {
+	return greeterRouter.invokeMessageSayHello(ctx, req)
 }
 
 func NewGreeterCGOMessageClientBridge() GreeterCGOMessageClientBridge {

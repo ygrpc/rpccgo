@@ -28,6 +28,10 @@ _Avoid_: stream registry access pattern
 每个 service 生成的 `*.runtime.rpccgo.go`，只应承载 proto/service/method-specific 的 typed adapter、bridge 和 converter glue。
 _Avoid_: runtime core
 
+**Active router**:
+Generated service runtime 内部的 package-private typed routing layer，负责按 service/method contract 选择 Active server 并应用 native/message 转换；不作为外部用户 API。
+_Avoid_: runtime core dispatcher, public client API
+
 **Call-scoped borrowed view**:
 仅在一次 generated message→native bridge 调用同步执行期间有效的 borrowed wrapper 视图；不得把 wrapper 本身跨调用保存。
 _Avoid_: owned wrapper, long-lived native input
@@ -55,6 +59,8 @@ _Avoid_: active server
 - **Generated service runtime** 不应生成 per-method stream `load/take/delete` 薄包装；应通过 **Stream lifecycle** Module 表达 Start 后的 lookup、half-close、finish/done/cancel 和终态释放规则。
 - Register helper 可留在 **Generated service runtime** 中，因为它们封装 service-specific active adapter 包装并返回更窄的 typed snapshot，不是纯 runtime core 薄包装。
 - Native/message client bridge 应留在 **Generated service runtime** 中，因为它表达 service-level active server contract 路由，并集中连接 native adapter、message adapter 与 converter glue。
+- **Active router** 应留在 **Generated service runtime** 中，作为 service-local routing layer 复用 **Runtime core** dispatcher 的 capture/start primitive；bridge 不应重复展开 snapshot、contract routing、adapter nil、converter 和 stream wrapper 选择。
+- **Active router** 的方法不作为外部用户 API；但它返回的 routing errors 应导出为 package-level sentinel vars，供用户通过 `errors.Is` 判断失败类型；无 active server 使用 `rpcruntime.ErrNoActiveServer`，service-specific 失败按 service + 分类命名，不按调用方向拆分。
 - **Message contract** remote adapter 使用标准 transport client 作为外部能力；rpccgo generated code 不应构造 per-method client。
 - **Message contract** remote adapter 只转发 protobuf message payload 和 error；metadata/header/trailer 不属于当前 contract。
 - 一个 service 的 generated output 只能选择一个 message transport（connect 或 gRPC），避免标准 transport client API 在同包内重名。

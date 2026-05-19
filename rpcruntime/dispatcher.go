@@ -7,7 +7,7 @@ import (
 )
 
 var (
-	errDispatcherNoActiveServer  = errors.New("dispatcher has no active server")
+	ErrNoActiveServer            = errors.New("dispatcher has no active server")
 	errDispatcherNilInvoke       = errors.New("dispatcher invoke callback is nil")
 	errDispatcherNilStreamCreate = errors.New("dispatcher stream create callback is nil")
 )
@@ -24,7 +24,7 @@ func (d *Dispatcher[T]) Register(kind ServerKind, contract ServerContract, adapt
 func (d *Dispatcher[T]) Capture() (AdapterSnapshot[T], error) {
 	snapshot, ok := d.slot.Load()
 	if !ok {
-		return AdapterSnapshot[T]{}, errDispatcherNoActiveServer
+		return AdapterSnapshot[T]{}, ErrNoActiveServer
 	}
 	return snapshot, nil
 }
@@ -151,8 +151,8 @@ type DispatcherStreamTerminal[TAdapter any, TSession any] struct {
 	dispatcher       *Dispatcher[TAdapter]
 	handle           StreamHandle
 	invalidHandleErr error
-	mu              sync.Mutex
-	ended           bool
+	mu               sync.Mutex
+	ended            bool
 }
 
 func NewDispatcherStreamTerminal[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, invalidHandleErr error) *DispatcherStreamTerminal[TAdapter, TSession] {
