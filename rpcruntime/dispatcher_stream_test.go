@@ -288,3 +288,131 @@ func TestDispatcherStreamHelpersLoadTakeDeleteTypedSessions(t *testing.T) {
 		t.Fatal("DeleteDispatcherStream returned true for nil dispatcher")
 	}
 }
+
+func TestWithDispatcherStreamLoadsSessionWithoutConsumingHandle(t *testing.T) {
+	var dispatcher Dispatcher[*fakeDispatcherAdapter]
+	if _, err := dispatcher.Register(ServerKindGoNative, ServerContractNative, &fakeDispatcherAdapter{name: "adapter"}); err != nil {
+		t.Fatalf("register adapter: %v", err)
+	}
+
+	handle, err := dispatcher.StartStream(func(snapshot AdapterSnapshot[*fakeDispatcherAdapter]) (any, error) {
+		return &fakeDispatcherStreamSession{snapshot: snapshot, name: "stream"}, nil
+	})
+	if err != nil {
+		t.Fatalf("start stream: %v", err)
+	}
+
+	invalidHandleErr := errors.New("stream handle is invalid")
+	var got *fakeDispatcherStreamSession
+	if err := WithDispatcherStream(&dispatcher, handle, invalidHandleErr, func(session *fakeDispatcherStreamSession) error {
+		got = session
+		return nil
+	}); err != nil {
+		t.Fatalf("WithDispatcherStream returned error: %v", err)
+	}
+	if got == nil || got.name != "stream" {
+		t.Fatalf("WithDispatcherStream passed session %#v, want stream", got)
+	}
+	if _, ok := LoadDispatcherStream[*fakeDispatcherAdapter, *fakeDispatcherStreamSession](&dispatcher, handle); !ok {
+		t.Fatal("WithDispatcherStream consumed the stream handle")
+	}
+}
+
+func TestEndDispatcherStreamConsumesHandleOnce(t *testing.T) {
+	var dispatcher Dispatcher[*fakeDispatcherAdapter]
+	if _, err := dispatcher.Register(ServerKindGoNative, ServerContractNative, &fakeDispatcherAdapter{name: "adapter"}); err != nil {
+		t.Fatalf("register adapter: %v", err)
+	}
+
+	handle, err := dispatcher.StartStream(func(snapshot AdapterSnapshot[*fakeDispatcherAdapter]) (any, error) {
+		return &fakeDispatcherStreamSession{snapshot: snapshot, name: "stream"}, nil
+	})
+	if err != nil {
+		t.Fatalf("start stream: %v", err)
+	}
+
+	invalidHandleErr := errors.New("stream handle is invalid")
+	calls := 0
+	if err := EndDispatcherStream(&dispatcher, handle, invalidHandleErr, func(session *fakeDispatcherStreamSession) error {
+		calls++
+		return nil
+	}); err != nil {
+		t.Fatalf("EndDispatcherStream returned error: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("terminal callback called %d times, want 1", calls)
+	}
+	if _, ok := LoadDispatcherStream[*fakeDispatcherAdapter, *fakeDispatcherStreamSession](&dispatcher, handle); ok {
+		t.Fatal("EndDispatcherStream did not consume the stream handle")
+	}
+	if err := EndDispatcherStream(&dispatcher, handle, invalidHandleErr, func(session *fakeDispatcherStreamSession) error {
+		calls++
+		return nil
+	}); !errors.Is(err, invalidHandleErr) {
+		t.Fatalf("second EndDispatcherStream returned %v, want invalid handle", err)
+	}
+	if calls != 1 {
+		t.Fatalf("terminal callback called %d times after invalid handle, want 1", calls)
+	}
+}
+
+func TestEndDispatcherStreamTypeMismatchDoesNotConsumeHandle(t *testing.T) {
+	var dispatcher Dispatcher[*fakeDispatcherAdapter]
+	if _, err := dispatcher.Register(ServerKindGoNative, ServerContractNative, &fakeDispatcherAdapter{name: "adapter"}); err != nil {
+		t.Fatalf("register adapter: %v", err)
+	}
+
+	handle, err := dispatcher.StartStream(func(snapshot AdapterSnapshot[*fakeDispatcherAdapter]) (any, error) {
+		return &fakeDispatcherStreamSession{snapshot: snapshot, name: "stream"}, nil
+	})
+	if err != nil {
+		t.Fatalf("start stream: %v", err)
+	}
+
+	invalidHandleErr := errors.New("stream handle is invalid")
+	if err := EndDispatcherStream(&dispatcher, handle, invalidHandleErr, func(session fakeDispatcherStreamSession) error {
+		return nil
+	}); !errors.Is(err, invalidHandleErr) {
+		t.Fatalf("EndDispatcherStream with mismatched type returned %v, want invalid handle", err)
+	}
+	loaded, ok := LoadDispatcherStream[*fakeDispatcherAdapter, *fakeDispatcherStreamSession](&dispatcher, handle)
+	if !ok {
+		t.Fatal("EndDispatcherStream consumed the handle after a type mismatch")
+	}
+	if loaded.name != "stream" {
+		t.Fatalf("loaded session %q, want stream", loaded.name)
+	}
+}
+
+func TestDispatcherStreamTerminalEndsOnlyOnce(t *testing.T) {
+	var dispatcher Dispatcher[*fakeDispatcherAdapter]
+	if _, err := dispatcher.Register(ServerKindGoNative, ServerContractNative, &fakeDispatcherAdapter{name: "adapter"}); err != nil {
+		t.Fatalf("register adapter: %v", err)
+	}
+
+	handle, err := dispatcher.StartStream(func(snapshot AdapterSnapshot[*fakeDispatcherAdapter]) (any, error) {
+		return &fakeDispatcherStreamSession{snapshot: snapshot, name: "stream"}, nil
+	})
+	if err != nil {
+		t.Fatalf("start stream: %v", err)
+	}
+
+	invalidHandleErr := errors.New("stream handle is invalid")
+	terminal := NewDispatcherStreamTerminal[*fakeDispatcherAdapter, *fakeDispatcherStreamSession](&dispatcher, handle, invalidHandleErr)
+	calls := 0
+	if err := terminal.End(func(session *fakeDispatcherStreamSession) error {
+		calls++
+		return nil
+	}); err != nil {
+		t.Fatalf("first terminal End returned error: %v", err)
+	}
+	if err := terminal.End(func(session *fakeDispatcherStreamSession) error {
+		calls++
+		return nil
+	}); !errors.Is(err, invalidHandleErr) {
+		t.Fatalf("second terminal End returned %v, want invalid handle", err)
+	}
+	if calls != 1 {
+		t.Fatalf("terminal callback called %d times, want 1", calls)
+	}
+}

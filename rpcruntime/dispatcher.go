@@ -3,6 +3,7 @@ package rpcruntime
 import (
 	"context"
 	"errors"
+	"sync"
 )
 
 var (
@@ -104,4 +105,71 @@ func DeleteDispatcherStream[TAdapter any](dispatcher *Dispatcher[TAdapter], hand
 		return false
 	}
 	return dispatcher.streams.Delete(handle)
+}
+
+func RequireDispatcherStream[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, invalidHandleErr error) (TSession, error) {
+	session, ok := LoadDispatcherStream[TAdapter, TSession](dispatcher, handle)
+	if !ok {
+		var zero TSession
+		return zero, invalidHandleErr
+	}
+	return session, nil
+}
+
+func TakeRequiredDispatcherStream[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, invalidHandleErr error) (TSession, error) {
+	session, ok := TakeDispatcherStream[TAdapter, TSession](dispatcher, handle)
+	if !ok {
+		var zero TSession
+		return zero, invalidHandleErr
+	}
+	return session, nil
+}
+
+func WithDispatcherStream[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, invalidHandleErr error, call func(TSession) error) error {
+	session, err := RequireDispatcherStream[TAdapter, TSession](dispatcher, handle, invalidHandleErr)
+	if err != nil {
+		return err
+	}
+	if call == nil {
+		return nil
+	}
+	return call(session)
+}
+
+func EndDispatcherStream[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, invalidHandleErr error, call func(TSession) error) error {
+	session, err := TakeRequiredDispatcherStream[TAdapter, TSession](dispatcher, handle, invalidHandleErr)
+	if err != nil {
+		return err
+	}
+	if call == nil {
+		return nil
+	}
+	return call(session)
+}
+
+type DispatcherStreamTerminal[TAdapter any, TSession any] struct {
+	dispatcher       *Dispatcher[TAdapter]
+	handle           StreamHandle
+	invalidHandleErr error
+	mu              sync.Mutex
+	ended           bool
+}
+
+func NewDispatcherStreamTerminal[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, invalidHandleErr error) *DispatcherStreamTerminal[TAdapter, TSession] {
+	return &DispatcherStreamTerminal[TAdapter, TSession]{
+		dispatcher:       dispatcher,
+		handle:           handle,
+		invalidHandleErr: invalidHandleErr,
+	}
+}
+
+func (t *DispatcherStreamTerminal[TAdapter, TSession]) End(call func(TSession) error) error {
+	t.mu.Lock()
+	if t.ended {
+		t.mu.Unlock()
+		return t.invalidHandleErr
+	}
+	t.ended = true
+	t.mu.Unlock()
+	return EndDispatcherStream(t.dispatcher, t.handle, t.invalidHandleErr, call)
 }

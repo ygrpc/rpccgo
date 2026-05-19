@@ -41,6 +41,7 @@ type GreeterCollectMessageStreamSession interface {
 
 type GreeterBroadcastNativeStreamSession interface {
 	Recv(ctx context.Context) (string, error)
+	Done(ctx context.Context) error
 	Cancel(ctx context.Context) error
 }
 
@@ -54,6 +55,7 @@ type GreeterChatNativeStreamSession interface {
 	Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error
 	Recv(ctx context.Context) (string, error)
 	CloseSend(ctx context.Context) error
+	Done(ctx context.Context) error
 	Cancel(ctx context.Context) error
 }
 
@@ -420,10 +422,7 @@ func (s *greeterBroadcastNativeToMessageStreamSession) Recv(ctx context.Context)
 }
 
 func (s *greeterBroadcastNativeToMessageStreamSession) Done(ctx context.Context) error {
-	if done, ok := s.native.(interface{ Done(context.Context) error }); ok {
-		return done.Done(ctx)
-	}
-	return nil
+	return s.native.Done(ctx)
 }
 
 func (s *greeterBroadcastNativeToMessageStreamSession) Cancel(ctx context.Context) error {
@@ -480,10 +479,7 @@ func (s *greeterChatNativeToMessageStreamSession) CloseSend(ctx context.Context)
 }
 
 func (s *greeterChatNativeToMessageStreamSession) Done(ctx context.Context) error {
-	if done, ok := s.native.(interface{ Done(context.Context) error }); ok {
-		return done.Done(ctx)
-	}
-	return nil
+	return s.native.Done(ctx)
 }
 
 func (s *greeterChatNativeToMessageStreamSession) Cancel(ctx context.Context) error {

@@ -1,6 +1,38 @@
 package generator
 
-import "testing"
+import (
+	"testing"
+
+	"google.golang.org/protobuf/types/descriptorpb"
+)
+
+func TestRenderGRPCServerFileDoesNotImportIOWithoutClientStreaming(t *testing.T) {
+	file := completeServicePlanTestFile()
+	file.SourceCodeInfo = completeServicePlanServiceComments([]string{
+		"",
+		"@rpccgo: msg-connect\n",
+		"@rpccgo: msg-grpc\n",
+		"@rpccgo: msg-connect\n",
+		"@rpccgo: msg-connect|native\n",
+		"@rpccgo: msg-grpc|native\n",
+		"@rpccgo: native\n",
+	})
+	allService := file.Service[5]
+	allService.Method = []*descriptorpb.MethodDescriptorProto{
+		allService.Method[0],
+		allService.Method[2],
+		allService.Method[3],
+	}
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	if _, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true}); err != nil {
+		t.Fatalf("GenerateWithOptions(RenderStageFiles) error = %v", err)
+	}
+
+	const grpcFile = "test/v1/complete_service_plan.all_service.server.grpc.rpccgo.go"
+	assertGeneratedContentContains(t, plugin, grpcFile, `rpcruntime "rpccgo/rpcruntime"`)
+	assertGeneratedFileContentDoesNotContain(t, plugin, grpcFile, `io "io"`)
+}
 
 func TestRenderGRPCServerFileEmitsServiceDesc(t *testing.T) {
 	file := completeServicePlanTestFile()

@@ -2,6 +2,7 @@ package rpcruntime
 
 import (
 	"errors"
+	"io"
 	"sync"
 	"testing"
 )
@@ -251,5 +252,109 @@ func TestStreamSessionConcurrentCancelAndFinalizeOnlyOneTerminalWins(t *testing.
 		if !cancelOK && calls != 0 {
 			t.Fatalf("attempt %d: failed Cancel called callback %d times, want 0", attempt, calls)
 		}
+	}
+}
+
+func TestRunServerStreamCallsDoneAfterEOF(t *testing.T) {
+	recvCalls := 0
+	sendCalls := 0
+	doneCalls := 0
+	cancelCalls := 0
+
+	err := RunServerStream(
+		func() (string, error) {
+			recvCalls++
+			return "", io.EOF
+		},
+		func(string) error {
+			sendCalls++
+			return nil
+		},
+		func() error {
+			doneCalls++
+			return nil
+		},
+		func() error {
+			cancelCalls++
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("RunServerStream returned error: %v", err)
+	}
+	if recvCalls != 1 || sendCalls != 0 || doneCalls != 1 || cancelCalls != 0 {
+		t.Fatalf("calls recv=%d send=%d done=%d cancel=%d, want 1/0/1/0", recvCalls, sendCalls, doneCalls, cancelCalls)
+	}
+}
+
+func TestRunServerStreamCancelsAfterRecvError(t *testing.T) {
+	recvErr := errors.New("recv failed")
+	cancelCalls := 0
+
+	err := RunServerStream(
+		func() (string, error) {
+			return "", recvErr
+		},
+		func(string) error {
+			t.Fatal("send should not be called after recv error")
+			return nil
+		},
+		func() error {
+			t.Fatal("done should not be called after recv error")
+			return nil
+		},
+		func() error {
+			cancelCalls++
+			return nil
+		},
+	)
+	if !errors.Is(err, recvErr) {
+		t.Fatalf("RunServerStream returned %v, want recvErr", err)
+	}
+	if cancelCalls != 1 {
+		t.Fatalf("cancel called %d times, want 1", cancelCalls)
+	}
+}
+
+func TestRunBidiStreamCloseSendAfterReceiveEOF(t *testing.T) {
+	receiveCalls := 0
+	closeSendCalls := 0
+	doneCalls := 0
+	cancelCalls := 0
+
+	err := RunBidiStream(
+		func() (string, error) {
+			receiveCalls++
+			return "", io.EOF
+		},
+		func(string) error {
+			t.Fatal("send to session should not be called after receive EOF")
+			return nil
+		},
+		func() error {
+			closeSendCalls++
+			return nil
+		},
+		func() (string, error) {
+			return "", io.EOF
+		},
+		func(string) error {
+			t.Fatal("send to peer should not be called after response EOF")
+			return nil
+		},
+		func() error {
+			doneCalls++
+			return nil
+		},
+		func() error {
+			cancelCalls++
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("RunBidiStream returned error: %v", err)
+	}
+	if receiveCalls != 1 || closeSendCalls != 1 || doneCalls != 1 || cancelCalls != 0 {
+		t.Fatalf("calls receive=%d closeSend=%d done=%d cancel=%d, want 1/1/1/0", receiveCalls, closeSendCalls, doneCalls, cancelCalls)
 	}
 }

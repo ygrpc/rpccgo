@@ -264,10 +264,7 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan,
 	g.P("ctx = context.Background()")
 	g.P("}")
 	renderNativeClientTakeNativeStream(g, service, method, invalidHandleError, servicePackage)
-	g.P("var err error")
-	g.P("if done, ok := session.(interface{ Done(context.Context) error }); ok {")
-	g.P("err = done.Done(ctx)")
-	g.P("}")
+	g.P("err := session.Done(ctx)")
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -382,10 +379,7 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, s
 	g.P("ctx = context.Background()")
 	g.P("}")
 	renderNativeClientTakeNativeStream(g, service, method, invalidHandleError, servicePackage)
-	g.P("var err error")
-	g.P("if done, ok := session.(interface{ Done(context.Context) error }); ok {")
-	g.P("err = done.Done(ctx)")
-	g.P("}")
+	g.P("err := session.Done(ctx)")
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -521,16 +515,16 @@ func nativeClientOutputLenSymbol(field FieldPlan) string {
 }
 
 func renderNativeClientLoadNativeStream(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, invalidHandleError, servicePackage string) {
-	g.P("session, ok := rpcruntime.LoadDispatcherStream[", servicePackage, service.GoName, "ActiveAdapter, ", nativeClientNativeStreamSessionName(service, method, servicePackage), "](", servicePackage, service.GoName, "DispatcherForRuntime(), rpcruntime.StreamHandle(handle))")
-	g.P("if !ok {")
-	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
+	g.P("session, streamErr := rpcruntime.RequireDispatcherStream[", servicePackage, service.GoName, "ActiveAdapter, ", nativeClientNativeStreamSessionName(service, method, servicePackage), "](", servicePackage, service.GoName, "DispatcherForRuntime(), rpcruntime.StreamHandle(handle), ", invalidHandleError, ")")
+	g.P("if streamErr != nil {")
+	g.P("return int32(rpcruntime.StoreError(streamErr))")
 	g.P("}")
 }
 
 func renderNativeClientTakeNativeStream(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, invalidHandleError, servicePackage string) {
-	g.P("session, ok := rpcruntime.TakeDispatcherStream[", servicePackage, service.GoName, "ActiveAdapter, ", nativeClientNativeStreamSessionName(service, method, servicePackage), "](", servicePackage, service.GoName, "DispatcherForRuntime(), rpcruntime.StreamHandle(handle))")
-	g.P("if !ok {")
-	g.P("return int32(rpcruntime.StoreError(", invalidHandleError, "))")
+	g.P("session, streamErr := rpcruntime.TakeRequiredDispatcherStream[", servicePackage, service.GoName, "ActiveAdapter, ", nativeClientNativeStreamSessionName(service, method, servicePackage), "](", servicePackage, service.GoName, "DispatcherForRuntime(), rpcruntime.StreamHandle(handle), ", invalidHandleError, ")")
+	g.P("if streamErr != nil {")
+	g.P("return int32(rpcruntime.StoreError(streamErr))")
 	g.P("}")
 }
 

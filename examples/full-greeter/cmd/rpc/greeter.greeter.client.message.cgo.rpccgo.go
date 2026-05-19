@@ -113,9 +113,9 @@ func SendGreeterCollectMessageClientStream(ctx context.Context, handle int32, re
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	session, ok := rpcruntime.LoadDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterCollectMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: message client stream handle is invalid")))
+	session, err := rpcruntime.RequireDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterCollectMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), errors.New("rpccgo: message client stream handle is invalid"))
+	if err != nil {
+		return int32(rpcruntime.StoreError(err))
 	}
 	req, err := decodeGreeterCollectMessageRequestBytes(requestPtr, requestLen)
 	if err != nil {
@@ -137,9 +137,9 @@ func FinishGreeterCollectMessageClientStream(ctx context.Context, handle int32, 
 	if output == nil {
 		return int32(rpcruntime.StoreError(errors.New("rpccgo: message stream output is nil")))
 	}
-	session, ok := rpcruntime.TakeDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterCollectMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: message client stream handle is invalid")))
+	session, err := rpcruntime.TakeRequiredDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterCollectMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), errors.New("rpccgo: message client stream handle is invalid"))
+	if err != nil {
+		return int32(rpcruntime.StoreError(err))
 	}
 	resp, err := session.Finish(ctx)
 	if err != nil {
@@ -161,12 +161,11 @@ func CancelGreeterCollectMessageClientStream(ctx context.Context, handle int32) 
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	session, ok := rpcruntime.TakeDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterCollectMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: message client stream handle is invalid")))
-	}
-	err := session.Cancel(ctx)
+	session, err := rpcruntime.TakeRequiredDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterCollectMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), errors.New("rpccgo: message client stream handle is invalid"))
 	if err != nil {
+		return int32(rpcruntime.StoreError(err))
+	}
+	if err := session.Cancel(ctx); err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
 	return 0
@@ -266,9 +265,9 @@ func ReadGreeterBroadcastMessageServerStream(ctx context.Context, handle int32, 
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	session, ok := rpcruntime.LoadDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterBroadcastMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: message client stream handle is invalid")))
+	session, err := rpcruntime.RequireDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterBroadcastMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), errors.New("rpccgo: message client stream handle is invalid"))
+	if err != nil {
+		return int32(rpcruntime.StoreError(err))
 	}
 	resp, err := session.Recv(ctx)
 	if err != nil {
@@ -290,12 +289,11 @@ func DoneGreeterBroadcastMessageServerStream(ctx context.Context, handle int32) 
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	session, ok := rpcruntime.TakeDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterBroadcastMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: message client stream handle is invalid")))
-	}
-	err := session.Done(ctx)
+	session, err := rpcruntime.TakeRequiredDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterBroadcastMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), errors.New("rpccgo: message client stream handle is invalid"))
 	if err != nil {
+		return int32(rpcruntime.StoreError(err))
+	}
+	if err := session.Done(ctx); err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
 	return 0
@@ -305,12 +303,11 @@ func CancelGreeterBroadcastMessageServerStream(ctx context.Context, handle int32
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	session, ok := rpcruntime.TakeDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterBroadcastMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: message client stream handle is invalid")))
-	}
-	err := session.Cancel(ctx)
+	session, err := rpcruntime.TakeRequiredDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterBroadcastMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), errors.New("rpccgo: message client stream handle is invalid"))
 	if err != nil {
+		return int32(rpcruntime.StoreError(err))
+	}
+	if err := session.Cancel(ctx); err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
 	return 0
@@ -400,9 +397,9 @@ func SendGreeterChatMessageBidiStream(ctx context.Context, handle int32, request
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	session, ok := rpcruntime.LoadDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: message client stream handle is invalid")))
+	session, err := rpcruntime.RequireDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), errors.New("rpccgo: message client stream handle is invalid"))
+	if err != nil {
+		return int32(rpcruntime.StoreError(err))
 	}
 	req, err := decodeGreeterChatMessageRequestBytes(requestPtr, requestLen)
 	if err != nil {
@@ -424,9 +421,9 @@ func ReadGreeterChatMessageBidiStream(ctx context.Context, handle int32, output 
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	session, ok := rpcruntime.LoadDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: message client stream handle is invalid")))
+	session, err := rpcruntime.RequireDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), errors.New("rpccgo: message client stream handle is invalid"))
+	if err != nil {
+		return int32(rpcruntime.StoreError(err))
 	}
 	resp, err := session.Recv(ctx)
 	if err != nil {
@@ -448,9 +445,9 @@ func CloseSendGreeterChatMessageBidiStream(ctx context.Context, handle int32) in
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	session, ok := rpcruntime.LoadDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: message client stream handle is invalid")))
+	session, err := rpcruntime.RequireDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), errors.New("rpccgo: message client stream handle is invalid"))
+	if err != nil {
+		return int32(rpcruntime.StoreError(err))
 	}
 	if err := session.CloseSend(ctx); err != nil {
 		return int32(rpcruntime.StoreError(err))
@@ -462,12 +459,11 @@ func DoneGreeterChatMessageBidiStream(ctx context.Context, handle int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	session, ok := rpcruntime.TakeDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: message client stream handle is invalid")))
-	}
-	err := session.Done(ctx)
+	session, err := rpcruntime.TakeRequiredDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), errors.New("rpccgo: message client stream handle is invalid"))
 	if err != nil {
+		return int32(rpcruntime.StoreError(err))
+	}
+	if err := session.Done(ctx); err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
 	return 0
@@ -477,12 +473,11 @@ func CancelGreeterChatMessageBidiStream(ctx context.Context, handle int32) int32
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	session, ok := rpcruntime.TakeDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(errors.New("rpccgo: message client stream handle is invalid")))
-	}
-	err := session.Cancel(ctx)
+	session, err := rpcruntime.TakeRequiredDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), errors.New("rpccgo: message client stream handle is invalid"))
 	if err != nil {
+		return int32(rpcruntime.StoreError(err))
+	}
+	if err := session.Cancel(ctx); err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
 	return 0

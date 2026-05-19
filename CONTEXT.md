@@ -20,6 +20,10 @@ _Avoid_: provider bootstrap
 手写的 `rpcruntime` 包，承载跨 service 复用的 active slot、dispatcher 和 stream registry 等通用机制。
 _Avoid_: generated service runtime
 
+**Stream lifecycle**:
+一次 streaming call 从 Start 到终态操作期间的 handle ownership、session lookup、half-close、finish/done/cancel 和 invalid-handle 语义。
+_Avoid_: stream registry access pattern
+
 **Generated service runtime**:
 每个 service 生成的 `*.runtime.rpccgo.go`，只应承载 proto/service/method-specific 的 typed adapter、bridge 和 converter glue。
 _Avoid_: runtime core
@@ -47,7 +51,8 @@ _Avoid_: active server
 - `NativeContract` 这类字段计划可以作为参数转换的中间表示保留；它不是最终 **Native** 边界。
 - **Active server** 是新版调度模型的一部分；它不能改变 **Native** 的字段级函数边界语义。
 - **Runtime core** 负责通用调度和 stream 存储；**Generated service runtime** 负责 service-specific typed glue，不应重复生成可由 runtime core 泛型函数直接表达的薄包装。
-- **Generated service runtime** 不应生成 per-method stream `load/take/delete` 薄包装；应在 generated bridge/client/server 代码中直接调用 **Runtime core** 的泛型 stream registry 函数。
+- **Stream lifecycle** 的 ownership、terminal-once 和 invalid-handle 通用语义属于 **Runtime core**；method-specific session 操作、native/message 转换和 flat ABI 编解码属于 **Generated service runtime**。
+- **Generated service runtime** 不应生成 per-method stream `load/take/delete` 薄包装；应通过 **Stream lifecycle** Module 表达 Start 后的 lookup、half-close、finish/done/cancel 和终态释放规则。
 - Register helper 可留在 **Generated service runtime** 中，因为它们封装 service-specific active adapter 包装并返回更窄的 typed snapshot，不是纯 runtime core 薄包装。
 - Native/message client bridge 应留在 **Generated service runtime** 中，因为它表达 service-level active server contract 路由，并集中连接 native adapter、message adapter 与 converter glue。
 - **Message contract** remote adapter 使用标准 transport client 作为外部能力；rpccgo generated code 不应构造 per-method client。

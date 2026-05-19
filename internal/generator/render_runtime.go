@@ -198,11 +198,13 @@ func renderRuntimeSessionInterface(g *protogen.GeneratedFile, method runtimeAdap
 		g.P("Cancel(ctx context.Context) error")
 	case StreamingKindServerStreaming:
 		g.P("Recv(ctx context.Context) (", method.NativeReturns, ")")
+		g.P("Done(ctx context.Context) error")
 		g.P("Cancel(ctx context.Context) error")
 	case StreamingKindBidiStreaming:
 		g.P("Send(ctx context.Context", method.NativeArgs, ") error")
 		g.P("Recv(ctx context.Context) (", method.NativeReturns, ")")
 		g.P("CloseSend(ctx context.Context) error")
+		g.P("Done(ctx context.Context) error")
 		g.P("Cancel(ctx context.Context) error")
 	default:
 		g.P("Cancel(ctx context.Context) error")
@@ -643,10 +645,7 @@ func renderNativeToMessageCloseSend(g *protogen.GeneratedFile, wrapperName strin
 
 func renderNativeToMessageDone(g *protogen.GeneratedFile, wrapperName string) {
 	g.P("func (s *", wrapperName, ") Done(ctx context.Context) error {")
-	g.P("if done, ok := s.native.(interface{ Done(context.Context) error }); ok {")
-	g.P("return done.Done(ctx)")
-	g.P("}")
-	g.P("return nil")
+	g.P("return s.native.Done(ctx)")
 	g.P("}")
 	g.P()
 }

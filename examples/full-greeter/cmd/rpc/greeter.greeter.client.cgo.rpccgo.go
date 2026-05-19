@@ -147,9 +147,9 @@ func SendGreeterCollectNativeClientStream(ctx context.Context, handle int32, Nam
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	session, ok := rpcruntime.LoadDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterCollectNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(greeterNativeClientStreamHandleInvalid))
+	session, streamErr := rpcruntime.RequireDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterCollectNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), greeterNativeClientStreamHandleInvalid)
+	if streamErr != nil {
+		return int32(rpcruntime.StoreError(streamErr))
 	}
 	var err error
 	nameValue, cityValue, err := decodeGreeterCollectNativeClientStreamRequest(NamePtr, NameLen, NameOwnership, CityPtr, CityLen, CityOwnership)
@@ -173,9 +173,9 @@ func FinishGreeterCollectNativeClientStream(ctx context.Context, handle int32, o
 	if err := validateGreeterCollectNativeClientStreamResponse(outMessagePtr, outMessageLen); err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
-	session, ok := rpcruntime.TakeDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterCollectNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(greeterNativeClientStreamHandleInvalid))
+	session, streamErr := rpcruntime.TakeRequiredDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterCollectNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), greeterNativeClientStreamHandleInvalid)
+	if streamErr != nil {
+		return int32(rpcruntime.StoreError(streamErr))
 	}
 	messageResult, err := session.Finish(ctx)
 	if err != nil {
@@ -191,9 +191,9 @@ func CancelGreeterCollectNativeClientStream(ctx context.Context, handle int32) i
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	session, ok := rpcruntime.TakeDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterCollectNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(greeterNativeClientStreamHandleInvalid))
+	session, streamErr := rpcruntime.TakeRequiredDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterCollectNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), greeterNativeClientStreamHandleInvalid)
+	if streamErr != nil {
+		return int32(rpcruntime.StoreError(streamErr))
 	}
 	err := session.Cancel(ctx)
 	if err != nil {
@@ -340,9 +340,9 @@ func ReadGreeterBroadcastNativeServerStream(ctx context.Context, handle int32, o
 	if err := validateGreeterBroadcastNativeServerStreamResponse(outMessagePtr, outMessageLen); err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
-	session, ok := rpcruntime.LoadDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterBroadcastNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(greeterNativeClientStreamHandleInvalid))
+	session, streamErr := rpcruntime.RequireDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterBroadcastNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), greeterNativeClientStreamHandleInvalid)
+	if streamErr != nil {
+		return int32(rpcruntime.StoreError(streamErr))
 	}
 	messageResult, err := session.Recv(ctx)
 	if err != nil {
@@ -358,14 +358,11 @@ func DoneGreeterBroadcastNativeServerStream(ctx context.Context, handle int32) i
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	session, ok := rpcruntime.TakeDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterBroadcastNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(greeterNativeClientStreamHandleInvalid))
+	session, streamErr := rpcruntime.TakeRequiredDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterBroadcastNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), greeterNativeClientStreamHandleInvalid)
+	if streamErr != nil {
+		return int32(rpcruntime.StoreError(streamErr))
 	}
-	var err error
-	if done, ok := session.(interface{ Done(context.Context) error }); ok {
-		err = done.Done(ctx)
-	}
+	err := session.Done(ctx)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -376,9 +373,9 @@ func CancelGreeterBroadcastNativeServerStream(ctx context.Context, handle int32)
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	session, ok := rpcruntime.TakeDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterBroadcastNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(greeterNativeClientStreamHandleInvalid))
+	session, streamErr := rpcruntime.TakeRequiredDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterBroadcastNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), greeterNativeClientStreamHandleInvalid)
+	if streamErr != nil {
+		return int32(rpcruntime.StoreError(streamErr))
 	}
 	err := session.Cancel(ctx)
 	if err != nil {
@@ -514,9 +511,9 @@ func SendGreeterChatNativeBidiStream(ctx context.Context, handle int32, NamePtr 
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	session, ok := rpcruntime.LoadDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(greeterNativeClientStreamHandleInvalid))
+	session, streamErr := rpcruntime.RequireDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), greeterNativeClientStreamHandleInvalid)
+	if streamErr != nil {
+		return int32(rpcruntime.StoreError(streamErr))
 	}
 	var err error
 	nameValue, cityValue, err := decodeGreeterChatNativeBidiStreamRequest(NamePtr, NameLen, NameOwnership, CityPtr, CityLen, CityOwnership)
@@ -540,9 +537,9 @@ func ReadGreeterChatNativeBidiStream(ctx context.Context, handle int32, outMessa
 	if err := validateGreeterChatNativeBidiStreamResponse(outMessagePtr, outMessageLen); err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
-	session, ok := rpcruntime.LoadDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(greeterNativeClientStreamHandleInvalid))
+	session, streamErr := rpcruntime.RequireDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), greeterNativeClientStreamHandleInvalid)
+	if streamErr != nil {
+		return int32(rpcruntime.StoreError(streamErr))
 	}
 	messageResult, err := session.Recv(ctx)
 	if err != nil {
@@ -558,9 +555,9 @@ func CloseSendGreeterChatNativeBidiStream(ctx context.Context, handle int32) int
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	session, ok := rpcruntime.LoadDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(greeterNativeClientStreamHandleInvalid))
+	session, streamErr := rpcruntime.RequireDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), greeterNativeClientStreamHandleInvalid)
+	if streamErr != nil {
+		return int32(rpcruntime.StoreError(streamErr))
 	}
 	if err := session.CloseSend(ctx); err != nil {
 		return int32(rpcruntime.StoreError(err))
@@ -572,14 +569,11 @@ func DoneGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	session, ok := rpcruntime.TakeDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(greeterNativeClientStreamHandleInvalid))
+	session, streamErr := rpcruntime.TakeRequiredDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), greeterNativeClientStreamHandleInvalid)
+	if streamErr != nil {
+		return int32(rpcruntime.StoreError(streamErr))
 	}
-	var err error
-	if done, ok := session.(interface{ Done(context.Context) error }); ok {
-		err = done.Done(ctx)
-	}
+	err := session.Done(ctx)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -590,9 +584,9 @@ func CancelGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32 
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	session, ok := rpcruntime.TakeDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle))
-	if !ok {
-		return int32(rpcruntime.StoreError(greeterNativeClientStreamHandleInvalid))
+	session, streamErr := rpcruntime.TakeRequiredDispatcherStream[proto.GreeterActiveAdapter, proto.GreeterChatNativeStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), greeterNativeClientStreamHandleInvalid)
+	if streamErr != nil {
+		return int32(rpcruntime.StoreError(streamErr))
 	}
 	err := session.Cancel(ctx)
 	if err != nil {
