@@ -146,7 +146,11 @@ type RenderErrorsPlan struct {
 }
 
 func BuildMethodRenderPlan(method MethodPlan, facts methodContractFacts, serviceName string) (MethodRenderPlan, error) {
-	ops, sessionKind, terminal, err := renderSessionShape(method.Streaming, facts)
+	lifecycle, err := expectedLifecyclePlan(method.Streaming)
+	if err != nil {
+		return MethodRenderPlan{}, err
+	}
+	ops, sessionKind, terminal, err := renderSessionShape(lifecycle, facts)
 	if err != nil {
 		return MethodRenderPlan{}, err
 	}
@@ -208,24 +212,25 @@ func BuildMethodRenderPlan(method MethodPlan, facts methodContractFacts, service
 	return shape, nil
 }
 
-func renderSessionShape(streaming StreamingKind, facts methodContractFacts) ([]SessionOperationPlan, SessionKind, TerminalRenderPlan, error) {
+func renderSessionShape(lifecycle LifecyclePlan, facts methodContractFacts) ([]SessionOperationPlan, SessionKind, TerminalRenderPlan, error) {
 	nativeIO := MethodIOShapePlan{Request: facts.NativeContract.RequestFields, Response: facts.NativeContract.ResponseFields}
 	messageIO := MethodIOShapePlan{Request: facts.RequestBody, Response: facts.ResponseBody}
 	op := func(kind SessionOperationKind, terminal bool) SessionOperationPlan {
 		return SessionOperationPlan{Kind: kind, Enabled: true, NativeIO: nativeIO, MessageIO: messageIO, RequiresCodec: true, RequiresTerminal: terminal}
 	}
-	switch streaming {
-	case StreamingKindUnary:
+	if !lifecycle.HasStart {
 		return nil, SessionKindNone, TerminalRenderPlan{}, nil
-	case StreamingKindClientStreaming:
-		return []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationSend, false), op(SessionOperationFinish, true), op(SessionOperationCancel, true)}, SessionKindClient, TerminalRenderPlan{Kind: TerminalKindFinish, Operation: SessionOperationFinish, ReleasesHandle: true, RequiresResponseConvert: true, AllowsCancel: true}, nil
-	case StreamingKindServerStreaming:
-		return []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationReceive, false), op(SessionOperationDone, true), op(SessionOperationCancel, true)}, SessionKindServer, TerminalRenderPlan{Kind: TerminalKindDone, Operation: SessionOperationDone, ReleasesHandle: true, AllowsCancel: true}, nil
-	case StreamingKindBidiStreaming:
-		return []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationSend, false), op(SessionOperationReceive, false), op(SessionOperationCloseSend, false), op(SessionOperationDone, true), op(SessionOperationCancel, true)}, SessionKindBidi, TerminalRenderPlan{Kind: TerminalKindDone, Operation: SessionOperationDone, ReleasesHandle: true, AllowsCancel: true, AllowsCloseSend: true}, nil
-	default:
-		return nil, "", TerminalRenderPlan{}, fmt.Errorf("unknown streaming kind %d", streaming)
 	}
+	if lifecycle.HasSend && lifecycle.HasFinish {
+		return []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationSend, false), op(SessionOperationFinish, true), op(SessionOperationCancel, true)}, SessionKindClient, TerminalRenderPlan{Kind: TerminalKindFinish, Operation: SessionOperationFinish, ReleasesHandle: true, RequiresResponseConvert: true, AllowsCancel: lifecycle.HasCancel}, nil
+	}
+	if lifecycle.HasOnRead && lifecycle.HasCloseSend {
+		return []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationSend, false), op(SessionOperationReceive, false), op(SessionOperationCloseSend, false), op(SessionOperationDone, true), op(SessionOperationCancel, true)}, SessionKindBidi, TerminalRenderPlan{Kind: TerminalKindDone, Operation: SessionOperationDone, ReleasesHandle: true, AllowsCancel: lifecycle.HasCancel, AllowsCloseSend: true}, nil
+	}
+	if lifecycle.HasOnRead && lifecycle.HasOnDone {
+		return []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationReceive, false), op(SessionOperationDone, true), op(SessionOperationCancel, true)}, SessionKindServer, TerminalRenderPlan{Kind: TerminalKindDone, Operation: SessionOperationDone, ReleasesHandle: true, AllowsCancel: lifecycle.HasCancel}, nil
+	}
+	return nil, "", TerminalRenderPlan{}, fmt.Errorf("invalid lifecycle plan")
 }
 
 func renderCallPath(method MethodPlan, symbols RenderSymbolsPlan) CallPathPlan {

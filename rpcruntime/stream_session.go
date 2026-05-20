@@ -7,9 +7,10 @@ import (
 )
 
 var (
-	errStreamSendClosed = errors.New("stream send side is closed")
-	errStreamFinalized  = errors.New("stream is finalized")
-	errStreamCanceled   = errors.New("stream is canceled")
+	ErrStreamInvalidHandle = errors.New("stream handle is invalid")
+	ErrStreamSendClosed    = errors.New("stream send side is closed")
+	ErrStreamFinalized     = errors.New("stream is finalized")
+	ErrStreamCanceled      = errors.New("stream is canceled")
 )
 
 type StreamLifecycle struct {
@@ -24,13 +25,13 @@ func (l *StreamLifecycle) MarkSendClosed() error {
 	defer l.mu.Unlock()
 
 	if l.canceled {
-		return errStreamCanceled
+		return ErrStreamCanceled
 	}
 	if l.finalized {
-		return errStreamFinalized
+		return ErrStreamFinalized
 	}
 	if l.sendClosed {
-		return errStreamSendClosed
+		return ErrStreamSendClosed
 	}
 	l.sendClosed = true
 	return nil
@@ -41,13 +42,13 @@ func (l *StreamLifecycle) EnsureCanSend() error {
 	defer l.mu.Unlock()
 
 	if l.canceled {
-		return errStreamCanceled
+		return ErrStreamCanceled
 	}
 	if l.finalized {
-		return errStreamFinalized
+		return ErrStreamFinalized
 	}
 	if l.sendClosed {
-		return errStreamSendClosed
+		return ErrStreamSendClosed
 	}
 	return nil
 }
@@ -66,9 +67,9 @@ func (l *StreamLifecycle) Finalize() bool {
 func (l *StreamLifecycle) Cancel(cancel func() error) error {
 	l.mu.Lock()
 	if l.finalized {
-		err := errStreamFinalized
+		err := ErrStreamFinalized
 		if l.canceled {
-			err = errStreamCanceled
+			err = ErrStreamCanceled
 		}
 		l.mu.Unlock()
 		return err
@@ -122,9 +123,22 @@ func RunBidiStream[TReq any, TResp any](receive func() (TReq, error), sendToSess
 	receiveErrCh := make(chan error, 1)
 	sendErrCh := make(chan error, 1)
 	var terminalOnce sync.Once
+	var terminalMu sync.Mutex
+	terminalFinished := false
+	markTerminalFinished := func() {
+		terminalMu.Lock()
+		terminalFinished = true
+		terminalMu.Unlock()
+	}
+	isTerminalFinished := func() bool {
+		terminalMu.Lock()
+		defer terminalMu.Unlock()
+		return terminalFinished
+	}
 	finish := func(donePath bool) error {
 		var finishErr error
 		terminalOnce.Do(func() {
+			defer markTerminalFinished()
 			if donePath {
 				if done != nil {
 					finishErr = done()
@@ -145,7 +159,11 @@ func RunBidiStream[TReq any, TResp any](receive func() (TReq, error), sendToSess
 						receiveErrCh <- nil
 						return
 					}
-					receiveErrCh <- closeSend()
+					err := closeSend()
+					if errors.Is(err, ErrStreamInvalidHandle) && isTerminalFinished() {
+						err = nil
+					}
+					receiveErrCh <- err
 					return
 				}
 				receiveErrCh <- err

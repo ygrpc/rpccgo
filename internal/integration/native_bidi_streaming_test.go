@@ -258,7 +258,7 @@ func TestNativeBidiStreamingGoServerLifecycle(t *testing.T) {
 	if errID := CloseSendGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
 		t.Fatalf("CloseSendGreeterChatNativeBidiStream() errID = %d", errID)
 	}
-	assertErrorTextContainsBidi(t, sendChatErr(context.Background(), handle, chatInput("third", 3)), "native stream is closed")
+	assertErrorTextContainsBidi(t, sendChatErr(context.Background(), handle, chatInput("third", 3)), "stream send side is closed")
 	assertChatRead(t, handle, 2, "second")
 	assertErrorTextContainsBidi(t, readChat(context.Background(), handle, &chatOutput{}), "EOF")
 	if errID := DoneGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
@@ -395,7 +395,7 @@ func TestNativeBidiStreamingCGOServerLifecycle(t *testing.T) {
 	if errID := CloseSendGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
 		t.Fatalf("CloseSendGreeterChatNativeBidiStream() errID = %d", errID)
 	}
-	assertErrorTextContainsBidiCGO(t, sendChatErr(context.Background(), handle, chatInputCGO("three", 3)), "cgo bidi send closed")
+	assertErrorTextContainsBidiCGO(t, sendChatErr(context.Background(), handle, chatInputCGO("three", 3)), "stream send side is closed")
 	assertChatReadCGO(t, handle, 2, "two")
 	assertErrorTextContainsBidiCGO(t, readChat(context.Background(), handle, &chatOutput{}), "cgo bidi done")
 	if errID := DoneGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
@@ -588,7 +588,7 @@ static int32_t greeterChatSend(int32_t stream, uintptr_t NamePtr, int32_t NameLe
 		return greeterBidiError("bidi send did not reach cgo callback");
 	}
 	if (greeterBidiClosed) {
-		return greeterBidiError("cgo bidi send closed");
+		return greeterBidiError("stream send side is closed");
 	}
 	if (greeterBidiCount >= 8 || NameLen < 0 || NameLen >= 60) {
 		return greeterBidiError("bidi bad input");

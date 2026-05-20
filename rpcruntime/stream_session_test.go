@@ -16,8 +16,8 @@ func TestStreamSessionSendAfterClose(t *testing.T) {
 	if err := lifecycle.MarkSendClosed(); err != nil {
 		t.Fatalf("MarkSendClosed returned error: %v", err)
 	}
-	if err := lifecycle.EnsureCanSend(); !errors.Is(err, errStreamSendClosed) {
-		t.Fatalf("EnsureCanSend returned %v, want errStreamSendClosed", err)
+	if err := lifecycle.EnsureCanSend(); !errors.Is(err, ErrStreamSendClosed) {
+		t.Fatalf("EnsureCanSend returned %v, want ErrStreamSendClosed", err)
 	}
 }
 
@@ -27,8 +27,8 @@ func TestStreamSessionDoubleClose(t *testing.T) {
 	if err := lifecycle.MarkSendClosed(); err != nil {
 		t.Fatalf("first MarkSendClosed returned error: %v", err)
 	}
-	if err := lifecycle.MarkSendClosed(); !errors.Is(err, errStreamSendClosed) {
-		t.Fatalf("second MarkSendClosed returned %v, want errStreamSendClosed", err)
+	if err := lifecycle.MarkSendClosed(); !errors.Is(err, ErrStreamSendClosed) {
+		t.Fatalf("second MarkSendClosed returned %v, want ErrStreamSendClosed", err)
 	}
 }
 
@@ -51,8 +51,8 @@ func TestStreamSessionCancelFinalizes(t *testing.T) {
 	if !lifecycle.Canceled() {
 		t.Fatal("Cancel did not mark lifecycle canceled")
 	}
-	if err := lifecycle.EnsureCanSend(); !errors.Is(err, errStreamCanceled) {
-		t.Fatalf("EnsureCanSend returned %v, want errStreamCanceled", err)
+	if err := lifecycle.EnsureCanSend(); !errors.Is(err, ErrStreamCanceled) {
+		t.Fatalf("EnsureCanSend returned %v, want ErrStreamCanceled", err)
 	}
 	if lifecycle.Finalize() {
 		t.Fatal("Finalize returned true after Cancel")
@@ -96,8 +96,8 @@ func TestStreamSessionFinishFinalizes(t *testing.T) {
 	if !lifecycle.Finalize() {
 		t.Fatal("Finalize returned false for first finish")
 	}
-	if err := lifecycle.EnsureCanSend(); !errors.Is(err, errStreamFinalized) {
-		t.Fatalf("EnsureCanSend returned %v, want errStreamFinalized", err)
+	if err := lifecycle.EnsureCanSend(); !errors.Is(err, ErrStreamFinalized) {
+		t.Fatalf("EnsureCanSend returned %v, want ErrStreamFinalized", err)
 	}
 }
 
@@ -164,8 +164,8 @@ func TestStreamSessionDoubleTerminalOperationOnlySucceedsOnce(t *testing.T) {
 	if err := lifecycle.Cancel(func() error {
 		called++
 		return nil
-	}); !errors.Is(err, errStreamFinalized) {
-		t.Fatalf("Cancel returned %v, want errStreamFinalized", err)
+	}); !errors.Is(err, ErrStreamFinalized) {
+		t.Fatalf("Cancel returned %v, want ErrStreamFinalized", err)
 	}
 	if called != 0 {
 		t.Fatalf("cancel callback called after finalization %d times, want 0", called)
@@ -188,8 +188,8 @@ func TestStreamSessionCancelTerminalOperationOnlySucceedsOnce(t *testing.T) {
 	if err := lifecycle.Cancel(func() error {
 		called++
 		return nil
-	}); !errors.Is(err, errStreamCanceled) {
-		t.Fatalf("second Cancel returned %v, want errStreamCanceled", err)
+	}); !errors.Is(err, ErrStreamCanceled) {
+		t.Fatalf("second Cancel returned %v, want ErrStreamCanceled", err)
 	}
 	if called != 1 {
 		t.Fatalf("cancel callback called %d times, want 1", called)
@@ -236,8 +236,8 @@ func TestStreamSessionConcurrentCancelAndFinalizeOnlyOneTerminalWins(t *testing.
 			t.Fatalf("attempt %d: Finalize and Cancel both succeeded", attempt)
 		}
 		if !finalizeOK && !cancelOK {
-			if !errors.Is(cancelErr, errStreamFinalized) {
-				t.Fatalf("attempt %d: Cancel returned %v, want nil or errStreamFinalized", attempt, cancelErr)
+			if !errors.Is(cancelErr, ErrStreamFinalized) {
+				t.Fatalf("attempt %d: Cancel returned %v, want nil or ErrStreamFinalized", attempt, cancelErr)
 			}
 		}
 		callbackMu.Lock()

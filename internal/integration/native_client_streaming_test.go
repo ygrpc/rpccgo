@@ -244,7 +244,7 @@ func TestNativeClientStreamingGoServerFinishFinalizesHandle(t *testing.T) {
 		t.Fatal("Send after Finish returned errID 0")
 	}
 	text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
-	if !ok || !strings.Contains(string(text), "native client stream handle is invalid") {
+	if !ok || !strings.Contains(string(text), "stream handle is invalid") {
 		t.Fatalf("Send after Finish error text = %q, ok=%v", text, ok)
 	}
 }
@@ -496,7 +496,7 @@ func TestNativeClientStreamingCGOServerCancelFinalizesHandle(t *testing.T) {
 		t.Fatal("Send after cgo Cancel returned errID 0")
 	}
 	text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
-	if !ok || !strings.Contains(string(text), "native client stream handle is invalid") {
+	if !ok || !strings.Contains(string(text), "stream handle is invalid") {
 		t.Fatalf("Send after cgo Cancel error text = %q, ok=%v", text, ok)
 	}
 }

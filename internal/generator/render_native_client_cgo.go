@@ -132,7 +132,6 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan,
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	renderNativeClientLoadNativeStream(g, service, method, invalidHandleError, servicePackage)
 	requestNames := nativeClientRequestValueNames(method.RenderShape.Conversion.MessageToNative.Native.Request)
 	responseNames := nativeClientResponseValueNames(method.RenderShape.Conversion.MessageToNative.Native.Response)
 	g.P("var err error")
@@ -146,7 +145,9 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan,
 		g.P("return int32(rpcruntime.StoreError(err))")
 		g.P("}")
 	}
-	g.P("err = session.Send(ctx", nativeGoCallSuffix(requestNames), ")")
+	renderNativeClientStreamExecutorPrefix(g, service, method, servicePackage, "Send")
+	g.P("return session.Send(ctx", nativeGoCallSuffix(requestNames), ")")
+	renderNativeClientStreamExecutorSuffix(g)
 	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.RenderShape.Conversion.MessageToNative.Native.Request), "); cleanupErr != nil {")
 	g.P("err = errors.Join(err, cleanupErr)")
 	g.P("}")
@@ -166,12 +167,18 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan,
 		g.P("return int32(rpcruntime.StoreError(err))")
 		g.P("}")
 	}
-	renderNativeClientTakeNativeStream(g, service, method, invalidHandleError, servicePackage)
-	if responseNames == "" {
-		g.P("err := session.Finish(ctx)")
-	} else {
-		g.P(responseNames, ", err := session.Finish(ctx)")
+	g.P("var err error")
+	for _, decl := range nativeGoResponseResultVarDecls(g, method.RenderShape.Conversion.MessageToNative.Native.Response) {
+		g.P(decl)
 	}
+	renderNativeClientStreamExecutorPrefix(g, service, method, servicePackage, "Finish")
+	if responseNames == "" {
+		g.P("return session.Finish(ctx)")
+	} else {
+		g.P(responseNames, ", err = session.Finish(ctx)")
+		g.P("return err")
+	}
+	renderNativeClientStreamExecutorSuffix(g)
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -186,8 +193,10 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan,
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	renderNativeClientTakeNativeStream(g, service, method, invalidHandleError, servicePackage)
-	g.P("err := session.Cancel(ctx)")
+	g.P("var err error")
+	renderNativeClientStreamExecutorPrefix(g, service, method, servicePackage, "Cancel")
+	g.P("return session.Cancel(ctx)")
+	renderNativeClientStreamExecutorSuffix(g)
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -243,12 +252,18 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan,
 		g.P("return int32(rpcruntime.StoreError(err))")
 		g.P("}")
 	}
-	renderNativeClientLoadNativeStream(g, service, method, invalidHandleError, servicePackage)
-	if responseNames == "" {
-		g.P("err := session.Recv(ctx)")
-	} else {
-		g.P(responseNames, ", err := session.Recv(ctx)")
+	g.P("var err error")
+	for _, decl := range nativeGoResponseResultVarDecls(g, method.RenderShape.Conversion.MessageToNative.Native.Response) {
+		g.P(decl)
 	}
+	renderNativeClientStreamExecutorPrefix(g, service, method, servicePackage, "Receive")
+	if responseNames == "" {
+		g.P("return session.Recv(ctx)")
+	} else {
+		g.P(responseNames, ", err = session.Recv(ctx)")
+		g.P("return err")
+	}
+	renderNativeClientStreamExecutorSuffix(g)
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -263,8 +278,10 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan,
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	renderNativeClientTakeNativeStream(g, service, method, invalidHandleError, servicePackage)
-	g.P("err := session.Done(ctx)")
+	g.P("var err error")
+	renderNativeClientStreamExecutorPrefix(g, service, method, servicePackage, "Done")
+	g.P("return session.Done(ctx)")
+	renderNativeClientStreamExecutorSuffix(g)
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -276,8 +293,10 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan,
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	renderNativeClientTakeNativeStream(g, service, method, invalidHandleError, servicePackage)
-	g.P("err := session.Cancel(ctx)")
+	g.P("var err error")
+	renderNativeClientStreamExecutorPrefix(g, service, method, servicePackage, "Cancel")
+	g.P("return session.Cancel(ctx)")
+	renderNativeClientStreamExecutorSuffix(g)
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -312,7 +331,6 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, s
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	renderNativeClientLoadNativeStream(g, service, method, invalidHandleError, servicePackage)
 	requestNames := nativeClientRequestValueNames(method.RenderShape.Conversion.MessageToNative.Native.Request)
 	responseNames := nativeClientResponseValueNames(method.RenderShape.Conversion.MessageToNative.Native.Response)
 	g.P("var err error")
@@ -326,7 +344,9 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, s
 		g.P("return int32(rpcruntime.StoreError(err))")
 		g.P("}")
 	}
-	g.P("err = session.Send(ctx", nativeGoCallSuffix(requestNames), ")")
+	renderNativeClientStreamExecutorPrefix(g, service, method, servicePackage, "Send")
+	g.P("return session.Send(ctx", nativeGoCallSuffix(requestNames), ")")
+	renderNativeClientStreamExecutorSuffix(g)
 	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.RenderShape.Conversion.MessageToNative.Native.Request), "); cleanupErr != nil {")
 	g.P("err = errors.Join(err, cleanupErr)")
 	g.P("}")
@@ -346,12 +366,18 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, s
 		g.P("return int32(rpcruntime.StoreError(err))")
 		g.P("}")
 	}
-	renderNativeClientLoadNativeStream(g, service, method, invalidHandleError, servicePackage)
-	if responseNames == "" {
-		g.P("err := session.Recv(ctx)")
-	} else {
-		g.P(responseNames, ", err := session.Recv(ctx)")
+	g.P("var err error")
+	for _, decl := range nativeGoResponseResultVarDecls(g, method.RenderShape.Conversion.MessageToNative.Native.Response) {
+		g.P(decl)
 	}
+	renderNativeClientStreamExecutorPrefix(g, service, method, servicePackage, "Receive")
+	if responseNames == "" {
+		g.P("return session.Recv(ctx)")
+	} else {
+		g.P(responseNames, ", err = session.Recv(ctx)")
+		g.P("return err")
+	}
+	renderNativeClientStreamExecutorSuffix(g)
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -366,8 +392,11 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, s
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	renderNativeClientLoadNativeStream(g, service, method, invalidHandleError, servicePackage)
-	g.P("if err := session.CloseSend(ctx); err != nil {")
+	g.P("var err error")
+	renderNativeClientStreamExecutorPrefix(g, service, method, servicePackage, "CloseSend")
+	g.P("return session.CloseSend(ctx)")
+	renderNativeClientStreamExecutorSuffix(g)
+	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return 0")
@@ -378,8 +407,10 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, s
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	renderNativeClientTakeNativeStream(g, service, method, invalidHandleError, servicePackage)
-	g.P("err := session.Done(ctx)")
+	g.P("var err error")
+	renderNativeClientStreamExecutorPrefix(g, service, method, servicePackage, "Done")
+	g.P("return session.Done(ctx)")
+	renderNativeClientStreamExecutorSuffix(g)
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -391,8 +422,10 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, s
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	renderNativeClientTakeNativeStream(g, service, method, invalidHandleError, servicePackage)
-	g.P("err := session.Cancel(ctx)")
+	g.P("var err error")
+	renderNativeClientStreamExecutorPrefix(g, service, method, servicePackage, "Cancel")
+	g.P("return session.Cancel(ctx)")
+	renderNativeClientStreamExecutorSuffix(g)
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -514,18 +547,12 @@ func nativeClientOutputLenSymbol(field FieldPlan) string {
 	return "out" + field.GoName + "Len"
 }
 
-func renderNativeClientLoadNativeStream(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, invalidHandleError, servicePackage string) {
-	g.P("session, streamErr := rpcruntime.RequireDispatcherStream[", servicePackage, service.GoName, "ActiveAdapter, ", nativeClientNativeStreamSessionName(service, method, servicePackage), "](", servicePackage, service.GoName, "DispatcherForRuntime(), rpcruntime.StreamHandle(handle), ", invalidHandleError, ")")
-	g.P("if streamErr != nil {")
-	g.P("return int32(rpcruntime.StoreError(streamErr))")
-	g.P("}")
+func renderNativeClientStreamExecutorPrefix(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, operation string) {
+	g.P("err = rpcruntime.DispatcherStream", operation, "[", servicePackage, service.GoName, "ActiveAdapter, ", nativeClientNativeStreamSessionName(service, method, servicePackage), "](", servicePackage, service.GoName, "DispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session ", nativeClientNativeStreamSessionName(service, method, servicePackage), ") error {")
 }
 
-func renderNativeClientTakeNativeStream(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, invalidHandleError, servicePackage string) {
-	g.P("session, streamErr := rpcruntime.TakeRequiredDispatcherStream[", servicePackage, service.GoName, "ActiveAdapter, ", nativeClientNativeStreamSessionName(service, method, servicePackage), "](", servicePackage, service.GoName, "DispatcherForRuntime(), rpcruntime.StreamHandle(handle), ", invalidHandleError, ")")
-	g.P("if streamErr != nil {")
-	g.P("return int32(rpcruntime.StoreError(streamErr))")
-	g.P("}")
+func renderNativeClientStreamExecutorSuffix(g *protogen.GeneratedFile) {
+	g.P("})")
 }
 
 func nativeClientNativeStreamSessionName(service ServicePlan, method MethodPlan, servicePackage string) string {

@@ -21,7 +21,7 @@ _Avoid_: provider bootstrap
 _Avoid_: generated service runtime
 
 **Stream lifecycle**:
-一次 streaming call 从 Start 到终态操作期间的 handle ownership、session lookup、half-close、finish/done/cancel 和 invalid-handle 语义。
+一次 streaming call 从 Start 到终态操作期间的 operation set、handle ownership、session lookup、half-close、finish/done/cancel 和 invalid-handle 语义；contract-level operation plan 与 runtime state machine 必须区分。
 _Avoid_: stream registry access pattern
 
 **Generated service runtime**:
@@ -57,6 +57,7 @@ _Avoid_: active server
 - **Runtime core** 负责通用调度和 stream 存储；**Generated service runtime** 负责 service-specific typed glue，不应重复生成可由 runtime core 泛型函数直接表达的薄包装。
 - **Stream lifecycle** 的 ownership、terminal-once 和 invalid-handle 通用语义属于 **Runtime core**；method-specific session 操作、native/message 转换和 flat ABI 编解码属于 **Generated service runtime**。
 - **Generated service runtime** 不应生成 per-method stream `load/take/delete` 薄包装；应通过 **Stream lifecycle** Module 表达 Start 后的 lookup、half-close、finish/done/cancel 和终态释放规则。
+- **Runtime core** 应提供 **Stream lifecycle** executor，集中执行通用 handle lookup/take/release、terminal-once、invalid-handle、send-closed/finalized/canceled 和 cancel/terminal finalization 语义；**Generated service runtime** 应只提供 method-specific typed facade，绑定 session callback、native/message conversion、active routing 和错误映射。
 - Register helper 可留在 **Generated service runtime** 中，因为它们封装 service-specific active adapter 包装并返回更窄的 typed snapshot，不是纯 runtime core 薄包装。
 - Native/message client bridge 应留在 **Generated service runtime** 中，因为它表达 service-level active server contract 路由，并集中连接 native adapter、message adapter 与 converter glue。
 - **Active router** 应留在 **Generated service runtime** 中，作为 service-local routing layer 复用 **Runtime core** dispatcher 的 capture/start primitive；bridge 不应重复展开 snapshot、contract routing、adapter nil、converter 和 stream wrapper 选择。

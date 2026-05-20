@@ -15,8 +15,7 @@ type foundationAdapter struct {
 }
 
 type foundationStreamSession struct {
-	snapshot  AdapterSnapshot[*foundationAdapter]
-	lifecycle StreamLifecycle
+	snapshot AdapterSnapshot[*foundationAdapter]
 }
 
 func TestDispatcherFoundationRegistersAndReplacesActiveServerForUnary(t *testing.T) {
@@ -88,9 +87,12 @@ func TestDispatcherFoundationStartedStreamKeepsSnapshot(t *testing.T) {
 		t.Fatalf("register replacement active server: %v", err)
 	}
 
-	session, ok := LoadDispatcherStream[*foundationAdapter, *foundationStreamSession](&dispatcher, handle)
-	if !ok {
-		t.Fatalf("load stream handle %d", handle)
+	var session *foundationStreamSession
+	if err := DispatcherStreamReceive(&dispatcher, handle, func(got *foundationStreamSession) error {
+		session = got
+		return nil
+	}); err != nil {
+		t.Fatalf("load stream handle %d: %v", handle, err)
 	}
 	if session.snapshot.Adapter != firstAdapter || session.snapshot.Version != firstSnapshot.Version {
 		t.Fatalf("stream snapshot changed: got %#v, want adapter %#v version %d", session.snapshot, firstAdapter, firstSnapshot.Version)
@@ -106,16 +108,6 @@ func TestDispatcherFoundationStreamTerminalOperationsAreStable(t *testing.T) {
 		t.Fatalf("register active server: %v", err)
 	}
 
-	if _, ok := LoadDispatcherStream[*foundationAdapter, *foundationStreamSession](&dispatcher, StreamHandle(123)); ok {
-		t.Fatal("unknown stream handle loaded a session")
-	}
-	if _, ok := TakeDispatcherStream[*foundationAdapter, *foundationStreamSession](&dispatcher, StreamHandle(123)); ok {
-		t.Fatal("unknown stream handle was taken")
-	}
-	if DeleteDispatcherStream(&dispatcher, StreamHandle(123)) {
-		t.Fatal("unknown stream handle delete returned true")
-	}
-
 	handle, err := dispatcher.StartStream(func(snapshot AdapterSnapshot[*foundationAdapter]) (any, error) {
 		return &foundationStreamSession{snapshot: snapshot}, nil
 	})
@@ -123,41 +115,55 @@ func TestDispatcherFoundationStreamTerminalOperationsAreStable(t *testing.T) {
 		t.Fatalf("start stream: %v", err)
 	}
 
-	session, ok := TakeDispatcherStream[*foundationAdapter, *foundationStreamSession](&dispatcher, handle)
-	if !ok {
-		t.Fatalf("take stream handle %d", handle)
+	if err := DispatcherStreamReceive(&dispatcher, handle, func(session *foundationStreamSession) error {
+		if session.snapshot.Adapter == nil {
+			t.Fatal("receive callback saw nil adapter")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("receive stream: %v", err)
 	}
-	if _, ok := LoadDispatcherStream[*foundationAdapter, *foundationStreamSession](&dispatcher, handle); ok {
-		t.Fatal("stream handle remained loadable after terminal take")
-	}
-	if _, ok := TakeDispatcherStream[*foundationAdapter, *foundationStreamSession](&dispatcher, handle); ok {
-		t.Fatal("second terminal take returned true")
-	}
-
-	if !session.lifecycle.Finalize() {
-		t.Fatal("first finalize returned false")
-	}
-	if session.lifecycle.Finalize() {
-		t.Fatal("second finalize returned true")
-	}
-	if err := session.lifecycle.Cancel(nil); err == nil {
-		t.Fatal("cancel after finalize returned nil")
-	} else if !errors.Is(err, errStreamFinalized) {
-		t.Fatalf("cancel after finalize returned %v, want %v", err, errStreamFinalized)
+	if err := DispatcherStreamReceive[*foundationAdapter, *foundationStreamSession](&dispatcher, StreamHandle(123), nil); !errors.Is(err, ErrStreamInvalidHandle) {
+		t.Fatalf("receive unknown handle returned %v, want invalid handle", err)
 	}
 
-	cancelHandle, err := dispatcher.StartStream(func(snapshot AdapterSnapshot[*foundationAdapter]) (any, error) {
+	handle, err = dispatcher.StartStream(func(snapshot AdapterSnapshot[*foundationAdapter]) (any, error) {
+		return &foundationStreamSession{snapshot: snapshot}, nil
+	})
+	if err != nil {
+		t.Fatalf("start send stream: %v", err)
+	}
+	if err := DispatcherStreamSend(&dispatcher, handle, func(*foundationStreamSession) error { return nil }); err != nil {
+		t.Fatalf("send stream: %v", err)
+	}
+	if err := DispatcherStreamCloseSend(&dispatcher, handle, func(*foundationStreamSession) error { return nil }); err != nil {
+		t.Fatalf("close send stream: %v", err)
+	}
+	if err := DispatcherStreamSend[*foundationAdapter, *foundationStreamSession](&dispatcher, handle, nil); !errors.Is(err, ErrStreamSendClosed) {
+		t.Fatalf("send after close returned %v, want %v", err, ErrStreamSendClosed)
+	}
+
+	handle, err = dispatcher.StartStream(func(snapshot AdapterSnapshot[*foundationAdapter]) (any, error) {
+		return &foundationStreamSession{snapshot: snapshot}, nil
+	})
+	if err != nil {
+		t.Fatalf("start finish stream: %v", err)
+	}
+	if err := DispatcherStreamFinish(&dispatcher, handle, func(*foundationStreamSession) error { return nil }); err != nil {
+		t.Fatalf("finish stream: %v", err)
+	}
+	if err := DispatcherStreamFinish[*foundationAdapter, *foundationStreamSession](&dispatcher, handle, nil); !errors.Is(err, ErrStreamInvalidHandle) {
+		t.Fatalf("finish after consume returned %v, want invalid handle", err)
+	}
+
+	handle, err = dispatcher.StartStream(func(snapshot AdapterSnapshot[*foundationAdapter]) (any, error) {
 		return &foundationStreamSession{snapshot: snapshot}, nil
 	})
 	if err != nil {
 		t.Fatalf("start cancel stream: %v", err)
 	}
-	cancelSession, ok := TakeDispatcherStream[*foundationAdapter, *foundationStreamSession](&dispatcher, cancelHandle)
-	if !ok {
-		t.Fatalf("take cancel stream handle %d", cancelHandle)
-	}
 	cancelCalls := 0
-	if err := cancelSession.lifecycle.Cancel(func() error {
+	if err := DispatcherStreamCancel(&dispatcher, handle, func(*foundationStreamSession) error {
 		cancelCalls++
 		return nil
 	}); err != nil {
@@ -166,22 +172,8 @@ func TestDispatcherFoundationStreamTerminalOperationsAreStable(t *testing.T) {
 	if cancelCalls != 1 {
 		t.Fatalf("cancel callback called %d times, want 1", cancelCalls)
 	}
-	if !cancelSession.lifecycle.Finalized() || !cancelSession.lifecycle.Canceled() {
-		t.Fatal("cancel did not finalize and mark the stream canceled")
-	}
-	if cancelSession.lifecycle.Finalize() {
-		t.Fatal("finalize after cancel returned true")
-	}
-	if err := cancelSession.lifecycle.Cancel(func() error {
-		cancelCalls++
-		return nil
-	}); err == nil {
-		t.Fatal("second cancel returned nil")
-	} else if !errors.Is(err, errStreamCanceled) {
-		t.Fatalf("second cancel returned %v, want %v", err, errStreamCanceled)
-	}
-	if cancelCalls != 1 {
-		t.Fatalf("second cancel called callback; calls=%d, want 1", cancelCalls)
+	if err := DispatcherStreamCancel[*foundationAdapter, *foundationStreamSession](&dispatcher, handle, nil); !errors.Is(err, ErrStreamInvalidHandle) {
+		t.Fatalf("second cancel returned %v, want invalid handle", err)
 	}
 }
 

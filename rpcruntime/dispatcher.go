@@ -3,7 +3,6 @@ package rpcruntime
 import (
 	"context"
 	"errors"
-	"sync"
 )
 
 var (
@@ -14,7 +13,12 @@ var (
 
 type Dispatcher[T any] struct {
 	slot    ActiveServerSlot[T]
-	streams StreamRegistry[any]
+	streams StreamRegistry[*dispatcherStreamEntry]
+}
+
+type dispatcherStreamEntry struct {
+	session   any
+	lifecycle StreamLifecycle
 }
 
 func (d *Dispatcher[T]) Register(kind ServerKind, contract ServerContract, adapter T) (AdapterSnapshot[T], error) {
@@ -55,79 +59,35 @@ func (d *Dispatcher[T]) StartStream(create func(AdapterSnapshot[T]) (session any
 	if err != nil {
 		return 0, err
 	}
-	return d.streams.Create(session)
+	if !hasNonZeroSession(session) {
+		return 0, errStreamRegistryZeroSession
+	}
+	return d.streams.Create(&dispatcherStreamEntry{session: session})
 }
 
-func LoadDispatcherStream[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle) (TSession, bool) {
+func dispatcherStreamEntryFor[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle) (*dispatcherStreamEntry, TSession, error) {
 	var zero TSession
 	if dispatcher == nil {
-		return zero, false
+		return nil, zero, ErrStreamInvalidHandle
 	}
 
-	session, ok := dispatcher.streams.Load(handle)
-	if !ok {
-		return zero, false
+	entry, ok := dispatcher.streams.Load(handle)
+	if !ok || entry == nil {
+		return nil, zero, ErrStreamInvalidHandle
 	}
-	typed, ok := session.(TSession)
+	typed, ok := entry.session.(TSession)
 	if !ok {
-		return zero, false
+		return nil, zero, ErrStreamInvalidHandle
 	}
-	return typed, true
+	return entry, typed, nil
 }
 
-func TakeDispatcherStream[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle) (TSession, bool) {
-	var zero TSession
-	if dispatcher == nil {
-		return zero, false
-	}
-
-	session, ok := dispatcher.streams.Load(handle)
-	if !ok {
-		return zero, false
-	}
-	if _, ok := session.(TSession); !ok {
-		return zero, false
-	}
-
-	taken, ok := dispatcher.streams.Take(handle)
-	if !ok {
-		return zero, false
-	}
-	typed, ok := taken.(TSession)
-	if !ok {
-		return zero, false
-	}
-	return typed, true
-}
-
-func DeleteDispatcherStream[TAdapter any](dispatcher *Dispatcher[TAdapter], handle StreamHandle) bool {
-	if dispatcher == nil {
-		return false
-	}
-	return dispatcher.streams.Delete(handle)
-}
-
-func RequireDispatcherStream[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, invalidHandleErr error) (TSession, error) {
-	session, ok := LoadDispatcherStream[TAdapter, TSession](dispatcher, handle)
-	if !ok {
-		var zero TSession
-		return zero, invalidHandleErr
-	}
-	return session, nil
-}
-
-func TakeRequiredDispatcherStream[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, invalidHandleErr error) (TSession, error) {
-	session, ok := TakeDispatcherStream[TAdapter, TSession](dispatcher, handle)
-	if !ok {
-		var zero TSession
-		return zero, invalidHandleErr
-	}
-	return session, nil
-}
-
-func WithDispatcherStream[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, invalidHandleErr error, call func(TSession) error) error {
-	session, err := RequireDispatcherStream[TAdapter, TSession](dispatcher, handle, invalidHandleErr)
+func DispatcherStreamSend[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, call func(TSession) error) error {
+	entry, session, err := dispatcherStreamEntryFor[TAdapter, TSession](dispatcher, handle)
 	if err != nil {
+		return err
+	}
+	if err := entry.lifecycle.EnsureCanSend(); err != nil {
 		return err
 	}
 	if call == nil {
@@ -136,9 +96,29 @@ func WithDispatcherStream[TAdapter any, TSession any](dispatcher *Dispatcher[TAd
 	return call(session)
 }
 
-func EndDispatcherStream[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, invalidHandleErr error, call func(TSession) error) error {
-	session, err := TakeRequiredDispatcherStream[TAdapter, TSession](dispatcher, handle, invalidHandleErr)
+func DispatcherStreamReceive[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, call func(TSession) error) error {
+	entry, session, err := dispatcherStreamEntryFor[TAdapter, TSession](dispatcher, handle)
 	if err != nil {
+		return err
+	}
+	if entry.lifecycle.Finalized() {
+		if entry.lifecycle.Canceled() {
+			return ErrStreamCanceled
+		}
+		return ErrStreamFinalized
+	}
+	if call == nil {
+		return nil
+	}
+	return call(session)
+}
+
+func DispatcherStreamCloseSend[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, call func(TSession) error) error {
+	entry, session, err := dispatcherStreamEntryFor[TAdapter, TSession](dispatcher, handle)
+	if err != nil {
+		return err
+	}
+	if err := entry.lifecycle.MarkSendClosed(); err != nil {
 		return err
 	}
 	if call == nil {
@@ -147,29 +127,43 @@ func EndDispatcherStream[TAdapter any, TSession any](dispatcher *Dispatcher[TAda
 	return call(session)
 }
 
-type DispatcherStreamTerminal[TAdapter any, TSession any] struct {
-	dispatcher       *Dispatcher[TAdapter]
-	handle           StreamHandle
-	invalidHandleErr error
-	mu               sync.Mutex
-	ended            bool
+func DispatcherStreamFinish[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, call func(TSession) error) error {
+	entry, session, err := dispatcherStreamEntryFor[TAdapter, TSession](dispatcher, handle)
+	if err != nil {
+		return err
+	}
+	if !entry.lifecycle.Finalize() {
+		if entry.lifecycle.Canceled() {
+			return ErrStreamCanceled
+		}
+		return ErrStreamFinalized
+	}
+	if !dispatcher.streams.Delete(handle) {
+		return ErrStreamInvalidHandle
+	}
+	if call == nil {
+		return nil
+	}
+	return call(session)
 }
 
-func NewDispatcherStreamTerminal[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, invalidHandleErr error) *DispatcherStreamTerminal[TAdapter, TSession] {
-	return &DispatcherStreamTerminal[TAdapter, TSession]{
-		dispatcher:       dispatcher,
-		handle:           handle,
-		invalidHandleErr: invalidHandleErr,
-	}
+func DispatcherStreamDone[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, call func(TSession) error) error {
+	return DispatcherStreamFinish(dispatcher, handle, call)
 }
 
-func (t *DispatcherStreamTerminal[TAdapter, TSession]) End(call func(TSession) error) error {
-	t.mu.Lock()
-	if t.ended {
-		t.mu.Unlock()
-		return t.invalidHandleErr
+func DispatcherStreamCancel[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, call func(TSession) error) error {
+	entry, session, err := dispatcherStreamEntryFor[TAdapter, TSession](dispatcher, handle)
+	if err != nil {
+		return err
 	}
-	t.ended = true
-	t.mu.Unlock()
-	return EndDispatcherStream(t.dispatcher, t.handle, t.invalidHandleErr, call)
+	if err := entry.lifecycle.Cancel(nil); err != nil {
+		return err
+	}
+	if !dispatcher.streams.Delete(handle) {
+		return ErrStreamInvalidHandle
+	}
+	if call == nil {
+		return nil
+	}
+	return call(session)
 }

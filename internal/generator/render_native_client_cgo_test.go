@@ -65,10 +65,10 @@ func TestRenderNativeClientCGOStreamsUseDispatcherAccessor(t *testing.T) {
 
 	const nativeClientFile = "test/v1/cgo/message_cgo.greeter.client.cgo.rpccgo.go"
 	for _, fragment := range []string{
-		"rpcruntime.RequireDispatcherStream[v1.GreeterActiveAdapter, v1.GreeterUploadNativeStreamSession](v1.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), greeterNativeClientStreamHandleInvalid)",
-		"rpcruntime.TakeRequiredDispatcherStream[v1.GreeterActiveAdapter, v1.GreeterUploadNativeStreamSession](v1.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), greeterNativeClientStreamHandleInvalid)",
+		"rpcruntime.DispatcherStreamSend[v1.GreeterActiveAdapter, v1.GreeterUploadNativeStreamSession](v1.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session v1.GreeterUploadNativeStreamSession) error",
+		"rpcruntime.DispatcherStreamFinish[v1.GreeterActiveAdapter, v1.GreeterUploadNativeStreamSession](v1.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session v1.GreeterUploadNativeStreamSession) error",
 		"CloseSendGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32",
-		`rpccgo: native client stream handle is invalid`,
+		"rpcruntime.DispatcherStreamCloseSend[v1.GreeterActiveAdapter, v1.GreeterChatNativeStreamSession]",
 	} {
 		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
 	}
