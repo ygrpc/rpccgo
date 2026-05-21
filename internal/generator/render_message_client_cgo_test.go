@@ -38,10 +38,10 @@ func TestRenderMessageClientCGODefinesUnaryExportSurface(t *testing.T) {
 		"func StartGreeterChatMessageBidiStream(ctx context.Context) (int32, int32) {",
 		"func SendGreeterChatMessageBidiStream(ctx context.Context, handle int32, requestPtr uintptr, requestLen int32) int32 {",
 		"func ReadGreeterChatMessageBidiStream(ctx context.Context, handle int32, output *GreeterMessageOutput) int32 {",
-		`rpcruntime.DispatcherStreamSend[v1.GreeterActiveAdapter, v1.GreeterUploadMessageStreamSession](v1.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session v1.GreeterUploadMessageStreamSession) error`,
-		`rpcruntime.DispatcherStreamFinish[v1.GreeterActiveAdapter, v1.GreeterUploadMessageStreamSession](v1.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session v1.GreeterUploadMessageStreamSession) error`,
+		`v1.NewGreeterUploadMessageStream(rpcruntime.StreamHandle(handle)).Send(ctx, req)`,
+		`resp, err = v1.NewGreeterUploadMessageStream(rpcruntime.StreamHandle(handle)).Finish(ctx)`,
 		"CloseSendGreeterChatMessageBidiStream",
-		`rpcruntime.DispatcherStreamCloseSend[v1.GreeterActiveAdapter, v1.GreeterChatMessageStreamSession]`,
+		`err = v1.NewGreeterChatMessageStream(rpcruntime.StreamHandle(handle)).CloseSend(ctx)`,
 		"ctx = context.Background()",
 		`return int32(rpcruntime.StoreError(errors.New("rpccgo: message unary client output is nil")))`,
 		"req, err := decodeGreeterUnaryMessageRequestBytes(requestPtr, requestLen)",
@@ -62,5 +62,19 @@ func TestRenderMessageClientCGODefinesUnaryExportSurface(t *testing.T) {
 	} {
 		assertGeneratedContentContains(t, plugin, cgoClientFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, cgoClientFile, "LoadUploadMessageStream", "TakeUploadMessageStream", "LoadListMessageStream", "TakeListMessageStream", "LoadChatMessageStream", "TakeChatMessageStream", "rpccgo_msg_go_Greeter_Unary")
+	assertGeneratedFileContentDoesNotContain(t, plugin, cgoClientFile,
+		"LoadUploadMessageStream",
+		"TakeUploadMessageStream",
+		"LoadListMessageStream",
+		"TakeListMessageStream",
+		"LoadChatMessageStream",
+		"TakeChatMessageStream",
+		"rpccgo_msg_go_Greeter_Unary",
+		"rpcruntime.DispatcherStreamSend[",
+		"rpcruntime.DispatcherStreamReceive[",
+		"rpcruntime.DispatcherStreamFinish[",
+		"rpcruntime.DispatcherStreamDone[",
+		"rpcruntime.DispatcherStreamCancel[",
+		"rpcruntime.DispatcherStreamCloseSend[",
+	)
 }

@@ -65,35 +65,23 @@ func greeterConnectCollect(ctx context.Context, stream *connect.ClientStream[Say
 	if err != nil {
 		return nil, err
 	}
+	lifecycle := NewGreeterCollectMessageStream(handle)
 	for stream.Receive() {
 		reqData, err := proto.Marshal(stream.Msg())
 		if err != nil {
-			_ = rpcruntime.DispatcherStreamCancel[GreeterActiveAdapter, GreeterCollectMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session GreeterCollectMessageStreamSession) error {
-				return session.Cancel(ctx)
-			})
+			_ = lifecycle.Cancel(ctx)
 			return nil, fmt.Errorf("rpccgo: connect stream request protobuf marshal failed: %w", err)
 		}
-		if err := rpcruntime.DispatcherStreamSend[GreeterActiveAdapter, GreeterCollectMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session GreeterCollectMessageStreamSession) error {
-			return session.Send(ctx, reqData)
-		}); err != nil {
-			_ = rpcruntime.DispatcherStreamCancel[GreeterActiveAdapter, GreeterCollectMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session GreeterCollectMessageStreamSession) error {
-				return session.Cancel(ctx)
-			})
+		if err := lifecycle.Send(ctx, reqData); err != nil {
+			_ = lifecycle.Cancel(ctx)
 			return nil, err
 		}
 	}
 	if err := stream.Err(); err != nil {
-		_ = rpcruntime.DispatcherStreamCancel[GreeterActiveAdapter, GreeterCollectMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session GreeterCollectMessageStreamSession) error {
-			return session.Cancel(ctx)
-		})
+		_ = lifecycle.Cancel(ctx)
 		return nil, err
 	}
-	var respData []byte
-	err = rpcruntime.DispatcherStreamFinish[GreeterActiveAdapter, GreeterCollectMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session GreeterCollectMessageStreamSession) error {
-		var finishErr error
-		respData, finishErr = session.Finish(ctx)
-		return finishErr
-	})
+	respData, err := lifecycle.Finish(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -117,15 +105,10 @@ func greeterConnectBroadcast(ctx context.Context, req *connect.Request[SayHelloR
 	if err != nil {
 		return err
 	}
+	lifecycle := NewGreeterBroadcastMessageStream(handle)
 	return rpcruntime.RunServerStream(
 		func() ([]byte, error) {
-			var respData []byte
-			err := rpcruntime.DispatcherStreamReceive[GreeterActiveAdapter, GreeterBroadcastMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session GreeterBroadcastMessageStreamSession) error {
-				var recvErr error
-				respData, recvErr = session.Recv(ctx)
-				return recvErr
-			})
-			return respData, err
+			return lifecycle.Recv(ctx)
 		},
 		func(respData []byte) error {
 			resp := new(SayHelloResponse)
@@ -135,10 +118,10 @@ func greeterConnectBroadcast(ctx context.Context, req *connect.Request[SayHelloR
 			return stream.Send(resp)
 		},
 		func() error {
-			return rpcruntime.DispatcherStreamDone[GreeterActiveAdapter, GreeterBroadcastMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session GreeterBroadcastMessageStreamSession) error { return session.Done(ctx) })
+			return lifecycle.Done(ctx)
 		},
 		func() error {
-			return rpcruntime.DispatcherStreamCancel[GreeterActiveAdapter, GreeterBroadcastMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session GreeterBroadcastMessageStreamSession) error { return session.Cancel(ctx) })
+			return lifecycle.Cancel(ctx)
 		},
 	)
 }
@@ -149,6 +132,7 @@ func greeterConnectChat(ctx context.Context, stream *connect.BidiStream[SayHello
 	if err != nil {
 		return err
 	}
+	lifecycle := NewGreeterChatMessageStream(handle)
 	return rpcruntime.RunBidiStream(
 		func() (*SayHelloRequest, error) {
 			return stream.Receive()
@@ -158,19 +142,13 @@ func greeterConnectChat(ctx context.Context, stream *connect.BidiStream[SayHello
 			if err != nil {
 				return fmt.Errorf("rpccgo: connect bidi request protobuf marshal failed: %w", err)
 			}
-			return rpcruntime.DispatcherStreamSend[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session GreeterChatMessageStreamSession) error { return session.Send(ctx, reqData) })
+			return lifecycle.Send(ctx, reqData)
 		},
 		func() error {
-			return rpcruntime.DispatcherStreamCloseSend[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session GreeterChatMessageStreamSession) error { return session.CloseSend(ctx) })
+			return lifecycle.CloseSend(ctx)
 		},
 		func() ([]byte, error) {
-			var respData []byte
-			err := rpcruntime.DispatcherStreamReceive[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session GreeterChatMessageStreamSession) error {
-				var recvErr error
-				respData, recvErr = session.Recv(ctx)
-				return recvErr
-			})
-			return respData, err
+			return lifecycle.Recv(ctx)
 		},
 		func(respData []byte) error {
 			resp := new(SayHelloResponse)
@@ -180,10 +158,10 @@ func greeterConnectChat(ctx context.Context, stream *connect.BidiStream[SayHello
 			return stream.Send(resp)
 		},
 		func() error {
-			return rpcruntime.DispatcherStreamDone[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session GreeterChatMessageStreamSession) error { return session.Done(ctx) })
+			return lifecycle.Done(ctx)
 		},
 		func() error {
-			return rpcruntime.DispatcherStreamCancel[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session GreeterChatMessageStreamSession) error { return session.Cancel(ctx) })
+			return lifecycle.Cancel(ctx)
 		},
 	)
 }

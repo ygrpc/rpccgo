@@ -26,14 +26,31 @@ func TestRenderConnectServerFileEmitsHandlers(t *testing.T) {
 		"respData, err := NewAllServiceCGOMessageClientBridge().Unary(ctx, reqData)",
 		"func allServiceConnectClientStream(ctx context.Context, stream *connect.ClientStream[AllRequest]) (*connect.Response[AllReply], error) {",
 		"handle, err := bridge.StartClientStream(ctx)",
+		"lifecycle := NewAllServiceClientStreamMessageStream(handle)",
+		"respData, err := lifecycle.Finish(ctx)",
 		"func allServiceConnectServerStream(ctx context.Context, req *connect.Request[AllRequest], stream *connect.ServerStream[AllReply]) error {",
 		"handle, err := bridge.StartServerStream(ctx, reqData)",
+		"lifecycle := NewAllServiceServerStreamMessageStream(handle)",
+		"return lifecycle.Recv(ctx)",
+		"return lifecycle.Done(ctx)",
 		"func allServiceConnectBidiStream(ctx context.Context, stream *connect.BidiStream[AllRequest, AllReply]) error {",
 		"handle, err := bridge.StartBidiStream(ctx)",
+		"lifecycle := NewAllServiceBidiStreamMessageStream(handle)",
+		"return lifecycle.CloseSend(ctx)",
 		"switch r.URL.Path {",
 		"case AllServiceUnaryConnectProcedure:",
 	} {
 		assertGeneratedContentContains(t, plugin, connectFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, connectFile, "google.golang.org/grpc", ".remote.", "panic(")
+	assertGeneratedFileContentDoesNotContain(t, plugin, connectFile,
+		"google.golang.org/grpc",
+		".remote.",
+		"panic(",
+		"rpcruntime.DispatcherStreamSend[",
+		"rpcruntime.DispatcherStreamReceive[",
+		"rpcruntime.DispatcherStreamFinish[",
+		"rpcruntime.DispatcherStreamDone[",
+		"rpcruntime.DispatcherStreamCancel[",
+		"rpcruntime.DispatcherStreamCloseSend[",
+	)
 }

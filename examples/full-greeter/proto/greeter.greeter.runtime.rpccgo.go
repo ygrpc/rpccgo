@@ -67,6 +67,219 @@ type GreeterChatMessageStreamSession interface {
 	Cancel(ctx context.Context) error
 }
 
+type GreeterCollectNativeStream struct {
+	handle rpcruntime.StreamHandle
+}
+
+func NewGreeterCollectNativeStream(handle rpcruntime.StreamHandle) GreeterCollectNativeStream {
+	return GreeterCollectNativeStream{handle: handle}
+}
+
+func (s GreeterCollectNativeStream) Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
+	return rpcruntime.DispatcherStreamSend[GreeterActiveAdapter, GreeterCollectNativeStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterCollectNativeStreamSession) error {
+		return session.Send(ctx, name, city)
+	})
+}
+
+func (s GreeterCollectNativeStream) Finish(ctx context.Context) (string, error) {
+	var messageResult string
+	err := rpcruntime.DispatcherStreamFinish[GreeterActiveAdapter, GreeterCollectNativeStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterCollectNativeStreamSession) error {
+		var callErr error
+		messageResult, callErr = session.Finish(ctx)
+		return callErr
+	})
+	if err != nil {
+		return "", err
+	}
+	return messageResult, nil
+}
+
+func (s GreeterCollectNativeStream) Cancel(ctx context.Context) error {
+	return rpcruntime.DispatcherStreamCancel[GreeterActiveAdapter, GreeterCollectNativeStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterCollectNativeStreamSession) error {
+		return session.Cancel(ctx)
+	})
+}
+
+type GreeterCollectMessageStream struct {
+	handle rpcruntime.StreamHandle
+}
+
+func NewGreeterCollectMessageStream(handle rpcruntime.StreamHandle) GreeterCollectMessageStream {
+	return GreeterCollectMessageStream{handle: handle}
+}
+
+func (s GreeterCollectMessageStream) Send(ctx context.Context, req []byte) error {
+	return rpcruntime.DispatcherStreamSend[GreeterActiveAdapter, GreeterCollectMessageStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterCollectMessageStreamSession) error {
+		return session.Send(ctx, req)
+	})
+}
+
+func (s GreeterCollectMessageStream) Finish(ctx context.Context) ([]byte, error) {
+	var resp []byte
+	err := rpcruntime.DispatcherStreamFinish[GreeterActiveAdapter, GreeterCollectMessageStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterCollectMessageStreamSession) error {
+		var callErr error
+		resp, callErr = session.Finish(ctx)
+		return callErr
+	})
+	return resp, err
+}
+
+func (s GreeterCollectMessageStream) Cancel(ctx context.Context) error {
+	return rpcruntime.DispatcherStreamCancel[GreeterActiveAdapter, GreeterCollectMessageStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterCollectMessageStreamSession) error {
+		return session.Cancel(ctx)
+	})
+}
+
+type GreeterBroadcastNativeStream struct {
+	handle rpcruntime.StreamHandle
+}
+
+func NewGreeterBroadcastNativeStream(handle rpcruntime.StreamHandle) GreeterBroadcastNativeStream {
+	return GreeterBroadcastNativeStream{handle: handle}
+}
+
+func (s GreeterBroadcastNativeStream) Recv(ctx context.Context) (string, error) {
+	var messageResult string
+	err := rpcruntime.DispatcherStreamReceive[GreeterActiveAdapter, GreeterBroadcastNativeStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterBroadcastNativeStreamSession) error {
+		var callErr error
+		messageResult, callErr = session.Recv(ctx)
+		return callErr
+	})
+	if err != nil {
+		return "", err
+	}
+	return messageResult, nil
+}
+
+func (s GreeterBroadcastNativeStream) Done(ctx context.Context) error {
+	return rpcruntime.DispatcherStreamDone[GreeterActiveAdapter, GreeterBroadcastNativeStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterBroadcastNativeStreamSession) error {
+		return session.Done(ctx)
+	})
+}
+
+func (s GreeterBroadcastNativeStream) Cancel(ctx context.Context) error {
+	return rpcruntime.DispatcherStreamCancel[GreeterActiveAdapter, GreeterBroadcastNativeStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterBroadcastNativeStreamSession) error {
+		return session.Cancel(ctx)
+	})
+}
+
+type GreeterBroadcastMessageStream struct {
+	handle rpcruntime.StreamHandle
+}
+
+func NewGreeterBroadcastMessageStream(handle rpcruntime.StreamHandle) GreeterBroadcastMessageStream {
+	return GreeterBroadcastMessageStream{handle: handle}
+}
+
+func (s GreeterBroadcastMessageStream) Recv(ctx context.Context) ([]byte, error) {
+	var resp []byte
+	err := rpcruntime.DispatcherStreamReceive[GreeterActiveAdapter, GreeterBroadcastMessageStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterBroadcastMessageStreamSession) error {
+		var callErr error
+		resp, callErr = session.Recv(ctx)
+		return callErr
+	})
+	return resp, err
+}
+
+func (s GreeterBroadcastMessageStream) Done(ctx context.Context) error {
+	return rpcruntime.DispatcherStreamDone[GreeterActiveAdapter, GreeterBroadcastMessageStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterBroadcastMessageStreamSession) error {
+		return session.Done(ctx)
+	})
+}
+
+func (s GreeterBroadcastMessageStream) Cancel(ctx context.Context) error {
+	return rpcruntime.DispatcherStreamCancel[GreeterActiveAdapter, GreeterBroadcastMessageStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterBroadcastMessageStreamSession) error {
+		return session.Cancel(ctx)
+	})
+}
+
+type GreeterChatNativeStream struct {
+	handle rpcruntime.StreamHandle
+}
+
+func NewGreeterChatNativeStream(handle rpcruntime.StreamHandle) GreeterChatNativeStream {
+	return GreeterChatNativeStream{handle: handle}
+}
+
+func (s GreeterChatNativeStream) Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
+	return rpcruntime.DispatcherStreamSend[GreeterActiveAdapter, GreeterChatNativeStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterChatNativeStreamSession) error {
+		return session.Send(ctx, name, city)
+	})
+}
+
+func (s GreeterChatNativeStream) Recv(ctx context.Context) (string, error) {
+	var messageResult string
+	err := rpcruntime.DispatcherStreamReceive[GreeterActiveAdapter, GreeterChatNativeStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterChatNativeStreamSession) error {
+		var callErr error
+		messageResult, callErr = session.Recv(ctx)
+		return callErr
+	})
+	if err != nil {
+		return "", err
+	}
+	return messageResult, nil
+}
+
+func (s GreeterChatNativeStream) CloseSend(ctx context.Context) error {
+	return rpcruntime.DispatcherStreamCloseSend[GreeterActiveAdapter, GreeterChatNativeStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterChatNativeStreamSession) error {
+		return session.CloseSend(ctx)
+	})
+}
+
+func (s GreeterChatNativeStream) Done(ctx context.Context) error {
+	return rpcruntime.DispatcherStreamDone[GreeterActiveAdapter, GreeterChatNativeStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterChatNativeStreamSession) error {
+		return session.Done(ctx)
+	})
+}
+
+func (s GreeterChatNativeStream) Cancel(ctx context.Context) error {
+	return rpcruntime.DispatcherStreamCancel[GreeterActiveAdapter, GreeterChatNativeStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterChatNativeStreamSession) error {
+		return session.Cancel(ctx)
+	})
+}
+
+type GreeterChatMessageStream struct {
+	handle rpcruntime.StreamHandle
+}
+
+func NewGreeterChatMessageStream(handle rpcruntime.StreamHandle) GreeterChatMessageStream {
+	return GreeterChatMessageStream{handle: handle}
+}
+
+func (s GreeterChatMessageStream) Send(ctx context.Context, req []byte) error {
+	return rpcruntime.DispatcherStreamSend[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterChatMessageStreamSession) error {
+		return session.Send(ctx, req)
+	})
+}
+
+func (s GreeterChatMessageStream) Recv(ctx context.Context) ([]byte, error) {
+	var resp []byte
+	err := rpcruntime.DispatcherStreamReceive[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterChatMessageStreamSession) error {
+		var callErr error
+		resp, callErr = session.Recv(ctx)
+		return callErr
+	})
+	return resp, err
+}
+
+func (s GreeterChatMessageStream) CloseSend(ctx context.Context) error {
+	return rpcruntime.DispatcherStreamCloseSend[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterChatMessageStreamSession) error {
+		return session.CloseSend(ctx)
+	})
+}
+
+func (s GreeterChatMessageStream) Done(ctx context.Context) error {
+	return rpcruntime.DispatcherStreamDone[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterChatMessageStreamSession) error {
+		return session.Done(ctx)
+	})
+}
+
+func (s GreeterChatMessageStream) Cancel(ctx context.Context) error {
+	return rpcruntime.DispatcherStreamCancel[GreeterActiveAdapter, GreeterChatMessageStreamSession](GreeterDispatcherForRuntime(), s.handle, func(session GreeterChatMessageStreamSession) error {
+		return session.Cancel(ctx)
+	})
+}
+
 var greeterDispatcher rpcruntime.Dispatcher[GreeterActiveAdapter]
 var greeterRouter = greeterActiveRouter{dispatcher: &greeterDispatcher}
 var GreeterNativeMessageConverterUnavailableErr = errors.New("rpccgo: native/message converter is not enabled")

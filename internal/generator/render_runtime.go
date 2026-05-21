@@ -47,6 +47,10 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 		renderRuntimeSessionInterface(g, method)
 		renderRuntimeMessageSessionInterface(g, method)
 	}
+	for _, method := range streamingMethods {
+		renderRuntimeNativeStreamFacade(g, service.GoName, method)
+		renderRuntimeMessageStreamFacade(g, service.GoName, method)
+	}
 
 	routerName := lowerInitial(service.GoName) + "Router"
 	routerTypeName := lowerInitial(service.GoName) + "ActiveRouter"
@@ -120,7 +124,7 @@ func buildRuntimeAdapterMethods(g *protogen.GeneratedFile, service ServicePlan) 
 	methods := make([]runtimeAdapterMethod, 0, len(service.Methods))
 	seen := make(map[string]string, len(service.Methods))
 	for _, method := range service.Methods {
-		rendered, err := runtimeAdapterMethodFor(g, service, method)
+		rendered, err := runtimeAdapterMethodFor(g, method)
 		if err != nil {
 			return nil, err
 		}
@@ -133,7 +137,7 @@ func buildRuntimeAdapterMethods(g *protogen.GeneratedFile, service ServicePlan) 
 	return methods, nil
 }
 
-func runtimeAdapterMethodFor(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) (runtimeAdapterMethod, error) {
+func runtimeAdapterMethodFor(g *protogen.GeneratedFile, method MethodPlan) (runtimeAdapterMethod, error) {
 	if err := ValidateMethodRenderPlan(method); err != nil {
 		return runtimeAdapterMethod{}, err
 	}
@@ -274,6 +278,227 @@ func renderRuntimeMessageSessionInterface(g *protogen.GeneratedFile, method runt
 	}
 	g.P("}")
 	g.P()
+}
+
+func renderRuntimeNativeStreamFacade(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod) {
+	facadeName := nativeRuntimeStreamFacadeName(serviceName, method)
+	g.P("type ", facadeName, " struct {")
+	g.P("handle rpcruntime.StreamHandle")
+	g.P("}")
+	g.P()
+	g.P("func New", facadeName, "(handle rpcruntime.StreamHandle) ", facadeName, " {")
+	g.P("return ", facadeName, "{handle: handle}")
+	g.P("}")
+	g.P()
+	switch method.SessionKind {
+	case SessionKindClient:
+		renderRuntimeNativeStreamSend(g, serviceName, method, facadeName)
+		renderRuntimeNativeStreamFinish(g, serviceName, method, facadeName)
+		renderRuntimeNativeStreamCancel(g, serviceName, method, facadeName)
+	case SessionKindServer:
+		renderRuntimeNativeStreamRecv(g, serviceName, method, facadeName)
+		renderRuntimeNativeStreamDone(g, serviceName, method, facadeName)
+		renderRuntimeNativeStreamCancel(g, serviceName, method, facadeName)
+	case SessionKindBidi:
+		renderRuntimeNativeStreamSend(g, serviceName, method, facadeName)
+		renderRuntimeNativeStreamRecv(g, serviceName, method, facadeName)
+		renderRuntimeNativeStreamCloseSend(g, serviceName, method, facadeName)
+		renderRuntimeNativeStreamDone(g, serviceName, method, facadeName)
+		renderRuntimeNativeStreamCancel(g, serviceName, method, facadeName)
+	}
+}
+
+func renderRuntimeMessageStreamFacade(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod) {
+	facadeName := messageRuntimeStreamFacadeName(serviceName, method)
+	g.P("type ", facadeName, " struct {")
+	g.P("handle rpcruntime.StreamHandle")
+	g.P("}")
+	g.P()
+	g.P("func New", facadeName, "(handle rpcruntime.StreamHandle) ", facadeName, " {")
+	g.P("return ", facadeName, "{handle: handle}")
+	g.P("}")
+	g.P()
+	switch method.SessionKind {
+	case SessionKindClient:
+		renderRuntimeMessageStreamSend(g, serviceName, method, facadeName)
+		renderRuntimeMessageStreamFinish(g, serviceName, method, facadeName)
+		renderRuntimeMessageStreamCancel(g, serviceName, method, facadeName)
+	case SessionKindServer:
+		renderRuntimeMessageStreamRecv(g, serviceName, method, facadeName)
+		renderRuntimeMessageStreamDone(g, serviceName, method, facadeName)
+		renderRuntimeMessageStreamCancel(g, serviceName, method, facadeName)
+	case SessionKindBidi:
+		renderRuntimeMessageStreamSend(g, serviceName, method, facadeName)
+		renderRuntimeMessageStreamRecv(g, serviceName, method, facadeName)
+		renderRuntimeMessageStreamCloseSend(g, serviceName, method, facadeName)
+		renderRuntimeMessageStreamDone(g, serviceName, method, facadeName)
+		renderRuntimeMessageStreamCancel(g, serviceName, method, facadeName)
+	}
+}
+
+func renderRuntimeNativeStreamSend(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod, facadeName string) {
+	g.P("func (s ", facadeName, ") Send(ctx context.Context", method.NativeArgs, ") error {")
+	g.P("return rpcruntime.DispatcherStreamSend[", serviceName, "ActiveAdapter, ", method.SessionName, "](", serviceName, "DispatcherForRuntime(), s.handle, func(session ", method.SessionName, ") error {")
+	g.P("return session.Send(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
+	g.P("})")
+	g.P("}")
+	g.P()
+}
+
+func renderRuntimeNativeStreamFinish(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod, facadeName string) {
+	g.P("func (s ", facadeName, ") Finish(ctx context.Context) (", method.NativeReturns, ") {")
+	renderRuntimeNativeStreamResultVars(g, method)
+	g.P("err := rpcruntime.DispatcherStreamFinish[", serviceName, "ActiveAdapter, ", method.SessionName, "](", serviceName, "DispatcherForRuntime(), s.handle, func(session ", method.SessionName, ") error {")
+	renderRuntimeNativeStreamCall(g, method, "Finish")
+	g.P("})")
+	g.P("if err != nil {")
+	g.P("return ", method.NativeErrZero)
+	g.P("}")
+	renderRuntimeNativeStreamSuccessReturn(g, method)
+	g.P("}")
+	g.P()
+}
+
+func renderRuntimeNativeStreamRecv(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod, facadeName string) {
+	g.P("func (s ", facadeName, ") Recv(ctx context.Context) (", method.NativeReturns, ") {")
+	renderRuntimeNativeStreamResultVars(g, method)
+	g.P("err := rpcruntime.DispatcherStreamReceive[", serviceName, "ActiveAdapter, ", method.SessionName, "](", serviceName, "DispatcherForRuntime(), s.handle, func(session ", method.SessionName, ") error {")
+	renderRuntimeNativeStreamCall(g, method, "Recv")
+	g.P("})")
+	g.P("if err != nil {")
+	g.P("return ", method.NativeErrZero)
+	g.P("}")
+	renderRuntimeNativeStreamSuccessReturn(g, method)
+	g.P("}")
+	g.P()
+}
+
+func renderRuntimeNativeStreamResultVars(g *protogen.GeneratedFile, method runtimeAdapterMethod) {
+	for _, decl := range method.NativeVarDecls {
+		g.P(decl)
+	}
+}
+
+func renderRuntimeNativeStreamSuccessReturn(g *protogen.GeneratedFile, method runtimeAdapterMethod) {
+	if method.NativeNames == "" {
+		g.P("return nil")
+		return
+	}
+	g.P("return ", method.NativeNames, ", nil")
+}
+
+func renderRuntimeNativeStreamCall(g *protogen.GeneratedFile, method runtimeAdapterMethod, operation string) {
+	g.P("var callErr error")
+	if method.NativeNames == "" {
+		g.P("callErr = session.", operation, "(ctx)")
+		g.P("return callErr")
+		return
+	}
+	g.P(method.NativeNames, ", callErr = session.", operation, "(ctx)")
+	g.P("return callErr")
+}
+
+func renderRuntimeNativeStreamCloseSend(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod, facadeName string) {
+	g.P("func (s ", facadeName, ") CloseSend(ctx context.Context) error {")
+	g.P("return rpcruntime.DispatcherStreamCloseSend[", serviceName, "ActiveAdapter, ", method.SessionName, "](", serviceName, "DispatcherForRuntime(), s.handle, func(session ", method.SessionName, ") error {")
+	g.P("return session.CloseSend(ctx)")
+	g.P("})")
+	g.P("}")
+	g.P()
+}
+
+func renderRuntimeNativeStreamDone(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod, facadeName string) {
+	g.P("func (s ", facadeName, ") Done(ctx context.Context) error {")
+	g.P("return rpcruntime.DispatcherStreamDone[", serviceName, "ActiveAdapter, ", method.SessionName, "](", serviceName, "DispatcherForRuntime(), s.handle, func(session ", method.SessionName, ") error {")
+	g.P("return session.Done(ctx)")
+	g.P("})")
+	g.P("}")
+	g.P()
+}
+
+func renderRuntimeNativeStreamCancel(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod, facadeName string) {
+	g.P("func (s ", facadeName, ") Cancel(ctx context.Context) error {")
+	g.P("return rpcruntime.DispatcherStreamCancel[", serviceName, "ActiveAdapter, ", method.SessionName, "](", serviceName, "DispatcherForRuntime(), s.handle, func(session ", method.SessionName, ") error {")
+	g.P("return session.Cancel(ctx)")
+	g.P("})")
+	g.P("}")
+	g.P()
+}
+
+func renderRuntimeMessageStreamSend(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod, facadeName string) {
+	sessionName := methodMessageSessionName(method)
+	g.P("func (s ", facadeName, ") Send(ctx context.Context, req []byte) error {")
+	g.P("return rpcruntime.DispatcherStreamSend[", serviceName, "ActiveAdapter, ", sessionName, "](", serviceName, "DispatcherForRuntime(), s.handle, func(session ", sessionName, ") error {")
+	g.P("return session.Send(ctx, req)")
+	g.P("})")
+	g.P("}")
+	g.P()
+}
+
+func renderRuntimeMessageStreamFinish(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod, facadeName string) {
+	sessionName := methodMessageSessionName(method)
+	g.P("func (s ", facadeName, ") Finish(ctx context.Context) ([]byte, error) {")
+	g.P("var resp []byte")
+	g.P("err := rpcruntime.DispatcherStreamFinish[", serviceName, "ActiveAdapter, ", sessionName, "](", serviceName, "DispatcherForRuntime(), s.handle, func(session ", sessionName, ") error {")
+	g.P("var callErr error")
+	g.P("resp, callErr = session.Finish(ctx)")
+	g.P("return callErr")
+	g.P("})")
+	g.P("return resp, err")
+	g.P("}")
+	g.P()
+}
+
+func renderRuntimeMessageStreamRecv(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod, facadeName string) {
+	sessionName := methodMessageSessionName(method)
+	g.P("func (s ", facadeName, ") Recv(ctx context.Context) ([]byte, error) {")
+	g.P("var resp []byte")
+	g.P("err := rpcruntime.DispatcherStreamReceive[", serviceName, "ActiveAdapter, ", sessionName, "](", serviceName, "DispatcherForRuntime(), s.handle, func(session ", sessionName, ") error {")
+	g.P("var callErr error")
+	g.P("resp, callErr = session.Recv(ctx)")
+	g.P("return callErr")
+	g.P("})")
+	g.P("return resp, err")
+	g.P("}")
+	g.P()
+}
+
+func renderRuntimeMessageStreamCloseSend(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod, facadeName string) {
+	sessionName := methodMessageSessionName(method)
+	g.P("func (s ", facadeName, ") CloseSend(ctx context.Context) error {")
+	g.P("return rpcruntime.DispatcherStreamCloseSend[", serviceName, "ActiveAdapter, ", sessionName, "](", serviceName, "DispatcherForRuntime(), s.handle, func(session ", sessionName, ") error {")
+	g.P("return session.CloseSend(ctx)")
+	g.P("})")
+	g.P("}")
+	g.P()
+}
+
+func renderRuntimeMessageStreamDone(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod, facadeName string) {
+	sessionName := methodMessageSessionName(method)
+	g.P("func (s ", facadeName, ") Done(ctx context.Context) error {")
+	g.P("return rpcruntime.DispatcherStreamDone[", serviceName, "ActiveAdapter, ", sessionName, "](", serviceName, "DispatcherForRuntime(), s.handle, func(session ", sessionName, ") error {")
+	g.P("return session.Done(ctx)")
+	g.P("})")
+	g.P("}")
+	g.P()
+}
+
+func renderRuntimeMessageStreamCancel(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod, facadeName string) {
+	sessionName := methodMessageSessionName(method)
+	g.P("func (s ", facadeName, ") Cancel(ctx context.Context) error {")
+	g.P("return rpcruntime.DispatcherStreamCancel[", serviceName, "ActiveAdapter, ", sessionName, "](", serviceName, "DispatcherForRuntime(), s.handle, func(session ", sessionName, ") error {")
+	g.P("return session.Cancel(ctx)")
+	g.P("})")
+	g.P("}")
+	g.P()
+}
+
+func nativeRuntimeStreamFacadeName(serviceName string, method runtimeAdapterMethod) string {
+	return serviceName + method.MethodGoName + "NativeStream"
+}
+
+func messageRuntimeStreamFacadeName(serviceName string, method runtimeAdapterMethod) string {
+	return serviceName + method.MethodGoName + "MessageStream"
 }
 
 func renderRuntimeActiveRouter(g *protogen.GeneratedFile, serviceName, routerTypeName, activeAdapterName string, methods []runtimeAdapterMethod, codecEnabled bool) {

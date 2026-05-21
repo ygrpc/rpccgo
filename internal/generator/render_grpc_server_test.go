@@ -75,13 +75,30 @@ func TestRenderGRPCServerFileEmitsServiceDesc(t *testing.T) {
 		"respData, err := NewAllServiceCGOMessageClientBridge().Unary(ctx, reqData)",
 		"func allServiceClientStreamGRPC(stream grpc.ClientStreamingServer[AllRequest, AllReply]) error {",
 		"handle, err := bridge.StartClientStream(stream.Context())",
+		"lifecycle := NewAllServiceClientStreamMessageStream(handle)",
+		"respData, err := lifecycle.Finish(stream.Context())",
 		"func allServiceServerStreamGRPC(req *AllRequest, stream grpc.ServerStreamingServer[AllReply]) error {",
 		"handle, err := bridge.StartServerStream(stream.Context(), reqData)",
+		"lifecycle := NewAllServiceServerStreamMessageStream(handle)",
+		"return lifecycle.Recv(stream.Context())",
+		"return lifecycle.Done(stream.Context())",
 		"func allServiceBidiStreamGRPC(stream grpc.BidiStreamingServer[AllRequest, AllReply]) error {",
 		"handle, err := bridge.StartBidiStream(stream.Context())",
+		"lifecycle := NewAllServiceBidiStreamMessageStream(handle)",
+		"return lifecycle.CloseSend(stream.Context())",
 		"return allServiceClientStreamGRPC(&grpc.GenericServerStream[AllRequest, AllReply]{ServerStream: stream})",
 	} {
 		assertGeneratedContentContains(t, plugin, grpcFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, grpcFile, "connectrpc.com/connect", ".remote.", "panic(")
+	assertGeneratedFileContentDoesNotContain(t, plugin, grpcFile,
+		"connectrpc.com/connect",
+		".remote.",
+		"panic(",
+		"rpcruntime.DispatcherStreamSend[",
+		"rpcruntime.DispatcherStreamReceive[",
+		"rpcruntime.DispatcherStreamFinish[",
+		"rpcruntime.DispatcherStreamDone[",
+		"rpcruntime.DispatcherStreamCancel[",
+		"rpcruntime.DispatcherStreamCloseSend[",
+	)
 }

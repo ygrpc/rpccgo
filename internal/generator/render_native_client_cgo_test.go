@@ -65,14 +65,27 @@ func TestRenderNativeClientCGOStreamsUseDispatcherAccessor(t *testing.T) {
 
 	const nativeClientFile = "test/v1/cgo/message_cgo.greeter.client.cgo.rpccgo.go"
 	for _, fragment := range []string{
-		"rpcruntime.DispatcherStreamSend[v1.GreeterActiveAdapter, v1.GreeterUploadNativeStreamSession](v1.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session v1.GreeterUploadNativeStreamSession) error",
-		"rpcruntime.DispatcherStreamFinish[v1.GreeterActiveAdapter, v1.GreeterUploadNativeStreamSession](v1.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session v1.GreeterUploadNativeStreamSession) error",
+		"v1.NewGreeterUploadNativeStream(rpcruntime.StreamHandle(handle)).Send(ctx",
+		"err = v1.NewGreeterUploadNativeStream(rpcruntime.StreamHandle(handle)).Finish(ctx)",
 		"CloseSendGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32",
-		"rpcruntime.DispatcherStreamCloseSend[v1.GreeterActiveAdapter, v1.GreeterChatNativeStreamSession]",
+		"err = v1.NewGreeterChatNativeStream(rpcruntime.StreamHandle(handle)).CloseSend(ctx)",
 	} {
 		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "LoadUploadNativeStream", "TakeUploadNativeStream", "LoadListNativeStream", "TakeListNativeStream", "LoadChatNativeStream", "TakeChatNativeStream")
+	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile,
+		"LoadUploadNativeStream",
+		"TakeUploadNativeStream",
+		"LoadListNativeStream",
+		"TakeListNativeStream",
+		"LoadChatNativeStream",
+		"TakeChatNativeStream",
+		"rpcruntime.DispatcherStreamSend[",
+		"rpcruntime.DispatcherStreamReceive[",
+		"rpcruntime.DispatcherStreamFinish[",
+		"rpcruntime.DispatcherStreamDone[",
+		"rpcruntime.DispatcherStreamCancel[",
+		"rpcruntime.DispatcherStreamCloseSend[",
+	)
 }
 
 func TestRenderNativeClientCGOHandlesBytesOwnershipAndPinnedOutputRelease(t *testing.T) {

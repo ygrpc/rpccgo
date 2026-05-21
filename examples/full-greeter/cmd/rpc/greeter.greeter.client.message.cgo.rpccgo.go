@@ -120,9 +120,7 @@ func SendGreeterCollectMessageClientStream(ctx context.Context, handle int32, re
 	if err := protobuf.Unmarshal(req, &proto.SayHelloRequest{}); err != nil {
 		return int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)))
 	}
-	err = rpcruntime.DispatcherStreamSend[proto.GreeterActiveAdapter, proto.GreeterCollectMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session proto.GreeterCollectMessageStreamSession) error {
-		return session.Send(ctx, req)
-	})
+	err = proto.NewGreeterCollectMessageStream(rpcruntime.StreamHandle(handle)).Send(ctx, req)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -138,11 +136,7 @@ func FinishGreeterCollectMessageClientStream(ctx context.Context, handle int32, 
 	}
 	var resp []byte
 	var err error
-	err = rpcruntime.DispatcherStreamFinish[proto.GreeterActiveAdapter, proto.GreeterCollectMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session proto.GreeterCollectMessageStreamSession) error {
-		var finishErr error
-		resp, finishErr = session.Finish(ctx)
-		return finishErr
-	})
+	resp, err = proto.NewGreeterCollectMessageStream(rpcruntime.StreamHandle(handle)).Finish(ctx)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -163,9 +157,7 @@ func CancelGreeterCollectMessageClientStream(ctx context.Context, handle int32) 
 		ctx = context.Background()
 	}
 	var err error
-	err = rpcruntime.DispatcherStreamCancel[proto.GreeterActiveAdapter, proto.GreeterCollectMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session proto.GreeterCollectMessageStreamSession) error {
-		return session.Cancel(ctx)
-	})
+	err = proto.NewGreeterCollectMessageStream(rpcruntime.StreamHandle(handle)).Cancel(ctx)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -268,11 +260,7 @@ func ReadGreeterBroadcastMessageServerStream(ctx context.Context, handle int32, 
 	}
 	var resp []byte
 	var err error
-	err = rpcruntime.DispatcherStreamReceive[proto.GreeterActiveAdapter, proto.GreeterBroadcastMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session proto.GreeterBroadcastMessageStreamSession) error {
-		var recvErr error
-		resp, recvErr = session.Recv(ctx)
-		return recvErr
-	})
+	resp, err = proto.NewGreeterBroadcastMessageStream(rpcruntime.StreamHandle(handle)).Recv(ctx)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -293,9 +281,7 @@ func DoneGreeterBroadcastMessageServerStream(ctx context.Context, handle int32) 
 		ctx = context.Background()
 	}
 	var err error
-	err = rpcruntime.DispatcherStreamDone[proto.GreeterActiveAdapter, proto.GreeterBroadcastMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session proto.GreeterBroadcastMessageStreamSession) error {
-		return session.Done(ctx)
-	})
+	err = proto.NewGreeterBroadcastMessageStream(rpcruntime.StreamHandle(handle)).Done(ctx)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -307,9 +293,7 @@ func CancelGreeterBroadcastMessageServerStream(ctx context.Context, handle int32
 		ctx = context.Background()
 	}
 	var err error
-	err = rpcruntime.DispatcherStreamCancel[proto.GreeterActiveAdapter, proto.GreeterBroadcastMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session proto.GreeterBroadcastMessageStreamSession) error {
-		return session.Cancel(ctx)
-	})
+	err = proto.NewGreeterBroadcastMessageStream(rpcruntime.StreamHandle(handle)).Cancel(ctx)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -407,9 +391,7 @@ func SendGreeterChatMessageBidiStream(ctx context.Context, handle int32, request
 	if err := protobuf.Unmarshal(req, &proto.SayHelloRequest{}); err != nil {
 		return int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)))
 	}
-	err = rpcruntime.DispatcherStreamSend[proto.GreeterActiveAdapter, proto.GreeterChatMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session proto.GreeterChatMessageStreamSession) error {
-		return session.Send(ctx, req)
-	})
+	err = proto.NewGreeterChatMessageStream(rpcruntime.StreamHandle(handle)).Send(ctx, req)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -425,11 +407,7 @@ func ReadGreeterChatMessageBidiStream(ctx context.Context, handle int32, output 
 	}
 	var resp []byte
 	var err error
-	err = rpcruntime.DispatcherStreamReceive[proto.GreeterActiveAdapter, proto.GreeterChatMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session proto.GreeterChatMessageStreamSession) error {
-		var recvErr error
-		resp, recvErr = session.Recv(ctx)
-		return recvErr
-	})
+	resp, err = proto.NewGreeterChatMessageStream(rpcruntime.StreamHandle(handle)).Recv(ctx)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -450,9 +428,7 @@ func CloseSendGreeterChatMessageBidiStream(ctx context.Context, handle int32) in
 		ctx = context.Background()
 	}
 	var err error
-	err = rpcruntime.DispatcherStreamCloseSend[proto.GreeterActiveAdapter, proto.GreeterChatMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session proto.GreeterChatMessageStreamSession) error {
-		return session.CloseSend(ctx)
-	})
+	err = proto.NewGreeterChatMessageStream(rpcruntime.StreamHandle(handle)).CloseSend(ctx)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -464,9 +440,7 @@ func DoneGreeterChatMessageBidiStream(ctx context.Context, handle int32) int32 {
 		ctx = context.Background()
 	}
 	var err error
-	err = rpcruntime.DispatcherStreamDone[proto.GreeterActiveAdapter, proto.GreeterChatMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session proto.GreeterChatMessageStreamSession) error {
-		return session.Done(ctx)
-	})
+	err = proto.NewGreeterChatMessageStream(rpcruntime.StreamHandle(handle)).Done(ctx)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -478,9 +452,7 @@ func CancelGreeterChatMessageBidiStream(ctx context.Context, handle int32) int32
 		ctx = context.Background()
 	}
 	var err error
-	err = rpcruntime.DispatcherStreamCancel[proto.GreeterActiveAdapter, proto.GreeterChatMessageStreamSession](proto.GreeterDispatcherForRuntime(), rpcruntime.StreamHandle(handle), func(session proto.GreeterChatMessageStreamSession) error {
-		return session.Cancel(ctx)
-	})
+	err = proto.NewGreeterChatMessageStream(rpcruntime.StreamHandle(handle)).Cancel(ctx)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}

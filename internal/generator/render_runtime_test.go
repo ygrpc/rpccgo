@@ -125,6 +125,41 @@ func TestRenderRuntimeGlueDefinesMessageContractDispatcherAndRegistration(t *tes
 	)
 }
 
+func TestRenderRuntimeGlueDefinesMethodSpecificStreamFacades(t *testing.T) {
+	file := completeServicePlanTestFile()
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
+	for _, fragment := range []string{
+		"type AllServiceClientStreamNativeStream struct {",
+		"handle rpcruntime.StreamHandle",
+		"func NewAllServiceClientStreamNativeStream(handle rpcruntime.StreamHandle) AllServiceClientStreamNativeStream {",
+		"func (s AllServiceClientStreamNativeStream) Send(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) error {",
+		"rpcruntime.DispatcherStreamSend[AllServiceActiveAdapter, AllServiceClientStreamNativeStreamSession](AllServiceDispatcherForRuntime(), s.handle, func(session AllServiceClientStreamNativeStreamSession) error {",
+		"func (s AllServiceClientStreamNativeStream) Finish(ctx context.Context) (bool, []byte, error) {",
+		"rpcruntime.DispatcherStreamFinish[AllServiceActiveAdapter, AllServiceClientStreamNativeStreamSession](AllServiceDispatcherForRuntime(), s.handle, func(session AllServiceClientStreamNativeStreamSession) error {",
+		"func (s AllServiceServerStreamNativeStream) Recv(ctx context.Context) (bool, []byte, error) {",
+		"func (s AllServiceServerStreamNativeStream) Done(ctx context.Context) error {",
+		"rpcruntime.DispatcherStreamDone[AllServiceActiveAdapter, AllServiceServerStreamNativeStreamSession](AllServiceDispatcherForRuntime(), s.handle, func(session AllServiceServerStreamNativeStreamSession) error {",
+		"func (s AllServiceBidiStreamNativeStream) CloseSend(ctx context.Context) error {",
+		"type AllServiceClientStreamMessageStream struct {",
+		"func NewAllServiceClientStreamMessageStream(handle rpcruntime.StreamHandle) AllServiceClientStreamMessageStream {",
+		"func (s AllServiceClientStreamMessageStream) Send(ctx context.Context, req []byte) error {",
+		"rpcruntime.DispatcherStreamSend[AllServiceActiveAdapter, AllServiceClientStreamMessageStreamSession](AllServiceDispatcherForRuntime(), s.handle, func(session AllServiceClientStreamMessageStreamSession) error {",
+		"func (s AllServiceClientStreamMessageStream) Finish(ctx context.Context) ([]byte, error) {",
+		"func (s AllServiceServerStreamMessageStream) Recv(ctx context.Context) ([]byte, error) {",
+		"func (s AllServiceBidiStreamMessageStream) CloseSend(ctx context.Context) error {",
+	} {
+		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
+	}
+	assertGeneratedFileContentDoesNotContain(t, plugin, runtimeFile, "type AllServiceUnaryNativeStream", "type AllServiceUnaryMessageStream")
+}
+
 func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleAndCoreStreamRegistry(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
@@ -307,10 +342,10 @@ func TestRenderRuntimeRejectsAdapterMethodSymbolCollision(t *testing.T) {
 func runtimeTestMethod(name string, streaming StreamingKind, nativeAdapterMethod string, messageAdapterMethod string, sessionKind SessionKind) MethodPlan {
 	method := MethodPlan{Name: name, GoName: name, FullName: "test.v1.Greeter." + name, Streaming: streaming}
 	method.RenderShape = MethodRenderPlan{
-		Session: SessionRenderPlan{Kind: sessionKind},
+		Session:    SessionRenderPlan{Kind: sessionKind},
 		Conversion: ConversionRenderPlan{MessageToNative: ConversionShapePlan{Native: MethodIOShapePlan{}}},
-		Symbols: RenderSymbolsPlan{NativeAdapterMethod: nativeAdapterMethod, MessageAdapterMethod: messageAdapterMethod},
-		Errors: RenderErrorsPlan{NativeAdapterUnavailableErr: "GreeterNativeAdapterUnavailableErr", MessageAdapterUnavailableErr: "GreeterMessageAdapterUnavailableErr", UnknownActiveContractErr: "GreeterUnknownActiveContractErr", NativeMessageConverterErr: "GreeterNativeMessageConverterUnavailableErr"},
+		Symbols:    RenderSymbolsPlan{NativeAdapterMethod: nativeAdapterMethod, MessageAdapterMethod: messageAdapterMethod},
+		Errors:     RenderErrorsPlan{NativeAdapterUnavailableErr: "GreeterNativeAdapterUnavailableErr", MessageAdapterUnavailableErr: "GreeterMessageAdapterUnavailableErr", UnknownActiveContractErr: "GreeterUnknownActiveContractErr", NativeMessageConverterErr: "GreeterNativeMessageConverterUnavailableErr"},
 	}
 	if sessionKind != SessionKindNone {
 		method.RenderShape.Session.Operations = []SessionOperationPlan{{Kind: SessionOperationStart, Enabled: true}}
