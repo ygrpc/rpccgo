@@ -3,11 +3,10 @@ package generator
 import "fmt"
 
 type MethodRenderPlan struct {
-	CallPath CallPathPlan
-	Session  SessionRenderPlan
-	Terminal TerminalRenderPlan
-	Symbols  RenderSymbolsPlan
-	Errors   RenderErrorsPlan
+	CallPath  CallPathPlan
+	Lifecycle StreamLifecycleProjectionPlan
+	Symbols   RenderSymbolsPlan
+	Errors    RenderErrorsPlan
 }
 
 type CallPathPlan struct {
@@ -40,11 +39,6 @@ const (
 	CallPathRouteKindMessage CallPathRouteKind = "message"
 )
 
-type SessionRenderPlan struct {
-	Kind       SessionKind
-	Operations []SessionOperationPlan
-}
-
 type SessionKind string
 
 const (
@@ -55,10 +49,7 @@ const (
 )
 
 type SessionOperationPlan struct {
-	Kind             SessionOperationKind
-	Enabled          bool
-	RequiresCodec    bool
-	RequiresTerminal bool
+	Kind SessionOperationKind
 }
 
 type SessionOperationKind string
@@ -78,8 +69,6 @@ type TerminalRenderPlan struct {
 	Operation               SessionOperationKind
 	ReleasesHandle          bool
 	RequiresResponseConvert bool
-	AllowsCancel            bool
-	AllowsCloseSend         bool
 }
 
 type TerminalKind string
@@ -110,7 +99,7 @@ type RenderErrorsPlan struct {
 }
 
 func BuildMethodRenderPlan(method MethodPlan, serviceName string) (MethodRenderPlan, error) {
-	ops, sessionKind, terminal, err := renderSessionShape(method.Contract.Lifecycle, method.Contract.RenderInputs.NeedsCodec)
+	lifecycle, err := ProjectStreamLifecycle(method.Contract.Lifecycle, method.Contract.RenderInputs.NeedsCodec)
 	if err != nil {
 		return MethodRenderPlan{}, err
 	}
@@ -122,15 +111,14 @@ func BuildMethodRenderPlan(method MethodPlan, serviceName string) (MethodRenderP
 	messageAdapterMethod := nativeAdapterMethod + "Message"
 	nativeSessionType := ""
 	messageSessionType := ""
-	if sessionKind != SessionKindNone {
+	if lifecycle.SessionKind != SessionKindNone {
 		nativeSessionType = serviceName + method.GoName + "NativeStreamSession"
 		messageSessionType = serviceName + method.GoName + "MessageStreamSession"
 	}
 	nativeWrapperType := lowerInitial(serviceName) + method.GoName + "NativeToMessageStreamSession"
 	messageWrapperType := lowerInitial(serviceName) + method.GoName + "MessageToNativeStreamSession"
 	shape := MethodRenderPlan{
-		Session:  SessionRenderPlan{Kind: sessionKind, Operations: ops},
-		Terminal: terminal,
+		Lifecycle: lifecycle,
 		Symbols: RenderSymbolsPlan{
 			NativeAdapterMethod:  nativeAdapterMethod,
 			MessageAdapterMethod: messageAdapterMethod,
@@ -155,43 +143,6 @@ func BuildMethodRenderPlan(method MethodPlan, serviceName string) (MethodRenderP
 		return MethodRenderPlan{}, err
 	}
 	return shape, nil
-}
-
-func renderSessionShape(lifecycle StreamLifecycleContractPlan, needsCodec bool) ([]SessionOperationPlan, SessionKind, TerminalRenderPlan, error) {
-	op := func(kind SessionOperationKind, terminal bool) SessionOperationPlan {
-		return SessionOperationPlan{Kind: kind, Enabled: true, RequiresCodec: needsCodec, RequiresTerminal: terminal}
-	}
-	if !lifecycle.HasOperation(StreamLifecycleOperationStart) {
-		return nil, SessionKindNone, TerminalRenderPlan{}, nil
-	}
-	hasSend := lifecycle.HasOperation(StreamLifecycleOperationSend)
-	hasReceive := lifecycle.HasOperation(StreamLifecycleOperationReceive)
-	hasFinish := lifecycle.HasOperation(StreamLifecycleOperationFinish)
-	hasDone := lifecycle.HasOperation(StreamLifecycleOperationDone)
-	hasCloseSend := lifecycle.HasOperation(StreamLifecycleOperationCloseSend)
-	hasCancel := lifecycle.HasOperation(StreamLifecycleOperationCancel)
-	if hasSend && hasFinish {
-		ops := []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationSend, false), op(SessionOperationFinish, true)}
-		if hasCancel {
-			ops = append(ops, op(SessionOperationCancel, true))
-		}
-		return ops, SessionKindClient, TerminalRenderPlan{Kind: TerminalKindFinish, Operation: SessionOperationFinish, ReleasesHandle: true, RequiresResponseConvert: true, AllowsCancel: hasCancel}, nil
-	}
-	if hasReceive && hasCloseSend && hasDone {
-		ops := []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationSend, false), op(SessionOperationReceive, false), op(SessionOperationCloseSend, false), op(SessionOperationDone, true)}
-		if hasCancel {
-			ops = append(ops, op(SessionOperationCancel, true))
-		}
-		return ops, SessionKindBidi, TerminalRenderPlan{Kind: TerminalKindDone, Operation: SessionOperationDone, ReleasesHandle: true, AllowsCancel: hasCancel, AllowsCloseSend: true}, nil
-	}
-	if hasReceive && hasDone {
-		ops := []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationReceive, false), op(SessionOperationDone, true)}
-		if hasCancel {
-			ops = append(ops, op(SessionOperationCancel, true))
-		}
-		return ops, SessionKindServer, TerminalRenderPlan{Kind: TerminalKindDone, Operation: SessionOperationDone, ReleasesHandle: true, AllowsCancel: hasCancel}, nil
-	}
-	return nil, "", TerminalRenderPlan{}, fmt.Errorf("invalid lifecycle plan")
 }
 
 func renderCallPath(method MethodPlan, symbols RenderSymbolsPlan) CallPathPlan {
@@ -221,6 +172,9 @@ func ValidateMethodContractPlan(method MethodPlan) error {
 	if !lifecycle.HasOperation(StreamLifecycleOperationStart) {
 		return fmt.Errorf("method %s streaming lifecycle is incomplete", methodPlanName(method))
 	}
+	if lifecycle.HasOperation(StreamLifecycleOperationCancel) && !lifecycle.CancelFinalizes {
+		return fmt.Errorf("method %s streaming lifecycle cancel must finalize", methodPlanName(method))
+	}
 	switch method.Streaming {
 	case StreamingKindClientStreaming:
 		if lifecycle.TerminalKind != LifecycleTerminalFinishResult || !lifecycle.HasOperation(StreamLifecycleOperationFinish) {
@@ -243,17 +197,17 @@ func ValidateMethodRenderPlan(method MethodPlan) error {
 func validateMethodRenderPlan(method MethodPlan) error {
 	shape := method.RenderPlan
 	if method.Streaming == StreamingKindUnary {
-		if shape.Session.Kind != SessionKindNone || len(shape.Session.Operations) != 0 {
+		if shape.Lifecycle.SessionKind != SessionKindNone || len(shape.Lifecycle.Operations) != 0 {
 			return fmt.Errorf("method %s unary render session must be none", methodPlanName(method))
 		}
-		if shape.Terminal.Kind != "" {
+		if shape.Lifecycle.Terminal.Kind != "" {
 			return fmt.Errorf("method %s unary render terminal must be empty", methodPlanName(method))
 		}
 	} else {
-		if shape.Session.Kind == SessionKindNone || len(shape.Session.Operations) == 0 {
+		if shape.Lifecycle.SessionKind == SessionKindNone || len(shape.Lifecycle.Operations) == 0 {
 			return fmt.Errorf("method %s streaming render session operations are missing", methodPlanName(method))
 		}
-		if shape.Terminal.Kind == "" || shape.Terminal.Operation == "" || !shape.Terminal.ReleasesHandle {
+		if shape.Lifecycle.Terminal.Kind == "" || shape.Lifecycle.Terminal.Operation == "" || !shape.Lifecycle.Terminal.ReleasesHandle {
 			return fmt.Errorf("method %s streaming render terminal is incomplete", methodPlanName(method))
 		}
 	}

@@ -37,9 +37,9 @@ func TestValidateMethodRenderPlanRejectsInvalidMatrix(t *testing.T) {
 		FullName:  "test.v1.Streamer.Unary",
 		Streaming: StreamingKindUnary,
 		RenderPlan: MethodRenderPlan{
-			Session: SessionRenderPlan{Kind: SessionKindClient, Operations: []SessionOperationPlan{{Kind: SessionOperationStart, Enabled: true}}},
-			Symbols: RenderSymbolsPlan{NativeAdapterMethod: "Unary", MessageAdapterMethod: "UnaryMessage"},
-			Errors:  RenderErrorsPlan{NativeAdapterUnavailableErr: "Native", MessageAdapterUnavailableErr: "Message", UnknownActiveContractErr: "Unknown", NativeMessageConverterErr: "Converter"},
+			Lifecycle: StreamLifecycleProjectionPlan{SessionKind: SessionKindClient, Operations: []SessionOperationPlan{{Kind: SessionOperationStart}}},
+			Symbols:   RenderSymbolsPlan{NativeAdapterMethod: "Unary", MessageAdapterMethod: "UnaryMessage"},
+			Errors:    RenderErrorsPlan{NativeAdapterUnavailableErr: "Native", MessageAdapterUnavailableErr: "Message", UnknownActiveContractErr: "Unknown", NativeMessageConverterErr: "Converter"},
 		},
 	}
 	if err := ValidateMethodRenderPlan(method); err == nil {
@@ -72,13 +72,8 @@ func TestValidateMethodRenderPlanKeepsCodecInRenderInputs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildMethodRenderPlan() error = %v", err)
 	}
-	if len(renderPlan.Session.Operations) == 0 {
-		t.Fatal("render session operations are missing")
-	}
-	for _, op := range renderPlan.Session.Operations {
-		if !op.RequiresCodec {
-			t.Fatalf("operation %q RequiresCodec = false, want true from render input", op.Kind)
-		}
+	if !renderPlan.Lifecycle.RequiresCodec {
+		t.Fatal("render lifecycle RequiresCodec = false, want true from render input")
 	}
 
 	method.Contract.RenderInputs.NeedsCodec = false
@@ -112,6 +107,11 @@ func TestValidateMethodContractPlanRejectsLifecyclePolicyMismatches(t *testing.T
 			name:      "server streaming must terminate on done",
 			streaming: StreamingKindServerStreaming,
 			lifecycle: StreamLifecycleContractPlan{Operations: []StreamLifecycleOperationPlan{{Kind: StreamLifecycleOperationStart}, {Kind: StreamLifecycleOperationFinish}}, TerminalKind: LifecycleTerminalFinishResult},
+		},
+		{
+			name:      "cancel operation must finalize",
+			streaming: StreamingKindServerStreaming,
+			lifecycle: StreamLifecycleContractPlan{Operations: []StreamLifecycleOperationPlan{{Kind: StreamLifecycleOperationStart}, {Kind: StreamLifecycleOperationReceive}, {Kind: StreamLifecycleOperationDone}, {Kind: StreamLifecycleOperationCancel}}, TerminalKind: LifecycleTerminalOnDone},
 		},
 	}
 
@@ -166,8 +166,8 @@ func minimalStreamingMethod(streaming StreamingKind) MethodPlan {
 
 func assertRenderSession(t *testing.T, method MethodPlan, want SessionKind) {
 	t.Helper()
-	if method.RenderPlan.Session.Kind != want {
-		t.Fatalf("%s Session.Kind = %q, want %q", method.Name, method.RenderPlan.Session.Kind, want)
+	if method.RenderPlan.Lifecycle.SessionKind != want {
+		t.Fatalf("%s Session.Kind = %q, want %q", method.Name, method.RenderPlan.Lifecycle.SessionKind, want)
 	}
 	if err := ValidateMethodRenderPlan(method); err != nil {
 		t.Fatalf("%s ValidateMethodRenderPlan() error = %v", method.Name, err)
@@ -176,20 +176,20 @@ func assertRenderSession(t *testing.T, method MethodPlan, want SessionKind) {
 
 func assertRenderOperations(t *testing.T, method MethodPlan, want ...SessionOperationKind) {
 	t.Helper()
-	got := method.RenderPlan.Session.Operations
+	got := method.RenderPlan.Lifecycle.Operations
 	if len(got) != len(want) {
 		t.Fatalf("%s operations = %d, want %d: %#v", method.Name, len(got), len(want), got)
 	}
 	for i, op := range got {
-		if op.Kind != want[i] || !op.Enabled {
-			t.Fatalf("%s operation[%d] = %#v, want enabled %q", method.Name, i, op, want[i])
+		if op.Kind != want[i] {
+			t.Fatalf("%s operation[%d] = %#v, want %q", method.Name, i, op, want[i])
 		}
 	}
 }
 
 func assertRenderTerminal(t *testing.T, method MethodPlan, wantKind TerminalKind, wantOperation SessionOperationKind) {
 	t.Helper()
-	terminal := method.RenderPlan.Terminal
+	terminal := method.RenderPlan.Lifecycle.Terminal
 	if terminal.Kind != wantKind || terminal.Operation != wantOperation || !terminal.ReleasesHandle {
 		t.Fatalf("%s terminal = %#v, want kind %q operation %q releasing handle", method.Name, terminal, wantKind, wantOperation)
 	}

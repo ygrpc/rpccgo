@@ -24,6 +24,10 @@ _Avoid_: generated service runtime
 一次 streaming call 从 Start 到终态操作期间的 operation set、handle ownership、session lookup、half-close、finish/done/cancel 和 invalid-handle 语义；contract-level operation plan 与 runtime state machine 必须区分。
 _Avoid_: stream registry access pattern
 
+**Stream lifecycle projection**:
+generator 侧的 contract-to-render 投影，把 **Stream lifecycle** 的 operation set、terminal policy 和 codec requirement 转换为 **Generated service runtime** 可消费的 typed facade / executor binding plan；不执行 runtime state machine，也不拥有 handle storage。
+_Avoid_: runtime stream lifecycle executor, stream registry access pattern
+
 **Generated service runtime**:
 每个 service 生成的 `*.runtime.rpccgo.go`，只应承载 proto/service/method-specific 的 typed adapter、bridge 和 converter glue。
 _Avoid_: runtime core

@@ -342,14 +342,14 @@ func TestRenderRuntimeRejectsAdapterMethodSymbolCollision(t *testing.T) {
 func runtimeTestMethod(name string, streaming StreamingKind, nativeAdapterMethod string, messageAdapterMethod string, sessionKind SessionKind) MethodPlan {
 	method := MethodPlan{Name: name, GoName: name, FullName: "test.v1.Greeter." + name, Streaming: streaming}
 	method.RenderPlan = MethodRenderPlan{
-		Session: SessionRenderPlan{Kind: sessionKind},
-		Symbols: RenderSymbolsPlan{NativeAdapterMethod: nativeAdapterMethod, MessageAdapterMethod: messageAdapterMethod},
-		Errors:  RenderErrorsPlan{NativeAdapterUnavailableErr: "GreeterNativeAdapterUnavailableErr", MessageAdapterUnavailableErr: "GreeterMessageAdapterUnavailableErr", UnknownActiveContractErr: "GreeterUnknownActiveContractErr", NativeMessageConverterErr: "GreeterNativeMessageConverterUnavailableErr"},
+		Lifecycle: StreamLifecycleProjectionPlan{SessionKind: sessionKind},
+		Symbols:   RenderSymbolsPlan{NativeAdapterMethod: nativeAdapterMethod, MessageAdapterMethod: messageAdapterMethod},
+		Errors:    RenderErrorsPlan{NativeAdapterUnavailableErr: "GreeterNativeAdapterUnavailableErr", MessageAdapterUnavailableErr: "GreeterMessageAdapterUnavailableErr", UnknownActiveContractErr: "GreeterUnknownActiveContractErr", NativeMessageConverterErr: "GreeterNativeMessageConverterUnavailableErr"},
 	}
 	if sessionKind != SessionKindNone {
 		method.Contract.Lifecycle = runtimeTestLifecycle(sessionKind)
-		method.RenderPlan.Session.Operations = runtimeTestSessionOperations(sessionKind)
-		method.RenderPlan.Terminal = runtimeTestTerminalPolicy(sessionKind)
+		method.RenderPlan.Lifecycle.Operations = runtimeTestSessionOperations(sessionKind)
+		method.RenderPlan.Lifecycle.Terminal = runtimeTestTerminalPolicy(sessionKind)
 		method.RenderPlan.Symbols.NativeSessionType = "Greeter" + name + "NativeStreamSession"
 		method.RenderPlan.Symbols.MessageSessionType = "Greeter" + name + "MessageStreamSession"
 	}
@@ -373,16 +373,16 @@ func runtimeTestLifecycle(sessionKind SessionKind) StreamLifecycleContractPlan {
 }
 
 func runtimeTestSessionOperations(sessionKind SessionKind) []SessionOperationPlan {
-	op := func(kind SessionOperationKind, terminal bool) SessionOperationPlan {
-		return SessionOperationPlan{Kind: kind, Enabled: true, RequiresTerminal: terminal}
+	op := func(kind SessionOperationKind) SessionOperationPlan {
+		return SessionOperationPlan{Kind: kind}
 	}
 	switch sessionKind {
 	case SessionKindClient:
-		return []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationSend, false), op(SessionOperationFinish, true), op(SessionOperationCancel, true)}
+		return []SessionOperationPlan{op(SessionOperationStart), op(SessionOperationSend), op(SessionOperationFinish), op(SessionOperationCancel)}
 	case SessionKindServer:
-		return []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationReceive, false), op(SessionOperationDone, true), op(SessionOperationCancel, true)}
+		return []SessionOperationPlan{op(SessionOperationStart), op(SessionOperationReceive), op(SessionOperationDone), op(SessionOperationCancel)}
 	case SessionKindBidi:
-		return []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationSend, false), op(SessionOperationReceive, false), op(SessionOperationCloseSend, false), op(SessionOperationDone, true), op(SessionOperationCancel, true)}
+		return []SessionOperationPlan{op(SessionOperationStart), op(SessionOperationSend), op(SessionOperationReceive), op(SessionOperationCloseSend), op(SessionOperationDone), op(SessionOperationCancel)}
 	default:
 		return nil
 	}
@@ -391,11 +391,11 @@ func runtimeTestSessionOperations(sessionKind SessionKind) []SessionOperationPla
 func runtimeTestTerminalPolicy(sessionKind SessionKind) TerminalRenderPlan {
 	switch sessionKind {
 	case SessionKindClient:
-		return TerminalRenderPlan{Kind: TerminalKindFinish, Operation: SessionOperationFinish, ReleasesHandle: true, RequiresResponseConvert: true, AllowsCancel: true}
+		return TerminalRenderPlan{Kind: TerminalKindFinish, Operation: SessionOperationFinish, ReleasesHandle: true, RequiresResponseConvert: true}
 	case SessionKindServer:
-		return TerminalRenderPlan{Kind: TerminalKindDone, Operation: SessionOperationDone, ReleasesHandle: true, AllowsCancel: true}
+		return TerminalRenderPlan{Kind: TerminalKindDone, Operation: SessionOperationDone, ReleasesHandle: true}
 	case SessionKindBidi:
-		return TerminalRenderPlan{Kind: TerminalKindDone, Operation: SessionOperationDone, ReleasesHandle: true, AllowsCancel: true, AllowsCloseSend: true}
+		return TerminalRenderPlan{Kind: TerminalKindDone, Operation: SessionOperationDone, ReleasesHandle: true}
 	default:
 		return TerminalRenderPlan{}
 	}
