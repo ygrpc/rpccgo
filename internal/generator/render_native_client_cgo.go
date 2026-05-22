@@ -445,10 +445,14 @@ func nativeClientScalarParamType(field FieldPlan) string {
 	switch field.Kind {
 	case FieldKindBool:
 		return "int8"
-	case FieldKindSignedInt32, FieldKindUnsignedInt32, FieldKindEnum:
+	case FieldKindSignedInt32, FieldKindEnum:
 		return "int32"
-	case FieldKindSignedInt64, FieldKindUnsignedInt64:
+	case FieldKindUnsignedInt32:
+		return "uint32"
+	case FieldKindSignedInt64:
 		return "int64"
+	case FieldKindUnsignedInt64:
+		return "uint64"
 	case FieldKindFloat:
 		return "float32"
 	case FieldKindDouble:
@@ -584,10 +588,14 @@ func renderNativeRequestFieldDecode(g *protogen.GeneratedFile, fields []FieldPla
 		renderNativeClientRepeatedDecode(g, fields, field, name, "byte", "rpcruntime.RpcBoolRepeat", "rpcruntime.EmptyRpcBoolRepeat()", "rpcruntime.NewRpcBoolRepeatChecked", errReturn)
 	case NativeABIShapeRepeated:
 		switch field.Kind {
-		case FieldKindSignedInt32, FieldKindUnsignedInt32:
+		case FieldKindSignedInt32:
 			renderNativeClientRepeatedDecode(g, fields, field, name, "int32", "rpcruntime.RpcRepeat[int32]", "rpcruntime.EmptyRpcRepeat[int32]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
-		case FieldKindSignedInt64, FieldKindUnsignedInt64:
+		case FieldKindUnsignedInt32:
+			renderNativeClientRepeatedDecode(g, fields, field, name, "uint32", "rpcruntime.RpcRepeat[uint32]", "rpcruntime.EmptyRpcRepeat[uint32]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
+		case FieldKindSignedInt64:
 			renderNativeClientRepeatedDecode(g, fields, field, name, "int64", "rpcruntime.RpcRepeat[int64]", "rpcruntime.EmptyRpcRepeat[int64]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
+		case FieldKindUnsignedInt64:
+			renderNativeClientRepeatedDecode(g, fields, field, name, "uint64", "rpcruntime.RpcRepeat[uint64]", "rpcruntime.EmptyRpcRepeat[uint64]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
 		case FieldKindFloat:
 			renderNativeClientRepeatedDecode(g, fields, field, name, "float32", "rpcruntime.RpcRepeat[float32]", "rpcruntime.EmptyRpcRepeat[float32]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
 		case FieldKindDouble:

@@ -228,10 +228,14 @@ func nativeCGOServerCFieldParams(field FieldPlan, output bool) []string {
 		return []string{"uintptr_t " + ptr + nativeCGOServerCParamName(field.GoName+"Ptr", output), "int32_t " + ptr + nativeCGOServerCParamName(field.GoName+"Len", output), "int32_t " + ptr + nativeCGOServerCParamName(field.GoName+"Ownership", output)}
 	case NativeABIShapeScalar, NativeABIShapeMessageBytes:
 		switch field.Kind {
-		case FieldKindSignedInt32, FieldKindUnsignedInt32, FieldKindEnum:
+		case FieldKindSignedInt32, FieldKindEnum:
 			return []string{"int32_t " + ptr + nativeCGOServerCParamName(field.GoName, output)}
-		case FieldKindSignedInt64, FieldKindUnsignedInt64:
+		case FieldKindUnsignedInt32:
+			return []string{"uint32_t " + ptr + nativeCGOServerCParamName(field.GoName, output)}
+		case FieldKindSignedInt64:
 			return []string{"int64_t " + ptr + nativeCGOServerCParamName(field.GoName, output)}
+		case FieldKindUnsignedInt64:
+			return []string{"uint64_t " + ptr + nativeCGOServerCParamName(field.GoName, output)}
 		case FieldKindFloat:
 			return []string{"float " + ptr + nativeCGOServerCParamName(field.GoName, output)}
 		case FieldKindDouble:
@@ -435,10 +439,14 @@ func nativeCGOServerGoFieldType(field FieldPlan) []string {
 		return []string{"C.uintptr_t", "C.int32_t", "C.int32_t"}
 	case NativeABIShapeScalar, NativeABIShapeMessageBytes:
 		switch field.Kind {
-		case FieldKindSignedInt32, FieldKindUnsignedInt32, FieldKindEnum:
+		case FieldKindSignedInt32, FieldKindEnum:
 			return []string{"C.int32_t"}
-		case FieldKindSignedInt64, FieldKindUnsignedInt64:
+		case FieldKindUnsignedInt32:
+			return []string{"C.uint32_t"}
+		case FieldKindSignedInt64:
 			return []string{"C.int64_t"}
+		case FieldKindUnsignedInt64:
+			return []string{"C.uint64_t"}
 		case FieldKindFloat:
 			return []string{"C.float"}
 		case FieldKindDouble:
@@ -1160,8 +1168,12 @@ func renderCGONativeServerRequestFieldEncode(g *protogen.GeneratedFile, fields [
 		switch field.Kind {
 		case FieldKindSignedInt32:
 			g.P(name, "Value = C.int32_t(", name, ")")
-		case FieldKindSignedInt64, FieldKindUnsignedInt64:
+		case FieldKindSignedInt64:
 			g.P(name, "Value = C.int64_t(", name, ")")
+		case FieldKindUnsignedInt32:
+			g.P(name, "Value = C.uint32_t(", name, ")")
+		case FieldKindUnsignedInt64:
+			g.P(name, "Value = C.uint64_t(", name, ")")
 		case FieldKindFloat:
 			g.P(name, "Value = C.float(", name, ")")
 		case FieldKindDouble:
@@ -1245,8 +1257,14 @@ func renderCGONativeServerResponseFieldDecode(g *protogen.GeneratedFile, fields 
 		case FieldKindSignedInt32:
 			renderCGONativeServerResponseRepeatDecode(g, field, name, "int32", "rpcruntime.NewRpcRepeatChecked", errReturn)
 			g.P(name, " := ", name, "Wrapper.SafeSlice()")
-		case FieldKindSignedInt64, FieldKindUnsignedInt64:
+		case FieldKindUnsignedInt32:
+			renderCGONativeServerResponseRepeatDecode(g, field, name, "uint32", "rpcruntime.NewRpcRepeatChecked", errReturn)
+			g.P(name, " := ", name, "Wrapper.SafeSlice()")
+		case FieldKindSignedInt64:
 			renderCGONativeServerResponseRepeatDecode(g, field, name, "int64", "rpcruntime.NewRpcRepeatChecked", errReturn)
+			g.P(name, " := ", name, "Wrapper.SafeSlice()")
+		case FieldKindUnsignedInt64:
+			renderCGONativeServerResponseRepeatDecode(g, field, name, "uint64", "rpcruntime.NewRpcRepeatChecked", errReturn)
 			g.P(name, " := ", name, "Wrapper.SafeSlice()")
 		case FieldKindFloat:
 			renderCGONativeServerResponseRepeatDecode(g, field, name, "float32", "rpcruntime.NewRpcRepeatChecked", errReturn)
@@ -1268,8 +1286,12 @@ func renderCGONativeServerResponseFieldDecode(g *protogen.GeneratedFile, fields 
 		switch field.Kind {
 		case FieldKindSignedInt32:
 			g.P(name, " := int32(", fieldName, "Value)")
-		case FieldKindSignedInt64, FieldKindUnsignedInt64:
+		case FieldKindSignedInt64:
 			g.P(name, " := int64(", fieldName, "Value)")
+		case FieldKindUnsignedInt32:
+			g.P(name, " := uint32(", fieldName, "Value)")
+		case FieldKindUnsignedInt64:
+			g.P(name, " := uint64(", fieldName, "Value)")
 		case FieldKindFloat:
 			g.P(name, " := float32(", fieldName, "Value)")
 		case FieldKindDouble:

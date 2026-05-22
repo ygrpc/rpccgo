@@ -277,10 +277,14 @@ func nativeCABIFieldSlots(field FieldPlan, output bool) []CABISlot {
 		return []CABISlot{slot(name("Ptr"), "uintptr_t"+ptr, rolePointer), slot(name("Len"), "int32_t"+ptr, roleCount), slot(name("Ownership"), "int32_t"+ptr, roleValue)}
 	case NativeABIShapeScalar, NativeABIShapeMessageBytes:
 		switch field.Kind {
-		case FieldKindSignedInt32, FieldKindUnsignedInt32, FieldKindEnum:
+		case FieldKindSignedInt32, FieldKindEnum:
 			return []CABISlot{slot(name(""), "int32_t"+ptr, roleValue)}
-		case FieldKindSignedInt64, FieldKindUnsignedInt64:
+		case FieldKindUnsignedInt32:
+			return []CABISlot{slot(name(""), "uint32_t"+ptr, roleValue)}
+		case FieldKindSignedInt64:
 			return []CABISlot{slot(name(""), "int64_t"+ptr, roleValue)}
+		case FieldKindUnsignedInt64:
+			return []CABISlot{slot(name(""), "uint64_t"+ptr, roleValue)}
 		case FieldKindFloat:
 			return []CABISlot{slot(name(""), "float"+ptr, roleValue)}
 		case FieldKindDouble:

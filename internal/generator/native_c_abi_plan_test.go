@@ -43,9 +43,9 @@ func TestBuildMethodNativeCABIPlanUnaryAllFields(t *testing.T) {
 
 	want := []CABISlot{
 		{Name: "SignedCount", CType: "int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "UnsignedCount", CType: "int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
+		{Name: "UnsignedCount", CType: "uint32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
 		{Name: "SignedTotal", CType: "int64_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "UnsignedTotal", CType: "int64_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
+		{Name: "UnsignedTotal", CType: "uint64_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
 		{Name: "Ratio", CType: "float", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
 		{Name: "Enabled", CType: "int8_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
 		{Name: "NamePtr", CType: "uintptr_t", Role: CABISlotRolePointer, Cleanup: CABICleanupNoCleanup},

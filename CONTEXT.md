@@ -68,6 +68,7 @@ _Avoid_: active server
 - **Native C ABI plan** 应保留 slot role、source field metadata、最终 C type spelling、cleanup capability、export symbol naming 和 callback typedef naming，使 renderer 不再重复推断 ABI 语义。
 - **Native C ABI plan** 不表达 callback missing policy、error bridge lifecycle 语义或 **Stream lifecycle** handle cleanup；这些分别属于 **Generated service runtime** / **Active router**、error bridge Module 和 **Runtime core**。
 - protobuf schema 中的 unsigned 字段可进入 **Native C ABI plan** 的 field value slot；proto 无关的 length/count/handle/error id 等辅助 slot 不应使用 unsigned 32/64 类型。
+- 修改 ABI / runtime type mapping 后，必须使用 `docs/release/verification-checklist.md` 验证测试命令和合同扫描。
 - **Active server** 是新版调度模型的一部分；它不能改变 **Native** 的字段级函数边界语义。
 - **Runtime core** 负责通用调度和 stream 存储；**Generated service runtime** 负责 service-specific typed glue，不应重复生成可由 runtime core 泛型函数直接表达的薄包装。
 - **Stream lifecycle** 的 ownership、terminal-once 和 invalid-handle 通用语义属于 **Runtime core**；method-specific session 操作、native/message 转换和 flat ABI 编解码属于 **Generated service runtime**。
