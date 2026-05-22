@@ -40,6 +40,18 @@ func GenerateWithOptions(plugin *protogen.Plugin, options GenerateOptions) ([]Fi
 		return nil, err
 	}
 
+	plans, err := buildFilePlans(plugin, config)
+	if err != nil {
+		return nil, err
+	}
+	attachPackageLevelSymbols(plans, plugin.Files)
+	if err := renderRequestedStageFiles(plugin, plans, options); err != nil {
+		return nil, err
+	}
+	return plans, nil
+}
+
+func buildFilePlans(plugin *protogen.Plugin, config GeneratorConfig) ([]FilePlan, error) {
 	plans := make([]FilePlan, 0, len(plugin.Files))
 	for _, file := range plugin.Files {
 		if !file.Generate {
@@ -54,31 +66,38 @@ func GenerateWithOptions(plugin *protogen.Plugin, options GenerateOptions) ([]Fi
 		AttachMessageFileFamilyPlan(&plan)
 		plans = append(plans, plan)
 	}
+	return plans, nil
+}
+
+func attachPackageLevelSymbols(plans []FilePlan, files []*protogen.File) {
 	for i := range plans {
-		plans[i].TopLevelSymbols = buildPackageLevelSymbolPlans(plugin.Files, plans[i].GoImportPath)
+		plans[i].TopLevelSymbols = buildPackageLevelSymbolPlans(files, plans[i].GoImportPath)
 	}
+}
+
+func renderRequestedStageFiles(plugin *protogen.Plugin, plans []FilePlan, options GenerateOptions) error {
 	if options.RenderNativeStageFiles {
 		for _, plan := range plans {
 			if err := renderNativeStageFiles(plugin, plan); err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
 	if options.RenderMessageStageFiles {
 		for _, plan := range plans {
 			if err := renderMessageStageFiles(plugin, plan); err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
 	if options.RenderStageFiles {
 		for _, plan := range plans {
 			if err := renderStageFiles(plugin, plan); err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
-	return plans, nil
+	return nil
 }
 
 func ProtogenOptions() protogen.Options {

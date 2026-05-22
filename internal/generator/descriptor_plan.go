@@ -7,6 +7,26 @@ import (
 )
 
 func BuildDescriptorPlan(file *protogen.File) (FilePlan, error) {
+	plan, err := BuildFileDescriptorPlan(file)
+	if err != nil {
+		return FilePlan{}, err
+	}
+	if err := AttachMethodContractPlans(&plan, file); err != nil {
+		return FilePlan{}, err
+	}
+	if err := AttachMethodLifecyclePlans(&plan); err != nil {
+		return FilePlan{}, err
+	}
+	if err := AttachMethodRenderPlans(&plan); err != nil {
+		return FilePlan{}, err
+	}
+	if err := AttachMethodNativeCABIPlans(&plan); err != nil {
+		return FilePlan{}, err
+	}
+	return plan, nil
+}
+
+func BuildFileDescriptorPlan(file *protogen.File) (FilePlan, error) {
 	if file == nil {
 		return FilePlan{}, fmt.Errorf("protogen file is nil")
 	}
@@ -26,13 +46,80 @@ func BuildDescriptorPlan(file *protogen.File) (FilePlan, error) {
 		}
 		plan.Services = append(plan.Services, servicePlan)
 	}
-	if err := finalizeMethodNativeCABIPlans(&plan); err != nil {
-		return FilePlan{}, err
-	}
 	return plan, nil
 }
 
-func finalizeMethodNativeCABIPlans(plan *FilePlan) error {
+func AttachMethodContractPlans(plan *FilePlan, file *protogen.File) error {
+	if plan == nil {
+		return fmt.Errorf("file plan is nil")
+	}
+	if file == nil {
+		return fmt.Errorf("protogen file is nil")
+	}
+	if len(plan.Services) != len(file.Services) {
+		return fmt.Errorf("file plan service count does not match descriptor service count")
+	}
+	for si := range plan.Services {
+		service := file.Services[si]
+		if len(plan.Services[si].Methods) != len(service.Methods) {
+			return fmt.Errorf("service %s method count does not match descriptor method count", plan.Services[si].FullName)
+		}
+		for mi := range plan.Services[si].Methods {
+			method := plan.Services[si].Methods[mi]
+			contract, err := BuildContractPlan(service, service.Methods[mi], method)
+			if err != nil {
+				return err
+			}
+			plan.Services[si].Methods[mi].Contract = contract
+		}
+	}
+	return nil
+}
+
+func AttachMethodLifecyclePlans(plan *FilePlan) error {
+	if plan == nil {
+		return fmt.Errorf("file plan is nil")
+	}
+	for si := range plan.Services {
+		for mi := range plan.Services[si].Methods {
+			method, err := AttachMethodLifecyclePlan(plan.Services[si].Methods[mi])
+			if err != nil {
+				return err
+			}
+			plan.Services[si].Methods[mi] = method
+		}
+	}
+	return nil
+}
+
+func AttachMethodRenderPlans(plan *FilePlan) error {
+	if plan == nil {
+		return fmt.Errorf("file plan is nil")
+	}
+	for si := range plan.Services {
+		for mi := range plan.Services[si].Methods {
+			method := plan.Services[si].Methods[mi]
+			renderPlan, err := BuildMethodRenderPlan(method, plan.Services[si].GoName)
+			if err != nil {
+				return err
+			}
+			method.RenderPlan = renderPlan
+			if err := ValidateMethodContractPlan(method); err != nil {
+				return err
+			}
+			if err := ValidateMethodRenderPlan(method); err != nil {
+				return err
+			}
+			plan.Services[si].Methods[mi] = method
+		}
+	}
+	return nil
+}
+
+func AttachMethodNativeCABIPlans(plan *FilePlan) error {
+	if plan == nil {
+		return fmt.Errorf("file plan is nil")
+	}
 	for si := range plan.Services {
 		for mi := range plan.Services[si].Methods {
 			service := plan.Services[si]
@@ -45,6 +132,10 @@ func finalizeMethodNativeCABIPlans(plan *FilePlan) error {
 		}
 	}
 	return nil
+}
+
+func finalizeMethodNativeCABIPlans(plan *FilePlan) error {
+	return AttachMethodNativeCABIPlans(plan)
 }
 
 func buildTopLevelSymbolPlans(file *protogen.File) []TopLevelSymbolPlan {
@@ -122,10 +213,7 @@ func buildServiceDescriptorPlan(service *protogen.Service) (ServicePlan, error) 
 		NeedsCodec: serviceNeedsNativeMessageCodec(),
 	}
 	for _, method := range service.Methods {
-		methodPlan, err := buildMethodDescriptorPlan(service, method, plan.GoName, plan.NeedsCodec)
-		if err != nil {
-			return ServicePlan{}, err
-		}
+		methodPlan := buildMethodDescriptorPlan(method, plan.NeedsCodec)
 		plan.Methods = append(plan.Methods, methodPlan)
 	}
 	return plan, nil
@@ -135,8 +223,8 @@ func serviceNeedsNativeMessageCodec() bool {
 	return true
 }
 
-func buildMethodDescriptorPlan(service *protogen.Service, method *protogen.Method, serviceName string, needsCodec bool) (MethodPlan, error) {
-	plan := MethodPlan{
+func buildMethodDescriptorPlan(method *protogen.Method, needsCodec bool) MethodPlan {
+	return MethodPlan{
 		Name:       string(method.Desc.Name()),
 		GoName:     method.GoName,
 		FullName:   string(method.Desc.FullName()),
@@ -153,10 +241,4 @@ func buildMethodDescriptorPlan(service *protogen.Service, method *protogen.Metho
 			FullName:     string(method.Output.Desc.FullName()),
 		},
 	}
-	contract, err := BuildContractPlan(service, method, plan)
-	if err != nil {
-		return MethodPlan{}, err
-	}
-	plan.Contract = contract
-	return BuildStreamingPlan(plan, serviceName)
 }

@@ -66,49 +66,56 @@ func RenderStageFiles(plugin *protogen.Plugin, plan FilePlan) error {
 	if plugin == nil {
 		return fmt.Errorf("generator plugin is nil")
 	}
+	return renderCombinedStageFiles(plugin, plan)
+}
 
+func renderCombinedStageFiles(plugin *protogen.Plugin, plan FilePlan) error {
 	sharedRendered := make(map[string]bool)
 	if err := renderCGOExportSupportFileOnce(plugin, plan, sharedRendered); err != nil {
 		return err
 	}
 	for _, service := range plan.Services {
-		rendered := make(map[string]bool)
-		if err := renderSharedRuntimeOnce(plugin, plan, service, rendered); err != nil {
-			return err
-		}
-
-		nativeService := service
-		nativeService.NativeFileFamily.Runtime.Enabled = false
-		nativePlan := plan
-		nativePlan.Services = []ServicePlan{nativeService}
-		if err := renderNativeStageFilesWithSupport(plugin, nativePlan, sharedRendered); err != nil {
-			return err
-		}
-		markRendered(rendered, nativeService.NativeFileFamily.NativeServer)
-		markRendered(rendered, nativeService.NativeFileFamily.CGONativeServer)
-		markRendered(rendered, nativeService.NativeFileFamily.CGONativeClient)
-
-		messageService := service
-		messageService.MessageFileFamily.Runtime.Enabled = false
-		avoidRenderedFilenames(rendered, &messageService.MessageFileFamily.CGOMessageServer, "message")
-		avoidRenderedFilenames(rendered, &messageService.MessageFileFamily.CGOMessageClient, "message")
-		messagePlan := plan
-		messagePlan.Services = []ServicePlan{messageService}
-		if err := renderMessageStageFilesWithSupport(plugin, messagePlan, sharedRendered); err != nil {
-			return err
-		}
-		markRendered(rendered, messageService.MessageFileFamily.ConnectServer)
-		markRendered(rendered, messageService.MessageFileFamily.GRPCServer)
-		markRendered(rendered, messageService.MessageFileFamily.ConnectRemote)
-		markRendered(rendered, messageService.MessageFileFamily.GRPCRemote)
-
-		codecPlan := plan
-		codecPlan.Services = []ServicePlan{service}
-		if err := RenderCodecFiles(plugin, codecPlan); err != nil {
+		if err := renderServiceStageFiles(plugin, plan, service, sharedRendered); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func renderServiceStageFiles(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, sharedRendered map[string]bool) error {
+	rendered := make(map[string]bool)
+	if err := renderSharedRuntimeOnce(plugin, plan, service, rendered); err != nil {
+		return err
+	}
+
+	nativeService := service
+	nativeService.NativeFileFamily.Runtime.Enabled = false
+	nativePlan := plan
+	nativePlan.Services = []ServicePlan{nativeService}
+	if err := renderNativeStageFilesWithSupport(plugin, nativePlan, sharedRendered); err != nil {
+		return err
+	}
+	markRendered(rendered, nativeService.NativeFileFamily.NativeServer)
+	markRendered(rendered, nativeService.NativeFileFamily.CGONativeServer)
+	markRendered(rendered, nativeService.NativeFileFamily.CGONativeClient)
+
+	messageService := service
+	messageService.MessageFileFamily.Runtime.Enabled = false
+	avoidRenderedFilenames(rendered, &messageService.MessageFileFamily.CGOMessageServer, "message")
+	avoidRenderedFilenames(rendered, &messageService.MessageFileFamily.CGOMessageClient, "message")
+	messagePlan := plan
+	messagePlan.Services = []ServicePlan{messageService}
+	if err := renderMessageStageFilesWithSupport(plugin, messagePlan, sharedRendered); err != nil {
+		return err
+	}
+	markRendered(rendered, messageService.MessageFileFamily.ConnectServer)
+	markRendered(rendered, messageService.MessageFileFamily.GRPCServer)
+	markRendered(rendered, messageService.MessageFileFamily.ConnectRemote)
+	markRendered(rendered, messageService.MessageFileFamily.GRPCRemote)
+
+	codecPlan := plan
+	codecPlan.Services = []ServicePlan{service}
+	return RenderCodecFiles(plugin, codecPlan)
 }
 
 func renderSharedRuntimeOnce(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, rendered map[string]bool) error {

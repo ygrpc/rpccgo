@@ -3,11 +3,10 @@ package generator
 import "fmt"
 
 func BuildStreamingPlan(method MethodPlan, serviceName string) (MethodPlan, error) {
-	lifecycle, err := expectedLifecyclePlan(method.Streaming)
+	method, err := AttachMethodLifecyclePlan(method)
 	if err != nil {
 		return MethodPlan{}, err
 	}
-	method.Contract.Lifecycle = lifecycle
 	renderPlan, err := BuildMethodRenderPlan(method, serviceName)
 	if err != nil {
 		return MethodPlan{}, err
@@ -19,6 +18,15 @@ func BuildStreamingPlan(method MethodPlan, serviceName string) (MethodPlan, erro
 	if err := ValidateMethodRenderPlan(method); err != nil {
 		return MethodPlan{}, err
 	}
+	return method, nil
+}
+
+func AttachMethodLifecyclePlan(method MethodPlan) (MethodPlan, error) {
+	lifecycle, err := expectedLifecyclePlan(method.Streaming)
+	if err != nil {
+		return MethodPlan{}, err
+	}
+	method.Contract.Lifecycle = lifecycle
 	return method, nil
 }
 
