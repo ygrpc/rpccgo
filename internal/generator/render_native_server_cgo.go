@@ -71,7 +71,7 @@ func qualifyRuntimeAdapterMethods(methods []runtimeAdapterMethod, servicePackage
 }
 
 func renderCGONativeServerPreamble(g *protogen.GeneratedFile, service ServicePlan) {
-	abiPlan, _ := BuildNativeCABIPlan(FilePlan{}, service)
+	abiPlan, _ := BuildNativeCABIPlan(service)
 	methodABI := nativeCABIPlanByMethod(abiPlan)
 
 	g.P("/*")
@@ -198,66 +198,6 @@ func nativeCABIRegisterCallbackParamNames(registerABI COperationABI, operations 
 		}
 	}
 	return names
-}
-
-func nativeCGOServerCInputParams(fields []FieldPlan) []string {
-	params := make([]string, 0, len(fields)*3)
-	for _, field := range fields {
-		params = append(params, nativeCGOServerCFieldParams(field, false)...)
-	}
-	return params
-}
-
-func nativeCGOServerCOutputParams(fields []FieldPlan) []string {
-	params := make([]string, 0, len(fields)*3)
-	for _, field := range fields {
-		params = append(params, nativeCGOServerCFieldParams(field, true)...)
-	}
-	return params
-}
-
-func nativeCGOServerCFieldParams(field FieldPlan, output bool) []string {
-	ptr := ""
-	if output {
-		ptr = "*"
-	}
-	switch field.Native.Shape {
-	case NativeABIShapeBoolByte:
-		return []string{"int8_t " + ptr + nativeCGOServerCParamName(field.GoName, output)}
-	case NativeABIShapeRepeated, NativeABIShapeBoolByteBufferWrapper:
-		return []string{"uintptr_t " + ptr + nativeCGOServerCParamName(field.GoName+"Ptr", output), "int32_t " + ptr + nativeCGOServerCParamName(field.GoName+"Len", output), "int32_t " + ptr + nativeCGOServerCParamName(field.GoName+"Ownership", output)}
-	case NativeABIShapeScalar, NativeABIShapeMessageBytes:
-		switch field.Kind {
-		case FieldKindSignedInt32, FieldKindEnum:
-			return []string{"int32_t " + ptr + nativeCGOServerCParamName(field.GoName, output)}
-		case FieldKindUnsignedInt32:
-			return []string{"uint32_t " + ptr + nativeCGOServerCParamName(field.GoName, output)}
-		case FieldKindSignedInt64:
-			return []string{"int64_t " + ptr + nativeCGOServerCParamName(field.GoName, output)}
-		case FieldKindUnsignedInt64:
-			return []string{"uint64_t " + ptr + nativeCGOServerCParamName(field.GoName, output)}
-		case FieldKindFloat:
-			return []string{"float " + ptr + nativeCGOServerCParamName(field.GoName, output)}
-		case FieldKindDouble:
-			return []string{"double " + ptr + nativeCGOServerCParamName(field.GoName, output)}
-		case FieldKindString, FieldKindBytes, FieldKindMessage:
-			return []string{"uintptr_t " + ptr + nativeCGOServerCParamName(field.GoName+"Ptr", output), "int32_t " + ptr + nativeCGOServerCParamName(field.GoName+"Len", output), "int32_t " + ptr + nativeCGOServerCParamName(field.GoName+"Ownership", output)}
-		default:
-			return []string{"uintptr_t " + ptr + nativeCGOServerCParamName(field.GoName, output)}
-		}
-	default:
-		return []string{"uintptr_t " + ptr + nativeCGOServerCParamName(field.GoName, output)}
-	}
-}
-
-func nativeCGOServerCallbackParamList(requestFields, responseFields []FieldPlan) []string {
-	params := nativeCGOServerCInputParams(requestFields)
-	params = append(params, nativeCGOServerCOutputParams(responseFields)...)
-	return params
-}
-
-func nativeCGOServerCallbackParams(requestFields, responseFields []FieldPlan) string {
-	return strings.Join(nativeCGOServerCallbackParamList(requestFields, responseFields), ", ")
 }
 
 func nativeCGOServerTypedParamSuffix(params []string) string {
@@ -418,7 +358,7 @@ func nativeCGOServerGoABIArgList(params []CABISlot, handleArg string) string {
 }
 
 func nativeCGOServerOperationABI(service ServicePlan, method MethodPlan, operation NativeCOperation) COperationABI {
-	abiPlan, _ := BuildNativeCABIPlan(FilePlan{}, service)
+	abiPlan, _ := BuildNativeCABIPlan(service)
 	methodABI := nativeCABIPlanByMethod(abiPlan)
 	return nativeCABIPlanOperation(methodABI[method.FullName], operation)
 }
@@ -625,7 +565,7 @@ func renderCGONativeServerAdapter(g *protogen.GeneratedFile, service ServicePlan
 }
 
 func renderCGONativeServerAdapterFields(g *protogen.GeneratedFile, service ServicePlan) {
-	abiPlan, _ := BuildNativeCABIPlan(FilePlan{}, service)
+	abiPlan, _ := BuildNativeCABIPlan(service)
 	methodABI := nativeCABIPlanByMethod(abiPlan)
 	callbackTypeName := func(method MethodPlan, operation NativeCOperation) string {
 		return nativeCABIPlanOperation(methodABI[method.FullName], operation).TypeName
@@ -656,45 +596,45 @@ func renderCGONativeServerAdapterFields(g *protogen.GeneratedFile, service Servi
 }
 
 func renderCGONativeServerUnaryAdapter(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context", nativeGoRequestParams(g, method.RenderShape.Conversion.MessageToNative.Native.Request), ") (", nativeGoResponseReturns(g, method.RenderShape.Conversion.MessageToNative.Native.Response), ") {")
+	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context", nativeGoRequestParams(g, method.Contract.Native.RequestFields), ") (", nativeGoResponseReturns(g, method.Contract.Native.ResponseFields), ") {")
 	g.P("if a == nil {")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, errorNames.CallbacksNil))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, errorNames.CallbacksNil))
 	g.P("}")
 	g.P("callback := a.", method.GoName, "Callback")
 	g.P("if callback == nil {")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, errorNames.UnaryCallbackMissing))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, errorNames.UnaryCallbackMissing))
 	g.P("}")
-	g.P(nativeCGOServerRequestEncoderAssignArgs(method.RenderShape.Conversion.MessageToNative.Native.Request), " := ", nativeCGOServerRequestEncoderName(service, method), "(", nativeCGOServerRequestEncoderCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Request), ")")
+	g.P(nativeCGOServerRequestEncoderAssignArgs(method.Contract.Native.RequestFields), " := ", nativeCGOServerRequestEncoderName(service, method), "(", nativeCGOServerRequestEncoderCallArgs(method.Contract.Native.RequestFields), ")")
 	g.P("if err != nil {")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "err"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "err"))
 	g.P("}")
 	g.P("defer cleanup()")
-	renderCGONativeServerResponseLocals(g, method.RenderShape.Conversion.MessageToNative.Native.Response)
+	renderCGONativeServerResponseLocals(g, method.Contract.Native.ResponseFields)
 	unaryABI := nativeCGOServerOperationABI(service, method, NativeCOperationUnary)
 	g.P("errID := int32(C.", nativeCGOServerTrampolineName(service, method), "(callback, ", nativeCGOServerGoABIArgList(unaryABI.Params, ""), "))")
 	g.P("if errID != 0 {")
-	g.P("cleanupErr := ", nativeCGOServerResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
+	g.P("cleanupErr := ", nativeCGOServerResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.Contract.Native.ResponseFields), ")")
 	g.P("callbackErr := ", nativeCGOServerErrorIDHelperName(service), "(errID)")
 	g.P("if cleanupErr != nil {")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "errors.Join(callbackErr, cleanupErr)"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "errors.Join(callbackErr, cleanupErr)"))
 	g.P("}")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "callbackErr"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "callbackErr"))
 	g.P("}")
-	responseNames := nativeGoResponseResultNames(method.RenderShape.Conversion.MessageToNative.Native.Response)
+	responseNames := nativeGoResponseResultNames(method.Contract.Native.ResponseFields)
 	if responseNames == "" {
-		g.P("err = ", nativeCGOServerResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
+		g.P("err = ", nativeCGOServerResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.Contract.Native.ResponseFields), ")")
 	} else {
-		g.P(responseNames, ", err := ", nativeCGOServerResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
+		g.P(responseNames, ", err := ", nativeCGOServerResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.Contract.Native.ResponseFields), ")")
 	}
-	g.P("cleanupErr := ", nativeCGOServerResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
+	g.P("cleanupErr := ", nativeCGOServerResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.Contract.Native.ResponseFields), ")")
 	g.P("if cleanupErr != nil {")
 	g.P("if err != nil {")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "errors.Join(err, cleanupErr)"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "errors.Join(err, cleanupErr)"))
 	g.P("}")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "cleanupErr"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "cleanupErr"))
 	g.P("}")
 	g.P("if err != nil {")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "err"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "err"))
 	g.P("}")
 	if responseNames == "" {
 		g.P("return nil")
@@ -741,8 +681,8 @@ func renderCGONativeServerClientStreamAdapter(g *protogen.GeneratedFile, service
 
 func renderCGONativeServerClientStreamSend(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	receiver := lowerInitial(service.GoName) + method.GoName + "CGONativeClientStreamSession"
-	g.P("func (s *", receiver, ") Send(ctx context.Context", nativeGoRequestParams(g, method.RenderShape.Conversion.MessageToNative.Native.Request), ") error {")
-	g.P(nativeCGOServerRequestEncoderAssignArgs(method.RenderShape.Conversion.MessageToNative.Native.Request), " := ", nativeCGOServerClientStreamRequestEncoderName(service, method), "(", nativeCGOServerRequestEncoderCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Request), ")")
+	g.P("func (s *", receiver, ") Send(ctx context.Context", nativeGoRequestParams(g, method.Contract.Native.RequestFields), ") error {")
+	g.P(nativeCGOServerRequestEncoderAssignArgs(method.Contract.Native.RequestFields), " := ", nativeCGOServerClientStreamRequestEncoderName(service, method), "(", nativeCGOServerRequestEncoderCallArgs(method.Contract.Native.RequestFields), ")")
 	g.P("if err != nil {")
 	g.P("return err")
 	g.P("}")
@@ -759,33 +699,33 @@ func renderCGONativeServerClientStreamSend(g *protogen.GeneratedFile, service Se
 
 func renderCGONativeServerClientStreamFinish(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	receiver := lowerInitial(service.GoName) + method.GoName + "CGONativeClientStreamSession"
-	g.P("func (s *", receiver, ") Finish(ctx context.Context) (", nativeGoResponseReturns(g, method.RenderShape.Conversion.MessageToNative.Native.Response), ") {")
-	renderCGONativeServerResponseLocals(g, method.RenderShape.Conversion.MessageToNative.Native.Response)
+	g.P("func (s *", receiver, ") Finish(ctx context.Context) (", nativeGoResponseReturns(g, method.Contract.Native.ResponseFields), ") {")
+	renderCGONativeServerResponseLocals(g, method.Contract.Native.ResponseFields)
 	finishABI := nativeCGOServerOperationABI(service, method, NativeCOperationFinish)
 	g.P("errID := int32(C.", nativeCGOServerClientStreamFinishTrampolineName(service, method), "(s.finish", nativeCGOServerGoABICallSuffix(finishABI.Params, "s.stream"), "))")
 	g.P("if errID != 0 {")
-	g.P("cleanupErr := ", nativeCGOServerClientStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
+	g.P("cleanupErr := ", nativeCGOServerClientStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.Contract.Native.ResponseFields), ")")
 	g.P("callbackErr := ", nativeCGOServerErrorIDHelperName(service), "(errID)")
 	g.P("if cleanupErr != nil {")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "errors.Join(callbackErr, cleanupErr)"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "errors.Join(callbackErr, cleanupErr)"))
 	g.P("}")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "callbackErr"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "callbackErr"))
 	g.P("}")
-	responseNames := nativeGoResponseResultNames(method.RenderShape.Conversion.MessageToNative.Native.Response)
+	responseNames := nativeGoResponseResultNames(method.Contract.Native.ResponseFields)
 	if responseNames == "" {
-		g.P("err := ", nativeCGOServerClientStreamResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
+		g.P("err := ", nativeCGOServerClientStreamResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.Contract.Native.ResponseFields), ")")
 	} else {
-		g.P(responseNames, ", err := ", nativeCGOServerClientStreamResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
+		g.P(responseNames, ", err := ", nativeCGOServerClientStreamResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.Contract.Native.ResponseFields), ")")
 	}
-	g.P("cleanupErr := ", nativeCGOServerClientStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
+	g.P("cleanupErr := ", nativeCGOServerClientStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.Contract.Native.ResponseFields), ")")
 	g.P("if cleanupErr != nil {")
 	g.P("if err != nil {")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "errors.Join(err, cleanupErr)"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "errors.Join(err, cleanupErr)"))
 	g.P("}")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "cleanupErr"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "cleanupErr"))
 	g.P("}")
 	g.P("if err != nil {")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "err"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "err"))
 	g.P("}")
 	if responseNames == "" {
 		g.P("return nil")
@@ -811,14 +751,14 @@ func renderCGONativeServerClientStreamCancel(g *protogen.GeneratedFile, service 
 
 func renderCGONativeServerServerStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, errorNames nativeServerCGOErrorNames, servicePackage string) {
 	sessionName := servicePackage + service.GoName + method.GoName + "NativeStreamSession"
-	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context", nativeGoRequestParams(g, method.RenderShape.Conversion.MessageToNative.Native.Request), ") (", sessionName, ", error) {")
+	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context", nativeGoRequestParams(g, method.Contract.Native.RequestFields), ") (", sessionName, ", error) {")
 	g.P("if a == nil {")
 	g.P("return nil, ", errorNames.CallbacksNil)
 	g.P("}")
 	g.P("if a.", method.GoName, "Start == nil || a.", method.GoName, "Recv == nil || a.", method.GoName, "Done == nil || a.", method.GoName, "Cancel == nil {")
 	g.P("return nil, ", errorNames.StreamNotImplemented)
 	g.P("}")
-	g.P(nativeCGOServerRequestEncoderAssignArgs(method.RenderShape.Conversion.MessageToNative.Native.Request), " := ", nativeCGOServerServerStreamRequestEncoderName(service, method), "(", nativeCGOServerRequestEncoderCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Request), ")")
+	g.P(nativeCGOServerRequestEncoderAssignArgs(method.Contract.Native.RequestFields), " := ", nativeCGOServerServerStreamRequestEncoderName(service, method), "(", nativeCGOServerRequestEncoderCallArgs(method.Contract.Native.RequestFields), ")")
 	g.P("if err != nil {")
 	g.P("return nil, err")
 	g.P("}")
@@ -850,33 +790,33 @@ func renderCGONativeServerServerStreamAdapter(g *protogen.GeneratedFile, service
 
 func renderCGONativeServerServerStreamRecv(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	receiver := lowerInitial(service.GoName) + method.GoName + "CGONativeServerStreamSession"
-	g.P("func (s *", receiver, ") Recv(ctx context.Context) (", nativeGoResponseReturns(g, method.RenderShape.Conversion.MessageToNative.Native.Response), ") {")
-	renderCGONativeServerResponseLocals(g, method.RenderShape.Conversion.MessageToNative.Native.Response)
+	g.P("func (s *", receiver, ") Recv(ctx context.Context) (", nativeGoResponseReturns(g, method.Contract.Native.ResponseFields), ") {")
+	renderCGONativeServerResponseLocals(g, method.Contract.Native.ResponseFields)
 	recvABI := nativeCGOServerOperationABI(service, method, NativeCOperationRecv)
 	g.P("errID := int32(C.", nativeCGOServerServerStreamRecvTrampolineName(service, method), "(s.recv", nativeCGOServerGoABICallSuffix(recvABI.Params, "s.stream"), "))")
 	g.P("if errID != 0 {")
-	g.P("cleanupErr := ", nativeCGOServerServerStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
+	g.P("cleanupErr := ", nativeCGOServerServerStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.Contract.Native.ResponseFields), ")")
 	g.P("callbackErr := ", nativeCGOServerErrorIDHelperName(service), "(errID)")
 	g.P("if cleanupErr != nil {")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "errors.Join(callbackErr, cleanupErr)"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "errors.Join(callbackErr, cleanupErr)"))
 	g.P("}")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "callbackErr"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "callbackErr"))
 	g.P("}")
-	responseNames := nativeGoResponseResultNames(method.RenderShape.Conversion.MessageToNative.Native.Response)
+	responseNames := nativeGoResponseResultNames(method.Contract.Native.ResponseFields)
 	if responseNames == "" {
-		g.P("err := ", nativeCGOServerServerStreamResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
+		g.P("err := ", nativeCGOServerServerStreamResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.Contract.Native.ResponseFields), ")")
 	} else {
-		g.P(responseNames, ", err := ", nativeCGOServerServerStreamResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
+		g.P(responseNames, ", err := ", nativeCGOServerServerStreamResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.Contract.Native.ResponseFields), ")")
 	}
-	g.P("cleanupErr := ", nativeCGOServerServerStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
+	g.P("cleanupErr := ", nativeCGOServerServerStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.Contract.Native.ResponseFields), ")")
 	g.P("if cleanupErr != nil {")
 	g.P("if err != nil {")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "errors.Join(err, cleanupErr)"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "errors.Join(err, cleanupErr)"))
 	g.P("}")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "cleanupErr"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "cleanupErr"))
 	g.P("}")
 	g.P("if err != nil {")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "err"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "err"))
 	g.P("}")
 	if responseNames == "" {
 		g.P("return nil")
@@ -955,8 +895,8 @@ func renderCGONativeServerBidiStreamAdapter(g *protogen.GeneratedFile, service S
 
 func renderCGONativeServerBidiStreamSend(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	receiver := lowerInitial(service.GoName) + method.GoName + "CGONativeBidiStreamSession"
-	g.P("func (s *", receiver, ") Send(ctx context.Context", nativeGoRequestParams(g, method.RenderShape.Conversion.MessageToNative.Native.Request), ") error {")
-	g.P(nativeCGOServerRequestEncoderAssignArgs(method.RenderShape.Conversion.MessageToNative.Native.Request), " := ", nativeCGOServerBidiStreamRequestEncoderName(service, method), "(", nativeCGOServerRequestEncoderCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Request), ")")
+	g.P("func (s *", receiver, ") Send(ctx context.Context", nativeGoRequestParams(g, method.Contract.Native.RequestFields), ") error {")
+	g.P(nativeCGOServerRequestEncoderAssignArgs(method.Contract.Native.RequestFields), " := ", nativeCGOServerBidiStreamRequestEncoderName(service, method), "(", nativeCGOServerRequestEncoderCallArgs(method.Contract.Native.RequestFields), ")")
 	g.P("if err != nil {")
 	g.P("return err")
 	g.P("}")
@@ -973,33 +913,33 @@ func renderCGONativeServerBidiStreamSend(g *protogen.GeneratedFile, service Serv
 
 func renderCGONativeServerBidiStreamRecv(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	receiver := lowerInitial(service.GoName) + method.GoName + "CGONativeBidiStreamSession"
-	g.P("func (s *", receiver, ") Recv(ctx context.Context) (", nativeGoResponseReturns(g, method.RenderShape.Conversion.MessageToNative.Native.Response), ") {")
-	renderCGONativeServerResponseLocals(g, method.RenderShape.Conversion.MessageToNative.Native.Response)
+	g.P("func (s *", receiver, ") Recv(ctx context.Context) (", nativeGoResponseReturns(g, method.Contract.Native.ResponseFields), ") {")
+	renderCGONativeServerResponseLocals(g, method.Contract.Native.ResponseFields)
 	recvABI := nativeCGOServerOperationABI(service, method, NativeCOperationRecv)
 	g.P("errID := int32(C.", nativeCGOServerBidiStreamRecvTrampolineName(service, method), "(s.recv", nativeCGOServerGoABICallSuffix(recvABI.Params, "s.stream"), "))")
 	g.P("if errID != 0 {")
-	g.P("cleanupErr := ", nativeCGOServerBidiStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
+	g.P("cleanupErr := ", nativeCGOServerBidiStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.Contract.Native.ResponseFields), ")")
 	g.P("callbackErr := ", nativeCGOServerErrorIDHelperName(service), "(errID)")
 	g.P("if cleanupErr != nil {")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "errors.Join(callbackErr, cleanupErr)"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "errors.Join(callbackErr, cleanupErr)"))
 	g.P("}")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "callbackErr"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "callbackErr"))
 	g.P("}")
-	responseNames := nativeGoResponseResultNames(method.RenderShape.Conversion.MessageToNative.Native.Response)
+	responseNames := nativeGoResponseResultNames(method.Contract.Native.ResponseFields)
 	if responseNames == "" {
-		g.P("err := ", nativeCGOServerBidiStreamResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
+		g.P("err := ", nativeCGOServerBidiStreamResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.Contract.Native.ResponseFields), ")")
 	} else {
-		g.P(responseNames, ", err := ", nativeCGOServerBidiStreamResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
+		g.P(responseNames, ", err := ", nativeCGOServerBidiStreamResponseDecoderName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.Contract.Native.ResponseFields), ")")
 	}
-	g.P("cleanupErr := ", nativeCGOServerBidiStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
+	g.P("cleanupErr := ", nativeCGOServerBidiStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.Contract.Native.ResponseFields), ")")
 	g.P("if cleanupErr != nil {")
 	g.P("if err != nil {")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "errors.Join(err, cleanupErr)"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "errors.Join(err, cleanupErr)"))
 	g.P("}")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "cleanupErr"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "cleanupErr"))
 	g.P("}")
 	g.P("if err != nil {")
-	g.P("return ", nativeGoZeroReturns(method.RenderShape.Conversion.MessageToNative.Native.Response, "err"))
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "err"))
 	g.P("}")
 	if responseNames == "" {
 		g.P("return nil")
@@ -1078,7 +1018,7 @@ func nativeCGOServerRequestEncoderCallArgs(fields []FieldPlan) string {
 }
 
 func renderCGONativeServerRequestEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	renderCGONativeServerFlatRequestEncoder(g, nativeCGOServerRequestEncoderName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Request, errorNames)
+	renderCGONativeServerFlatRequestEncoder(g, nativeCGOServerRequestEncoderName(service, method), method.Contract.Native.RequestFields, errorNames)
 }
 
 func renderCGONativeServerFlatRequestEncoder(g *protogen.GeneratedFile, name string, fields []FieldPlan, errorNames nativeServerCGOErrorNames) {
@@ -1224,7 +1164,7 @@ func renderCGONativeServerRequestFieldEncode(g *protogen.GeneratedFile, fields [
 }
 
 func renderCGONativeServerResponseDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerResponseDecoderName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Response, errorNames)
+	renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerResponseDecoderName(service, method), method.Contract.Native.ResponseFields, errorNames)
 }
 
 func renderCGONativeServerFlatResponseDecoder(g *protogen.GeneratedFile, name string, fields []FieldPlan, errorNames nativeServerCGOErrorNames) {
@@ -1332,7 +1272,7 @@ func renderCGONativeServerResponseTextDecode(g *protogen.GeneratedFile, field Fi
 
 func renderCGONativeServerRegistration(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, errorNames nativeServerCGOErrorNames, servicePackage string) {
 	adapterName := lowerInitial(service.GoName) + "CGONativeServerAdapter"
-	abiPlan, _ := BuildNativeCABIPlan(plan, service)
+	abiPlan, _ := BuildNativeCABIPlan(service)
 	methodABI := nativeCABIPlanByMethod(abiPlan)
 	for _, method := range service.Methods {
 		registerABI := nativeCABIPlanOperation(methodABI[method.FullName], NativeCOperationRegister)
@@ -1412,7 +1352,7 @@ func renderCGONativeServerRegistration(g *protogen.GeneratedFile, plan FilePlan,
 }
 
 func renderCGONativeServerResponseCleanup(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
-	renderCGONativeServerFlatResponseCleanup(g, nativeCGOServerResponseCleanupName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Response)
+	renderCGONativeServerFlatResponseCleanup(g, nativeCGOServerResponseCleanupName(service, method), method.Contract.Native.ResponseFields)
 }
 
 func renderCGONativeServerFlatResponseCleanup(g *protogen.GeneratedFile, name string, fields []FieldPlan) {
@@ -1441,39 +1381,39 @@ func renderCGONativeServerFlatResponseCleanup(g *protogen.GeneratedFile, name st
 }
 
 func renderCGONativeServerClientStreamRequestEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	renderCGONativeServerFlatRequestEncoder(g, nativeCGOServerClientStreamRequestEncoderName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Request, errorNames)
+	renderCGONativeServerFlatRequestEncoder(g, nativeCGOServerClientStreamRequestEncoderName(service, method), method.Contract.Native.RequestFields, errorNames)
 }
 
 func renderCGONativeServerClientStreamResponseDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerClientStreamResponseDecoderName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Response, errorNames)
+	renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerClientStreamResponseDecoderName(service, method), method.Contract.Native.ResponseFields, errorNames)
 }
 
 func renderCGONativeServerClientStreamResponseCleanup(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
-	renderCGONativeServerFlatResponseCleanup(g, nativeCGOServerClientStreamResponseCleanupName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Response)
+	renderCGONativeServerFlatResponseCleanup(g, nativeCGOServerClientStreamResponseCleanupName(service, method), method.Contract.Native.ResponseFields)
 }
 
 func renderCGONativeServerServerStreamRequestEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	renderCGONativeServerFlatRequestEncoder(g, nativeCGOServerServerStreamRequestEncoderName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Request, errorNames)
+	renderCGONativeServerFlatRequestEncoder(g, nativeCGOServerServerStreamRequestEncoderName(service, method), method.Contract.Native.RequestFields, errorNames)
 }
 
 func renderCGONativeServerServerStreamResponseDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerServerStreamResponseDecoderName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Response, errorNames)
+	renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerServerStreamResponseDecoderName(service, method), method.Contract.Native.ResponseFields, errorNames)
 }
 
 func renderCGONativeServerServerStreamResponseCleanup(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
-	renderCGONativeServerFlatResponseCleanup(g, nativeCGOServerServerStreamResponseCleanupName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Response)
+	renderCGONativeServerFlatResponseCleanup(g, nativeCGOServerServerStreamResponseCleanupName(service, method), method.Contract.Native.ResponseFields)
 }
 
 func renderCGONativeServerBidiStreamRequestEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	renderCGONativeServerFlatRequestEncoder(g, nativeCGOServerBidiStreamRequestEncoderName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Request, errorNames)
+	renderCGONativeServerFlatRequestEncoder(g, nativeCGOServerBidiStreamRequestEncoderName(service, method), method.Contract.Native.RequestFields, errorNames)
 }
 
 func renderCGONativeServerBidiStreamResponseDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerBidiStreamResponseDecoderName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Response, errorNames)
+	renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerBidiStreamResponseDecoderName(service, method), method.Contract.Native.ResponseFields, errorNames)
 }
 
 func renderCGONativeServerBidiStreamResponseCleanup(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
-	renderCGONativeServerFlatResponseCleanup(g, nativeCGOServerBidiStreamResponseCleanupName(service, method), method.RenderShape.Conversion.MessageToNative.Native.Response)
+	renderCGONativeServerFlatResponseCleanup(g, nativeCGOServerBidiStreamResponseCleanupName(service, method), method.Contract.Native.ResponseFields)
 }
 
 func renderCGONativeServerErrorStoreExport(g *protogen.GeneratedFile, service ServicePlan) {
@@ -1944,10 +1884,10 @@ func validateNativeServerCGOSymbols(plan FilePlan, service ServicePlan) error {
 				}
 			}
 		}
-		if err := validateNativeClientStructFields(requestName, method.RenderShape.Conversion.MessageToNative.Native.Request, nativeClientOutputFieldSymbols); err != nil {
+		if err := validateNativeClientStructFields(requestName, method.Contract.Native.RequestFields, nativeClientOutputFieldSymbols); err != nil {
 			return err
 		}
-		if err := validateNativeClientStructFields(responseName, method.RenderShape.Conversion.MessageToNative.Native.Response, nativeClientInputFieldSymbols); err != nil {
+		if err := validateNativeClientStructFields(responseName, method.Contract.Native.ResponseFields, nativeClientInputFieldSymbols); err != nil {
 			return err
 		}
 	}

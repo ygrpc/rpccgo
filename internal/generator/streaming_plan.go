@@ -2,12 +2,20 @@ package generator
 
 import "fmt"
 
-func BuildStreamingPlan(method MethodPlan, facts methodContractFacts, serviceName string) (MethodPlan, error) {
-	renderShape, err := BuildMethodRenderPlan(method, facts, serviceName)
+func BuildStreamingPlan(method MethodPlan, serviceName string) (MethodPlan, error) {
+	lifecycle, err := expectedLifecyclePlan(method.Streaming)
 	if err != nil {
 		return MethodPlan{}, err
 	}
-	method.RenderShape = renderShape
+	method.Contract.Lifecycle = lifecycle
+	renderPlan, err := BuildMethodRenderPlan(method, serviceName)
+	if err != nil {
+		return MethodPlan{}, err
+	}
+	method.RenderPlan = renderPlan
+	if err := ValidateMethodContractPlan(method); err != nil {
+		return MethodPlan{}, err
+	}
 	if err := ValidateMethodRenderPlan(method); err != nil {
 		return MethodPlan{}, err
 	}

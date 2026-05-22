@@ -2,7 +2,7 @@ package generator
 
 import "testing"
 
-func TestBuildStreamingPlanAttachesRenderShapeToDescriptorPlan(t *testing.T) {
+func TestBuildStreamingPlanAttachesRenderPlanToDescriptorPlan(t *testing.T) {
 	plugin := newTestPlugin(t, "paths=source_relative", streamingPlanTestFile())
 
 	plan, err := BuildDescriptorPlan(plugin.Files[0])
@@ -29,7 +29,7 @@ func TestValidateMethodRenderPlanRejectsInvalidMatrix(t *testing.T) {
 		Name:      "Unary",
 		FullName:  "test.v1.Streamer.Unary",
 		Streaming: StreamingKindUnary,
-		RenderShape: MethodRenderPlan{
+		RenderPlan: MethodRenderPlan{
 			Session: SessionRenderPlan{Kind: SessionKindClient, Operations: []SessionOperationPlan{{Kind: SessionOperationStart, Enabled: true}}},
 			Symbols: RenderSymbolsPlan{NativeAdapterMethod: "Unary", MessageAdapterMethod: "UnaryMessage"},
 			Errors:  RenderErrorsPlan{NativeAdapterUnavailableErr: "Native", MessageAdapterUnavailableErr: "Message", UnknownActiveContractErr: "Unknown", NativeMessageConverterErr: "Converter"},
@@ -42,7 +42,7 @@ func TestValidateMethodRenderPlanRejectsInvalidMatrix(t *testing.T) {
 
 func TestBuildStreamingPlanRejectsUnknownStreamingKind(t *testing.T) {
 	method := MethodPlan{Name: "Mystery", FullName: "test.v1.Streamer.Mystery", Streaming: StreamingKind(99)}
-	_, err := BuildStreamingPlan(method, methodContractFacts{}, "Streamer")
+	_, err := BuildStreamingPlan(method, "Streamer")
 	if err == nil {
 		t.Fatal("BuildStreamingPlan() error = nil, want unknown streaming kind error")
 	}
@@ -50,8 +50,8 @@ func TestBuildStreamingPlanRejectsUnknownStreamingKind(t *testing.T) {
 
 func assertRenderSession(t *testing.T, method MethodPlan, want SessionKind) {
 	t.Helper()
-	if method.RenderShape.Session.Kind != want {
-		t.Fatalf("%s Session.Kind = %q, want %q", method.Name, method.RenderShape.Session.Kind, want)
+	if method.RenderPlan.Session.Kind != want {
+		t.Fatalf("%s Session.Kind = %q, want %q", method.Name, method.RenderPlan.Session.Kind, want)
 	}
 	if err := ValidateMethodRenderPlan(method); err != nil {
 		t.Fatalf("%s ValidateMethodRenderPlan() error = %v", method.Name, err)
@@ -60,7 +60,7 @@ func assertRenderSession(t *testing.T, method MethodPlan, want SessionKind) {
 
 func assertRenderOperations(t *testing.T, method MethodPlan, want ...SessionOperationKind) {
 	t.Helper()
-	got := method.RenderShape.Session.Operations
+	got := method.RenderPlan.Session.Operations
 	if len(got) != len(want) {
 		t.Fatalf("%s operations = %d, want %d: %#v", method.Name, len(got), len(want), got)
 	}
@@ -73,7 +73,7 @@ func assertRenderOperations(t *testing.T, method MethodPlan, want ...SessionOper
 
 func assertRenderTerminal(t *testing.T, method MethodPlan, wantKind TerminalKind, wantOperation SessionOperationKind) {
 	t.Helper()
-	terminal := method.RenderShape.Terminal
+	terminal := method.RenderPlan.Terminal
 	if terminal.Kind != wantKind || terminal.Operation != wantOperation || !terminal.ReleasesHandle {
 		t.Fatalf("%s terminal = %#v, want kind %q operation %q releasing handle", method.Name, terminal, wantKind, wantOperation)
 	}

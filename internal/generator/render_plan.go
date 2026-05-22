@@ -3,12 +3,11 @@ package generator
 import "fmt"
 
 type MethodRenderPlan struct {
-	CallPath   CallPathPlan
-	Session    SessionRenderPlan
-	Terminal   TerminalRenderPlan
-	Conversion ConversionRenderPlan
-	Symbols    RenderSymbolsPlan
-	Errors     RenderErrorsPlan
+	CallPath CallPathPlan
+	Session  SessionRenderPlan
+	Terminal TerminalRenderPlan
+	Symbols  RenderSymbolsPlan
+	Errors   RenderErrorsPlan
 }
 
 type CallPathPlan struct {
@@ -58,8 +57,6 @@ const (
 type SessionOperationPlan struct {
 	Kind             SessionOperationKind
 	Enabled          bool
-	NativeIO         MethodIOShapePlan
-	MessageIO        MethodIOShapePlan
 	RequiresCodec    bool
 	RequiresTerminal bool
 }
@@ -76,11 +73,6 @@ const (
 	SessionOperationCancel    SessionOperationKind = "cancel"
 )
 
-type MethodIOShapePlan struct {
-	Request  []FieldPlan
-	Response []FieldPlan
-}
-
 type TerminalRenderPlan struct {
 	Kind                    TerminalKind
 	Operation               SessionOperationKind
@@ -96,34 +88,6 @@ const (
 	TerminalKindUnset  TerminalKind = "unset"
 	TerminalKindFinish TerminalKind = "finish"
 	TerminalKindDone   TerminalKind = "done"
-)
-
-type ConversionRenderPlan struct {
-	NativeToMessage ConversionShapePlan
-	MessageToNative ConversionShapePlan
-}
-
-type ConversionShapePlan struct {
-	Kind      ConversionKind
-	Direction ConversionDirection
-	Enabled   bool
-	Native    MethodIOShapePlan
-	Message   MethodIOShapePlan
-}
-
-type ConversionKind string
-
-const (
-	ConversionKindUnset  ConversionKind = "unset"
-	ConversionKindDecode ConversionKind = "decode"
-	ConversionKindEncode ConversionKind = "encode"
-)
-
-type ConversionDirection string
-
-const (
-	ConversionDirectionNativeToMessage ConversionDirection = "native_to_message"
-	ConversionDirectionMessageToNative ConversionDirection = "message_to_native"
 )
 
 type RenderSymbolsPlan struct {
@@ -145,12 +109,8 @@ type RenderErrorsPlan struct {
 	Category                     string
 }
 
-func BuildMethodRenderPlan(method MethodPlan, facts methodContractFacts, serviceName string) (MethodRenderPlan, error) {
-	lifecycle, err := expectedLifecyclePlan(method.Streaming)
-	if err != nil {
-		return MethodRenderPlan{}, err
-	}
-	ops, sessionKind, terminal, err := renderSessionShape(lifecycle, facts)
+func BuildMethodRenderPlan(method MethodPlan, serviceName string) (MethodRenderPlan, error) {
+	ops, sessionKind, terminal, err := renderSessionShape(method.Contract.Lifecycle, method.Contract.RenderInputs.NeedsCodec)
 	if err != nil {
 		return MethodRenderPlan{}, err
 	}
@@ -171,22 +131,6 @@ func BuildMethodRenderPlan(method MethodPlan, facts methodContractFacts, service
 	shape := MethodRenderPlan{
 		Session:  SessionRenderPlan{Kind: sessionKind, Operations: ops},
 		Terminal: terminal,
-		Conversion: ConversionRenderPlan{
-			NativeToMessage: ConversionShapePlan{
-				Kind:      ConversionKindEncode,
-				Direction: ConversionDirectionNativeToMessage,
-				Enabled:   method.NeedsCodec,
-				Native:    MethodIOShapePlan{Request: facts.NativeContract.RequestFields, Response: facts.NativeContract.ResponseFields},
-				Message:   MethodIOShapePlan{Request: facts.RequestBody, Response: facts.ResponseBody},
-			},
-			MessageToNative: ConversionShapePlan{
-				Kind:      ConversionKindDecode,
-				Direction: ConversionDirectionMessageToNative,
-				Enabled:   method.NeedsCodec,
-				Native:    MethodIOShapePlan{Request: facts.NativeContract.RequestFields, Response: facts.NativeContract.ResponseFields},
-				Message:   MethodIOShapePlan{Request: facts.RequestBody, Response: facts.ResponseBody},
-			},
-		},
 		Symbols: RenderSymbolsPlan{
 			NativeAdapterMethod:  nativeAdapterMethod,
 			MessageAdapterMethod: messageAdapterMethod,
@@ -206,17 +150,16 @@ func BuildMethodRenderPlan(method MethodPlan, facts methodContractFacts, service
 		},
 	}
 	shape.CallPath = renderCallPath(method, shape.Symbols)
-	if err := validateMethodRenderPlan(MethodPlan{Name: method.Name, GoName: method.GoName, FullName: method.FullName, Streaming: method.Streaming, RenderShape: shape}); err != nil {
+	method.RenderPlan = shape
+	if err := validateMethodRenderPlan(method); err != nil {
 		return MethodRenderPlan{}, err
 	}
 	return shape, nil
 }
 
-func renderSessionShape(lifecycle LifecyclePlan, facts methodContractFacts) ([]SessionOperationPlan, SessionKind, TerminalRenderPlan, error) {
-	nativeIO := MethodIOShapePlan{Request: facts.NativeContract.RequestFields, Response: facts.NativeContract.ResponseFields}
-	messageIO := MethodIOShapePlan{Request: facts.RequestBody, Response: facts.ResponseBody}
+func renderSessionShape(lifecycle LifecyclePlan, needsCodec bool) ([]SessionOperationPlan, SessionKind, TerminalRenderPlan, error) {
 	op := func(kind SessionOperationKind, terminal bool) SessionOperationPlan {
-		return SessionOperationPlan{Kind: kind, Enabled: true, NativeIO: nativeIO, MessageIO: messageIO, RequiresCodec: true, RequiresTerminal: terminal}
+		return SessionOperationPlan{Kind: kind, Enabled: true, RequiresCodec: needsCodec, RequiresTerminal: terminal}
 	}
 	if !lifecycle.HasStart {
 		return nil, SessionKindNone, TerminalRenderPlan{}, nil
@@ -243,12 +186,29 @@ func renderCallPath(method MethodPlan, symbols RenderSymbolsPlan) CallPathPlan {
 	return CallPathPlan{NativeStream: native, MessageStream: message}
 }
 
+func ValidateMethodContractPlan(method MethodPlan) error {
+	if !method.Contract.Message.RequestType.HasIdentity() || !method.Contract.Message.ResponseType.HasIdentity() {
+		return fmt.Errorf("method %s message contract is incomplete", methodPlanName(method))
+	}
+	if method.Contract.RenderInputs.NeedsCodec != method.NeedsCodec {
+		return fmt.Errorf("method %s render inputs do not match method codec requirement", methodPlanName(method))
+	}
+	if method.Streaming == StreamingKindUnary {
+		if method.Contract.Lifecycle != (LifecyclePlan{}) {
+			return fmt.Errorf("method %s unary lifecycle must be empty", methodPlanName(method))
+		}
+	} else if !method.Contract.Lifecycle.HasStart {
+		return fmt.Errorf("method %s streaming lifecycle is incomplete", methodPlanName(method))
+	}
+	return nil
+}
+
 func ValidateMethodRenderPlan(method MethodPlan) error {
 	return validateMethodRenderPlan(method)
 }
 
 func validateMethodRenderPlan(method MethodPlan) error {
-	shape := method.RenderShape
+	shape := method.RenderPlan
 	if method.Streaming == StreamingKindUnary {
 		if shape.Session.Kind != SessionKindNone || len(shape.Session.Operations) != 0 {
 			return fmt.Errorf("method %s unary render session must be none", methodPlanName(method))

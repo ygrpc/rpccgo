@@ -26,7 +26,25 @@ func BuildDescriptorPlan(file *protogen.File) (FilePlan, error) {
 		}
 		plan.Services = append(plan.Services, servicePlan)
 	}
+	if err := finalizeMethodNativeCABIPlans(&plan); err != nil {
+		return FilePlan{}, err
+	}
 	return plan, nil
+}
+
+func finalizeMethodNativeCABIPlans(plan *FilePlan) error {
+	for si := range plan.Services {
+		for mi := range plan.Services[si].Methods {
+			service := plan.Services[si]
+			method := plan.Services[si].Methods[mi]
+			abi, err := BuildMethodNativeCABIPlan(*plan, service, method)
+			if err != nil {
+				return err
+			}
+			plan.Services[si].Methods[mi].Contract.NativeCABI = abi
+		}
+	}
+	return nil
 }
 
 func buildTopLevelSymbolPlans(file *protogen.File) []TopLevelSymbolPlan {
@@ -135,9 +153,10 @@ func buildMethodDescriptorPlan(service *protogen.Service, method *protogen.Metho
 			FullName:     string(method.Output.Desc.FullName()),
 		},
 	}
-	facts, err := BuildContractPlan(service, method, plan)
+	contract, err := BuildContractPlan(service, method, plan)
 	if err != nil {
 		return MethodPlan{}, err
 	}
-	return BuildStreamingPlan(plan, facts, serviceName)
+	plan.Contract = contract
+	return BuildStreamingPlan(plan, serviceName)
 }

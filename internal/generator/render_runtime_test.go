@@ -341,17 +341,16 @@ func TestRenderRuntimeRejectsAdapterMethodSymbolCollision(t *testing.T) {
 
 func runtimeTestMethod(name string, streaming StreamingKind, nativeAdapterMethod string, messageAdapterMethod string, sessionKind SessionKind) MethodPlan {
 	method := MethodPlan{Name: name, GoName: name, FullName: "test.v1.Greeter." + name, Streaming: streaming}
-	method.RenderShape = MethodRenderPlan{
-		Session:    SessionRenderPlan{Kind: sessionKind},
-		Conversion: ConversionRenderPlan{MessageToNative: ConversionShapePlan{Native: MethodIOShapePlan{}}},
-		Symbols:    RenderSymbolsPlan{NativeAdapterMethod: nativeAdapterMethod, MessageAdapterMethod: messageAdapterMethod},
-		Errors:     RenderErrorsPlan{NativeAdapterUnavailableErr: "GreeterNativeAdapterUnavailableErr", MessageAdapterUnavailableErr: "GreeterMessageAdapterUnavailableErr", UnknownActiveContractErr: "GreeterUnknownActiveContractErr", NativeMessageConverterErr: "GreeterNativeMessageConverterUnavailableErr"},
+	method.RenderPlan = MethodRenderPlan{
+		Session: SessionRenderPlan{Kind: sessionKind},
+		Symbols: RenderSymbolsPlan{NativeAdapterMethod: nativeAdapterMethod, MessageAdapterMethod: messageAdapterMethod},
+		Errors:  RenderErrorsPlan{NativeAdapterUnavailableErr: "GreeterNativeAdapterUnavailableErr", MessageAdapterUnavailableErr: "GreeterMessageAdapterUnavailableErr", UnknownActiveContractErr: "GreeterUnknownActiveContractErr", NativeMessageConverterErr: "GreeterNativeMessageConverterUnavailableErr"},
 	}
 	if sessionKind != SessionKindNone {
-		method.RenderShape.Session.Operations = []SessionOperationPlan{{Kind: SessionOperationStart, Enabled: true}}
-		method.RenderShape.Terminal = TerminalRenderPlan{Kind: TerminalKindFinish, Operation: SessionOperationStart, ReleasesHandle: true}
-		method.RenderShape.Symbols.NativeSessionType = "Greeter" + name + "NativeStreamSession"
-		method.RenderShape.Symbols.MessageSessionType = "Greeter" + name + "MessageStreamSession"
+		method.RenderPlan.Session.Operations = []SessionOperationPlan{{Kind: SessionOperationStart, Enabled: true}}
+		method.RenderPlan.Terminal = TerminalRenderPlan{Kind: TerminalKindFinish, Operation: SessionOperationStart, ReleasesHandle: true}
+		method.RenderPlan.Symbols.NativeSessionType = "Greeter" + name + "NativeStreamSession"
+		method.RenderPlan.Symbols.MessageSessionType = "Greeter" + name + "MessageStreamSession"
 	}
 	return method
 }

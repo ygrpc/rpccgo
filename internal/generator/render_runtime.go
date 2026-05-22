@@ -141,9 +141,9 @@ func runtimeAdapterMethodFor(g *protogen.GeneratedFile, method MethodPlan) (runt
 	if err := ValidateMethodRenderPlan(method); err != nil {
 		return runtimeAdapterMethod{}, err
 	}
-	shape := method.RenderShape
-	nativeFields := shape.Conversion.MessageToNative.Native.Request
-	responseFields := shape.Conversion.MessageToNative.Native.Response
+	shape := method.RenderPlan
+	nativeFields := method.Contract.Native.RequestFields
+	responseFields := method.Contract.Native.ResponseFields
 	sessionName := shape.Symbols.NativeSessionType
 	nativeArgs := nativeGoRequestParams(g, nativeFields)
 	nativeReturns := nativeGoResponseReturns(g, responseFields)

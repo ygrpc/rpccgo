@@ -40,6 +40,10 @@ _Avoid_: owned wrapper, long-lived native input
 由 **Native** 的 Go-level flat contract 派生出的跨 Go/C ABI shape；按 operation 表达 C signature、field lowering、ownership、cleanup、callback/export 和 error bridge 需求。
 _Avoid_: NativeContract, Go native server/client API
 
+**Method contract plan**:
+单个 method 从 descriptor 派生出的完整 contract-level planning 结果；集中表达 **Native**、**Message contract**、**Stream lifecycle** operation plan、render planning inputs 和 **Native C ABI plan** 的来源关系，但不生成代码字符串。
+_Avoid_: renderer, generated code, runtime state machine
+
 **Native projection**:
 从同一个 **Native** contract 派生出的具体语言/边界形态；Go native projection 表达 Go 函数参数和返回值，C native projection 表达跨 Go/C 的 ABI slot。
 _Avoid_: separate native contract, incompatible Go/C native ABI
@@ -65,6 +69,7 @@ _Avoid_: active server
 - `NativeContract` 这类字段计划可以作为参数转换的中间表示保留；它不是最终 **Native** 边界。
 - **Native C ABI plan** 可把 ownership / cleanup / transfer 作为生成计划表达；它不应新增现有 ABI 之外的 ownership 参数，但若现有 C boundary 已包含 ownership slot，plan 应把它作为 ABI slot 结构化表达。
 - **Native C ABI plan** 位于 `NativeContract` 之后、renderer 之前；它按 C boundary operation 表达结构化 ABI shape，不生成代码字符串。
+- **Method contract plan** 应由 `MethodPlan` 显式持有，集中保存单个 method 的 **Native**、**Message contract**、**Stream lifecycle**、render planning inputs 和 method-level **Native C ABI plan**，避免 renderer 或后续 builder 从 `RenderShape` 反读 contract facts。
 - **Native C ABI plan** 应保留 slot role、source field metadata、最终 C type spelling、cleanup capability、export symbol naming 和 callback typedef naming，使 renderer 不再重复推断 ABI 语义。
 - **Native C ABI plan** 不表达 callback missing policy、error bridge lifecycle 语义或 **Stream lifecycle** handle cleanup；这些分别属于 **Generated service runtime** / **Active router**、error bridge Module 和 **Runtime core**。
 - protobuf schema 中的 unsigned 字段可进入 **Native C ABI plan** 的 field value slot；proto 无关的 length/count/handle/error id 等辅助 slot 不应使用 unsigned 32/64 类型。

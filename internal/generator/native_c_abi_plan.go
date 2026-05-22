@@ -73,14 +73,13 @@ const (
 	CABICleanupFreeWithRuntime CABICleanup = "free_with_runtime"
 )
 
-func BuildNativeCABIPlan(plan FilePlan, service ServicePlan) (NativeCABIPlan, error) {
+func BuildNativeCABIPlan(service ServicePlan) (NativeCABIPlan, error) {
 	methods := make([]MethodNativeCABIPlan, 0, len(service.Methods))
 	for _, method := range service.Methods {
-		methodPlan, err := BuildMethodNativeCABIPlan(plan, service, method)
-		if err != nil {
-			return NativeCABIPlan{}, err
+		if method.Contract.NativeCABI.MethodFullName == "" {
+			return NativeCABIPlan{}, fmt.Errorf("method %s native C ABI plan is missing", methodPlanName(method))
 		}
-		methods = append(methods, methodPlan)
+		methods = append(methods, method.Contract.NativeCABI)
 	}
 	return NativeCABIPlan{Methods: methods}, nil
 }
@@ -108,8 +107,8 @@ type nativeCABIBuilder struct {
 }
 
 func (b nativeCABIBuilder) unary() COperationABI {
-	params := b.inputSlots(b.method.RenderShape.Conversion.MessageToNative.Native.Request)
-	params = append(params, b.outputSlots(b.method.RenderShape.Conversion.MessageToNative.Native.Response)...)
+	params := b.inputSlots(b.method.Contract.Native.RequestFields)
+	params = append(params, b.outputSlots(b.method.Contract.Native.ResponseFields)...)
 	return COperationABI{Operation: NativeCOperationUnary, Symbol: nativeCExportFuncName(b.file, b.service, b.method, ""), TypeName: nativeCGOServerCallbackName(b.service, b.method), Params: params, Return: errorIDReturnSlot()}
 }
 
@@ -118,26 +117,26 @@ func (b nativeCABIBuilder) startOutHandle() COperationABI {
 }
 
 func (b nativeCABIBuilder) serverStreamStart() COperationABI {
-	params := b.inputSlots(b.method.RenderShape.Conversion.MessageToNative.Native.Request)
+	params := b.inputSlots(b.method.Contract.Native.RequestFields)
 	params = append(params, outHandleSlot("stream"))
 	return COperationABI{Operation: NativeCOperationStart, Symbol: nativeCExportFuncName(b.file, b.service, b.method, "start"), TypeName: b.callbackTypeName(NativeCOperationStart), Params: params, Return: errorIDReturnSlot()}
 }
 
 func (b nativeCABIBuilder) send() COperationABI {
 	params := []CABISlot{handleSlot("stream")}
-	params = append(params, b.inputSlots(b.method.RenderShape.Conversion.MessageToNative.Native.Request)...)
+	params = append(params, b.inputSlots(b.method.Contract.Native.RequestFields)...)
 	return COperationABI{Operation: NativeCOperationSend, Symbol: nativeCExportFuncName(b.file, b.service, b.method, "send"), TypeName: b.callbackTypeName(NativeCOperationSend), Params: params, Return: errorIDReturnSlot()}
 }
 
 func (b nativeCABIBuilder) recv() COperationABI {
 	params := []CABISlot{handleSlot("stream")}
-	params = append(params, b.outputSlots(b.method.RenderShape.Conversion.MessageToNative.Native.Response)...)
+	params = append(params, b.outputSlots(b.method.Contract.Native.ResponseFields)...)
 	return COperationABI{Operation: NativeCOperationRecv, Symbol: nativeCExportFuncName(b.file, b.service, b.method, "read"), TypeName: b.callbackTypeName(NativeCOperationRecv), Params: params, Return: errorIDReturnSlot()}
 }
 
 func (b nativeCABIBuilder) finish() COperationABI {
 	params := []CABISlot{handleSlot("stream")}
-	params = append(params, b.outputSlots(b.method.RenderShape.Conversion.MessageToNative.Native.Response)...)
+	params = append(params, b.outputSlots(b.method.Contract.Native.ResponseFields)...)
 	return COperationABI{Operation: NativeCOperationFinish, Symbol: nativeCExportFuncName(b.file, b.service, b.method, "finish"), TypeName: b.callbackTypeName(NativeCOperationFinish), Params: params, Return: errorIDReturnSlot()}
 }
 

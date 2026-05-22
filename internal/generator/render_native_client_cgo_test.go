@@ -232,10 +232,10 @@ func TestRenderNativeClientCGORejectsGeneratedHelperCollisions(t *testing.T) {
 				Streaming: StreamingKindUnary,
 				Request:   MethodIOPlan{GoName: "AllRequest", GoImportPath: "example.com/test/v1", FullName: "test.v1.AllRequest"},
 				Response:  MethodIOPlan{GoName: "AllReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.AllReply"},
-				RenderShape: MethodRenderPlan{Conversion: ConversionRenderPlan{MessageToNative: ConversionShapePlan{Native: MethodIOShapePlan{Request: []FieldPlan{
+				Contract: MethodContractPlan{Native: NativeContractPlan{RequestFields: []FieldPlan{
 					{GoName: "Name", FullName: "test.v1.AllRequest.name", Kind: FieldKindString, Native: NativeFieldPlan{Kind: NativeFieldKindString, Shape: NativeABIShapeScalar}},
 					{GoName: "NamePtr", FullName: "test.v1.AllRequest.name_ptr", Kind: FieldKindSignedInt32, Native: NativeFieldPlan{Kind: NativeFieldKindSignedNumeric, Shape: NativeABIShapeScalar}},
-				}}}}},
+				}}},
 			},
 			wantError: "NamePtr",
 		},
@@ -248,10 +248,10 @@ func TestRenderNativeClientCGORejectsGeneratedHelperCollisions(t *testing.T) {
 				Streaming: StreamingKindUnary,
 				Request:   MethodIOPlan{GoName: "AllRequest", GoImportPath: "example.com/test/v1", FullName: "test.v1.AllRequest"},
 				Response:  MethodIOPlan{GoName: "AllReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.AllReply"},
-				RenderShape: MethodRenderPlan{Conversion: ConversionRenderPlan{MessageToNative: ConversionShapePlan{Native: MethodIOShapePlan{Response: []FieldPlan{
+				Contract: MethodContractPlan{Native: NativeContractPlan{ResponseFields: []FieldPlan{
 					{GoName: "Payload", FullName: "test.v1.AllReply.payload", Kind: FieldKindBytes, Native: NativeFieldPlan{Kind: NativeFieldKindBytes, Shape: NativeABIShapeScalar}},
 					{GoName: "PayloadLen", FullName: "test.v1.AllReply.payload_len", Kind: FieldKindSignedInt32, Native: NativeFieldPlan{Kind: NativeFieldKindSignedNumeric, Shape: NativeABIShapeScalar}},
-				}}}}},
+				}}},
 			},
 			wantError: "PayloadLen",
 		},

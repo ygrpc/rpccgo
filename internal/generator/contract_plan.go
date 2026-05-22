@@ -7,40 +7,34 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-type methodContractFacts struct {
-	NativeContract  NativeContractPlan
-	MessageContract MessageContractPlan
-	RequestBody     []FieldPlan
-	ResponseBody    []FieldPlan
-}
-
-func BuildContractPlan(service *protogen.Service, method *protogen.Method, methodPlan MethodPlan) (methodContractFacts, error) {
+func BuildContractPlan(service *protogen.Service, method *protogen.Method, methodPlan MethodPlan) (MethodContractPlan, error) {
 	if service == nil {
-		return methodContractFacts{}, fmt.Errorf("protogen service is nil")
+		return MethodContractPlan{}, fmt.Errorf("protogen service is nil")
 	}
 	if method == nil {
-		return methodContractFacts{}, fmt.Errorf("protogen method is nil")
+		return MethodContractPlan{}, fmt.Errorf("protogen method is nil")
 	}
 
 	requestFields, err := buildFieldPlans(method.Input)
 	if err != nil {
-		return methodContractFacts{}, fmt.Errorf("service %s method %s: %w", service.Desc.FullName(), method.Desc.FullName(), err)
+		return MethodContractPlan{}, fmt.Errorf("service %s method %s: %w", service.Desc.FullName(), method.Desc.FullName(), err)
 	}
 	responseFields, err := buildFieldPlans(method.Output)
 	if err != nil {
-		return methodContractFacts{}, fmt.Errorf("service %s method %s: %w", service.Desc.FullName(), method.Desc.FullName(), err)
+		return MethodContractPlan{}, fmt.Errorf("service %s method %s: %w", service.Desc.FullName(), method.Desc.FullName(), err)
 	}
 
-	return methodContractFacts{
-		RequestBody:  requestFields,
-		ResponseBody: responseFields,
-		NativeContract: NativeContractPlan{
+	return MethodContractPlan{
+		Native: NativeContractPlan{
 			RequestFields:  requestFields,
 			ResponseFields: responseFields,
 		},
-		MessageContract: MessageContractPlan{
+		Message: MessageContractPlan{
 			RequestType:  methodPlan.Request,
 			ResponseType: methodPlan.Response,
+		},
+		RenderInputs: MethodRenderInputPlan{
+			NeedsCodec: methodPlan.NeedsCodec,
 		},
 	}, nil
 }

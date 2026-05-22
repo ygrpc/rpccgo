@@ -17,13 +17,16 @@ func TestBuildContractPlanBuildsNativeAndMessageFields(t *testing.T) {
 	}
 
 	method := plan.Services[0].Methods[0]
-	if method.RenderShape.Conversion.MessageToNative.Direction != ConversionDirectionMessageToNative || method.RenderShape.Conversion.NativeToMessage.Direction != ConversionDirectionNativeToMessage {
-		t.Fatalf("Conversion = %#v, want both native/message directions", method.RenderShape.Conversion)
+	if method.Contract.Message.RequestType != method.Request || method.Contract.Message.ResponseType != method.Response {
+		t.Fatalf("Message contract = %#v, want method request/response identity", method.Contract.Message)
 	}
-	if len(method.RenderShape.Conversion.MessageToNative.Native.Request) != 8 {
-		t.Fatalf("request native fields = %d, want 8", len(method.RenderShape.Conversion.MessageToNative.Native.Request))
+	if !method.Contract.RenderInputs.NeedsCodec {
+		t.Fatalf("RenderInputs.NeedsCodec = false, want true")
 	}
-	assertNativeField(t, method.RenderShape.Conversion.MessageToNative.Native.Request[0], FieldPlan{
+	if len(method.Contract.Native.RequestFields) != 8 {
+		t.Fatalf("request native fields = %d, want 8", len(method.Contract.Native.RequestFields))
+	}
+	assertNativeField(t, method.Contract.Native.RequestFields[0], FieldPlan{
 		Name:     "signed_count",
 		GoName:   "SignedCount",
 		FullName: "test.v1.ContractRequest.signed_count",
@@ -33,7 +36,7 @@ func TestBuildContractPlanBuildsNativeAndMessageFields(t *testing.T) {
 			Shape: NativeABIShapeScalar,
 		},
 	})
-	assertNativeField(t, method.RenderShape.Conversion.MessageToNative.Native.Request[1], FieldPlan{
+	assertNativeField(t, method.Contract.Native.RequestFields[1], FieldPlan{
 		Name:     "signed_total",
 		GoName:   "SignedTotal",
 		FullName: "test.v1.ContractRequest.signed_total",
@@ -43,7 +46,7 @@ func TestBuildContractPlanBuildsNativeAndMessageFields(t *testing.T) {
 			Shape: NativeABIShapeScalar,
 		},
 	})
-	assertNativeField(t, method.RenderShape.Conversion.MessageToNative.Native.Request[2], FieldPlan{
+	assertNativeField(t, method.Contract.Native.RequestFields[2], FieldPlan{
 		Name:     "ratio",
 		GoName:   "Ratio",
 		FullName: "test.v1.ContractRequest.ratio",
@@ -53,7 +56,7 @@ func TestBuildContractPlanBuildsNativeAndMessageFields(t *testing.T) {
 			Shape: NativeABIShapeScalar,
 		},
 	})
-	assertNativeField(t, method.RenderShape.Conversion.MessageToNative.Native.Request[3], FieldPlan{
+	assertNativeField(t, method.Contract.Native.RequestFields[3], FieldPlan{
 		Name:     "enabled",
 		GoName:   "Enabled",
 		FullName: "test.v1.ContractRequest.enabled",
@@ -63,7 +66,7 @@ func TestBuildContractPlanBuildsNativeAndMessageFields(t *testing.T) {
 			Shape: NativeABIShapeBoolByte,
 		},
 	})
-	assertNativeField(t, method.RenderShape.Conversion.MessageToNative.Native.Request[4], FieldPlan{
+	assertNativeField(t, method.Contract.Native.RequestFields[4], FieldPlan{
 		Name:     "tags",
 		GoName:   "Tags",
 		FullName: "test.v1.ContractRequest.tags",
@@ -74,7 +77,7 @@ func TestBuildContractPlanBuildsNativeAndMessageFields(t *testing.T) {
 			Shape: NativeABIShapeRepeated,
 		},
 	})
-	assertNativeField(t, method.RenderShape.Conversion.MessageToNative.Native.Request[5], FieldPlan{
+	assertNativeField(t, method.Contract.Native.RequestFields[5], FieldPlan{
 		Name:     "payload",
 		GoName:   "Payload",
 		FullName: "test.v1.ContractRequest.payload",
@@ -84,7 +87,7 @@ func TestBuildContractPlanBuildsNativeAndMessageFields(t *testing.T) {
 			Shape: NativeABIShapeScalar,
 		},
 	})
-	assertNativeField(t, method.RenderShape.Conversion.MessageToNative.Native.Request[6], FieldPlan{
+	assertNativeField(t, method.Contract.Native.RequestFields[6], FieldPlan{
 		Name:     "child",
 		GoName:   "Child",
 		FullName: "test.v1.ContractRequest.child",
@@ -95,7 +98,7 @@ func TestBuildContractPlanBuildsNativeAndMessageFields(t *testing.T) {
 			Shape: NativeABIShapeMessageBytes,
 		},
 	})
-	assertNativeField(t, method.RenderShape.Conversion.MessageToNative.Native.Request[7], FieldPlan{
+	assertNativeField(t, method.Contract.Native.RequestFields[7], FieldPlan{
 		Name:     "state",
 		GoName:   "State",
 		FullName: "test.v1.ContractRequest.state",
@@ -111,7 +114,7 @@ func TestBuildContractPlanBuildsNativeAndMessageFields(t *testing.T) {
 			Shape: NativeABIShapeScalar,
 		},
 	})
-	assertNativeField(t, method.RenderShape.Conversion.MessageToNative.Native.Response[0], FieldPlan{
+	assertNativeField(t, method.Contract.Native.ResponseFields[0], FieldPlan{
 		Name:     "accepted",
 		GoName:   "Accepted",
 		FullName: "test.v1.ContractReply.accepted",
@@ -131,7 +134,7 @@ func TestNativeFieldPlanMarksRepeatedBoolAsByteBufferWrapper(t *testing.T) {
 		t.Fatalf("BuildDescriptorPlan() error = %v", err)
 	}
 
-	field := plan.Services[0].Methods[0].RenderShape.Conversion.MessageToNative.Native.Request[0]
+	field := plan.Services[0].Methods[0].Contract.Native.RequestFields[0]
 	assertNativeField(t, field, FieldPlan{
 		Name:     "flags",
 		GoName:   "Flags",
@@ -213,7 +216,7 @@ func TestBuildContractPlanAllowsUnsignedProtoFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildDescriptorPlan() error = %v", err)
 	}
-	fields := plan.Services[0].Methods[0].RenderShape.Conversion.MessageToNative.Native.Request
+	fields := plan.Services[0].Methods[0].Contract.Native.RequestFields
 	if fields[0].Kind != FieldKindUnsignedInt32 || fields[1].Kind != FieldKindUnsignedInt64 {
 		t.Fatalf("unsigned field kinds = (%q, %q), want (%q, %q)", fields[0].Kind, fields[1].Kind, FieldKindUnsignedInt32, FieldKindUnsignedInt64)
 	}
