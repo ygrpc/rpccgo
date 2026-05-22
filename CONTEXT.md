@@ -36,6 +36,14 @@ _Avoid_: runtime core dispatcher, public client API
 仅在一次 generated message→native bridge 调用同步执行期间有效的 borrowed wrapper 视图；不得把 wrapper 本身跨调用保存。
 _Avoid_: owned wrapper, long-lived native input
 
+**Native C ABI plan**:
+由 **Native** 的 Go-level flat contract 派生出的跨 Go/C ABI shape；按 operation 表达 C signature、field lowering、ownership、cleanup、callback/export 和 error bridge 需求。
+_Avoid_: NativeContract, Go native server/client API
+
+**Native projection**:
+从同一个 **Native** contract 派生出的具体语言/边界形态；Go native projection 表达 Go 函数参数和返回值，C native projection 表达跨 Go/C 的 ABI slot。
+_Avoid_: separate native contract, incompatible Go/C native ABI
+
 **Provider bootstrap**:
 旧项目通过 provider/registry/bootstrap 组装服务能力的架构模型；新版不回迁该模型。
 _Avoid_: active server
@@ -44,6 +52,8 @@ _Avoid_: active server
 
 - **Native** 与 **Message contract** 是不同 contract；**Native** 不应退化成 request/response struct 或 message 指针边界。
 - **Native** 的字段级函数边界必须覆盖 Go server interface、Go native client API、C callback ABI，以及 streaming 的 start/send/recv/finish/close/cancel 相关边界。
+- Go native 与 C native 是同一个 **Native** contract 的不同 **Native projection**；它们不应被建模为两套独立 native contract。
+- **Native C ABI plan** 必须从 **Native** / `NativeContractPlan` 派生，不能重新解释 proto descriptor 或形成独立 contract。
 - C 侧 **Native** callback 必须使用字段级参数列表，例如 `field_ptr/field_len/ownership` 和输出字段指针参数；不能接收 generated `Request*` / `Response*` struct。
 - 跨 runtime 的 C **Native** ABI 不能以 `struct` 或 `struct*` 作为调用边界参数；callback table 也必须拆成 flat callback 参数或逐项注册。
 - C **Native** server callback 允许按 method 分开注册；首次注册任一 callback 即可把该 service 激活为 **Active server**，未注册的 method 在真正调用时返回 callback-missing 错误。
@@ -53,6 +63,11 @@ _Avoid_: active server
 - Go **Native** server 返回值沿用旧 flat 返回：response 顶层字段按 Go 值/slice 顺序返回，最后一个返回值固定是 `error`。
 - **Native** 只拍平 proto request/response 的顶层字段；nested message 作为整体 message bytes/wrapper 传递，不递归展开。
 - `NativeContract` 这类字段计划可以作为参数转换的中间表示保留；它不是最终 **Native** 边界。
+- **Native C ABI plan** 可把 ownership / cleanup / transfer 作为生成计划表达；它不应新增现有 ABI 之外的 ownership 参数，但若现有 C boundary 已包含 ownership slot，plan 应把它作为 ABI slot 结构化表达。
+- **Native C ABI plan** 位于 `NativeContract` 之后、renderer 之前；它按 C boundary operation 表达结构化 ABI shape，不生成代码字符串。
+- **Native C ABI plan** 应保留 slot role、source field metadata、最终 C type spelling、cleanup capability、export symbol naming 和 callback typedef naming，使 renderer 不再重复推断 ABI 语义。
+- **Native C ABI plan** 不表达 callback missing policy、error bridge lifecycle 语义或 **Stream lifecycle** handle cleanup；这些分别属于 **Generated service runtime** / **Active router**、error bridge Module 和 **Runtime core**。
+- protobuf schema 中的 unsigned 字段可进入 **Native C ABI plan** 的 field value slot；proto 无关的 length/count/handle/error id 等辅助 slot 不应使用 unsigned 32/64 类型。
 - **Active server** 是新版调度模型的一部分；它不能改变 **Native** 的字段级函数边界语义。
 - **Runtime core** 负责通用调度和 stream 存储；**Generated service runtime** 负责 service-specific typed glue，不应重复生成可由 runtime core 泛型函数直接表达的薄包装。
 - **Stream lifecycle** 的 ownership、terminal-once 和 invalid-handle 通用语义属于 **Runtime core**；method-specific session 操作、native/message 转换和 flat ABI 编解码属于 **Generated service runtime**。

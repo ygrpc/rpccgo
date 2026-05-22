@@ -64,13 +64,13 @@ connect client 和 grpc client 属于标准 RPC client，不进入 rpccgo client
 
 ## ABI 与类型约束
 
-- 不要使用 unsigned 32/64 位类型作为 runtime 或 ABI 类型。
-- Go 代码中不要引入 `uint32`、`uint64`、`atomic.Uint32`、`atomic.Uint64`。
-- C ABI 中不要引入 `uint32_t`、`uint64_t`。
-- 文档中不要使用 `u32`、`u64` 作为设计类型。
+- protobuf schema 中允许使用 `uint32` / `uint64` 字段；这些字段的 generated API 应保留 proto 语义。
+- proto 无关的 runtime、scheduler、handle、length、error id、计数、索引等辅助类型不要使用 unsigned 32/64 位类型。
+- Go 辅助代码中不要为 proto 无关类型引入 `uint32`、`uint64`、`atomic.Uint32`、`atomic.Uint64`。
+- C ABI 中 proto 无关的辅助类型不要引入 `uint32_t`、`uint64_t`。
+- 文档中不要使用 `u32`、`u64` 作为 proto 无关的设计类型。
 - `ErrorID` 使用 `int32`，`0` 表示 no error。
 - runtime handle、scheduler key、error id 等跨语言可见数字类型默认使用 `int32`。
-- `NativeArrayElem` 不支持 32/64 位 unsigned 类型。
 - repeated bool 不使用 Go `[]bool` 作为 C ABI 表示；使用 byte 编码，由专门 wrapper 处理。
 - `uintptr` 用于 pointer handle 时可以保留。
 
@@ -108,6 +108,7 @@ connect client 和 grpc client 属于标准 RPC client，不进入 rpccgo client
 
 - 常规验证：`rtk go test ./...`。
 - runtime focused 验证：`rtk go test ./rpcruntime -count=1`。
+- 涉及 generator planner、ABI plan 或 protogen descriptor 形状的测试，优先使用真实 `.proto` fixture 经过插件/parser/planner 路径构造输入；不要用手写 planner 结构体替代真实 descriptor，除非测试目标明确与 proto/protogen 无关。
 - 搜索文件优先使用 `rtk rg`。
 - 修改 runtime 或 ABI 类型后，必须扫描 unsigned 32/64 类型。`AGENTS.md` 为了描述禁用规则会包含这些字符串，扫描时排除它：
 

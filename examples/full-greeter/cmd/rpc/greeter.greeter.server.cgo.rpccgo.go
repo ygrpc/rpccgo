@@ -9,17 +9,17 @@ import (
 
 typedef int32_t (*GreeterSayHelloCGONativeUnaryCallback)(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t CityPtr, int32_t CityLen, int32_t CityOwnership, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership);
 
-typedef int32_t (*GreeterCollectCGONativeClientStreamStartCallback)(int32_t* stream);
+typedef int32_t (*GreeterCollectCGONativeClientStreamStartCallback)(int32_t *stream);
 typedef int32_t (*GreeterCollectCGONativeClientStreamSendCallback)(int32_t stream, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t CityPtr, int32_t CityLen, int32_t CityOwnership);
 typedef int32_t (*GreeterCollectCGONativeClientStreamFinishCallback)(int32_t stream, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership);
 typedef int32_t (*GreeterCollectCGONativeClientStreamCancelCallback)(int32_t stream);
 
-typedef int32_t (*GreeterBroadcastCGONativeServerStreamStartCallback)(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t CityPtr, int32_t CityLen, int32_t CityOwnership, int32_t *outStream);
+typedef int32_t (*GreeterBroadcastCGONativeServerStreamStartCallback)(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t CityPtr, int32_t CityLen, int32_t CityOwnership, int32_t *stream);
 typedef int32_t (*GreeterBroadcastCGONativeServerStreamRecvCallback)(int32_t stream, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership);
 typedef int32_t (*GreeterBroadcastCGONativeServerStreamDoneCallback)(int32_t stream);
 typedef int32_t (*GreeterBroadcastCGONativeServerStreamCancelCallback)(int32_t stream);
 
-typedef int32_t (*GreeterChatCGONativeBidiStreamStartCallback)(int32_t* stream);
+typedef int32_t (*GreeterChatCGONativeBidiStreamStartCallback)(int32_t *stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamSendCallback)(int32_t stream, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t CityPtr, int32_t CityLen, int32_t CityOwnership);
 typedef int32_t (*GreeterChatCGONativeBidiStreamRecvCallback)(int32_t stream, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership);
 typedef int32_t (*GreeterChatCGONativeBidiStreamCloseSendCallback)(int32_t stream);
@@ -30,7 +30,7 @@ static inline int32_t callGreeterSayHelloCGONativeUnaryCallback(GreeterSayHelloC
 	return callback(NamePtr, NameLen, NameOwnership, CityPtr, CityLen, CityOwnership, outMessagePtr, outMessageLen, outMessageOwnership);
 }
 
-static inline int32_t callGreeterCollectCGONativeClientStreamStartCallback(GreeterCollectCGONativeClientStreamStartCallback callback, int32_t* stream) {
+static inline int32_t callGreeterCollectCGONativeClientStreamStartCallback(GreeterCollectCGONativeClientStreamStartCallback callback, int32_t *stream) {
 	return callback(stream);
 }
 
@@ -46,7 +46,7 @@ static inline int32_t callGreeterCollectCGONativeClientStreamCancelCallback(Gree
 	return callback(stream);
 }
 
-static inline int32_t callGreeterBroadcastCGONativeServerStreamStartCallback(GreeterBroadcastCGONativeServerStreamStartCallback callback, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t CityPtr, int32_t CityLen, int32_t CityOwnership, int32_t* stream) {
+static inline int32_t callGreeterBroadcastCGONativeServerStreamStartCallback(GreeterBroadcastCGONativeServerStreamStartCallback callback, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t CityPtr, int32_t CityLen, int32_t CityOwnership, int32_t *stream) {
 	return callback(NamePtr, NameLen, NameOwnership, CityPtr, CityLen, CityOwnership, stream);
 }
 
@@ -62,7 +62,7 @@ static inline int32_t callGreeterBroadcastCGONativeServerStreamCancelCallback(Gr
 	return callback(stream);
 }
 
-static inline int32_t callGreeterChatCGONativeBidiStreamStartCallback(GreeterChatCGONativeBidiStreamStartCallback callback, int32_t* stream) {
+static inline int32_t callGreeterChatCGONativeBidiStreamStartCallback(GreeterChatCGONativeBidiStreamStartCallback callback, int32_t *stream) {
 	return callback(stream);
 }
 

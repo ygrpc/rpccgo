@@ -49,11 +49,11 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 		case StreamingKindUnary:
 			renderNativeUnaryClient(g, plan, service, method, errorName, servicePackage)
 		case StreamingKindClientStreaming:
-			renderNativeClientStreamingClient(g, plan, service, method, errorName, streamHandleErrorName, servicePackage)
+			renderNativeClientStreamingClient(g, plan, service, method, errorName, servicePackage)
 		case StreamingKindServerStreaming:
-			renderNativeServerStreamingClient(g, plan, service, method, errorName, streamHandleErrorName, servicePackage)
+			renderNativeServerStreamingClient(g, plan, service, method, errorName, servicePackage)
 		case StreamingKindBidiStreaming:
-			renderNativeBidiStreamingClient(g, plan, service, method, errorName, streamHandleErrorName, servicePackage)
+			renderNativeBidiStreamingClient(g, plan, service, method, errorName, servicePackage)
 		}
 	}
 	return nil
@@ -110,7 +110,7 @@ func renderNativeUnaryClient(g *protogen.GeneratedFile, plan FilePlan, service S
 	renderNativeCExportWrappers(g, plan, service, method)
 }
 
-func renderNativeClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError, servicePackage string) {
+func renderNativeClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, unsupportedError, servicePackage string) {
 	requestParams := nativeClientRequestParams(method.RenderShape.Conversion.MessageToNative.Native.Request)
 	requestArgs := nativeClientRequestCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Request)
 	responseParams := nativeClientResponseOutputParams(method.RenderShape.Conversion.MessageToNative.Native.Response)
@@ -198,7 +198,7 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan,
 	renderNativeCExportWrappers(g, plan, service, method)
 }
 
-func renderNativeServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError, servicePackage string) {
+func renderNativeServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, unsupportedError, servicePackage string) {
 	requestParams := nativeClientRequestParams(method.RenderShape.Conversion.MessageToNative.Native.Request)
 	requestArgs := nativeClientRequestCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Request)
 	responseParams := nativeClientResponseOutputParams(method.RenderShape.Conversion.MessageToNative.Native.Response)
@@ -287,7 +287,7 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan,
 	renderNativeCExportWrappers(g, plan, service, method)
 }
 
-func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, unsupportedError, invalidHandleError, servicePackage string) {
+func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, unsupportedError, servicePackage string) {
 	requestParams := nativeClientRequestParams(method.RenderShape.Conversion.MessageToNative.Native.Request)
 	requestArgs := nativeClientRequestCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Request)
 	responseParams := nativeClientResponseOutputParams(method.RenderShape.Conversion.MessageToNative.Native.Response)
@@ -445,9 +445,9 @@ func nativeClientScalarParamType(field FieldPlan) string {
 	switch field.Kind {
 	case FieldKindBool:
 		return "int8"
-	case FieldKindSignedInt32, FieldKindEnum:
+	case FieldKindSignedInt32, FieldKindUnsignedInt32, FieldKindEnum:
 		return "int32"
-	case FieldKindSignedInt64:
+	case FieldKindSignedInt64, FieldKindUnsignedInt64:
 		return "int64"
 	case FieldKindFloat:
 		return "float32"
@@ -584,9 +584,9 @@ func renderNativeRequestFieldDecode(g *protogen.GeneratedFile, fields []FieldPla
 		renderNativeClientRepeatedDecode(g, fields, field, name, "byte", "rpcruntime.RpcBoolRepeat", "rpcruntime.EmptyRpcBoolRepeat()", "rpcruntime.NewRpcBoolRepeatChecked", errReturn)
 	case NativeABIShapeRepeated:
 		switch field.Kind {
-		case FieldKindSignedInt32:
+		case FieldKindSignedInt32, FieldKindUnsignedInt32:
 			renderNativeClientRepeatedDecode(g, fields, field, name, "int32", "rpcruntime.RpcRepeat[int32]", "rpcruntime.EmptyRpcRepeat[int32]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
-		case FieldKindSignedInt64:
+		case FieldKindSignedInt64, FieldKindUnsignedInt64:
 			renderNativeClientRepeatedDecode(g, fields, field, name, "int64", "rpcruntime.RpcRepeat[int64]", "rpcruntime.EmptyRpcRepeat[int64]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
 		case FieldKindFloat:
 			renderNativeClientRepeatedDecode(g, fields, field, name, "float32", "rpcruntime.RpcRepeat[float32]", "rpcruntime.EmptyRpcRepeat[float32]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
@@ -599,7 +599,7 @@ func renderNativeRequestFieldDecode(g *protogen.GeneratedFile, fields []FieldPla
 		}
 	case NativeABIShapeScalar, NativeABIShapeMessageBytes:
 		switch field.Kind {
-		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble:
+		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindUnsignedInt32, FieldKindUnsignedInt64, FieldKindFloat, FieldKindDouble:
 			g.P(name, " := ", field.GoName)
 		case FieldKindEnum:
 			g.P(name, " := ", nativeGoEnumType(g, field), "(", field.GoName, ")")
@@ -754,7 +754,7 @@ func renderNativeCExportWrappers(g *protogen.GeneratedFile, plan FilePlan, servi
 }
 
 func renderNativeUnaryCExportWrapper(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan) {
-	exportName := nativeCExportFuncName(plan, service, method, "")
+	exportName := nativeCExportOperationSymbol(plan, service, method, NativeCOperationUnary)
 	g.P("//export ", exportName)
 	g.P("func ", exportName, "(", nativeCExportUnaryParams(service, method), ") C.int32_t {")
 	renderNativeCExportOutputValidation(g, method.RenderShape.Conversion.MessageToNative.Native.Response)
@@ -764,7 +764,7 @@ func renderNativeUnaryCExportWrapper(g *protogen.GeneratedFile, plan FilePlan, s
 }
 
 func renderNativeClientStreamingCExportWrappers(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan) {
-	startName := nativeCExportFuncName(plan, service, method, "start")
+	startName := nativeCExportOperationSymbol(plan, service, method, NativeCOperationStart)
 	g.P("//export ", startName)
 	g.P("func ", startName, "(handle *C.int32_t) C.int32_t {")
 	renderNativeCExportHandleValidation(g)
@@ -777,14 +777,14 @@ func renderNativeClientStreamingCExportWrappers(g *protogen.GeneratedFile, plan 
 	g.P("}")
 	g.P()
 
-	sendName := nativeCExportFuncName(plan, service, method, "send")
+	sendName := nativeCExportOperationSymbol(plan, service, method, NativeCOperationSend)
 	g.P("//export ", sendName)
 	g.P("func ", sendName, "(", nativeCExportParamJoin("handle C.int32_t", nativeCExportInputParams(service, method)), ") C.int32_t {")
 	g.P("return C.int32_t(", nativeClientStreamingSendFuncName(service, method), "(context.Background(), int32(handle)", nativeCExportCallSuffix(nativeCExportGoArgs(service, method)), "))")
 	g.P("}")
 	g.P()
 
-	finishName := nativeCExportFuncName(plan, service, method, "finish")
+	finishName := nativeCExportOperationSymbol(plan, service, method, NativeCOperationFinish)
 	g.P("//export ", finishName)
 	g.P("func ", finishName, "(", nativeCExportParamJoin("handle C.int32_t", nativeCExportOutputParams(service, method)), ") C.int32_t {")
 	renderNativeCExportOutputValidation(g, method.RenderShape.Conversion.MessageToNative.Native.Response)
@@ -792,7 +792,7 @@ func renderNativeClientStreamingCExportWrappers(g *protogen.GeneratedFile, plan 
 	g.P("}")
 	g.P()
 
-	cancelName := nativeCExportFuncName(plan, service, method, "cancel")
+	cancelName := nativeCExportOperationSymbol(plan, service, method, NativeCOperationCancel)
 	g.P("//export ", cancelName)
 	g.P("func ", cancelName, "(handle C.int32_t) C.int32_t {")
 	g.P("return C.int32_t(", nativeClientStreamingCancelFuncName(service, method), "(context.Background(), int32(handle)))")
@@ -801,7 +801,7 @@ func renderNativeClientStreamingCExportWrappers(g *protogen.GeneratedFile, plan 
 }
 
 func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan) {
-	startName := nativeCExportFuncName(plan, service, method, "start")
+	startName := nativeCExportOperationSymbol(plan, service, method, NativeCOperationStart)
 	g.P("//export ", startName)
 	g.P("func ", startName, "(", nativeCExportParamJoin(nativeCExportInputParams(service, method), "handle *C.int32_t"), ") C.int32_t {")
 	renderNativeCExportHandleValidation(g)
@@ -814,7 +814,7 @@ func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, plan 
 	g.P("}")
 	g.P()
 
-	readName := nativeCExportFuncName(plan, service, method, "read")
+	readName := nativeCExportOperationSymbol(plan, service, method, NativeCOperationRecv)
 	g.P("//export ", readName)
 	g.P("func ", readName, "(", nativeCExportParamJoin("handle C.int32_t", nativeCExportOutputParams(service, method)), ") C.int32_t {")
 	renderNativeCExportOutputValidation(g, method.RenderShape.Conversion.MessageToNative.Native.Response)
@@ -822,14 +822,14 @@ func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, plan 
 	g.P("}")
 	g.P()
 
-	doneName := nativeCExportFuncName(plan, service, method, "done")
+	doneName := nativeCExportOperationSymbol(plan, service, method, NativeCOperationDone)
 	g.P("//export ", doneName)
 	g.P("func ", doneName, "(handle C.int32_t) C.int32_t {")
 	g.P("return C.int32_t(", nativeServerStreamingDoneFuncName(service, method), "(context.Background(), int32(handle)))")
 	g.P("}")
 	g.P()
 
-	cancelName := nativeCExportFuncName(plan, service, method, "cancel")
+	cancelName := nativeCExportOperationSymbol(plan, service, method, NativeCOperationCancel)
 	g.P("//export ", cancelName)
 	g.P("func ", cancelName, "(handle C.int32_t) C.int32_t {")
 	g.P("return C.int32_t(", nativeServerStreamingCancelFuncName(service, method), "(context.Background(), int32(handle)))")
@@ -838,7 +838,7 @@ func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, plan 
 }
 
 func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan) {
-	startName := nativeCExportFuncName(plan, service, method, "start")
+	startName := nativeCExportOperationSymbol(plan, service, method, NativeCOperationStart)
 	g.P("//export ", startName)
 	g.P("func ", startName, "(handle *C.int32_t) C.int32_t {")
 	renderNativeCExportHandleValidation(g)
@@ -851,14 +851,14 @@ func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, plan Fi
 	g.P("}")
 	g.P()
 
-	sendName := nativeCExportFuncName(plan, service, method, "send")
+	sendName := nativeCExportOperationSymbol(plan, service, method, NativeCOperationSend)
 	g.P("//export ", sendName)
 	g.P("func ", sendName, "(", nativeCExportParamJoin("handle C.int32_t", nativeCExportInputParams(service, method)), ") C.int32_t {")
 	g.P("return C.int32_t(", nativeBidiStreamingSendFuncName(service, method), "(context.Background(), int32(handle)", nativeCExportCallSuffix(nativeCExportGoArgs(service, method)), "))")
 	g.P("}")
 	g.P()
 
-	readName := nativeCExportFuncName(plan, service, method, "read")
+	readName := nativeCExportOperationSymbol(plan, service, method, NativeCOperationRecv)
 	g.P("//export ", readName)
 	g.P("func ", readName, "(", nativeCExportParamJoin("handle C.int32_t", nativeCExportOutputParams(service, method)), ") C.int32_t {")
 	renderNativeCExportOutputValidation(g, method.RenderShape.Conversion.MessageToNative.Native.Response)
@@ -866,14 +866,14 @@ func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, plan Fi
 	g.P("}")
 	g.P()
 
-	closeSendName := nativeCExportFuncName(plan, service, method, "close_send")
+	closeSendName := nativeCExportOperationSymbol(plan, service, method, NativeCOperationCloseSend)
 	g.P("//export ", closeSendName)
 	g.P("func ", closeSendName, "(handle C.int32_t) C.int32_t {")
 	g.P("return C.int32_t(", nativeBidiStreamingCloseSendFuncName(service, method), "(context.Background(), int32(handle)))")
 	g.P("}")
 	g.P()
 
-	cancelName := nativeCExportFuncName(plan, service, method, "cancel")
+	cancelName := nativeCExportOperationSymbol(plan, service, method, NativeCOperationCancel)
 	g.P("//export ", cancelName)
 	g.P("func ", cancelName, "(handle C.int32_t) C.int32_t {")
 	g.P("return C.int32_t(", nativeBidiStreamingCancelFuncName(service, method), "(context.Background(), int32(handle)))")
@@ -919,6 +919,12 @@ func nativeCExportFuncName(plan FilePlan, service ServicePlan, method MethodPlan
 		name += "_" + operation
 	}
 	return name
+}
+
+func nativeCExportOperationSymbol(plan FilePlan, service ServicePlan, method MethodPlan, operation NativeCOperation) string {
+	abiPlan, _ := BuildNativeCABIPlan(plan, service)
+	methodABI := nativeCABIPlanByMethod(abiPlan)
+	return nativeCABIPlanOperation(methodABI[method.FullName], operation).Symbol
 }
 
 func nativeGoUnaryOutputTypeName(service ServicePlan, method MethodPlan) string {
@@ -1091,7 +1097,7 @@ func renderNativeResponseFieldStage(g *protogen.GeneratedFile, field FieldPlan, 
 		g.P("_ = ", nativeClientOutputPtrLocal(field))
 	case NativeABIShapeRepeated:
 		switch field.Kind {
-		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble:
+		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindUnsignedInt32, FieldKindUnsignedInt64, FieldKindFloat, FieldKindDouble:
 			g.P(nativeClientOutputPtrLocal(field), ", err := rpcruntime.PinSlice(", name, ")")
 			g.P("if err != nil {")
 			renderReleasePinnedOutputFields(g, pinned)
@@ -1112,7 +1118,7 @@ func renderNativeResponseFieldStage(g *protogen.GeneratedFile, field FieldPlan, 
 		}
 	case NativeABIShapeScalar, NativeABIShapeMessageBytes:
 		switch field.Kind {
-		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble:
+		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindUnsignedInt32, FieldKindUnsignedInt64, FieldKindFloat, FieldKindDouble:
 			g.P(name, "Value := ", name)
 		case FieldKindEnum:
 			g.P(name, "Value := int32(", name, ")")

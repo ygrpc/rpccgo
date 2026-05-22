@@ -780,6 +780,10 @@ func nativeGoScalarType(g *protogen.GeneratedFile, field FieldPlan) string {
 		return "int32"
 	case FieldKindSignedInt64:
 		return "int64"
+	case FieldKindUnsignedInt32:
+		return "uint32"
+	case FieldKindUnsignedInt64:
+		return "uint64"
 	case FieldKindFloat:
 		return "float32"
 	case FieldKindDouble:

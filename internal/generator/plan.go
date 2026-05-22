@@ -121,15 +121,17 @@ type FieldPlan struct {
 type FieldKind string
 
 const (
-	FieldKindSignedInt32 FieldKind = "signed_int32"
-	FieldKindSignedInt64 FieldKind = "signed_int64"
-	FieldKindFloat       FieldKind = "float"
-	FieldKindDouble      FieldKind = "double"
-	FieldKindBool        FieldKind = "bool"
-	FieldKindString      FieldKind = "string"
-	FieldKindBytes       FieldKind = "bytes"
-	FieldKindMessage     FieldKind = "message"
-	FieldKindEnum        FieldKind = "enum"
+	FieldKindSignedInt32   FieldKind = "signed_int32"
+	FieldKindSignedInt64   FieldKind = "signed_int64"
+	FieldKindUnsignedInt32 FieldKind = "unsigned_int32"
+	FieldKindUnsignedInt64 FieldKind = "unsigned_int64"
+	FieldKindFloat         FieldKind = "float"
+	FieldKindDouble        FieldKind = "double"
+	FieldKindBool          FieldKind = "bool"
+	FieldKindString        FieldKind = "string"
+	FieldKindBytes         FieldKind = "bytes"
+	FieldKindMessage       FieldKind = "message"
+	FieldKindEnum          FieldKind = "enum"
 )
 
 type NativeFieldKind string

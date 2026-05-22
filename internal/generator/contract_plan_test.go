@@ -206,23 +206,19 @@ func TestBuildContractPlanRejectsMapField(t *testing.T) {
 	}
 }
 
-func TestBuildContractPlanRejectsUnsignedIntegerKindWithoutForbiddenText(t *testing.T) {
-	plugin := newTestPlugin(t, "paths=source_relative", unsupportedUnsignedContractTestFile())
+func TestBuildContractPlanAllowsUnsignedProtoFields(t *testing.T) {
+	plugin := newTestPlugin(t, "paths=source_relative", unsignedContractTestFile())
 
-	_, err := BuildDescriptorPlan(plugin.Files[0])
-	if err == nil {
-		t.Fatal("BuildDescriptorPlan() error = nil, want unsupported field error")
+	plan, err := BuildDescriptorPlan(plugin.Files[0])
+	if err != nil {
+		t.Fatalf("BuildDescriptorPlan() error = %v", err)
 	}
-	got := err.Error()
-	for _, want := range []string{"test.v1.Contracts.Check", "test.v1.BadRequest.count", "unsigned integer kind"} {
-		if !strings.Contains(got, want) {
-			t.Fatalf("BuildDescriptorPlan() error = %q, want substring %q", got, want)
-		}
+	fields := plan.Services[0].Methods[0].RenderShape.Conversion.MessageToNative.Native.Request
+	if fields[0].Kind != FieldKindUnsignedInt32 || fields[1].Kind != FieldKindUnsignedInt64 {
+		t.Fatalf("unsigned field kinds = (%q, %q), want (%q, %q)", fields[0].Kind, fields[1].Kind, FieldKindUnsignedInt32, FieldKindUnsignedInt64)
 	}
-	for _, forbidden := range []string{"uint", "Uint"} {
-		if strings.Contains(got, forbidden) {
-			t.Fatalf("BuildDescriptorPlan() error = %q, must not contain forbidden unsigned token fragment %q", got, forbidden)
-		}
+	if fields[0].Native.Shape != NativeABIShapeScalar || fields[1].Native.Shape != NativeABIShapeScalar {
+		t.Fatalf("unsigned field native shapes = (%q, %q), want scalar", fields[0].Native.Shape, fields[1].Native.Shape)
 	}
 }
 
@@ -317,8 +313,28 @@ func mapContractTestFile() *descriptorpb.FileDescriptorProto {
 	return file
 }
 
-func unsupportedUnsignedContractTestFile() *descriptorpb.FileDescriptorProto {
-	return badFieldContractTestFile(fieldDescriptor("count", 1, descriptorpb.FieldDescriptorProto_Type(13), descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""))
+func unsignedContractTestFile() *descriptorpb.FileDescriptorProto {
+	return &descriptorpb.FileDescriptorProto{
+		Name:    proto.String("test/v1/unsigned_contracts.proto"),
+		Package: proto.String("test.v1"),
+		Syntax:  proto.String("proto3"),
+		Options: &descriptorpb.FileOptions{
+			GoPackage: proto.String("example.com/test/v1;testv1"),
+		},
+		MessageType: []*descriptorpb.DescriptorProto{
+			{
+				Name: proto.String("UnsignedRequest"),
+				Field: []*descriptorpb.FieldDescriptorProto{
+					fieldDescriptor("count", 1, descriptorpb.FieldDescriptorProto_TYPE_UINT32, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+					fieldDescriptor("total", 2, descriptorpb.FieldDescriptorProto_TYPE_UINT64, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
+				},
+			},
+			{Name: proto.String("UnsignedReply")},
+		},
+		Service: []*descriptorpb.ServiceDescriptorProto{
+			contractServiceDescriptor(".test.v1.UnsignedRequest", ".test.v1.UnsignedReply"),
+		},
+	}
 }
 
 func badFieldContractTestFile(field *descriptorpb.FieldDescriptorProto) *descriptorpb.FileDescriptorProto {

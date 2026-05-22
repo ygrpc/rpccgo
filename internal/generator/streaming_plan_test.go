@@ -32,7 +32,7 @@ func TestValidateMethodRenderPlanRejectsInvalidMatrix(t *testing.T) {
 		RenderShape: MethodRenderPlan{
 			Session: SessionRenderPlan{Kind: SessionKindClient, Operations: []SessionOperationPlan{{Kind: SessionOperationStart, Enabled: true}}},
 			Symbols: RenderSymbolsPlan{NativeAdapterMethod: "Unary", MessageAdapterMethod: "UnaryMessage"},
-			Errors: RenderErrorsPlan{NativeAdapterUnavailableErr: "Native", MessageAdapterUnavailableErr: "Message", UnknownActiveContractErr: "Unknown", NativeMessageConverterErr: "Converter"},
+			Errors:  RenderErrorsPlan{NativeAdapterUnavailableErr: "Native", MessageAdapterUnavailableErr: "Message", UnknownActiveContractErr: "Unknown", NativeMessageConverterErr: "Converter"},
 		},
 	}
 	if err := ValidateMethodRenderPlan(method); err == nil {

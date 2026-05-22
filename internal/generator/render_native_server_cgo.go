@@ -71,105 +71,133 @@ func qualifyRuntimeAdapterMethods(methods []runtimeAdapterMethod, servicePackage
 }
 
 func renderCGONativeServerPreamble(g *protogen.GeneratedFile, service ServicePlan) {
+	abiPlan, _ := BuildNativeCABIPlan(FilePlan{}, service)
+	methodABI := nativeCABIPlanByMethod(abiPlan)
+
 	g.P("/*")
 	g.P("#include <stdint.h>")
 	g.P()
 	for _, method := range service.Methods {
 		switch method.Streaming {
 		case StreamingKindUnary:
-			g.P("typedef int32_t (*", nativeCGOServerCallbackName(service, method), ")(", nativeCGOServerCallbackParams(method.RenderShape.Conversion.MessageToNative.Native.Request, method.RenderShape.Conversion.MessageToNative.Native.Response), ");")
+			unaryABI := nativeCABIPlanOperation(methodABI[method.FullName], NativeCOperationUnary)
+			g.P("typedef int32_t (*", unaryABI.TypeName, ")(", nativeCABIParamList(unaryABI.Params), ");")
 			g.P()
 		case StreamingKindClientStreaming:
-			g.P("typedef int32_t (*", nativeCGOServerClientStreamStartCallbackName(service, method), ")(int32_t* stream);")
-			g.P("typedef int32_t (*", nativeCGOServerClientStreamSendCallbackName(service, method), ")(int32_t stream", nativeCGOServerTypedParamSuffix(nativeCGOServerCInputParams(method.RenderShape.Conversion.MessageToNative.Native.Request)), ");")
-			g.P("typedef int32_t (*", nativeCGOServerClientStreamFinishCallbackName(service, method), ")(int32_t stream", nativeCGOServerTypedParamSuffix(nativeCGOServerCOutputParams(method.RenderShape.Conversion.MessageToNative.Native.Response)), ");")
-			g.P("typedef int32_t (*", nativeCGOServerClientStreamCancelCallbackName(service, method), ")(int32_t stream);")
+			renderCGONativeServerCallbackTypedefs(g, methodABI[method.FullName], NativeCOperationStart, NativeCOperationSend, NativeCOperationFinish, NativeCOperationCancel)
 			g.P()
 		case StreamingKindServerStreaming:
-			g.P("typedef int32_t (*", nativeCGOServerServerStreamStartCallbackName(service, method), ")(", nativeCGOServerCallbackParams(method.RenderShape.Conversion.MessageToNative.Native.Request, []FieldPlan{{GoName: "Stream", Native: NativeFieldPlan{Shape: NativeABIShapeScalar}, Kind: FieldKindSignedInt32}}), ");")
-			g.P("typedef int32_t (*", nativeCGOServerServerStreamRecvCallbackName(service, method), ")(int32_t stream", nativeCGOServerTypedParamSuffix(nativeCGOServerCOutputParams(method.RenderShape.Conversion.MessageToNative.Native.Response)), ");")
-			g.P("typedef int32_t (*", nativeCGOServerServerStreamDoneCallbackName(service, method), ")(int32_t stream);")
-			g.P("typedef int32_t (*", nativeCGOServerServerStreamCancelCallbackName(service, method), ")(int32_t stream);")
+			renderCGONativeServerCallbackTypedefs(g, methodABI[method.FullName], NativeCOperationStart, NativeCOperationRecv, NativeCOperationDone, NativeCOperationCancel)
 			g.P()
 		case StreamingKindBidiStreaming:
-			g.P("typedef int32_t (*", nativeCGOServerBidiStreamStartCallbackName(service, method), ")(int32_t* stream);")
-			g.P("typedef int32_t (*", nativeCGOServerBidiStreamSendCallbackName(service, method), ")(int32_t stream", nativeCGOServerTypedParamSuffix(nativeCGOServerCInputParams(method.RenderShape.Conversion.MessageToNative.Native.Request)), ");")
-			g.P("typedef int32_t (*", nativeCGOServerBidiStreamRecvCallbackName(service, method), ")(int32_t stream", nativeCGOServerTypedParamSuffix(nativeCGOServerCOutputParams(method.RenderShape.Conversion.MessageToNative.Native.Response)), ");")
-			g.P("typedef int32_t (*", nativeCGOServerBidiStreamCloseSendCallbackName(service, method), ")(int32_t stream);")
-			g.P("typedef int32_t (*", nativeCGOServerBidiStreamDoneCallbackName(service, method), ")(int32_t stream);")
-			g.P("typedef int32_t (*", nativeCGOServerBidiStreamCancelCallbackName(service, method), ")(int32_t stream);")
+			renderCGONativeServerCallbackTypedefs(g, methodABI[method.FullName], NativeCOperationStart, NativeCOperationSend, NativeCOperationRecv, NativeCOperationCloseSend, NativeCOperationDone, NativeCOperationCancel)
 			g.P()
 		}
 	}
 	for _, method := range service.Methods {
 		switch method.Streaming {
 		case StreamingKindUnary:
-			g.P("static inline int32_t ", nativeCGOServerTrampolineName(service, method), "(", nativeCGOServerCallbackName(service, method), " callback", nativeCGOServerTypedParamSuffix(nativeCGOServerCallbackParamList(method.RenderShape.Conversion.MessageToNative.Native.Request, method.RenderShape.Conversion.MessageToNative.Native.Response)), ") {")
-			g.P("\treturn callback(", nativeCGOServerCallbackArgNames(method.RenderShape.Conversion.MessageToNative.Native.Request, method.RenderShape.Conversion.MessageToNative.Native.Response), ");")
+			unaryABI := nativeCABIPlanOperation(methodABI[method.FullName], NativeCOperationUnary)
+			g.P("static inline int32_t ", nativeCGOServerTrampolineName(service, method), "(", unaryABI.TypeName, " callback", nativeCGOServerTypedParamSuffix(nativeCABIParamListValues(unaryABI.Params)), ") {")
+			g.P("\treturn callback(", nativeCABIArgNames(unaryABI.Params), ");")
 			g.P("}")
 			g.P()
 		case StreamingKindClientStreaming:
-			g.P("static inline int32_t ", nativeCGOServerClientStreamStartTrampolineName(service, method), "(", nativeCGOServerClientStreamStartCallbackName(service, method), " callback, int32_t* stream) {")
-			g.P("\treturn callback(stream);")
-			g.P("}")
-			g.P()
-			g.P("static inline int32_t ", nativeCGOServerClientStreamSendTrampolineName(service, method), "(", nativeCGOServerClientStreamSendCallbackName(service, method), " callback, int32_t stream", nativeCGOServerTypedParamSuffix(nativeCGOServerCInputParams(method.RenderShape.Conversion.MessageToNative.Native.Request)), ") {")
-			g.P("\treturn callback(stream", nativeCGOServerArgSuffix(nativeCGOServerCInputArgNames(method.RenderShape.Conversion.MessageToNative.Native.Request)), ");")
-			g.P("}")
-			g.P()
-			g.P("static inline int32_t ", nativeCGOServerClientStreamFinishTrampolineName(service, method), "(", nativeCGOServerClientStreamFinishCallbackName(service, method), " callback, int32_t stream", nativeCGOServerTypedParamSuffix(nativeCGOServerCOutputParams(method.RenderShape.Conversion.MessageToNative.Native.Response)), ") {")
-			g.P("\treturn callback(stream", nativeCGOServerArgSuffix(nativeCGOServerCOutputArgNames(method.RenderShape.Conversion.MessageToNative.Native.Response)), ");")
-			g.P("}")
-			g.P()
-			g.P("static inline int32_t ", nativeCGOServerClientStreamCancelTrampolineName(service, method), "(", nativeCGOServerClientStreamCancelCallbackName(service, method), " callback, int32_t stream) {")
-			g.P("\treturn callback(stream);")
-			g.P("}")
-			g.P()
+			renderCGONativeServerCallbackTrampoline(g, nativeCGOServerClientStreamStartTrampolineName(service, method), nativeCABIPlanOperation(methodABI[method.FullName], NativeCOperationStart))
+			renderCGONativeServerCallbackTrampoline(g, nativeCGOServerClientStreamSendTrampolineName(service, method), nativeCABIPlanOperation(methodABI[method.FullName], NativeCOperationSend))
+			renderCGONativeServerCallbackTrampoline(g, nativeCGOServerClientStreamFinishTrampolineName(service, method), nativeCABIPlanOperation(methodABI[method.FullName], NativeCOperationFinish))
+			renderCGONativeServerCallbackTrampoline(g, nativeCGOServerClientStreamCancelTrampolineName(service, method), nativeCABIPlanOperation(methodABI[method.FullName], NativeCOperationCancel))
 		case StreamingKindServerStreaming:
-			g.P("static inline int32_t ", nativeCGOServerServerStreamStartTrampolineName(service, method), "(", nativeCGOServerServerStreamStartCallbackName(service, method), " callback", nativeCGOServerTypedParamSuffix(nativeCGOServerCInputParams(method.RenderShape.Conversion.MessageToNative.Native.Request)), ", int32_t* stream) {")
-			g.P("\treturn callback(", nativeCGOServerArgList(nativeCGOServerCInputArgNames(method.RenderShape.Conversion.MessageToNative.Native.Request), "stream"), ");")
-			g.P("}")
-			g.P()
-			g.P("static inline int32_t ", nativeCGOServerServerStreamRecvTrampolineName(service, method), "(", nativeCGOServerServerStreamRecvCallbackName(service, method), " callback, int32_t stream", nativeCGOServerTypedParamSuffix(nativeCGOServerCOutputParams(method.RenderShape.Conversion.MessageToNative.Native.Response)), ") {")
-			g.P("\treturn callback(stream", nativeCGOServerArgSuffix(nativeCGOServerCOutputArgNames(method.RenderShape.Conversion.MessageToNative.Native.Response)), ");")
-			g.P("}")
-			g.P()
-			g.P("static inline int32_t ", nativeCGOServerServerStreamDoneTrampolineName(service, method), "(", nativeCGOServerServerStreamDoneCallbackName(service, method), " callback, int32_t stream) {")
-			g.P("\treturn callback(stream);")
-			g.P("}")
-			g.P()
-			g.P("static inline int32_t ", nativeCGOServerServerStreamCancelTrampolineName(service, method), "(", nativeCGOServerServerStreamCancelCallbackName(service, method), " callback, int32_t stream) {")
-			g.P("\treturn callback(stream);")
-			g.P("}")
-			g.P()
+			renderCGONativeServerCallbackTrampoline(g, nativeCGOServerServerStreamStartTrampolineName(service, method), nativeCABIPlanOperation(methodABI[method.FullName], NativeCOperationStart))
+			renderCGONativeServerCallbackTrampoline(g, nativeCGOServerServerStreamRecvTrampolineName(service, method), nativeCABIPlanOperation(methodABI[method.FullName], NativeCOperationRecv))
+			renderCGONativeServerCallbackTrampoline(g, nativeCGOServerServerStreamDoneTrampolineName(service, method), nativeCABIPlanOperation(methodABI[method.FullName], NativeCOperationDone))
+			renderCGONativeServerCallbackTrampoline(g, nativeCGOServerServerStreamCancelTrampolineName(service, method), nativeCABIPlanOperation(methodABI[method.FullName], NativeCOperationCancel))
 		case StreamingKindBidiStreaming:
-			g.P("static inline int32_t ", nativeCGOServerBidiStreamStartTrampolineName(service, method), "(", nativeCGOServerBidiStreamStartCallbackName(service, method), " callback, int32_t* stream) {")
-			g.P("\treturn callback(stream);")
-			g.P("}")
-			g.P()
-			g.P("static inline int32_t ", nativeCGOServerBidiStreamSendTrampolineName(service, method), "(", nativeCGOServerBidiStreamSendCallbackName(service, method), " callback, int32_t stream", nativeCGOServerTypedParamSuffix(nativeCGOServerCInputParams(method.RenderShape.Conversion.MessageToNative.Native.Request)), ") {")
-			g.P("\treturn callback(stream", nativeCGOServerArgSuffix(nativeCGOServerCInputArgNames(method.RenderShape.Conversion.MessageToNative.Native.Request)), ");")
-			g.P("}")
-			g.P()
-			g.P("static inline int32_t ", nativeCGOServerBidiStreamRecvTrampolineName(service, method), "(", nativeCGOServerBidiStreamRecvCallbackName(service, method), " callback, int32_t stream", nativeCGOServerTypedParamSuffix(nativeCGOServerCOutputParams(method.RenderShape.Conversion.MessageToNative.Native.Response)), ") {")
-			g.P("\treturn callback(stream", nativeCGOServerArgSuffix(nativeCGOServerCOutputArgNames(method.RenderShape.Conversion.MessageToNative.Native.Response)), ");")
-			g.P("}")
-			g.P()
-			g.P("static inline int32_t ", nativeCGOServerBidiStreamCloseSendTrampolineName(service, method), "(", nativeCGOServerBidiStreamCloseSendCallbackName(service, method), " callback, int32_t stream) {")
-			g.P("\treturn callback(stream);")
-			g.P("}")
-			g.P()
-			g.P("static inline int32_t ", nativeCGOServerBidiStreamDoneTrampolineName(service, method), "(", nativeCGOServerBidiStreamDoneCallbackName(service, method), " callback, int32_t stream) {")
-			g.P("\treturn callback(stream);")
-			g.P("}")
-			g.P()
-			g.P("static inline int32_t ", nativeCGOServerBidiStreamCancelTrampolineName(service, method), "(", nativeCGOServerBidiStreamCancelCallbackName(service, method), " callback, int32_t stream) {")
-			g.P("\treturn callback(stream);")
-			g.P("}")
-			g.P()
+			renderCGONativeServerCallbackTrampoline(g, nativeCGOServerBidiStreamStartTrampolineName(service, method), nativeCABIPlanOperation(methodABI[method.FullName], NativeCOperationStart))
+			renderCGONativeServerCallbackTrampoline(g, nativeCGOServerBidiStreamSendTrampolineName(service, method), nativeCABIPlanOperation(methodABI[method.FullName], NativeCOperationSend))
+			renderCGONativeServerCallbackTrampoline(g, nativeCGOServerBidiStreamRecvTrampolineName(service, method), nativeCABIPlanOperation(methodABI[method.FullName], NativeCOperationRecv))
+			renderCGONativeServerCallbackTrampoline(g, nativeCGOServerBidiStreamCloseSendTrampolineName(service, method), nativeCABIPlanOperation(methodABI[method.FullName], NativeCOperationCloseSend))
+			renderCGONativeServerCallbackTrampoline(g, nativeCGOServerBidiStreamDoneTrampolineName(service, method), nativeCABIPlanOperation(methodABI[method.FullName], NativeCOperationDone))
+			renderCGONativeServerCallbackTrampoline(g, nativeCGOServerBidiStreamCancelTrampolineName(service, method), nativeCABIPlanOperation(methodABI[method.FullName], NativeCOperationCancel))
 		}
 	}
 	g.P("*/")
+}
+
+func renderCGONativeServerCallbackTypedefs(g *protogen.GeneratedFile, method MethodNativeCABIPlan, operations ...NativeCOperation) {
+	for _, operation := range operations {
+		abi := nativeCABIPlanOperation(method, operation)
+		g.P("typedef int32_t (*", abi.TypeName, ")(", nativeCABIParamList(abi.Params), ");")
+	}
+}
+
+func renderCGONativeServerCallbackTrampoline(g *protogen.GeneratedFile, name string, abi COperationABI) {
+	g.P("static inline int32_t ", name, "(", abi.TypeName, " callback", nativeCGOServerTypedParamSuffix(nativeCABIParamListValues(abi.Params)), ") {")
+	g.P("\treturn callback(", nativeCABIArgNames(abi.Params), ");")
+	g.P("}")
+	g.P()
+}
+
+func nativeCABIPlanByMethod(plan NativeCABIPlan) map[string]MethodNativeCABIPlan {
+	byMethod := make(map[string]MethodNativeCABIPlan, len(plan.Methods))
+	for _, method := range plan.Methods {
+		byMethod[method.MethodFullName] = method
+	}
+	return byMethod
+}
+
+func nativeCABIPlanOperation(method MethodNativeCABIPlan, operation NativeCOperation) COperationABI {
+	for _, current := range method.Operations {
+		if current.Operation == operation {
+			return current
+		}
+	}
+	return COperationABI{}
+}
+
+func nativeCABIParamList(params []CABISlot) string {
+	return strings.Join(nativeCABIParamListValues(params), ", ")
+}
+
+func nativeCABIParamListValues(params []CABISlot) []string {
+	values := make([]string, 0, len(params))
+	for _, param := range params {
+		values = append(values, nativeCABIParamDecl(param))
+	}
+	return values
+}
+
+func nativeCABIParamDecl(param CABISlot) string {
+	if ctype, ok := strings.CutSuffix(param.CType, "*"); ok {
+		return ctype + " *" + param.Name
+	}
+	return param.CType + " " + param.Name
+}
+
+func nativeCABIArgNames(params []CABISlot) string {
+	args := make([]string, 0, len(params))
+	for _, param := range params {
+		args = append(args, param.Name)
+	}
+	return strings.Join(args, ", ")
+}
+
+func nativeCABIRegisterParamList(params []CABISlot) string {
+	values := make([]string, 0, len(params))
+	for _, param := range params {
+		values = append(values, param.Name+" C."+param.CType)
+	}
+	return strings.Join(values, ", ")
+}
+
+func nativeCABIRegisterCallbackParamNames(registerABI COperationABI, operations ...NativeCOperation) map[NativeCOperation]string {
+	names := make(map[NativeCOperation]string, len(operations))
+	for i, operation := range operations {
+		if i < len(registerABI.Params) {
+			names[operation] = registerABI.Params[i].Name
+		}
+	}
+	return names
 }
 
 func nativeCGOServerCInputParams(fields []FieldPlan) []string {
@@ -200,9 +228,9 @@ func nativeCGOServerCFieldParams(field FieldPlan, output bool) []string {
 		return []string{"uintptr_t " + ptr + nativeCGOServerCParamName(field.GoName+"Ptr", output), "int32_t " + ptr + nativeCGOServerCParamName(field.GoName+"Len", output), "int32_t " + ptr + nativeCGOServerCParamName(field.GoName+"Ownership", output)}
 	case NativeABIShapeScalar, NativeABIShapeMessageBytes:
 		switch field.Kind {
-		case FieldKindSignedInt32, FieldKindEnum:
+		case FieldKindSignedInt32, FieldKindUnsignedInt32, FieldKindEnum:
 			return []string{"int32_t " + ptr + nativeCGOServerCParamName(field.GoName, output)}
-		case FieldKindSignedInt64:
+		case FieldKindSignedInt64, FieldKindUnsignedInt64:
 			return []string{"int64_t " + ptr + nativeCGOServerCParamName(field.GoName, output)}
 		case FieldKindFloat:
 			return []string{"float " + ptr + nativeCGOServerCParamName(field.GoName, output)}
@@ -343,6 +371,54 @@ func nativeCGOServerGoUnaryCallArgs(requestFields, responseFields []FieldPlan) s
 	return strings.Join(args, ", ")
 }
 
+func nativeCGOServerGoABIArgs(params []CABISlot, handleArg string) []string {
+	args := make([]string, 0, len(params))
+	for _, param := range params {
+		args = append(args, nativeCGOServerGoABIArg(param, handleArg))
+	}
+	return args
+}
+
+func nativeCGOServerGoABIArg(param CABISlot, handleArg string) string {
+	if param.Role == CABISlotRoleHandle {
+		return handleArg
+	}
+	if param.Source == nil {
+		return param.Name
+	}
+	fieldName := param.Source.GoName
+	output := strings.HasPrefix(param.Name, "out"+fieldName)
+	base := fieldName
+	localBase := lowerInitial(fieldName)
+	if output {
+		base = "out" + fieldName
+		localBase = base
+	}
+	suffix := strings.TrimPrefix(param.Name, base)
+	if suffix == "" {
+		suffix = "Value"
+	}
+	arg := localBase + suffix
+	if output {
+		return "&" + arg
+	}
+	return arg
+}
+
+func nativeCGOServerGoABICallSuffix(params []CABISlot, handleArg string) string {
+	return nativeCGOServerGoCallSuffix(nativeCGOServerGoABIArgs(params, handleArg))
+}
+
+func nativeCGOServerGoABIArgList(params []CABISlot, handleArg string) string {
+	return strings.Join(nativeCGOServerGoABIArgs(params, handleArg), ", ")
+}
+
+func nativeCGOServerOperationABI(service ServicePlan, method MethodPlan, operation NativeCOperation) COperationABI {
+	abiPlan, _ := BuildNativeCABIPlan(FilePlan{}, service)
+	methodABI := nativeCABIPlanByMethod(abiPlan)
+	return nativeCABIPlanOperation(methodABI[method.FullName], operation)
+}
+
 func nativeCGOServerGoFieldTypes(fields []FieldPlan) []string {
 	types := make([]string, 0, len(fields)*3)
 	for _, field := range fields {
@@ -359,9 +435,9 @@ func nativeCGOServerGoFieldType(field FieldPlan) []string {
 		return []string{"C.uintptr_t", "C.int32_t", "C.int32_t"}
 	case NativeABIShapeScalar, NativeABIShapeMessageBytes:
 		switch field.Kind {
-		case FieldKindSignedInt32, FieldKindEnum:
+		case FieldKindSignedInt32, FieldKindUnsignedInt32, FieldKindEnum:
 			return []string{"C.int32_t"}
-		case FieldKindSignedInt64:
+		case FieldKindSignedInt64, FieldKindUnsignedInt64:
 			return []string{"C.int64_t"}
 		case FieldKindFloat:
 			return []string{"C.float"}
@@ -541,27 +617,32 @@ func renderCGONativeServerAdapter(g *protogen.GeneratedFile, service ServicePlan
 }
 
 func renderCGONativeServerAdapterFields(g *protogen.GeneratedFile, service ServicePlan) {
+	abiPlan, _ := BuildNativeCABIPlan(FilePlan{}, service)
+	methodABI := nativeCABIPlanByMethod(abiPlan)
+	callbackTypeName := func(method MethodPlan, operation NativeCOperation) string {
+		return nativeCABIPlanOperation(methodABI[method.FullName], operation).TypeName
+	}
 	for _, method := range service.Methods {
 		switch method.Streaming {
 		case StreamingKindUnary:
-			g.P(method.GoName, "Callback C.", nativeCGOServerCallbackName(service, method))
+			g.P(method.GoName, "Callback C.", callbackTypeName(method, NativeCOperationUnary))
 		case StreamingKindClientStreaming:
-			g.P(method.GoName, "Start C.", nativeCGOServerClientStreamStartCallbackName(service, method))
-			g.P(method.GoName, "Send C.", nativeCGOServerClientStreamSendCallbackName(service, method))
-			g.P(method.GoName, "Finish C.", nativeCGOServerClientStreamFinishCallbackName(service, method))
-			g.P(method.GoName, "Cancel C.", nativeCGOServerClientStreamCancelCallbackName(service, method))
+			g.P(method.GoName, "Start C.", callbackTypeName(method, NativeCOperationStart))
+			g.P(method.GoName, "Send C.", callbackTypeName(method, NativeCOperationSend))
+			g.P(method.GoName, "Finish C.", callbackTypeName(method, NativeCOperationFinish))
+			g.P(method.GoName, "Cancel C.", callbackTypeName(method, NativeCOperationCancel))
 		case StreamingKindServerStreaming:
-			g.P(method.GoName, "Start C.", nativeCGOServerServerStreamStartCallbackName(service, method))
-			g.P(method.GoName, "Recv C.", nativeCGOServerServerStreamRecvCallbackName(service, method))
-			g.P(method.GoName, "Done C.", nativeCGOServerServerStreamDoneCallbackName(service, method))
-			g.P(method.GoName, "Cancel C.", nativeCGOServerServerStreamCancelCallbackName(service, method))
+			g.P(method.GoName, "Start C.", callbackTypeName(method, NativeCOperationStart))
+			g.P(method.GoName, "Recv C.", callbackTypeName(method, NativeCOperationRecv))
+			g.P(method.GoName, "Done C.", callbackTypeName(method, NativeCOperationDone))
+			g.P(method.GoName, "Cancel C.", callbackTypeName(method, NativeCOperationCancel))
 		case StreamingKindBidiStreaming:
-			g.P(method.GoName, "Start C.", nativeCGOServerBidiStreamStartCallbackName(service, method))
-			g.P(method.GoName, "Send C.", nativeCGOServerBidiStreamSendCallbackName(service, method))
-			g.P(method.GoName, "Recv C.", nativeCGOServerBidiStreamRecvCallbackName(service, method))
-			g.P(method.GoName, "CloseSend C.", nativeCGOServerBidiStreamCloseSendCallbackName(service, method))
-			g.P(method.GoName, "Done C.", nativeCGOServerBidiStreamDoneCallbackName(service, method))
-			g.P(method.GoName, "Cancel C.", nativeCGOServerBidiStreamCancelCallbackName(service, method))
+			g.P(method.GoName, "Start C.", callbackTypeName(method, NativeCOperationStart))
+			g.P(method.GoName, "Send C.", callbackTypeName(method, NativeCOperationSend))
+			g.P(method.GoName, "Recv C.", callbackTypeName(method, NativeCOperationRecv))
+			g.P(method.GoName, "CloseSend C.", callbackTypeName(method, NativeCOperationCloseSend))
+			g.P(method.GoName, "Done C.", callbackTypeName(method, NativeCOperationDone))
+			g.P(method.GoName, "Cancel C.", callbackTypeName(method, NativeCOperationCancel))
 		}
 	}
 }
@@ -581,7 +662,8 @@ func renderCGONativeServerUnaryAdapter(g *protogen.GeneratedFile, service Servic
 	g.P("}")
 	g.P("defer cleanup()")
 	renderCGONativeServerResponseLocals(g, method.RenderShape.Conversion.MessageToNative.Native.Response)
-	g.P("errID := int32(C.", nativeCGOServerTrampolineName(service, method), "(callback, ", nativeCGOServerGoUnaryCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Request, method.RenderShape.Conversion.MessageToNative.Native.Response), "))")
+	unaryABI := nativeCGOServerOperationABI(service, method, NativeCOperationUnary)
+	g.P("errID := int32(C.", nativeCGOServerTrampolineName(service, method), "(callback, ", nativeCGOServerGoABIArgList(unaryABI.Params, ""), "))")
 	g.P("if errID != 0 {")
 	g.P("cleanupErr := ", nativeCGOServerResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
 	g.P("callbackErr := ", nativeCGOServerErrorIDHelperName(service), "(errID)")
@@ -625,7 +707,8 @@ func renderCGONativeServerClientStreamAdapter(g *protogen.GeneratedFile, service
 	g.P("return nil, ", errorNames.StreamNotImplemented)
 	g.P("}")
 	g.P("var stream C.int32_t")
-	g.P("errID := int32(C.", nativeCGOServerClientStreamStartTrampolineName(service, method), "(a.", method.GoName, "Start, &stream))")
+	startABI := nativeCGOServerOperationABI(service, method, NativeCOperationStart)
+	g.P("errID := int32(C.", nativeCGOServerClientStreamStartTrampolineName(service, method), "(a.", method.GoName, "Start", nativeCGOServerGoABICallSuffix(startABI.Params, "&stream"), "))")
 	g.P("if errID != 0 {")
 	g.P("return nil, ", nativeCGOServerErrorIDHelperName(service), "(errID)")
 	g.P("}")
@@ -633,10 +716,13 @@ func renderCGONativeServerClientStreamAdapter(g *protogen.GeneratedFile, service
 	g.P("}")
 	g.P()
 
+	sendABI := nativeCGOServerOperationABI(service, method, NativeCOperationSend)
+	finishABI := nativeCGOServerOperationABI(service, method, NativeCOperationFinish)
+	cancelABI := nativeCGOServerOperationABI(service, method, NativeCOperationCancel)
 	g.P("type ", lowerInitial(service.GoName), method.GoName, "CGONativeClientStreamSession struct {")
-	g.P("send C.", nativeCGOServerClientStreamSendCallbackName(service, method))
-	g.P("finish C.", nativeCGOServerClientStreamFinishCallbackName(service, method))
-	g.P("cancel C.", nativeCGOServerClientStreamCancelCallbackName(service, method))
+	g.P("send C.", sendABI.TypeName)
+	g.P("finish C.", finishABI.TypeName)
+	g.P("cancel C.", cancelABI.TypeName)
 	g.P("stream C.int32_t")
 	g.P("}")
 	g.P()
@@ -653,7 +739,8 @@ func renderCGONativeServerClientStreamSend(g *protogen.GeneratedFile, service Se
 	g.P("return err")
 	g.P("}")
 	g.P("defer cleanup()")
-	g.P("errID := int32(C.", nativeCGOServerClientStreamSendTrampolineName(service, method), "(s.send, s.stream", nativeCGOServerGoCallSuffix(nativeCGOServerGoInputCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Request)), "))")
+	sendABI := nativeCGOServerOperationABI(service, method, NativeCOperationSend)
+	g.P("errID := int32(C.", nativeCGOServerClientStreamSendTrampolineName(service, method), "(s.send", nativeCGOServerGoABICallSuffix(sendABI.Params, "s.stream"), "))")
 	g.P("if errID != 0 {")
 	g.P("return ", nativeCGOServerErrorIDHelperName(service), "(errID)")
 	g.P("}")
@@ -666,7 +753,8 @@ func renderCGONativeServerClientStreamFinish(g *protogen.GeneratedFile, service 
 	receiver := lowerInitial(service.GoName) + method.GoName + "CGONativeClientStreamSession"
 	g.P("func (s *", receiver, ") Finish(ctx context.Context) (", nativeGoResponseReturns(g, method.RenderShape.Conversion.MessageToNative.Native.Response), ") {")
 	renderCGONativeServerResponseLocals(g, method.RenderShape.Conversion.MessageToNative.Native.Response)
-	g.P("errID := int32(C.", nativeCGOServerClientStreamFinishTrampolineName(service, method), "(s.finish, s.stream", nativeCGOServerGoCallSuffix(nativeCGOServerGoOutputCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Response)), "))")
+	finishABI := nativeCGOServerOperationABI(service, method, NativeCOperationFinish)
+	g.P("errID := int32(C.", nativeCGOServerClientStreamFinishTrampolineName(service, method), "(s.finish", nativeCGOServerGoABICallSuffix(finishABI.Params, "s.stream"), "))")
 	g.P("if errID != 0 {")
 	g.P("cleanupErr := ", nativeCGOServerClientStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
 	g.P("callbackErr := ", nativeCGOServerErrorIDHelperName(service), "(errID)")
@@ -703,7 +791,8 @@ func renderCGONativeServerClientStreamFinish(g *protogen.GeneratedFile, service 
 func renderCGONativeServerClientStreamCancel(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	receiver := lowerInitial(service.GoName) + method.GoName + "CGONativeClientStreamSession"
 	g.P("func (s *", receiver, ") Cancel(ctx context.Context) error {")
-	g.P("errID := int32(C.", nativeCGOServerClientStreamCancelTrampolineName(service, method), "(s.cancel, s.stream))")
+	cancelABI := nativeCGOServerOperationABI(service, method, NativeCOperationCancel)
+	g.P("errID := int32(C.", nativeCGOServerClientStreamCancelTrampolineName(service, method), "(s.cancel", nativeCGOServerGoABICallSuffix(cancelABI.Params, "s.stream"), "))")
 	g.P("if errID != 0 {")
 	g.P("return ", nativeCGOServerErrorIDHelperName(service), "(errID)")
 	g.P("}")
@@ -727,7 +816,8 @@ func renderCGONativeServerServerStreamAdapter(g *protogen.GeneratedFile, service
 	g.P("}")
 	g.P("defer cleanup()")
 	g.P("var stream C.int32_t")
-	g.P("errID := int32(C.", nativeCGOServerServerStreamStartTrampolineName(service, method), "(a.", method.GoName, "Start", nativeCGOServerGoCallSuffix(nativeCGOServerGoInputCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Request)), ", &stream))")
+	startABI := nativeCGOServerOperationABI(service, method, NativeCOperationStart)
+	g.P("errID := int32(C.", nativeCGOServerServerStreamStartTrampolineName(service, method), "(a.", method.GoName, "Start", nativeCGOServerGoABICallSuffix(startABI.Params, "&stream"), "))")
 	g.P("if errID != 0 {")
 	g.P("return nil, ", nativeCGOServerErrorIDHelperName(service), "(errID)")
 	g.P("}")
@@ -735,10 +825,13 @@ func renderCGONativeServerServerStreamAdapter(g *protogen.GeneratedFile, service
 	g.P("}")
 	g.P()
 
+	recvABI := nativeCGOServerOperationABI(service, method, NativeCOperationRecv)
+	doneABI := nativeCGOServerOperationABI(service, method, NativeCOperationDone)
+	cancelABI := nativeCGOServerOperationABI(service, method, NativeCOperationCancel)
 	g.P("type ", lowerInitial(service.GoName), method.GoName, "CGONativeServerStreamSession struct {")
-	g.P("recv C.", nativeCGOServerServerStreamRecvCallbackName(service, method))
-	g.P("done C.", nativeCGOServerServerStreamDoneCallbackName(service, method))
-	g.P("cancel C.", nativeCGOServerServerStreamCancelCallbackName(service, method))
+	g.P("recv C.", recvABI.TypeName)
+	g.P("done C.", doneABI.TypeName)
+	g.P("cancel C.", cancelABI.TypeName)
 	g.P("stream C.int32_t")
 	g.P("}")
 	g.P()
@@ -751,7 +844,8 @@ func renderCGONativeServerServerStreamRecv(g *protogen.GeneratedFile, service Se
 	receiver := lowerInitial(service.GoName) + method.GoName + "CGONativeServerStreamSession"
 	g.P("func (s *", receiver, ") Recv(ctx context.Context) (", nativeGoResponseReturns(g, method.RenderShape.Conversion.MessageToNative.Native.Response), ") {")
 	renderCGONativeServerResponseLocals(g, method.RenderShape.Conversion.MessageToNative.Native.Response)
-	g.P("errID := int32(C.", nativeCGOServerServerStreamRecvTrampolineName(service, method), "(s.recv, s.stream", nativeCGOServerGoCallSuffix(nativeCGOServerGoOutputCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Response)), "))")
+	recvABI := nativeCGOServerOperationABI(service, method, NativeCOperationRecv)
+	g.P("errID := int32(C.", nativeCGOServerServerStreamRecvTrampolineName(service, method), "(s.recv", nativeCGOServerGoABICallSuffix(recvABI.Params, "s.stream"), "))")
 	g.P("if errID != 0 {")
 	g.P("cleanupErr := ", nativeCGOServerServerStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
 	g.P("callbackErr := ", nativeCGOServerErrorIDHelperName(service), "(errID)")
@@ -788,7 +882,8 @@ func renderCGONativeServerServerStreamRecv(g *protogen.GeneratedFile, service Se
 func renderCGONativeServerServerStreamDone(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	receiver := lowerInitial(service.GoName) + method.GoName + "CGONativeServerStreamSession"
 	g.P("func (s *", receiver, ") Done(ctx context.Context) error {")
-	g.P("errID := int32(C.", nativeCGOServerServerStreamDoneTrampolineName(service, method), "(s.done, s.stream))")
+	doneABI := nativeCGOServerOperationABI(service, method, NativeCOperationDone)
+	g.P("errID := int32(C.", nativeCGOServerServerStreamDoneTrampolineName(service, method), "(s.done", nativeCGOServerGoABICallSuffix(doneABI.Params, "s.stream"), "))")
 	g.P("if errID != 0 {")
 	g.P("return ", nativeCGOServerErrorIDHelperName(service), "(errID)")
 	g.P("}")
@@ -800,7 +895,8 @@ func renderCGONativeServerServerStreamDone(g *protogen.GeneratedFile, service Se
 func renderCGONativeServerServerStreamCancel(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	receiver := lowerInitial(service.GoName) + method.GoName + "CGONativeServerStreamSession"
 	g.P("func (s *", receiver, ") Cancel(ctx context.Context) error {")
-	g.P("errID := int32(C.", nativeCGOServerServerStreamCancelTrampolineName(service, method), "(s.cancel, s.stream))")
+	cancelABI := nativeCGOServerOperationABI(service, method, NativeCOperationCancel)
+	g.P("errID := int32(C.", nativeCGOServerServerStreamCancelTrampolineName(service, method), "(s.cancel", nativeCGOServerGoABICallSuffix(cancelABI.Params, "s.stream"), "))")
 	g.P("if errID != 0 {")
 	g.P("return ", nativeCGOServerErrorIDHelperName(service), "(errID)")
 	g.P("}")
@@ -819,7 +915,8 @@ func renderCGONativeServerBidiStreamAdapter(g *protogen.GeneratedFile, service S
 	g.P("return nil, ", errorNames.StreamNotImplemented)
 	g.P("}")
 	g.P("var stream C.int32_t")
-	g.P("errID := int32(C.", nativeCGOServerBidiStreamStartTrampolineName(service, method), "(a.", method.GoName, "Start, &stream))")
+	startABI := nativeCGOServerOperationABI(service, method, NativeCOperationStart)
+	g.P("errID := int32(C.", nativeCGOServerBidiStreamStartTrampolineName(service, method), "(a.", method.GoName, "Start", nativeCGOServerGoABICallSuffix(startABI.Params, "&stream"), "))")
 	g.P("if errID != 0 {")
 	g.P("return nil, ", nativeCGOServerErrorIDHelperName(service), "(errID)")
 	g.P("}")
@@ -827,12 +924,17 @@ func renderCGONativeServerBidiStreamAdapter(g *protogen.GeneratedFile, service S
 	g.P("}")
 	g.P()
 
+	sendABI := nativeCGOServerOperationABI(service, method, NativeCOperationSend)
+	recvABI := nativeCGOServerOperationABI(service, method, NativeCOperationRecv)
+	closeSendABI := nativeCGOServerOperationABI(service, method, NativeCOperationCloseSend)
+	doneABI := nativeCGOServerOperationABI(service, method, NativeCOperationDone)
+	cancelABI := nativeCGOServerOperationABI(service, method, NativeCOperationCancel)
 	g.P("type ", lowerInitial(service.GoName), method.GoName, "CGONativeBidiStreamSession struct {")
-	g.P("send C.", nativeCGOServerBidiStreamSendCallbackName(service, method))
-	g.P("recv C.", nativeCGOServerBidiStreamRecvCallbackName(service, method))
-	g.P("closeSend C.", nativeCGOServerBidiStreamCloseSendCallbackName(service, method))
-	g.P("done C.", nativeCGOServerBidiStreamDoneCallbackName(service, method))
-	g.P("cancel C.", nativeCGOServerBidiStreamCancelCallbackName(service, method))
+	g.P("send C.", sendABI.TypeName)
+	g.P("recv C.", recvABI.TypeName)
+	g.P("closeSend C.", closeSendABI.TypeName)
+	g.P("done C.", doneABI.TypeName)
+	g.P("cancel C.", cancelABI.TypeName)
 	g.P("stream C.int32_t")
 	g.P("}")
 	g.P()
@@ -851,7 +953,8 @@ func renderCGONativeServerBidiStreamSend(g *protogen.GeneratedFile, service Serv
 	g.P("return err")
 	g.P("}")
 	g.P("defer cleanup()")
-	g.P("errID := int32(C.", nativeCGOServerBidiStreamSendTrampolineName(service, method), "(s.send, s.stream", nativeCGOServerGoCallSuffix(nativeCGOServerGoInputCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Request)), "))")
+	sendABI := nativeCGOServerOperationABI(service, method, NativeCOperationSend)
+	g.P("errID := int32(C.", nativeCGOServerBidiStreamSendTrampolineName(service, method), "(s.send", nativeCGOServerGoABICallSuffix(sendABI.Params, "s.stream"), "))")
 	g.P("if errID != 0 {")
 	g.P("return ", nativeCGOServerErrorIDHelperName(service), "(errID)")
 	g.P("}")
@@ -864,7 +967,8 @@ func renderCGONativeServerBidiStreamRecv(g *protogen.GeneratedFile, service Serv
 	receiver := lowerInitial(service.GoName) + method.GoName + "CGONativeBidiStreamSession"
 	g.P("func (s *", receiver, ") Recv(ctx context.Context) (", nativeGoResponseReturns(g, method.RenderShape.Conversion.MessageToNative.Native.Response), ") {")
 	renderCGONativeServerResponseLocals(g, method.RenderShape.Conversion.MessageToNative.Native.Response)
-	g.P("errID := int32(C.", nativeCGOServerBidiStreamRecvTrampolineName(service, method), "(s.recv, s.stream", nativeCGOServerGoCallSuffix(nativeCGOServerGoOutputCallArgs(method.RenderShape.Conversion.MessageToNative.Native.Response)), "))")
+	recvABI := nativeCGOServerOperationABI(service, method, NativeCOperationRecv)
+	g.P("errID := int32(C.", nativeCGOServerBidiStreamRecvTrampolineName(service, method), "(s.recv", nativeCGOServerGoABICallSuffix(recvABI.Params, "s.stream"), "))")
 	g.P("if errID != 0 {")
 	g.P("cleanupErr := ", nativeCGOServerBidiStreamResponseCleanupName(service, method), "(", nativeCGOServerFlatOutputValueArgs(method.RenderShape.Conversion.MessageToNative.Native.Response), ")")
 	g.P("callbackErr := ", nativeCGOServerErrorIDHelperName(service), "(errID)")
@@ -901,7 +1005,8 @@ func renderCGONativeServerBidiStreamRecv(g *protogen.GeneratedFile, service Serv
 func renderCGONativeServerBidiStreamCloseSend(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	receiver := lowerInitial(service.GoName) + method.GoName + "CGONativeBidiStreamSession"
 	g.P("func (s *", receiver, ") CloseSend(ctx context.Context) error {")
-	g.P("errID := int32(C.", nativeCGOServerBidiStreamCloseSendTrampolineName(service, method), "(s.closeSend, s.stream))")
+	closeSendABI := nativeCGOServerOperationABI(service, method, NativeCOperationCloseSend)
+	g.P("errID := int32(C.", nativeCGOServerBidiStreamCloseSendTrampolineName(service, method), "(s.closeSend", nativeCGOServerGoABICallSuffix(closeSendABI.Params, "s.stream"), "))")
 	g.P("if errID != 0 {")
 	g.P("return ", nativeCGOServerErrorIDHelperName(service), "(errID)")
 	g.P("}")
@@ -913,7 +1018,8 @@ func renderCGONativeServerBidiStreamCloseSend(g *protogen.GeneratedFile, service
 func renderCGONativeServerBidiStreamDone(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	receiver := lowerInitial(service.GoName) + method.GoName + "CGONativeBidiStreamSession"
 	g.P("func (s *", receiver, ") Done(ctx context.Context) error {")
-	g.P("errID := int32(C.", nativeCGOServerBidiStreamDoneTrampolineName(service, method), "(s.done, s.stream))")
+	doneABI := nativeCGOServerOperationABI(service, method, NativeCOperationDone)
+	g.P("errID := int32(C.", nativeCGOServerBidiStreamDoneTrampolineName(service, method), "(s.done", nativeCGOServerGoABICallSuffix(doneABI.Params, "s.stream"), "))")
 	g.P("if errID != 0 {")
 	g.P("return ", nativeCGOServerErrorIDHelperName(service), "(errID)")
 	g.P("}")
@@ -925,7 +1031,8 @@ func renderCGONativeServerBidiStreamDone(g *protogen.GeneratedFile, service Serv
 func renderCGONativeServerBidiStreamCancel(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	receiver := lowerInitial(service.GoName) + method.GoName + "CGONativeBidiStreamSession"
 	g.P("func (s *", receiver, ") Cancel(ctx context.Context) error {")
-	g.P("errID := int32(C.", nativeCGOServerBidiStreamCancelTrampolineName(service, method), "(s.cancel, s.stream))")
+	cancelABI := nativeCGOServerOperationABI(service, method, NativeCOperationCancel)
+	g.P("errID := int32(C.", nativeCGOServerBidiStreamCancelTrampolineName(service, method), "(s.cancel", nativeCGOServerGoABICallSuffix(cancelABI.Params, "s.stream"), "))")
 	g.P("if errID != 0 {")
 	g.P("return ", nativeCGOServerErrorIDHelperName(service), "(errID)")
 	g.P("}")
@@ -1028,7 +1135,7 @@ func renderCGONativeServerRequestFieldEncode(g *protogen.GeneratedFile, fields [
 		g.P("return ", errorReturn)
 		g.P("}")
 		switch field.Kind {
-		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble:
+		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindUnsignedInt32, FieldKindUnsignedInt64, FieldKindFloat, FieldKindDouble:
 			g.P(name, "PtrValue, err := rpcruntime.PinSlice(", name, "Values)")
 		case FieldKindEnum:
 			g.P(name, "RawValues := make([]int32, len(", name, "Values))")
@@ -1053,7 +1160,7 @@ func renderCGONativeServerRequestFieldEncode(g *protogen.GeneratedFile, fields [
 		switch field.Kind {
 		case FieldKindSignedInt32:
 			g.P(name, "Value = C.int32_t(", name, ")")
-		case FieldKindSignedInt64:
+		case FieldKindSignedInt64, FieldKindUnsignedInt64:
 			g.P(name, "Value = C.int64_t(", name, ")")
 		case FieldKindFloat:
 			g.P(name, "Value = C.float(", name, ")")
@@ -1138,7 +1245,7 @@ func renderCGONativeServerResponseFieldDecode(g *protogen.GeneratedFile, fields 
 		case FieldKindSignedInt32:
 			renderCGONativeServerResponseRepeatDecode(g, field, name, "int32", "rpcruntime.NewRpcRepeatChecked", errReturn)
 			g.P(name, " := ", name, "Wrapper.SafeSlice()")
-		case FieldKindSignedInt64:
+		case FieldKindSignedInt64, FieldKindUnsignedInt64:
 			renderCGONativeServerResponseRepeatDecode(g, field, name, "int64", "rpcruntime.NewRpcRepeatChecked", errReturn)
 			g.P(name, " := ", name, "Wrapper.SafeSlice()")
 		case FieldKindFloat:
@@ -1161,7 +1268,7 @@ func renderCGONativeServerResponseFieldDecode(g *protogen.GeneratedFile, fields 
 		switch field.Kind {
 		case FieldKindSignedInt32:
 			g.P(name, " := int32(", fieldName, "Value)")
-		case FieldKindSignedInt64:
+		case FieldKindSignedInt64, FieldKindUnsignedInt64:
 			g.P(name, " := int64(", fieldName, "Value)")
 		case FieldKindFloat:
 			g.P(name, " := float32(", fieldName, "Value)")
@@ -1203,52 +1310,74 @@ func renderCGONativeServerResponseTextDecode(g *protogen.GeneratedFile, field Fi
 
 func renderCGONativeServerRegistration(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, errorNames nativeServerCGOErrorNames, servicePackage string) {
 	adapterName := lowerInitial(service.GoName) + "CGONativeServerAdapter"
+	abiPlan, _ := BuildNativeCABIPlan(plan, service)
+	methodABI := nativeCABIPlanByMethod(abiPlan)
 	for _, method := range service.Methods {
-		exportName := nativeCExportFuncName(plan, service, method, "register")
+		registerABI := nativeCABIPlanOperation(methodABI[method.FullName], NativeCOperationRegister)
+		exportName := registerABI.Symbol
 		switch method.Streaming {
 		case StreamingKindUnary:
+			callbackParams := nativeCABIRegisterCallbackParamNames(registerABI, NativeCOperationUnary)
+			callbackName := callbackParams[NativeCOperationUnary]
 			g.P("//export ", exportName)
-			g.P("func ", exportName, "(callback C.", nativeCGOServerCallbackName(service, method), ") C.int32_t {")
-			g.P("if callback == nil { return C.int32_t(rpcruntime.StoreError(", errorNames.UnaryCallbackMissing, ")) }")
+			g.P("func ", exportName, "(", nativeCABIRegisterParamList(registerABI.Params), ") C.int32_t {")
+			g.P("if ", callbackName, " == nil { return C.int32_t(rpcruntime.StoreError(", errorNames.UnaryCallbackMissing, ")) }")
 			g.P(adapterName, "Mu.Lock()")
 			g.P("defer ", adapterName, "Mu.Unlock()")
 			g.P("next := *", adapterName)
-			g.P("next.", method.GoName, "Callback = callback")
+			g.P("next.", method.GoName, "Callback = ", callbackName)
 		case StreamingKindClientStreaming:
+			callbackParams := nativeCABIRegisterCallbackParamNames(registerABI, NativeCOperationStart, NativeCOperationSend, NativeCOperationFinish, NativeCOperationCancel)
+			startName := callbackParams[NativeCOperationStart]
+			sendName := callbackParams[NativeCOperationSend]
+			finishName := callbackParams[NativeCOperationFinish]
+			cancelName := callbackParams[NativeCOperationCancel]
 			g.P("//export ", exportName)
-			g.P("func ", exportName, "(start C.", nativeCGOServerClientStreamStartCallbackName(service, method), ", send C.", nativeCGOServerClientStreamSendCallbackName(service, method), ", finish C.", nativeCGOServerClientStreamFinishCallbackName(service, method), ", cancel C.", nativeCGOServerClientStreamCancelCallbackName(service, method), ") C.int32_t {")
-			g.P("if start == nil || send == nil || finish == nil || cancel == nil { return C.int32_t(rpcruntime.StoreError(", errorNames.StreamNotImplemented, ")) }")
+			g.P("func ", exportName, "(", nativeCABIRegisterParamList(registerABI.Params), ") C.int32_t {")
+			g.P("if ", startName, " == nil || ", sendName, " == nil || ", finishName, " == nil || ", cancelName, " == nil { return C.int32_t(rpcruntime.StoreError(", errorNames.StreamNotImplemented, ")) }")
 			g.P(adapterName, "Mu.Lock()")
 			g.P("defer ", adapterName, "Mu.Unlock()")
 			g.P("next := *", adapterName)
-			g.P("next.", method.GoName, "Start = start")
-			g.P("next.", method.GoName, "Send = send")
-			g.P("next.", method.GoName, "Finish = finish")
-			g.P("next.", method.GoName, "Cancel = cancel")
+			g.P("next.", method.GoName, "Start = ", startName)
+			g.P("next.", method.GoName, "Send = ", sendName)
+			g.P("next.", method.GoName, "Finish = ", finishName)
+			g.P("next.", method.GoName, "Cancel = ", cancelName)
 		case StreamingKindServerStreaming:
+			callbackParams := nativeCABIRegisterCallbackParamNames(registerABI, NativeCOperationStart, NativeCOperationRecv, NativeCOperationDone, NativeCOperationCancel)
+			startName := callbackParams[NativeCOperationStart]
+			recvName := callbackParams[NativeCOperationRecv]
+			doneName := callbackParams[NativeCOperationDone]
+			cancelName := callbackParams[NativeCOperationCancel]
 			g.P("//export ", exportName)
-			g.P("func ", exportName, "(start C.", nativeCGOServerServerStreamStartCallbackName(service, method), ", recv C.", nativeCGOServerServerStreamRecvCallbackName(service, method), ", done C.", nativeCGOServerServerStreamDoneCallbackName(service, method), ", cancel C.", nativeCGOServerServerStreamCancelCallbackName(service, method), ") C.int32_t {")
-			g.P("if start == nil || recv == nil || done == nil || cancel == nil { return C.int32_t(rpcruntime.StoreError(", errorNames.StreamNotImplemented, ")) }")
+			g.P("func ", exportName, "(", nativeCABIRegisterParamList(registerABI.Params), ") C.int32_t {")
+			g.P("if ", startName, " == nil || ", recvName, " == nil || ", doneName, " == nil || ", cancelName, " == nil { return C.int32_t(rpcruntime.StoreError(", errorNames.StreamNotImplemented, ")) }")
 			g.P(adapterName, "Mu.Lock()")
 			g.P("defer ", adapterName, "Mu.Unlock()")
 			g.P("next := *", adapterName)
-			g.P("next.", method.GoName, "Start = start")
-			g.P("next.", method.GoName, "Recv = recv")
-			g.P("next.", method.GoName, "Done = done")
-			g.P("next.", method.GoName, "Cancel = cancel")
+			g.P("next.", method.GoName, "Start = ", startName)
+			g.P("next.", method.GoName, "Recv = ", recvName)
+			g.P("next.", method.GoName, "Done = ", doneName)
+			g.P("next.", method.GoName, "Cancel = ", cancelName)
 		case StreamingKindBidiStreaming:
+			callbackParams := nativeCABIRegisterCallbackParamNames(registerABI, NativeCOperationStart, NativeCOperationSend, NativeCOperationRecv, NativeCOperationCloseSend, NativeCOperationDone, NativeCOperationCancel)
+			startName := callbackParams[NativeCOperationStart]
+			sendName := callbackParams[NativeCOperationSend]
+			recvName := callbackParams[NativeCOperationRecv]
+			closeSendName := callbackParams[NativeCOperationCloseSend]
+			doneName := callbackParams[NativeCOperationDone]
+			cancelName := callbackParams[NativeCOperationCancel]
 			g.P("//export ", exportName)
-			g.P("func ", exportName, "(start C.", nativeCGOServerBidiStreamStartCallbackName(service, method), ", send C.", nativeCGOServerBidiStreamSendCallbackName(service, method), ", recv C.", nativeCGOServerBidiStreamRecvCallbackName(service, method), ", closeSend C.", nativeCGOServerBidiStreamCloseSendCallbackName(service, method), ", done C.", nativeCGOServerBidiStreamDoneCallbackName(service, method), ", cancel C.", nativeCGOServerBidiStreamCancelCallbackName(service, method), ") C.int32_t {")
-			g.P("if start == nil || send == nil || recv == nil || closeSend == nil || done == nil || cancel == nil { return C.int32_t(rpcruntime.StoreError(", errorNames.StreamNotImplemented, ")) }")
+			g.P("func ", exportName, "(", nativeCABIRegisterParamList(registerABI.Params), ") C.int32_t {")
+			g.P("if ", startName, " == nil || ", sendName, " == nil || ", recvName, " == nil || ", closeSendName, " == nil || ", doneName, " == nil || ", cancelName, " == nil { return C.int32_t(rpcruntime.StoreError(", errorNames.StreamNotImplemented, ")) }")
 			g.P(adapterName, "Mu.Lock()")
 			g.P("defer ", adapterName, "Mu.Unlock()")
 			g.P("next := *", adapterName)
-			g.P("next.", method.GoName, "Start = start")
-			g.P("next.", method.GoName, "Send = send")
-			g.P("next.", method.GoName, "Recv = recv")
-			g.P("next.", method.GoName, "CloseSend = closeSend")
-			g.P("next.", method.GoName, "Done = done")
-			g.P("next.", method.GoName, "Cancel = cancel")
+			g.P("next.", method.GoName, "Start = ", startName)
+			g.P("next.", method.GoName, "Send = ", sendName)
+			g.P("next.", method.GoName, "Recv = ", recvName)
+			g.P("next.", method.GoName, "CloseSend = ", closeSendName)
+			g.P("next.", method.GoName, "Done = ", doneName)
+			g.P("next.", method.GoName, "Cancel = ", cancelName)
 		}
 		g.P("nextAdapter := &next")
 		g.P("_, err := ", servicePackage, "Register", service.GoName, "CGONativeActiveServer(rpcruntime.ServerKindCGONative, nextAdapter)")

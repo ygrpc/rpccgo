@@ -12,25 +12,25 @@ type MethodRenderPlan struct {
 }
 
 type CallPathPlan struct {
-	NativeUnary  CallPathRoutePlan
-	MessageUnary CallPathRoutePlan
-	NativeStream CallPathRoutePlan
+	NativeUnary   CallPathRoutePlan
+	MessageUnary  CallPathRoutePlan
+	NativeStream  CallPathRoutePlan
 	MessageStream CallPathRoutePlan
 }
 
 type CallPathRoutePlan struct {
-	RouteKind                  CallPathRouteKind
-	NeedsCodec                 bool
-	NeedsNativeConversion      bool
-	NeedsMessageConversion     bool
-	NeedsMissingAdapterGuard   bool
-	NeedsUnknownContractGuard  bool
-	NativeAdapterMethod        string
-	MessageAdapterMethod       string
-	NativeSessionMethod        string
-	MessageSessionMethod       string
-	NativeWrapperType          string
-	MessageWrapperType         string
+	RouteKind                 CallPathRouteKind
+	NeedsCodec                bool
+	NeedsNativeConversion     bool
+	NeedsMessageConversion    bool
+	NeedsMissingAdapterGuard  bool
+	NeedsUnknownContractGuard bool
+	NativeAdapterMethod       string
+	MessageAdapterMethod      string
+	NativeSessionMethod       string
+	MessageSessionMethod      string
+	NativeWrapperType         string
+	MessageWrapperType        string
 }
 
 type CallPathRouteKind string
@@ -49,10 +49,10 @@ type SessionRenderPlan struct {
 type SessionKind string
 
 const (
-	SessionKindNone           SessionKind = "none"
-	SessionKindClient         SessionKind = "client_streaming"
-	SessionKindServer         SessionKind = "server_streaming"
-	SessionKindBidi           SessionKind = "bidi_streaming"
+	SessionKindNone   SessionKind = "none"
+	SessionKindClient SessionKind = "client_streaming"
+	SessionKindServer SessionKind = "server_streaming"
+	SessionKindBidi   SessionKind = "bidi_streaming"
 )
 
 type SessionOperationPlan struct {
@@ -82,20 +82,20 @@ type MethodIOShapePlan struct {
 }
 
 type TerminalRenderPlan struct {
-	Kind                   TerminalKind
-	Operation              SessionOperationKind
-	ReleasesHandle         bool
+	Kind                    TerminalKind
+	Operation               SessionOperationKind
+	ReleasesHandle          bool
 	RequiresResponseConvert bool
-	AllowsCancel           bool
-	AllowsCloseSend        bool
+	AllowsCancel            bool
+	AllowsCloseSend         bool
 }
 
 type TerminalKind string
 
 const (
-	TerminalKindUnset     TerminalKind = "unset"
-	TerminalKindFinish    TerminalKind = "finish"
-	TerminalKindDone      TerminalKind = "done"
+	TerminalKindUnset  TerminalKind = "unset"
+	TerminalKindFinish TerminalKind = "finish"
+	TerminalKindDone   TerminalKind = "done"
 )
 
 type ConversionRenderPlan struct {
@@ -104,11 +104,11 @@ type ConversionRenderPlan struct {
 }
 
 type ConversionShapePlan struct {
-	Kind     ConversionKind
+	Kind      ConversionKind
 	Direction ConversionDirection
-	Enabled  bool
-	Native   MethodIOShapePlan
-	Message  MethodIOShapePlan
+	Enabled   bool
+	Native    MethodIOShapePlan
+	Message   MethodIOShapePlan
 }
 
 type ConversionKind string
@@ -169,7 +169,7 @@ func BuildMethodRenderPlan(method MethodPlan, facts methodContractFacts, service
 	nativeWrapperType := lowerInitial(serviceName) + method.GoName + "NativeToMessageStreamSession"
 	messageWrapperType := lowerInitial(serviceName) + method.GoName + "MessageToNativeStreamSession"
 	shape := MethodRenderPlan{
-		Session: SessionRenderPlan{Kind: sessionKind, Operations: ops},
+		Session:  SessionRenderPlan{Kind: sessionKind, Operations: ops},
 		Terminal: terminal,
 		Conversion: ConversionRenderPlan{
 			NativeToMessage: ConversionShapePlan{

@@ -32,7 +32,7 @@ func BuildContractPlan(service *protogen.Service, method *protogen.Method, metho
 	}
 
 	return methodContractFacts{
-		RequestBody: requestFields,
+		RequestBody:  requestFields,
 		ResponseBody: responseFields,
 		NativeContract: NativeContractPlan{
 			RequestFields:  requestFields,
@@ -105,6 +105,10 @@ func fieldKind(kind protoreflect.Kind) (FieldKind, error) {
 		return FieldKindSignedInt32, nil
 	case protoreflect.Int64Kind, protoreflect.Sint64Kind, protoreflect.Sfixed64Kind:
 		return FieldKindSignedInt64, nil
+	case protoreflect.Uint32Kind, protoreflect.Fixed32Kind:
+		return FieldKindUnsignedInt32, nil
+	case protoreflect.Uint64Kind, protoreflect.Fixed64Kind:
+		return FieldKindUnsignedInt64, nil
 	case protoreflect.FloatKind:
 		return FieldKindFloat, nil
 	case protoreflect.DoubleKind:
@@ -120,17 +124,13 @@ func fieldKind(kind protoreflect.Kind) (FieldKind, error) {
 	case protoreflect.EnumKind:
 		return FieldKindEnum, nil
 	default:
-		kindNumber := int(kind)
-		if kindNumber == 4 || kindNumber == 6 || kindNumber == 7 || kindNumber == 13 || kindNumber == 15 || kindNumber == 16 {
-			return "", fmt.Errorf("unsupported native field: unsigned integer kind")
-		}
-		return "", fmt.Errorf("unsupported native field kind %d", kindNumber)
+		return "", fmt.Errorf("unsupported native field kind %d", int(kind))
 	}
 }
 
 func nativeFieldPlan(field FieldPlan) (NativeFieldPlan, error) {
 	switch field.Kind {
-	case FieldKindSignedInt32, FieldKindSignedInt64:
+	case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindUnsignedInt32, FieldKindUnsignedInt64:
 		return NativeFieldPlan{Kind: NativeFieldKindSignedNumeric, Shape: repeatedShape(field.Repeated)}, nil
 	case FieldKindFloat, FieldKindDouble:
 		return NativeFieldPlan{Kind: NativeFieldKindFloat, Shape: repeatedShape(field.Repeated)}, nil
