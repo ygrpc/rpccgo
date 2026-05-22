@@ -116,12 +116,15 @@ func encodeGreeterSayHelloNativeUnaryResponse(messageResult string, outMessagePt
 }
 
 //export rpccgo_native_greeterv1_Greeter_SayHello
-func rpccgo_native_greeterv1_Greeter_SayHello(NamePtr uintptr, NameLen int32, NameOwnership int32, CityPtr uintptr, CityLen int32, CityOwnership int32, outMessagePtr *uintptr, outMessageLen *int32) C.int32_t {
+func rpccgo_native_greeterv1_Greeter_SayHello(NamePtr C.uintptr_t, NameLen C.int32_t, NameOwnership C.int32_t, CityPtr C.uintptr_t, CityLen C.int32_t, CityOwnership C.int32_t, outMessagePtr *C.uintptr_t, outMessageLen *C.int32_t, outMessageOwnership *C.int32_t) C.int32_t {
 	if outMessagePtr != nil {
 		*outMessagePtr = 0
 	}
 	if outMessageLen != nil {
 		*outMessageLen = 0
+	}
+	if outMessageOwnership != nil {
+		*outMessageOwnership = 0
 	}
 	if outMessagePtr == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: native client output pointer is nil")))
@@ -263,33 +266,36 @@ func encodeGreeterCollectNativeClientStreamResponse(messageResult string, outMes
 }
 
 //export rpccgo_native_greeterv1_Greeter_Collect_start
-func rpccgo_native_greeterv1_Greeter_Collect_start(handle *C.int32_t) C.int32_t {
-	if handle != nil {
-		*handle = 0
+func rpccgo_native_greeterv1_Greeter_Collect_start(stream *C.int32_t) C.int32_t {
+	if stream != nil {
+		*stream = 0
 	}
-	if handle == nil {
+	if stream == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: native client handle pointer is nil")))
 	}
-	handleValue, errID := StartGreeterCollectNativeClientStream(context.Background())
+	streamValue, errID := StartGreeterCollectNativeClientStream(context.Background())
 	if errID != 0 {
 		return C.int32_t(errID)
 	}
-	*handle = C.int32_t(handleValue)
+	*stream = C.int32_t(streamValue)
 	return 0
 }
 
 //export rpccgo_native_greeterv1_Greeter_Collect_send
-func rpccgo_native_greeterv1_Greeter_Collect_send(handle C.int32_t, NamePtr uintptr, NameLen int32, NameOwnership int32, CityPtr uintptr, CityLen int32, CityOwnership int32) C.int32_t {
-	return C.int32_t(SendGreeterCollectNativeClientStream(context.Background(), int32(handle), uintptr(NamePtr), int32(NameLen), int32(NameOwnership), uintptr(CityPtr), int32(CityLen), int32(CityOwnership)))
+func rpccgo_native_greeterv1_Greeter_Collect_send(stream C.int32_t, NamePtr C.uintptr_t, NameLen C.int32_t, NameOwnership C.int32_t, CityPtr C.uintptr_t, CityLen C.int32_t, CityOwnership C.int32_t) C.int32_t {
+	return C.int32_t(SendGreeterCollectNativeClientStream(context.Background(), int32(stream), uintptr(NamePtr), int32(NameLen), int32(NameOwnership), uintptr(CityPtr), int32(CityLen), int32(CityOwnership)))
 }
 
 //export rpccgo_native_greeterv1_Greeter_Collect_finish
-func rpccgo_native_greeterv1_Greeter_Collect_finish(handle C.int32_t, outMessagePtr *uintptr, outMessageLen *int32) C.int32_t {
+func rpccgo_native_greeterv1_Greeter_Collect_finish(stream C.int32_t, outMessagePtr *C.uintptr_t, outMessageLen *C.int32_t, outMessageOwnership *C.int32_t) C.int32_t {
 	if outMessagePtr != nil {
 		*outMessagePtr = 0
 	}
 	if outMessageLen != nil {
 		*outMessageLen = 0
+	}
+	if outMessageOwnership != nil {
+		*outMessageOwnership = 0
 	}
 	if outMessagePtr == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: native client output pointer is nil")))
@@ -297,12 +303,12 @@ func rpccgo_native_greeterv1_Greeter_Collect_finish(handle C.int32_t, outMessage
 	if outMessageLen == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: native client output pointer is nil")))
 	}
-	return C.int32_t(FinishGreeterCollectNativeClientStream(context.Background(), int32(handle), (*uintptr)(unsafe.Pointer(outMessagePtr)), (*int32)(unsafe.Pointer(outMessageLen))))
+	return C.int32_t(FinishGreeterCollectNativeClientStream(context.Background(), int32(stream), (*uintptr)(unsafe.Pointer(outMessagePtr)), (*int32)(unsafe.Pointer(outMessageLen))))
 }
 
 //export rpccgo_native_greeterv1_Greeter_Collect_cancel
-func rpccgo_native_greeterv1_Greeter_Collect_cancel(handle C.int32_t) C.int32_t {
-	return C.int32_t(CancelGreeterCollectNativeClientStream(context.Background(), int32(handle)))
+func rpccgo_native_greeterv1_Greeter_Collect_cancel(stream C.int32_t) C.int32_t {
+	return C.int32_t(CancelGreeterCollectNativeClientStream(context.Background(), int32(stream)))
 }
 
 func StartGreeterBroadcastNativeServerStream(ctx context.Context, NamePtr uintptr, NameLen int32, NameOwnership int32, CityPtr uintptr, CityLen int32, CityOwnership int32) (int32, int32) {
@@ -437,28 +443,31 @@ func encodeGreeterBroadcastNativeServerStreamResponse(messageResult string, outM
 }
 
 //export rpccgo_native_greeterv1_Greeter_Broadcast_start
-func rpccgo_native_greeterv1_Greeter_Broadcast_start(NamePtr uintptr, NameLen int32, NameOwnership int32, CityPtr uintptr, CityLen int32, CityOwnership int32, handle *C.int32_t) C.int32_t {
-	if handle != nil {
-		*handle = 0
+func rpccgo_native_greeterv1_Greeter_Broadcast_start(NamePtr C.uintptr_t, NameLen C.int32_t, NameOwnership C.int32_t, CityPtr C.uintptr_t, CityLen C.int32_t, CityOwnership C.int32_t, stream *C.int32_t) C.int32_t {
+	if stream != nil {
+		*stream = 0
 	}
-	if handle == nil {
+	if stream == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: native client handle pointer is nil")))
 	}
-	handleValue, errID := StartGreeterBroadcastNativeServerStream(context.Background(), uintptr(NamePtr), int32(NameLen), int32(NameOwnership), uintptr(CityPtr), int32(CityLen), int32(CityOwnership))
+	streamValue, errID := StartGreeterBroadcastNativeServerStream(context.Background(), uintptr(NamePtr), int32(NameLen), int32(NameOwnership), uintptr(CityPtr), int32(CityLen), int32(CityOwnership))
 	if errID != 0 {
 		return C.int32_t(errID)
 	}
-	*handle = C.int32_t(handleValue)
+	*stream = C.int32_t(streamValue)
 	return 0
 }
 
 //export rpccgo_native_greeterv1_Greeter_Broadcast_read
-func rpccgo_native_greeterv1_Greeter_Broadcast_read(handle C.int32_t, outMessagePtr *uintptr, outMessageLen *int32) C.int32_t {
+func rpccgo_native_greeterv1_Greeter_Broadcast_read(stream C.int32_t, outMessagePtr *C.uintptr_t, outMessageLen *C.int32_t, outMessageOwnership *C.int32_t) C.int32_t {
 	if outMessagePtr != nil {
 		*outMessagePtr = 0
 	}
 	if outMessageLen != nil {
 		*outMessageLen = 0
+	}
+	if outMessageOwnership != nil {
+		*outMessageOwnership = 0
 	}
 	if outMessagePtr == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: native client output pointer is nil")))
@@ -466,17 +475,17 @@ func rpccgo_native_greeterv1_Greeter_Broadcast_read(handle C.int32_t, outMessage
 	if outMessageLen == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: native client output pointer is nil")))
 	}
-	return C.int32_t(ReadGreeterBroadcastNativeServerStream(context.Background(), int32(handle), (*uintptr)(unsafe.Pointer(outMessagePtr)), (*int32)(unsafe.Pointer(outMessageLen))))
+	return C.int32_t(ReadGreeterBroadcastNativeServerStream(context.Background(), int32(stream), (*uintptr)(unsafe.Pointer(outMessagePtr)), (*int32)(unsafe.Pointer(outMessageLen))))
 }
 
 //export rpccgo_native_greeterv1_Greeter_Broadcast_done
-func rpccgo_native_greeterv1_Greeter_Broadcast_done(handle C.int32_t) C.int32_t {
-	return C.int32_t(DoneGreeterBroadcastNativeServerStream(context.Background(), int32(handle)))
+func rpccgo_native_greeterv1_Greeter_Broadcast_done(stream C.int32_t) C.int32_t {
+	return C.int32_t(DoneGreeterBroadcastNativeServerStream(context.Background(), int32(stream)))
 }
 
 //export rpccgo_native_greeterv1_Greeter_Broadcast_cancel
-func rpccgo_native_greeterv1_Greeter_Broadcast_cancel(handle C.int32_t) C.int32_t {
-	return C.int32_t(CancelGreeterBroadcastNativeServerStream(context.Background(), int32(handle)))
+func rpccgo_native_greeterv1_Greeter_Broadcast_cancel(stream C.int32_t) C.int32_t {
+	return C.int32_t(CancelGreeterBroadcastNativeServerStream(context.Background(), int32(stream)))
 }
 
 func StartGreeterChatNativeBidiStream(ctx context.Context) (int32, int32) {
@@ -634,33 +643,36 @@ func encodeGreeterChatNativeBidiStreamResponse(messageResult string, outMessageP
 }
 
 //export rpccgo_native_greeterv1_Greeter_Chat_start
-func rpccgo_native_greeterv1_Greeter_Chat_start(handle *C.int32_t) C.int32_t {
-	if handle != nil {
-		*handle = 0
+func rpccgo_native_greeterv1_Greeter_Chat_start(stream *C.int32_t) C.int32_t {
+	if stream != nil {
+		*stream = 0
 	}
-	if handle == nil {
+	if stream == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: native client handle pointer is nil")))
 	}
-	handleValue, errID := StartGreeterChatNativeBidiStream(context.Background())
+	streamValue, errID := StartGreeterChatNativeBidiStream(context.Background())
 	if errID != 0 {
 		return C.int32_t(errID)
 	}
-	*handle = C.int32_t(handleValue)
+	*stream = C.int32_t(streamValue)
 	return 0
 }
 
 //export rpccgo_native_greeterv1_Greeter_Chat_send
-func rpccgo_native_greeterv1_Greeter_Chat_send(handle C.int32_t, NamePtr uintptr, NameLen int32, NameOwnership int32, CityPtr uintptr, CityLen int32, CityOwnership int32) C.int32_t {
-	return C.int32_t(SendGreeterChatNativeBidiStream(context.Background(), int32(handle), uintptr(NamePtr), int32(NameLen), int32(NameOwnership), uintptr(CityPtr), int32(CityLen), int32(CityOwnership)))
+func rpccgo_native_greeterv1_Greeter_Chat_send(stream C.int32_t, NamePtr C.uintptr_t, NameLen C.int32_t, NameOwnership C.int32_t, CityPtr C.uintptr_t, CityLen C.int32_t, CityOwnership C.int32_t) C.int32_t {
+	return C.int32_t(SendGreeterChatNativeBidiStream(context.Background(), int32(stream), uintptr(NamePtr), int32(NameLen), int32(NameOwnership), uintptr(CityPtr), int32(CityLen), int32(CityOwnership)))
 }
 
 //export rpccgo_native_greeterv1_Greeter_Chat_read
-func rpccgo_native_greeterv1_Greeter_Chat_read(handle C.int32_t, outMessagePtr *uintptr, outMessageLen *int32) C.int32_t {
+func rpccgo_native_greeterv1_Greeter_Chat_read(stream C.int32_t, outMessagePtr *C.uintptr_t, outMessageLen *C.int32_t, outMessageOwnership *C.int32_t) C.int32_t {
 	if outMessagePtr != nil {
 		*outMessagePtr = 0
 	}
 	if outMessageLen != nil {
 		*outMessageLen = 0
+	}
+	if outMessageOwnership != nil {
+		*outMessageOwnership = 0
 	}
 	if outMessagePtr == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: native client output pointer is nil")))
@@ -668,15 +680,20 @@ func rpccgo_native_greeterv1_Greeter_Chat_read(handle C.int32_t, outMessagePtr *
 	if outMessageLen == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: native client output pointer is nil")))
 	}
-	return C.int32_t(ReadGreeterChatNativeBidiStream(context.Background(), int32(handle), (*uintptr)(unsafe.Pointer(outMessagePtr)), (*int32)(unsafe.Pointer(outMessageLen))))
+	return C.int32_t(ReadGreeterChatNativeBidiStream(context.Background(), int32(stream), (*uintptr)(unsafe.Pointer(outMessagePtr)), (*int32)(unsafe.Pointer(outMessageLen))))
 }
 
 //export rpccgo_native_greeterv1_Greeter_Chat_close_send
-func rpccgo_native_greeterv1_Greeter_Chat_close_send(handle C.int32_t) C.int32_t {
-	return C.int32_t(CloseSendGreeterChatNativeBidiStream(context.Background(), int32(handle)))
+func rpccgo_native_greeterv1_Greeter_Chat_close_send(stream C.int32_t) C.int32_t {
+	return C.int32_t(CloseSendGreeterChatNativeBidiStream(context.Background(), int32(stream)))
+}
+
+//export rpccgo_native_greeterv1_Greeter_Chat_done
+func rpccgo_native_greeterv1_Greeter_Chat_done(stream C.int32_t) C.int32_t {
+	return C.int32_t(DoneGreeterChatNativeBidiStream(context.Background(), int32(stream)))
 }
 
 //export rpccgo_native_greeterv1_Greeter_Chat_cancel
-func rpccgo_native_greeterv1_Greeter_Chat_cancel(handle C.int32_t) C.int32_t {
-	return C.int32_t(CancelGreeterChatNativeBidiStream(context.Background(), int32(handle)))
+func rpccgo_native_greeterv1_Greeter_Chat_cancel(stream C.int32_t) C.int32_t {
+	return C.int32_t(CancelGreeterChatNativeBidiStream(context.Background(), int32(stream)))
 }

@@ -44,13 +44,14 @@ static void assert_string_equals(const char *label, const char *got, int32_t got
 static void run_native_unary_demo(void) {
   uintptr_t message_ptr = 0;
   int32_t message_len = 0;
+  int32_t message_ownership = 0;
   const char *name = "ffi";
   const char *city = "c";
 
   assert_status_ok(rpccgo_native_greeterv1_Greeter_SayHello(
                        (uintptr_t)name, 3, 0,
                        (uintptr_t)city, 1, 0,
-                       &message_ptr, &message_len),
+                       &message_ptr, &message_len, &message_ownership),
                    "native unary error:");
   assert_string_equals("native unary", (const char *)message_ptr, message_len,
                        "hello ffi from c");
@@ -64,6 +65,7 @@ static void run_native_collect_demo(void) {
   int32_t handle = 0;
   uintptr_t message_ptr = 0;
   int32_t message_len = 0;
+  int32_t message_ownership = 0;
   const char *city = "c";
   const char *name1 = "ada";
   const char *name2 = "grace";
@@ -80,7 +82,7 @@ static void run_native_collect_demo(void) {
                        (uintptr_t)name2, 5, 0,
                        (uintptr_t)city, 1, 0),
                    "native collect send grace error:");
-  assert_status_ok(rpccgo_native_greeterv1_Greeter_Collect_finish(handle, &message_ptr, &message_len),
+  assert_status_ok(rpccgo_native_greeterv1_Greeter_Collect_finish(handle, &message_ptr, &message_len, &message_ownership),
                    "native collect finish error:");
   assert_string_equals("native collect", (const char *)message_ptr, message_len,
                        "collect:ada,grace");
@@ -96,7 +98,7 @@ static void run_output_error_demo(void) {
   int32_t err_id = rpccgo_native_greeterv1_Greeter_SayHello(
       (uintptr_t)name, 3, 0,
       (uintptr_t)city, 1, 0,
-      NULL, NULL);
+      NULL, NULL, NULL);
   if (err_id == 0) {
     fail_with_message("expected native output pointer error");
   }

@@ -44,9 +44,10 @@ static void assert_string_equals(const char *label, const char *got, int32_t got
 static void run_native_unary_demo(void) {
   uintptr_t message_ptr = 0;
   int32_t message_len = 0;
+  int32_t message_ownership = 0;
   const char *name = "minimal-c";
 
-  assert_status_ok(rpccgo_native_greeterv1_Greeter_SayHello((uintptr_t)name, 9, 0, &message_ptr, &message_len),
+  assert_status_ok(rpccgo_native_greeterv1_Greeter_SayHello((uintptr_t)name, 9, 0, &message_ptr, &message_len, &message_ownership),
                    "native unary error:");
   assert_string_equals("native unary", (const char *)message_ptr, message_len,
                        "hello, minimal-c");
@@ -58,7 +59,7 @@ static void run_native_unary_demo(void) {
 
 static void run_output_error_demo(void) {
   const char *name = "minimal-c";
-  int32_t err_id = rpccgo_native_greeterv1_Greeter_SayHello((uintptr_t)name, 9, 0, NULL, NULL);
+  int32_t err_id = rpccgo_native_greeterv1_Greeter_SayHello((uintptr_t)name, 9, 0, NULL, NULL, NULL);
   if (err_id == 0) {
     fail_with_message("expected native output pointer error");
   }

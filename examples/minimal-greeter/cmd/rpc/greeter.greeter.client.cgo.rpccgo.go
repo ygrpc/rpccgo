@@ -102,12 +102,15 @@ func encodeGreeterSayHelloNativeUnaryResponse(messageResult string, outMessagePt
 }
 
 //export rpccgo_native_greeterv1_Greeter_SayHello
-func rpccgo_native_greeterv1_Greeter_SayHello(NamePtr uintptr, NameLen int32, NameOwnership int32, outMessagePtr *uintptr, outMessageLen *int32) C.int32_t {
+func rpccgo_native_greeterv1_Greeter_SayHello(NamePtr C.uintptr_t, NameLen C.int32_t, NameOwnership C.int32_t, outMessagePtr *C.uintptr_t, outMessageLen *C.int32_t, outMessageOwnership *C.int32_t) C.int32_t {
 	if outMessagePtr != nil {
 		*outMessagePtr = 0
 	}
 	if outMessageLen != nil {
 		*outMessageLen = 0
+	}
+	if outMessageOwnership != nil {
+		*outMessageOwnership = 0
 	}
 	if outMessagePtr == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: native client output pointer is nil")))

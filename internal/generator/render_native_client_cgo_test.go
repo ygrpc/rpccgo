@@ -117,7 +117,7 @@ func TestRenderNativeClientCGOHandlesBytesOwnershipAndPinnedOutputRelease(t *tes
 	} {
 		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "PayloadOwnership *int32", "NoteOwnership", "rpcruntime.NewRpcBytes((*byte)(unsafe.Pointer(PayloadPtr))")
+	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "PayloadOwnership *int32", "rpcruntime.NewRpcBytes((*byte)(unsafe.Pointer(PayloadPtr))")
 }
 
 func TestRenderNativeClientCGOSupportsEnumAsInt32(t *testing.T) {

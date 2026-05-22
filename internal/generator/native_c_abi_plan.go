@@ -1,6 +1,9 @@
 package generator
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type NativeCABIPlan struct {
 	Methods []MethodNativeCABIPlan
@@ -37,6 +40,7 @@ type CABISlot struct {
 	Source  *NativeFieldRef
 	Name    string
 	CType   string
+	CGoType string
 	Role    CABISlotRole
 	Cleanup CABICleanup
 }
@@ -153,11 +157,11 @@ func (b nativeCABIBuilder) cancel() COperationABI {
 }
 
 func (b nativeCABIBuilder) register() COperationABI {
-	params := []CABISlot{{Name: "callback", CType: b.callbackTypeName(NativeCOperationUnary), Role: CABISlotRoleCallback, Cleanup: CABICleanupNoCleanup}}
+	params := []CABISlot{callbackSlot("callback", b.callbackTypeName(NativeCOperationUnary))}
 	if b.method.Streaming != StreamingKindUnary {
 		params = nil
 		for _, operation := range b.streamingCallbackOperations() {
-			params = append(params, CABISlot{Name: nativeCABIRegisterParamName(operation), CType: b.callbackTypeName(operation), Role: CABISlotRoleCallback, Cleanup: CABICleanupNoCleanup})
+			params = append(params, callbackSlot(nativeCABIRegisterParamName(operation), b.callbackTypeName(operation)))
 		}
 	}
 	return COperationABI{Operation: NativeCOperationRegister, Symbol: nativeCExportFuncName(b.file, b.service, b.method, "register"), TypeName: "", Params: params, Return: errorIDReturnSlot()}
@@ -246,7 +250,7 @@ func nativeCABIFieldSlots(field FieldPlan, output bool) []CABISlot {
 	slot := func(name, ctype string, role CABISlotRole) CABISlot {
 		ref := source
 		ref.CName = name
-		return CABISlot{Source: &ref, Name: name, CType: ctype, Role: role, Cleanup: cleanup}
+		return CABISlot{Source: &ref, Name: name, CType: ctype, CGoType: nativeCGoType(ctype), Role: role, Cleanup: cleanup}
 	}
 	ptr := ""
 	if output {
@@ -316,15 +320,28 @@ func nativeCABIFieldNeedsRuntimeFree(field FieldPlan) bool {
 }
 
 func handleSlot(name string) CABISlot {
-	return CABISlot{Name: name, CType: "int32_t", Role: CABISlotRoleHandle, Cleanup: CABICleanupNoCleanup}
+	return CABISlot{Name: name, CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleHandle, Cleanup: CABICleanupNoCleanup}
 }
 
 func outHandleSlot(name string) CABISlot {
-	return CABISlot{Name: name, CType: "int32_t*", Role: CABISlotRoleHandle, Cleanup: CABICleanupNoCleanup}
+	return CABISlot{Name: name, CType: "int32_t*", CGoType: "*C.int32_t", Role: CABISlotRoleHandle, Cleanup: CABICleanupNoCleanup}
 }
 
 func errorIDReturnSlot() CABISlot {
-	return CABISlot{Name: "error_id", CType: "int32_t", Role: CABISlotRoleErrorID, Cleanup: CABICleanupNoCleanup}
+	return CABISlot{Name: "error_id", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleErrorID, Cleanup: CABICleanupNoCleanup}
+}
+
+func callbackSlot(name, typeName string) CABISlot {
+	return CABISlot{Name: name, CType: typeName, CGoType: "C." + typeName, Role: CABISlotRoleCallback, Cleanup: CABICleanupNoCleanup}
+}
+
+func nativeCGoType(ctype string) string {
+	base, pointer := strings.CutSuffix(ctype, "*")
+	goType := "C." + base
+	if pointer {
+		return "*" + goType
+	}
+	return goType
 }
 
 func nativeCABIRegisterParamName(operation NativeCOperation) string {

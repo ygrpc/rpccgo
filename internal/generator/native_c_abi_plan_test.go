@@ -37,39 +37,39 @@ func TestBuildMethodNativeCABIPlanUnaryAllFields(t *testing.T) {
 	if unary.TypeName != "NativeABICheckCGONativeUnaryCallback" {
 		t.Fatalf("unary TypeName = %q", unary.TypeName)
 	}
-	if unary.Return.Role != CABISlotRoleErrorID || unary.Return.CType != "int32_t" {
+	if unary.Return.Role != CABISlotRoleErrorID || unary.Return.CType != "int32_t" || unary.Return.CGoType != "C.int32_t" {
 		t.Fatalf("unary Return = %#v, want int32_t error id", unary.Return)
 	}
 
 	want := []CABISlot{
-		{Name: "SignedCount", CType: "int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "UnsignedCount", CType: "uint32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "SignedTotal", CType: "int64_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "UnsignedTotal", CType: "uint64_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "Ratio", CType: "float", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "Enabled", CType: "int8_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "NamePtr", CType: "uintptr_t", Role: CABISlotRolePointer, Cleanup: CABICleanupNoCleanup},
-		{Name: "NameLen", CType: "int32_t", Role: CABISlotRoleLength, Cleanup: CABICleanupNoCleanup},
-		{Name: "NameOwnership", CType: "int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "PayloadPtr", CType: "uintptr_t", Role: CABISlotRolePointer, Cleanup: CABICleanupNoCleanup},
-		{Name: "PayloadLen", CType: "int32_t", Role: CABISlotRoleLength, Cleanup: CABICleanupNoCleanup},
-		{Name: "PayloadOwnership", CType: "int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "ChildPtr", CType: "uintptr_t", Role: CABISlotRolePointer, Cleanup: CABICleanupNoCleanup},
-		{Name: "ChildLen", CType: "int32_t", Role: CABISlotRoleLength, Cleanup: CABICleanupNoCleanup},
-		{Name: "ChildOwnership", CType: "int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "ScoresPtr", CType: "uintptr_t", Role: CABISlotRolePointer, Cleanup: CABICleanupNoCleanup},
-		{Name: "ScoresLen", CType: "int32_t", Role: CABISlotRoleCount, Cleanup: CABICleanupNoCleanup},
-		{Name: "ScoresOwnership", CType: "int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "FlagsPtr", CType: "uintptr_t", Role: CABISlotRolePointer, Cleanup: CABICleanupNoCleanup},
-		{Name: "FlagsLen", CType: "int32_t", Role: CABISlotRoleCount, Cleanup: CABICleanupNoCleanup},
-		{Name: "FlagsOwnership", CType: "int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "outAccepted", CType: "int8_t*", Role: CABISlotRoleOutValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "outReplyPayloadPtr", CType: "uintptr_t*", Role: CABISlotRoleOutPointer, Cleanup: CABICleanupFreeWithRuntime},
-		{Name: "outReplyPayloadLen", CType: "int32_t*", Role: CABISlotRoleOutLength, Cleanup: CABICleanupFreeWithRuntime},
-		{Name: "outReplyPayloadOwnership", CType: "int32_t*", Role: CABISlotRoleOutValue, Cleanup: CABICleanupFreeWithRuntime},
-		{Name: "outReplyFlagsPtr", CType: "uintptr_t*", Role: CABISlotRoleOutPointer, Cleanup: CABICleanupFreeWithRuntime},
-		{Name: "outReplyFlagsLen", CType: "int32_t*", Role: CABISlotRoleOutCount, Cleanup: CABICleanupFreeWithRuntime},
-		{Name: "outReplyFlagsOwnership", CType: "int32_t*", Role: CABISlotRoleOutValue, Cleanup: CABICleanupFreeWithRuntime},
+		{Name: "SignedCount", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
+		{Name: "UnsignedCount", CType: "uint32_t", CGoType: "C.uint32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
+		{Name: "SignedTotal", CType: "int64_t", CGoType: "C.int64_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
+		{Name: "UnsignedTotal", CType: "uint64_t", CGoType: "C.uint64_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
+		{Name: "Ratio", CType: "float", CGoType: "C.float", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
+		{Name: "Enabled", CType: "int8_t", CGoType: "C.int8_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
+		{Name: "NamePtr", CType: "uintptr_t", CGoType: "C.uintptr_t", Role: CABISlotRolePointer, Cleanup: CABICleanupNoCleanup},
+		{Name: "NameLen", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleLength, Cleanup: CABICleanupNoCleanup},
+		{Name: "NameOwnership", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
+		{Name: "PayloadPtr", CType: "uintptr_t", CGoType: "C.uintptr_t", Role: CABISlotRolePointer, Cleanup: CABICleanupNoCleanup},
+		{Name: "PayloadLen", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleLength, Cleanup: CABICleanupNoCleanup},
+		{Name: "PayloadOwnership", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
+		{Name: "ChildPtr", CType: "uintptr_t", CGoType: "C.uintptr_t", Role: CABISlotRolePointer, Cleanup: CABICleanupNoCleanup},
+		{Name: "ChildLen", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleLength, Cleanup: CABICleanupNoCleanup},
+		{Name: "ChildOwnership", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
+		{Name: "ScoresPtr", CType: "uintptr_t", CGoType: "C.uintptr_t", Role: CABISlotRolePointer, Cleanup: CABICleanupNoCleanup},
+		{Name: "ScoresLen", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleCount, Cleanup: CABICleanupNoCleanup},
+		{Name: "ScoresOwnership", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
+		{Name: "FlagsPtr", CType: "uintptr_t", CGoType: "C.uintptr_t", Role: CABISlotRolePointer, Cleanup: CABICleanupNoCleanup},
+		{Name: "FlagsLen", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleCount, Cleanup: CABICleanupNoCleanup},
+		{Name: "FlagsOwnership", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
+		{Name: "outAccepted", CType: "int8_t*", CGoType: "*C.int8_t", Role: CABISlotRoleOutValue, Cleanup: CABICleanupNoCleanup},
+		{Name: "outReplyPayloadPtr", CType: "uintptr_t*", CGoType: "*C.uintptr_t", Role: CABISlotRoleOutPointer, Cleanup: CABICleanupFreeWithRuntime},
+		{Name: "outReplyPayloadLen", CType: "int32_t*", CGoType: "*C.int32_t", Role: CABISlotRoleOutLength, Cleanup: CABICleanupFreeWithRuntime},
+		{Name: "outReplyPayloadOwnership", CType: "int32_t*", CGoType: "*C.int32_t", Role: CABISlotRoleOutValue, Cleanup: CABICleanupFreeWithRuntime},
+		{Name: "outReplyFlagsPtr", CType: "uintptr_t*", CGoType: "*C.uintptr_t", Role: CABISlotRoleOutPointer, Cleanup: CABICleanupFreeWithRuntime},
+		{Name: "outReplyFlagsLen", CType: "int32_t*", CGoType: "*C.int32_t", Role: CABISlotRoleOutCount, Cleanup: CABICleanupFreeWithRuntime},
+		{Name: "outReplyFlagsOwnership", CType: "int32_t*", CGoType: "*C.int32_t", Role: CABISlotRoleOutValue, Cleanup: CABICleanupFreeWithRuntime},
 	}
 	assertCABISlots(t, unary.Params, want)
 
@@ -81,7 +81,7 @@ func TestBuildMethodNativeCABIPlanUnaryAllFields(t *testing.T) {
 	if register.Symbol != "rpccgo_native_testv1_NativeABI_Check_register" {
 		t.Fatalf("register Symbol = %q", register.Symbol)
 	}
-	assertCABISlots(t, register.Params, []CABISlot{{Name: "callback", CType: "NativeABICheckCGONativeUnaryCallback", Role: CABISlotRoleCallback, Cleanup: CABICleanupNoCleanup}})
+	assertCABISlots(t, register.Params, []CABISlot{{Name: "callback", CType: "NativeABICheckCGONativeUnaryCallback", CGoType: "C.NativeABICheckCGONativeUnaryCallback", Role: CABISlotRoleCallback, Cleanup: CABICleanupNoCleanup}})
 }
 
 func TestBuildMethodNativeCABIPlanStreamingOperationSets(t *testing.T) {
@@ -121,8 +121,8 @@ func assertCABISlots(t *testing.T, got, want []CABISlot) {
 		t.Fatalf("slots len = %d, want %d\ngot: %#v", len(got), len(want), got)
 	}
 	for i := range want {
-		if got[i].Name != want[i].Name || got[i].CType != want[i].CType || got[i].Role != want[i].Role || got[i].Cleanup != want[i].Cleanup {
-			t.Fatalf("slot[%d] = {Name:%q CType:%q Role:%q Cleanup:%q}, want {Name:%q CType:%q Role:%q Cleanup:%q}", i, got[i].Name, got[i].CType, got[i].Role, got[i].Cleanup, want[i].Name, want[i].CType, want[i].Role, want[i].Cleanup)
+		if got[i].Name != want[i].Name || got[i].CType != want[i].CType || got[i].CGoType != want[i].CGoType || got[i].Role != want[i].Role || got[i].Cleanup != want[i].Cleanup {
+			t.Fatalf("slot[%d] = {Name:%q CType:%q CGoType:%q Role:%q Cleanup:%q}, want {Name:%q CType:%q CGoType:%q Role:%q Cleanup:%q}", i, got[i].Name, got[i].CType, got[i].CGoType, got[i].Role, got[i].Cleanup, want[i].Name, want[i].CType, want[i].CGoType, want[i].Role, want[i].Cleanup)
 		}
 	}
 }
