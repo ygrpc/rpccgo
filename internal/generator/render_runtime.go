@@ -173,7 +173,7 @@ func runtimeAdapterMethodFor(g *protogen.GeneratedFile, method MethodPlan) (runt
 		return rendered, nil
 	}
 	rendered.AdapterResult = " (" + sessionName + ", error)"
-	if hasRenderOperation(shape.Session, SessionOperationStart) && shape.Session.Kind == SessionKindServer {
+	if method.Contract.Lifecycle.HasOperation(StreamLifecycleOperationStart) && shape.Session.Kind == SessionKindServer {
 		rendered.AdapterArgs = nativeArgs
 	}
 	return rendered, nil
@@ -194,15 +194,6 @@ func runtimeStreamingMethods(methods []runtimeAdapterMethod) []runtimeAdapterMet
 		}
 	}
 	return streaming
-}
-
-func hasRenderOperation(session SessionRenderPlan, kind SessionOperationKind) bool {
-	for _, op := range session.Operations {
-		if op.Kind == kind && op.Enabled {
-			return true
-		}
-	}
-	return false
 }
 
 func renderRuntimeSessionInterface(g *protogen.GeneratedFile, method runtimeAdapterMethod) {

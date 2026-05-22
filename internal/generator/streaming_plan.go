@@ -22,41 +22,50 @@ func BuildStreamingPlan(method MethodPlan, serviceName string) (MethodPlan, erro
 	return method, nil
 }
 
-func expectedLifecyclePlan(streaming StreamingKind) (LifecyclePlan, error) {
+func expectedLifecyclePlan(streaming StreamingKind) (StreamLifecycleContractPlan, error) {
+	op := func(kind StreamLifecycleOperationKind) StreamLifecycleOperationPlan {
+		return StreamLifecycleOperationPlan{Kind: kind}
+	}
 	switch streaming {
 	case StreamingKindUnary:
-		return LifecyclePlan{}, nil
+		return StreamLifecycleContractPlan{}, nil
 	case StreamingKindClientStreaming:
-		return LifecyclePlan{
-			HasStart:        true,
-			HasSend:         true,
-			HasFinish:       true,
-			HasCancel:       true,
+		return StreamLifecycleContractPlan{
+			Operations: []StreamLifecycleOperationPlan{
+				op(StreamLifecycleOperationStart),
+				op(StreamLifecycleOperationSend),
+				op(StreamLifecycleOperationFinish),
+				op(StreamLifecycleOperationCancel),
+			},
 			CancelFinalizes: true,
 			TerminalKind:    LifecycleTerminalFinishResult,
 		}, nil
 	case StreamingKindServerStreaming:
-		return LifecyclePlan{
-			HasStart:        true,
-			HasCancel:       true,
+		return StreamLifecycleContractPlan{
+			Operations: []StreamLifecycleOperationPlan{
+				op(StreamLifecycleOperationStart),
+				op(StreamLifecycleOperationReceive),
+				op(StreamLifecycleOperationDone),
+				op(StreamLifecycleOperationCancel),
+			},
 			CancelFinalizes: true,
-			HasOnRead:       true,
-			HasOnDone:       true,
 			TerminalKind:    LifecycleTerminalOnDone,
 		}, nil
 	case StreamingKindBidiStreaming:
-		return LifecyclePlan{
-			HasStart:        true,
-			HasSend:         true,
-			HasCloseSend:    true,
-			HasCancel:       true,
+		return StreamLifecycleContractPlan{
+			Operations: []StreamLifecycleOperationPlan{
+				op(StreamLifecycleOperationStart),
+				op(StreamLifecycleOperationSend),
+				op(StreamLifecycleOperationReceive),
+				op(StreamLifecycleOperationCloseSend),
+				op(StreamLifecycleOperationDone),
+				op(StreamLifecycleOperationCancel),
+			},
 			CancelFinalizes: true,
-			HasOnRead:       true,
-			HasOnDone:       true,
 			TerminalKind:    LifecycleTerminalOnDone,
 		}, nil
 	default:
-		return LifecyclePlan{}, fmt.Errorf("unknown streaming kind %d", streaming)
+		return StreamLifecycleContractPlan{}, fmt.Errorf("unknown streaming kind %d", streaming)
 	}
 }
 

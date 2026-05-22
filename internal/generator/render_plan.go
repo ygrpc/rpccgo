@@ -157,21 +157,39 @@ func BuildMethodRenderPlan(method MethodPlan, serviceName string) (MethodRenderP
 	return shape, nil
 }
 
-func renderSessionShape(lifecycle LifecyclePlan, needsCodec bool) ([]SessionOperationPlan, SessionKind, TerminalRenderPlan, error) {
+func renderSessionShape(lifecycle StreamLifecycleContractPlan, needsCodec bool) ([]SessionOperationPlan, SessionKind, TerminalRenderPlan, error) {
 	op := func(kind SessionOperationKind, terminal bool) SessionOperationPlan {
 		return SessionOperationPlan{Kind: kind, Enabled: true, RequiresCodec: needsCodec, RequiresTerminal: terminal}
 	}
-	if !lifecycle.HasStart {
+	if !lifecycle.HasOperation(StreamLifecycleOperationStart) {
 		return nil, SessionKindNone, TerminalRenderPlan{}, nil
 	}
-	if lifecycle.HasSend && lifecycle.HasFinish {
-		return []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationSend, false), op(SessionOperationFinish, true), op(SessionOperationCancel, true)}, SessionKindClient, TerminalRenderPlan{Kind: TerminalKindFinish, Operation: SessionOperationFinish, ReleasesHandle: true, RequiresResponseConvert: true, AllowsCancel: lifecycle.HasCancel}, nil
+	hasSend := lifecycle.HasOperation(StreamLifecycleOperationSend)
+	hasReceive := lifecycle.HasOperation(StreamLifecycleOperationReceive)
+	hasFinish := lifecycle.HasOperation(StreamLifecycleOperationFinish)
+	hasDone := lifecycle.HasOperation(StreamLifecycleOperationDone)
+	hasCloseSend := lifecycle.HasOperation(StreamLifecycleOperationCloseSend)
+	hasCancel := lifecycle.HasOperation(StreamLifecycleOperationCancel)
+	if hasSend && hasFinish {
+		ops := []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationSend, false), op(SessionOperationFinish, true)}
+		if hasCancel {
+			ops = append(ops, op(SessionOperationCancel, true))
+		}
+		return ops, SessionKindClient, TerminalRenderPlan{Kind: TerminalKindFinish, Operation: SessionOperationFinish, ReleasesHandle: true, RequiresResponseConvert: true, AllowsCancel: hasCancel}, nil
 	}
-	if lifecycle.HasOnRead && lifecycle.HasCloseSend {
-		return []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationSend, false), op(SessionOperationReceive, false), op(SessionOperationCloseSend, false), op(SessionOperationDone, true), op(SessionOperationCancel, true)}, SessionKindBidi, TerminalRenderPlan{Kind: TerminalKindDone, Operation: SessionOperationDone, ReleasesHandle: true, AllowsCancel: lifecycle.HasCancel, AllowsCloseSend: true}, nil
+	if hasReceive && hasCloseSend && hasDone {
+		ops := []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationSend, false), op(SessionOperationReceive, false), op(SessionOperationCloseSend, false), op(SessionOperationDone, true)}
+		if hasCancel {
+			ops = append(ops, op(SessionOperationCancel, true))
+		}
+		return ops, SessionKindBidi, TerminalRenderPlan{Kind: TerminalKindDone, Operation: SessionOperationDone, ReleasesHandle: true, AllowsCancel: hasCancel, AllowsCloseSend: true}, nil
 	}
-	if lifecycle.HasOnRead && lifecycle.HasOnDone {
-		return []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationReceive, false), op(SessionOperationDone, true), op(SessionOperationCancel, true)}, SessionKindServer, TerminalRenderPlan{Kind: TerminalKindDone, Operation: SessionOperationDone, ReleasesHandle: true, AllowsCancel: lifecycle.HasCancel}, nil
+	if hasReceive && hasDone {
+		ops := []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationReceive, false), op(SessionOperationDone, true)}
+		if hasCancel {
+			ops = append(ops, op(SessionOperationCancel, true))
+		}
+		return ops, SessionKindServer, TerminalRenderPlan{Kind: TerminalKindDone, Operation: SessionOperationDone, ReleasesHandle: true, AllowsCancel: hasCancel}, nil
 	}
 	return nil, "", TerminalRenderPlan{}, fmt.Errorf("invalid lifecycle plan")
 }
@@ -193,12 +211,27 @@ func ValidateMethodContractPlan(method MethodPlan) error {
 	if method.Contract.RenderInputs.NeedsCodec != method.NeedsCodec {
 		return fmt.Errorf("method %s render inputs do not match method codec requirement", methodPlanName(method))
 	}
+	lifecycle := method.Contract.Lifecycle
 	if method.Streaming == StreamingKindUnary {
-		if method.Contract.Lifecycle != (LifecyclePlan{}) {
+		if !lifecycle.IsZero() {
 			return fmt.Errorf("method %s unary lifecycle must be empty", methodPlanName(method))
 		}
-	} else if !method.Contract.Lifecycle.HasStart {
+		return nil
+	}
+	if !lifecycle.HasOperation(StreamLifecycleOperationStart) {
 		return fmt.Errorf("method %s streaming lifecycle is incomplete", methodPlanName(method))
+	}
+	switch method.Streaming {
+	case StreamingKindClientStreaming:
+		if lifecycle.TerminalKind != LifecycleTerminalFinishResult || !lifecycle.HasOperation(StreamLifecycleOperationFinish) {
+			return fmt.Errorf("method %s client streaming lifecycle must finish with result", methodPlanName(method))
+		}
+	case StreamingKindServerStreaming, StreamingKindBidiStreaming:
+		if lifecycle.TerminalKind != LifecycleTerminalOnDone || !lifecycle.HasOperation(StreamLifecycleOperationDone) {
+			return fmt.Errorf("method %s streaming lifecycle must terminate on done", methodPlanName(method))
+		}
+	default:
+		return fmt.Errorf("method %s has unknown streaming kind %d", methodPlanName(method), method.Streaming)
 	}
 	return nil
 }

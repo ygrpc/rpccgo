@@ -165,7 +165,7 @@ type NativeFieldPlan struct {
 type MethodContractPlan struct {
 	Native       NativeContractPlan
 	Message      MessageContractPlan
-	Lifecycle    LifecyclePlan
+	Lifecycle    StreamLifecycleContractPlan
 	RenderInputs MethodRenderInputPlan
 	NativeCABI   MethodNativeCABIPlan
 }
@@ -191,16 +191,39 @@ const (
 	LifecycleTerminalOnDone       LifecycleTerminalKind = "on_done"
 )
 
-type LifecyclePlan struct {
-	HasStart        bool
-	HasSend         bool
-	HasFinish       bool
-	HasCloseSend    bool
-	HasCancel       bool
+type StreamLifecycleOperationKind string
+
+const (
+	StreamLifecycleOperationStart     StreamLifecycleOperationKind = "start"
+	StreamLifecycleOperationSend      StreamLifecycleOperationKind = "send"
+	StreamLifecycleOperationReceive   StreamLifecycleOperationKind = "receive"
+	StreamLifecycleOperationFinish    StreamLifecycleOperationKind = "finish"
+	StreamLifecycleOperationDone      StreamLifecycleOperationKind = "done"
+	StreamLifecycleOperationCloseSend StreamLifecycleOperationKind = "close_send"
+	StreamLifecycleOperationCancel    StreamLifecycleOperationKind = "cancel"
+)
+
+type StreamLifecycleOperationPlan struct {
+	Kind StreamLifecycleOperationKind
+}
+
+type StreamLifecycleContractPlan struct {
+	Operations      []StreamLifecycleOperationPlan
 	CancelFinalizes bool
-	HasOnRead       bool
-	HasOnDone       bool
 	TerminalKind    LifecycleTerminalKind
+}
+
+func (p StreamLifecycleContractPlan) HasOperation(kind StreamLifecycleOperationKind) bool {
+	for _, operation := range p.Operations {
+		if operation.Kind == kind {
+			return true
+		}
+	}
+	return false
+}
+
+func (p StreamLifecycleContractPlan) IsZero() bool {
+	return len(p.Operations) == 0 && !p.CancelFinalizes && p.TerminalKind == ""
 }
 
 type MethodIOPlan struct {

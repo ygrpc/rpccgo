@@ -95,17 +95,30 @@ func TestPlanZeroValueHasNoIdentity(t *testing.T) {
 	}
 }
 
-func TestPlanLifecycleUsesTypedTerminalKind(t *testing.T) {
-	plan := LifecyclePlan{
-		HasSend:         true,
-		HasFinish:       true,
-		HasCancel:       true,
+func TestPlanLifecycleUsesOperationSetAndTypedTerminalKind(t *testing.T) {
+	var zero StreamLifecycleContractPlan
+	if !zero.IsZero() {
+		t.Fatalf("zero lifecycle contract must be zero: %+v", zero)
+	}
+
+	plan := StreamLifecycleContractPlan{
+		Operations: []StreamLifecycleOperationPlan{
+			{Kind: StreamLifecycleOperationSend},
+			{Kind: StreamLifecycleOperationFinish},
+			{Kind: StreamLifecycleOperationCancel},
+		},
 		CancelFinalizes: true,
 		TerminalKind:    LifecycleTerminalFinishResult,
 	}
 
-	if !plan.HasSend || !plan.HasFinish || !plan.HasCancel || !plan.CancelFinalizes {
-		t.Fatalf("expected lifecycle flags to be preserved: %+v", plan)
+	if !plan.HasOperation(StreamLifecycleOperationSend) || !plan.HasOperation(StreamLifecycleOperationFinish) || !plan.HasOperation(StreamLifecycleOperationCancel) || !plan.CancelFinalizes {
+		t.Fatalf("expected lifecycle operations to be preserved: %+v", plan)
+	}
+	if plan.HasOperation(StreamLifecycleOperationReceive) {
+		t.Fatalf("unexpected receive operation in lifecycle contract: %+v", plan)
+	}
+	if plan.IsZero() {
+		t.Fatalf("non-empty lifecycle contract must not be zero: %+v", plan)
 	}
 	if plan.TerminalKind != LifecycleTerminalFinishResult {
 		t.Fatalf("terminal kind = %q, want %q", plan.TerminalKind, LifecycleTerminalFinishResult)

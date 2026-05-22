@@ -347,12 +347,58 @@ func runtimeTestMethod(name string, streaming StreamingKind, nativeAdapterMethod
 		Errors:  RenderErrorsPlan{NativeAdapterUnavailableErr: "GreeterNativeAdapterUnavailableErr", MessageAdapterUnavailableErr: "GreeterMessageAdapterUnavailableErr", UnknownActiveContractErr: "GreeterUnknownActiveContractErr", NativeMessageConverterErr: "GreeterNativeMessageConverterUnavailableErr"},
 	}
 	if sessionKind != SessionKindNone {
-		method.RenderPlan.Session.Operations = []SessionOperationPlan{{Kind: SessionOperationStart, Enabled: true}}
-		method.RenderPlan.Terminal = TerminalRenderPlan{Kind: TerminalKindFinish, Operation: SessionOperationStart, ReleasesHandle: true}
+		method.Contract.Lifecycle = runtimeTestLifecycle(sessionKind)
+		method.RenderPlan.Session.Operations = runtimeTestSessionOperations(sessionKind)
+		method.RenderPlan.Terminal = runtimeTestTerminalPolicy(sessionKind)
 		method.RenderPlan.Symbols.NativeSessionType = "Greeter" + name + "NativeStreamSession"
 		method.RenderPlan.Symbols.MessageSessionType = "Greeter" + name + "MessageStreamSession"
 	}
 	return method
+}
+
+func runtimeTestLifecycle(sessionKind SessionKind) StreamLifecycleContractPlan {
+	op := func(kind StreamLifecycleOperationKind) StreamLifecycleOperationPlan {
+		return StreamLifecycleOperationPlan{Kind: kind}
+	}
+	switch sessionKind {
+	case SessionKindClient:
+		return StreamLifecycleContractPlan{Operations: []StreamLifecycleOperationPlan{op(StreamLifecycleOperationStart), op(StreamLifecycleOperationSend), op(StreamLifecycleOperationFinish), op(StreamLifecycleOperationCancel)}, CancelFinalizes: true, TerminalKind: LifecycleTerminalFinishResult}
+	case SessionKindServer:
+		return StreamLifecycleContractPlan{Operations: []StreamLifecycleOperationPlan{op(StreamLifecycleOperationStart), op(StreamLifecycleOperationReceive), op(StreamLifecycleOperationDone), op(StreamLifecycleOperationCancel)}, CancelFinalizes: true, TerminalKind: LifecycleTerminalOnDone}
+	case SessionKindBidi:
+		return StreamLifecycleContractPlan{Operations: []StreamLifecycleOperationPlan{op(StreamLifecycleOperationStart), op(StreamLifecycleOperationSend), op(StreamLifecycleOperationReceive), op(StreamLifecycleOperationCloseSend), op(StreamLifecycleOperationDone), op(StreamLifecycleOperationCancel)}, CancelFinalizes: true, TerminalKind: LifecycleTerminalOnDone}
+	default:
+		return StreamLifecycleContractPlan{}
+	}
+}
+
+func runtimeTestSessionOperations(sessionKind SessionKind) []SessionOperationPlan {
+	op := func(kind SessionOperationKind, terminal bool) SessionOperationPlan {
+		return SessionOperationPlan{Kind: kind, Enabled: true, RequiresTerminal: terminal}
+	}
+	switch sessionKind {
+	case SessionKindClient:
+		return []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationSend, false), op(SessionOperationFinish, true), op(SessionOperationCancel, true)}
+	case SessionKindServer:
+		return []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationReceive, false), op(SessionOperationDone, true), op(SessionOperationCancel, true)}
+	case SessionKindBidi:
+		return []SessionOperationPlan{op(SessionOperationStart, false), op(SessionOperationSend, false), op(SessionOperationReceive, false), op(SessionOperationCloseSend, false), op(SessionOperationDone, true), op(SessionOperationCancel, true)}
+	default:
+		return nil
+	}
+}
+
+func runtimeTestTerminalPolicy(sessionKind SessionKind) TerminalRenderPlan {
+	switch sessionKind {
+	case SessionKindClient:
+		return TerminalRenderPlan{Kind: TerminalKindFinish, Operation: SessionOperationFinish, ReleasesHandle: true, RequiresResponseConvert: true, AllowsCancel: true}
+	case SessionKindServer:
+		return TerminalRenderPlan{Kind: TerminalKindDone, Operation: SessionOperationDone, ReleasesHandle: true, AllowsCancel: true}
+	case SessionKindBidi:
+		return TerminalRenderPlan{Kind: TerminalKindDone, Operation: SessionOperationDone, ReleasesHandle: true, AllowsCancel: true, AllowsCloseSend: true}
+	default:
+		return TerminalRenderPlan{}
+	}
 }
 
 func TestRenderRuntimeGeneratedSourceCompiles(t *testing.T) {
