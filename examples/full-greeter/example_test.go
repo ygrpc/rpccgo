@@ -61,6 +61,14 @@ func TestFullGreeterCSharedClientExample(t *testing.T) {
 	for _, symbol := range []string{
 		"rpccgo_native_greeterv1_Greeter_SayHello",
 		"rpccgo_native_greeterv1_Greeter_Collect_start",
+		"rpccgo_native_greeterv1_Greeter_Broadcast_start",
+		"rpccgo_native_greeterv1_Greeter_Broadcast_read",
+		"rpccgo_native_greeterv1_Greeter_Broadcast_done",
+		"rpccgo_native_greeterv1_Greeter_Chat_start",
+		"rpccgo_native_greeterv1_Greeter_Chat_send",
+		"rpccgo_native_greeterv1_Greeter_Chat_read",
+		"rpccgo_native_greeterv1_Greeter_Chat_close_send",
+		"rpccgo_native_greeterv1_Greeter_Chat_done",
 		"rpccgo_msg_greeterv1_Greeter_SayHello",
 		"rpccgo_take_error_text",
 		"rpccgo_release",
@@ -79,6 +87,9 @@ func TestFullGreeterCSharedClientExample(t *testing.T) {
 	for _, marker := range []string{
 		"native unary: hello ffi from c",
 		"native collect: collect:ada,grace",
+		"native broadcast: broadcast[0]:stream",
+		"native broadcast: broadcast[1]:stream",
+		"native chat: chat:bidi",
 		"native output error: rpccgo: native client output pointer is nil",
 	} {
 		if !bytes.Contains(out, []byte(marker)) {

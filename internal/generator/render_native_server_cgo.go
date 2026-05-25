@@ -17,7 +17,7 @@ func renderNativeServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	}
 
 	cgoImportPath := protogen.GoImportPath(cgoGoImportPath(plan))
-	g := plugin.NewGeneratedFile(file.Filename, cgoImportPath)
+	g := newGeneratedFile(plugin, plan, file, cgoImportPath)
 	servicePackage := cgoServicePackageQualifier(g, plan.GoImportPath, service.GoName+"NativeAdapter")
 	runtimeMethods, err := buildRuntimeAdapterMethods(g, service)
 	if err != nil {

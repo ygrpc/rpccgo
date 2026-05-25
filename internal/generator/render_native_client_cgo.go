@@ -18,7 +18,7 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	}
 
 	cgoImportPath := protogen.GoImportPath(cgoGoImportPath(plan))
-	g := plugin.NewGeneratedFile(file.Filename, cgoImportPath)
+	g := newGeneratedFile(plugin, plan, file, cgoImportPath)
 	servicePackage := cgoServicePackageQualifier(g, plan.GoImportPath, service.GoName+"CGONativeClientBridge")
 	g.P("package main")
 	g.P()
@@ -1025,7 +1025,6 @@ func nativeCExportGoArg(symbol string, field FieldPlan) string {
 	}
 	return nativeCExportScalarGoArg(symbol, field)
 }
-
 
 func nativeCExportScalarGoArg(symbol string, field FieldPlan) string {
 	switch field.Kind {

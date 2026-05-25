@@ -47,7 +47,7 @@ func planHasCGOPackageFiles(plan FilePlan) bool {
 }
 
 func renderCGOExportSupportFile(plugin *protogen.Plugin, plan FilePlan, file GeneratedFilePlan) {
-	g := plugin.NewGeneratedFile(file.Filename, protogen.GoImportPath(cgoGoImportPath(plan)))
+	g := newGeneratedSharedFile(plugin, file, protogen.GoImportPath(cgoGoImportPath(plan)), "rpccgo cgo export support")
 	g.P("package main")
 	g.P()
 	g.P("/*")

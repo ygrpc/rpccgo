@@ -6,7 +6,7 @@ import (
 
 func renderMessageServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedFilePlan) error {
 	cgoImportPath := protogen.GoImportPath(cgoGoImportPath(plan))
-	g := plugin.NewGeneratedFile(file.Filename, cgoImportPath)
+	g := newGeneratedFile(plugin, plan, file, cgoImportPath)
 	servicePackage := cgoServicePackageQualifier(g, plan.GoImportPath, service.GoName+"MessageAdapter")
 
 	g.P("package main")

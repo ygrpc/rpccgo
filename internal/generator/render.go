@@ -240,14 +240,14 @@ func renderMessageStageFilesWithSupport(plugin *protogen.Plugin, plan FilePlan, 
 }
 
 func renderNativeStageFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedFilePlan) {
-	g := plugin.NewGeneratedFile(file.Filename, protogen.GoImportPath(plan.GoImportPath))
+	g := newGeneratedFile(plugin, plan, file, protogen.GoImportPath(plan.GoImportPath))
 	g.P("package ", plan.GoPackageName)
 	g.P()
 	g.P("// ", nativeStageMarker(service, file))
 }
 
 func renderMessageStageFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedFilePlan) {
-	g := plugin.NewGeneratedFile(file.Filename, protogen.GoImportPath(plan.GoImportPath))
+	g := newGeneratedFile(plugin, plan, file, protogen.GoImportPath(plan.GoImportPath))
 	packageName := plan.GoPackageName
 	if file == service.MessageFileFamily.CGOMessageServer || file == service.MessageFileFamily.CGOMessageClient {
 		packageName = "main"
