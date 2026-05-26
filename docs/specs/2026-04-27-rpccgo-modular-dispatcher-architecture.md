@@ -326,31 +326,42 @@ service Greeter {}
 
 `@rpccgo` 注释只控制 server adapter 生成。cgo native client 和 cgo message client 的生成策略不由该注释控制。
 
-每个 service 推荐生成以下文件族：
+每个 service 推荐生成一组以 `<proto-prefix>.<service>` 为前缀的文件族。普通 Go 文件保留在 protobuf Go package 输出目录：
 
 ```text
-<service>.runtime.rpccgo.go
-<service>.codec.rpccgo.go
-<service>.client.cgo.rpccgo.go
-<service>.server.cgo.rpccgo.go
-<service>.server.native.rpccgo.go
-<service>.server.connect.rpccgo.go
-<service>.server.grpc.rpccgo.go
-<service>.remote.connect.rpccgo.go
-<service>.remote.grpc.rpccgo.go
+<proto-prefix>.<service>.runtime.rpccgo.go
+<proto-prefix>.<service>.codec.rpccgo.go
+<proto-prefix>.<service>.server.native.rpccgo.go
+<proto-prefix>.<service>.server.connect.rpccgo.go
+<proto-prefix>.<service>.server.grpc.rpccgo.go
+<proto-prefix>.<service>.remote.connect.rpccgo.go
+<proto-prefix>.<service>.remote.grpc.rpccgo.go
+```
+
+cgo 文件输出到 `cgo_dir`，使用 `package main`，因此 native/message contract token 必须显式：
+
+```text
+<cgo-dir>/<proto-prefix>.exports.cgo.rpccgo.go
+<cgo-dir>/<proto-prefix>.<service>.server.native.cgo.rpccgo.go
+<cgo-dir>/<proto-prefix>.<service>.client.native.cgo.rpccgo.go
+<cgo-dir>/<proto-prefix>.<service>.server.message.cgo.rpccgo.go
+<cgo-dir>/<proto-prefix>.<service>.client.message.cgo.rpccgo.go
 ```
 
 职责划分：
 
 - `runtime` 保存 dispatcher、active slot 和 session glue。
 - `codec` 保存 native/message 转换。
-- `client.cgo` 保存 cgo native/message client ABI。
-- `server.cgo` 保存 cgo native/message server callback ABI。
 - `server.native` 保存 Go native server interface 和 adapter，仅在 `native` 启用时生成。
 - `server.connect` 保存 connect handler adapter，仅在 `msg-connect` 启用时生成。
 - `server.grpc` 保存 grpc server adapter，仅在 `msg-grpc` 启用时生成。
 - `remote.connect` 保存 connect remote server adapter。
 - `remote.grpc` 保存 grpc remote server adapter。
+- `exports.cgo` 保存 cgo package shared exports。
+- `server.native.cgo` 保存 cgo native server callback ABI。
+- `client.native.cgo` 保存 cgo native client ABI。
+- `server.message.cgo` 保存 cgo message server callback ABI。
+- `client.message.cgo` 保存 cgo message client ABI。
 
 ## 错误处理
 

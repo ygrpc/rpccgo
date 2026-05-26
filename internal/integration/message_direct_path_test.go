@@ -197,8 +197,8 @@ func writeMessageDirectPathGeneratedModule(t *testing.T, root string, plugin *pr
 			strings.Contains(name, ".server.native.rpccgo.go") ||
 			strings.Contains(name, ".server.connect.rpccgo.go") ||
 			strings.Contains(name, ".server.grpc.rpccgo.go") ||
-			strings.Contains(name, ".server.cgo.rpccgo.go") ||
-			strings.Contains(name, ".client.cgo.rpccgo.go") ||
+			strings.Contains(name, ".server.native.cgo.rpccgo.go") ||
+			strings.Contains(name, ".client.native.cgo.rpccgo.go") ||
 			strings.Contains(name, ".message.cgo.rpccgo.go")
 		if !include {
 			continue

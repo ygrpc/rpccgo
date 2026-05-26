@@ -18,6 +18,8 @@ Connect remote adapter 依赖 `protoc-gen-connect-go` 生成的同包 service cl
 
 gRPC remote adapter 依赖 `protoc-gen-go-grpc` 生成的泛型 service client。每个 service 的 generated output 只能选择 connect 或 gRPC 中的一种 message transport。
 
+生成文件按 service 拆分为 `<proto-prefix>.<service>.<role>[.<contract|transport>].rpccgo.go`；cgo 文件输出到 `cgo_dir` 且使用 `package main`，native/message contract token 显式写入文件名，例如 `.client.native.cgo.rpccgo.go` 与 `.client.message.cgo.rpccgo.go`。完整布局见 [rpccgo Modular Dispatcher Architecture](docs/specs/2026-04-27-rpccgo-modular-dispatcher-architecture.md) 的“生成物布局”章节。
+
 ## Examples
 
 - `examples/minimal-greeter`：最小路径，从 proto 生成代码并通过 cgo native/message client 调用 Go native server。

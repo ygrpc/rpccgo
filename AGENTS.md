@@ -61,6 +61,7 @@ connect client 和 grpc client 属于标准 RPC client，不进入 rpccgo client
 - 未知 token 必须报错；常见拼写错误如 `msg-conenct` 不能静默忽略。
 - `@rpccgo` 注释只控制 server adapter 生成，不控制 cgo client 生成。
 - cgo 生成文件必须生成到 `package main`。输出目录由 `cgo_dir` 参数控制，路径相对 protobuf Go package 的生成目录解析；`cgo_dir` 可以指向 Go package 目录之外，默认值是 Go package 目录下的 `cgo` 子目录。
+- cgo 文件名必须显式写出 native/message contract token：使用 `.server.native.cgo.rpccgo.go` / `.client.native.cgo.rpccgo.go` 与 `.server.message.cgo.rpccgo.go` / `.client.message.cgo.rpccgo.go`；共享 exports 保持 `<proto-prefix>.exports.cgo.rpccgo.go`。
 
 ## ABI 与类型约束
 

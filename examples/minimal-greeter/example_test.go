@@ -20,7 +20,7 @@ func TestMinimalGreeterGenerate(t *testing.T) {
 		"gen/greeter/v1/greeter.greeter.server.connect.rpccgo.go",
 		"gen/greeter/v1/greeter.greeter.remote.connect.rpccgo.go",
 		"cmd/rpc/greeter.exports.cgo.rpccgo.go",
-		"cmd/rpc/greeter.greeter.client.cgo.rpccgo.go",
+		"cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go",
 		"cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go",
 	} {
 		if _, err := os.Stat(path); err != nil {
@@ -30,7 +30,7 @@ func TestMinimalGreeterGenerate(t *testing.T) {
 
 	assertFileContains(t, "cmd/rpc/greeter.exports.cgo.rpccgo.go", "//export rpccgo_take_error_text")
 	assertFileContains(t, "cmd/rpc/greeter.exports.cgo.rpccgo.go", "//export rpccgo_release")
-	assertFileContains(t, "cmd/rpc/greeter.greeter.client.cgo.rpccgo.go", "//export rpccgo_native_greeterv1_Greeter_SayHello")
+	assertFileContains(t, "cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go", "//export rpccgo_native_greeterv1_Greeter_SayHello")
 	assertFileContains(t, "cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go", "//export rpccgo_msg_greeterv1_Greeter_SayHello")
 }
 

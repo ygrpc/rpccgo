@@ -20,7 +20,7 @@ func TestRenderNativeServerCGODefinesPerMethodCallbackRegistration(t *testing.T)
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const cgoServerFile = "test/v1/cgo/complete_service_plan.all_service.server.cgo.rpccgo.go"
+	const cgoServerFile = "test/v1/cgo/complete_service_plan.all_service.server.native.cgo.rpccgo.go"
 	for _, fragment := range []string{
 		"package main",
 		`import "C"`,
@@ -122,7 +122,7 @@ func TestRenderNativeServerCGOScalarOnlyGeneratedSourceCompiles(t *testing.T) {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const cgoServerFile = "test/v1/cgo/native_scalar.scalar.server.cgo.rpccgo.go"
+	const cgoServerFile = "test/v1/cgo/native_scalar.scalar.server.native.cgo.rpccgo.go"
 	assertGeneratedContentContains(t, plugin, cgoServerFile, `unsafe "unsafe"`)
 	assertGeneratedContentContains(t, plugin, cgoServerFile, "func StoreScalarCGONativeServerErrorTextForExport(text *C.char, textLen C.int32_t) C.int32_t {")
 
@@ -130,8 +130,8 @@ func TestRenderNativeServerCGOScalarOnlyGeneratedSourceCompiles(t *testing.T) {
 	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {
 		return strings.Contains(name, ".runtime.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go") ||
-			strings.Contains(name, ".server.cgo.rpccgo.go") ||
-			strings.Contains(name, ".client.cgo.rpccgo.go")
+			strings.Contains(name, ".server.native.cgo.rpccgo.go") ||
+			strings.Contains(name, ".client.native.cgo.rpccgo.go")
 	})
 	writeNativeServerCGOTestFile(t, filepath.Join(tmp, "test/v1/native_scalar_stubs.go"), `package testv1
 
@@ -163,7 +163,7 @@ func TestRenderNativeServerCGOSupportsRepeatedNativeABI(t *testing.T) {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const cgoServerFile = "test/v1/cgo/native_repeated.repeated_service.server.cgo.rpccgo.go"
+	const cgoServerFile = "test/v1/cgo/native_repeated.repeated_service.server.native.cgo.rpccgo.go"
 	for _, fragment := range []string{
 		"uintptr_t ScoresPtr, int32_t ScoresLen, int32_t ScoresOwnership",
 		"uintptr_t *outScoresPtr, int32_t *outScoresLen, int32_t *outScoresOwnership",
@@ -263,7 +263,7 @@ func TestRenderNativeServerCGORejectsPackageAndSiblingSymbolCollisions(t *testin
 				Response:  MethodIOPlan{GoName: "OtherReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.OtherReply"},
 			}},
 			NativeFileFamily: NativeFileFamilyPlan{
-				CGONativeServer: GeneratedFilePlan{Filename: "test/v1/collision_sibling.server.cgo.rpccgo.go", Enabled: true},
+				CGONativeServer: GeneratedFilePlan{Filename: "test/v1/collision_sibling.server.native.cgo.rpccgo.go", Enabled: true},
 			},
 		})
 
@@ -290,8 +290,8 @@ func TestRenderNativeServerCGOGeneratedSourceCompiles(t *testing.T) {
 	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {
 		return strings.Contains(name, ".runtime.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go") ||
-			strings.Contains(name, ".server.cgo.rpccgo.go") ||
-			strings.Contains(name, ".client.cgo.rpccgo.go")
+			strings.Contains(name, ".server.native.cgo.rpccgo.go") ||
+			strings.Contains(name, ".client.native.cgo.rpccgo.go")
 	})
 	writeNativeServerCompileStubs(t, tmp)
 
@@ -420,7 +420,7 @@ func nativeServerCGOCollisionTestFilePlan(serviceName string, methods []MethodPl
 			Adapters: AdapterSelection{Tokens: []AdapterToken{AdapterTokenNative}},
 			Methods:  methods,
 			NativeFileFamily: NativeFileFamilyPlan{
-				CGONativeServer: GeneratedFilePlan{Filename: "test/v1/collision.server.cgo.rpccgo.go", Enabled: true},
+				CGONativeServer: GeneratedFilePlan{Filename: "test/v1/collision.server.native.cgo.rpccgo.go", Enabled: true},
 			},
 		}},
 	}

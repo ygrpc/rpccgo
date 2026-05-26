@@ -31,7 +31,7 @@ func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 		name := generated.GetName()
 		if !strings.Contains(name, ".runtime.rpccgo.go") &&
 			!strings.Contains(name, ".server.native.rpccgo.go") &&
-			!strings.Contains(name, ".client.cgo.rpccgo.go") {
+			!strings.Contains(name, ".client.native.cgo.rpccgo.go") {
 			continue
 		}
 		writeFile(t, filepath.Join(tmp, name), generated.GetContent())

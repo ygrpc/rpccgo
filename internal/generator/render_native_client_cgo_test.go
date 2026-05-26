@@ -21,7 +21,7 @@ func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const nativeClientFile = "test/v1/cgo/complete_service_plan.all_service.client.cgo.rpccgo.go"
+	const nativeClientFile = "test/v1/cgo/complete_service_plan.all_service.client.native.cgo.rpccgo.go"
 	for _, fragment := range []string{
 		"package main",
 		`v1 "example.com/test/v1"`,
@@ -63,7 +63,7 @@ func TestRenderNativeClientCGOStreamsUseDispatcherAccessor(t *testing.T) {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const nativeClientFile = "test/v1/cgo/message_cgo.greeter.client.cgo.rpccgo.go"
+	const nativeClientFile = "test/v1/cgo/message_cgo.greeter.client.native.cgo.rpccgo.go"
 	for _, fragment := range []string{
 		"v1.NewGreeterUploadNativeStream(rpcruntime.StreamHandle(handle)).Send(ctx",
 		"err = v1.NewGreeterUploadNativeStream(rpcruntime.StreamHandle(handle)).Finish(ctx)",
@@ -97,7 +97,7 @@ func TestRenderNativeClientCGOHandlesBytesOwnershipAndPinnedOutputRelease(t *tes
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const nativeClientFile = "test/v1/cgo/native_unary.greeter.client.cgo.rpccgo.go"
+	const nativeClientFile = "test/v1/cgo/native_unary.greeter.client.native.cgo.rpccgo.go"
 	for _, fragment := range []string{
 		"PayloadOwnership int32",
 		"if PayloadPtr == 0 || PayloadLen == 0 {",
@@ -129,7 +129,7 @@ func TestRenderNativeClientCGOSupportsEnumAsInt32(t *testing.T) {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const nativeClientFile = "test/v1/cgo/native_enum.enum_service.client.cgo.rpccgo.go"
+	const nativeClientFile = "test/v1/cgo/native_enum.enum_service.client.native.cgo.rpccgo.go"
 	for _, fragment := range []string{
 		"State int32",
 		"stateValue := v1.State(State)",
@@ -149,7 +149,7 @@ func TestRenderNativeClientCGOSupportsRepeatedNativeABI(t *testing.T) {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	const nativeClientFile = "test/v1/cgo/native_repeated.repeated_service.client.cgo.rpccgo.go"
+	const nativeClientFile = "test/v1/cgo/native_repeated.repeated_service.client.native.cgo.rpccgo.go"
 	for _, fragment := range []string{
 		"ScoresPtr",
 		"ScoresLen",
@@ -326,7 +326,7 @@ func TestRenderNativeClientCGORejectsSiblingServiceGeneratedSymbolCollisions(t *
 			Response:  MethodIOPlan{GoName: "OtherReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.OtherReply"},
 		}},
 		NativeFileFamily: NativeFileFamilyPlan{
-			CGONativeClient: GeneratedFilePlan{Filename: "test/v1/collision_sibling.client.cgo.rpccgo.go", Enabled: true},
+			CGONativeClient: GeneratedFilePlan{Filename: "test/v1/collision_sibling.client.native.cgo.rpccgo.go", Enabled: true},
 		},
 	})
 
@@ -434,7 +434,7 @@ func TestRenderNativeClientCGOGeneratedSourceCompiles(t *testing.T) {
 	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {
 		return strings.Contains(name, ".runtime.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go") ||
-			strings.Contains(name, ".client.cgo.rpccgo.go")
+			strings.Contains(name, ".client.native.cgo.rpccgo.go")
 	})
 	writeNativeServerCompileStubs(t, tmp)
 
@@ -647,7 +647,7 @@ func nativeClientCollisionTestFilePlan(method MethodPlan) FilePlan {
 			FullName: "test.v1.AllService",
 			Methods:  []MethodPlan{method},
 			NativeFileFamily: NativeFileFamilyPlan{
-				CGONativeClient: GeneratedFilePlan{Filename: "test/v1/collision.client.cgo.rpccgo.go", Enabled: true},
+				CGONativeClient: GeneratedFilePlan{Filename: "test/v1/collision.client.native.cgo.rpccgo.go", Enabled: true},
 			},
 		}},
 	}

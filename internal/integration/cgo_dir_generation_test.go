@@ -24,8 +24,8 @@ func TestCGODirGeneration(t *testing.T) {
 			parameter:  "paths=source_relative",
 			cgoPackage: "./test/v1/cgo",
 			cgoFiles: []string{
-				"test/v1/cgo/native_unary.greeter.server.cgo.rpccgo.go",
-				"test/v1/cgo/native_unary.greeter.client.cgo.rpccgo.go",
+				"test/v1/cgo/native_unary.greeter.server.native.cgo.rpccgo.go",
+				"test/v1/cgo/native_unary.greeter.client.native.cgo.rpccgo.go",
 			},
 		},
 		{
@@ -33,8 +33,8 @@ func TestCGODirGeneration(t *testing.T) {
 			parameter:  "paths=source_relative,cgo_dir=../cmd/rpc",
 			cgoPackage: "./test/cmd/rpc",
 			cgoFiles: []string{
-				"test/cmd/rpc/native_unary.greeter.server.cgo.rpccgo.go",
-				"test/cmd/rpc/native_unary.greeter.client.cgo.rpccgo.go",
+				"test/cmd/rpc/native_unary.greeter.server.native.cgo.rpccgo.go",
+				"test/cmd/rpc/native_unary.greeter.client.native.cgo.rpccgo.go",
 			},
 		},
 	}
@@ -151,8 +151,8 @@ func writeNativeUnaryGeneratedModule(t *testing.T, root string, plugin *protogen
 		name := generated.GetName()
 		if !strings.Contains(name, ".runtime.rpccgo.go") &&
 			!strings.Contains(name, ".server.native.rpccgo.go") &&
-			!strings.Contains(name, ".server.cgo.rpccgo.go") &&
-			!strings.Contains(name, ".client.cgo.rpccgo.go") {
+			!strings.Contains(name, ".server.native.cgo.rpccgo.go") &&
+			!strings.Contains(name, ".client.native.cgo.rpccgo.go") {
 			continue
 		}
 		writeFile(t, filepath.Join(root, name), generated.GetContent())

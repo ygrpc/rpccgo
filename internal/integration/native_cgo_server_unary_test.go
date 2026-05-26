@@ -25,8 +25,8 @@ func TestNativeCGOServerUnaryRoutesThroughDispatcher(t *testing.T) {
 		name := generated.GetName()
 		include := strings.Contains(name, ".runtime.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go") ||
-			strings.Contains(name, ".server.cgo.rpccgo.go") ||
-			strings.Contains(name, ".client.cgo.rpccgo.go")
+			strings.Contains(name, ".server.native.cgo.rpccgo.go") ||
+			strings.Contains(name, ".client.native.cgo.rpccgo.go")
 		if !include {
 			continue
 		}

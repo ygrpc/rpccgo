@@ -30,11 +30,11 @@ func BuildNativeFileFamilyPlan(file FilePlan, service ServicePlan) NativeFileFam
 			Enabled:  enabledNativeServer,
 		},
 		CGONativeServer: GeneratedFilePlan{
-			Filename: fmt.Sprintf("%s.%s.server.cgo.rpccgo.go", cgoPrefix, serviceName),
+			Filename: fmt.Sprintf("%s.%s.server.native.cgo.rpccgo.go", cgoPrefix, serviceName),
 			Enabled:  enabledNativeServer,
 		},
 		CGONativeClient: GeneratedFilePlan{
-			Filename: fmt.Sprintf("%s.%s.client.cgo.rpccgo.go", cgoPrefix, serviceName),
+			Filename: fmt.Sprintf("%s.%s.client.native.cgo.rpccgo.go", cgoPrefix, serviceName),
 			Enabled:  true,
 		},
 	}

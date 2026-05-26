@@ -14,8 +14,8 @@ func TestGeneratedLayoutContract(t *testing.T) {
 		"test/v1/greeter.greeter.runtime.rpccgo.go",
 		"test/v1/greeter.greeter.server.native.rpccgo.go",
 		"test/cmd/rpc/greeter.exports.cgo.rpccgo.go",
-		"test/cmd/rpc/greeter.greeter.server.cgo.rpccgo.go",
-		"test/cmd/rpc/greeter.greeter.client.cgo.rpccgo.go",
+		"test/cmd/rpc/greeter.greeter.server.native.cgo.rpccgo.go",
+		"test/cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go",
 		"test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go",
 		"test/cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go",
 		"test/v1/greeter.greeter.server.connect.rpccgo.go",
@@ -28,8 +28,8 @@ func TestGeneratedLayoutContract(t *testing.T) {
 	assertGeneratedPackage(t, plugin, "test/v1/greeter.greeter.server.connect.rpccgo.go", "package testv1")
 	assertGeneratedPackage(t, plugin, "test/v1/greeter.greeter.remote.connect.rpccgo.go", "package testv1")
 	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.exports.cgo.rpccgo.go", "package main")
-	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.server.cgo.rpccgo.go", "package main")
-	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.client.cgo.rpccgo.go", "package main")
+	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.server.native.cgo.rpccgo.go", "package main")
+	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go", "package main")
 	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go", "package main")
 	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go", "package main")
 }
@@ -61,10 +61,10 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.remote.connect.rpccgo.go",
 		"func RegisterGreeterConnectRemoteServer(client GreeterClient) (rpcruntime.AdapterSnapshot[GreeterMessageAdapter], error) {",
 	)
-	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.server.cgo.rpccgo.go",
+	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.server.native.cgo.rpccgo.go",
 		"//export rpccgo_native_testv1_Greeter_SayHello_register",
 	)
-	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.client.cgo.rpccgo.go",
+	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go",
 		"//export rpccgo_native_testv1_Greeter_SayHello",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.exports.cgo.rpccgo.go",
