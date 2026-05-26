@@ -44,7 +44,10 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"type GreeterMessageAdapter interface {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go",
-		"func NewGreeterCGONativeClientBridge() GreeterCGONativeClientBridge {",
+		"func InvokeGreeterNativeSayHello(ctx context.Context) error {",
+	)
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go",
+		"func InvokeGreeterMessageSayHello(ctx context.Context, req []byte) ([]byte, error) {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go",
 		"func RegisterGreeterCGOMessageActiveServer(kind rpcruntime.ServerKind, adapter GreeterMessageAdapter) (rpcruntime.AdapterSnapshot[GreeterMessageAdapter], error) {",

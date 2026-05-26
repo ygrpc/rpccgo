@@ -39,7 +39,7 @@ func greeterConnectSayHello(ctx context.Context, req *connect.Request[SayHelloRe
 	if err != nil {
 		return nil, fmt.Errorf("rpccgo: connect request protobuf marshal failed: %w", err)
 	}
-	respData, err := NewGreeterCGOMessageClientBridge().SayHello(ctx, reqData)
+	respData, err := InvokeGreeterMessageSayHello(ctx, reqData)
 	if err != nil {
 		return nil, err
 	}

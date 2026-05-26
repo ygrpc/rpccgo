@@ -40,6 +40,10 @@ func TestRenderRuntimeGlueDefinesServiceDispatcherAndRegistration(t *testing.T) 
 	}
 
 	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
+	assertGeneratedFileContentDoesNotContain(t, plugin, runtimeFile,
+		"CGONativeClientBridge",
+		"CGOMessageClientBridge",
+	)
 	for _, fragment := range []string{
 		"type AllServiceNativeAdapter interface {",
 		"Unary(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (bool, []byte, error)",
@@ -64,14 +68,16 @@ func TestRenderRuntimeGlueDefinesServiceDispatcherAndRegistration(t *testing.T) 
 		"return &allServiceDispatcher",
 		"func registerAllServiceActiveServer(kind rpcruntime.ServerKind, adapter AllServiceNativeAdapter) (rpcruntime.AdapterSnapshot[AllServiceNativeAdapter], error) {",
 		"snapshot, err := allServiceDispatcher.Register(kind, rpcruntime.ServerContractNative, AllServiceActiveAdapter{Native: adapter})",
-		"type AllServiceCGONativeClientBridge struct{}",
-		"func (AllServiceCGONativeClientBridge) Unary(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (bool, []byte, error) {",
+		"var allServiceBridge = allServiceRuntimeBridge{dispatcher: &allServiceDispatcher}",
+		"type allServiceRuntimeBridge struct {",
+		"func (r allServiceRuntimeBridge) invokeNativeUnary(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (bool, []byte, error) {",
+		"func InvokeAllServiceNativeUnary(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (bool, []byte, error) {",
+		"return allServiceBridge.invokeNativeUnary(ctx, name, enabled, child)",
 		"if snapshot.Adapter.Native == nil {",
 		"return AllServiceNativeAdapterUnavailableErr",
 		"var acceptedResult bool",
 		"var payloadResult []byte",
 		"acceptedResult, payloadResult, callErr = snapshot.Adapter.Native.Unary(ctx, name, enabled, child)",
-		"func NewAllServiceCGONativeClientBridge() AllServiceCGONativeClientBridge {",
 		"func RegisterAllServiceCGONativeActiveServer(kind rpcruntime.ServerKind, adapter AllServiceNativeAdapter) (rpcruntime.AdapterSnapshot[AllServiceNativeAdapter], error) {",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
@@ -105,13 +111,13 @@ func TestRenderRuntimeGlueDefinesMessageContractDispatcherAndRegistration(t *tes
 		"CloseSend(ctx context.Context) error",
 		"func registerAllServiceMessageActiveServer(kind rpcruntime.ServerKind, adapter AllServiceMessageAdapter) (rpcruntime.AdapterSnapshot[AllServiceMessageAdapter], error) {",
 		"snapshot, err := allServiceDispatcher.Register(kind, rpcruntime.ServerContractMessage, AllServiceActiveAdapter{Message: adapter})",
-		"type AllServiceCGOMessageClientBridge struct{}",
-		"func (AllServiceCGOMessageClientBridge) Unary(ctx context.Context, req []byte) ([]byte, error) {",
+		"func (r allServiceRuntimeBridge) invokeMessageUnary(ctx context.Context, req []byte) ([]byte, error) {",
+		"func InvokeAllServiceMessageUnary(ctx context.Context, req []byte) ([]byte, error) {",
+		"return allServiceBridge.invokeMessageUnary(ctx, req)",
 		"case rpcruntime.ServerContractMessage:",
 		"return AllServiceMessageAdapterUnavailableErr",
 		"resp, callErr = snapshot.Adapter.Message.UnaryMessage(ctx, req)",
 		"AllServiceNativeMessageConverterUnavailableErr",
-		"func NewAllServiceCGOMessageClientBridge() AllServiceCGOMessageClientBridge {",
 		"func RegisterAllServiceCGOMessageActiveServer(kind rpcruntime.ServerKind, adapter AllServiceMessageAdapter) (rpcruntime.AdapterSnapshot[AllServiceMessageAdapter], error) {",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
@@ -171,7 +177,7 @@ func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleAndCoreStreamRegistry(t *tes
 
 	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
-		"func (AllServiceCGONativeClientBridge) StartClientStream(ctx context.Context) (rpcruntime.StreamHandle, error) {",
+		"func StartAllServiceNativeClientStream(ctx context.Context) (rpcruntime.StreamHandle, error) {",
 		"func AllServiceDispatcherForRuntime() *rpcruntime.Dispatcher[AllServiceActiveAdapter] {",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
@@ -200,7 +206,7 @@ func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleForMessageHelpers(t *testing
 
 	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
-		"func (AllServiceCGOMessageClientBridge) StartClientStream(ctx context.Context) (rpcruntime.StreamHandle, error) {",
+		"func StartAllServiceMessageClientStream(ctx context.Context) (rpcruntime.StreamHandle, error) {",
 		"func AllServiceDispatcherForRuntime() *rpcruntime.Dispatcher[AllServiceActiveAdapter] {",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)

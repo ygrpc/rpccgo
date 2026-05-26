@@ -32,9 +32,9 @@ _Avoid_: runtime stream lifecycle executor, stream registry access pattern
 每个 service 生成的 `*.runtime.rpccgo.go`，只应承载 proto/service/method-specific 的 typed adapter、bridge 和 converter glue。
 _Avoid_: runtime core
 
-**Active router**:
-Generated service runtime 内部的 package-private typed routing layer，负责按 service/method contract 选择 Active server 并应用 native/message 转换；不作为外部用户 API。
-_Avoid_: runtime core dispatcher, public client API
+**Runtime bridge**:
+Generated service runtime 内部的 package-private typed invocation layer，负责按 service/method contract 选择 Active server 并应用 native/message 转换；外部包只能通过 generated package-level invoke/start 函数进入。
+_Avoid_: runtime core dispatcher, public client object, active router
 
 **Call-scoped borrowed view**:
 仅在一次 generated message→native bridge 调用同步执行期间有效的 borrowed wrapper 视图；不得把 wrapper 本身跨调用保存。
@@ -75,7 +75,7 @@ _Avoid_: active server
 - **Native C ABI plan** 位于 `NativeContract` 之后、renderer 之前；它按 C boundary operation 表达结构化 ABI shape，不生成代码字符串。
 - **Method contract plan** 应由 `MethodPlan` 显式持有，集中保存单个 method 的 **Native**、**Message contract**、**Stream lifecycle**、render planning inputs 和 method-level **Native C ABI plan**，避免 renderer 或后续 builder 从 `RenderShape` 反读 contract facts。
 - **Native C ABI plan** 应保留 slot role、source field metadata、最终 C type spelling、cleanup capability、export symbol naming 和 callback typedef naming，使 renderer 不再重复推断 ABI 语义。
-- **Native C ABI plan** 不表达 callback missing policy、error bridge lifecycle 语义或 **Stream lifecycle** handle cleanup；这些分别属于 **Generated service runtime** / **Active router**、error bridge Module 和 **Runtime core**。
+- **Native C ABI plan** 不表达 callback missing policy、error bridge lifecycle 语义或 **Stream lifecycle** handle cleanup；这些分别属于 **Generated service runtime** / **Runtime bridge**、error bridge Module 和 **Runtime core**。
 - protobuf schema 中的 unsigned 字段可进入 **Native C ABI plan** 的 field value slot；proto 无关的 length/count/handle/error id 等辅助 slot 不应使用 unsigned 32/64 类型。
 - 修改 ABI / runtime type mapping 后，必须使用 `docs/release/verification-checklist.md` 验证测试命令和合同扫描。
 - **Active server** 是新版调度模型的一部分；它不能改变 **Native** 的字段级函数边界语义。
@@ -84,9 +84,9 @@ _Avoid_: active server
 - **Generated service runtime** 不应生成 per-method stream `load/take/delete` 薄包装；应通过 **Stream lifecycle** Module 表达 Start 后的 lookup、half-close、finish/done/cancel 和终态释放规则。
 - **Runtime core** 应提供 **Stream lifecycle** executor，集中执行通用 handle lookup/take/release、terminal-once、invalid-handle、send-closed/finalized/canceled 和 cancel/terminal finalization 语义；**Generated service runtime** 应只提供 method-specific typed facade，绑定 session callback、native/message conversion、active routing 和错误映射。
 - Register helper 可留在 **Generated service runtime** 中，因为它们封装 service-specific active adapter 包装并返回更窄的 typed snapshot，不是纯 runtime core 薄包装。
-- Native/message client bridge 应留在 **Generated service runtime** 中，因为它表达 service-level active server contract 路由，并集中连接 native adapter、message adapter 与 converter glue。
-- **Active router** 应留在 **Generated service runtime** 中，作为 service-local routing layer 复用 **Runtime core** dispatcher 的 capture/start primitive；bridge 不应重复展开 snapshot、contract routing、adapter nil、converter 和 stream wrapper 选择。
-- **Active router** 的方法不作为外部用户 API；但它返回的 routing errors 应导出为 package-level sentinel vars，供用户通过 `errors.Is` 判断失败类型；无 active server 使用 `rpcruntime.ErrNoActiveServer`，service-specific 失败按 service + 分类命名，不按调用方向拆分。
+- **Runtime bridge** 应留在 **Generated service runtime** 中，因为它表达 service-level active server contract 路由，并集中连接 native adapter、message adapter 与 converter glue。
+- **Runtime bridge** 作为 service-local invocation layer 复用 **Runtime core** dispatcher 的 capture/start primitive；不应再额外生成只转发到 bridge 的 public client object。
+- **Runtime bridge** 类型和方法不作为外部用户 API；外部包通过 generated package-level invoke/start 函数进入。它返回的 routing errors 应导出为 package-level sentinel vars，供用户通过 `errors.Is` 判断失败类型；无 active server 使用 `rpcruntime.ErrNoActiveServer`，service-specific 失败按 service + 分类命名，不按调用方向拆分。
 - **Message contract** remote adapter 使用标准 transport client 作为外部能力；rpccgo generated code 不应构造 per-method client。
 - **Message contract** remote adapter 只转发 protobuf message payload 和 error；metadata/header/trailer 不属于当前 contract。
 - 一个 service 的 generated output 只能选择一个 message transport（connect 或 gRPC），避免标准 transport client API 在同包内重名。

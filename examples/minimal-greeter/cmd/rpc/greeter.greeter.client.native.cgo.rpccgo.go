@@ -37,7 +37,7 @@ func CallGreeterSayHelloNativeUnary(ctx context.Context, NamePtr uintptr, NameLe
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
-	messageResult, err := v1.NewGreeterCGONativeClientBridge().SayHello(ctx, nameValue)
+	messageResult, err := v1.InvokeGreeterNativeSayHello(ctx, nameValue)
 	if cleanupErr := errors.Join(nameValue.Release()); cleanupErr != nil {
 		err = errors.Join(err, cleanupErr)
 	}

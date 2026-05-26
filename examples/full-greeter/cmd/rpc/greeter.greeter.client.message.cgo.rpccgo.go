@@ -43,7 +43,7 @@ func CallGreeterSayHelloMessageUnary(ctx context.Context, requestPtr uintptr, re
 	if err := protobuf.Unmarshal(req, &proto.SayHelloRequest{}); err != nil {
 		return int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)))
 	}
-	resp, err := proto.NewGreeterCGOMessageClientBridge().SayHello(ctx, req)
+	resp, err := proto.InvokeGreeterMessageSayHello(ctx, req)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -106,7 +106,7 @@ func StartGreeterCollectMessageClientStream(ctx context.Context) (int32, int32) 
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	handle, err := proto.NewGreeterCGOMessageClientBridge().StartCollect(ctx)
+	handle, err := proto.StartGreeterMessageCollect(ctx)
 	if err != nil {
 		return 0, int32(rpcruntime.StoreError(err))
 	}
@@ -248,7 +248,7 @@ func StartGreeterBroadcastMessageServerStream(ctx context.Context, requestPtr ui
 	if err := protobuf.Unmarshal(req, &proto.SayHelloRequest{}); err != nil {
 		return 0, int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)))
 	}
-	handle, err := proto.NewGreeterCGOMessageClientBridge().StartBroadcast(ctx, req)
+	handle, err := proto.StartGreeterMessageBroadcast(ctx, req)
 	if err != nil {
 		return 0, int32(rpcruntime.StoreError(err))
 	}
@@ -377,7 +377,7 @@ func StartGreeterChatMessageBidiStream(ctx context.Context) (int32, int32) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	handle, err := proto.NewGreeterCGOMessageClientBridge().StartChat(ctx)
+	handle, err := proto.StartGreeterMessageChat(ctx)
 	if err != nil {
 		return 0, int32(rpcruntime.StoreError(err))
 	}

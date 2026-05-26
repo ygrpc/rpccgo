@@ -74,7 +74,6 @@ func renderConnectServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 func renderConnectUnaryImplementation(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	reqType := qualifiedMethodType(g, method.Request)
 	respType := qualifiedMethodType(g, method.Response)
-	bridgeName := service.GoName + "CGOMessageClientBridge"
 	g.P("func ", connectImplementationName(service, method), "(ctx context.Context, req *connect.Request[", reqType, "]) (*connect.Response[", respType, "], error) {")
 	g.P("if req == nil || req.Msg == nil {")
 	g.P(`return nil, errors.New("rpccgo: connect request is nil")`)
@@ -83,7 +82,7 @@ func renderConnectUnaryImplementation(g *protogen.GeneratedFile, service Service
 	g.P("if err != nil {")
 	g.P(`return nil, fmt.Errorf("rpccgo: connect request protobuf marshal failed: %w", err)`)
 	g.P("}")
-	g.P("respData, err := New", bridgeName, "().", method.GoName, "(ctx, reqData)")
+	g.P("respData, err := Invoke", service.GoName, "Message", method.GoName, "(ctx, reqData)")
 	g.P("if err != nil {")
 	g.P("return nil, err")
 	g.P("}")
@@ -99,10 +98,8 @@ func renderConnectUnaryImplementation(g *protogen.GeneratedFile, service Service
 func renderConnectClientStreamingImplementation(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	reqType := qualifiedMethodType(g, method.Request)
 	respType := qualifiedMethodType(g, method.Response)
-	bridgeType := service.GoName + "CGOMessageClientBridge"
 	g.P("func ", connectImplementationName(service, method), "(ctx context.Context, stream *connect.ClientStream[", reqType, "]) (*connect.Response[", respType, "], error) {")
-	g.P("bridge := New", bridgeType, "()")
-	g.P("handle, err := bridge.Start", method.GoName, "(ctx)")
+	g.P("handle, err := Start", service.GoName, "Message", method.GoName, "(ctx)")
 	g.P("if err != nil {")
 	g.P("return nil, err")
 	g.P("}")
@@ -138,7 +135,6 @@ func renderConnectClientStreamingImplementation(g *protogen.GeneratedFile, servi
 func renderConnectServerStreamingImplementation(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	reqType := qualifiedMethodType(g, method.Request)
 	respType := qualifiedMethodType(g, method.Response)
-	bridgeType := service.GoName + "CGOMessageClientBridge"
 	g.P("func ", connectImplementationName(service, method), "(ctx context.Context, req *connect.Request[", reqType, "], stream *connect.ServerStream[", respType, "]) error {")
 	g.P("if req == nil || req.Msg == nil {")
 	g.P(`return errors.New("rpccgo: connect request is nil")`)
@@ -147,8 +143,7 @@ func renderConnectServerStreamingImplementation(g *protogen.GeneratedFile, servi
 	g.P("if err != nil {")
 	g.P(`return fmt.Errorf("rpccgo: connect stream request protobuf marshal failed: %w", err)`)
 	g.P("}")
-	g.P("bridge := New", bridgeType, "()")
-	g.P("handle, err := bridge.Start", method.GoName, "(ctx, reqData)")
+	g.P("handle, err := Start", service.GoName, "Message", method.GoName, "(ctx, reqData)")
 	g.P("if err != nil {")
 	g.P("return err")
 	g.P("}")
@@ -178,10 +173,8 @@ func renderConnectServerStreamingImplementation(g *protogen.GeneratedFile, servi
 func renderConnectBidiStreamingImplementation(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	reqType := qualifiedMethodType(g, method.Request)
 	respType := qualifiedMethodType(g, method.Response)
-	bridgeType := service.GoName + "CGOMessageClientBridge"
 	g.P("func ", connectImplementationName(service, method), "(ctx context.Context, stream *connect.BidiStream[", reqType, ", ", respType, "]) error {")
-	g.P("bridge := New", bridgeType, "()")
-	g.P("handle, err := bridge.Start", method.GoName, "(ctx)")
+	g.P("handle, err := Start", service.GoName, "Message", method.GoName, "(ctx)")
 	g.P("if err != nil {")
 	g.P("return err")
 	g.P("}")

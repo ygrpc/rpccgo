@@ -46,7 +46,7 @@ func TestRenderMessageClientCGODefinesUnaryExportSurface(t *testing.T) {
 		`return int32(rpcruntime.StoreError(errors.New("rpccgo: message unary client output is nil")))`,
 		"req, err := decodeGreeterUnaryMessageRequestBytes(requestPtr, requestLen)",
 		`rpccgo: message request protobuf unmarshal failed`,
-		"resp, err := v1.NewGreeterCGOMessageClientBridge().Unary(ctx, req)",
+		"resp, err := v1.InvokeGreeterMessageUnary(ctx, req)",
 		`rpccgo: message response protobuf unmarshal failed`,
 		"ptr, length, err := encodeGreeterUnaryMessageResponseBytes(resp)",
 		"output.DataPtr = ptr",

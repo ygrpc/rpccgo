@@ -52,11 +52,11 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 		renderRuntimeMessageStreamFacade(g, service.GoName, method)
 	}
 
-	routerName := lowerInitial(service.GoName) + "Router"
-	routerTypeName := lowerInitial(service.GoName) + "ActiveRouter"
+	bridgeName := lowerInitial(service.GoName) + "Bridge"
+	bridgeTypeName := lowerInitial(service.GoName) + "RuntimeBridge"
 
 	g.P("var ", dispatcherName, " rpcruntime.Dispatcher[", activeAdapterName, "]")
-	g.P("var ", routerName, " = ", routerTypeName, "{dispatcher: &", dispatcherName, "}")
+	g.P("var ", bridgeName, " = ", bridgeTypeName, "{dispatcher: &", dispatcherName, "}")
 	g.P("var ", service.GoName, `NativeMessageConverterUnavailableErr = errors.New("rpccgo: native/message converter is not enabled")`)
 	g.P("var ", service.GoName, `NativeAdapterUnavailableErr = errors.New("rpccgo: native adapter is unavailable")`)
 	g.P("var ", service.GoName, `MessageAdapterUnavailableErr = errors.New("rpccgo: message adapter is unavailable")`)
@@ -86,9 +86,9 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P("}")
 	g.P()
 
-	renderRuntimeActiveRouter(g, service.GoName, routerTypeName, activeAdapterName, runtimeMethods, codecEnabled)
-	renderRuntimeCGOBridge(g, service.GoName, adapterName, activeAdapterName, dispatcherName, runtimeMethods, codecEnabled)
-	renderRuntimeMessageCGOBridge(g, service.GoName, messageAdapterName, activeAdapterName, dispatcherName, runtimeMethods, codecEnabled)
+	renderRuntimeBridge(g, service.GoName, bridgeTypeName, activeAdapterName, runtimeMethods, codecEnabled)
+	renderRuntimeNativeEntrypoints(g, service.GoName, adapterName, bridgeName, runtimeMethods)
+	renderRuntimeMessageEntrypoints(g, service.GoName, messageAdapterName, bridgeName, runtimeMethods)
 
 	return nil
 }
@@ -492,25 +492,25 @@ func messageRuntimeStreamFacadeName(serviceName string, method runtimeAdapterMet
 	return serviceName + method.MethodGoName + "MessageStream"
 }
 
-func renderRuntimeActiveRouter(g *protogen.GeneratedFile, serviceName, routerTypeName, activeAdapterName string, methods []runtimeAdapterMethod, codecEnabled bool) {
-	g.P("type ", routerTypeName, " struct {")
+func renderRuntimeBridge(g *protogen.GeneratedFile, serviceName, bridgeTypeName, activeAdapterName string, methods []runtimeAdapterMethod, codecEnabled bool) {
+	g.P("type ", bridgeTypeName, " struct {")
 	g.P("dispatcher *rpcruntime.Dispatcher[", activeAdapterName, "]")
 	g.P("}")
 	g.P()
 
 	for _, method := range methods {
 		if method.Streaming {
-			renderRuntimeActiveRouterNativeStream(g, serviceName, routerTypeName, activeAdapterName, method, codecEnabled)
-			renderRuntimeActiveRouterMessageStream(g, serviceName, routerTypeName, activeAdapterName, method, codecEnabled)
+			renderRuntimeBridgeNativeStream(g, serviceName, bridgeTypeName, activeAdapterName, method, codecEnabled)
+			renderRuntimeBridgeMessageStream(g, serviceName, bridgeTypeName, activeAdapterName, method, codecEnabled)
 			continue
 		}
-		renderRuntimeActiveRouterNativeUnary(g, serviceName, routerTypeName, activeAdapterName, method, codecEnabled)
-		renderRuntimeActiveRouterMessageUnary(g, serviceName, routerTypeName, activeAdapterName, method, codecEnabled)
+		renderRuntimeBridgeNativeUnary(g, serviceName, bridgeTypeName, activeAdapterName, method, codecEnabled)
+		renderRuntimeBridgeMessageUnary(g, serviceName, bridgeTypeName, activeAdapterName, method, codecEnabled)
 	}
 }
 
-func renderRuntimeActiveRouterNativeUnary(g *protogen.GeneratedFile, serviceName, routerTypeName, activeAdapterName string, method runtimeAdapterMethod, codecEnabled bool) {
-	g.P("func (r ", routerTypeName, ") invokeNative", method.MethodGoName, "(ctx context.Context", method.NativeArgs, ") (", method.NativeReturns, ") {")
+func renderRuntimeBridgeNativeUnary(g *protogen.GeneratedFile, serviceName, bridgeTypeName, activeAdapterName string, method runtimeAdapterMethod, codecEnabled bool) {
+	g.P("func (r ", bridgeTypeName, ") invokeNative", method.MethodGoName, "(ctx context.Context", method.NativeArgs, ") (", method.NativeReturns, ") {")
 	for _, decl := range method.NativeVarDecls {
 		g.P(decl)
 	}
@@ -566,8 +566,8 @@ func renderRuntimeActiveRouterNativeUnary(g *protogen.GeneratedFile, serviceName
 	g.P()
 }
 
-func renderRuntimeActiveRouterMessageUnary(g *protogen.GeneratedFile, serviceName, routerTypeName, activeAdapterName string, method runtimeAdapterMethod, codecEnabled bool) {
-	g.P("func (r ", routerTypeName, ") invokeMessage", method.MethodGoName, "(ctx context.Context, req []byte) ([]byte, error) {")
+func renderRuntimeBridgeMessageUnary(g *protogen.GeneratedFile, serviceName, bridgeTypeName, activeAdapterName string, method runtimeAdapterMethod, codecEnabled bool) {
+	g.P("func (r ", bridgeTypeName, ") invokeMessage", method.MethodGoName, "(ctx context.Context, req []byte) ([]byte, error) {")
 	g.P("var resp []byte")
 	g.P("err := r.dispatcher.Invoke(ctx, func(ctx context.Context, snapshot rpcruntime.AdapterSnapshot[", activeAdapterName, "]) error {")
 	g.P("switch snapshot.Contract {")
@@ -614,14 +614,14 @@ func renderRuntimeActiveRouterMessageUnary(g *protogen.GeneratedFile, serviceNam
 	g.P()
 }
 
-func renderRuntimeActiveRouterNativeStream(g *protogen.GeneratedFile, serviceName, routerTypeName, activeAdapterName string, method runtimeAdapterMethod, codecEnabled bool) {
+func renderRuntimeBridgeNativeStream(g *protogen.GeneratedFile, serviceName, bridgeTypeName, activeAdapterName string, method runtimeAdapterMethod, codecEnabled bool) {
 	switch method.SessionKind {
 	case SessionKindClient:
-		g.P("func (r ", routerTypeName, ") startNative", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
+		g.P("func (r ", bridgeTypeName, ") startNative", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
 	case SessionKindServer:
-		g.P("func (r ", routerTypeName, ") startNative", method.MethodGoName, "(ctx context.Context", method.NativeArgs, ") (rpcruntime.StreamHandle, error) {")
+		g.P("func (r ", bridgeTypeName, ") startNative", method.MethodGoName, "(ctx context.Context", method.NativeArgs, ") (rpcruntime.StreamHandle, error) {")
 	case SessionKindBidi:
-		g.P("func (r ", routerTypeName, ") startNative", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
+		g.P("func (r ", bridgeTypeName, ") startNative", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
 	default:
 		return
 	}
@@ -674,14 +674,14 @@ func renderRuntimeActiveRouterNativeStream(g *protogen.GeneratedFile, serviceNam
 	}
 }
 
-func renderRuntimeActiveRouterMessageStream(g *protogen.GeneratedFile, serviceName, routerTypeName, activeAdapterName string, method runtimeAdapterMethod, codecEnabled bool) {
+func renderRuntimeBridgeMessageStream(g *protogen.GeneratedFile, serviceName, bridgeTypeName, activeAdapterName string, method runtimeAdapterMethod, codecEnabled bool) {
 	switch method.SessionKind {
 	case SessionKindClient:
-		g.P("func (r ", routerTypeName, ") startMessage", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
+		g.P("func (r ", bridgeTypeName, ") startMessage", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
 	case SessionKindServer:
-		g.P("func (r ", routerTypeName, ") startMessage", method.MethodGoName, "(ctx context.Context, req []byte) (rpcruntime.StreamHandle, error) {")
+		g.P("func (r ", bridgeTypeName, ") startMessage", method.MethodGoName, "(ctx context.Context, req []byte) (rpcruntime.StreamHandle, error) {")
 	case SessionKindBidi:
-		g.P("func (r ", routerTypeName, ") startMessage", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
+		g.P("func (r ", bridgeTypeName, ") startMessage", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
 	default:
 		return
 	}
@@ -738,18 +738,13 @@ func renderRuntimeActiveRouterMessageStream(g *protogen.GeneratedFile, serviceNa
 	}
 }
 
-func renderRuntimeCGOBridge(g *protogen.GeneratedFile, serviceName, adapterName, _ string, _ string, methods []runtimeAdapterMethod, _ bool) {
-	bridgeName := serviceName + "CGONativeClientBridge"
-	routerName := lowerInitial(serviceName) + "Router"
-	g.P("type ", bridgeName, " struct{}")
-	g.P()
-
+func renderRuntimeNativeEntrypoints(g *protogen.GeneratedFile, serviceName, adapterName, bridgeName string, methods []runtimeAdapterMethod) {
 	for _, method := range methods {
 		if method.Streaming {
 			continue
 		}
-		g.P("func (", bridgeName, ") ", method.MethodGoName, "(ctx context.Context", method.NativeArgs, ") (", method.NativeReturns, ") {")
-		g.P("return ", routerName, ".invokeNative", method.MethodGoName, "(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
+		g.P("func Invoke", serviceName, "Native", method.MethodGoName, "(ctx context.Context", method.NativeArgs, ") (", method.NativeReturns, ") {")
+		g.P("return ", bridgeName, ".invokeNative", method.MethodGoName, "(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
 		g.P("}")
 		g.P()
 	}
@@ -760,20 +755,15 @@ func renderRuntimeCGOBridge(g *protogen.GeneratedFile, serviceName, adapterName,
 		}
 		switch method.SessionKind {
 		case SessionKindClient, SessionKindBidi:
-			g.P("func (", bridgeName, ") Start", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
-			g.P("return ", routerName, ".startNative", method.MethodGoName, "(ctx)")
+			g.P("func Start", serviceName, "Native", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
+			g.P("return ", bridgeName, ".startNative", method.MethodGoName, "(ctx)")
 		case SessionKindServer:
-			g.P("func (", bridgeName, ") Start", method.MethodGoName, "(ctx context.Context", method.NativeArgs, ") (rpcruntime.StreamHandle, error) {")
-			g.P("return ", routerName, ".startNative", method.MethodGoName, "(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
+			g.P("func Start", serviceName, "Native", method.MethodGoName, "(ctx context.Context", method.NativeArgs, ") (rpcruntime.StreamHandle, error) {")
+			g.P("return ", bridgeName, ".startNative", method.MethodGoName, "(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
 		}
 		g.P("}")
 		g.P()
 	}
-
-	g.P("func New", serviceName, "CGONativeClientBridge() ", bridgeName, " {")
-	g.P("return ", bridgeName, "{}")
-	g.P("}")
-	g.P()
 
 	g.P("func Register", serviceName, "CGONativeActiveServer(kind rpcruntime.ServerKind, adapter ", adapterName, ") (rpcruntime.AdapterSnapshot[", adapterName, "], error) {")
 	g.P("return register", serviceName, "ActiveServer(kind, adapter)")
@@ -781,18 +771,13 @@ func renderRuntimeCGOBridge(g *protogen.GeneratedFile, serviceName, adapterName,
 	g.P()
 }
 
-func renderRuntimeMessageCGOBridge(g *protogen.GeneratedFile, serviceName, adapterName, _ string, _ string, methods []runtimeAdapterMethod, _ bool) {
-	bridgeName := serviceName + "CGOMessageClientBridge"
-	routerName := lowerInitial(serviceName) + "Router"
-	g.P("type ", bridgeName, " struct{}")
-	g.P()
-
+func renderRuntimeMessageEntrypoints(g *protogen.GeneratedFile, serviceName, adapterName, bridgeName string, methods []runtimeAdapterMethod) {
 	for _, method := range methods {
 		if method.Streaming {
 			continue
 		}
-		g.P("func (", bridgeName, ") ", method.MethodGoName, "(ctx context.Context, req []byte) ([]byte, error) {")
-		g.P("return ", routerName, ".invokeMessage", method.MethodGoName, "(ctx, req)")
+		g.P("func Invoke", serviceName, "Message", method.MethodGoName, "(ctx context.Context, req []byte) ([]byte, error) {")
+		g.P("return ", bridgeName, ".invokeMessage", method.MethodGoName, "(ctx, req)")
 		g.P("}")
 		g.P()
 	}
@@ -803,20 +788,15 @@ func renderRuntimeMessageCGOBridge(g *protogen.GeneratedFile, serviceName, adapt
 		}
 		switch method.SessionKind {
 		case SessionKindClient, SessionKindBidi:
-			g.P("func (", bridgeName, ") Start", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
-			g.P("return ", routerName, ".startMessage", method.MethodGoName, "(ctx)")
+			g.P("func Start", serviceName, "Message", method.MethodGoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
+			g.P("return ", bridgeName, ".startMessage", method.MethodGoName, "(ctx)")
 		case SessionKindServer:
-			g.P("func (", bridgeName, ") Start", method.MethodGoName, "(ctx context.Context, req []byte) (rpcruntime.StreamHandle, error) {")
-			g.P("return ", routerName, ".startMessage", method.MethodGoName, "(ctx, req)")
+			g.P("func Start", serviceName, "Message", method.MethodGoName, "(ctx context.Context, req []byte) (rpcruntime.StreamHandle, error) {")
+			g.P("return ", bridgeName, ".startMessage", method.MethodGoName, "(ctx, req)")
 		}
 		g.P("}")
 		g.P()
 	}
-
-	g.P("func New", serviceName, "CGOMessageClientBridge() ", bridgeName, " {")
-	g.P("return ", bridgeName, "{}")
-	g.P("}")
-	g.P()
 
 	g.P("func Register", serviceName, "CGOMessageActiveServer(kind rpcruntime.ServerKind, adapter ", adapterName, ") (rpcruntime.AdapterSnapshot[", adapterName, "], error) {")
 	g.P("return register", serviceName, "MessageActiveServer(kind, adapter)")

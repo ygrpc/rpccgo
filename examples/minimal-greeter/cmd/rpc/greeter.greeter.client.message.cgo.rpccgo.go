@@ -43,7 +43,7 @@ func CallGreeterSayHelloMessageUnary(ctx context.Context, requestPtr uintptr, re
 	if err := protobuf.Unmarshal(req, &v1.SayHelloRequest{}); err != nil {
 		return int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)))
 	}
-	resp, err := v1.NewGreeterCGOMessageClientBridge().SayHello(ctx, req)
+	resp, err := v1.InvokeGreeterMessageSayHello(ctx, req)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}

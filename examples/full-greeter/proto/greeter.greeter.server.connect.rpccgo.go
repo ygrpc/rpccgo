@@ -52,7 +52,7 @@ func greeterConnectSayHello(ctx context.Context, req *connect.Request[SayHelloRe
 	if err != nil {
 		return nil, fmt.Errorf("rpccgo: connect request protobuf marshal failed: %w", err)
 	}
-	respData, err := NewGreeterCGOMessageClientBridge().SayHello(ctx, reqData)
+	respData, err := InvokeGreeterMessageSayHello(ctx, reqData)
 	if err != nil {
 		return nil, err
 	}
@@ -64,8 +64,7 @@ func greeterConnectSayHello(ctx context.Context, req *connect.Request[SayHelloRe
 }
 
 func greeterConnectCollect(ctx context.Context, stream *connect.ClientStream[SayHelloRequest]) (*connect.Response[SayHelloResponse], error) {
-	bridge := NewGreeterCGOMessageClientBridge()
-	handle, err := bridge.StartCollect(ctx)
+	handle, err := StartGreeterMessageCollect(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -104,8 +103,7 @@ func greeterConnectBroadcast(ctx context.Context, req *connect.Request[SayHelloR
 	if err != nil {
 		return fmt.Errorf("rpccgo: connect stream request protobuf marshal failed: %w", err)
 	}
-	bridge := NewGreeterCGOMessageClientBridge()
-	handle, err := bridge.StartBroadcast(ctx, reqData)
+	handle, err := StartGreeterMessageBroadcast(ctx, reqData)
 	if err != nil {
 		return err
 	}
@@ -131,8 +129,7 @@ func greeterConnectBroadcast(ctx context.Context, req *connect.Request[SayHelloR
 }
 
 func greeterConnectChat(ctx context.Context, stream *connect.BidiStream[SayHelloRequest, SayHelloResponse]) error {
-	bridge := NewGreeterCGOMessageClientBridge()
-	handle, err := bridge.StartChat(ctx)
+	handle, err := StartGreeterMessageChat(ctx)
 	if err != nil {
 		return err
 	}

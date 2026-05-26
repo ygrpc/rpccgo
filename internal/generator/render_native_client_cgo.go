@@ -19,7 +19,7 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 
 	cgoImportPath := protogen.GoImportPath(cgoGoImportPath(plan))
 	g := newGeneratedFile(plugin, plan, file, cgoImportPath)
-	servicePackage := cgoServicePackageQualifier(g, plan.GoImportPath, service.GoName+"CGONativeClientBridge")
+	servicePackage := cgoServicePackageQualifier(g, plan.GoImportPath, service.GoName+"DispatcherForRuntime")
 	g.P("package main")
 	g.P()
 	g.P("/*")
@@ -92,9 +92,9 @@ func renderNativeUnaryClient(g *protogen.GeneratedFile, abiPlan NativeCABIPlan, 
 		g.P("}")
 	}
 	if responseNames == "" {
-		g.P("err := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().", method.GoName, "(ctx", nativeGoCallSuffix(requestNames), ")")
+		g.P("err := ", servicePackage, "Invoke", service.GoName, "Native", method.GoName, "(ctx", nativeGoCallSuffix(requestNames), ")")
 	} else {
-		g.P(responseNames, ", err := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().", method.GoName, "(ctx", nativeGoCallSuffix(requestNames), ")")
+		g.P(responseNames, ", err := ", servicePackage, "Invoke", service.GoName, "Native", method.GoName, "(ctx", nativeGoCallSuffix(requestNames), ")")
 	}
 	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.Contract.Native.RequestFields), "); cleanupErr != nil {")
 	g.P("err = errors.Join(err, cleanupErr)")
@@ -124,7 +124,7 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, abiPlan Native
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("handle, err := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Start", method.GoName, "(ctx)")
+	g.P("handle, err := ", servicePackage, "Start", service.GoName, "Native", method.GoName, "(ctx)")
 	g.P("if err != nil {")
 	g.P("return 0, int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -224,7 +224,7 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, abiPlan Native
 		g.P("return 0, int32(rpcruntime.StoreError(err))")
 		g.P("}")
 	}
-	g.P("handle, err := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Start", method.GoName, "(ctx", nativeGoCallSuffix(requestNames), ")")
+	g.P("handle, err := ", servicePackage, "Start", service.GoName, "Native", method.GoName, "(ctx", nativeGoCallSuffix(requestNames), ")")
 	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.Contract.Native.RequestFields), "); cleanupErr != nil {")
 	g.P("err = errors.Join(err, cleanupErr)")
 	g.P("}")
@@ -301,7 +301,7 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, abiPlan NativeCA
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
-	g.P("handle, err := ", servicePackage, "New", service.GoName, "CGONativeClientBridge().Start", method.GoName, "(ctx)")
+	g.P("handle, err := ", servicePackage, "Start", service.GoName, "Native", method.GoName, "(ctx)")
 	g.P("if err != nil {")
 	g.P("return 0, int32(rpcruntime.StoreError(err))")
 	g.P("}")

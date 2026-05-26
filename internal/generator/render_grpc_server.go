@@ -97,7 +97,6 @@ func renderGRPCServerFile(plugin *protogen.Plugin, plan FilePlan, service Servic
 func renderGRPCUnaryImplementation(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	reqType := qualifiedMethodType(g, method.Request)
 	respType := qualifiedMethodType(g, method.Response)
-	bridgeName := service.GoName + "CGOMessageClientBridge"
 	g.P("func ", grpcUnaryHandlerName(service, method), "(srv any, ctx context.Context, dec func(any) error, interceptor grpc.UnaryServerInterceptor) (any, error) {")
 	g.P("in := new(", reqType, ")")
 	g.P("if err := dec(in); err != nil {")
@@ -125,7 +124,7 @@ func renderGRPCUnaryImplementation(g *protogen.GeneratedFile, service ServicePla
 	g.P("if err != nil {")
 	g.P(`return nil, status.Errorf(codes.Internal, "rpccgo: grpc request protobuf marshal failed: %v", err)`)
 	g.P("}")
-	g.P("respData, err := New", bridgeName, "().", method.GoName, "(ctx, reqData)")
+	g.P("respData, err := Invoke", service.GoName, "Message", method.GoName, "(ctx, reqData)")
 	g.P("if err != nil {")
 	g.P("return nil, err")
 	g.P("}")
@@ -141,14 +140,12 @@ func renderGRPCUnaryImplementation(g *protogen.GeneratedFile, service ServicePla
 func renderGRPCClientStreamingImplementation(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	reqType := qualifiedMethodType(g, method.Request)
 	respType := qualifiedMethodType(g, method.Response)
-	bridgeType := service.GoName + "CGOMessageClientBridge"
 	g.P("func ", grpcStreamHandlerName(service, method), "(srv any, stream grpc.ServerStream) error {")
 	g.P("return ", grpcImplementationName(service, method), "(&grpc.GenericServerStream[", reqType, ", ", respType, "]{ServerStream: stream})")
 	g.P("}")
 	g.P()
 	g.P("func ", grpcImplementationName(service, method), "(stream grpc.ClientStreamingServer[", reqType, ", ", respType, "]) error {")
-	g.P("bridge := New", bridgeType, "()")
-	g.P("handle, err := bridge.Start", method.GoName, "(stream.Context())")
+	g.P("handle, err := Start", service.GoName, "Message", method.GoName, "(stream.Context())")
 	g.P("if err != nil {")
 	g.P("return err")
 	g.P("}")
@@ -188,7 +185,6 @@ func renderGRPCClientStreamingImplementation(g *protogen.GeneratedFile, service 
 func renderGRPCServerStreamingImplementation(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	reqType := qualifiedMethodType(g, method.Request)
 	respType := qualifiedMethodType(g, method.Response)
-	bridgeType := service.GoName + "CGOMessageClientBridge"
 	g.P("func ", grpcStreamHandlerName(service, method), "(srv any, stream grpc.ServerStream) error {")
 	g.P("m := new(", reqType, ")")
 	g.P("if err := stream.RecvMsg(m); err != nil {")
@@ -205,8 +201,7 @@ func renderGRPCServerStreamingImplementation(g *protogen.GeneratedFile, service 
 	g.P("if err != nil {")
 	g.P(`return status.Errorf(codes.Internal, "rpccgo: grpc stream request protobuf marshal failed: %v", err)`)
 	g.P("}")
-	g.P("bridge := New", bridgeType, "()")
-	g.P("handle, err := bridge.Start", method.GoName, "(stream.Context(), reqData)")
+	g.P("handle, err := Start", service.GoName, "Message", method.GoName, "(stream.Context(), reqData)")
 	g.P("if err != nil {")
 	g.P("return err")
 	g.P("}")
@@ -236,14 +231,12 @@ func renderGRPCServerStreamingImplementation(g *protogen.GeneratedFile, service 
 func renderGRPCBidiStreamingImplementation(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	reqType := qualifiedMethodType(g, method.Request)
 	respType := qualifiedMethodType(g, method.Response)
-	bridgeType := service.GoName + "CGOMessageClientBridge"
 	g.P("func ", grpcStreamHandlerName(service, method), "(srv any, stream grpc.ServerStream) error {")
 	g.P("return ", grpcImplementationName(service, method), "(&grpc.GenericServerStream[", reqType, ", ", respType, "]{ServerStream: stream})")
 	g.P("}")
 	g.P()
 	g.P("func ", grpcImplementationName(service, method), "(stream grpc.BidiStreamingServer[", reqType, ", ", respType, "]) error {")
-	g.P("bridge := New", bridgeType, "()")
-	g.P("handle, err := bridge.Start", method.GoName, "(stream.Context())")
+	g.P("handle, err := Start", service.GoName, "Message", method.GoName, "(stream.Context())")
 	g.P("if err != nil {")
 	g.P("return err")
 	g.P("}")
