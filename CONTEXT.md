@@ -13,11 +13,11 @@ _Avoid_: struct native ABI, message-shaped native adapter
 _Avoid_: native
 
 **Active server**:
-新版架构中由 dispatcher 捕获并路由到的唯一服务实现。
+新版架构中由 generated service runtime 的 active slot 捕获并路由到的唯一服务实现。
 _Avoid_: provider bootstrap
 
 **Runtime core**:
-手写的 `rpcruntime` 包，承载跨 service 复用的 active slot、dispatcher 和 stream registry 等通用机制。
+手写的 `rpcruntime` 包，承载跨 service 复用的 active slot、stream registry、stream lifecycle state 和 connect stream unsafe shim 等通用机制。
 _Avoid_: generated service runtime
 
 **Stream lifecycle**:
@@ -79,19 +79,18 @@ _Avoid_: active server
 - protobuf schema 中的 unsigned 字段可进入 **Native C ABI plan** 的 field value slot；proto 无关的 length/count/handle/error id 等辅助 slot 不应使用 unsigned 32/64 类型。
 - 修改 ABI / runtime type mapping 后，必须使用 `docs/release/verification-checklist.md` 验证测试命令和合同扫描。
 - **Active server** 是新版调度模型的一部分；它不能改变 **Native** 的字段级函数边界语义。
-- **Runtime core** 负责通用调度和 stream 存储；**Generated service runtime** 负责 service-specific typed glue，不应重复生成可由 runtime core 泛型函数直接表达的薄包装。
-- **Stream lifecycle** 的 ownership、terminal-once 和 invalid-handle 通用语义属于 **Runtime core**；method-specific session 操作、native/message 转换和 flat ABI 编解码属于 **Generated service runtime**。
-- **Generated service runtime** 不应生成 per-method stream `load/take/delete` 薄包装；应通过 **Stream lifecycle** Module 表达 Start 后的 lookup、half-close、finish/done/cancel 和终态释放规则。
-- **Runtime core** 应提供 **Stream lifecycle** executor，集中执行通用 handle lookup/take/release、terminal-once、invalid-handle、send-closed/finalized/canceled 和 cancel/terminal finalization 语义；**Generated service runtime** 应只提供 method-specific typed facade，绑定 session callback、native/message conversion、active routing 和错误映射。
-- Register helper 可留在 **Generated service runtime** 中，因为它们封装 service-specific active adapter 包装并返回更窄的 typed snapshot，不是纯 runtime core 薄包装。
-- **Runtime bridge** 应留在 **Generated service runtime** 中，因为它表达 service-level active server contract 路由，并集中连接 native adapter、message adapter 与 converter glue。
-- **Runtime bridge** 作为 service-local invocation layer 复用 **Runtime core** dispatcher 的 capture/start primitive；不应再额外生成只转发到 bridge 的 public client object。
+- **Runtime core** 负责通用 active slot、stream registry、stream lifecycle state 和 connect stream unsafe shim；**Generated service runtime** 负责 service-specific typed glue 和 active routing。
+- **Stream lifecycle** 的 ownership、terminal-once 和 invalid-handle 通用状态语义属于 **Runtime core**；method-specific session 操作、native/message 转换和 flat ABI 编解码属于 **Generated service runtime**。
+- **Generated service runtime** 可以组合 **Runtime core** 的 stream registry 与 lifecycle primitive，但不应生成无语义的 per-method `load/take/delete` 薄包装。
+- Register helper 留在 **Generated service runtime** 中，因为它们封装 service-specific active server 注册并返回更窄的 typed snapshot，不是纯 runtime core 薄包装。
+- **Runtime bridge** 应留在 **Generated service runtime** 中，因为它表达 service-level active server contract 路由，并集中连接 native adapter、message adapter、standard connect/grpc server 与 converter glue。
+- **Runtime bridge** 作为 service-local invocation layer 直接复用 **Runtime core** active slot、stream registry 和 lifecycle primitive；不应再额外生成只转发到 bridge 的 public client object。
 - **Runtime bridge** 类型和方法不作为外部用户 API；外部包通过 generated package-level invoke/start 函数进入。它返回的 routing errors 应导出为 package-level sentinel vars，供用户通过 `errors.Is` 判断失败类型；无 active server 使用 `rpcruntime.ErrNoActiveServer`，service-specific 失败按 service + 分类命名，不按调用方向拆分。
 - **Message contract** remote adapter 使用标准 transport client 作为外部能力；rpccgo generated code 不应构造 per-method client。
 - **Message contract** remote adapter 只转发 protobuf message payload 和 error；metadata/header/trailer 不属于当前 contract。
 - 一个 service 的 generated output 只能选择一个 message transport（connect 或 gRPC），避免标准 transport client API 在同包内重名。
-- 每个 service 的 dispatcher 应保留为 generated package-level 变量；不要引入 runtime core 全局 service registry，以避免回到旧 **Provider bootstrap** 模型。
-- 新版架构保留 dispatcher / active server；只恢复旧项目的 **Native** flat function boundary，不回迁旧 **Provider bootstrap**。
+- 每个 service 的 active slot 应保留为 generated package-level 变量；不要引入 runtime core 全局 service registry，以避免回到旧 **Provider bootstrap** 模型。
+- 新版架构保留 service-local active server；只恢复旧项目的 **Native** flat function boundary，不回迁旧 **Provider bootstrap**。
 - `@rpccgo:native` 的新版 adapter selection 规则保留；它可以同时启用默认 message adapter，但 **Native** 侧仍必须是 flat function boundary。
 - 旧 `go_role=go_client` / C provider 注册 Go client 能力不恢复；它属于旧 **Provider bootstrap** 架构，不是新版 **Native** 修复范围。
 
