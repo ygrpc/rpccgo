@@ -108,8 +108,6 @@ func renderServiceStageFiles(plugin *protogen.Plugin, plan FilePlan, service Ser
 	if err := renderMessageStageFilesWithSupport(plugin, messagePlan, sharedRendered); err != nil {
 		return err
 	}
-	markRendered(rendered, messageService.MessageFileFamily.ConnectServer)
-	markRendered(rendered, messageService.MessageFileFamily.GRPCServer)
 	markRendered(rendered, messageService.MessageFileFamily.ConnectRemote)
 	markRendered(rendered, messageService.MessageFileFamily.GRPCRemote)
 
@@ -182,8 +180,6 @@ func renderMessageStageFilesWithSupport(plugin *protogen.Plugin, plan FilePlan, 
 			family.Runtime,
 			family.CGOMessageServer,
 			family.CGOMessageClient,
-			family.ConnectServer,
-			family.GRPCServer,
 			family.ConnectRemote,
 			family.GRPCRemote,
 		}
@@ -205,18 +201,6 @@ func renderMessageStageFilesWithSupport(plugin *protogen.Plugin, plan FilePlan, 
 			}
 			if file == family.CGOMessageClient {
 				if err := renderMessageClientCGOFile(plugin, plan, service, file); err != nil {
-					return err
-				}
-				continue
-			}
-			if file == family.ConnectServer {
-				if err := renderConnectServerFile(plugin, plan, service, file); err != nil {
-					return err
-				}
-				continue
-			}
-			if file == family.GRPCServer {
-				if err := renderGRPCServerFile(plugin, plan, service, file); err != nil {
 					return err
 				}
 				continue

@@ -214,6 +214,15 @@ func renderConnectBidiStreamingImplementation(g *protogen.GeneratedFile, service
 	g.P()
 }
 
+func serviceHasUnaryMethod(service ServicePlan) bool {
+	for _, method := range service.Methods {
+		if method.Streaming == StreamingKindUnary {
+			return true
+		}
+	}
+	return false
+}
+
 func serviceHasStreamingMethod(service ServicePlan) bool {
 	for _, method := range service.Methods {
 		if method.Streaming != StreamingKindUnary {

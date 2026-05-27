@@ -110,6 +110,7 @@ func runMessageDirectPathFixture(t *testing.T, testName string) {
 	}
 
 	writeMessageDirectPathGeneratedModule(t, tmp, plugin, "example.com/messagedirect")
+	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_stubs.go"), messageDirectPathStubSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_reset.go"), messageDirectPathResetSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/message_direct_path_callbacks.go"), messageDirectPathFixtureCallbackSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/message_direct_path_test.go"), messageDirectPathFixtureTestSource)
@@ -189,14 +190,16 @@ func writeMessageDirectPathGeneratedModule(t *testing.T, root string, plugin *pr
 		t.Fatalf("filepath.Abs() error = %v", err)
 	}
 	writeFile(t, filepath.Join(root, "go.mod"), "module "+module+"\n\ngo 1.24.4\n\nrequire (\n\tconnectrpc.com/connect v1.19.1\n\tgoogle.golang.org/grpc v1.79.3\n\tgoogle.golang.org/protobuf v1.36.11\n\trpccgo v0.0.0\n)\n\nreplace rpccgo => "+repoRoot+"\n")
-	writeFile(t, filepath.Join(root, "go.sum"), "google.golang.org/protobuf v1.36.11 h1:fV6ZwhNocDyBLK0dj+fg8ektcVegBBuEolpbTQyBNVE=\ngoogle.golang.org/protobuf v1.36.11/go.mod h1:HTf+CrKn2C3g5S8VImy6tdcUvCska2kB7j23XfzDpco=\n")
+	goSum, err := os.ReadFile(filepath.Join(repoRoot, "go.sum"))
+	if err != nil {
+		t.Fatalf("read go.sum: %v", err)
+	}
+	writeFile(t, filepath.Join(root, "go.sum"), string(goSum))
 	for _, generated := range plugin.Response().GetFile() {
 		name := generated.GetName()
 		include := strings.Contains(name, ".runtime.rpccgo.go") ||
 			strings.Contains(name, ".codec.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go") ||
-			strings.Contains(name, ".server.connect.rpccgo.go") ||
-			strings.Contains(name, ".server.grpc.rpccgo.go") ||
 			strings.Contains(name, ".server.native.cgo.rpccgo.go") ||
 			strings.Contains(name, ".client.native.cgo.rpccgo.go") ||
 			strings.Contains(name, ".message.cgo.rpccgo.go")
@@ -207,12 +210,220 @@ func writeMessageDirectPathGeneratedModule(t *testing.T, root string, plugin *pr
 	}
 }
 
+const messageDirectPathStubSource = `package testv1
+
+import (
+	context "context"
+	errors "errors"
+	io "io"
+	http "net/http"
+	strings "strings"
+
+	connect "connectrpc.com/connect"
+	proto "google.golang.org/protobuf/proto"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
+)
+
+type GreeterHandler interface {
+	Unary(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	Upload(context.Context, *connect.ClientStream[emptypb.Empty]) (*emptypb.Empty, error)
+	List(context.Context, *emptypb.Empty, *connect.ServerStream[emptypb.Empty]) error
+	Chat(context.Context, *connect.BidiStream[emptypb.Empty, emptypb.Empty]) error
+}
+
+type GreeterServer interface {
+	Unary(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	Upload(Greeter_UploadServer) error
+	List(*emptypb.Empty, Greeter_ListServer) error
+	Chat(Greeter_ChatServer) error
+}
+
+type Greeter_UploadServer interface{}
+type Greeter_ListServer interface{}
+type Greeter_ChatServer interface{}
+
+const GreeterUnaryConnectProcedure = "/test.v1.Greeter/Unary"
+const GreeterUploadConnectProcedure = "/test.v1.Greeter/Upload"
+const GreeterListConnectProcedure = "/test.v1.Greeter/List"
+const GreeterChatConnectProcedure = "/test.v1.Greeter/Chat"
+
+func GreeterBridgeForIntegrationTest() GreeterHandler { return greeterBridgeHandler{} }
+
+type greeterBridgeHandler struct{}
+
+func (greeterBridgeHandler) Unary(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
+	data, err := InvokeGreeterMessageUnary(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	var resp emptypb.Empty
+	if err := proto.Unmarshal(data, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (greeterBridgeHandler) Upload(ctx context.Context, stream *connect.ClientStream[emptypb.Empty]) (*emptypb.Empty, error) {
+	handle, err := StartGreeterMessageUpload(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for stream.Receive() {
+		if err := NewGreeterUploadMessageStream(handle).Send(ctx, nil); err != nil {
+			_ = NewGreeterUploadMessageStream(handle).Cancel(ctx)
+			return nil, err
+		}
+	}
+	if err := stream.Err(); err != nil {
+		_ = NewGreeterUploadMessageStream(handle).Cancel(ctx)
+		return nil, err
+	}
+	data, err := NewGreeterUploadMessageStream(handle).Finish(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var resp emptypb.Empty
+	if err := proto.Unmarshal(data, &resp); err != nil {
+		return nil, err
+	}
+	return &resp, nil
+}
+
+func (greeterBridgeHandler) List(ctx context.Context, req *emptypb.Empty, stream *connect.ServerStream[emptypb.Empty]) error {
+	handle, err := StartGreeterMessageList(ctx, nil)
+	if err != nil {
+		return err
+	}
+	for {
+		data, err := NewGreeterListMessageStream(handle).Recv(ctx)
+		if err == io.EOF {
+			return NewGreeterListMessageStream(handle).Done(ctx)
+		}
+		if err != nil {
+			_ = NewGreeterListMessageStream(handle).Cancel(ctx)
+			return err
+		}
+		var resp emptypb.Empty
+		if err := proto.Unmarshal(data, &resp); err != nil {
+			_ = NewGreeterListMessageStream(handle).Cancel(ctx)
+			return err
+		}
+		if err := stream.Send(&resp); err != nil {
+			_ = NewGreeterListMessageStream(handle).Cancel(ctx)
+			return err
+		}
+	}
+}
+
+func (greeterBridgeHandler) Chat(ctx context.Context, stream *connect.BidiStream[emptypb.Empty, emptypb.Empty]) error {
+	handle, err := StartGreeterMessageChat(ctx)
+	if err != nil {
+		return err
+	}
+	type chatResponse struct {
+		msg *emptypb.Empty
+		err error
+	}
+	requestErr := make(chan error, 1)
+	response := make(chan chatResponse, 1)
+	go func() {
+		for {
+			_, err := stream.Receive()
+			if errors.Is(err, io.EOF) || err != nil && strings.Contains(err.Error(), "EOF") {
+				requestErr <- NewGreeterChatMessageStream(handle).CloseSend(ctx)
+				return
+			}
+			if err != nil {
+				requestErr <- err
+				return
+			}
+			if err := NewGreeterChatMessageStream(handle).Send(ctx, nil); err != nil {
+				requestErr <- err
+				return
+			}
+		}
+	}()
+	go func() {
+		for {
+			data, err := NewGreeterChatMessageStream(handle).Recv(ctx)
+			if err != nil {
+				response <- chatResponse{err: err}
+				return
+			}
+			var resp emptypb.Empty
+			if err := proto.Unmarshal(data, &resp); err != nil {
+				response <- chatResponse{err: err}
+				return
+			}
+			response <- chatResponse{msg: &resp}
+		}
+	}()
+	for {
+		select {
+		case err := <-requestErr:
+			requestErr = nil
+			if err != nil {
+				if strings.Contains(err.Error(), "EOF") {
+					if err := NewGreeterChatMessageStream(handle).Done(ctx); err != nil && !strings.Contains(err.Error(), "EOF") {
+						return err
+					}
+					return nil
+				}
+				_ = NewGreeterChatMessageStream(handle).Cancel(ctx)
+				return err
+			}
+		case resp := <-response:
+			if errors.Is(resp.err, io.EOF) || resp.err != nil && strings.Contains(resp.err.Error(), "EOF") {
+				if err := NewGreeterChatMessageStream(handle).Done(ctx); err != nil && !strings.Contains(err.Error(), "EOF") {
+					return err
+				}
+				return nil
+			}
+			if resp.err != nil {
+				_ = NewGreeterChatMessageStream(handle).Cancel(ctx)
+				return resp.err
+			}
+			if err := stream.Send(resp.msg); err != nil {
+				_ = NewGreeterChatMessageStream(handle).Cancel(ctx)
+				return err
+			}
+		}
+	}
+}
+
+func NewGreeterHandler(svc GreeterHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	mux := http.NewServeMux()
+	mux.Handle(GreeterUnaryConnectProcedure, connect.NewUnaryHandler(GreeterUnaryConnectProcedure, func(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+		resp, err := svc.Unary(ctx, req.Msg)
+		if err != nil {
+			return nil, err
+		}
+		return connect.NewResponse(resp), nil
+	}, opts...))
+	mux.Handle(GreeterUploadConnectProcedure, connect.NewClientStreamHandler(GreeterUploadConnectProcedure, func(ctx context.Context, stream *connect.ClientStream[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+		resp, err := svc.Upload(ctx, stream)
+		if err != nil {
+			return nil, err
+		}
+		return connect.NewResponse(resp), nil
+	}, opts...))
+	mux.Handle(GreeterListConnectProcedure, connect.NewServerStreamHandler(GreeterListConnectProcedure, func(ctx context.Context, req *connect.Request[emptypb.Empty], stream *connect.ServerStream[emptypb.Empty]) error {
+		return svc.List(ctx, req.Msg, stream)
+	}, opts...))
+	mux.Handle(GreeterChatConnectProcedure, connect.NewBidiStreamHandler(GreeterChatConnectProcedure, func(ctx context.Context, stream *connect.BidiStream[emptypb.Empty, emptypb.Empty]) error {
+		return svc.Chat(ctx, stream)
+	}, opts...))
+	return "/test.v1.Greeter/", mux
+}
+`
+
 const messageDirectPathResetSource = `package testv1
 
 import rpcruntime "rpccgo/rpcruntime"
 
 func ResetGreeterDispatcherForIntegrationTest() {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterActiveAdapter]{}
+	greeterActiveSlot = rpcruntime.ActiveServerSlot[any]{}
+	greeterStreamRegistry = rpcruntime.StreamRegistry[*rpcruntime.StreamEntry]{}
 }
 `
 

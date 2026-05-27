@@ -123,6 +123,34 @@ func TestActiveServerSlotStoreRejectsTypedNilInterfaceAdapter(t *testing.T) {
 	}
 }
 
+func TestActiveServerSlotAnyRejectsNilAndTypedNilAdapter(t *testing.T) {
+	tests := []struct {
+		name    string
+		adapter any
+	}{
+		{name: "nil", adapter: nil},
+		{name: "typed nil pointer", adapter: (*fakeDispatcherAdapterWithMethod)(nil)},
+		{name: "typed nil slice", adapter: []string(nil)},
+		{name: "typed nil map", adapter: map[string]string(nil)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var slot ActiveServerSlot[any]
+
+			if snapshot, err := slot.Store(ServerKindGoNative, ServerContractNative, tt.adapter); err == nil {
+				t.Fatalf("expected adapter error, got snapshot %#v", snapshot)
+			} else if !strings.Contains(err.Error(), "adapter") {
+				t.Fatalf("unexpected error %q, want it to mention adapter", err.Error())
+			}
+
+			if snapshot, ok := slot.Load(); ok {
+				t.Fatalf("invalid any adapter store changed slot: %#v", snapshot)
+			}
+		})
+	}
+}
+
 func TestActiveServerSlotStoreRejectsZeroStructAdapter(t *testing.T) {
 	var slot ActiveServerSlot[fakeValueAdapter]
 

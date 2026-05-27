@@ -20,7 +20,9 @@ func TestRunEmitsRuntimeGlue(t *testing.T) {
 	}
 
 	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", `rpcruntime "rpccgo/rpcruntime"`)
-	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "var greeterDispatcher rpcruntime.Dispatcher[GreeterActiveAdapter]")
+	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "var greeterActiveSlot rpcruntime.ActiveServerSlot[any]")
+	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "var greeterStreamRegistry rpcruntime.StreamRegistry[*rpcruntime.StreamEntry]")
+	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "func RegisterGreeterConnectHandler(handler GreeterHandler) (rpcruntime.AdapterSnapshot[GreeterHandler], error)")
 }
 
 func TestRunEmitsMessageDirectPathForDefaultService(t *testing.T) {

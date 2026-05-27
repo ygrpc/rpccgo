@@ -82,7 +82,7 @@ func TestAttachMessageFileFamilyPlan(t *testing.T) {
 	assertGeneratedFilePlan(t, file.Services[0].MessageFileFamily.CGOMessageClient, "test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go", true)
 }
 
-func TestRenderMessageFileFamilyPlanIncludesLocalTransportAdapters(t *testing.T) {
+func TestRenderMessageFileFamilyPlanDisablesLocalTransportAdapters(t *testing.T) {
 	file := FilePlan{GeneratedFilenamePrefix: "test/v1/greeter"}
 	service := ServicePlan{
 		GoName:   "Greeter",
@@ -91,26 +91,8 @@ func TestRenderMessageFileFamilyPlanIncludesLocalTransportAdapters(t *testing.T)
 
 	got := BuildMessageFileFamilyPlan(file, service)
 
-	assertGeneratedFilePlan(t, got.ConnectServer, "test/v1/greeter.greeter.server.connect.rpccgo.go", true)
-	assertGeneratedFilePlan(t, got.GRPCServer, "test/v1/greeter.greeter.server.grpc.rpccgo.go", true)
-}
-
-func TestRenderMessageFileFamilyPlanGatesLocalTransportAdaptersByToken(t *testing.T) {
-	file := FilePlan{GeneratedFilenamePrefix: "test/v1/greeter"}
-
-	connectOnly := BuildMessageFileFamilyPlan(file, ServicePlan{
-		GoName:   "Greeter",
-		Adapters: AdapterSelection{Tokens: []AdapterToken{AdapterTokenMessageConnect}},
-	})
-	assertGeneratedFilePlan(t, connectOnly.ConnectServer, "test/v1/greeter.greeter.server.connect.rpccgo.go", true)
-	assertGeneratedFilePlan(t, connectOnly.GRPCServer, "test/v1/greeter.greeter.server.grpc.rpccgo.go", false)
-
-	grpcOnly := BuildMessageFileFamilyPlan(file, ServicePlan{
-		GoName:   "Greeter",
-		Adapters: AdapterSelection{Tokens: []AdapterToken{AdapterTokenMessageGRPC}},
-	})
-	assertGeneratedFilePlan(t, grpcOnly.ConnectServer, "test/v1/greeter.greeter.server.connect.rpccgo.go", false)
-	assertGeneratedFilePlan(t, grpcOnly.GRPCServer, "test/v1/greeter.greeter.server.grpc.rpccgo.go", true)
+	assertGeneratedFilePlan(t, got.ConnectServer, "test/v1/greeter.greeter.server.connect.rpccgo.go", false)
+	assertGeneratedFilePlan(t, got.GRPCServer, "test/v1/greeter.greeter.server.grpc.rpccgo.go", false)
 }
 
 func TestRenderMessageFileFamilyPlanIncludesRemoteTransportAdapters(t *testing.T) {

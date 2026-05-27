@@ -66,19 +66,19 @@ func (d *Dispatcher[T]) StartStream(create func(AdapterSnapshot[T]) (session any
 }
 
 func DispatcherStreamSend[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, call func(TSession) error) error {
-	return streamLifecycleSend(streamLifecycleExecutor[TAdapter]{dispatcher: dispatcher}, handle, call)
+	return streamLifecycleSend(dispatcherStreamExecutor[TAdapter]{dispatcher: dispatcher}, handle, call)
 }
 
 func DispatcherStreamReceive[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, call func(TSession) error) error {
-	return streamLifecycleReceive(streamLifecycleExecutor[TAdapter]{dispatcher: dispatcher}, handle, call)
+	return streamLifecycleReceive(dispatcherStreamExecutor[TAdapter]{dispatcher: dispatcher}, handle, call)
 }
 
 func DispatcherStreamCloseSend[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, call func(TSession) error) error {
-	return streamLifecycleCloseSend(streamLifecycleExecutor[TAdapter]{dispatcher: dispatcher}, handle, call)
+	return streamLifecycleCloseSend(dispatcherStreamExecutor[TAdapter]{dispatcher: dispatcher}, handle, call)
 }
 
 func DispatcherStreamFinish[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, call func(TSession) error) error {
-	return streamLifecycleFinish(streamLifecycleExecutor[TAdapter]{dispatcher: dispatcher}, handle, call)
+	return streamLifecycleFinish(dispatcherStreamExecutor[TAdapter]{dispatcher: dispatcher}, handle, call)
 }
 
 func DispatcherStreamDone[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, call func(TSession) error) error {
@@ -86,5 +86,5 @@ func DispatcherStreamDone[TAdapter any, TSession any](dispatcher *Dispatcher[TAd
 }
 
 func DispatcherStreamCancel[TAdapter any, TSession any](dispatcher *Dispatcher[TAdapter], handle StreamHandle, call func(TSession) error) error {
-	return streamLifecycleCancel(streamLifecycleExecutor[TAdapter]{dispatcher: dispatcher}, handle, call)
+	return streamLifecycleCancel(dispatcherStreamExecutor[TAdapter]{dispatcher: dispatcher}, handle, call)
 }

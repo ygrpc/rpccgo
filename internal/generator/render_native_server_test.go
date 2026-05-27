@@ -60,7 +60,7 @@ func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) 
 		"Recv(ctx context.Context) (*AllReply, error)",
 		"ctx, nil",
 	)
-	assertGeneratedContentDoesNotContain(t, plugin, "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf")
+	assertGeneratedFileContentDoesNotContain(t, plugin, nativeServerFile, "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf")
 }
 
 func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
@@ -218,8 +218,15 @@ func TestRenderNativeServerGeneratedSourceCompiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("filepath.Abs() error = %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/generated\n\ngo 1.24.4\n\nrequire rpccgo v0.0.0\n\nreplace rpccgo => "+repoRoot+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/generated\n\ngo 1.24.4\n\nrequire (\n\trpccgo v0.0.0\n\tgoogle.golang.org/protobuf v1.36.11\n)\n\nreplace rpccgo => "+repoRoot+"\n"), 0o644); err != nil {
 		t.Fatalf("write go.mod: %v", err)
+	}
+	goSum, err := os.ReadFile(filepath.Join(repoRoot, "go.sum"))
+	if err != nil {
+		t.Fatalf("read go.sum: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, "go.sum"), goSum, 0o644); err != nil {
+		t.Fatalf("write go.sum: %v", err)
 	}
 
 	for _, generated := range plugin.Response().GetFile() {
@@ -249,6 +256,12 @@ func writeNativeServerCompileStubs(t *testing.T, root string) {
 	t.Helper()
 
 	const content = `package testv1
+
+import (
+	context "context"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+)
 
 type AllRequest struct {
 	Name string
@@ -306,6 +319,43 @@ type NativeOnlyReply struct {
 	Accepted bool
 	Payload []byte
 }
+
+type AllServiceHandler interface {
+	Unary(context.Context, *AllRequest) (*AllReply, error)
+}
+type DefaultServiceHandler interface {
+	DefaultUnary(context.Context, *DefaultRequest) (*DefaultReply, error)
+}
+type ConnectServiceHandler interface {
+	ConnectUnary(context.Context, *ConnectRequest) (*ConnectReply, error)
+}
+type MessageServiceHandler interface {
+	MessageUnary(context.Context, *MessageRequest) (*MessageReply, error)
+}
+type ConnectNativeServiceHandler interface {
+	ConnectNativeUnary(context.Context, *ConnectNativeRequest) (*ConnectNativeReply, error)
+}
+type NativeOnlyServiceHandler interface {
+	NativeOnlyUnary(context.Context, *NativeOnlyRequest) (*NativeOnlyReply, error)
+}
+type GrpcServiceServer interface {
+	GrpcUnary(context.Context, *GrpcRequest) (*GrpcReply, error)
+}
+
+func (*AllRequest) ProtoReflect() protoreflect.Message { return nil }
+func (*AllReply) ProtoReflect() protoreflect.Message { return nil }
+func (*DefaultRequest) ProtoReflect() protoreflect.Message { return nil }
+func (*DefaultReply) ProtoReflect() protoreflect.Message { return nil }
+func (*ConnectRequest) ProtoReflect() protoreflect.Message { return nil }
+func (*ConnectReply) ProtoReflect() protoreflect.Message { return nil }
+func (*GrpcRequest) ProtoReflect() protoreflect.Message { return nil }
+func (*GrpcReply) ProtoReflect() protoreflect.Message { return nil }
+func (*MessageRequest) ProtoReflect() protoreflect.Message { return nil }
+func (*MessageReply) ProtoReflect() protoreflect.Message { return nil }
+func (*ConnectNativeRequest) ProtoReflect() protoreflect.Message { return nil }
+func (*ConnectNativeReply) ProtoReflect() protoreflect.Message { return nil }
+func (*NativeOnlyRequest) ProtoReflect() protoreflect.Message { return nil }
+func (*NativeOnlyReply) ProtoReflect() protoreflect.Message { return nil }
 `
 	target := filepath.Join(root, "test/v1/complete_service_plan_stubs.go")
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {

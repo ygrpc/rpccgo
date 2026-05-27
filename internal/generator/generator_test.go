@@ -103,7 +103,6 @@ func TestRenderMessageStageFilesEmitsDirectPathFileFamily(t *testing.T) {
 			"test/v1/cgo/greeter.exports.cgo.rpccgo.go",
 			"test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go",
 			"test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go",
-			"test/v1/greeter.greeter.server.grpc.rpccgo.go",
 			"test/v1/greeter.greeter.remote.grpc.rpccgo.go",
 		})
 		assertNoGeneratedFilenameContains(t, plugin, ".connect.", ".codec.")
@@ -111,8 +110,7 @@ func TestRenderMessageStageFilesEmitsDirectPathFileFamily(t *testing.T) {
 		assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "return registerGreeterMessageActiveServer(kind, adapter)")
 		assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go", "rpccgo message direct generated file for Greeter cgo message server callbacks")
 		assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go", "rpccgo message direct generated file for Greeter cgo message client")
-		assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.grpc.rpccgo.go", "func RegisterGreeterGRPCServer(registrar grpc.ServiceRegistrar) error")
-		assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.remote.grpc.rpccgo.go", "grpc remote server adapter")
+			assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.remote.grpc.rpccgo.go", "grpc remote server adapter")
 	})
 
 	t.Run("default message contract keeps connect-only artifact contract", func(t *testing.T) {
@@ -128,7 +126,6 @@ func TestRenderMessageStageFilesEmitsDirectPathFileFamily(t *testing.T) {
 			"test/v1/cgo/message_contract.greeter.client.native.cgo.rpccgo.go",
 			"test/v1/cgo/message_contract.greeter.server.message.cgo.rpccgo.go",
 			"test/v1/cgo/message_contract.greeter.client.message.cgo.rpccgo.go",
-			"test/v1/message_contract.greeter.server.connect.rpccgo.go",
 			"test/v1/message_contract.greeter.remote.connect.rpccgo.go",
 			"test/v1/message_contract.greeter.codec.rpccgo.go",
 		})
@@ -178,14 +175,6 @@ func TestRenderMessageStageFilesEmitsDirectPathFileFamily(t *testing.T) {
 			assertGeneratedContentContains(t, plugin, messageServerFile, fragment)
 		}
 
-		const connectFile = "test/v1/message_contract.greeter.server.connect.rpccgo.go"
-		for _, fragment := range []string{
-			`connect "connectrpc.com/connect"`,
-			`http "net/http"`,
-			"func NewGreeterConnectHandler",
-		} {
-			assertGeneratedContentContains(t, plugin, connectFile, fragment)
-		}
 	})
 }
 
@@ -301,7 +290,6 @@ func TestRenderStageFilesEmitsMixedNativeAndMessageCGOFamilies(t *testing.T) {
 		"test/v1/cgo/greeter.greeter.client.native.cgo.rpccgo.go",
 		"test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go",
 		"test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go",
-		"test/v1/greeter.greeter.server.connect.rpccgo.go",
 		"test/v1/greeter.greeter.remote.connect.rpccgo.go",
 		"test/v1/greeter.greeter.codec.rpccgo.go",
 	})
@@ -312,12 +300,11 @@ func TestRenderStageFilesEmitsMixedNativeAndMessageCGOFamilies(t *testing.T) {
 	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.native.cgo.rpccgo.go", "rpccgo native generated file for Greeter cgo native client")
 	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go", "rpccgo message direct generated file for Greeter cgo message server callbacks")
 	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go", "rpccgo message direct generated file for Greeter cgo message client")
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.connect.rpccgo.go", "func NewGreeterConnectHandler(options ...connect.HandlerOption) (string, http.Handler)")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.remote.connect.rpccgo.go", "connect remote server adapter")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.codec.rpccgo.go", "rpccgo native message codec generated file for Greeter")
 }
 
-func TestRenderStageFilesEmitsLocalTransportAdaptersByServiceToken(t *testing.T) {
+func TestRenderStageFilesSkipsLocalTransportAdaptersByServiceToken(t *testing.T) {
 	file := simpleTestFile()
 	setSimpleServiceComment(t, file, "@rpccgo: msg-connect|native\n")
 	plugin := newTestPlugin(t, "paths=source_relative", file)
@@ -334,7 +321,6 @@ func TestRenderStageFilesEmitsLocalTransportAdaptersByServiceToken(t *testing.T)
 		"test/v1/cgo/greeter.greeter.client.native.cgo.rpccgo.go",
 		"test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go",
 		"test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go",
-		"test/v1/greeter.greeter.server.connect.rpccgo.go",
 		"test/v1/greeter.greeter.remote.connect.rpccgo.go",
 		"test/v1/greeter.greeter.codec.rpccgo.go",
 	})
@@ -358,7 +344,6 @@ func TestRenderStageFilesEmitsRemoteTransportAdaptersByServiceToken(t *testing.T
 			"test/v1/cgo/greeter.greeter.client.native.cgo.rpccgo.go",
 			"test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go",
 			"test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go",
-			"test/v1/greeter.greeter.server.connect.rpccgo.go",
 			"test/v1/greeter.greeter.remote.connect.rpccgo.go",
 			"test/v1/greeter.greeter.codec.rpccgo.go",
 		})
@@ -381,7 +366,6 @@ func TestRenderStageFilesEmitsRemoteTransportAdaptersByServiceToken(t *testing.T
 			"test/v1/cgo/greeter.greeter.client.native.cgo.rpccgo.go",
 			"test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go",
 			"test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go",
-			"test/v1/greeter.greeter.server.grpc.rpccgo.go",
 			"test/v1/greeter.greeter.remote.grpc.rpccgo.go",
 			"test/v1/greeter.greeter.codec.rpccgo.go",
 		})

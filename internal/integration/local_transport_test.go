@@ -24,6 +24,7 @@ func TestLocalTransportAcceptance(t *testing.T) {
 	}
 
 	writeMessageDirectPathGeneratedModule(t, tmp, plugin, "example.com/messagedirect")
+	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_stubs.go"), messageDirectPathStubSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_reset.go"), messageDirectPathResetSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/message_direct_path_callbacks.go"), messageDirectPathFixtureCallbackSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/local_transport_test.go"), localTransportFixtureTestSource)
@@ -256,7 +257,7 @@ func registerTransportGoNativeServer(t *testing.T) {
 
 func startConnectTransport(t *testing.T) (*http.Client, string, func()) {
 	t.Helper()
-	_, handler := v1.NewGreeterConnectHandler()
+	_, handler := v1.NewGreeterHandler(v1.GreeterBridgeForIntegrationTest())
 	server := httptest.NewUnstartedServer(handler)
 	server.EnableHTTP2 = true
 	server.StartTLS()

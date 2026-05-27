@@ -115,6 +115,7 @@ func TestMessageCGODirGeneration(t *testing.T) {
 			}
 
 			writeMessageDirectPathGeneratedModule(t, tmp, plugin, "example.com/messagecgodir")
+			writeFile(t, filepath.Join(tmp, "test/v1/message_integration_stubs.go"), messageDirectPathStubSource)
 
 			cmd := exec.Command("go", "test", "./test/v1", tt.cgoPackage, "-count=1")
 			cmd.Dir = tmp
@@ -146,7 +147,12 @@ func writeNativeUnaryGeneratedModule(t *testing.T, root string, plugin *protogen
 	if err != nil {
 		t.Fatalf("filepath.Abs() error = %v", err)
 	}
-	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/nativeunary\n\ngo 1.24.4\n\nrequire rpccgo v0.0.0\n\nreplace rpccgo => "+repoRoot+"\n")
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/nativeunary\n\ngo 1.24.4\n\nrequire (\n\tgoogle.golang.org/protobuf v1.36.11\n\trpccgo v0.0.0\n)\n\nreplace rpccgo => "+repoRoot+"\n")
+	goSum, err := os.ReadFile(filepath.Join(repoRoot, "go.sum"))
+	if err != nil {
+		t.Fatalf("read go.sum: %v", err)
+	}
+	writeFile(t, filepath.Join(root, "go.sum"), string(goSum))
 	for _, generated := range plugin.Response().GetFile() {
 		name := generated.GetName()
 		if !strings.Contains(name, ".runtime.rpccgo.go") &&

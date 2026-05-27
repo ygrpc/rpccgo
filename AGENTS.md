@@ -66,7 +66,7 @@ connect client 和 grpc client 属于标准 RPC client，不进入 rpccgo client
 ## ABI 与类型约束
 
 - protobuf schema 中允许使用 `uint32` / `uint64` 字段；这些字段的 generated API 应保留 proto 语义。
-- proto 无关的 runtime、scheduler、handle、length、error id、计数、索引等辅助类型不要使用 unsigned 32/64 位类型。
+- protobuf schema 中的 unsigned 字段可以继续使用；proto 无关的 runtime、scheduler、handle、length、error id、计数、索引等辅助类型不要使用 unsigned 32/64 位类型。
 - Go 辅助代码中不要为 proto 无关类型引入 `uint32`、`uint64`、`atomic.Uint32`、`atomic.Uint64`。
 - C ABI 中 proto 无关的辅助类型不要引入 `uint32_t`、`uint64_t`。
 - 文档中不要使用 `u32`、`u64` 作为 proto 无关的设计类型。
@@ -116,7 +116,7 @@ connect client 和 grpc client 属于标准 RPC client，不进入 rpccgo client
 - 修改 runtime 或 ABI 类型后，必须扫描 unsigned 32/64 类型。`AGENTS.md` 为了描述禁用规则会包含这些字符串，扫描时排除它：
 
 ```bash
-rtk rg -n "uint32|uint64|Uint32|Uint64|u32|u64|uint32_t|uint64_t" . -g '!AGENTS.md'
+rtk rg -n "uint32|uint64|Uint32|Uint64|u32|u64|uint32_t|uint64_t" . -g '!AGENTS.md' -g '!docs/release/verification-checklist.md'
 ```
 
 - 如果命令因为本机临时环境问题失败，不要把本机 workaround 写入项目文档；只在当前执行记录中说明。

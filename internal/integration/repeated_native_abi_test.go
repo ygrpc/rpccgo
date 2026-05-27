@@ -23,6 +23,7 @@ func TestRepeatedNativeABIAcceptance(t *testing.T) {
 
 	writeMessageDirectPathGeneratedModule(t, tmp, plugin, "example.com/repeatednativeabi")
 	writeFile(t, filepath.Join(tmp, "repeated/v1/repeated.pb.go"), repeatedNativeABIPBGoSource)
+	writeFile(t, filepath.Join(tmp, "repeated/v1/repeated_connect_stubs.go"), repeatedNativeABIConnectStubSource)
 	writeFile(t, filepath.Join(tmp, "repeated/v1/repeated_integration_reset.go"), repeatedNativeABIResetSource)
 	writeFile(t, filepath.Join(tmp, "repeated/v1/cgo/repeated_callbacks.go"), repeatedNativeABICallbackSource)
 	writeFile(t, filepath.Join(tmp, "repeated/v1/cgo/repeated_native_abi_test.go"), repeatedNativeABIFixtureTestSource)
@@ -86,12 +87,26 @@ func newRepeatedNativeABIPlugin(t *testing.T, goPackage string) *protogen.Plugin
 	return plugin
 }
 
+const repeatedNativeABIConnectStubSource = `package repeatedv1
+
+import context "context"
+
+type RepeatedGreeterHandler interface {
+	Echo(context.Context, *RepeatedRequest) (*RepeatedReply, error)
+}
+
+type RepeatedGreeterServer interface {
+	Echo(context.Context, *RepeatedRequest) (*RepeatedReply, error)
+}
+`
+
 const repeatedNativeABIResetSource = `package repeatedv1
 
 import rpcruntime "rpccgo/rpcruntime"
 
 func ResetRepeatedGreeterDispatcherForIntegrationTest() {
-	repeatedGreeterDispatcher = rpcruntime.Dispatcher[RepeatedGreeterActiveAdapter]{}
+	repeatedGreeterActiveSlot = rpcruntime.ActiveServerSlot[any]{}
+	repeatedGreeterStreamRegistry = rpcruntime.StreamRegistry[*rpcruntime.StreamEntry]{}
 }
 `
 

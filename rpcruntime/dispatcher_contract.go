@@ -45,5 +45,18 @@ func hasNonZeroAdapter[T any](adapter T) bool {
 	if !value.IsValid() {
 		return false
 	}
-	return !value.IsZero()
+	return !isZeroValue(value)
+}
+
+func isZeroValue(value reflect.Value) bool {
+	if !value.IsValid() {
+		return true
+	}
+	if value.Kind() == reflect.Interface {
+		if value.IsNil() {
+			return true
+		}
+		return isZeroValue(value.Elem())
+	}
+	return value.IsZero()
 }

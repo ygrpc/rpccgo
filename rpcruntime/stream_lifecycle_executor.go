@@ -1,10 +1,15 @@
 package rpcruntime
 
-type streamLifecycleExecutor[TAdapter any] struct {
+type streamLifecycleExecutor interface {
+	entryFor(handle StreamHandle) (*StreamEntry, error)
+	delete(handle StreamHandle) bool
+}
+
+type dispatcherStreamExecutor[TAdapter any] struct {
 	dispatcher *Dispatcher[TAdapter]
 }
 
-func (e streamLifecycleExecutor[TAdapter]) entryFor(handle StreamHandle) (*dispatcherStreamEntry, error) {
+func (e dispatcherStreamExecutor[TAdapter]) entryFor(handle StreamHandle) (*StreamEntry, error) {
 	if e.dispatcher == nil {
 		return nil, ErrStreamInvalidHandle
 	}
@@ -13,28 +18,35 @@ func (e streamLifecycleExecutor[TAdapter]) entryFor(handle StreamHandle) (*dispa
 	if !ok || entry == nil {
 		return nil, ErrStreamInvalidHandle
 	}
-	return entry, nil
+	return &StreamEntry{Session: entry.session, Lifecycle: &entry.lifecycle}, nil
 }
 
-func streamLifecycleSessionFor[TAdapter any, TSession any](e streamLifecycleExecutor[TAdapter], handle StreamHandle) (*dispatcherStreamEntry, TSession, error) {
+func (e dispatcherStreamExecutor[TAdapter]) delete(handle StreamHandle) bool {
+	if e.dispatcher == nil {
+		return false
+	}
+	return e.dispatcher.streams.Delete(handle)
+}
+
+func streamLifecycleSessionFor[TSession any](e streamLifecycleExecutor, handle StreamHandle) (*StreamEntry, TSession, error) {
 	var zero TSession
 	entry, err := e.entryFor(handle)
 	if err != nil {
 		return nil, zero, err
 	}
-	typed, ok := entry.session.(TSession)
+	typed, ok := any(entry.Session).(TSession)
 	if !ok {
 		return nil, zero, ErrStreamInvalidHandle
 	}
 	return entry, typed, nil
 }
 
-func streamLifecycleSend[TAdapter any, TSession any](e streamLifecycleExecutor[TAdapter], handle StreamHandle, call func(TSession) error) error {
-	entry, session, err := streamLifecycleSessionFor[TAdapter, TSession](e, handle)
+func streamLifecycleSend[TSession any](e streamLifecycleExecutor, handle StreamHandle, call func(TSession) error) error {
+	entry, session, err := streamLifecycleSessionFor[TSession](e, handle)
 	if err != nil {
 		return err
 	}
-	if err := entry.lifecycle.EnsureCanSend(); err != nil {
+	if err := entry.Lifecycle.EnsureCanSend(); err != nil {
 		return err
 	}
 	if call == nil {
@@ -43,13 +55,13 @@ func streamLifecycleSend[TAdapter any, TSession any](e streamLifecycleExecutor[T
 	return call(session)
 }
 
-func streamLifecycleReceive[TAdapter any, TSession any](e streamLifecycleExecutor[TAdapter], handle StreamHandle, call func(TSession) error) error {
-	entry, session, err := streamLifecycleSessionFor[TAdapter, TSession](e, handle)
+func streamLifecycleReceive[TSession any](e streamLifecycleExecutor, handle StreamHandle, call func(TSession) error) error {
+	entry, session, err := streamLifecycleSessionFor[TSession](e, handle)
 	if err != nil {
 		return err
 	}
-	if entry.lifecycle.Finalized() {
-		if entry.lifecycle.Canceled() {
+	if entry.Lifecycle.Finalized() {
+		if entry.Lifecycle.Canceled() {
 			return ErrStreamCanceled
 		}
 		return ErrStreamFinalized
@@ -60,12 +72,12 @@ func streamLifecycleReceive[TAdapter any, TSession any](e streamLifecycleExecuto
 	return call(session)
 }
 
-func streamLifecycleCloseSend[TAdapter any, TSession any](e streamLifecycleExecutor[TAdapter], handle StreamHandle, call func(TSession) error) error {
-	entry, session, err := streamLifecycleSessionFor[TAdapter, TSession](e, handle)
+func streamLifecycleCloseSend[TSession any](e streamLifecycleExecutor, handle StreamHandle, call func(TSession) error) error {
+	entry, session, err := streamLifecycleSessionFor[TSession](e, handle)
 	if err != nil {
 		return err
 	}
-	if err := entry.lifecycle.MarkSendClosed(); err != nil {
+	if err := entry.Lifecycle.MarkSendClosed(); err != nil {
 		return err
 	}
 	if call == nil {
@@ -74,18 +86,18 @@ func streamLifecycleCloseSend[TAdapter any, TSession any](e streamLifecycleExecu
 	return call(session)
 }
 
-func streamLifecycleFinish[TAdapter any, TSession any](e streamLifecycleExecutor[TAdapter], handle StreamHandle, call func(TSession) error) error {
-	entry, session, err := streamLifecycleSessionFor[TAdapter, TSession](e, handle)
+func streamLifecycleFinish[TSession any](e streamLifecycleExecutor, handle StreamHandle, call func(TSession) error) error {
+	entry, session, err := streamLifecycleSessionFor[TSession](e, handle)
 	if err != nil {
 		return err
 	}
-	if !entry.lifecycle.Finalize() {
-		if entry.lifecycle.Canceled() {
+	if !entry.Lifecycle.Finalize() {
+		if entry.Lifecycle.Canceled() {
 			return ErrStreamCanceled
 		}
 		return ErrStreamFinalized
 	}
-	if !e.dispatcher.streams.Delete(handle) {
+	if !e.delete(handle) {
 		return ErrStreamInvalidHandle
 	}
 	if call == nil {
@@ -94,15 +106,15 @@ func streamLifecycleFinish[TAdapter any, TSession any](e streamLifecycleExecutor
 	return call(session)
 }
 
-func streamLifecycleCancel[TAdapter any, TSession any](e streamLifecycleExecutor[TAdapter], handle StreamHandle, call func(TSession) error) error {
-	entry, session, err := streamLifecycleSessionFor[TAdapter, TSession](e, handle)
+func streamLifecycleCancel[TSession any](e streamLifecycleExecutor, handle StreamHandle, call func(TSession) error) error {
+	entry, session, err := streamLifecycleSessionFor[TSession](e, handle)
 	if err != nil {
 		return err
 	}
-	if err := entry.lifecycle.Cancel(nil); err != nil {
+	if err := entry.Lifecycle.Cancel(nil); err != nil {
 		return err
 	}
-	if !e.dispatcher.streams.Delete(handle) {
+	if !e.delete(handle) {
 		return ErrStreamInvalidHandle
 	}
 	if call == nil {

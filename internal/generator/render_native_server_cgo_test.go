@@ -135,6 +135,12 @@ func TestRenderNativeServerCGOScalarOnlyGeneratedSourceCompiles(t *testing.T) {
 	})
 	writeNativeServerCGOTestFile(t, filepath.Join(tmp, "test/v1/native_scalar_stubs.go"), `package testv1
 
+import (
+	context "context"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+)
+
 type ScalarRequest struct {
 	Enabled bool
 	Count int32
@@ -144,6 +150,13 @@ type ScalarReply struct {
 	Accepted bool
 	Count int32
 }
+
+type ScalarHandler interface {
+	Unary(context.Context, *ScalarRequest) (*ScalarReply, error)
+}
+
+func (*ScalarRequest) ProtoReflect() protoreflect.Message { return nil }
+func (*ScalarReply) ProtoReflect() protoreflect.Message { return nil }
 `)
 
 	cmd := exec.Command("go", "test", "./...")

@@ -31,6 +31,8 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 	}
 
 	writeRemoteTransportGeneratedModule(t, tmp, remotePlugin, localPlugin)
+	writeFile(t, filepath.Join(tmp, "remote/v1/message_integration_stubs.go"), strings.ReplaceAll(messageDirectPathStubSource, "package testv1", "package remotev1"))
+	writeFile(t, filepath.Join(tmp, "local/v1/message_integration_stubs.go"), strings.ReplaceAll(messageDirectPathStubSource, "package testv1", "package localv1"))
 	writeFile(t, filepath.Join(tmp, "remote/v1/message_integration_reset.go"), strings.ReplaceAll(messageDirectPathResetSource, "package testv1", "package remotev1"))
 	writeFile(t, filepath.Join(tmp, "local/v1/message_integration_reset.go"), strings.ReplaceAll(messageDirectPathResetSource, "package testv1", "package localv1"))
 	writeFile(t, filepath.Join(tmp, "remote/v1/remote_transport.connect.go"), strings.ReplaceAll(remoteTransportConnectClientSource, "package testv1", "package remotev1"))
@@ -108,7 +110,11 @@ func writeRemoteTransportGeneratedModule(t *testing.T, root string, plugins ...*
 		t.Fatalf("filepath.Abs() error = %v", err)
 	}
 	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/remotetransport\n\ngo 1.24.4\n\nrequire (\n\tconnectrpc.com/connect v1.19.1\n\tgoogle.golang.org/protobuf v1.36.11\n\trpccgo v0.0.0\n)\n\nreplace rpccgo => "+repoRoot+"\n")
-	writeFile(t, filepath.Join(root, "go.sum"), "google.golang.org/protobuf v1.36.11 h1:fV6ZwhNocDyBLK0dj+fg8ektcVegBBuEolpbTQyBNVE=\ngoogle.golang.org/protobuf v1.36.11/go.mod h1:HTf+CrKn2C3g5S8VImy6tdcUvCska2kB7j23XfzDpco=\n")
+	goSum, err := os.ReadFile(filepath.Join(repoRoot, "go.sum"))
+	if err != nil {
+		t.Fatalf("read go.sum: %v", err)
+	}
+	writeFile(t, filepath.Join(root, "go.sum"), string(goSum))
 	for _, plugin := range plugins {
 		for _, generated := range plugin.Response().GetFile() {
 			writeFile(t, filepath.Join(root, generated.GetName()), generated.GetContent())
@@ -224,7 +230,7 @@ func main() {
 
 	switch *transport {
 	case "connect":
-		_, handler := remotev1.NewGreeterConnectHandler()
+		_, handler := remotev1.NewGreeterHandler(remotev1.GreeterBridgeForIntegrationTest())
 		if *cancelObserver {
 			handler = wrapConnectCancelObserver(handler, *cancelSignalFile)
 		}

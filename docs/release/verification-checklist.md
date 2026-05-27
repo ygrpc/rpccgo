@@ -22,10 +22,10 @@ rtk env GOCACHE=/tmp/rpccgo-go-build go test ./... -count=1
 
 ## 合同扫描
 
-修改 runtime 或 ABI 类型后，扫描禁用的 unsigned 32/64 位类型：
+修改 runtime 或 ABI 类型后，扫描 unsigned 32/64 位类型；proto 字段本身允许 unsigned，重点确认 length/count/handle/error id 等 proto 无关 helper 未使用 unsigned：
 
 ```bash
-rtk rg -n "uint32|uint64|Uint32|Uint64|u32|u64|uint32_t|uint64_t" . -g '!AGENTS.md'
+rtk rg -n "uint32|uint64|Uint32|Uint64|u32|u64|uint32_t|uint64_t" . -g '!AGENTS.md' -g '!docs/release/verification-checklist.md'
 ```
 
 若命令因为本机 Go build cache 权限失败，可以临时使用 `GOCACHE=/tmp/rpccgo-go-build`。不要把本机 workaround 写入项目设计文档。

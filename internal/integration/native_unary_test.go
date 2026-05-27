@@ -26,7 +26,12 @@ func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 	if err != nil {
 		t.Fatalf("filepath.Abs() error = %v", err)
 	}
-	writeFile(t, filepath.Join(tmp, "go.mod"), "module example.com/nativeunary\n\ngo 1.24.4\n\nrequire rpccgo v0.0.0\n\nreplace rpccgo => "+repoRoot+"\n")
+	writeFile(t, filepath.Join(tmp, "go.mod"), "module example.com/nativeunary\n\ngo 1.24.4\n\nrequire (\n\tgoogle.golang.org/protobuf v1.36.11\n\trpccgo v0.0.0\n)\n\nreplace rpccgo => "+repoRoot+"\n")
+	goSum, err := os.ReadFile(filepath.Join(repoRoot, "go.sum"))
+	if err != nil {
+		t.Fatalf("read go.sum: %v", err)
+	}
+	writeFile(t, filepath.Join(tmp, "go.sum"), string(goSum))
 	for _, generated := range plugin.Response().GetFile() {
 		name := generated.GetName()
 		if !strings.Contains(name, ".runtime.rpccgo.go") &&
@@ -144,11 +149,19 @@ func writeFile(t *testing.T, target, content string) {
 
 const nativeUnaryStubSource = `package testv1
 
+import (
+	context "context"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+)
+
 type HelloRequest struct {
 	Name string
 	Payload []byte
 	Enabled bool
 }
+
+func (*HelloRequest) ProtoReflect() protoreflect.Message { return nil }
 
 type HelloReply struct {
 	Accepted bool
@@ -157,13 +170,27 @@ type HelloReply struct {
 	ExtraPayload []byte
 }
 
+func (*HelloReply) ProtoReflect() protoreflect.Message { return nil }
+
 type UnsupportedReply struct {
 	Payload []byte
 	Note string
 	Unsupported *Child
 }
 
+func (*UnsupportedReply) ProtoReflect() protoreflect.Message { return nil }
+
 type Child struct{}
+
+type GreeterHandler interface {
+	SayHello(context.Context, *HelloRequest) (*HelloReply, error)
+	SayUnsupported(context.Context, *HelloRequest) (*UnsupportedReply, error)
+}
+
+type GreeterServer interface {
+	SayHello(context.Context, *HelloRequest) (*HelloReply, error)
+	SayUnsupported(context.Context, *HelloRequest) (*UnsupportedReply, error)
+}
 `
 
 const nativeIntegrationResetSource = `package testv1
@@ -171,7 +198,8 @@ const nativeIntegrationResetSource = `package testv1
 import rpcruntime "rpccgo/rpcruntime"
 
 func ResetGreeterDispatcherForIntegrationTest() {
-	greeterDispatcher = rpcruntime.Dispatcher[GreeterActiveAdapter]{}
+	greeterActiveSlot = rpcruntime.ActiveServerSlot[any]{}
+	greeterStreamRegistry = rpcruntime.StreamRegistry[*rpcruntime.StreamEntry]{}
 }
 `
 
