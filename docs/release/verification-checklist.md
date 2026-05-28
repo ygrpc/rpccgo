@@ -13,9 +13,9 @@ rtk env GOCACHE=/tmp/rpccgo-go-build go test ./... -count=1
 - `rtk env GOCACHE=/tmp/rpccgo-go-build go test ./rpcruntime -count=1`
 - `rtk env GOCACHE=/tmp/rpccgo-go-build go test ./internal/generator -count=1`
 - `rtk env GOCACHE=/tmp/rpccgo-go-build go test ./internal/integration -count=1`
-- `cd examples/minimal-greeter && rtk go run github.com/magefile/mage generate`
-- `cd examples/minimal-greeter && rtk go run github.com/magefile/mage test`
-- `cd examples/minimal-greeter && rtk go run github.com/magefile/mage run`
+- `cd examples/grpc-greeter && rtk go run github.com/magefile/mage generate`
+- `cd examples/grpc-greeter && rtk go run github.com/magefile/mage test`
+- `cd examples/grpc-greeter && rtk go run github.com/magefile/mage run`
 - `cd examples/full-greeter && rtk go run github.com/magefile/mage generate`
 - `cd examples/full-greeter && rtk go run github.com/magefile/mage test`
 - `cd examples/full-greeter && rtk go run github.com/magefile/mage run`

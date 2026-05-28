@@ -12,8 +12,8 @@ func renderGRPCRemoteFile(plugin *protogen.Plugin, plan FilePlan, service Servic
 	g.P(`errors "errors"`)
 	if serviceHasStreamingMethod(service) {
 		g.P(`io "io"`)
+		g.P(`grpc "google.golang.org/grpc"`)
 	}
-	g.P(`grpc "google.golang.org/grpc"`)
 	g.P(`codes "google.golang.org/grpc/codes"`)
 	g.P(`status "google.golang.org/grpc/status"`)
 	g.P(`proto "google.golang.org/protobuf/proto"`)

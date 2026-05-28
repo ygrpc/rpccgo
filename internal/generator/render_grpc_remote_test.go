@@ -50,3 +50,17 @@ func TestRenderGRPCRemoteFileEmitsMessageAdapter(t *testing.T) {
 	}
 	assertGeneratedFileContentDoesNotContain(t, plugin, remoteFile, "connectrpc.com/connect", "panic(", "ClientModel", "ClientConnInterface", ".Invoke(", ".NewStream(", "GRPCFullMethodName")
 }
+
+func TestRenderGRPCRemoteFileOmitsGRPCImportForUnaryOnlyService(t *testing.T) {
+	file := simpleTestFile()
+	setSimpleServiceComment(t, file, "@rpccgo: msg-grpc\n")
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	if _, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true}); err != nil {
+		t.Fatalf("GenerateWithOptions(RenderStageFiles) error = %v", err)
+	}
+
+	const remoteFile = "test/v1/greeter.greeter.remote.grpc.rpccgo.go"
+	assertGeneratedContentContains(t, plugin, remoteFile, "func (s *GreeterGRPCRemoteServer) SayHelloMessage(ctx context.Context, req []byte) ([]byte, error)")
+	assertGeneratedFileContentDoesNotContain(t, plugin, remoteFile, `grpc "google.golang.org/grpc"`)
+}

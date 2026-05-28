@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package examples.grpc.greeter.v1;
+
+option go_package = "example.com/rpccgo-grpc/gen/greeter/v1;greeterv1";
+
+message SayHelloRequest {
+  string name = 1;
+}
+
+message SayHelloResponse {
+  string message = 1;
+}
+
+// @rpccgo: msg-grpc|native
+service Greeter {
+  rpc SayHello(SayHelloRequest) returns (SayHelloResponse);
+}

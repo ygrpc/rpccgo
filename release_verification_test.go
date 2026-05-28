@@ -11,7 +11,7 @@ import (
 
 func TestReleaseVerificationCoversNestedExampleModules(t *testing.T) {
 	for _, dir := range []string{
-		filepath.Join("examples", "minimal-greeter"),
+		filepath.Join("examples", "grpc-greeter"),
 		filepath.Join("examples", "full-greeter"),
 	} {
 		dir := dir
