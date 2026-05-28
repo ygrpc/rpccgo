@@ -42,8 +42,12 @@ func TestFullGreeterTransportAndStreamingMatrix(t *testing.T) {
 		remote := startExampleServer(t)
 
 		client := greeterv1.NewGreeterClient(httpClient(), "http://"+remote.connectAddr)
-		if _, err := greeterv1.RegisterGreeterConnectRemoteServer(client); err != nil {
+		snapshot, err := greeterv1.RegisterGreeterConnectRemoteServer(client)
+		if err != nil {
 			t.Fatalf("RegisterGreeterConnectRemoteServer() error = %v", err)
+		}
+		if snapshot.Kind != rpcruntime.ServerKindConnectRemote || snapshot.Contract != rpcruntime.ServerContractMessage || snapshot.Adapter != client {
+			t.Fatalf("RegisterGreeterConnectRemoteServer() snapshot = %#v, want connect remote message client snapshot", snapshot)
 		}
 		assertMessageUnary(t, ctx, "connect", "remote", "hello connect from remote")
 		assertMessageCollect(t, ctx, []string{"connect", "collect"}, "collect:connect,collect")

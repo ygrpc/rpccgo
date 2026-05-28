@@ -115,7 +115,8 @@ func TestMessageCGODirGeneration(t *testing.T) {
 			}
 
 			writeMessageDirectPathGeneratedModule(t, tmp, plugin, "example.com/messagecgodir")
-			writeFile(t, filepath.Join(tmp, "test/v1/message_integration_stubs.go"), messageDirectPathStubSource)
+			writeFile(t, filepath.Join(tmp, "test/v1/message_integration_stubs.go"), messageDirectPathHandlerStubSource)
+			writeFile(t, filepath.Join(tmp, "test/v1/message_integration_client_stubs.go"), messageDirectPathClientStubSource)
 
 			cmd := exec.Command("go", "test", "-mod=mod", "./test/v1", tt.cgoPackage, "-count=1")
 			cmd.Dir = tmp

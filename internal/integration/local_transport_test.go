@@ -24,7 +24,8 @@ func TestLocalTransportAcceptance(t *testing.T) {
 	}
 
 	writeMessageDirectPathGeneratedModule(t, tmp, plugin, "example.com/messagedirect")
-	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_stubs.go"), messageDirectPathStubSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_stubs.go"), messageDirectPathHandlerStubSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_client_stubs.go"), messageDirectPathClientStubSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_reset.go"), messageDirectPathResetSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/message_direct_path_callbacks.go"), messageDirectPathFixtureCallbackSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/local_transport_test.go"), localTransportFixtureTestSource)

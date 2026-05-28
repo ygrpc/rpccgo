@@ -18,7 +18,6 @@ func TestFullGreeterGenerate(t *testing.T) {
 		"proto/greeter.greeter.server.native.rpccgo.go",
 		"proto/greeter.connect.go",
 		"proto/greeter.greeter.server.connect.rpccgo.go",
-		"proto/greeter.greeter.remote.connect.rpccgo.go",
 		"cmd/rpc/greeter.exports.cgo.rpccgo.go",
 		"cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go",
 		"cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go",
@@ -33,6 +32,7 @@ func TestFullGreeterGenerate(t *testing.T) {
 	assertFileContains(t, "cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go", "//export rpccgo_native_greeterv1_Greeter_SayHello")
 	assertFileContains(t, "cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go", "//export rpccgo_native_greeterv1_Greeter_Collect_start")
 	assertFileContains(t, "cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go", "//export rpccgo_msg_greeterv1_Greeter_SayHello")
+	assertFileContains(t, "proto/greeter.greeter.runtime.rpccgo.go", "func RegisterGreeterConnectRemoteServer(client GreeterClient) (rpcruntime.AdapterSnapshot[GreeterClient], error)")
 }
 
 func TestFullGreeterExample(t *testing.T) {

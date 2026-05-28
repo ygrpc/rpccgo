@@ -95,7 +95,7 @@ func TestRenderMessageFileFamilyPlanDisablesLocalTransportAdapters(t *testing.T)
 	assertGeneratedFilePlan(t, got.GRPCServer, "test/v1/greeter.greeter.server.grpc.rpccgo.go", false)
 }
 
-func TestRenderMessageFileFamilyPlanIncludesRemoteTransportAdapters(t *testing.T) {
+func TestRenderMessageFileFamilyPlanDisablesRemoteTransportAdapterFiles(t *testing.T) {
 	file := FilePlan{GeneratedFilenamePrefix: "test/v1/greeter"}
 	service := ServicePlan{
 		GoName:   "Greeter",
@@ -104,18 +104,18 @@ func TestRenderMessageFileFamilyPlanIncludesRemoteTransportAdapters(t *testing.T
 
 	got := BuildMessageFileFamilyPlan(file, service)
 
-	assertGeneratedFilePlan(t, got.ConnectRemote, "test/v1/greeter.greeter.remote.connect.rpccgo.go", true)
-	assertGeneratedFilePlan(t, got.GRPCRemote, "test/v1/greeter.greeter.remote.grpc.rpccgo.go", true)
+	assertGeneratedFilePlan(t, got.ConnectRemote, "test/v1/greeter.greeter.remote.connect.rpccgo.go", false)
+	assertGeneratedFilePlan(t, got.GRPCRemote, "test/v1/greeter.greeter.remote.grpc.rpccgo.go", false)
 }
 
-func TestRenderMessageFileFamilyPlanGatesRemoteTransportAdaptersByToken(t *testing.T) {
+func TestRenderMessageFileFamilyPlanNeverEnablesRemoteTransportAdapterFiles(t *testing.T) {
 	file := FilePlan{GeneratedFilenamePrefix: "test/v1/greeter"}
 
 	connectOnly := BuildMessageFileFamilyPlan(file, ServicePlan{
 		GoName:   "Greeter",
 		Adapters: AdapterSelection{Tokens: []AdapterToken{AdapterTokenMessageConnect}},
 	})
-	assertGeneratedFilePlan(t, connectOnly.ConnectRemote, "test/v1/greeter.greeter.remote.connect.rpccgo.go", true)
+	assertGeneratedFilePlan(t, connectOnly.ConnectRemote, "test/v1/greeter.greeter.remote.connect.rpccgo.go", false)
 	assertGeneratedFilePlan(t, connectOnly.GRPCRemote, "test/v1/greeter.greeter.remote.grpc.rpccgo.go", false)
 
 	grpcOnly := BuildMessageFileFamilyPlan(file, ServicePlan{
@@ -123,7 +123,7 @@ func TestRenderMessageFileFamilyPlanGatesRemoteTransportAdaptersByToken(t *testi
 		Adapters: AdapterSelection{Tokens: []AdapterToken{AdapterTokenMessageGRPC}},
 	})
 	assertGeneratedFilePlan(t, grpcOnly.ConnectRemote, "test/v1/greeter.greeter.remote.connect.rpccgo.go", false)
-	assertGeneratedFilePlan(t, grpcOnly.GRPCRemote, "test/v1/greeter.greeter.remote.grpc.rpccgo.go", true)
+	assertGeneratedFilePlan(t, grpcOnly.GRPCRemote, "test/v1/greeter.greeter.remote.grpc.rpccgo.go", false)
 }
 
 func assertMessageFileFamilyDoesNotUseAdapterOrCodecFiles(t *testing.T, got MessageFileFamilyPlan) {

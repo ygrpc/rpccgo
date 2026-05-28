@@ -2,7 +2,7 @@ package generator
 
 import "testing"
 
-func TestRenderConnectRemoteFileEmitsMessageAdapter(t *testing.T) {
+func TestRenderRuntimeEmitsConnectRemoteClientActiveServer(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
@@ -10,34 +10,31 @@ func TestRenderConnectRemoteFileEmitsMessageAdapter(t *testing.T) {
 		t.Fatalf("GenerateWithOptions(RenderStageFiles) error = %v", err)
 	}
 
-	const remoteFile = "test/v1/complete_service_plan.all_service.remote.connect.rpccgo.go"
+	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		`connect "connectrpc.com/connect"`,
 		`proto "google.golang.org/protobuf/proto"`,
-		"type AllServiceConnectRemoteServer struct {",
-		"client AllServiceClient",
-		"func NewAllServiceConnectRemoteServer(client AllServiceClient) (*AllServiceConnectRemoteServer, error) {",
-		`return nil, errors.New("rpccgo: connect remote client is nil")`,
-		"func RegisterAllServiceConnectRemoteServer(client AllServiceClient) (rpcruntime.AdapterSnapshot[AllServiceMessageAdapter], error) {",
-		"return RegisterAllServiceCGOMessageActiveServer(rpcruntime.ServerKindConnectRemote, adapter)",
-		"func (s *AllServiceConnectRemoteServer) UnaryMessage(ctx context.Context, req []byte) ([]byte, error) {",
-		"resp, err := s.client.Unary(ctx, request)",
-		"func (s *AllServiceConnectRemoteServer) StartClientStreamMessage(ctx context.Context) (AllServiceClientStreamMessageStreamSession, error) {",
+		"func RegisterAllServiceConnectRemoteServer(client AllServiceClient) (rpcruntime.AdapterSnapshot[AllServiceClient], error) {",
+		"snapshot, err := allServiceActiveSlot.Store(rpcruntime.ServerKindConnectRemote, rpcruntime.ServerContractMessage, client)",
+		"return rpcruntime.AdapterSnapshot[AllServiceClient]{Kind: snapshot.Kind, Contract: snapshot.Contract, Version: snapshot.Version, Adapter: client}, nil",
+		"case rpcruntime.ServerKindConnectRemote:",
+		"client, ok := snapshot.Adapter.(AllServiceClient)",
+		"messageResp, err := client.Unary(ctx, messageReq)",
+		"return newallServiceClientStreamConnectRemoteMessageStreamSession(ctx, client)",
 		"streamCtx, cancel := context.WithCancel(ctx)",
-		"stream, err := s.client.ClientStream(streamCtx)",
+		"stream, err := client.ClientStream(streamCtx)",
 		"stream *connect.ClientStreamForClientSimple[AllRequest, AllReply]",
-		"cancel: cancel",
 		"cancel context.CancelFunc",
 		"s.cancel()",
 		"defer s.cancel()",
-		"func (s *AllServiceConnectRemoteServer) StartServerStreamMessage(ctx context.Context, req []byte) (AllServiceServerStreamMessageStreamSession, error) {",
-		"stream, err := s.client.ServerStream(streamCtx, request)",
-		"func (s *AllServiceConnectRemoteServer) StartBidiStreamMessage(ctx context.Context) (AllServiceBidiStreamMessageStreamSession, error) {",
-		"stream, err := s.client.BidiStream(streamCtx)",
+		"return newallServiceServerStreamConnectRemoteMessageStreamSession(ctx, client, req)",
+		"stream, err := client.ServerStream(streamCtx, request)",
+		"return newallServiceBidiStreamConnectRemoteMessageStreamSession(ctx, client)",
+		"stream, err := client.BidiStream(streamCtx)",
 		"stream *connect.BidiStreamForClientSimple[AllRequest, AllReply]",
 		"return s.stream.CloseRequest()",
 	} {
-		assertGeneratedContentContains(t, plugin, remoteFile, fragment)
+		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, remoteFile, `http "net/http"`, `grpc "google.golang.org/grpc"`, "panic(", "ClientModel", "closeConnectRemoteConn", "connect.NewClient", "CallUnary", "CallClientStream", "CallBidiStream")
+	assertGeneratedFileContentDoesNotContain(t, plugin, runtimeFile, "type AllServiceConnectRemoteServer struct", "NewAllServiceConnectRemoteServer", `http "net/http"`, "panic(", "ClientModel", "closeConnectRemoteConn", "connect.NewClient", "CallUnary", "CallClientStream", "CallBidiStream")
 }

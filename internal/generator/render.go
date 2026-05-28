@@ -271,9 +271,9 @@ func messageStageMarker(service ServicePlan, file GeneratedFilePlan) string {
 	case strings.Contains(name, ".server.grpc.rpccgo.go"):
 		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "grpc local server adapter"}, " ")
 	case strings.Contains(name, ".remote.connect.rpccgo.go"):
-		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "connect remote server adapter"}, " ")
+		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "connect remote client active server"}, " ")
 	case strings.Contains(name, ".remote.grpc.rpccgo.go"):
-		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "grpc remote server adapter"}, " ")
+		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "grpc remote client active server"}, " ")
 	default:
 		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "unknown"}, " ")
 	}

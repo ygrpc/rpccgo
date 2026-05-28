@@ -591,6 +591,9 @@ import (
 type ImportedNativeHandler interface {
 	Call(context.Context, *commonv1.CommonRequest) (*commonv1.CommonReply, error)
 }
+type ImportedNativeClient interface {
+	Call(context.Context, *commonv1.CommonRequest) (*commonv1.CommonReply, error)
+}
 `), 0o644); err != nil {
 		t.Fatalf("write imported native stubs: %v", err)
 	}
@@ -656,6 +659,11 @@ type GrpcStreamingServiceServer interface {
 	ClientStream(grpc.ClientStreamingServer[GRPCStreamingRequest, GRPCStreamingReply]) error
 	ServerStream(*GRPCStreamingRequest, grpc.ServerStreamingServer[GRPCStreamingReply]) error
 	BidiStream(grpc.BidiStreamingServer[GRPCStreamingRequest, GRPCStreamingReply]) error
+}
+type GrpcStreamingServiceClient interface {
+	ClientStream(context.Context, ...grpc.CallOption) (grpc.ClientStreamingClient[GRPCStreamingRequest, GRPCStreamingReply], error)
+	ServerStream(context.Context, *GRPCStreamingRequest, ...grpc.CallOption) (grpc.ServerStreamingClient[GRPCStreamingReply], error)
+	BidiStream(context.Context, ...grpc.CallOption) (grpc.BidiStreamingClient[GRPCStreamingRequest, GRPCStreamingReply], error)
 }
 
 func (*GRPCStreamingRequest) ProtoReflect() protoreflect.Message { return nil }

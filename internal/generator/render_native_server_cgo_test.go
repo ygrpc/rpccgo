@@ -154,12 +154,15 @@ type ScalarReply struct {
 type ScalarHandler interface {
 	Unary(context.Context, *ScalarRequest) (*ScalarReply, error)
 }
+type ScalarClient interface {
+	Unary(context.Context, *ScalarRequest) (*ScalarReply, error)
+}
 
 func (*ScalarRequest) ProtoReflect() protoreflect.Message { return nil }
 func (*ScalarReply) ProtoReflect() protoreflect.Message { return nil }
 `)
 
-	cmd := exec.Command("go", "test", "./...")
+	cmd := exec.Command("go", "test", "-mod=mod", "./...")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -308,7 +311,7 @@ func TestRenderNativeServerCGOGeneratedSourceCompiles(t *testing.T) {
 	})
 	writeNativeServerCompileStubs(t, tmp)
 
-	cmd := exec.Command("go", "test", "./...")
+	cmd := exec.Command("go", "test", "-mod=mod", "./...")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {

@@ -438,7 +438,7 @@ func TestRenderNativeClientCGOGeneratedSourceCompiles(t *testing.T) {
 	})
 	writeNativeServerCompileStubs(t, tmp)
 
-	cmd := exec.Command("go", "test", "./...")
+	cmd := exec.Command("go", "test", "-mod=mod", "./...")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {

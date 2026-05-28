@@ -114,7 +114,12 @@ func runMessageDirectRegistrationFixture(t *testing.T, serviceComment, testName 
 	}
 
 	writeMessageDirectPathGeneratedModule(t, tmp, plugin, "example.com/messagedirect")
-	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_stubs.go"), messageDirectPathStubSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_stubs.go"), messageDirectPathHandlerStubSource)
+	if strings.Contains(serviceComment, "msg-grpc") {
+		writeFile(t, filepath.Join(tmp, "test/v1/message_integration_client_stubs.go"), messageDirectPathGRPCClientStubSource)
+	} else {
+		writeFile(t, filepath.Join(tmp, "test/v1/message_integration_client_stubs.go"), messageDirectPathClientStubSource)
+	}
 	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_reset.go"), messageDirectPathResetSource)
 	if strings.Contains(serviceComment, "msg-connect") {
 		writeFile(t, filepath.Join(tmp, "test/v1/message_direct_registration_test.go"), messageDirectConnectRegistrationTestSource)
@@ -144,7 +149,8 @@ func runMessageDirectPathFixture(t *testing.T, testName string) {
 	}
 
 	writeMessageDirectPathGeneratedModule(t, tmp, plugin, "example.com/messagedirect")
-	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_stubs.go"), messageDirectPathStubSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_stubs.go"), messageDirectPathHandlerStubSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_client_stubs.go"), messageDirectPathClientStubSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_reset.go"), messageDirectPathResetSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/message_direct_path_callbacks.go"), messageDirectPathFixtureCallbackSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/message_direct_path_test.go"), messageDirectPathFixtureTestSource)
@@ -249,7 +255,43 @@ func writeMessageDirectPathGeneratedModule(t *testing.T, root string, plugin *pr
 	}
 }
 
-const messageDirectPathStubSource = `package testv1
+const messageDirectPathClientStubSource = `package testv1
+
+import (
+	context "context"
+
+	connect "connectrpc.com/connect"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
+)
+
+type GreeterClient interface {
+	Unary(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
+	Upload(context.Context) (*connect.ClientStreamForClientSimple[emptypb.Empty, emptypb.Empty], error)
+	List(context.Context, *emptypb.Empty) (*connect.ServerStreamForClient[emptypb.Empty], error)
+	Chat(context.Context) (*connect.BidiStreamForClientSimple[emptypb.Empty, emptypb.Empty], error)
+}
+
+`
+
+const messageDirectPathGRPCClientStubSource = `package testv1
+
+import (
+	context "context"
+
+	grpc "google.golang.org/grpc"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
+)
+
+type GreeterClient interface {
+	Unary(context.Context, *emptypb.Empty, ...grpc.CallOption) (*emptypb.Empty, error)
+	Upload(context.Context, ...grpc.CallOption) (grpc.ClientStreamingClient[emptypb.Empty, emptypb.Empty], error)
+	List(context.Context, *emptypb.Empty, ...grpc.CallOption) (grpc.ServerStreamingClient[emptypb.Empty], error)
+	Chat(context.Context, ...grpc.CallOption) (grpc.BidiStreamingClient[emptypb.Empty, emptypb.Empty], error)
+}
+
+`
+
+const messageDirectPathHandlerStubSource = `package testv1
 
 import (
 	context "context"

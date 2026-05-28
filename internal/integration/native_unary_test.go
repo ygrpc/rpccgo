@@ -186,6 +186,10 @@ type GreeterHandler interface {
 	SayHello(context.Context, *HelloRequest) (*HelloReply, error)
 	SayUnsupported(context.Context, *HelloRequest) (*UnsupportedReply, error)
 }
+type GreeterClient interface {
+	SayHello(context.Context, *HelloRequest) (*HelloReply, error)
+	SayUnsupported(context.Context, *HelloRequest) (*UnsupportedReply, error)
+}
 
 type GreeterServer interface {
 	SayHello(context.Context, *HelloRequest) (*HelloReply, error)

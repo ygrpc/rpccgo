@@ -36,6 +36,10 @@ _Avoid_: runtime core
 Generated service runtime 内部的 package-private typed invocation layer，负责按 service/method contract 选择 Active server 并应用 native/message 转换；外部包只能通过 generated package-level invoke/start 函数进入。
 _Avoid_: runtime core dispatcher, public client object, active router
 
+**Remote client active server**:
+以标准 connect/gRPC client 作为 **Active server** adapter value 的 message-contract active server，真实执行目标位于远端进程。
+_Avoid_: remote adapter, remote server adapter
+
 **Call-scoped borrowed view**:
 仅在一次 generated message→native bridge 调用同步执行期间有效的 borrowed wrapper 视图；不得把 wrapper 本身跨调用保存。
 _Avoid_: owned wrapper, long-lived native input
@@ -86,8 +90,11 @@ _Avoid_: active server
 - **Runtime bridge** 应留在 **Generated service runtime** 中，因为它表达 service-level active server contract 路由，并集中连接 native adapter、message adapter、standard connect/grpc server 与 converter glue。
 - **Runtime bridge** 作为 service-local invocation layer 直接复用 **Runtime core** active slot、stream registry 和 lifecycle primitive；不应再额外生成只转发到 bridge 的 public client object。
 - **Runtime bridge** 类型和方法不作为外部用户 API；外部包通过 generated package-level invoke/start 函数进入。它返回的 routing errors 应导出为 package-level sentinel vars，供用户通过 `errors.Is` 判断失败类型；无 active server 使用 `rpcruntime.ErrNoActiveServer`，service-specific 失败按 service + 分类命名，不按调用方向拆分。
-- **Message contract** remote adapter 使用标准 transport client 作为外部能力；rpccgo generated code 不应构造 per-method client。
-- **Message contract** remote adapter 只转发 protobuf message payload 和 error；metadata/header/trailer 不属于当前 contract。
+- **Remote client active server** 使用标准 transport client 作为 active slot 中保存的 adapter value；rpccgo generated code 不应构造 per-method client。
+- **Remote client active server** 只转发 protobuf message payload 和 error；metadata/header/trailer 不属于当前 contract。
+- `Register<Service>ConnectRemoteServer` 与 `Register<Service>GRPCRemoteServer` 命名可以保留，但它们应直接注册标准 transport client 并返回 client-typed snapshot，不应构造 service-specific wrapper adapter。
+- `ServerKindConnectRemote` 与 `ServerKindGRPCRemote` 应保留为独立 **Active server** kind；它们与本地 connect/gRPC kind 的 adapter value 类型不同，不能合并。
+- **Remote client active server** 的 direct invocation 与 streaming session wrapper 属于 **Generated service runtime**；不应再生成独立 `remote.connect.rpccgo.go` 或 `remote.grpc.rpccgo.go` adapter 文件。
 - 一个 service 的 generated output 只能选择一个 message transport（connect 或 gRPC），避免标准 transport client API 在同包内重名。
 - 每个 service 的 active slot 应保留为 generated package-level 变量；不要引入 runtime core 全局 service registry，以避免回到旧 **Provider bootstrap** 模型。
 - 新版架构保留 service-local active server；只恢复旧项目的 **Native** flat function boundary，不回迁旧 **Provider bootstrap**。

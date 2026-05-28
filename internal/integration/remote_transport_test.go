@@ -31,8 +31,8 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 	}
 
 	writeRemoteTransportGeneratedModule(t, tmp, remotePlugin, localPlugin)
-	writeFile(t, filepath.Join(tmp, "remote/v1/message_integration_stubs.go"), strings.ReplaceAll(messageDirectPathStubSource, "package testv1", "package remotev1"))
-	writeFile(t, filepath.Join(tmp, "local/v1/message_integration_stubs.go"), strings.ReplaceAll(messageDirectPathStubSource, "package testv1", "package localv1"))
+	writeFile(t, filepath.Join(tmp, "remote/v1/message_integration_stubs.go"), strings.ReplaceAll(messageDirectPathHandlerStubSource, "package testv1", "package remotev1"))
+	writeFile(t, filepath.Join(tmp, "local/v1/message_integration_stubs.go"), strings.ReplaceAll(messageDirectPathHandlerStubSource, "package testv1", "package localv1"))
 	writeFile(t, filepath.Join(tmp, "remote/v1/message_integration_reset.go"), strings.ReplaceAll(messageDirectPathResetSource, "package testv1", "package remotev1"))
 	writeFile(t, filepath.Join(tmp, "local/v1/message_integration_reset.go"), strings.ReplaceAll(messageDirectPathResetSource, "package testv1", "package localv1"))
 	writeFile(t, filepath.Join(tmp, "remote/v1/remote_transport.connect.go"), strings.ReplaceAll(remoteTransportConnectClientSource, "package testv1", "package remotev1"))
@@ -596,8 +596,12 @@ func registerConnectRemote(t *testing.T, remote remoteTransportProcess) {
 	t.Helper()
 	localv1.ResetGreeterDispatcherForIntegrationTest()
 	client := localv1.NewGreeterClient(http.DefaultClient, "http://"+remote.addr)
-	if _, err := localv1.RegisterGreeterConnectRemoteServer(client); err != nil {
+	snapshot, err := localv1.RegisterGreeterConnectRemoteServer(client)
+	if err != nil {
 		t.Fatalf("RegisterGreeterConnectRemoteServer() error = %v", err)
+	}
+	if snapshot.Kind != rpcruntime.ServerKindConnectRemote || snapshot.Contract != rpcruntime.ServerContractMessage || snapshot.Adapter != client {
+		t.Fatalf("RegisterGreeterConnectRemoteServer() snapshot = %#v, want connect remote message client snapshot", snapshot)
 	}
 }
 

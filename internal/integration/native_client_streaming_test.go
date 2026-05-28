@@ -157,6 +157,9 @@ func (*UploadReply) ProtoReflect() protoreflect.Message { return nil }
 type GreeterHandler interface {
 	Upload(context.Context, *connect.ClientStream[UploadRequest]) (*UploadReply, error)
 }
+type GreeterClient interface {
+	Upload(context.Context) (*connect.ClientStreamForClientSimple[UploadRequest, UploadReply], error)
+}
 type GreeterServer interface {
 	Upload(Greeter_UploadServer) error
 }

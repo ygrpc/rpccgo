@@ -17,7 +17,6 @@ func TestGRPCGreeterGenerate(t *testing.T) {
 		"gen/greeter/v1/greeter_grpc.pb.go",
 		"gen/greeter/v1/greeter.greeter.runtime.rpccgo.go",
 		"gen/greeter/v1/greeter.greeter.server.native.rpccgo.go",
-		"gen/greeter/v1/greeter.greeter.remote.grpc.rpccgo.go",
 		"cmd/rpc/greeter.exports.cgo.rpccgo.go",
 		"cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go",
 		"cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go",
@@ -31,6 +30,7 @@ func TestGRPCGreeterGenerate(t *testing.T) {
 	assertFileContains(t, "cmd/rpc/greeter.exports.cgo.rpccgo.go", "//export rpccgo_release")
 	assertFileContains(t, "cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go", "//export rpccgo_native_greeterv1_Greeter_SayHello")
 	assertFileContains(t, "cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go", "//export rpccgo_msg_greeterv1_Greeter_SayHello")
+	assertFileContains(t, "gen/greeter/v1/greeter.greeter.runtime.rpccgo.go", "func RegisterGreeterGRPCRemoteServer(client GreeterClient) (rpcruntime.AdapterSnapshot[GreeterClient], error)")
 }
 
 func TestGRPCGreeterExample(t *testing.T) {

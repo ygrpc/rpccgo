@@ -157,6 +157,9 @@ func (*ListReply) ProtoReflect() protoreflect.Message { return nil }
 type GreeterHandler interface {
 	List(context.Context, *ListRequest, *connect.ServerStream[ListReply]) error
 }
+type GreeterClient interface {
+	List(context.Context, *ListRequest) (*connect.ServerStreamForClient[ListReply], error)
+}
 type GreeterServer interface {
 	List(*ListRequest, Greeter_ListServer) error
 }

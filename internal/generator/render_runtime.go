@@ -19,7 +19,7 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	directConnectStreaming := service.Adapters.Has(AdapterTokenMessageConnect) && serviceHasStreamingMethod(service)
 	directGRPCStreaming := service.Adapters.Has(AdapterTokenMessageGRPC) && serviceHasStreamingMethod(service)
 	directUnary := (service.Adapters.Has(AdapterTokenMessageConnect) || service.Adapters.Has(AdapterTokenMessageGRPC)) && serviceHasUnaryMethod(service)
-	directFmt := directUnary || directGRPCStreaming || (directConnectStreaming && (serviceHasServerStreamingMethod(service) || serviceHasBidiStreamingMethod(service)))
+	directFmt := directUnary || directConnectStreaming || directGRPCStreaming
 	directProto := directUnary || directConnectStreaming || directGRPCStreaming
 
 	g.P("package ", plan.GoPackageName)
@@ -39,10 +39,14 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 			g.P(`sync "sync"`)
 		}
 	}
+	if directConnectStreaming {
+		g.P(`connect "connectrpc.com/connect"`)
+	}
 	if directGRPCStreaming {
-			g.P(`metadata "google.golang.org/grpc/metadata"`)
-		}
-		g.P(`rpcruntime "rpccgo/rpcruntime"`)
+		g.P(`grpc "google.golang.org/grpc"`)
+		g.P(`metadata "google.golang.org/grpc/metadata"`)
+	}
+	g.P(`rpcruntime "rpccgo/rpcruntime"`)
 	g.P(")")
 	g.P()
 	g.P("// ", nativeStageMarker(service, file))
@@ -503,6 +507,7 @@ func messageRuntimeStreamFacadeName(serviceName string, method runtimeAdapterMet
 func renderRuntimeDirectMessageRegistrations(g *protogen.GeneratedFile, service ServicePlan) {
 	if service.Adapters.Has(AdapterTokenMessageConnect) {
 		handlerName := service.GoName + "Handler"
+		clientName := service.GoName + "Client"
 		g.P("func Register", service.GoName, "ConnectHandler(handler ", handlerName, ") (rpcruntime.AdapterSnapshot[", handlerName, "], error) {")
 		g.P("snapshot, err := ", lowerInitial(service.GoName), "ActiveSlot.Store(rpcruntime.ServerKindConnectHandler, rpcruntime.ServerContractMessage, handler)")
 		g.P("if err != nil {")
@@ -511,15 +516,32 @@ func renderRuntimeDirectMessageRegistrations(g *protogen.GeneratedFile, service 
 		g.P("return rpcruntime.AdapterSnapshot[", handlerName, "]{Kind: snapshot.Kind, Contract: snapshot.Contract, Version: snapshot.Version, Adapter: handler}, nil")
 		g.P("}")
 		g.P()
+		g.P("func Register", service.GoName, "ConnectRemoteServer(client ", clientName, ") (rpcruntime.AdapterSnapshot[", clientName, "], error) {")
+		g.P("snapshot, err := ", lowerInitial(service.GoName), "ActiveSlot.Store(rpcruntime.ServerKindConnectRemote, rpcruntime.ServerContractMessage, client)")
+		g.P("if err != nil {")
+		g.P("return rpcruntime.AdapterSnapshot[", clientName, "]{}, err")
+		g.P("}")
+		g.P("return rpcruntime.AdapterSnapshot[", clientName, "]{Kind: snapshot.Kind, Contract: snapshot.Contract, Version: snapshot.Version, Adapter: client}, nil")
+		g.P("}")
+		g.P()
 	}
 	if service.Adapters.Has(AdapterTokenMessageGRPC) {
 		serverName := service.GoName + "Server"
+		clientName := service.GoName + "Client"
 		g.P("func Register", service.GoName, "GRPCServer(server ", serverName, ") (rpcruntime.AdapterSnapshot[", serverName, "], error) {")
 		g.P("snapshot, err := ", lowerInitial(service.GoName), "ActiveSlot.Store(rpcruntime.ServerKindGRPCServer, rpcruntime.ServerContractMessage, server)")
 		g.P("if err != nil {")
 		g.P("return rpcruntime.AdapterSnapshot[", serverName, "]{}, err")
 		g.P("}")
 		g.P("return rpcruntime.AdapterSnapshot[", serverName, "]{Kind: snapshot.Kind, Contract: snapshot.Contract, Version: snapshot.Version, Adapter: server}, nil")
+		g.P("}")
+		g.P()
+		g.P("func Register", service.GoName, "GRPCRemoteServer(client ", clientName, ") (rpcruntime.AdapterSnapshot[", clientName, "], error) {")
+		g.P("snapshot, err := ", lowerInitial(service.GoName), "ActiveSlot.Store(rpcruntime.ServerKindGRPCRemote, rpcruntime.ServerContractMessage, client)")
+		g.P("if err != nil {")
+		g.P("return rpcruntime.AdapterSnapshot[", clientName, "]{}, err")
+		g.P("}")
+		g.P("return rpcruntime.AdapterSnapshot[", clientName, "]{Kind: snapshot.Kind, Contract: snapshot.Contract, Version: snapshot.Version, Adapter: client}, nil")
 		g.P("}")
 		g.P()
 	}
@@ -636,13 +658,14 @@ func renderRuntimeBridgeMessageUnary(g *protogen.GeneratedFile, service ServiceP
 func renderRuntimeBridgeMessageUnaryActiveCall(g *protogen.GeneratedFile, service ServicePlan, messageAdapterName string, method runtimeAdapterMethod) {
 	serviceName := service.GoName
 	g.P("switch snapshot.Kind {")
-	g.P("case rpcruntime.ServerKindCGOMessage, rpcruntime.ServerKindConnectRemote, rpcruntime.ServerKindGRPCRemote:")
+	g.P("case rpcruntime.ServerKindCGOMessage:")
 	g.P("adapter, ok := snapshot.Adapter.(", messageAdapterName, ")")
 	g.P("if !ok || adapter == nil {")
 	g.P("return nil, ", serviceName, "MessageAdapterUnavailableErr")
 	g.P("}")
 	g.P("return adapter.", method.AdapterName, "Message(ctx, req)")
 	renderRuntimeBridgeMessageUnaryDirectCases(g, service, method, "req", "return nil, ")
+	renderRuntimeBridgeMessageUnaryRemoteCases(g, service, method, "req", "return nil, ")
 	g.P("default:")
 	g.P("return nil, ", serviceName, "MessageAdapterUnavailableErr")
 	g.P("}")
@@ -661,7 +684,7 @@ func renderRuntimeBridgeNativeUnaryMessageActiveCall(g *protogen.GeneratedFile, 
 	g.P("}")
 	g.P("var messageResp []byte")
 	g.P("switch snapshot.Kind {")
-	g.P("case rpcruntime.ServerKindCGOMessage, rpcruntime.ServerKindConnectRemote, rpcruntime.ServerKindGRPCRemote:")
+	g.P("case rpcruntime.ServerKindCGOMessage:")
 	g.P("adapter, ok := snapshot.Adapter.(", messageAdapterName, ")")
 	g.P("if !ok || adapter == nil {")
 	g.P("err = ", serviceName, "MessageAdapterUnavailableErr")
@@ -669,6 +692,7 @@ func renderRuntimeBridgeNativeUnaryMessageActiveCall(g *protogen.GeneratedFile, 
 	g.P("}")
 	g.P("messageResp, err = adapter.", method.AdapterName, "Message(ctx, messageReq)")
 	renderRuntimeBridgeNativeUnaryDirectCases(g, service, method)
+	renderRuntimeBridgeNativeUnaryRemoteCases(g, service, method)
 	g.P("default:")
 	g.P("err = ", serviceName, "MessageAdapterUnavailableErr")
 	g.P("}")
@@ -730,6 +754,54 @@ func renderRuntimeBridgeMessageUnaryDirectCases(g *protogen.GeneratedFile, servi
 	}
 }
 
+func renderRuntimeBridgeMessageUnaryRemoteCases(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod, reqExpr string, errPrefix string) {
+	serviceName := service.GoName
+	if service.Adapters.Has(AdapterTokenMessageConnect) {
+		clientName := service.GoName + "Client"
+		reqType := qualifiedMethodType(g, methodForRuntimeService(service, method).Request)
+		g.P("case rpcruntime.ServerKindConnectRemote:")
+		g.P("client, ok := snapshot.Adapter.(", clientName, ")")
+		g.P("if !ok || client == nil {")
+		g.P(errPrefix, serviceName, "MessageAdapterUnavailableErr")
+		g.P("}")
+		g.P("messageReq := new(", reqType, ")")
+		g.P("if err := proto.Unmarshal(", reqExpr, ", messageReq); err != nil {")
+		g.P(errPrefix, `fmt.Errorf("rpccgo: connect remote request protobuf unmarshal failed: %w", err)`)
+		g.P("}")
+		g.P("messageResp, err := client.", method.MethodGoName, "(ctx, messageReq)")
+		g.P("if err != nil {")
+		g.P(errPrefix, "err")
+		g.P("}")
+		g.P("resp, err := proto.Marshal(messageResp)")
+		g.P("if err != nil {")
+		g.P(errPrefix, `fmt.Errorf("rpccgo: connect remote response protobuf marshal failed: %w", err)`)
+		g.P("}")
+		g.P("return resp, nil")
+	}
+	if service.Adapters.Has(AdapterTokenMessageGRPC) {
+		clientName := service.GoName + "Client"
+		reqType := qualifiedMethodType(g, methodForRuntimeService(service, method).Request)
+		g.P("case rpcruntime.ServerKindGRPCRemote:")
+		g.P("client, ok := snapshot.Adapter.(", clientName, ")")
+		g.P("if !ok || client == nil {")
+		g.P(errPrefix, serviceName, "MessageAdapterUnavailableErr")
+		g.P("}")
+		g.P("messageReq := new(", reqType, ")")
+		g.P("if err := proto.Unmarshal(", reqExpr, ", messageReq); err != nil {")
+		g.P(errPrefix, `fmt.Errorf("rpccgo: grpc remote request protobuf unmarshal failed: %w", err)`)
+		g.P("}")
+		g.P("messageResp, err := client.", method.MethodGoName, "(ctx, messageReq)")
+		g.P("if err != nil {")
+		g.P(errPrefix, "err")
+		g.P("}")
+		g.P("resp, err := proto.Marshal(messageResp)")
+		g.P("if err != nil {")
+		g.P(errPrefix, `fmt.Errorf("rpccgo: grpc remote response protobuf marshal failed: %w", err)`)
+		g.P("}")
+		g.P("return resp, nil")
+	}
+}
+
 func renderRuntimeBridgeNativeUnaryDirectCases(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod) {
 	if service.Adapters.Has(AdapterTokenMessageConnect) {
 		handlerName := service.GoName + "Handler"
@@ -767,6 +839,51 @@ func renderRuntimeBridgeNativeUnaryDirectCases(g *protogen.GeneratedFile, servic
 		g.P("break")
 		g.P("}")
 		g.P("directResp, callErr := server.", method.MethodGoName, "(ctx, directReq)")
+		g.P("if callErr != nil {")
+		g.P("err = callErr")
+		g.P("break")
+		g.P("}")
+		g.P("messageResp, err = proto.Marshal(directResp)")
+	}
+}
+
+func renderRuntimeBridgeNativeUnaryRemoteCases(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod) {
+	if service.Adapters.Has(AdapterTokenMessageConnect) {
+		clientName := service.GoName + "Client"
+		reqType := qualifiedMethodType(g, methodForRuntimeService(service, method).Request)
+		g.P("case rpcruntime.ServerKindConnectRemote:")
+		g.P("client, ok := snapshot.Adapter.(", clientName, ")")
+		g.P("if !ok || client == nil {")
+		g.P("err = ", service.GoName, "MessageAdapterUnavailableErr")
+		g.P("break")
+		g.P("}")
+		g.P("directReq := new(", reqType, ")")
+		g.P("if err = proto.Unmarshal(messageReq, directReq); err != nil {")
+		g.P(`err = fmt.Errorf("rpccgo: connect remote request protobuf unmarshal failed: %w", err)`)
+		g.P("break")
+		g.P("}")
+		g.P("directResp, callErr := client.", method.MethodGoName, "(ctx, directReq)")
+		g.P("if callErr != nil {")
+		g.P("err = callErr")
+		g.P("break")
+		g.P("}")
+		g.P("messageResp, err = proto.Marshal(directResp)")
+	}
+	if service.Adapters.Has(AdapterTokenMessageGRPC) {
+		clientName := service.GoName + "Client"
+		reqType := qualifiedMethodType(g, methodForRuntimeService(service, method).Request)
+		g.P("case rpcruntime.ServerKindGRPCRemote:")
+		g.P("client, ok := snapshot.Adapter.(", clientName, ")")
+		g.P("if !ok || client == nil {")
+		g.P("err = ", service.GoName, "MessageAdapterUnavailableErr")
+		g.P("break")
+		g.P("}")
+		g.P("directReq := new(", reqType, ")")
+		g.P("if err = proto.Unmarshal(messageReq, directReq); err != nil {")
+		g.P(`err = fmt.Errorf("rpccgo: grpc remote request protobuf unmarshal failed: %w", err)`)
+		g.P("break")
+		g.P("}")
+		g.P("directResp, callErr := client.", method.MethodGoName, "(ctx, directReq)")
 		g.P("if callErr != nil {")
 		g.P("err = callErr")
 		g.P("break")
@@ -924,7 +1041,7 @@ func renderRuntimeBridgeMessageSessionStarter(g *protogen.GeneratedFile, service
 		return
 	}
 	g.P("switch snapshot.Kind {")
-	g.P("case rpcruntime.ServerKindCGOMessage, rpcruntime.ServerKindConnectRemote, rpcruntime.ServerKindGRPCRemote:")
+	g.P("case rpcruntime.ServerKindCGOMessage:")
 	g.P("adapter, ok := snapshot.Adapter.(", messageAdapterName, ")")
 	g.P("if !ok || adapter == nil {")
 	g.P("return nil, ", serviceName, "MessageAdapterUnavailableErr")
@@ -937,6 +1054,7 @@ func renderRuntimeBridgeMessageSessionStarter(g *protogen.GeneratedFile, service
 	}
 	if service.Adapters.Has(AdapterTokenMessageConnect) {
 		handlerName := service.GoName + "Handler"
+		clientName := service.GoName + "Client"
 		g.P("case rpcruntime.ServerKindConnectHandler:")
 		g.P("handler, ok := snapshot.Adapter.(", handlerName, ")")
 		g.P("if !ok || handler == nil {")
@@ -948,9 +1066,21 @@ func renderRuntimeBridgeMessageSessionStarter(g *protogen.GeneratedFile, service
 		case SessionKindServer:
 			g.P("return new", connectDirectMessageSessionName(serviceName, method), "(ctx, handler, req)")
 		}
+		g.P("case rpcruntime.ServerKindConnectRemote:")
+		g.P("client, ok := snapshot.Adapter.(", clientName, ")")
+		g.P("if !ok || client == nil {")
+		g.P("return nil, ", serviceName, "MessageAdapterUnavailableErr")
+		g.P("}")
+		switch method.SessionKind {
+		case SessionKindClient, SessionKindBidi:
+			g.P("return new", connectRemoteMessageSessionName(serviceName, method), "(ctx, client)")
+		case SessionKindServer:
+			g.P("return new", connectRemoteMessageSessionName(serviceName, method), "(ctx, client, req)")
+		}
 	}
 	if service.Adapters.Has(AdapterTokenMessageGRPC) {
 		serverName := service.GoName + "Server"
+		clientName := service.GoName + "Client"
 		g.P("case rpcruntime.ServerKindGRPCServer:")
 		g.P("server, ok := snapshot.Adapter.(", serverName, ")")
 		g.P("if !ok || server == nil {")
@@ -962,6 +1092,17 @@ func renderRuntimeBridgeMessageSessionStarter(g *protogen.GeneratedFile, service
 		case SessionKindServer:
 			g.P("return new", grpcDirectMessageSessionName(serviceName, method), "(ctx, server, req)")
 		}
+		g.P("case rpcruntime.ServerKindGRPCRemote:")
+		g.P("client, ok := snapshot.Adapter.(", clientName, ")")
+		g.P("if !ok || client == nil {")
+		g.P("return nil, ", serviceName, "MessageAdapterUnavailableErr")
+		g.P("}")
+		switch method.SessionKind {
+		case SessionKindClient, SessionKindBidi:
+			g.P("return new", grpcRemoteMessageSessionName(serviceName, method), "(ctx, client)")
+		case SessionKindServer:
+			g.P("return new", grpcRemoteMessageSessionName(serviceName, method), "(ctx, client, req)")
+		}
 	}
 	g.P("default:")
 	g.P("return nil, ", serviceName, "MessageAdapterUnavailableErr")
@@ -970,9 +1111,11 @@ func renderRuntimeBridgeMessageSessionStarter(g *protogen.GeneratedFile, service
 	g.P()
 	if service.Adapters.Has(AdapterTokenMessageConnect) {
 		renderConnectDirectMessageSession(g, service, method)
+		renderConnectRemoteMessageSession(g, service, method)
 	}
 	if service.Adapters.Has(AdapterTokenMessageGRPC) {
 		renderGRPCDirectMessageSession(g, service, method)
+		renderGRPCRemoteMessageSession(g, service, method)
 	}
 }
 
@@ -1179,6 +1322,247 @@ func renderConnectDirectRecvDoneCancel(g *protogen.GeneratedFile, wrapperName st
 	g.P()
 	g.P("func (s *", wrapperName, ") Cancel(ctx context.Context) error {")
 	g.P("s.cancel()")
+	g.P("return nil")
+	g.P("}")
+	g.P()
+}
+
+func renderConnectRemoteMessageSession(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod) {
+	methodPlan := methodForRuntimeService(service, method)
+	wrapperName := connectRemoteMessageSessionName(service.GoName, method)
+	reqType := qualifiedMethodType(g, methodPlan.Request)
+	respType := qualifiedMethodType(g, methodPlan.Response)
+	switch method.SessionKind {
+	case SessionKindClient:
+		clientType := "interface { " + method.MethodGoName + "(context.Context) (*connect.ClientStreamForClientSimple[" + strings.TrimPrefix(reqType, "*") + ", " + strings.TrimPrefix(respType, "*") + "], error) }"
+		renderConnectRemoteClientStreamSession(g, method, wrapperName, reqType, respType, clientType)
+	case SessionKindServer:
+		clientType := "interface { " + method.MethodGoName + "(context.Context, *" + strings.TrimPrefix(reqType, "*") + ") (*connect.ServerStreamForClient[" + strings.TrimPrefix(respType, "*") + "], error) }"
+		renderConnectRemoteServerStreamSession(g, method, wrapperName, reqType, respType, clientType)
+	case SessionKindBidi:
+		clientType := "interface { " + method.MethodGoName + "(context.Context) (*connect.BidiStreamForClientSimple[" + strings.TrimPrefix(reqType, "*") + ", " + strings.TrimPrefix(respType, "*") + "], error) }"
+		renderConnectRemoteBidiStreamSession(g, method, wrapperName, reqType, respType, clientType)
+	}
+}
+
+func renderConnectRemoteClientStreamSession(g *protogen.GeneratedFile, method runtimeAdapterMethod, wrapperName, reqType, respType, clientType string) {
+	g.P("func new", wrapperName, "(ctx context.Context, client ", clientType, ") (*", wrapperName, ", error) {")
+	g.P("streamCtx, cancel := context.WithCancel(ctx)")
+	g.P("stream, err := client.", method.MethodGoName, "(streamCtx)")
+	g.P("if err != nil {")
+	g.P("cancel()")
+	g.P("return nil, err")
+	g.P("}")
+	g.P("return &", wrapperName, "{stream: stream, cancel: cancel}, nil")
+	g.P("}")
+	g.P()
+	g.P("type ", wrapperName, " struct {")
+	g.P("stream *connect.ClientStreamForClientSimple[", reqType, ", ", respType, "]")
+	g.P("cancel context.CancelFunc")
+	g.P("}")
+	g.P()
+	g.P("func (s *", wrapperName, ") Send(ctx context.Context, req []byte) error {")
+	g.P("_ = ctx")
+	g.P("if s == nil {")
+	g.P(`return errors.New("rpccgo: connect remote client stream is nil")`)
+	g.P("}")
+	g.P("if s.stream == nil {")
+	g.P(`return errors.New("rpccgo: connect remote client stream is nil")`)
+	g.P("}")
+	g.P("request := new(", reqType, ")")
+	g.P("if err := proto.Unmarshal(req, request); err != nil {")
+	g.P(`return fmt.Errorf("rpccgo: connect remote stream request protobuf unmarshal failed: %w", err)`)
+	g.P("}")
+	g.P("return s.stream.Send(request)")
+	g.P("}")
+	g.P()
+	g.P("func (s *", wrapperName, ") Finish(ctx context.Context) ([]byte, error) {")
+	g.P("_ = ctx")
+	g.P("if s == nil {")
+	g.P(`return nil, errors.New("rpccgo: connect remote client stream is nil")`)
+	g.P("}")
+	g.P("if s.stream == nil {")
+	g.P(`return nil, errors.New("rpccgo: connect remote client stream is nil")`)
+	g.P("}")
+	g.P("defer func() { if s.cancel != nil { s.cancel() } }()")
+	g.P("resp, err := s.stream.CloseAndReceive()")
+	g.P("if err != nil {")
+	g.P("return nil, err")
+	g.P("}")
+	g.P("if resp == nil {")
+	g.P("return nil, nil")
+	g.P("}")
+	g.P("data, err := proto.Marshal(resp)")
+	g.P("if err != nil {")
+	g.P(`return nil, fmt.Errorf("rpccgo: connect remote stream response protobuf marshal failed: %w", err)`)
+	g.P("}")
+	g.P("return data, nil")
+	g.P("}")
+	g.P()
+	g.P("func (s *", wrapperName, ") Cancel(ctx context.Context) error {")
+	g.P("_ = ctx")
+	g.P("if s != nil && s.cancel != nil {")
+	g.P("s.cancel()")
+	g.P("}")
+	g.P("return nil")
+	g.P("}")
+	g.P()
+}
+
+func renderConnectRemoteServerStreamSession(g *protogen.GeneratedFile, method runtimeAdapterMethod, wrapperName, reqType, respType, clientType string) {
+	g.P("func new", wrapperName, "(ctx context.Context, client ", clientType, ", req []byte) (*", wrapperName, ", error) {")
+	g.P("request := new(", reqType, ")")
+	g.P("if err := proto.Unmarshal(req, request); err != nil {")
+	g.P(`return nil, fmt.Errorf("rpccgo: connect remote request protobuf unmarshal failed: %w", err)`)
+	g.P("}")
+	g.P("streamCtx, cancel := context.WithCancel(ctx)")
+	g.P("stream, err := client.", method.MethodGoName, "(streamCtx, request)")
+	g.P("if err != nil {")
+	g.P("cancel()")
+	g.P("return nil, err")
+	g.P("}")
+	g.P("return &", wrapperName, "{stream: stream, cancel: cancel}, nil")
+	g.P("}")
+	g.P()
+	g.P("type ", wrapperName, " struct {")
+	g.P("stream *connect.ServerStreamForClient[", respType, "]")
+	g.P("cancel context.CancelFunc")
+	g.P("}")
+	g.P()
+	renderConnectRemoteRecvDoneCancel(g, wrapperName, "server stream")
+}
+
+func renderConnectRemoteBidiStreamSession(g *protogen.GeneratedFile, method runtimeAdapterMethod, wrapperName, reqType, respType, clientType string) {
+	g.P("func new", wrapperName, "(ctx context.Context, client ", clientType, ") (*", wrapperName, ", error) {")
+	g.P("streamCtx, cancel := context.WithCancel(ctx)")
+	g.P("stream, err := client.", method.MethodGoName, "(streamCtx)")
+	g.P("if err != nil {")
+	g.P("cancel()")
+	g.P("return nil, err")
+	g.P("}")
+	g.P("return &", wrapperName, "{stream: stream, cancel: cancel}, nil")
+	g.P("}")
+	g.P()
+	g.P("type ", wrapperName, " struct {")
+	g.P("stream *connect.BidiStreamForClientSimple[", reqType, ", ", respType, "]")
+	g.P("cancel context.CancelFunc")
+	g.P("}")
+	g.P()
+	g.P("func (s *", wrapperName, ") Send(ctx context.Context, req []byte) error {")
+	g.P("_ = ctx")
+	g.P("if s == nil {")
+	g.P(`return errors.New("rpccgo: connect remote bidi stream is nil")`)
+	g.P("}")
+	g.P("if s.stream == nil {")
+	g.P(`return errors.New("rpccgo: connect remote bidi stream is nil")`)
+	g.P("}")
+	g.P("request := new(", reqType, ")")
+	g.P("if err := proto.Unmarshal(req, request); err != nil {")
+	g.P(`return fmt.Errorf("rpccgo: connect remote bidi request protobuf unmarshal failed: %w", err)`)
+	g.P("}")
+	g.P("return s.stream.Send(request)")
+	g.P("}")
+	g.P()
+	renderConnectRemoteBidiRecvDoneCancel(g, wrapperName)
+	g.P("func (s *", wrapperName, ") CloseSend(ctx context.Context) error {")
+	g.P("_ = ctx")
+	g.P("if s == nil || s.stream == nil {")
+	g.P("return nil")
+	g.P("}")
+	g.P("return s.stream.CloseRequest()")
+	g.P("}")
+	g.P()
+}
+
+func renderConnectRemoteRecvDoneCancel(g *protogen.GeneratedFile, wrapperName, label string) {
+	g.P("func (s *", wrapperName, ") Recv(ctx context.Context) ([]byte, error) {")
+	g.P("_ = ctx")
+	g.P("if s == nil {")
+	g.P(`return nil, errors.New("rpccgo: connect remote `, label, ` is nil")`)
+	g.P("}")
+	g.P("if s.stream == nil {")
+	g.P(`return nil, errors.New("rpccgo: connect remote `, label, ` is nil")`)
+	g.P("}")
+	g.P("if !s.stream.Receive() {")
+	g.P("if err := s.stream.Err(); err != nil {")
+	g.P("return nil, err")
+	g.P("}")
+	g.P("return nil, io.EOF")
+	g.P("}")
+	g.P("msg := s.stream.Msg()")
+	g.P("if msg == nil {")
+	g.P("return nil, nil")
+	g.P("}")
+	g.P("data, err := proto.Marshal(msg)")
+	g.P("if err != nil {")
+	g.P(`return nil, fmt.Errorf("rpccgo: connect remote stream response protobuf marshal failed: %w", err)`)
+	g.P("}")
+	g.P("return data, nil")
+	g.P("}")
+	g.P()
+	g.P("func (s *", wrapperName, ") Done(ctx context.Context) error {")
+	g.P("_ = ctx")
+	g.P("if s == nil || s.stream == nil {")
+	g.P("return nil")
+	g.P("}")
+	g.P("if s.cancel != nil {")
+	g.P("defer s.cancel()")
+	g.P("}")
+	g.P("return s.stream.Close()")
+	g.P("}")
+	g.P()
+	g.P("func (s *", wrapperName, ") Cancel(ctx context.Context) error {")
+	g.P("_ = ctx")
+	g.P("if s == nil || s.stream == nil {")
+	g.P("return nil")
+	g.P("}")
+	g.P("if s.cancel != nil {")
+	g.P("s.cancel()")
+	g.P("}")
+	g.P("return nil")
+	g.P("}")
+	g.P()
+}
+
+func renderConnectRemoteBidiRecvDoneCancel(g *protogen.GeneratedFile, wrapperName string) {
+	g.P("func (s *", wrapperName, ") Recv(ctx context.Context) ([]byte, error) {")
+	g.P("_ = ctx")
+	g.P("if s == nil || s.stream == nil {")
+	g.P(`return nil, errors.New("rpccgo: connect remote bidi stream is nil")`)
+	g.P("}")
+	g.P("resp, err := s.stream.Receive()")
+	g.P("if err != nil {")
+	g.P("return nil, err")
+	g.P("}")
+	g.P("if resp == nil {")
+	g.P("return nil, nil")
+	g.P("}")
+	g.P("data, err := proto.Marshal(resp)")
+	g.P("if err != nil {")
+	g.P(`return nil, fmt.Errorf("rpccgo: connect remote bidi response protobuf marshal failed: %w", err)`)
+	g.P("}")
+	g.P("return data, nil")
+	g.P("}")
+	g.P()
+	g.P("func (s *", wrapperName, ") Done(ctx context.Context) error {")
+	g.P("_ = ctx")
+	g.P("if s == nil || s.stream == nil {")
+	g.P("return nil")
+	g.P("}")
+	g.P("if s.cancel != nil {")
+	g.P("defer s.cancel()")
+	g.P("}")
+	g.P("return s.stream.CloseResponse()")
+	g.P("}")
+	g.P()
+	g.P("func (s *", wrapperName, ") Cancel(ctx context.Context) error {")
+	g.P("_ = ctx")
+	g.P("if s == nil || s.stream == nil {")
+	g.P("return nil")
+	g.P("}")
+	g.P("if s.cancel != nil {")
+	g.P("s.cancel()")
+	g.P("}")
 	g.P("return nil")
 	g.P("}")
 	g.P()
@@ -1557,6 +1941,183 @@ func renderGRPCDirectBidiStreamSession(g *protogen.GeneratedFile, method runtime
 	renderConnectDirectRecvDoneCancel(g, wrapperName)
 }
 
+func renderGRPCRemoteMessageSession(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod) {
+	methodPlan := methodForRuntimeService(service, method)
+	wrapperName := grpcRemoteMessageSessionName(service.GoName, method)
+	reqType := qualifiedMethodType(g, methodPlan.Request)
+	respType := qualifiedMethodType(g, methodPlan.Response)
+	clientName := service.GoName + "Client"
+	switch method.SessionKind {
+	case SessionKindClient:
+		renderGRPCRemoteClientStreamSession(g, method, wrapperName, reqType, respType, clientName)
+	case SessionKindServer:
+		renderGRPCRemoteServerStreamSession(g, method, wrapperName, reqType, respType, clientName)
+	case SessionKindBidi:
+		renderGRPCRemoteBidiStreamSession(g, method, wrapperName, reqType, respType, clientName)
+	}
+}
+
+func renderGRPCRemoteClientStreamSession(g *protogen.GeneratedFile, method runtimeAdapterMethod, wrapperName, reqType, respType, clientName string) {
+	g.P("func new", wrapperName, "(ctx context.Context, client ", clientName, ") (*", wrapperName, ", error) {")
+	g.P("streamCtx, cancel := context.WithCancel(ctx)")
+	g.P("stream, err := client.", method.MethodGoName, "(streamCtx)")
+	g.P("if err != nil {")
+	g.P("cancel()")
+	g.P("return nil, err")
+	g.P("}")
+	g.P("return &", wrapperName, "{stream: stream, cancel: cancel}, nil")
+	g.P("}")
+	g.P()
+	g.P("type ", wrapperName, " struct {")
+	g.P("stream grpc.ClientStreamingClient[", reqType, ", ", respType, "]")
+	g.P("cancel context.CancelFunc")
+	g.P("}")
+	g.P()
+	g.P("func (s *", wrapperName, ") Send(ctx context.Context, req []byte) error {")
+	g.P("_ = ctx")
+	g.P("if s == nil || s.stream == nil {")
+	g.P(`return errors.New("rpccgo: grpc remote client stream is nil")`)
+	g.P("}")
+	g.P("request := new(", reqType, ")")
+	g.P("if err := proto.Unmarshal(req, request); err != nil {")
+	g.P(`return fmt.Errorf("rpccgo: grpc remote stream request protobuf unmarshal failed: %w", err)`)
+	g.P("}")
+	g.P("return s.stream.Send(request)")
+	g.P("}")
+	g.P()
+	g.P("func (s *", wrapperName, ") Finish(ctx context.Context) ([]byte, error) {")
+	g.P("_ = ctx")
+	g.P("if s == nil || s.stream == nil {")
+	g.P(`return nil, errors.New("rpccgo: grpc remote client stream is nil")`)
+	g.P("}")
+	g.P("defer func() { if s.cancel != nil { s.cancel() } }()")
+	g.P("response, err := s.stream.CloseAndRecv()")
+	g.P("if err != nil {")
+	g.P("return nil, err")
+	g.P("}")
+	g.P("respData, err := proto.Marshal(response)")
+	g.P("if err != nil {")
+	g.P(`return nil, fmt.Errorf("rpccgo: grpc remote stream response protobuf marshal failed: %w", err)`)
+	g.P("}")
+	g.P("return respData, nil")
+	g.P("}")
+	g.P()
+	g.P("func (s *", wrapperName, ") Cancel(ctx context.Context) error {")
+	g.P("_ = ctx")
+	g.P("if s == nil || s.stream == nil {")
+	g.P("return nil")
+	g.P("}")
+	g.P("if s.cancel != nil {")
+	g.P("s.cancel()")
+	g.P("}")
+	g.P("return s.stream.CloseSend()")
+	g.P("}")
+	g.P()
+}
+
+func renderGRPCRemoteServerStreamSession(g *protogen.GeneratedFile, method runtimeAdapterMethod, wrapperName, reqType, respType, clientName string) {
+	g.P("func new", wrapperName, "(ctx context.Context, client ", clientName, ", req []byte) (*", wrapperName, ", error) {")
+	g.P("request := new(", reqType, ")")
+	g.P("if err := proto.Unmarshal(req, request); err != nil {")
+	g.P(`return nil, fmt.Errorf("rpccgo: grpc remote request protobuf unmarshal failed: %w", err)`)
+	g.P("}")
+	g.P("streamCtx, cancel := context.WithCancel(ctx)")
+	g.P("stream, err := client.", method.MethodGoName, "(streamCtx, request)")
+	g.P("if err != nil {")
+	g.P("cancel()")
+	g.P("return nil, err")
+	g.P("}")
+	g.P("return &", wrapperName, "{stream: stream, cancel: cancel}, nil")
+	g.P("}")
+	g.P()
+	g.P("type ", wrapperName, " struct {")
+	g.P("stream grpc.ServerStreamingClient[", respType, "]")
+	g.P("cancel context.CancelFunc")
+	g.P("}")
+	g.P()
+	renderGRPCRemoteRecvDoneCancel(g, wrapperName, "server stream")
+}
+
+func renderGRPCRemoteBidiStreamSession(g *protogen.GeneratedFile, method runtimeAdapterMethod, wrapperName, reqType, respType, clientName string) {
+	g.P("func new", wrapperName, "(ctx context.Context, client ", clientName, ") (*", wrapperName, ", error) {")
+	g.P("streamCtx, cancel := context.WithCancel(ctx)")
+	g.P("stream, err := client.", method.MethodGoName, "(streamCtx)")
+	g.P("if err != nil {")
+	g.P("cancel()")
+	g.P("return nil, err")
+	g.P("}")
+	g.P("return &", wrapperName, "{stream: stream, cancel: cancel}, nil")
+	g.P("}")
+	g.P()
+	g.P("type ", wrapperName, " struct {")
+	g.P("stream grpc.BidiStreamingClient[", reqType, ", ", respType, "]")
+	g.P("cancel context.CancelFunc")
+	g.P("}")
+	g.P()
+	g.P("func (s *", wrapperName, ") Send(ctx context.Context, req []byte) error {")
+	g.P("_ = ctx")
+	g.P("if s == nil || s.stream == nil {")
+	g.P(`return errors.New("rpccgo: grpc remote bidi stream is nil")`)
+	g.P("}")
+	g.P("request := new(", reqType, ")")
+	g.P("if err := proto.Unmarshal(req, request); err != nil {")
+	g.P(`return fmt.Errorf("rpccgo: grpc remote bidi request protobuf unmarshal failed: %w", err)`)
+	g.P("}")
+	g.P("return s.stream.Send(request)")
+	g.P("}")
+	g.P()
+	renderGRPCRemoteRecvDoneCancel(g, wrapperName, "bidi stream")
+	g.P("func (s *", wrapperName, ") CloseSend(ctx context.Context) error {")
+	g.P("_ = ctx")
+	g.P("if s == nil || s.stream == nil {")
+	g.P("return nil")
+	g.P("}")
+	g.P("return s.stream.CloseSend()")
+	g.P("}")
+	g.P()
+}
+
+func renderGRPCRemoteRecvDoneCancel(g *protogen.GeneratedFile, wrapperName, label string) {
+	g.P("func (s *", wrapperName, ") Recv(ctx context.Context) ([]byte, error) {")
+	g.P("_ = ctx")
+	g.P("if s == nil || s.stream == nil {")
+	g.P(`return nil, errors.New("rpccgo: grpc remote `, label, ` is nil")`)
+	g.P("}")
+	g.P("response, err := s.stream.Recv()")
+	g.P("if err != nil {")
+	g.P("if errors.Is(err, io.EOF) {")
+	g.P("return nil, io.EOF")
+	g.P("}")
+	g.P("return nil, err")
+	g.P("}")
+	g.P("respData, err := proto.Marshal(response)")
+	g.P("if err != nil {")
+	g.P(`return nil, fmt.Errorf("rpccgo: grpc remote stream response protobuf marshal failed: %w", err)`)
+	g.P("}")
+	g.P("return respData, nil")
+	g.P("}")
+	g.P()
+	g.P("func (s *", wrapperName, ") Done(ctx context.Context) error {")
+	g.P("_ = ctx")
+	g.P("if s != nil && s.cancel != nil {")
+	g.P("s.cancel()")
+	g.P("}")
+	g.P("return nil")
+	g.P("}")
+	g.P()
+	g.P("func (s *", wrapperName, ") Cancel(ctx context.Context) error {")
+	g.P("_ = ctx")
+	g.P("if s == nil || s.stream == nil {")
+	g.P("return nil")
+	g.P("}")
+	g.P("if s.cancel != nil {")
+	g.P("s.cancel()")
+	g.P("}")
+	g.P("return s.stream.CloseSend()")
+	g.P("}")
+	g.P()
+}
+
 func renderRuntimeNativeEntrypoints(g *protogen.GeneratedFile, serviceName, adapterName, bridgeName string, methods []runtimeAdapterMethod) {
 	for _, method := range methods {
 		if method.Streaming {
@@ -1803,4 +2364,12 @@ func grpcDirectMessageSessionName(serviceName string, method runtimeAdapterMetho
 
 func connectDirectMessageSessionName(serviceName string, method runtimeAdapterMethod) string {
 	return lowerInitial(serviceName) + method.MethodGoName + "ConnectDirectMessageStreamSession"
+}
+
+func grpcRemoteMessageSessionName(serviceName string, method runtimeAdapterMethod) string {
+	return lowerInitial(serviceName) + method.MethodGoName + "GRPCRemoteMessageStreamSession"
+}
+
+func connectRemoteMessageSessionName(serviceName string, method runtimeAdapterMethod) string {
+	return lowerInitial(serviceName) + method.MethodGoName + "ConnectRemoteMessageStreamSession"
 }

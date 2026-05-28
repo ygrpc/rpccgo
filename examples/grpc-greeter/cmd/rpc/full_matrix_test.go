@@ -46,8 +46,12 @@ func TestGRPCGreeterTransportAndStreamingMatrix(t *testing.T) {
 		t.Cleanup(func() { _ = conn.Close() })
 
 		client := greeterv1.NewGreeterClient(conn)
-		if _, err := greeterv1.RegisterGreeterGRPCRemoteServer(client); err != nil {
+		snapshot, err := greeterv1.RegisterGreeterGRPCRemoteServer(client)
+		if err != nil {
 			t.Fatalf("RegisterGreeterGRPCRemoteServer() error = %v", err)
+		}
+		if snapshot.Kind != rpcruntime.ServerKindGRPCRemote || snapshot.Contract != rpcruntime.ServerContractMessage || snapshot.Adapter != client {
+			t.Fatalf("RegisterGreeterGRPCRemoteServer() snapshot = %#v, want grpc remote message client snapshot", snapshot)
 		}
 		assertMessageUnary(t, ctx, "grpc", "remote", "hello grpc from remote")
 		assertMessageCollect(t, ctx, []string{"grpc", "collect"}, "collect:grpc,collect")

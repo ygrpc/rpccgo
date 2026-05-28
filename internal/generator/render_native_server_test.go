@@ -261,6 +261,7 @@ import (
 	context "context"
 
 	connect "connectrpc.com/connect"
+	grpc "google.golang.org/grpc"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 )
 
@@ -327,23 +328,47 @@ type AllServiceHandler interface {
 	ServerStream(context.Context, *AllRequest, *connect.ServerStream[AllReply]) error
 	BidiStream(context.Context, *connect.BidiStream[AllRequest, AllReply]) error
 }
+type AllServiceClient interface {
+	Unary(context.Context, *AllRequest) (*AllReply, error)
+	ClientStream(context.Context) (*connect.ClientStreamForClientSimple[AllRequest, AllReply], error)
+	ServerStream(context.Context, *AllRequest) (*connect.ServerStreamForClient[AllReply], error)
+	BidiStream(context.Context) (*connect.BidiStreamForClientSimple[AllRequest, AllReply], error)
+}
 type DefaultServiceHandler interface {
+	DefaultUnary(context.Context, *DefaultRequest) (*DefaultReply, error)
+}
+type DefaultServiceClient interface {
 	DefaultUnary(context.Context, *DefaultRequest) (*DefaultReply, error)
 }
 type ConnectServiceHandler interface {
 	ConnectUnary(context.Context, *ConnectRequest) (*ConnectReply, error)
 }
+type ConnectServiceClient interface {
+	ConnectUnary(context.Context, *ConnectRequest) (*ConnectReply, error)
+}
 type MessageServiceHandler interface {
+	MessageUnary(context.Context, *MessageRequest) (*MessageReply, error)
+}
+type MessageServiceClient interface {
 	MessageUnary(context.Context, *MessageRequest) (*MessageReply, error)
 }
 type ConnectNativeServiceHandler interface {
 	ConnectNativeUnary(context.Context, *ConnectNativeRequest) (*ConnectNativeReply, error)
 }
+type ConnectNativeServiceClient interface {
+	ConnectNativeUnary(context.Context, *ConnectNativeRequest) (*ConnectNativeReply, error)
+}
 type NativeOnlyServiceHandler interface {
+	NativeOnlyUnary(context.Context, *NativeOnlyRequest) (*NativeOnlyReply, error)
+}
+type NativeOnlyServiceClient interface {
 	NativeOnlyUnary(context.Context, *NativeOnlyRequest) (*NativeOnlyReply, error)
 }
 type GrpcServiceServer interface {
 	GrpcUnary(context.Context, *GrpcRequest) (*GrpcReply, error)
+}
+type GrpcServiceClient interface {
+	GrpcUnary(context.Context, *GrpcRequest, ...grpc.CallOption) (*GrpcReply, error)
 }
 
 func (*AllRequest) ProtoReflect() protoreflect.Message { return nil }

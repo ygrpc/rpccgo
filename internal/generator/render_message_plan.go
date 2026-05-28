@@ -42,11 +42,11 @@ func BuildMessageFileFamilyPlan(file FilePlan, service ServicePlan) MessageFileF
 		},
 		ConnectRemote: GeneratedFilePlan{
 			Filename: fmt.Sprintf("%s.%s.remote.connect.rpccgo.go", prefix, serviceName),
-			Enabled:  service.Adapters.Has(AdapterTokenMessageConnect),
+			Enabled:  false,
 		},
 		GRPCRemote: GeneratedFilePlan{
 			Filename: fmt.Sprintf("%s.%s.remote.grpc.rpccgo.go", prefix, serviceName),
-			Enabled:  service.Adapters.Has(AdapterTokenMessageGRPC),
+			Enabled:  false,
 		},
 	}
 }

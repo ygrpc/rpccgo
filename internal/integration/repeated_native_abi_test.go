@@ -95,6 +95,10 @@ type RepeatedGreeterHandler interface {
 	Echo(context.Context, *RepeatedRequest) (*RepeatedReply, error)
 }
 
+type RepeatedGreeterClient interface {
+	Echo(context.Context, *RepeatedRequest) (*RepeatedReply, error)
+}
+
 type RepeatedGreeterServer interface {
 	Echo(context.Context, *RepeatedRequest) (*RepeatedReply, error)
 }

@@ -28,7 +28,7 @@ rpccgo 用于把 C/FFI 调用接入 Go、Connect 或 gRPC 服务，并在 native
 - `rpcruntime` 只放通用 runtime primitive，不依赖 service-specific protobuf 类型，不执行 native/message 转换。
 - service-specific dispatcher、adapter、converter、method metadata、cgo ABI 留在 generated service runtime。
 - connect 和 grpc 保持标准 RPC transport 语义；不要重新设计 connect client 或 grpc client。
-- connect/grpc remote server adapter 内部复用标准 connect/grpc client。
+- connect/grpc remote client active server 直接注册标准 connect/grpc client，不生成独立 remote adapter 文件。
 - 不允许使用 painc，所有错误必须显式传递。
 
 ## Server 与 Client 模型

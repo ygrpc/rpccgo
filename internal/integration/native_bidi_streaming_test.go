@@ -158,6 +158,9 @@ func (*ChatReply) ProtoReflect() protoreflect.Message { return nil }
 type GreeterHandler interface {
 	Chat(context.Context, *connect.BidiStream[ChatRequest, ChatReply]) error
 }
+type GreeterClient interface {
+	Chat(context.Context) (*connect.BidiStreamForClientSimple[ChatRequest, ChatReply], error)
+}
 type GreeterServer interface {
 	Chat(Greeter_ChatServer) error
 }
