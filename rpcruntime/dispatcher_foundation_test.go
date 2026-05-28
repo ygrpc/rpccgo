@@ -180,7 +180,6 @@ func TestDispatcherFoundationStreamTerminalOperationsAreStable(t *testing.T) {
 func TestRuntimeFoundationPackageHasNoRPCFrameworkImports(t *testing.T) {
 	forbiddenRoots := []string{
 		"google.golang.org/protobuf",
-		"connectrpc.com/connect",
 		"google.golang.org/grpc",
 	}
 

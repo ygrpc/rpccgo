@@ -26,7 +26,7 @@ func TestNativeBidiStreamingRoutesToGoNativeServer(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, "test/v1/native_integration_reset.go"), nativeIntegrationResetSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_bidi_streaming_go_test.go"), nativeBidiStreamingGoFixtureTestSource)
 
-	cmd := exec.Command("go", "test", "./test/v1/cgo", "-run", "TestNativeBidiStreamingGo", "-count=1")
+	cmd := exec.Command("go", "test", "-mod=mod", "./test/v1/cgo", "-run", "TestNativeBidiStreamingGo", "-count=1")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -46,7 +46,7 @@ func TestNativeBidiStreamingRoutesToCGONativeServer(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_bidi_streaming_cgo_callbacks.go"), nativeBidiStreamingCGOFixtureCallbackSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_bidi_streaming_cgo_test.go"), nativeBidiStreamingCGOFixtureTestSource)
 
-	cmd := exec.Command("go", "test", "./test/v1/cgo", "-run", "TestNativeBidiStreamingCGO", "-count=1")
+	cmd := exec.Command("go", "test", "-mod=mod", "./test/v1/cgo", "-run", "TestNativeBidiStreamingCGO", "-count=1")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -134,18 +134,41 @@ func newNativeBidiStreamingTestPlugin(t *testing.T, goPackage string) *protogen.
 
 const nativeBidiStreamingStubSource = `package testv1
 
+import (
+	context "context"
+
+	connect "connectrpc.com/connect"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+)
+
 type ChatRequest struct {
 	Name string
 	Seq int32
 }
+
+func (*ChatRequest) ProtoReflect() protoreflect.Message { return nil }
 
 type ChatReply struct {
 	Ack int32
 	Message string
 }
 
-type GreeterHandler interface{}
-type GreeterServer interface{}
+func (*ChatReply) ProtoReflect() protoreflect.Message { return nil }
+
+type GreeterHandler interface {
+	Chat(context.Context, *connect.BidiStream[ChatRequest, ChatReply]) error
+}
+type GreeterServer interface {
+	Chat(Greeter_ChatServer) error
+}
+
+type Greeter_ChatServer interface {
+	Recv() (*ChatRequest, error)
+	RecvMsg(any) error
+	Send(*ChatReply) error
+	SendMsg(any) error
+	Context() context.Context
+}
 `
 
 const nativeBidiStreamingGoFixtureTestSource = `package main

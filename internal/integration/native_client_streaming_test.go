@@ -26,7 +26,7 @@ func TestNativeClientStreamingRoutesToGoNativeServer(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, "test/v1/native_integration_reset.go"), nativeIntegrationResetSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_client_streaming_go_test.go"), nativeClientStreamingGoFixtureTestSource)
 
-	cmd := exec.Command("go", "test", "./test/v1/cgo", "-run", "TestNativeClientStreamingGo", "-count=1")
+	cmd := exec.Command("go", "test", "-mod=mod", "./test/v1/cgo", "-run", "TestNativeClientStreamingGo", "-count=1")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -46,7 +46,7 @@ func TestNativeClientStreamingRoutesToCGONativeServer(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_client_streaming_cgo_callbacks.go"), nativeClientStreamingCGOFixtureCallbackSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_client_streaming_cgo_test.go"), nativeClientStreamingCGOFixtureTestSource)
 
-	cmd := exec.Command("go", "test", "./test/v1/cgo", "-run", "TestNativeClientStreamingCGO", "-count=1")
+	cmd := exec.Command("go", "test", "-mod=mod", "./test/v1/cgo", "-run", "TestNativeClientStreamingCGO", "-count=1")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -133,18 +133,41 @@ func newNativeClientStreamingTestPlugin(t *testing.T, goPackage string) *protoge
 
 const nativeClientStreamingStubSource = `package testv1
 
+import (
+	context "context"
+
+	connect "connectrpc.com/connect"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+)
+
 type UploadRequest struct {
 	Name string
 	Payload []byte
 }
+
+func (*UploadRequest) ProtoReflect() protoreflect.Message { return nil }
 
 type UploadReply struct {
 	Count int32
 	Summary string
 }
 
-type GreeterHandler interface{}
-type GreeterServer interface{}
+func (*UploadReply) ProtoReflect() protoreflect.Message { return nil }
+
+type GreeterHandler interface {
+	Upload(context.Context, *connect.ClientStream[UploadRequest]) (*UploadReply, error)
+}
+type GreeterServer interface {
+	Upload(Greeter_UploadServer) error
+}
+
+type Greeter_UploadServer interface {
+	Recv() (*UploadRequest, error)
+	RecvMsg(any) error
+	SendAndClose(*UploadReply) error
+	SendMsg(any) error
+	Context() context.Context
+}
 `
 
 const nativeClientStreamingGoFixtureTestSource = `package main

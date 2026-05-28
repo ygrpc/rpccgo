@@ -97,6 +97,40 @@ func TestMessageStreamInvalidHandleReturnsError(t *testing.T) {
 	runMessageDirectPathFixture(t, "TestMessageStreamInvalidHandleReturnsError")
 }
 
+func TestMessageDirectConnectHandlerRegistrationRoutesUnaryAndStreaming(t *testing.T) {
+	runMessageDirectRegistrationFixture(t, "@rpccgo: msg-connect\n", "TestDirectConnectHandlerRegistration")
+}
+
+func TestMessageDirectGRPCServerRegistrationRoutesUnaryAndStreaming(t *testing.T) {
+	runMessageDirectRegistrationFixture(t, "@rpccgo: msg-grpc\n", "TestDirectGRPCServerRegistration")
+}
+
+func runMessageDirectRegistrationFixture(t *testing.T, serviceComment, testName string) {
+	t.Helper()
+	tmp := t.TempDir()
+	plugin := newMessageDirectPathTestPluginWithServiceComment(t, "paths=source_relative", "example.com/messagedirect/test/v1;testv1", serviceComment)
+	if _, err := generator.GenerateWithOptions(plugin, generator.GenerateOptions{RenderStageFiles: true}); err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	writeMessageDirectPathGeneratedModule(t, tmp, plugin, "example.com/messagedirect")
+	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_stubs.go"), messageDirectPathStubSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_reset.go"), messageDirectPathResetSource)
+	if strings.Contains(serviceComment, "msg-connect") {
+		writeFile(t, filepath.Join(tmp, "test/v1/message_direct_registration_test.go"), messageDirectConnectRegistrationTestSource)
+	} else {
+		writeFile(t, filepath.Join(tmp, "test/v1/message_direct_registration_test.go"), messageDirectGRPCRegistrationTestSource)
+	}
+
+	cmd := exec.Command("go", "test", "./test/v1", "-run", "^"+testName+"$", "-count=1")
+	cmd.Dir = tmp
+	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("message direct registration fixture %s failed: %v\n%s", testName, err, out)
+	}
+}
+
 func TestMessageStreamStartCapturesActiveServerSnapshot(t *testing.T) {
 	runMessageDirectPathFixture(t, "TestMessageStreamStartCapturesActiveServerSnapshot")
 }
@@ -126,10 +160,15 @@ func runMessageDirectPathFixture(t *testing.T, testName string) {
 
 func newMessageDirectPathTestPlugin(t *testing.T, goPackage string) *protogen.Plugin {
 	t.Helper()
-	return newMessageDirectPathTestPluginWithParameter(t, "paths=source_relative", goPackage)
+	return newMessageDirectPathTestPluginWithServiceComment(t, "paths=source_relative", goPackage, "@rpccgo: native\n")
 }
 
 func newMessageDirectPathTestPluginWithParameter(t *testing.T, parameter, goPackage string) *protogen.Plugin {
+	t.Helper()
+	return newMessageDirectPathTestPluginWithServiceComment(t, parameter, goPackage, "@rpccgo: native\n")
+}
+
+func newMessageDirectPathTestPluginWithServiceComment(t *testing.T, parameter, goPackage, serviceComment string) *protogen.Plugin {
 	t.Helper()
 	emptyFile := protodesc.ToFileDescriptorProto(emptypb.File_google_protobuf_empty_proto)
 	request := &pluginpb.CodeGeneratorRequest{
@@ -157,7 +196,7 @@ func newMessageDirectPathTestPluginWithParameter(t *testing.T, parameter, goPack
 				SourceCodeInfo: &descriptorpb.SourceCodeInfo{Location: []*descriptorpb.SourceCodeInfo_Location{{
 					Path:            []int32{6, 0},
 					Span:            []int32{0, 0, 0},
-					LeadingComments: proto.String("@rpccgo: native\n"),
+					LeadingComments: proto.String(serviceComment),
 				}}},
 			},
 		},
@@ -220,6 +259,7 @@ import (
 	strings "strings"
 
 	connect "connectrpc.com/connect"
+	metadata "google.golang.org/grpc/metadata"
 	proto "google.golang.org/protobuf/proto"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
@@ -238,9 +278,35 @@ type GreeterServer interface {
 	Chat(Greeter_ChatServer) error
 }
 
-type Greeter_UploadServer interface{}
-type Greeter_ListServer interface{}
-type Greeter_ChatServer interface{}
+type Greeter_UploadServer interface {
+	Context() context.Context
+	Recv() (*emptypb.Empty, error)
+	RecvMsg(any) error
+	SendAndClose(*emptypb.Empty) error
+	SendMsg(any) error
+	SetHeader(metadata.MD) error
+	SendHeader(metadata.MD) error
+	SetTrailer(metadata.MD)
+}
+type Greeter_ListServer interface {
+	Context() context.Context
+	Send(*emptypb.Empty) error
+	SendMsg(any) error
+	RecvMsg(any) error
+	SetHeader(metadata.MD) error
+	SendHeader(metadata.MD) error
+	SetTrailer(metadata.MD)
+}
+type Greeter_ChatServer interface {
+	Context() context.Context
+	Recv() (*emptypb.Empty, error)
+	RecvMsg(any) error
+	Send(*emptypb.Empty) error
+	SendMsg(any) error
+	SetHeader(metadata.MD) error
+	SendHeader(metadata.MD) error
+	SetTrailer(metadata.MD)
+}
 
 const GreeterUnaryConnectProcedure = "/test.v1.Greeter/Unary"
 const GreeterUploadConnectProcedure = "/test.v1.Greeter/Upload"
@@ -414,6 +480,146 @@ func NewGreeterHandler(svc GreeterHandler, opts ...connect.HandlerOption) (strin
 		return svc.Chat(ctx, stream)
 	}, opts...))
 	return "/test.v1.Greeter/", mux
+}
+`
+
+const messageDirectConnectRegistrationTestSource = `package testv1
+
+import (
+	context "context"
+	io "io"
+	testing "testing"
+
+	connect "connectrpc.com/connect"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
+)
+
+type directConnectGreeter struct{}
+
+func (directConnectGreeter) Unary(context.Context, *emptypb.Empty) (*emptypb.Empty, error) { return &emptypb.Empty{}, nil }
+func (directConnectGreeter) Upload(ctx context.Context, stream *connect.ClientStream[emptypb.Empty]) (*emptypb.Empty, error) {
+	for stream.Receive() {
+	}
+	if err := stream.Err(); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+func (directConnectGreeter) List(context.Context, *emptypb.Empty, *connect.ServerStream[emptypb.Empty]) error { return nil }
+func (directConnectGreeter) Chat(context.Context, *connect.BidiStream[emptypb.Empty, emptypb.Empty]) error { return nil }
+
+func TestDirectConnectHandlerRegistration(t *testing.T) {
+	ResetGreeterDispatcherForIntegrationTest()
+	if _, err := RegisterGreeterConnectHandler(directConnectGreeter{}); err != nil {
+		t.Fatalf("RegisterGreeterConnectHandler() error = %v", err)
+	}
+	if _, err := InvokeGreeterMessageUnary(context.Background(), nil); err != nil {
+		t.Fatalf("InvokeGreeterMessageUnary() error = %v", err)
+	}
+	uploadHandle, err := StartGreeterMessageUpload(context.Background())
+	if err != nil {
+		t.Fatalf("StartGreeterMessageUpload() error = %v", err)
+	}
+	if err := NewGreeterUploadMessageStream(uploadHandle).Send(context.Background(), nil); err != nil {
+		t.Fatalf("upload Send() error = %v", err)
+	}
+	if _, err := NewGreeterUploadMessageStream(uploadHandle).Finish(context.Background()); err != nil {
+		t.Fatalf("upload Finish() error = %v", err)
+	}
+	listHandle, err := StartGreeterMessageList(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("StartGreeterMessageList() error = %v", err)
+	}
+	if _, err := NewGreeterListMessageStream(listHandle).Recv(context.Background()); err != io.EOF {
+		t.Fatalf("list Recv() error = %v, want EOF", err)
+	}
+	if err := NewGreeterListMessageStream(listHandle).Done(context.Background()); err != nil {
+		t.Fatalf("list Done() error = %v", err)
+	}
+	chatHandle, err := StartGreeterMessageChat(context.Background())
+	if err != nil {
+		t.Fatalf("StartGreeterMessageChat() error = %v", err)
+	}
+	if err := NewGreeterChatMessageStream(chatHandle).CloseSend(context.Background()); err != nil {
+		t.Fatalf("chat CloseSend() error = %v", err)
+	}
+	if _, err := NewGreeterChatMessageStream(chatHandle).Recv(context.Background()); err != io.EOF {
+		t.Fatalf("chat Recv() error = %v, want EOF", err)
+	}
+	if err := NewGreeterChatMessageStream(chatHandle).Done(context.Background()); err != nil {
+		t.Fatalf("chat Done() error = %v", err)
+	}
+}
+`
+
+const messageDirectGRPCRegistrationTestSource = `package testv1
+
+import (
+	context "context"
+	io "io"
+	testing "testing"
+
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
+)
+
+type directGRPCGreeter struct{}
+
+func (directGRPCGreeter) Unary(context.Context, *emptypb.Empty) (*emptypb.Empty, error) { return &emptypb.Empty{}, nil }
+func (directGRPCGreeter) Upload(stream Greeter_UploadServer) error {
+	for {
+		_, err := stream.Recv()
+		if err == io.EOF {
+			return stream.SendAndClose(&emptypb.Empty{})
+		}
+		if err != nil {
+			return err
+		}
+	}
+}
+func (directGRPCGreeter) List(*emptypb.Empty, Greeter_ListServer) error { return nil }
+func (directGRPCGreeter) Chat(Greeter_ChatServer) error { return nil }
+
+func TestDirectGRPCServerRegistration(t *testing.T) {
+	ResetGreeterDispatcherForIntegrationTest()
+	if _, err := RegisterGreeterGRPCServer(directGRPCGreeter{}); err != nil {
+		t.Fatalf("RegisterGreeterGRPCServer() error = %v", err)
+	}
+	if _, err := InvokeGreeterMessageUnary(context.Background(), nil); err != nil {
+		t.Fatalf("InvokeGreeterMessageUnary() error = %v", err)
+	}
+	uploadHandle, err := StartGreeterMessageUpload(context.Background())
+	if err != nil {
+		t.Fatalf("StartGreeterMessageUpload() error = %v", err)
+	}
+	if err := NewGreeterUploadMessageStream(uploadHandle).Send(context.Background(), nil); err != nil {
+		t.Fatalf("upload Send() error = %v", err)
+	}
+	if _, err := NewGreeterUploadMessageStream(uploadHandle).Finish(context.Background()); err != nil {
+		t.Fatalf("upload Finish() error = %v", err)
+	}
+	listHandle, err := StartGreeterMessageList(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("StartGreeterMessageList() error = %v", err)
+	}
+	if _, err := NewGreeterListMessageStream(listHandle).Recv(context.Background()); err != io.EOF {
+		t.Fatalf("list Recv() error = %v, want EOF", err)
+	}
+	if err := NewGreeterListMessageStream(listHandle).Done(context.Background()); err != nil {
+		t.Fatalf("list Done() error = %v", err)
+	}
+	chatHandle, err := StartGreeterMessageChat(context.Background())
+	if err != nil {
+		t.Fatalf("StartGreeterMessageChat() error = %v", err)
+	}
+	if err := NewGreeterChatMessageStream(chatHandle).CloseSend(context.Background()); err != nil {
+		t.Fatalf("chat CloseSend() error = %v", err)
+	}
+	if _, err := NewGreeterChatMessageStream(chatHandle).Recv(context.Background()); err != io.EOF {
+		t.Fatalf("chat Recv() error = %v, want EOF", err)
+	}
+	if err := NewGreeterChatMessageStream(chatHandle).Done(context.Background()); err != nil {
+		t.Fatalf("chat Done() error = %v", err)
+	}
 }
 `
 

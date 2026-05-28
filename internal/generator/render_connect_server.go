@@ -250,6 +250,15 @@ func serviceHasBidiStreamingMethod(service ServicePlan) bool {
 	return false
 }
 
+func serviceHasServerStreamingMethod(service ServicePlan) bool {
+	for _, method := range service.Methods {
+		if method.Streaming == StreamingKindServerStreaming {
+			return true
+		}
+	}
+	return false
+}
+
 func connectProcedureConstName(service ServicePlan, method MethodPlan) string {
 	return service.GoName + method.GoName + "ConnectProcedure"
 }

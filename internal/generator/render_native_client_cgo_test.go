@@ -454,7 +454,7 @@ func writeNativeGeneratedModule(t *testing.T, root string, plugin *protogen.Plug
 		t.Fatalf("filepath.Abs() error = %v", err)
 	}
 	modulePath := nativeGeneratedModulePath(t, plugin)
-	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module "+modulePath+"\n\ngo 1.24.4\n\nrequire (\n\trpccgo v0.0.0\n\tgoogle.golang.org/protobuf v1.36.11\n)\n\nreplace rpccgo => "+repoRoot+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module "+modulePath+"\n\ngo 1.24.4\n\nrequire (\n\tconnectrpc.com/connect v1.19.1\n\trpccgo v0.0.0\n\tgoogle.golang.org/grpc v1.79.3\n\tgoogle.golang.org/protobuf v1.36.11\n)\n\nreplace rpccgo => "+repoRoot+"\n"), 0o644); err != nil {
 		t.Fatalf("write go.mod: %v", err)
 	}
 	goSum, err := os.ReadFile(filepath.Join(repoRoot, "go.sum"))

@@ -189,6 +189,27 @@ func TestRenderRuntimeGlueDefinesGRPCDirectRegistration(t *testing.T) {
 	}
 }
 
+func TestRenderRuntimeGlueDefinesGRPCDirectStreamingSessions(t *testing.T) {
+	file := grpcStreamingRuntimeTestFile()
+	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/grpc_streaming_runtime.proto", file)
+
+	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	const runtimeFile = "test/v1/grpc_streaming_runtime.grpc_streaming_service.runtime.rpccgo.go"
+	for _, fragment := range []string{
+		"case rpcruntime.ServerKindGRPCServer:",
+		"server, ok := snapshot.Adapter.(GrpcStreamingServiceServer)",
+		"return newgrpcStreamingServiceClientStreamGRPCDirectMessageStreamSession(ctx, server), nil",
+		"return newgrpcStreamingServiceServerStreamGRPCDirectMessageStreamSession(ctx, server, req)",
+		"return newgrpcStreamingServiceBidiStreamGRPCDirectMessageStreamSession(ctx, server), nil",
+	} {
+		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
+	}
+}
+
 func TestRenderRuntimeGlueDefinesMethodSpecificStreamFacades(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
@@ -323,7 +344,7 @@ func TestRenderRuntimeStageFilesWrapsMessageStreamsForNativeClientCodec(t *testi
 
 	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
-		"messageSession, err := adapter.StartClientStreamMessage(ctx)",
+		"messageSession, err := r.startClientStreamMessageSession(ctx, snapshot)",
 		"return r.streams.Create(rpcruntime.NewStreamEntry(&allServiceClientStreamMessageToNativeStreamSession{message: messageSession}))",
 		"type allServiceClientStreamMessageToNativeStreamSession struct {",
 		"message AllServiceClientStreamMessageStreamSession",
@@ -332,16 +353,25 @@ func TestRenderRuntimeStageFilesWrapsMessageStreamsForNativeClientCodec(t *testi
 		"messageResp, err := s.message.Finish(ctx)",
 		"return convertAllServiceClientStreamMessageToNativeResponse(messageResp)",
 		"messageReq, err := convertAllServiceServerStreamNativeToMessageRequest(name, enabled, child)",
-		"messageSession, err := adapter.StartServerStreamMessage(ctx, messageReq)",
+		"messageSession, err := r.startServerStreamMessageSession(ctx, snapshot, messageReq)",
 		"return r.streams.Create(rpcruntime.NewStreamEntry(&allServiceServerStreamMessageToNativeStreamSession{message: messageSession}))",
 		"messageResp, err := s.message.Recv(ctx)",
 		"return convertAllServiceServerStreamMessageToNativeResponse(messageResp)",
 		"return s.message.Done(ctx)",
-		"messageSession, err := adapter.StartBidiStreamMessage(ctx)",
+		"messageSession, err := r.startBidiStreamMessageSession(ctx, snapshot)",
 		"return r.streams.Create(rpcruntime.NewStreamEntry(&allServiceBidiStreamMessageToNativeStreamSession{message: messageSession}))",
 		"messageReq, err := convertAllServiceBidiStreamNativeToMessageRequest(name, enabled, child)",
 		"return convertAllServiceBidiStreamMessageToNativeResponse(messageResp)",
 		"return s.message.CloseSend(ctx)",
+		"return adapter.StartClientStreamMessage(ctx)",
+		"return adapter.StartServerStreamMessage(ctx, req)",
+		"return adapter.StartBidiStreamMessage(ctx)",
+		"return newallServiceClientStreamConnectDirectMessageStreamSession(ctx, handler), nil",
+		"return newallServiceServerStreamConnectDirectMessageStreamSession(ctx, handler, req)",
+		"return newallServiceBidiStreamConnectDirectMessageStreamSession(ctx, handler), nil",
+		"rpcruntime.NewConnectClientStream[AllRequest](conn)",
+		"rpcruntime.NewConnectServerStream[AllReply](conn)",
+		"rpcruntime.NewConnectBidiStream[AllRequest, AllReply](conn)",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
@@ -479,7 +509,7 @@ func TestRenderRuntimeGeneratedSourceCompiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("filepath.Abs() error = %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/generated\n\ngo 1.24.4\n\nrequire (\n\trpccgo v0.0.0\n\tgoogle.golang.org/protobuf v1.36.11\n)\n\nreplace rpccgo => "+repoRoot+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/generated\n\ngo 1.24.4\n\nrequire (\n\tconnectrpc.com/connect v1.19.1\n\trpccgo v0.0.0\n\tgoogle.golang.org/protobuf v1.36.11\n)\n\nreplace rpccgo => "+repoRoot+"\n"), 0o644); err != nil {
 		t.Fatalf("write go.mod: %v", err)
 	}
 	goSum, err := os.ReadFile(filepath.Join(repoRoot, "go.sum"))
@@ -505,7 +535,7 @@ func TestRenderRuntimeGeneratedSourceCompiles(t *testing.T) {
 	}
 	writeNativeServerCompileStubs(t, tmp)
 
-	cmd := exec.Command("go", "test", "./...")
+	cmd := exec.Command("go", "test", "-mod=mod", "./...")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -565,11 +595,103 @@ type ImportedNativeHandler interface {
 		t.Fatalf("write imported native stubs: %v", err)
 	}
 
-	cmd := exec.Command("go", "test", "./...")
+	cmd := exec.Command("go", "test", "-mod=mod", "./...")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("generated runtime with imported messages go test failed: %v\n%s", err, out)
+	}
+}
+
+func grpcStreamingRuntimeTestFile() *descriptorpb.FileDescriptorProto {
+	return &descriptorpb.FileDescriptorProto{
+		Name:    proto.String("test/v1/grpc_streaming_runtime.proto"),
+		Package: proto.String("test.v1"),
+		Syntax:  proto.String("proto3"),
+		Options: &descriptorpb.FileOptions{
+			GoPackage: proto.String("example.com/generated/test/v1;testv1"),
+		},
+		MessageType: []*descriptorpb.DescriptorProto{
+			completeServicePlanRequestDescriptor("GRPCStreamingRequest"),
+			completeServicePlanReplyDescriptor("GRPCStreamingReply"),
+			childMessageDescriptor(),
+		},
+		Service: []*descriptorpb.ServiceDescriptorProto{
+			{
+				Name: proto.String("GrpcStreamingService"),
+				Method: []*descriptorpb.MethodDescriptorProto{
+					methodDescriptor("ClientStream", ".test.v1.GRPCStreamingRequest", ".test.v1.GRPCStreamingReply", true, false),
+					methodDescriptor("ServerStream", ".test.v1.GRPCStreamingRequest", ".test.v1.GRPCStreamingReply", false, true),
+					methodDescriptor("BidiStream", ".test.v1.GRPCStreamingRequest", ".test.v1.GRPCStreamingReply", true, true),
+				},
+			},
+		},
+		SourceCodeInfo: completeServicePlanServiceComments([]string{"@rpccgo: msg-grpc\n"}),
+	}
+}
+
+func writeGRPCStreamingRuntimeCompileStubs(t *testing.T, root string) {
+	t.Helper()
+
+	const content = `package testv1
+
+import (
+	context "context"
+
+	grpc "google.golang.org/grpc"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+)
+
+type GRPCStreamingRequest struct {
+	Name    string
+	Enabled bool
+}
+
+type GRPCStreamingReply struct {
+	Accepted bool
+	Payload  []byte
+}
+
+type GrpcStreamingServiceServer interface {
+	ClientStream(grpc.ClientStreamingServer[GRPCStreamingRequest, GRPCStreamingReply]) error
+	ServerStream(*GRPCStreamingRequest, grpc.ServerStreamingServer[GRPCStreamingReply]) error
+	BidiStream(grpc.BidiStreamingServer[GRPCStreamingRequest, GRPCStreamingReply]) error
+}
+
+func (*GRPCStreamingRequest) ProtoReflect() protoreflect.Message { return nil }
+func (*GRPCStreamingReply) ProtoReflect() protoreflect.Message { return nil }
+
+var _ context.Context
+`
+	target := filepath.Join(root, "test/v1/grpc_streaming_runtime_stubs.go")
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatalf("mkdir grpc runtime stub dir: %v", err)
+	}
+	if err := os.WriteFile(target, []byte(content), 0o644); err != nil {
+		t.Fatalf("write grpc runtime compile stubs: %v", err)
+	}
+}
+
+func TestRenderRuntimeGeneratedSourceCompilesWithGRPCDirectStreaming(t *testing.T) {
+	file := grpcStreamingRuntimeTestFile()
+	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/grpc_streaming_runtime.proto", file)
+
+	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	tmp := t.TempDir()
+	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {
+		return strings.Contains(name, ".runtime.rpccgo.go")
+	})
+	writeGRPCStreamingRuntimeCompileStubs(t, tmp)
+
+	cmd := exec.Command("go", "test", "-mod=mod", "./...")
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("generated runtime with grpc direct streaming go test failed: %v\n%s", err, out)
 	}
 }
 

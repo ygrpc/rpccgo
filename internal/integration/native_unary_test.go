@@ -45,7 +45,7 @@ func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, "test/v1/native_integration_reset.go"), nativeIntegrationResetSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_unary_test.go"), nativeUnaryFixtureTestSource)
 
-	cmd := exec.Command("go", "test", "./test/v1/cgo", "-run", "TestNativeUnary", "-count=1")
+	cmd := exec.Command("go", "test", "-mod=mod", "./test/v1/cgo", "-run", "TestNativeUnary", "-count=1")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {

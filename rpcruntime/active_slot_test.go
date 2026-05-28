@@ -151,13 +151,25 @@ func TestActiveServerSlotAnyRejectsNilAndTypedNilAdapter(t *testing.T) {
 	}
 }
 
-func TestActiveServerSlotStoreRejectsZeroStructAdapter(t *testing.T) {
+func TestActiveServerSlotStoreAcceptsZeroStructAdapter(t *testing.T) {
 	var slot ActiveServerSlot[fakeValueAdapter]
 
-	if snapshot, err := slot.Store(ServerKindGoNative, ServerContractNative, fakeValueAdapter{}); err == nil {
-		t.Fatalf("expected zero adapter error, got snapshot %#v", snapshot)
-	} else if !strings.Contains(err.Error(), "adapter") {
-		t.Fatalf("unexpected error %q, want it to mention adapter", err.Error())
+	snapshot, err := slot.Store(ServerKindGoNative, ServerContractNative, fakeValueAdapter{})
+	if err != nil {
+		t.Fatalf("store zero struct adapter: %v", err)
+	}
+	if snapshot.Version != 1 {
+		t.Fatalf("snapshot version = %d, want 1", snapshot.Version)
+	}
+	if !snapshot.HasAdapter() {
+		t.Fatalf("snapshot = %#v, want adapter present", snapshot)
+	}
+	loaded, ok := slot.Load()
+	if !ok {
+		t.Fatal("expected loaded snapshot for zero struct adapter")
+	}
+	if !loaded.HasAdapter() {
+		t.Fatalf("loaded snapshot = %#v, want adapter present", loaded)
 	}
 }
 

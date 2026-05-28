@@ -68,12 +68,22 @@ func TestPinBoolSliceDoesNotCompile(t *testing.T) {
 
 go 1.24.4
 
-require rpccgo v0.0.0
+require (
+	connectrpc.com/connect v1.19.1
+	rpccgo v0.0.0
+)
 
 replace rpccgo => ` + repoRoot + `
 `
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o600); err != nil {
 		t.Fatalf("write compile fixture go.mod: %v", err)
+	}
+	goSum, err := os.ReadFile(filepath.Join(repoRoot, "go.sum"))
+	if err != nil {
+		t.Fatalf("read repository go.sum: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "go.sum"), goSum, 0o600); err != nil {
+		t.Fatalf("write compile fixture go.sum: %v", err)
 	}
 
 	source := `package main
@@ -89,7 +99,7 @@ func main() {
 	}
 
 	goBinary := filepath.Join(runtime.GOROOT(), "bin", "go")
-	cmd := exec.Command(goBinary, "build", ".")
+	cmd := exec.Command(goBinary, "build", "-mod=mod", ".")
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GOWORK=off")
 	output, err := cmd.CombinedOutput()

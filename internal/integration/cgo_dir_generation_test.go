@@ -62,7 +62,7 @@ func TestCGODirGeneration(t *testing.T) {
 			writeNativeUnaryGeneratedModule(t, tmp, plugin)
 			writeFile(t, filepath.Join(tmp, "test/v1/native_unary_stubs.go"), nativeUnaryStubSource)
 
-			cmd := exec.Command("go", "test", "./test/v1", tt.cgoPackage, "-count=1")
+			cmd := exec.Command("go", "test", "-mod=mod", "./test/v1", tt.cgoPackage, "-count=1")
 			cmd.Dir = tmp
 			out, err := cmd.CombinedOutput()
 			if err != nil {
@@ -117,7 +117,7 @@ func TestMessageCGODirGeneration(t *testing.T) {
 			writeMessageDirectPathGeneratedModule(t, tmp, plugin, "example.com/messagecgodir")
 			writeFile(t, filepath.Join(tmp, "test/v1/message_integration_stubs.go"), messageDirectPathStubSource)
 
-			cmd := exec.Command("go", "test", "./test/v1", tt.cgoPackage, "-count=1")
+			cmd := exec.Command("go", "test", "-mod=mod", "./test/v1", tt.cgoPackage, "-count=1")
 			cmd.Dir = tmp
 			cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
 			out, err := cmd.CombinedOutput()

@@ -26,7 +26,7 @@ func TestNativeServerStreamingRoutesToGoNativeServer(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, "test/v1/native_integration_reset.go"), nativeIntegrationResetSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_server_streaming_go_test.go"), nativeServerStreamingGoFixtureTestSource)
 
-	cmd := exec.Command("go", "test", "./test/v1/cgo", "-run", "TestNativeServerStreamingGo", "-count=1")
+	cmd := exec.Command("go", "test", "-mod=mod", "./test/v1/cgo", "-run", "TestNativeServerStreamingGo", "-count=1")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -46,7 +46,7 @@ func TestNativeServerStreamingRoutesToCGONativeServer(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_server_streaming_cgo_callbacks.go"), nativeServerStreamingCGOFixtureCallbackSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_server_streaming_cgo_test.go"), nativeServerStreamingCGOFixtureTestSource)
 
-	cmd := exec.Command("go", "test", "./test/v1/cgo", "-run", "TestNativeServerStreamingCGO", "-count=1")
+	cmd := exec.Command("go", "test", "-mod=mod", "./test/v1/cgo", "-run", "TestNativeServerStreamingCGO", "-count=1")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -133,18 +133,40 @@ func newNativeServerStreamingTestPlugin(t *testing.T, goPackage string) *protoge
 
 const nativeServerStreamingStubSource = `package testv1
 
+import (
+	context "context"
+
+	connect "connectrpc.com/connect"
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+)
+
 type ListRequest struct {
 	Prefix string
 	Limit int32
 }
+
+func (*ListRequest) ProtoReflect() protoreflect.Message { return nil }
 
 type ListReply struct {
 	Index int32
 	Name string
 }
 
-type GreeterHandler interface{}
-type GreeterServer interface{}
+func (*ListReply) ProtoReflect() protoreflect.Message { return nil }
+
+type GreeterHandler interface {
+	List(context.Context, *ListRequest, *connect.ServerStream[ListReply]) error
+}
+type GreeterServer interface {
+	List(*ListRequest, Greeter_ListServer) error
+}
+
+type Greeter_ListServer interface {
+	Send(*ListReply) error
+	SendMsg(any) error
+	RecvMsg(any) error
+	Context() context.Context
+}
 `
 
 const nativeServerStreamingGoFixtureTestSource = `package main

@@ -43,7 +43,7 @@ func TestNativeCGOServerUnaryRoutesThroughDispatcher(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_cgo_server_callbacks.go"), nativeCGOServerUnaryFixtureCallbackSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_cgo_server_unary_test.go"), nativeCGOServerUnaryFixtureTestSource)
 
-	cmd := exec.Command("go", "test", "./test/v1/cgo", "-run", "TestNativeCGOServerUnary", "-count=1")
+	cmd := exec.Command("go", "test", "-mod=mod", "./test/v1/cgo", "-run", "TestNativeCGOServerUnary", "-count=1")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {

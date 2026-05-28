@@ -244,7 +244,7 @@ func TestRenderNativeServerGeneratedSourceCompiles(t *testing.T) {
 	}
 	writeNativeServerCompileStubs(t, tmp)
 
-	cmd := exec.Command("go", "test", "./...")
+	cmd := exec.Command("go", "test", "-mod=mod", "./...")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -260,6 +260,7 @@ func writeNativeServerCompileStubs(t *testing.T, root string) {
 import (
 	context "context"
 
+	connect "connectrpc.com/connect"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 )
 
@@ -322,6 +323,9 @@ type NativeOnlyReply struct {
 
 type AllServiceHandler interface {
 	Unary(context.Context, *AllRequest) (*AllReply, error)
+	ClientStream(context.Context, *connect.ClientStream[AllRequest]) (*AllReply, error)
+	ServerStream(context.Context, *AllRequest, *connect.ServerStream[AllReply]) error
+	BidiStream(context.Context, *connect.BidiStream[AllRequest, AllReply]) error
 }
 type DefaultServiceHandler interface {
 	DefaultUnary(context.Context, *DefaultRequest) (*DefaultReply, error)

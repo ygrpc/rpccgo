@@ -45,18 +45,23 @@ func hasNonZeroAdapter[T any](adapter T) bool {
 	if !value.IsValid() {
 		return false
 	}
-	return !isZeroValue(value)
+	return hasConcreteAdapter(value)
 }
 
-func isZeroValue(value reflect.Value) bool {
+func hasConcreteAdapter(value reflect.Value) bool {
 	if !value.IsValid() {
-		return true
+		return false
 	}
 	if value.Kind() == reflect.Interface {
 		if value.IsNil() {
-			return true
+			return false
 		}
-		return isZeroValue(value.Elem())
+		return hasConcreteAdapter(value.Elem())
 	}
-	return value.IsZero()
+	switch value.Kind() {
+	case reflect.Chan, reflect.Func, reflect.Map, reflect.Pointer, reflect.Slice:
+		return !value.IsNil()
+	default:
+		return true
+	}
 }
