@@ -299,10 +299,10 @@ service Greeter {}
 // @rpccgo:msg-grpc
 service Greeter {}
 
-// @rpccgo:msg-connect|msg-grpc
+// @rpccgo:msg-connect|native
 service Greeter {}
 
-// @rpccgo:msg-connect|native
+// @rpccgo:msg-grpc|native
 service Greeter {}
 ```
 
@@ -324,11 +324,13 @@ service Greeter {}
 注释规则：
 
 - `native` 单独出现会默认生成msg-connect + native。
-- `msg-connect|msg-grpc|native` 合法。
+- message transport 必须在 `msg-connect` 和 `msg-grpc` 中只选择一个；`msg-connect|msg-grpc` 与 `msg-connect|msg-grpc|native` 必须报错。
 - 未知 token 必须报错，并给出合法 token 提示。
 - 常见拼写错误如 `msg-conenct` 必须报错，不能静默忽略。
 
 `@rpccgo` 注释只控制 active server registration 与 bridge 调用支持。`msg-connect` 假定最终 Go package 中会存在 `protoc-gen-connect-go` 生成的 handler 类型；`msg-grpc` 假定最终 Go package 中会存在 `protoc-gen-go-grpc` 生成的 server 类型。rpccgo 不检查插件执行顺序，也不生成本地 connect/grpc transport handler。cgo native client 和 cgo message client 的生成策略不由该注释控制。
+
+connect 和 gRPC 不能在同一个 protobuf Go package 中同时按当前合同生成。connect-go 需要使用同包 simple client，grpc-go 也会在同包生成 `GreeterClient`、`NewGreeterClient` 等符号；两者同时生成会发生 Go 符号重声明。rpccgo 自身的 `.remote.connect.rpccgo.go` 与 `.remote.grpc.rpccgo.go` 文件名可以区分，但标准 connect/grpc 生成物的同包 service client/server 类型仍会冲突，因此同一个 service 必须只选择一种 message transport。
 
 每个 service 推荐生成一组以 `<proto-prefix>.<service>` 为前缀的文件族。普通 Go 文件保留在 protobuf Go package 输出目录：
 
@@ -336,8 +338,8 @@ service Greeter {}
 <proto-prefix>.<service>.runtime.rpccgo.go
 <proto-prefix>.<service>.codec.rpccgo.go
 <proto-prefix>.<service>.server.native.rpccgo.go
-<proto-prefix>.<service>.remote.connect.rpccgo.go
-<proto-prefix>.<service>.remote.grpc.rpccgo.go
+<proto-prefix>.<service>.remote.connect.rpccgo.go  # 仅 msg-connect
+<proto-prefix>.<service>.remote.grpc.rpccgo.go     # 仅 msg-grpc
 ```
 
 cgo 文件输出到 `cgo_dir`，使用 `package main`，因此 native/message contract token 必须显式：
@@ -355,8 +357,8 @@ cgo 文件输出到 `cgo_dir`，使用 `package main`，因此 native/message co
 - `runtime` 保存 runtime bridge、active slot、service-local stream registry binding、server registration 和 session glue。
 - `codec` 保存 native/message 转换。
 - `server.native` 保存 Go native server interface 和 adapter，仅在 `native` 启用时生成。
-- `remote.connect` 保存 connect remote server adapter。
-- `remote.grpc` 保存 grpc remote server adapter。
+- `remote.connect` 保存 connect remote server adapter，仅在 `msg-connect` 启用时生成。
+- `remote.grpc` 保存 grpc remote server adapter，仅在 `msg-grpc` 启用时生成。
 - `exports.cgo` 保存 cgo package shared exports。
 - `server.native.cgo` 保存 cgo native server callback ABI。
 - `client.native.cgo` 保存 cgo native client ABI。

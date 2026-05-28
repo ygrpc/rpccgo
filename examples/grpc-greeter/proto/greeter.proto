@@ -6,6 +6,7 @@ option go_package = "example.com/rpccgo-grpc/gen/greeter/v1;greeterv1";
 
 message SayHelloRequest {
   string name = 1;
+  string city = 2;
 }
 
 message SayHelloResponse {
@@ -15,4 +16,7 @@ message SayHelloResponse {
 // @rpccgo: msg-grpc|native
 service Greeter {
   rpc SayHello(SayHelloRequest) returns (SayHelloResponse);
+  rpc Collect(stream SayHelloRequest) returns (SayHelloResponse);
+  rpc Broadcast(SayHelloRequest) returns (stream SayHelloResponse);
+  rpc Chat(stream SayHelloRequest) returns (stream SayHelloResponse);
 }

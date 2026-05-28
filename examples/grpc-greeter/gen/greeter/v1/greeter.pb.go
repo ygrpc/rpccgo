@@ -24,6 +24,7 @@ const (
 type SayHelloRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	City          string                 `protobuf:"bytes,2,opt,name=city,proto3" json:"city,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -61,6 +62,13 @@ func (*SayHelloRequest) Descriptor() ([]byte, []int) {
 func (x *SayHelloRequest) GetName() string {
 	if x != nil {
 		return x.Name
+	}
+	return ""
+}
+
+func (x *SayHelloRequest) GetCity() string {
+	if x != nil {
+		return x.City
 	}
 	return ""
 }
@@ -113,13 +121,17 @@ var File_proto_greeter_proto protoreflect.FileDescriptor
 
 const file_proto_greeter_proto_rawDesc = "" +
 	"\n" +
-	"\x13proto/greeter.proto\x12\x18examples.grpc.greeter.v1\"%\n" +
+	"\x13proto/greeter.proto\x12\x18examples.grpc.greeter.v1\"9\n" +
 	"\x0fSayHelloRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\",\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
+	"\x04city\x18\x02 \x01(\tR\x04city\",\n" +
 	"\x10SayHelloResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage2l\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage2\x99\x03\n" +
 	"\aGreeter\x12a\n" +
-	"\bSayHello\x12).examples.grpc.greeter.v1.SayHelloRequest\x1a*.examples.grpc.greeter.v1.SayHelloResponseB2Z0example.com/rpccgo-grpc/gen/greeter/v1;greeterv1b\x06proto3"
+	"\bSayHello\x12).examples.grpc.greeter.v1.SayHelloRequest\x1a*.examples.grpc.greeter.v1.SayHelloResponse\x12b\n" +
+	"\aCollect\x12).examples.grpc.greeter.v1.SayHelloRequest\x1a*.examples.grpc.greeter.v1.SayHelloResponse(\x01\x12d\n" +
+	"\tBroadcast\x12).examples.grpc.greeter.v1.SayHelloRequest\x1a*.examples.grpc.greeter.v1.SayHelloResponse0\x01\x12a\n" +
+	"\x04Chat\x12).examples.grpc.greeter.v1.SayHelloRequest\x1a*.examples.grpc.greeter.v1.SayHelloResponse(\x010\x01B2Z0example.com/rpccgo-grpc/gen/greeter/v1;greeterv1b\x06proto3"
 
 var (
 	file_proto_greeter_proto_rawDescOnce sync.Once
@@ -140,9 +152,15 @@ var file_proto_greeter_proto_goTypes = []any{
 }
 var file_proto_greeter_proto_depIdxs = []int32{
 	0, // 0: examples.grpc.greeter.v1.Greeter.SayHello:input_type -> examples.grpc.greeter.v1.SayHelloRequest
-	1, // 1: examples.grpc.greeter.v1.Greeter.SayHello:output_type -> examples.grpc.greeter.v1.SayHelloResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
+	0, // 1: examples.grpc.greeter.v1.Greeter.Collect:input_type -> examples.grpc.greeter.v1.SayHelloRequest
+	0, // 2: examples.grpc.greeter.v1.Greeter.Broadcast:input_type -> examples.grpc.greeter.v1.SayHelloRequest
+	0, // 3: examples.grpc.greeter.v1.Greeter.Chat:input_type -> examples.grpc.greeter.v1.SayHelloRequest
+	1, // 4: examples.grpc.greeter.v1.Greeter.SayHello:output_type -> examples.grpc.greeter.v1.SayHelloResponse
+	1, // 5: examples.grpc.greeter.v1.Greeter.Collect:output_type -> examples.grpc.greeter.v1.SayHelloResponse
+	1, // 6: examples.grpc.greeter.v1.Greeter.Broadcast:output_type -> examples.grpc.greeter.v1.SayHelloResponse
+	1, // 7: examples.grpc.greeter.v1.Greeter.Chat:output_type -> examples.grpc.greeter.v1.SayHelloResponse
+	4, // [4:8] is the sub-list for method output_type
+	0, // [0:4] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name

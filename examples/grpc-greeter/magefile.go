@@ -28,7 +28,7 @@ func Generate() error {
 	return runWithBinDir(binDir, "go", "generate", "./...")
 }
 
-// Test verifies the gRPC remote adapter path and the real c-shared C client demo.
+// Test verifies the full gRPC transport matrix and the real c-shared C client demo.
 func Test() error {
 	binDir, cleanup, err := installProtocPlugins()
 	if err != nil {
@@ -38,7 +38,7 @@ func Test() error {
 	if err := runWithBinDir(binDir, "go", "generate", "./..."); err != nil {
 		return err
 	}
-	if err := runWithBinDir(binDir, "go", "test", "./cmd/rpc", "-count=1"); err != nil {
+	if err := runWithBinDir(binDir, "go", "test", "./cmd/rpc", "-run", "^TestGRPCGreeterTransportAndStreamingMatrix$", "-count=1"); err != nil {
 		return err
 	}
 	return buildAndRunCClient()

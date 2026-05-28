@@ -58,6 +58,9 @@ func TestGRPCGreeterCSharedClientExample(t *testing.T) {
 	}
 	for _, symbol := range []string{
 		"rpccgo_native_greeterv1_Greeter_SayHello",
+		"rpccgo_native_greeterv1_Greeter_Collect_start",
+		"rpccgo_native_greeterv1_Greeter_Broadcast_start",
+		"rpccgo_native_greeterv1_Greeter_Chat_start",
 		"rpccgo_msg_greeterv1_Greeter_SayHello",
 		"rpccgo_take_error_text",
 		"rpccgo_release",
@@ -74,7 +77,11 @@ func TestGRPCGreeterCSharedClientExample(t *testing.T) {
 		t.Fatalf("c client example failed: %v\n%s", err, out)
 	}
 	for _, marker := range []string{
-		"native unary: hello, grpc-c",
+		"native unary: hello ffi from c",
+		"native collect: collect:ada,grace",
+		"native broadcast: broadcast[0]:stream",
+		"native broadcast: broadcast[1]:stream",
+		"native chat: chat:bidi",
 		"native output error: rpccgo: native client output pointer is nil",
 	} {
 		if !bytes.Contains(out, []byte(marker)) {

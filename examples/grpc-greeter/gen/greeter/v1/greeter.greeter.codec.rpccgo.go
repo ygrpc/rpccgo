@@ -17,7 +17,7 @@ import (
 
 var greeterNativeMessageCodecNotReadyErr = errors.New("rpccgo: native message codec is not implemented in this build")
 
-func withGreeterSayHelloMessageToNativeRequest(data []byte, fn func(name *rpcruntime.RpcString) error) error {
+func withGreeterSayHelloMessageToNativeRequest(data []byte, fn func(name *rpcruntime.RpcString, city *rpcruntime.RpcString) error) error {
 	var msg SayHelloRequest
 	if err := proto.Unmarshal(data, &msg); err != nil {
 		return err
@@ -29,14 +29,21 @@ func withGreeterSayHelloMessageToNativeRequest(data []byte, fn func(name *rpcrun
 	} else {
 		name = rpcruntime.EmptyRpcString()
 	}
-	err := fn(name)
+	var city *rpcruntime.RpcString
+	if msg.City != "" {
+		city = rpcruntime.NewRpcStringView(unsafe.StringData(msg.City), int32(len(msg.City)), msgOwner)
+	} else {
+		city = rpcruntime.EmptyRpcString()
+	}
+	err := fn(name, city)
 	goruntime.KeepAlive(&msg)
 	return err
 }
 
-func convertGreeterSayHelloNativeToMessageRequest(name *rpcruntime.RpcString) ([]byte, error) {
+func convertGreeterSayHelloNativeToMessageRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) ([]byte, error) {
 	msg := &SayHelloRequest{}
 	msg.Name = name.SafeString()
+	msg.City = city.SafeString()
 	data, err := proto.Marshal(msg)
 	if err != nil {
 		return nil, fmt.Errorf("rpccgo: native request protobuf marshal failed: %w", err)
@@ -54,6 +61,165 @@ func convertGreeterSayHelloMessageToNativeResponse(data []byte) (string, error) 
 }
 
 func convertGreeterSayHelloNativeToMessageResponse(message string) ([]byte, error) {
+	msg := &SayHelloResponse{}
+	msg.Message = message
+	data, err := proto.Marshal(msg)
+	if err != nil {
+		return nil, fmt.Errorf("rpccgo: native response protobuf marshal failed: %w", err)
+	}
+	return data, nil
+}
+
+func withGreeterCollectMessageToNativeRequest(data []byte, fn func(name *rpcruntime.RpcString, city *rpcruntime.RpcString) error) error {
+	var msg SayHelloRequest
+	if err := proto.Unmarshal(data, &msg); err != nil {
+		return err
+	}
+	msgOwner := &msg
+	var name *rpcruntime.RpcString
+	if msg.Name != "" {
+		name = rpcruntime.NewRpcStringView(unsafe.StringData(msg.Name), int32(len(msg.Name)), msgOwner)
+	} else {
+		name = rpcruntime.EmptyRpcString()
+	}
+	var city *rpcruntime.RpcString
+	if msg.City != "" {
+		city = rpcruntime.NewRpcStringView(unsafe.StringData(msg.City), int32(len(msg.City)), msgOwner)
+	} else {
+		city = rpcruntime.EmptyRpcString()
+	}
+	err := fn(name, city)
+	goruntime.KeepAlive(&msg)
+	return err
+}
+
+func convertGreeterCollectNativeToMessageRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) ([]byte, error) {
+	msg := &SayHelloRequest{}
+	msg.Name = name.SafeString()
+	msg.City = city.SafeString()
+	data, err := proto.Marshal(msg)
+	if err != nil {
+		return nil, fmt.Errorf("rpccgo: native request protobuf marshal failed: %w", err)
+	}
+	return data, nil
+}
+
+func convertGreeterCollectMessageToNativeResponse(data []byte) (string, error) {
+	var msg SayHelloResponse
+	if err := proto.Unmarshal(data, &msg); err != nil {
+		return "", err
+	}
+	message := msg.Message
+	return message, nil
+}
+
+func convertGreeterCollectNativeToMessageResponse(message string) ([]byte, error) {
+	msg := &SayHelloResponse{}
+	msg.Message = message
+	data, err := proto.Marshal(msg)
+	if err != nil {
+		return nil, fmt.Errorf("rpccgo: native response protobuf marshal failed: %w", err)
+	}
+	return data, nil
+}
+
+func withGreeterBroadcastMessageToNativeRequest(data []byte, fn func(name *rpcruntime.RpcString, city *rpcruntime.RpcString) error) error {
+	var msg SayHelloRequest
+	if err := proto.Unmarshal(data, &msg); err != nil {
+		return err
+	}
+	msgOwner := &msg
+	var name *rpcruntime.RpcString
+	if msg.Name != "" {
+		name = rpcruntime.NewRpcStringView(unsafe.StringData(msg.Name), int32(len(msg.Name)), msgOwner)
+	} else {
+		name = rpcruntime.EmptyRpcString()
+	}
+	var city *rpcruntime.RpcString
+	if msg.City != "" {
+		city = rpcruntime.NewRpcStringView(unsafe.StringData(msg.City), int32(len(msg.City)), msgOwner)
+	} else {
+		city = rpcruntime.EmptyRpcString()
+	}
+	err := fn(name, city)
+	goruntime.KeepAlive(&msg)
+	return err
+}
+
+func convertGreeterBroadcastNativeToMessageRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) ([]byte, error) {
+	msg := &SayHelloRequest{}
+	msg.Name = name.SafeString()
+	msg.City = city.SafeString()
+	data, err := proto.Marshal(msg)
+	if err != nil {
+		return nil, fmt.Errorf("rpccgo: native request protobuf marshal failed: %w", err)
+	}
+	return data, nil
+}
+
+func convertGreeterBroadcastMessageToNativeResponse(data []byte) (string, error) {
+	var msg SayHelloResponse
+	if err := proto.Unmarshal(data, &msg); err != nil {
+		return "", err
+	}
+	message := msg.Message
+	return message, nil
+}
+
+func convertGreeterBroadcastNativeToMessageResponse(message string) ([]byte, error) {
+	msg := &SayHelloResponse{}
+	msg.Message = message
+	data, err := proto.Marshal(msg)
+	if err != nil {
+		return nil, fmt.Errorf("rpccgo: native response protobuf marshal failed: %w", err)
+	}
+	return data, nil
+}
+
+func withGreeterChatMessageToNativeRequest(data []byte, fn func(name *rpcruntime.RpcString, city *rpcruntime.RpcString) error) error {
+	var msg SayHelloRequest
+	if err := proto.Unmarshal(data, &msg); err != nil {
+		return err
+	}
+	msgOwner := &msg
+	var name *rpcruntime.RpcString
+	if msg.Name != "" {
+		name = rpcruntime.NewRpcStringView(unsafe.StringData(msg.Name), int32(len(msg.Name)), msgOwner)
+	} else {
+		name = rpcruntime.EmptyRpcString()
+	}
+	var city *rpcruntime.RpcString
+	if msg.City != "" {
+		city = rpcruntime.NewRpcStringView(unsafe.StringData(msg.City), int32(len(msg.City)), msgOwner)
+	} else {
+		city = rpcruntime.EmptyRpcString()
+	}
+	err := fn(name, city)
+	goruntime.KeepAlive(&msg)
+	return err
+}
+
+func convertGreeterChatNativeToMessageRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) ([]byte, error) {
+	msg := &SayHelloRequest{}
+	msg.Name = name.SafeString()
+	msg.City = city.SafeString()
+	data, err := proto.Marshal(msg)
+	if err != nil {
+		return nil, fmt.Errorf("rpccgo: native request protobuf marshal failed: %w", err)
+	}
+	return data, nil
+}
+
+func convertGreeterChatMessageToNativeResponse(data []byte) (string, error) {
+	var msg SayHelloResponse
+	if err := proto.Unmarshal(data, &msg); err != nil {
+		return "", err
+	}
+	message := msg.Message
+	return message, nil
+}
+
+func convertGreeterChatNativeToMessageResponse(message string) ([]byte, error) {
 	msg := &SayHelloResponse{}
 	msg.Message = message
 	data, err := proto.Marshal(msg)

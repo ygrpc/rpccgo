@@ -13,9 +13,43 @@ import (
 
 typedef int32_t (*GreeterSayHelloCGOMessageUnaryCallback)(uintptr_t request_ptr, int32_t request_len, uintptr_t* response_ptr, int32_t* response_len);
 
+typedef int32_t (*GreeterCollectCGOMessageClientStreamStartCallback)(int32_t* stream);
+typedef int32_t (*GreeterCollectCGOMessageClientStreamSendCallback)(int32_t stream, uintptr_t request_ptr, int32_t request_len);
+typedef int32_t (*GreeterCollectCGOMessageClientStreamFinishCallback)(int32_t stream, uintptr_t* response_ptr, int32_t* response_len);
+typedef int32_t (*GreeterCollectCGOMessageClientStreamCancelCallback)(int32_t stream);
+
+typedef int32_t (*GreeterBroadcastCGOMessageServerStreamStartCallback)(uintptr_t request_ptr, int32_t request_len, int32_t* stream);
+typedef int32_t (*GreeterBroadcastCGOMessageServerStreamRecvCallback)(int32_t stream, uintptr_t* response_ptr, int32_t* response_len);
+typedef int32_t (*GreeterBroadcastCGOMessageServerStreamDoneCallback)(int32_t stream);
+typedef int32_t (*GreeterBroadcastCGOMessageServerStreamCancelCallback)(int32_t stream);
+
+typedef int32_t (*GreeterChatCGOMessageBidiStreamStartCallback)(int32_t* stream);
+typedef int32_t (*GreeterChatCGOMessageBidiStreamSendCallback)(int32_t stream, uintptr_t request_ptr, int32_t request_len);
+typedef int32_t (*GreeterChatCGOMessageBidiStreamRecvCallback)(int32_t stream, uintptr_t* response_ptr, int32_t* response_len);
+typedef int32_t (*GreeterChatCGOMessageBidiStreamCloseSendCallback)(int32_t stream);
+typedef int32_t (*GreeterChatCGOMessageBidiStreamDoneCallback)(int32_t stream);
+typedef int32_t (*GreeterChatCGOMessageBidiStreamCancelCallback)(int32_t stream);
+
 static inline int32_t callGreeterSayHelloCGOMessageUnary(GreeterSayHelloCGOMessageUnaryCallback callback, uintptr_t request_ptr, int32_t request_len, uintptr_t* response_ptr, int32_t* response_len) {
 	return callback(request_ptr, request_len, response_ptr, response_len);
 }
+
+static inline int32_t callGreeterCollectCGOMessageClientStreamStart(GreeterCollectCGOMessageClientStreamStartCallback callback, int32_t* stream) { return callback(stream); }
+static inline int32_t callGreeterCollectCGOMessageClientStreamSend(GreeterCollectCGOMessageClientStreamSendCallback callback, int32_t stream, uintptr_t request_ptr, int32_t request_len) { return callback(stream, request_ptr, request_len); }
+static inline int32_t callGreeterCollectCGOMessageClientStreamFinish(GreeterCollectCGOMessageClientStreamFinishCallback callback, int32_t stream, uintptr_t* response_ptr, int32_t* response_len) { return callback(stream, response_ptr, response_len); }
+static inline int32_t callGreeterCollectCGOMessageClientStreamCancel(GreeterCollectCGOMessageClientStreamCancelCallback callback, int32_t stream) { return callback(stream); }
+
+static inline int32_t callGreeterBroadcastCGOMessageServerStreamStart(GreeterBroadcastCGOMessageServerStreamStartCallback callback, uintptr_t request_ptr, int32_t request_len, int32_t* stream) { return callback(request_ptr, request_len, stream); }
+static inline int32_t callGreeterBroadcastCGOMessageServerStreamRecv(GreeterBroadcastCGOMessageServerStreamRecvCallback callback, int32_t stream, uintptr_t* response_ptr, int32_t* response_len) { return callback(stream, response_ptr, response_len); }
+static inline int32_t callGreeterBroadcastCGOMessageServerStreamDone(GreeterBroadcastCGOMessageServerStreamDoneCallback callback, int32_t stream) { return callback(stream); }
+static inline int32_t callGreeterBroadcastCGOMessageServerStreamCancel(GreeterBroadcastCGOMessageServerStreamCancelCallback callback, int32_t stream) { return callback(stream); }
+
+static inline int32_t callGreeterChatCGOMessageBidiStreamStart(GreeterChatCGOMessageBidiStreamStartCallback callback, int32_t* stream) { return callback(stream); }
+static inline int32_t callGreeterChatCGOMessageBidiStreamSend(GreeterChatCGOMessageBidiStreamSendCallback callback, int32_t stream, uintptr_t request_ptr, int32_t request_len) { return callback(stream, request_ptr, request_len); }
+static inline int32_t callGreeterChatCGOMessageBidiStreamRecv(GreeterChatCGOMessageBidiStreamRecvCallback callback, int32_t stream, uintptr_t* response_ptr, int32_t* response_len) { return callback(stream, response_ptr, response_len); }
+static inline int32_t callGreeterChatCGOMessageBidiStreamCloseSend(GreeterChatCGOMessageBidiStreamCloseSendCallback callback, int32_t stream) { return callback(stream); }
+static inline int32_t callGreeterChatCGOMessageBidiStreamDone(GreeterChatCGOMessageBidiStreamDoneCallback callback, int32_t stream) { return callback(stream); }
+static inline int32_t callGreeterChatCGOMessageBidiStreamCancel(GreeterChatCGOMessageBidiStreamCancelCallback callback, int32_t stream) { return callback(stream); }
 
 */
 import "C"
@@ -41,7 +75,21 @@ var (
 )
 
 type greeterCGOMessageAdapter struct {
-	SayHello C.GreeterSayHelloCGOMessageUnaryCallback
+	SayHello        C.GreeterSayHelloCGOMessageUnaryCallback
+	CollectStart    C.GreeterCollectCGOMessageClientStreamStartCallback
+	CollectSend     C.GreeterCollectCGOMessageClientStreamSendCallback
+	CollectFinish   C.GreeterCollectCGOMessageClientStreamFinishCallback
+	CollectCancel   C.GreeterCollectCGOMessageClientStreamCancelCallback
+	BroadcastStart  C.GreeterBroadcastCGOMessageServerStreamStartCallback
+	BroadcastRecv   C.GreeterBroadcastCGOMessageServerStreamRecvCallback
+	BroadcastDone   C.GreeterBroadcastCGOMessageServerStreamDoneCallback
+	BroadcastCancel C.GreeterBroadcastCGOMessageServerStreamCancelCallback
+	ChatStart       C.GreeterChatCGOMessageBidiStreamStartCallback
+	ChatSend        C.GreeterChatCGOMessageBidiStreamSendCallback
+	ChatRecv        C.GreeterChatCGOMessageBidiStreamRecvCallback
+	ChatCloseSend   C.GreeterChatCGOMessageBidiStreamCloseSendCallback
+	ChatDone        C.GreeterChatCGOMessageBidiStreamDoneCallback
+	ChatCancel      C.GreeterChatCGOMessageBidiStreamCancelCallback
 }
 
 func (a *greeterCGOMessageAdapter) SayHelloMessage(ctx context.Context, req []byte) ([]byte, error) {
@@ -92,6 +140,271 @@ func decodeGreeterSayHelloCGOMessageResponseBytes(responsePtr C.uintptr_t, respo
 	return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(uintptr(responsePtr))), int(responseLen))...), nil
 }
 
+func (a *greeterCGOMessageAdapter) StartCollectMessage(ctx context.Context) (v1.GreeterCollectMessageStreamSession, error) {
+	if a == nil {
+		return nil, greeterCGOMessageServerCallbacksNil
+	}
+	if a.CollectStart == nil {
+		return nil, greeterCGOMessageServerUnaryCallbackMissing
+	}
+	var stream C.int32_t
+	errID := int32(C.callGreeterCollectCGOMessageClientStreamStart(a.CollectStart, &stream))
+	if errID != 0 {
+		return nil, greeterCGOMessageServerError(errID)
+	}
+	return &greeterCollectCGOMessageClientStreamSession{send: a.CollectSend, finish: a.CollectFinish, cancel: a.CollectCancel, stream: int32(stream)}, nil
+}
+
+type greeterCollectCGOMessageClientStreamSession struct {
+	send   C.GreeterCollectCGOMessageClientStreamSendCallback
+	finish C.GreeterCollectCGOMessageClientStreamFinishCallback
+	cancel C.GreeterCollectCGOMessageClientStreamCancelCallback
+	stream int32
+}
+
+func (s *greeterCollectCGOMessageClientStreamSession) Send(ctx context.Context, req []byte) error {
+	if err := protobuf.Unmarshal(req, &v1.SayHelloRequest{}); err != nil {
+		return fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)
+	}
+	var requestPtr uintptr
+	if len(req) != 0 {
+		requestPtr = uintptr(unsafe.Pointer(&req[0]))
+	}
+	requestLen, err := rpcruntime.LengthToInt32(len(req))
+	if err != nil {
+		return err
+	}
+	errID := int32(C.callGreeterCollectCGOMessageClientStreamSend(s.send, C.int32_t(s.stream), C.uintptr_t(requestPtr), C.int32_t(requestLen)))
+	if errID != 0 {
+		return greeterCGOMessageServerError(errID)
+	}
+	return nil
+}
+
+func (s *greeterCollectCGOMessageClientStreamSession) Finish(ctx context.Context) ([]byte, error) {
+	var responsePtr C.uintptr_t
+	var responseLen C.int32_t
+	errID := int32(C.callGreeterCollectCGOMessageClientStreamFinish(s.finish, C.int32_t(s.stream), &responsePtr, &responseLen))
+	if errID != 0 {
+		return nil, greeterCGOMessageServerError(errID)
+	}
+	resp, err := decodeGreeterCollectCGOMessageResponseBytes(responsePtr, responseLen)
+	if err != nil {
+		return nil, err
+	}
+	if err := protobuf.Unmarshal(resp, &v1.SayHelloResponse{}); err != nil {
+		return nil, fmt.Errorf("rpccgo: message response protobuf unmarshal failed: %w", err)
+	}
+	return resp, nil
+}
+
+func (s *greeterCollectCGOMessageClientStreamSession) Cancel(ctx context.Context) error {
+	errID := int32(C.callGreeterCollectCGOMessageClientStreamCancel(s.cancel, C.int32_t(s.stream)))
+	if errID != 0 {
+		return greeterCGOMessageServerError(errID)
+	}
+	return nil
+}
+
+func decodeGreeterCollectCGOMessageResponseBytes(responsePtr C.uintptr_t, responseLen C.int32_t) ([]byte, error) {
+	if responseLen < 0 {
+		return nil, errors.New("rpccgo: message server response length is negative")
+	}
+	if responseLen == 0 {
+		return nil, nil
+	}
+	if responsePtr == 0 {
+		return nil, errors.New("rpccgo: message server response pointer is nil")
+	}
+	return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(uintptr(responsePtr))), int(responseLen))...), nil
+}
+
+func (a *greeterCGOMessageAdapter) StartBroadcastMessage(ctx context.Context, req []byte) (v1.GreeterBroadcastMessageStreamSession, error) {
+	if a == nil {
+		return nil, greeterCGOMessageServerCallbacksNil
+	}
+	if a.BroadcastStart == nil {
+		return nil, greeterCGOMessageServerUnaryCallbackMissing
+	}
+	if err := protobuf.Unmarshal(req, &v1.SayHelloRequest{}); err != nil {
+		return nil, fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)
+	}
+	var requestPtr uintptr
+	if len(req) != 0 {
+		requestPtr = uintptr(unsafe.Pointer(&req[0]))
+	}
+	requestLen, err := rpcruntime.LengthToInt32(len(req))
+	if err != nil {
+		return nil, err
+	}
+	var stream C.int32_t
+	errID := int32(C.callGreeterBroadcastCGOMessageServerStreamStart(a.BroadcastStart, C.uintptr_t(requestPtr), C.int32_t(requestLen), &stream))
+	if errID != 0 {
+		return nil, greeterCGOMessageServerError(errID)
+	}
+	return &greeterBroadcastCGOMessageServerStreamSession{recv: a.BroadcastRecv, done: a.BroadcastDone, cancel: a.BroadcastCancel, stream: int32(stream)}, nil
+}
+
+type greeterBroadcastCGOMessageServerStreamSession struct {
+	recv   C.GreeterBroadcastCGOMessageServerStreamRecvCallback
+	done   C.GreeterBroadcastCGOMessageServerStreamDoneCallback
+	cancel C.GreeterBroadcastCGOMessageServerStreamCancelCallback
+	stream int32
+}
+
+func (s *greeterBroadcastCGOMessageServerStreamSession) Recv(ctx context.Context) ([]byte, error) {
+	var responsePtr C.uintptr_t
+	var responseLen C.int32_t
+	errID := int32(C.callGreeterBroadcastCGOMessageServerStreamRecv(s.recv, C.int32_t(s.stream), &responsePtr, &responseLen))
+	if errID != 0 {
+		return nil, greeterCGOMessageServerError(errID)
+	}
+	resp, err := decodeGreeterBroadcastCGOMessageResponseBytes(responsePtr, responseLen)
+	if err != nil {
+		return nil, err
+	}
+	if err := protobuf.Unmarshal(resp, &v1.SayHelloResponse{}); err != nil {
+		return nil, fmt.Errorf("rpccgo: message response protobuf unmarshal failed: %w", err)
+	}
+	return resp, nil
+}
+
+func (s *greeterBroadcastCGOMessageServerStreamSession) Done(ctx context.Context) error {
+	errID := int32(C.callGreeterBroadcastCGOMessageServerStreamDone(s.done, C.int32_t(s.stream)))
+	if errID != 0 {
+		return greeterCGOMessageServerError(errID)
+	}
+	return nil
+}
+
+func (s *greeterBroadcastCGOMessageServerStreamSession) Cancel(ctx context.Context) error {
+	errID := int32(C.callGreeterBroadcastCGOMessageServerStreamCancel(s.cancel, C.int32_t(s.stream)))
+	if errID != 0 {
+		return greeterCGOMessageServerError(errID)
+	}
+	return nil
+}
+
+func decodeGreeterBroadcastCGOMessageResponseBytes(responsePtr C.uintptr_t, responseLen C.int32_t) ([]byte, error) {
+	if responseLen < 0 {
+		return nil, errors.New("rpccgo: message server response length is negative")
+	}
+	if responseLen == 0 {
+		return nil, nil
+	}
+	if responsePtr == 0 {
+		return nil, errors.New("rpccgo: message server response pointer is nil")
+	}
+	return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(uintptr(responsePtr))), int(responseLen))...), nil
+}
+
+func (a *greeterCGOMessageAdapter) StartChatMessage(ctx context.Context) (v1.GreeterChatMessageStreamSession, error) {
+	if a == nil {
+		return nil, greeterCGOMessageServerCallbacksNil
+	}
+	if a.ChatStart == nil {
+		return nil, greeterCGOMessageServerUnaryCallbackMissing
+	}
+	var stream C.int32_t
+	errID := int32(C.callGreeterChatCGOMessageBidiStreamStart(a.ChatStart, &stream))
+	if errID != 0 {
+		return nil, greeterCGOMessageServerError(errID)
+	}
+	return &greeterChatCGOMessageBidiStreamSession{send: a.ChatSend, recv: a.ChatRecv, closeSend: a.ChatCloseSend, done: a.ChatDone, cancel: a.ChatCancel, stream: int32(stream)}, nil
+}
+
+type greeterChatCGOMessageBidiStreamSession struct {
+	send      C.GreeterChatCGOMessageBidiStreamSendCallback
+	recv      C.GreeterChatCGOMessageBidiStreamRecvCallback
+	closeSend C.GreeterChatCGOMessageBidiStreamCloseSendCallback
+	done      C.GreeterChatCGOMessageBidiStreamDoneCallback
+	cancel    C.GreeterChatCGOMessageBidiStreamCancelCallback
+	stream    int32
+	lifecycle rpcruntime.StreamLifecycle
+}
+
+func (s *greeterChatCGOMessageBidiStreamSession) Send(ctx context.Context, req []byte) error {
+	if err := s.lifecycle.EnsureCanSend(); err != nil {
+		return err
+	}
+	if err := protobuf.Unmarshal(req, &v1.SayHelloRequest{}); err != nil {
+		return fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)
+	}
+	var requestPtr uintptr
+	if len(req) != 0 {
+		requestPtr = uintptr(unsafe.Pointer(&req[0]))
+	}
+	requestLen, err := rpcruntime.LengthToInt32(len(req))
+	if err != nil {
+		return err
+	}
+	errID := int32(C.callGreeterChatCGOMessageBidiStreamSend(s.send, C.int32_t(s.stream), C.uintptr_t(requestPtr), C.int32_t(requestLen)))
+	if errID != 0 {
+		return greeterCGOMessageServerError(errID)
+	}
+	return nil
+}
+
+func (s *greeterChatCGOMessageBidiStreamSession) Recv(ctx context.Context) ([]byte, error) {
+	var responsePtr C.uintptr_t
+	var responseLen C.int32_t
+	errID := int32(C.callGreeterChatCGOMessageBidiStreamRecv(s.recv, C.int32_t(s.stream), &responsePtr, &responseLen))
+	if errID != 0 {
+		return nil, greeterCGOMessageServerError(errID)
+	}
+	resp, err := decodeGreeterChatCGOMessageResponseBytes(responsePtr, responseLen)
+	if err != nil {
+		return nil, err
+	}
+	if err := protobuf.Unmarshal(resp, &v1.SayHelloResponse{}); err != nil {
+		return nil, fmt.Errorf("rpccgo: message response protobuf unmarshal failed: %w", err)
+	}
+	return resp, nil
+}
+
+func (s *greeterChatCGOMessageBidiStreamSession) CloseSend(ctx context.Context) error {
+	if err := s.lifecycle.EnsureCanSend(); err != nil {
+		return err
+	}
+	errID := int32(C.callGreeterChatCGOMessageBidiStreamCloseSend(s.closeSend, C.int32_t(s.stream)))
+	if errID != 0 {
+		return greeterCGOMessageServerError(errID)
+	}
+	if err := s.lifecycle.MarkSendClosed(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *greeterChatCGOMessageBidiStreamSession) Done(ctx context.Context) error {
+	errID := int32(C.callGreeterChatCGOMessageBidiStreamDone(s.done, C.int32_t(s.stream)))
+	if errID != 0 {
+		return greeterCGOMessageServerError(errID)
+	}
+	return nil
+}
+
+func (s *greeterChatCGOMessageBidiStreamSession) Cancel(ctx context.Context) error {
+	errID := int32(C.callGreeterChatCGOMessageBidiStreamCancel(s.cancel, C.int32_t(s.stream)))
+	if errID != 0 {
+		return greeterCGOMessageServerError(errID)
+	}
+	return nil
+}
+
+func decodeGreeterChatCGOMessageResponseBytes(responsePtr C.uintptr_t, responseLen C.int32_t) ([]byte, error) {
+	if responseLen < 0 {
+		return nil, errors.New("rpccgo: message server response length is negative")
+	}
+	if responseLen == 0 {
+		return nil, nil
+	}
+	if responsePtr == 0 {
+		return nil, errors.New("rpccgo: message server response pointer is nil")
+	}
+	return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(uintptr(responsePtr))), int(responseLen))...), nil
+}
+
 //export rpccgo_msg_greeterv1_Greeter_SayHello_register
 func rpccgo_msg_greeterv1_Greeter_SayHello_register(callback C.GreeterSayHelloCGOMessageUnaryCallback) C.int32_t {
 	if callback == nil {
@@ -100,6 +413,62 @@ func rpccgo_msg_greeterv1_Greeter_SayHello_register(callback C.GreeterSayHelloCG
 	greeterCGOMessageServerAdapterMu.Lock()
 	defer greeterCGOMessageServerAdapterMu.Unlock()
 	greeterCGOMessageServerAdapter.SayHello = callback
+	_, err := v1.RegisterGreeterCGOMessageActiveServer(rpcruntime.ServerKindCGOMessage, greeterCGOMessageServerAdapter)
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	return 0
+}
+
+//export rpccgo_msg_greeterv1_Greeter_Collect_register
+func rpccgo_msg_greeterv1_Greeter_Collect_register(start C.GreeterCollectCGOMessageClientStreamStartCallback, send C.GreeterCollectCGOMessageClientStreamSendCallback, finish C.GreeterCollectCGOMessageClientStreamFinishCallback, cancel C.GreeterCollectCGOMessageClientStreamCancelCallback) C.int32_t {
+	if start == nil || send == nil || finish == nil || cancel == nil {
+		return C.int32_t(rpcruntime.StoreError(greeterCGOMessageServerUnaryCallbackMissing))
+	}
+	greeterCGOMessageServerAdapterMu.Lock()
+	defer greeterCGOMessageServerAdapterMu.Unlock()
+	greeterCGOMessageServerAdapter.CollectStart = start
+	greeterCGOMessageServerAdapter.CollectSend = send
+	greeterCGOMessageServerAdapter.CollectFinish = finish
+	greeterCGOMessageServerAdapter.CollectCancel = cancel
+	_, err := v1.RegisterGreeterCGOMessageActiveServer(rpcruntime.ServerKindCGOMessage, greeterCGOMessageServerAdapter)
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	return 0
+}
+
+//export rpccgo_msg_greeterv1_Greeter_Broadcast_register
+func rpccgo_msg_greeterv1_Greeter_Broadcast_register(start C.GreeterBroadcastCGOMessageServerStreamStartCallback, recv C.GreeterBroadcastCGOMessageServerStreamRecvCallback, done C.GreeterBroadcastCGOMessageServerStreamDoneCallback, cancel C.GreeterBroadcastCGOMessageServerStreamCancelCallback) C.int32_t {
+	if start == nil || recv == nil || done == nil || cancel == nil {
+		return C.int32_t(rpcruntime.StoreError(greeterCGOMessageServerUnaryCallbackMissing))
+	}
+	greeterCGOMessageServerAdapterMu.Lock()
+	defer greeterCGOMessageServerAdapterMu.Unlock()
+	greeterCGOMessageServerAdapter.BroadcastStart = start
+	greeterCGOMessageServerAdapter.BroadcastRecv = recv
+	greeterCGOMessageServerAdapter.BroadcastDone = done
+	greeterCGOMessageServerAdapter.BroadcastCancel = cancel
+	_, err := v1.RegisterGreeterCGOMessageActiveServer(rpcruntime.ServerKindCGOMessage, greeterCGOMessageServerAdapter)
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	return 0
+}
+
+//export rpccgo_msg_greeterv1_Greeter_Chat_register
+func rpccgo_msg_greeterv1_Greeter_Chat_register(start C.GreeterChatCGOMessageBidiStreamStartCallback, send C.GreeterChatCGOMessageBidiStreamSendCallback, recv C.GreeterChatCGOMessageBidiStreamRecvCallback, closeSend C.GreeterChatCGOMessageBidiStreamCloseSendCallback, done C.GreeterChatCGOMessageBidiStreamDoneCallback, cancel C.GreeterChatCGOMessageBidiStreamCancelCallback) C.int32_t {
+	if start == nil || send == nil || recv == nil || closeSend == nil || done == nil || cancel == nil {
+		return C.int32_t(rpcruntime.StoreError(greeterCGOMessageServerUnaryCallbackMissing))
+	}
+	greeterCGOMessageServerAdapterMu.Lock()
+	defer greeterCGOMessageServerAdapterMu.Unlock()
+	greeterCGOMessageServerAdapter.ChatStart = start
+	greeterCGOMessageServerAdapter.ChatSend = send
+	greeterCGOMessageServerAdapter.ChatRecv = recv
+	greeterCGOMessageServerAdapter.ChatCloseSend = closeSend
+	greeterCGOMessageServerAdapter.ChatDone = done
+	greeterCGOMessageServerAdapter.ChatCancel = cancel
 	_, err := v1.RegisterGreeterCGOMessageActiveServer(rpcruntime.ServerKindCGOMessage, greeterCGOMessageServerAdapter)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
