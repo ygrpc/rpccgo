@@ -10,7 +10,9 @@ import (
 	rpcruntime "rpccgo/rpcruntime"
 )
 
-type Greeter struct{}
+type Greeter struct {
+	greeterv1.UnimplementedGreeterNativeServer
+}
 
 func (Greeter) SayHello(_ context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error) {
 	return format(name.SafeString(), city.SafeString()), nil
