@@ -377,8 +377,8 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 		assertMessageErrContains(t, errID, "unknown error id 99999")
 	})
 
-	t.Run("connect remote client stream cancel notifies remote context", func(t *testing.T) {
-		remote := startRemoteTransportCancelObserverServer(t, "connect")
+	t.Run("connect remote client stream cancel closes local session", func(t *testing.T) {
+		remote := startRemoteTransportServer(t, "connect", false)
 		defer remote.close()
 		registerConnectRemote(t, remote)
 
@@ -388,7 +388,8 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 		assertMessageNoErr(t, errID)
 		assertMessageNoErr(t, SendGreeterUploadMessageClientStream(ctx, handle, 0, 0))
 		assertMessageNoErr(t, CancelGreeterUploadMessageClientStream(ctx, handle))
-		remote.waitForCancelSignal(t, "upload")
+		assertMessageErrContains(t, SendGreeterUploadMessageClientStream(ctx, handle, 0, 0), "stream handle is invalid")
+		assertMessageErrContains(t, CancelGreeterUploadMessageClientStream(ctx, handle), "stream handle is invalid")
 	})
 
 	t.Run("connect remote bidi cancel notifies remote context", func(t *testing.T) {
