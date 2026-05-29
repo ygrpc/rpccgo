@@ -36,6 +36,10 @@ _Avoid_: runtime core
 Generated service runtime 内部的 package-private typed invocation layer，负责按 service/method contract 选择 Active server 并应用 native/message 转换；外部包只能通过 generated package-level invoke/start 函数进入。
 _Avoid_: runtime core dispatcher, public client object, active router
 
+**Session adapter**:
+Generated service runtime 内部把 Go **Native** server streaming 方法投影为 **Stream lifecycle** session 的 adapter；它不负责 Active server 选择、contract 路由或 native/message 转换。
+_Avoid_: runtime bridge, stream bridge
+
 **Remote client active server**:
 以标准 connect/gRPC client 作为 **Active server** adapter value 的 message-contract active server，真实执行目标位于远端进程。
 _Avoid_: remote adapter, remote server adapter
@@ -66,7 +70,8 @@ _Avoid_: active server
 - **Native** 的字段级函数边界必须覆盖 Go server interface、Go native client API、C callback ABI，以及 streaming 的 start/send/recv/finish/close/cancel 相关边界。
 - Go native 与 C native 是同一个 **Native** contract 的不同 **Native projection**；它们不应被建模为两套独立 native contract。
 - Go native server 与 C native server 都实现同一个 **Native** server contract；C message server 属于 **Message contract**，不应被混入 native server 命名。
-- C message server 应有独立的 generated server contract，例如 `GreeterCGOMessageServer`；其方法名使用 service method Go name，不额外追加 `Message` 后缀，message contract 由 server contract 名称表达。
+- C message server 应有独立的 generated server contract，例如 `GreeterCGOMessageServer`；其方法名使用 service method Go name，不额外追加 `Message` 或 `Start` 前缀，message contract 由 server contract 名称表达。
+- C message server streaming 方法属于 handler-style server contract：stream 对象作为方法参数传入；`Start` 返回 stream session 只属于 generated **Session adapter** 与 C callback ABI 的内部投影。
 - **Native C ABI plan** 必须从 **Native** / `NativeContractPlan` 派生，不能重新解释 proto descriptor 或形成独立 contract。
 - C 侧 **Native** callback 必须使用字段级参数列表，例如 `field_ptr/field_len/ownership` 和输出字段指针参数；不能接收 generated `Request*` / `Response*` struct。
 - 跨 runtime 的 C **Native** ABI 不能以 `struct` 或 `struct*` 作为调用边界参数；callback table 也必须拆成 flat callback 参数或逐项注册。
@@ -93,6 +98,7 @@ _Avoid_: active server
 - **Runtime bridge** 应留在 **Generated service runtime** 中，因为它表达 service-level active server contract 路由，并集中连接 native adapter、message adapter、standard connect/grpc server 与 converter glue。
 - **Runtime bridge** 作为 service-local invocation layer 直接复用 **Runtime core** active slot、stream registry 和 lifecycle primitive；不应再额外生成只转发到 bridge 的 public client object。
 - **Runtime bridge** 类型和方法不作为外部用户 API；外部包通过 generated package-level invoke/start 函数进入。它返回的 routing errors 应导出为 package-level sentinel vars，供用户通过 `errors.Is` 判断失败类型；无 active server 使用 `rpcruntime.ErrNoActiveServer`，service-specific 失败按 service + 分类命名，不按调用方向拆分。
+- **Bridge** 命名只用于 **Runtime bridge**；Go **Native** server 到 streaming session 的内部投影层应使用 **Session adapter** 命名，避免把调度路由层与 session 投影层混淆。
 - **Remote client active server** 使用标准 transport client 作为 active slot 中保存的 adapter value；rpccgo generated code 不应构造 per-method client。
 - **Remote client active server** 只转发 protobuf message payload 和 error；metadata/header/trailer 不属于当前 contract。
 - `Register<Service>ConnectRemoteServer` 与 `Register<Service>GRPCRemoteServer` 命名可以保留，但它们应直接注册标准 transport client 并返回 client-typed snapshot，不应构造 service-specific wrapper adapter。

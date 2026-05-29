@@ -34,15 +34,16 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 		case SessionKindNone:
 			g.P(method.MethodGoName, "(ctx context.Context, req []byte) ([]byte, error)")
 		case SessionKindClient:
-			g.P("Start", method.MethodGoName, "(ctx context.Context) (", service.GoName, method.MethodGoName, "MessageStreamSession, error)")
+			g.P(method.MethodGoName, "(ctx context.Context, stream ", service.GoName, method.MethodGoName, "MessageClientStream) ([]byte, error)")
 		case SessionKindServer:
-			g.P("Start", method.MethodGoName, "(ctx context.Context, req []byte) (", service.GoName, method.MethodGoName, "MessageStreamSession, error)")
+			g.P(method.MethodGoName, "(ctx context.Context, req []byte, stream ", service.GoName, method.MethodGoName, "MessageServerStream) error")
 		case SessionKindBidi:
-			g.P("Start", method.MethodGoName, "(ctx context.Context) (", service.GoName, method.MethodGoName, "MessageStreamSession, error)")
+			g.P(method.MethodGoName, "(ctx context.Context, stream ", service.GoName, method.MethodGoName, "MessageBidiStream) error")
 		}
 	}
 	g.P("}")
 	g.P()
+	renderCGOMessageServerStreamInterfaces(g, service, runtimeMethods)
 	renderUnimplementedCGOMessageServer(g, service, runtimeMethods)
 	g.P("func Register", service.GoName, "CGOMessageServer(server ", serverName, ") (rpcruntime.AdapterSnapshot[", serverName, "], error) {")
 	g.P("if server == nil {")
@@ -52,6 +53,29 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	g.P("}")
 	g.P()
 	return nil
+}
+
+func renderCGOMessageServerStreamInterfaces(g *protogen.GeneratedFile, service ServicePlan, runtimeMethods []runtimeAdapterMethod) {
+	for _, method := range runtimeMethods {
+		switch method.SessionKind {
+		case SessionKindClient:
+			g.P("type ", service.GoName, method.MethodGoName, "MessageClientStream interface {")
+			g.P("Recv(ctx context.Context) ([]byte, error)")
+			g.P("}")
+			g.P()
+		case SessionKindServer:
+			g.P("type ", service.GoName, method.MethodGoName, "MessageServerStream interface {")
+			g.P("Send(ctx context.Context, resp []byte) error")
+			g.P("}")
+			g.P()
+		case SessionKindBidi:
+			g.P("type ", service.GoName, method.MethodGoName, "MessageBidiStream interface {")
+			g.P("Recv(ctx context.Context) ([]byte, error)")
+			g.P("Send(ctx context.Context, resp []byte) error")
+			g.P("}")
+			g.P()
+		}
+	}
 }
 
 func renderUnimplementedCGOMessageServer(g *protogen.GeneratedFile, service ServicePlan, runtimeMethods []runtimeAdapterMethod) {
@@ -66,16 +90,16 @@ func renderUnimplementedCGOMessageServer(g *protogen.GeneratedFile, service Serv
 			g.P("return nil, ", errExpr)
 			g.P("}")
 		case SessionKindClient:
-			g.P("func (", serverName, ") Start", method.MethodGoName, "(ctx context.Context) (", service.GoName, method.MethodGoName, "MessageStreamSession, error) {")
+			g.P("func (", serverName, ") ", method.MethodGoName, "(ctx context.Context, stream ", service.GoName, method.MethodGoName, "MessageClientStream) ([]byte, error) {")
 			g.P("return nil, ", errExpr)
 			g.P("}")
 		case SessionKindServer:
-			g.P("func (", serverName, ") Start", method.MethodGoName, "(ctx context.Context, req []byte) (", service.GoName, method.MethodGoName, "MessageStreamSession, error) {")
-			g.P("return nil, ", errExpr)
+			g.P("func (", serverName, ") ", method.MethodGoName, "(ctx context.Context, req []byte, stream ", service.GoName, method.MethodGoName, "MessageServerStream) error {")
+			g.P("return ", errExpr)
 			g.P("}")
 		case SessionKindBidi:
-			g.P("func (", serverName, ") Start", method.MethodGoName, "(ctx context.Context) (", service.GoName, method.MethodGoName, "MessageStreamSession, error) {")
-			g.P("return nil, ", errExpr)
+			g.P("func (", serverName, ") ", method.MethodGoName, "(ctx context.Context, stream ", service.GoName, method.MethodGoName, "MessageBidiStream) error {")
+			g.P("return ", errExpr)
 			g.P("}")
 		}
 		g.P()
@@ -116,6 +140,22 @@ func validateMessageServerSymbols(service ServicePlan) error {
 	}
 	if err := addGenerated("Register"+service.GoName+"CGOMessageServer", service.FullName+" cgo message server registration"); err != nil {
 		return err
+	}
+	for _, method := range service.Methods {
+		switch method.Streaming {
+		case StreamingKindClientStreaming:
+			if err := addGenerated(service.GoName+method.GoName+"MessageClientStream", method.FullName+" cgo message client stream interface"); err != nil {
+				return err
+			}
+		case StreamingKindServerStreaming:
+			if err := addGenerated(service.GoName+method.GoName+"MessageServerStream", method.FullName+" cgo message server stream interface"); err != nil {
+				return err
+			}
+		case StreamingKindBidiStreaming:
+			if err := addGenerated(service.GoName+method.GoName+"MessageBidiStream", method.FullName+" cgo message bidi stream interface"); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

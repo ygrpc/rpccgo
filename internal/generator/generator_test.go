@@ -143,9 +143,9 @@ func TestRenderMessageStageFilesEmitsDirectPathFileFamily(t *testing.T) {
 		for _, fragment := range []string{
 			"type GreeterCGOMessageServer interface {",
 			"Unary(ctx context.Context, req []byte) ([]byte, error)",
-			"StartUpload(ctx context.Context) (GreeterUploadMessageStreamSession, error)",
-			"StartList(ctx context.Context, req []byte) (GreeterListMessageStreamSession, error)",
-			"StartChat(ctx context.Context) (GreeterChatMessageStreamSession, error)",
+			"Upload(ctx context.Context, stream GreeterUploadMessageClientStream) ([]byte, error)",
+			"List(ctx context.Context, req []byte, stream GreeterListMessageServerStream) error",
+			"Chat(ctx context.Context, stream GreeterChatMessageBidiStream) error",
 		} {
 			assertGeneratedContentContains(t, plugin, messageContractFile, fragment)
 		}

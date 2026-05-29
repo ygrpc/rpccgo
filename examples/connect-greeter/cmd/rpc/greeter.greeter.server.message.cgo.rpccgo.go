@@ -155,6 +155,27 @@ func (a *greeterCGOMessageAdapter) StartCollect(ctx context.Context) (proto.Gree
 	return &greeterCollectCGOMessageClientStreamSession{send: a.CollectSend, finish: a.CollectFinish, cancel: a.CollectCancel, stream: int32(stream)}, nil
 }
 
+func (a *greeterCGOMessageAdapter) Collect(ctx context.Context, stream proto.GreeterCollectMessageClientStream) ([]byte, error) {
+	session, err := a.StartCollect(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for {
+		req, err := stream.Recv(ctx)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return session.Finish(ctx)
+			}
+			_ = session.Cancel(ctx)
+			return nil, err
+		}
+		if err := session.Send(ctx, req); err != nil {
+			_ = session.Cancel(ctx)
+			return nil, err
+		}
+	}
+}
+
 type greeterCollectCGOMessageClientStreamSession struct {
 	send   C.GreeterCollectCGOMessageClientStreamSendCallback
 	finish C.GreeterCollectCGOMessageClientStreamFinishCallback
@@ -245,6 +266,30 @@ func (a *greeterCGOMessageAdapter) StartBroadcast(ctx context.Context, req []byt
 	return &greeterBroadcastCGOMessageServerStreamSession{recv: a.BroadcastRecv, done: a.BroadcastDone, cancel: a.BroadcastCancel, stream: int32(stream)}, nil
 }
 
+func (a *greeterCGOMessageAdapter) Broadcast(ctx context.Context, req []byte, stream proto.GreeterBroadcastMessageServerStream) error {
+	session, err := a.StartBroadcast(ctx, req)
+	if err != nil {
+		return err
+	}
+	for {
+		resp, err := session.Recv(ctx)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return session.Done(ctx)
+			}
+			_ = session.Cancel(ctx)
+			return err
+		}
+		if err := stream.Send(ctx, resp); err != nil {
+			if errors.Is(err, io.EOF) {
+				return session.Done(ctx)
+			}
+			_ = session.Cancel(ctx)
+			return err
+		}
+	}
+}
+
 type greeterBroadcastCGOMessageServerStreamSession struct {
 	recv   C.GreeterBroadcastCGOMessageServerStreamRecvCallback
 	done   C.GreeterBroadcastCGOMessageServerStreamDoneCallback
@@ -311,6 +356,30 @@ func (a *greeterCGOMessageAdapter) StartChat(ctx context.Context) (proto.Greeter
 		return nil, greeterCGOMessageServerError(errID)
 	}
 	return &greeterChatCGOMessageBidiStreamSession{send: a.ChatSend, recv: a.ChatRecv, closeSend: a.ChatCloseSend, done: a.ChatDone, cancel: a.ChatCancel, stream: int32(stream)}, nil
+}
+
+func (a *greeterCGOMessageAdapter) Chat(ctx context.Context, stream proto.GreeterChatMessageBidiStream) error {
+	session, err := a.StartChat(ctx)
+	if err != nil {
+		return err
+	}
+	return rpcruntime.RunBidiStream(
+		func() ([]byte, error) { return stream.Recv(ctx) },
+		func(req []byte) error { return session.Send(ctx, req) },
+		func() error { return session.CloseSend(ctx) },
+		func() ([]byte, error) { return session.Recv(ctx) },
+		func(resp []byte) error {
+			err := stream.Send(ctx, resp)
+			if errors.Is(err, io.EOF) {
+				if doneErr := session.Done(ctx); doneErr != nil {
+					return errors.Join(err, doneErr)
+				}
+			}
+			return err
+		},
+		func() error { return session.Done(ctx) },
+		func() error { return session.Cancel(ctx) },
+	)
 }
 
 type greeterChatCGOMessageBidiStreamSession struct {

@@ -23,9 +23,12 @@ func TestRenderMessageServerDefinesUnimplementedHelper(t *testing.T) {
 		"type UnimplementedAllServiceCGOMessageServer struct{}",
 		`errors.New("rpccgo: AllService.Unary cgo message server method is not implemented")`,
 		"func (UnimplementedAllServiceCGOMessageServer) Unary(ctx context.Context, req []byte) ([]byte, error) {",
-		"func (UnimplementedAllServiceCGOMessageServer) StartClientStream(ctx context.Context) (AllServiceClientStreamMessageStreamSession, error) {",
-		"func (UnimplementedAllServiceCGOMessageServer) StartServerStream(ctx context.Context, req []byte) (AllServiceServerStreamMessageStreamSession, error) {",
-		"func (UnimplementedAllServiceCGOMessageServer) StartBidiStream(ctx context.Context) (AllServiceBidiStreamMessageStreamSession, error) {",
+		"type AllServiceClientStreamMessageClientStream interface {",
+		"type AllServiceServerStreamMessageServerStream interface {",
+		"type AllServiceBidiStreamMessageBidiStream interface {",
+		"func (UnimplementedAllServiceCGOMessageServer) ClientStream(ctx context.Context, stream AllServiceClientStreamMessageClientStream) ([]byte, error) {",
+		"func (UnimplementedAllServiceCGOMessageServer) ServerStream(ctx context.Context, req []byte, stream AllServiceServerStreamMessageServerStream) error {",
+		"func (UnimplementedAllServiceCGOMessageServer) BidiStream(ctx context.Context, stream AllServiceBidiStreamMessageBidiStream) error {",
 	} {
 		assertGeneratedContentContains(t, plugin, messageServerFile, fragment)
 	}

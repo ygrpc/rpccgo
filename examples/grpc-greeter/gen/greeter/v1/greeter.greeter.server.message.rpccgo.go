@@ -14,9 +14,22 @@ import (
 
 type GreeterCGOMessageServer interface {
 	SayHello(ctx context.Context, req []byte) ([]byte, error)
-	StartCollect(ctx context.Context) (GreeterCollectMessageStreamSession, error)
-	StartBroadcast(ctx context.Context, req []byte) (GreeterBroadcastMessageStreamSession, error)
-	StartChat(ctx context.Context) (GreeterChatMessageStreamSession, error)
+	Collect(ctx context.Context, stream GreeterCollectMessageClientStream) ([]byte, error)
+	Broadcast(ctx context.Context, req []byte, stream GreeterBroadcastMessageServerStream) error
+	Chat(ctx context.Context, stream GreeterChatMessageBidiStream) error
+}
+
+type GreeterCollectMessageClientStream interface {
+	Recv(ctx context.Context) ([]byte, error)
+}
+
+type GreeterBroadcastMessageServerStream interface {
+	Send(ctx context.Context, resp []byte) error
+}
+
+type GreeterChatMessageBidiStream interface {
+	Recv(ctx context.Context) ([]byte, error)
+	Send(ctx context.Context, resp []byte) error
 }
 
 type UnimplementedGreeterCGOMessageServer struct{}
@@ -25,16 +38,16 @@ func (UnimplementedGreeterCGOMessageServer) SayHello(ctx context.Context, req []
 	return nil, errors.New("rpccgo: Greeter.SayHello cgo message server method is not implemented")
 }
 
-func (UnimplementedGreeterCGOMessageServer) StartCollect(ctx context.Context) (GreeterCollectMessageStreamSession, error) {
+func (UnimplementedGreeterCGOMessageServer) Collect(ctx context.Context, stream GreeterCollectMessageClientStream) ([]byte, error) {
 	return nil, errors.New("rpccgo: Greeter.Collect cgo message server method is not implemented")
 }
 
-func (UnimplementedGreeterCGOMessageServer) StartBroadcast(ctx context.Context, req []byte) (GreeterBroadcastMessageStreamSession, error) {
-	return nil, errors.New("rpccgo: Greeter.Broadcast cgo message server method is not implemented")
+func (UnimplementedGreeterCGOMessageServer) Broadcast(ctx context.Context, req []byte, stream GreeterBroadcastMessageServerStream) error {
+	return errors.New("rpccgo: Greeter.Broadcast cgo message server method is not implemented")
 }
 
-func (UnimplementedGreeterCGOMessageServer) StartChat(ctx context.Context) (GreeterChatMessageStreamSession, error) {
-	return nil, errors.New("rpccgo: Greeter.Chat cgo message server method is not implemented")
+func (UnimplementedGreeterCGOMessageServer) Chat(ctx context.Context, stream GreeterChatMessageBidiStream) error {
+	return errors.New("rpccgo: Greeter.Chat cgo message server method is not implemented")
 }
 
 func RegisterGreeterCGOMessageServer(server GreeterCGOMessageServer) (rpcruntime.AdapterSnapshot[GreeterCGOMessageServer], error) {
