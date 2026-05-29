@@ -16,6 +16,9 @@ func renderNativeServerFile(plugin *protogen.Plugin, plan FilePlan, service Serv
 	g.P("package ", plan.GoPackageName)
 	g.P()
 	g.P("import (")
+	if len(service.Methods) > 0 {
+		g.P(`context "context"`)
+	}
 	g.P(`errors "errors"`)
 	g.P(`rpcruntime "rpccgo/rpcruntime"`)
 	g.P(")")
@@ -23,6 +26,9 @@ func renderNativeServerFile(plugin *protogen.Plugin, plan FilePlan, service Serv
 	g.P("// ", nativeStageMarker(service, file))
 	g.P()
 
+	renderGoNativeServerInterface(g, service, service.GoName+"NativeServer")
+	renderGoNativeStreamInterfaces(g, service)
+	renderUnimplementedGoNativeServer(g, service)
 	renderGoNativeRegistration(g, service, service.GoName+"NativeServer", "")
 	return nil
 }
@@ -73,6 +79,36 @@ func renderGoNativeStreamInterfaces(g *protogen.GeneratedFile, service ServicePl
 		}
 		_ = requestParams
 		_ = responseReturns
+	}
+}
+
+func renderUnimplementedGoNativeServer(g *protogen.GeneratedFile, service ServicePlan) {
+	serverName := "Unimplemented" + service.GoName + "NativeServer"
+	g.P("type ", serverName, " struct{}")
+	g.P()
+	for _, method := range service.Methods {
+		requestParams := nativeGoRequestParams(g, method.Contract.Native.RequestFields)
+		responseReturns := nativeGoResponseReturns(g, method.Contract.Native.ResponseFields)
+		errExpr := `errors.New("rpccgo: ` + service.GoName + "." + method.GoName + ` native server method is not implemented")`
+		switch method.Streaming {
+		case StreamingKindUnary:
+			g.P("func (", serverName, ") ", method.GoName, "(ctx context.Context", requestParams, ") (", responseReturns, ") {")
+			g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, errExpr))
+			g.P("}")
+		case StreamingKindClientStreaming:
+			g.P("func (", serverName, ") ", method.GoName, "(ctx context.Context, stream ", service.GoName, method.GoName, "NativeClientStream) (", responseReturns, ") {")
+			g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, errExpr))
+			g.P("}")
+		case StreamingKindServerStreaming:
+			g.P("func (", serverName, ") ", method.GoName, "(ctx context.Context", requestParams, ", stream ", service.GoName, method.GoName, "NativeServerStream) error {")
+			g.P("return ", errExpr)
+			g.P("}")
+		case StreamingKindBidiStreaming:
+			g.P("func (", serverName, ") ", method.GoName, "(ctx context.Context, stream ", service.GoName, method.GoName, "NativeBidiStream) error {")
+			g.P("return ", errExpr)
+			g.P("}")
+		}
+		g.P()
 	}
 }
 
@@ -1011,6 +1047,9 @@ func validateNativeServerSymbols(service ServicePlan) error {
 	}
 
 	if err := addGenerated(service.GoName+"NativeServer", service.FullName+" native server interface"); err != nil {
+		return err
+	}
+	if err := addGenerated("Unimplemented"+service.GoName+"NativeServer", service.FullName+" unimplemented native server helper"); err != nil {
 		return err
 	}
 	if err := addGenerated(lowerInitial(service.GoName)+"GoNativeAdapter", service.FullName+" go native adapter"); err != nil {

@@ -60,8 +60,10 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	activeSlotName := lowerInitial(service.GoName) + "ActiveSlot"
 	streamRegistryName := lowerInitial(service.GoName) + "StreamRegistry"
 
-	renderRuntimeNativeServerContract(g, service)
-	renderRuntimeNativeStreamContracts(g, service)
+	if !service.NativeFileFamily.NativeServer.Enabled {
+		renderGoNativeServerInterface(g, service, adapterName)
+		renderGoNativeStreamInterfaces(g, service)
+	}
 	errorNames := nativeServerErrorNamesFor(service)
 	g.P("var (")
 	g.P(errorNames.RequestBridgeNotImplemented, ` = errors.New("rpccgo: native request bridge is not implemented")`)
@@ -118,52 +120,6 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	renderRuntimeMessageEntrypoints(g, service.GoName, messageAdapterName, bridgeName, runtimeMethods)
 
 	return nil
-}
-
-func renderRuntimeNativeServerContract(g *protogen.GeneratedFile, service ServicePlan) {
-	serverName := service.GoName + "NativeServer"
-	g.P("type ", serverName, " interface {")
-	for _, method := range service.Methods {
-		requestParams := nativeGoRequestParams(g, method.Contract.Native.RequestFields)
-		responseReturns := nativeGoResponseReturns(g, method.Contract.Native.ResponseFields)
-		switch method.Streaming {
-		case StreamingKindUnary:
-			g.P(method.GoName, "(ctx context.Context", requestParams, ") (", responseReturns, ")")
-		case StreamingKindClientStreaming:
-			g.P(method.GoName, "(ctx context.Context, stream ", service.GoName, method.GoName, "NativeClientStream) (", responseReturns, ")")
-		case StreamingKindServerStreaming:
-			g.P(method.GoName, "(ctx context.Context", requestParams, ", stream ", service.GoName, method.GoName, "NativeServerStream) error")
-		case StreamingKindBidiStreaming:
-			g.P(method.GoName, "(ctx context.Context, stream ", service.GoName, method.GoName, "NativeBidiStream) error")
-		}
-	}
-	g.P("}")
-	g.P()
-}
-
-func renderRuntimeNativeStreamContracts(g *protogen.GeneratedFile, service ServicePlan) {
-	for _, method := range service.Methods {
-		requestReturns := nativeGoRequestReturns(g, method.Contract.Native.RequestFields)
-		responseParams := nativeGoResponseParams(g, method.Contract.Native.ResponseFields)
-		switch method.Streaming {
-		case StreamingKindClientStreaming:
-			g.P("type ", service.GoName, method.GoName, "NativeClientStream interface {")
-			g.P("Recv(ctx context.Context) (", requestReturns, ")")
-			g.P("}")
-			g.P()
-		case StreamingKindServerStreaming:
-			g.P("type ", service.GoName, method.GoName, "NativeServerStream interface {")
-			g.P("Send(ctx context.Context", responseParams, ") error")
-			g.P("}")
-			g.P()
-		case StreamingKindBidiStreaming:
-			g.P("type ", service.GoName, method.GoName, "NativeBidiStream interface {")
-			g.P("Recv(ctx context.Context) (", requestReturns, ")")
-			g.P("Send(ctx context.Context", responseParams, ") error")
-			g.P("}")
-			g.P()
-		}
-	}
 }
 
 type runtimeAdapterMethod struct {

@@ -356,7 +356,7 @@ cgo 文件输出到 `cgo_dir`，使用 `package main`，因此 native/message co
 
 - `runtime` 保存 runtime bridge、active slot、service-local stream registry binding、server registration、connect/grpc local active server direct invocation、connect/grpc remote client direct invocation 和 session glue。
 - `codec` 保存 native/message 转换。
-- `server.native` 保存 Go native server interface 和 adapter，仅在 `native` 启用时生成。
+- `server.native` 保存 Go native server contract interface、native stream interfaces、Go native registration helper 和 optional unimplemented helper，仅在 `native` 启用时生成。
 - `exports.cgo` 保存 cgo package shared exports。
 - `server.native.cgo` 保存 cgo native server callback ABI。
 - `client.native.cgo` 保存 cgo native client ABI。

@@ -6,5 +6,6 @@ rpccgo generated service runtime does not expose service-level `NativeAdapter` o
 
 - C message server contracts are generated in a separate protobuf Go package file such as `<proto-prefix>.<service>.server.message.rpccgo.go`.
 - C message server methods use the service method Go name without an extra `Message` suffix; the contract is expressed by the server interface name.
+- Go native server contracts are generated in a separate protobuf Go package file such as `<proto-prefix>.<service>.server.native.rpccgo.go`, together with their native stream interfaces and optional `Unimplemented<Service>NativeServer` helper.
 - `Register<Service>GoNativeServer` and the C native registration path use the shared `<Service>NativeServer` contract instead of a generated `<Service>NativeAdapter` interface.
 - `Register<Service>CGOMessageServer` uses `<Service>CGOMessageServer` instead of a generated `<Service>MessageAdapter` interface.

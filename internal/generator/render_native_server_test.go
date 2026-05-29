@@ -22,6 +22,13 @@ func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) 
 
 	const nativeServerFile = "test/v1/complete_service_plan.all_service.server.native.rpccgo.go"
 	for _, fragment := range []string{
+		"type AllServiceNativeServer interface {",
+		"Unary(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (bool, []byte, error)",
+		"ClientStream(ctx context.Context, stream AllServiceClientStreamNativeClientStream) (bool, []byte, error)",
+		"ServerStream(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes, stream AllServiceServerStreamNativeServerStream) error",
+		"BidiStream(ctx context.Context, stream AllServiceBidiStreamNativeBidiStream) error",
+		"type UnimplementedAllServiceNativeServer struct{}",
+		`errors.New("rpccgo: AllService.Unary native server method is not implemented")`,
 		"func RegisterAllServiceGoNativeServer(server AllServiceNativeServer) (rpcruntime.AdapterSnapshot[AllServiceNativeServer], error) {",
 		`errors.New("rpccgo: AllService go native server is nil")`,
 		"return registerAllServiceActiveServer(rpcruntime.ServerKindGoNative, server)",
@@ -38,7 +45,7 @@ func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) 
 	)
 	assertGeneratedFileContentDoesNotContain(t, plugin, nativeServerFile,
 		"connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf",
-		"type AllServiceNativeServer interface {", "type allServiceGoNativeAdapter struct {",
+		"type allServiceGoNativeAdapter struct {", "type allServiceNativeServerAdapter struct {",
 	)
 }
 
@@ -54,10 +61,21 @@ func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
 		t.Fatalf("RenderNativeStageFiles() error = %v", err)
 	}
 
-	const nativeServerFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
+	const nativeServerFile = "test/v1/complete_service_plan.all_service.server.native.rpccgo.go"
 	for _, fragment := range []string{
 		"type AllServiceClientStreamNativeClientStream interface {",
 		"Recv(ctx context.Context) (*rpcruntime.RpcString, bool, *rpcruntime.RpcBytes, error)",
+		"type AllServiceServerStreamNativeServerStream interface {",
+		"Send(ctx context.Context, accepted bool, payload []byte) error",
+		"type AllServiceBidiStreamNativeBidiStream interface {",
+		"Recv(ctx context.Context) (*rpcruntime.RpcString, bool, *rpcruntime.RpcBytes, error)",
+		"Send(ctx context.Context, accepted bool, payload []byte) error",
+	} {
+		assertGeneratedContentContains(t, plugin, nativeServerFile, fragment)
+	}
+
+	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
+	for _, fragment := range []string{
 		"type allServiceClientStreamGoNativeClientStreamSessionRequest struct {",
 		"type allServiceClientStreamGoNativeClientStreamSessionResult struct {",
 		"func (s *allServiceClientStreamGoNativeClientStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) error",
@@ -65,8 +83,6 @@ func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
 		"Cancel(ctx context.Context) error",
 		"case s.requests <- req:",
 		"return s.result.accepted, s.result.payload, s.result.err",
-		"type AllServiceServerStreamNativeServerStream interface {",
-		"Send(ctx context.Context, accepted bool, payload []byte) error",
 		"type allServiceServerStreamGoNativeServerStreamSession struct {",
 		"responses     chan allServiceServerStreamGoNativeServerStreamSessionResponse",
 		"received      chan struct{}",
@@ -74,14 +90,13 @@ func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
 		"func (s *allServiceServerStreamGoNativeServerStreamSession) Recv(ctx context.Context) (bool, []byte, error)",
 		"case s.responses <- resp:",
 		"return false, nil, io.EOF",
-		"type AllServiceBidiStreamNativeBidiStream interface {",
 		"type allServiceBidiStreamGoNativeBidiStreamSession struct {",
 		"type allServiceBidiStreamGoNativeBidiStreamFacade struct {",
 		"func (s *allServiceBidiStreamGoNativeBidiStreamFacade) Recv(ctx context.Context) (*rpcruntime.RpcString, bool, *rpcruntime.RpcBytes, error)",
 		"func (s *allServiceBidiStreamGoNativeBidiStreamSession) Recv(ctx context.Context) (bool, []byte, error)",
 		"s.closeSendOnce.Do(func() { close(s.sendDone) })",
 	} {
-		assertGeneratedContentContains(t, plugin, nativeServerFile, fragment)
+		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
 }
 
@@ -122,6 +137,18 @@ func TestRenderNativeServerRejectsGeneratedSymbolCollisions(t *testing.T) {
 				Response:  MethodIOPlan{GoName: "AllReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.AllReply"},
 			}}),
 			wantError: "AllServiceNativeServer",
+		},
+		{
+			name: "unimplemented native server collides with request message",
+			service: nativeServerCollisionTestService("AllService", []MethodPlan{{
+				Name:      "Unary",
+				GoName:    "Unary",
+				FullName:  "test.v1.AllService.Unary",
+				Streaming: StreamingKindUnary,
+				Request:   MethodIOPlan{GoName: "UnimplementedAllServiceNativeServer", GoImportPath: "example.com/test/v1", FullName: "test.v1.UnimplementedAllServiceNativeServer"},
+				Response:  MethodIOPlan{GoName: "AllReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.AllReply"},
+			}}),
+			wantError: "UnimplementedAllServiceNativeServer",
 		},
 		{
 			name: "method stream interface collides with response message",
@@ -230,6 +257,77 @@ func TestRenderNativeServerGeneratedSourceCompiles(t *testing.T) {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("generated native server go test failed: %v\n%s", err, out)
+	}
+}
+
+func TestRenderNativeServerUnimplementedHelperSupportsPartialImplementation(t *testing.T) {
+	file := completeServicePlanTestFile()
+	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/complete_service_plan.proto", file)
+
+	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	tmp := t.TempDir()
+	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {
+		return strings.Contains(name, ".runtime.rpccgo.go") ||
+			strings.Contains(name, ".server.message.rpccgo.go") ||
+			strings.Contains(name, ".server.native.rpccgo.go")
+	})
+	writeNativeServerCompileStubs(t, tmp)
+	writePartialNativeServerBehaviorTest(t, tmp)
+
+	cmd := exec.Command("go", "test", "-mod=mod", "./...")
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("generated partial native server go test failed: %v\n%s", err, out)
+	}
+}
+
+func writePartialNativeServerBehaviorTest(t *testing.T, root string) {
+	t.Helper()
+
+	const content = `package generated_test
+
+import (
+	context "context"
+	strings "strings"
+	testing "testing"
+
+	testv1 "example.com/test/v1"
+	rpcruntime "rpccgo/rpcruntime"
+)
+
+type partialAllServiceNativeServer struct {
+	testv1.UnimplementedAllServiceNativeServer
+}
+
+func (partialAllServiceNativeServer) ServerStream(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes, stream testv1.AllServiceServerStreamNativeServerStream) error {
+	return nil
+}
+
+func TestPartialNativeServerUsesUnimplementedFallback(t *testing.T) {
+	if _, err := testv1.RegisterAllServiceGoNativeServer(partialAllServiceNativeServer{}); err != nil {
+		t.Fatalf("RegisterAllServiceGoNativeServer() error = %v", err)
+	}
+
+	accepted, payload, err := testv1.InvokeAllServiceNativeUnary(context.Background(), rpcruntime.EmptyRpcString(), false, rpcruntime.EmptyRpcBytes())
+	if err == nil {
+		t.Fatal("InvokeAllServiceNativeUnary() error = nil, want unimplemented error")
+	}
+	if accepted || payload != nil {
+		t.Fatalf("InvokeAllServiceNativeUnary() = (%v, %v, %v), want zero values and error", accepted, payload, err)
+	}
+	if got := err.Error(); !strings.Contains(got, "rpccgo: AllService.Unary native server method is not implemented") {
+		t.Fatalf("InvokeAllServiceNativeUnary() error = %q, want method-specific unimplemented error", got)
+	}
+}
+`
+	target := filepath.Join(root, "partial_native_server_test.go")
+	if err := os.WriteFile(target, []byte(content), 0o644); err != nil {
+		t.Fatalf("write partial native server behavior test: %v", err)
 	}
 }
 

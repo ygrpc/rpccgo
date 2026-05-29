@@ -38,9 +38,14 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 	assertGeneratedFileContentDoesNotContain(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go",
 		"type GreeterNativeAdapter interface {",
 		"type GreeterMessageAdapter interface {",
-	)
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go",
 		"type GreeterNativeServer interface {",
+		"type UnimplementedGreeterNativeServer struct{}",
+	)
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go",
+		"type GreeterNativeServer interface {",
+	)
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go",
+		"type UnimplementedGreeterNativeServer struct{}",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go",
 		"type GreeterCGOMessageServer interface {",

@@ -303,7 +303,8 @@ func TestRenderStageFilesEmitsMixedNativeAndMessageCGOFamilies(t *testing.T) {
 		"test/v1/greeter.greeter.codec.rpccgo.go",
 	})
 	assertNoGeneratedFilenameContains(t, plugin, ".grpc.")
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "type GreeterNativeServer interface {")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go", "type GreeterNativeServer interface {")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go", "type UnimplementedGreeterNativeServer struct{}")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go", "type GreeterCGOMessageServer interface {")
 	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.server.native.cgo.rpccgo.go", "rpccgo native generated file for Greeter cgo native server")
 	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.native.cgo.rpccgo.go", "rpccgo native generated file for Greeter cgo native client")

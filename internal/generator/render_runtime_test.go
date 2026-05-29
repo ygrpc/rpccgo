@@ -43,13 +43,12 @@ func TestRenderRuntimeGlueDefinesServiceActiveSlotAndRegistration(t *testing.T) 
 	assertGeneratedFileContentDoesNotContain(t, plugin, runtimeFile,
 		"CGONativeClientBridge",
 		"CGOMessageClientBridge",
+		"type AllServiceNativeServer interface {",
+		"type AllServiceClientStreamNativeClientStream interface {",
+		"type AllServiceServerStreamNativeServerStream interface {",
+		"type AllServiceBidiStreamNativeBidiStream interface {",
 	)
 	for _, fragment := range []string{
-		"type AllServiceNativeServer interface {",
-		"Unary(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (bool, []byte, error)",
-		"ClientStream(ctx context.Context, stream AllServiceClientStreamNativeClientStream) (bool, []byte, error)",
-		"ServerStream(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes, stream AllServiceServerStreamNativeServerStream) error",
-		"BidiStream(ctx context.Context, stream AllServiceBidiStreamNativeBidiStream) error",
 		"type allServiceNativeServerAdapter struct {",
 		"func (a *allServiceNativeServerAdapter) StartClientStream(ctx context.Context) (AllServiceClientStreamNativeStreamSession, error)",
 		"type AllServiceClientStreamNativeStreamSession interface {",
@@ -519,7 +518,7 @@ func TestRenderRuntimeGeneratedSourceCompiles(t *testing.T) {
 
 	for _, generated := range plugin.Response().GetFile() {
 		name := generated.GetName()
-		if !strings.Contains(name, ".runtime.rpccgo.go") && !strings.Contains(name, ".server.message.rpccgo.go") {
+		if !strings.Contains(name, ".runtime.rpccgo.go") && !strings.Contains(name, ".server.message.rpccgo.go") && !strings.Contains(name, ".server.native.rpccgo.go") {
 			continue
 		}
 		target := filepath.Join(tmp, name)
@@ -690,7 +689,8 @@ func TestRenderRuntimeGeneratedSourceCompilesWithGRPCDirectStreaming(t *testing.
 	tmp := t.TempDir()
 	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {
 		return strings.Contains(name, ".runtime.rpccgo.go") ||
-			strings.Contains(name, ".server.message.rpccgo.go")
+			strings.Contains(name, ".server.message.rpccgo.go") ||
+			strings.Contains(name, ".server.native.rpccgo.go")
 	})
 	writeGRPCStreamingRuntimeCompileStubs(t, tmp)
 
