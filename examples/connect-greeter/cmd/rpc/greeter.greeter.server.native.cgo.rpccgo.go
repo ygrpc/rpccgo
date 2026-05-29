@@ -5,7 +5,7 @@
 package main
 
 import (
-	proto "example.com/rpccgo-full/proto"
+	proto "example.com/rpccgo-connect/proto"
 )
 
 /*
@@ -542,7 +542,7 @@ func encodeGreeterSayHelloCGONativeUnaryRequest(name *rpcruntime.RpcString, city
 
 func decodeGreeterSayHelloCGONativeUnaryResponse(messagePtr C.uintptr_t, messageLen C.int32_t, messageOwnership C.int32_t) (string, error) {
 	if _, err := rpcruntime.LengthFromInt32(int32(messageLen)); err != nil {
-		return "", fmt.Errorf("examples.full.greeter.v1.SayHelloResponse.message: %w", err)
+		return "", fmt.Errorf("examples.connect.greeter.v1.SayHelloResponse.message: %w", err)
 	}
 	messageWrapper := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(messagePtr))), int32(messageLen), false)
 	messageResult := messageWrapper.SafeString()
@@ -552,7 +552,7 @@ func decodeGreeterSayHelloCGONativeUnaryResponse(messagePtr C.uintptr_t, message
 func cleanupGreeterSayHelloCGONativeUnaryResponse(messagePtr C.uintptr_t, messageLen C.int32_t, messageOwnership C.int32_t) error {
 	var cleanupErr error
 	if messageOwnership > 0 && messagePtr != 0 {
-		if err := rpcruntime.ReleaseC(unsafe.Pointer(uintptr(messagePtr)), true, "examples.full.greeter.v1.SayHelloResponse.message"); err != nil {
+		if err := rpcruntime.ReleaseC(unsafe.Pointer(uintptr(messagePtr)), true, "examples.connect.greeter.v1.SayHelloResponse.message"); err != nil {
 			cleanupErr = errors.Join(cleanupErr, err)
 		}
 	}
@@ -607,7 +607,7 @@ func encodeGreeterCollectCGONativeClientStreamRequest(name *rpcruntime.RpcString
 
 func decodeGreeterCollectCGONativeClientStreamResponse(messagePtr C.uintptr_t, messageLen C.int32_t, messageOwnership C.int32_t) (string, error) {
 	if _, err := rpcruntime.LengthFromInt32(int32(messageLen)); err != nil {
-		return "", fmt.Errorf("examples.full.greeter.v1.SayHelloResponse.message: %w", err)
+		return "", fmt.Errorf("examples.connect.greeter.v1.SayHelloResponse.message: %w", err)
 	}
 	messageWrapper := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(messagePtr))), int32(messageLen), false)
 	messageResult := messageWrapper.SafeString()
@@ -617,7 +617,7 @@ func decodeGreeterCollectCGONativeClientStreamResponse(messagePtr C.uintptr_t, m
 func cleanupGreeterCollectCGONativeClientStreamResponse(messagePtr C.uintptr_t, messageLen C.int32_t, messageOwnership C.int32_t) error {
 	var cleanupErr error
 	if messageOwnership > 0 && messagePtr != 0 {
-		if err := rpcruntime.ReleaseC(unsafe.Pointer(uintptr(messagePtr)), true, "examples.full.greeter.v1.SayHelloResponse.message"); err != nil {
+		if err := rpcruntime.ReleaseC(unsafe.Pointer(uintptr(messagePtr)), true, "examples.connect.greeter.v1.SayHelloResponse.message"); err != nil {
 			cleanupErr = errors.Join(cleanupErr, err)
 		}
 	}
@@ -672,7 +672,7 @@ func encodeGreeterBroadcastCGONativeServerStreamRequest(name *rpcruntime.RpcStri
 
 func decodeGreeterBroadcastCGONativeServerStreamResponse(messagePtr C.uintptr_t, messageLen C.int32_t, messageOwnership C.int32_t) (string, error) {
 	if _, err := rpcruntime.LengthFromInt32(int32(messageLen)); err != nil {
-		return "", fmt.Errorf("examples.full.greeter.v1.SayHelloResponse.message: %w", err)
+		return "", fmt.Errorf("examples.connect.greeter.v1.SayHelloResponse.message: %w", err)
 	}
 	messageWrapper := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(messagePtr))), int32(messageLen), false)
 	messageResult := messageWrapper.SafeString()
@@ -682,7 +682,7 @@ func decodeGreeterBroadcastCGONativeServerStreamResponse(messagePtr C.uintptr_t,
 func cleanupGreeterBroadcastCGONativeServerStreamResponse(messagePtr C.uintptr_t, messageLen C.int32_t, messageOwnership C.int32_t) error {
 	var cleanupErr error
 	if messageOwnership > 0 && messagePtr != 0 {
-		if err := rpcruntime.ReleaseC(unsafe.Pointer(uintptr(messagePtr)), true, "examples.full.greeter.v1.SayHelloResponse.message"); err != nil {
+		if err := rpcruntime.ReleaseC(unsafe.Pointer(uintptr(messagePtr)), true, "examples.connect.greeter.v1.SayHelloResponse.message"); err != nil {
 			cleanupErr = errors.Join(cleanupErr, err)
 		}
 	}
@@ -737,7 +737,7 @@ func encodeGreeterChatCGONativeBidiStreamRequest(name *rpcruntime.RpcString, cit
 
 func decodeGreeterChatCGONativeBidiStreamResponse(messagePtr C.uintptr_t, messageLen C.int32_t, messageOwnership C.int32_t) (string, error) {
 	if _, err := rpcruntime.LengthFromInt32(int32(messageLen)); err != nil {
-		return "", fmt.Errorf("examples.full.greeter.v1.SayHelloResponse.message: %w", err)
+		return "", fmt.Errorf("examples.connect.greeter.v1.SayHelloResponse.message: %w", err)
 	}
 	messageWrapper := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(messagePtr))), int32(messageLen), false)
 	messageResult := messageWrapper.SafeString()
@@ -747,7 +747,7 @@ func decodeGreeterChatCGONativeBidiStreamResponse(messagePtr C.uintptr_t, messag
 func cleanupGreeterChatCGONativeBidiStreamResponse(messagePtr C.uintptr_t, messageLen C.int32_t, messageOwnership C.int32_t) error {
 	var cleanupErr error
 	if messageOwnership > 0 && messagePtr != 0 {
-		if err := rpcruntime.ReleaseC(unsafe.Pointer(uintptr(messagePtr)), true, "examples.full.greeter.v1.SayHelloResponse.message"); err != nil {
+		if err := rpcruntime.ReleaseC(unsafe.Pointer(uintptr(messagePtr)), true, "examples.connect.greeter.v1.SayHelloResponse.message"); err != nil {
 			cleanupErr = errors.Join(cleanupErr, err)
 		}
 	}

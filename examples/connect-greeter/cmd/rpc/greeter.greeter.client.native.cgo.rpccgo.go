@@ -5,7 +5,7 @@
 package main
 
 import (
-	proto "example.com/rpccgo-full/proto"
+	proto "example.com/rpccgo-connect/proto"
 )
 
 /*
@@ -60,7 +60,7 @@ func decodeGreeterSayHelloNativeUnaryRequest(NamePtr uintptr, NameLen int32, Nam
 		return errors.Join(errs...)
 	}
 	if _, err := rpcruntime.LengthFromInt32(NameLen); err != nil {
-		return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", err), cleanupDecoded())
+		return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.name: %w", err), cleanupDecoded())
 	}
 	var nameValue *rpcruntime.RpcString
 	if NamePtr == 0 || NameLen == 0 {
@@ -69,12 +69,12 @@ func decodeGreeterSayHelloNativeUnaryRequest(NamePtr uintptr, NameLen int32, Nam
 		var decodeErr error
 		nameValue, decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(NamePtr)), NameLen, NameOwnership > 0)
 		if decodeErr != nil {
-			return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", decodeErr), cleanupDecoded())
+			return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.name: %w", decodeErr), cleanupDecoded())
 		}
 	}
 	decoded = append(decoded, nameValue)
 	if _, err := rpcruntime.LengthFromInt32(CityLen); err != nil {
-		return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", err), cleanupDecoded())
+		return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.city: %w", err), cleanupDecoded())
 	}
 	var cityValue *rpcruntime.RpcString
 	if CityPtr == 0 || CityLen == 0 {
@@ -83,7 +83,7 @@ func decodeGreeterSayHelloNativeUnaryRequest(NamePtr uintptr, NameLen int32, Nam
 		var decodeErr error
 		cityValue, decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(CityPtr)), CityLen, CityOwnership > 0)
 		if decodeErr != nil {
-			return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", decodeErr), cleanupDecoded())
+			return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.city: %w", decodeErr), cleanupDecoded())
 		}
 	}
 	decoded = append(decoded, cityValue)
@@ -210,7 +210,7 @@ func decodeGreeterCollectNativeClientStreamRequest(NamePtr uintptr, NameLen int3
 		return errors.Join(errs...)
 	}
 	if _, err := rpcruntime.LengthFromInt32(NameLen); err != nil {
-		return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", err), cleanupDecoded())
+		return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.name: %w", err), cleanupDecoded())
 	}
 	var nameValue *rpcruntime.RpcString
 	if NamePtr == 0 || NameLen == 0 {
@@ -219,12 +219,12 @@ func decodeGreeterCollectNativeClientStreamRequest(NamePtr uintptr, NameLen int3
 		var decodeErr error
 		nameValue, decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(NamePtr)), NameLen, NameOwnership > 0)
 		if decodeErr != nil {
-			return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", decodeErr), cleanupDecoded())
+			return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.name: %w", decodeErr), cleanupDecoded())
 		}
 	}
 	decoded = append(decoded, nameValue)
 	if _, err := rpcruntime.LengthFromInt32(CityLen); err != nil {
-		return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", err), cleanupDecoded())
+		return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.city: %w", err), cleanupDecoded())
 	}
 	var cityValue *rpcruntime.RpcString
 	if CityPtr == 0 || CityLen == 0 {
@@ -233,7 +233,7 @@ func decodeGreeterCollectNativeClientStreamRequest(NamePtr uintptr, NameLen int3
 		var decodeErr error
 		cityValue, decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(CityPtr)), CityLen, CityOwnership > 0)
 		if decodeErr != nil {
-			return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", decodeErr), cleanupDecoded())
+			return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.city: %w", decodeErr), cleanupDecoded())
 		}
 	}
 	decoded = append(decoded, cityValue)
@@ -387,7 +387,7 @@ func decodeGreeterBroadcastNativeServerStreamRequest(NamePtr uintptr, NameLen in
 		return errors.Join(errs...)
 	}
 	if _, err := rpcruntime.LengthFromInt32(NameLen); err != nil {
-		return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", err), cleanupDecoded())
+		return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.name: %w", err), cleanupDecoded())
 	}
 	var nameValue *rpcruntime.RpcString
 	if NamePtr == 0 || NameLen == 0 {
@@ -396,12 +396,12 @@ func decodeGreeterBroadcastNativeServerStreamRequest(NamePtr uintptr, NameLen in
 		var decodeErr error
 		nameValue, decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(NamePtr)), NameLen, NameOwnership > 0)
 		if decodeErr != nil {
-			return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", decodeErr), cleanupDecoded())
+			return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.name: %w", decodeErr), cleanupDecoded())
 		}
 	}
 	decoded = append(decoded, nameValue)
 	if _, err := rpcruntime.LengthFromInt32(CityLen); err != nil {
-		return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", err), cleanupDecoded())
+		return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.city: %w", err), cleanupDecoded())
 	}
 	var cityValue *rpcruntime.RpcString
 	if CityPtr == 0 || CityLen == 0 {
@@ -410,7 +410,7 @@ func decodeGreeterBroadcastNativeServerStreamRequest(NamePtr uintptr, NameLen in
 		var decodeErr error
 		cityValue, decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(CityPtr)), CityLen, CityOwnership > 0)
 		if decodeErr != nil {
-			return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", decodeErr), cleanupDecoded())
+			return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.city: %w", decodeErr), cleanupDecoded())
 		}
 	}
 	decoded = append(decoded, cityValue)
@@ -587,7 +587,7 @@ func decodeGreeterChatNativeBidiStreamRequest(NamePtr uintptr, NameLen int32, Na
 		return errors.Join(errs...)
 	}
 	if _, err := rpcruntime.LengthFromInt32(NameLen); err != nil {
-		return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", err), cleanupDecoded())
+		return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.name: %w", err), cleanupDecoded())
 	}
 	var nameValue *rpcruntime.RpcString
 	if NamePtr == 0 || NameLen == 0 {
@@ -596,12 +596,12 @@ func decodeGreeterChatNativeBidiStreamRequest(NamePtr uintptr, NameLen int32, Na
 		var decodeErr error
 		nameValue, decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(NamePtr)), NameLen, NameOwnership > 0)
 		if decodeErr != nil {
-			return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.name: %w", decodeErr), cleanupDecoded())
+			return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.name: %w", decodeErr), cleanupDecoded())
 		}
 	}
 	decoded = append(decoded, nameValue)
 	if _, err := rpcruntime.LengthFromInt32(CityLen); err != nil {
-		return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", err), cleanupDecoded())
+		return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.city: %w", err), cleanupDecoded())
 	}
 	var cityValue *rpcruntime.RpcString
 	if CityPtr == 0 || CityLen == 0 {
@@ -610,7 +610,7 @@ func decodeGreeterChatNativeBidiStreamRequest(NamePtr uintptr, NameLen int32, Na
 		var decodeErr error
 		cityValue, decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(CityPtr)), CityLen, CityOwnership > 0)
 		if decodeErr != nil {
-			return nil, nil, errors.Join(fmt.Errorf("examples.full.greeter.v1.SayHelloRequest.city: %w", decodeErr), cleanupDecoded())
+			return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.city: %w", decodeErr), cleanupDecoded())
 		}
 	}
 	decoded = append(decoded, cityValue)

@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	greeterv1 "example.com/rpccgo-full/proto"
+	greeterv1 "example.com/rpccgo-connect/proto"
 	rpcruntime "rpccgo/rpcruntime"
 )
 

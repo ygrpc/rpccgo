@@ -21,7 +21,7 @@ const _ = connect.IsAtLeastVersion1_13_0
 
 const (
 	// GreeterName is the fully-qualified name of the Greeter service.
-	GreeterName = "examples.full.greeter.v1.Greeter"
+	GreeterName = "examples.connect.greeter.v1.Greeter"
 )
 
 // These constants are the fully-qualified names of the RPCs defined in this package. They're
@@ -33,16 +33,16 @@ const (
 // period.
 const (
 	// GreeterSayHelloProcedure is the fully-qualified name of the Greeter's SayHello RPC.
-	GreeterSayHelloProcedure = "/examples.full.greeter.v1.Greeter/SayHello"
+	GreeterSayHelloProcedure = "/examples.connect.greeter.v1.Greeter/SayHello"
 	// GreeterCollectProcedure is the fully-qualified name of the Greeter's Collect RPC.
-	GreeterCollectProcedure = "/examples.full.greeter.v1.Greeter/Collect"
+	GreeterCollectProcedure = "/examples.connect.greeter.v1.Greeter/Collect"
 	// GreeterBroadcastProcedure is the fully-qualified name of the Greeter's Broadcast RPC.
-	GreeterBroadcastProcedure = "/examples.full.greeter.v1.Greeter/Broadcast"
+	GreeterBroadcastProcedure = "/examples.connect.greeter.v1.Greeter/Broadcast"
 	// GreeterChatProcedure is the fully-qualified name of the Greeter's Chat RPC.
-	GreeterChatProcedure = "/examples.full.greeter.v1.Greeter/Chat"
+	GreeterChatProcedure = "/examples.connect.greeter.v1.Greeter/Chat"
 )
 
-// GreeterClient is a client for the examples.full.greeter.v1.Greeter service.
+// GreeterClient is a client for the examples.connect.greeter.v1.Greeter service.
 type GreeterClient interface {
 	SayHello(context.Context, *SayHelloRequest) (*SayHelloResponse, error)
 	Collect(context.Context) (*connect.ClientStreamForClientSimple[SayHelloRequest, SayHelloResponse], error)
@@ -50,7 +50,7 @@ type GreeterClient interface {
 	Chat(context.Context) (*connect.BidiStreamForClientSimple[SayHelloRequest, SayHelloResponse], error)
 }
 
-// NewGreeterClient constructs a client for the examples.full.greeter.v1.Greeter service. By
+// NewGreeterClient constructs a client for the examples.connect.greeter.v1.Greeter service. By
 // default, it uses the Connect protocol with the binary Protobuf Codec, asks for gzipped responses,
 // and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the
 // connect.WithGRPC() or connect.WithGRPCWeb() options.
@@ -96,7 +96,7 @@ type greeterClient struct {
 	chat      *connect.Client[SayHelloRequest, SayHelloResponse]
 }
 
-// SayHello calls examples.full.greeter.v1.Greeter.SayHello.
+// SayHello calls examples.connect.greeter.v1.Greeter.SayHello.
 func (c *greeterClient) SayHello(ctx context.Context, req *SayHelloRequest) (*SayHelloResponse, error) {
 	response, err := c.sayHello.CallUnary(ctx, connect.NewRequest(req))
 	if response != nil {
@@ -105,22 +105,22 @@ func (c *greeterClient) SayHello(ctx context.Context, req *SayHelloRequest) (*Sa
 	return nil, err
 }
 
-// Collect calls examples.full.greeter.v1.Greeter.Collect.
+// Collect calls examples.connect.greeter.v1.Greeter.Collect.
 func (c *greeterClient) Collect(ctx context.Context) (*connect.ClientStreamForClientSimple[SayHelloRequest, SayHelloResponse], error) {
 	return c.collect.CallClientStreamSimple(ctx)
 }
 
-// Broadcast calls examples.full.greeter.v1.Greeter.Broadcast.
+// Broadcast calls examples.connect.greeter.v1.Greeter.Broadcast.
 func (c *greeterClient) Broadcast(ctx context.Context, req *SayHelloRequest) (*connect.ServerStreamForClient[SayHelloResponse], error) {
 	return c.broadcast.CallServerStream(ctx, connect.NewRequest(req))
 }
 
-// Chat calls examples.full.greeter.v1.Greeter.Chat.
+// Chat calls examples.connect.greeter.v1.Greeter.Chat.
 func (c *greeterClient) Chat(ctx context.Context) (*connect.BidiStreamForClientSimple[SayHelloRequest, SayHelloResponse], error) {
 	return c.chat.CallBidiStreamSimple(ctx)
 }
 
-// GreeterHandler is an implementation of the examples.full.greeter.v1.Greeter service.
+// GreeterHandler is an implementation of the examples.connect.greeter.v1.Greeter service.
 type GreeterHandler interface {
 	SayHello(context.Context, *SayHelloRequest) (*SayHelloResponse, error)
 	Collect(context.Context, *connect.ClientStream[SayHelloRequest]) (*SayHelloResponse, error)
@@ -159,7 +159,7 @@ func NewGreeterHandler(svc GreeterHandler, opts ...connect.HandlerOption) (strin
 		connect.WithSchema(greeterMethods.ByName("Chat")),
 		connect.WithHandlerOptions(opts...),
 	)
-	return "/examples.full.greeter.v1.Greeter/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	return "/examples.connect.greeter.v1.Greeter/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case GreeterSayHelloProcedure:
 			greeterSayHelloHandler.ServeHTTP(w, r)
@@ -179,17 +179,17 @@ func NewGreeterHandler(svc GreeterHandler, opts ...connect.HandlerOption) (strin
 type UnimplementedGreeterHandler struct{}
 
 func (UnimplementedGreeterHandler) SayHello(context.Context, *SayHelloRequest) (*SayHelloResponse, error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("examples.full.greeter.v1.Greeter.SayHello is not implemented"))
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("examples.connect.greeter.v1.Greeter.SayHello is not implemented"))
 }
 
 func (UnimplementedGreeterHandler) Collect(context.Context, *connect.ClientStream[SayHelloRequest]) (*SayHelloResponse, error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("examples.full.greeter.v1.Greeter.Collect is not implemented"))
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("examples.connect.greeter.v1.Greeter.Collect is not implemented"))
 }
 
 func (UnimplementedGreeterHandler) Broadcast(context.Context, *SayHelloRequest, *connect.ServerStream[SayHelloResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("examples.full.greeter.v1.Greeter.Broadcast is not implemented"))
+	return connect.NewError(connect.CodeUnimplemented, errors.New("examples.connect.greeter.v1.Greeter.Broadcast is not implemented"))
 }
 
 func (UnimplementedGreeterHandler) Chat(context.Context, *connect.BidiStream[SayHelloRequest, SayHelloResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("examples.full.greeter.v1.Greeter.Chat is not implemented"))
+	return connect.NewError(connect.CodeUnimplemented, errors.New("examples.connect.greeter.v1.Greeter.Chat is not implemented"))
 }

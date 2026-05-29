@@ -1,4 +1,4 @@
-module example.com/rpccgo-full
+module example.com/rpccgo-connect
 
 go 1.24.4
 

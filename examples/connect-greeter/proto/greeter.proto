@@ -1,8 +1,8 @@
 syntax = "proto3";
 
-package examples.full.greeter.v1;
+package examples.connect.greeter.v1;
 
-option go_package = "example.com/rpccgo-full/proto;greeterv1";
+option go_package = "example.com/rpccgo-connect/proto;greeterv1";
 
 message SayHelloRequest {
   string name = 1;

@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "librpccgo_full_greeter.h"
+#include "librpccgo_connect_greeter.h"
 
 static void fail_with_message(const char *message) {
   fprintf(stderr, "%s\n", message);

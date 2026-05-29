@@ -121,17 +121,17 @@ var File_greeter_proto protoreflect.FileDescriptor
 
 const file_greeter_proto_rawDesc = "" +
 	"\n" +
-	"\rgreeter.proto\x12\x18examples.full.greeter.v1\"9\n" +
+	"\rgreeter.proto\x12\x1bexamples.connect.greeter.v1\"9\n" +
 	"\x0fSayHelloRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04city\x18\x02 \x01(\tR\x04city\",\n" +
 	"\x10SayHelloResponse\x12\x18\n" +
-	"\amessage\x18\x01 \x01(\tR\amessage2\x99\x03\n" +
-	"\aGreeter\x12a\n" +
-	"\bSayHello\x12).examples.full.greeter.v1.SayHelloRequest\x1a*.examples.full.greeter.v1.SayHelloResponse\x12b\n" +
-	"\aCollect\x12).examples.full.greeter.v1.SayHelloRequest\x1a*.examples.full.greeter.v1.SayHelloResponse(\x01\x12d\n" +
-	"\tBroadcast\x12).examples.full.greeter.v1.SayHelloRequest\x1a*.examples.full.greeter.v1.SayHelloResponse0\x01\x12a\n" +
-	"\x04Chat\x12).examples.full.greeter.v1.SayHelloRequest\x1a*.examples.full.greeter.v1.SayHelloResponse(\x010\x01B)Z'example.com/rpccgo-full/proto;greeterv1b\x06proto3"
+	"\amessage\x18\x01 \x01(\tR\amessage2\xb1\x03\n" +
+	"\aGreeter\x12g\n" +
+	"\bSayHello\x12,.examples.connect.greeter.v1.SayHelloRequest\x1a-.examples.connect.greeter.v1.SayHelloResponse\x12h\n" +
+	"\aCollect\x12,.examples.connect.greeter.v1.SayHelloRequest\x1a-.examples.connect.greeter.v1.SayHelloResponse(\x01\x12j\n" +
+	"\tBroadcast\x12,.examples.connect.greeter.v1.SayHelloRequest\x1a-.examples.connect.greeter.v1.SayHelloResponse0\x01\x12g\n" +
+	"\x04Chat\x12,.examples.connect.greeter.v1.SayHelloRequest\x1a-.examples.connect.greeter.v1.SayHelloResponse(\x010\x01B,Z*example.com/rpccgo-connect/proto;greeterv1b\x06proto3"
 
 var (
 	file_greeter_proto_rawDescOnce sync.Once
@@ -147,18 +147,18 @@ func file_greeter_proto_rawDescGZIP() []byte {
 
 var file_greeter_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_greeter_proto_goTypes = []any{
-	(*SayHelloRequest)(nil),  // 0: examples.full.greeter.v1.SayHelloRequest
-	(*SayHelloResponse)(nil), // 1: examples.full.greeter.v1.SayHelloResponse
+	(*SayHelloRequest)(nil),  // 0: examples.connect.greeter.v1.SayHelloRequest
+	(*SayHelloResponse)(nil), // 1: examples.connect.greeter.v1.SayHelloResponse
 }
 var file_greeter_proto_depIdxs = []int32{
-	0, // 0: examples.full.greeter.v1.Greeter.SayHello:input_type -> examples.full.greeter.v1.SayHelloRequest
-	0, // 1: examples.full.greeter.v1.Greeter.Collect:input_type -> examples.full.greeter.v1.SayHelloRequest
-	0, // 2: examples.full.greeter.v1.Greeter.Broadcast:input_type -> examples.full.greeter.v1.SayHelloRequest
-	0, // 3: examples.full.greeter.v1.Greeter.Chat:input_type -> examples.full.greeter.v1.SayHelloRequest
-	1, // 4: examples.full.greeter.v1.Greeter.SayHello:output_type -> examples.full.greeter.v1.SayHelloResponse
-	1, // 5: examples.full.greeter.v1.Greeter.Collect:output_type -> examples.full.greeter.v1.SayHelloResponse
-	1, // 6: examples.full.greeter.v1.Greeter.Broadcast:output_type -> examples.full.greeter.v1.SayHelloResponse
-	1, // 7: examples.full.greeter.v1.Greeter.Chat:output_type -> examples.full.greeter.v1.SayHelloResponse
+	0, // 0: examples.connect.greeter.v1.Greeter.SayHello:input_type -> examples.connect.greeter.v1.SayHelloRequest
+	0, // 1: examples.connect.greeter.v1.Greeter.Collect:input_type -> examples.connect.greeter.v1.SayHelloRequest
+	0, // 2: examples.connect.greeter.v1.Greeter.Broadcast:input_type -> examples.connect.greeter.v1.SayHelloRequest
+	0, // 3: examples.connect.greeter.v1.Greeter.Chat:input_type -> examples.connect.greeter.v1.SayHelloRequest
+	1, // 4: examples.connect.greeter.v1.Greeter.SayHello:output_type -> examples.connect.greeter.v1.SayHelloResponse
+	1, // 5: examples.connect.greeter.v1.Greeter.Collect:output_type -> examples.connect.greeter.v1.SayHelloResponse
+	1, // 6: examples.connect.greeter.v1.Greeter.Broadcast:output_type -> examples.connect.greeter.v1.SayHelloResponse
+	1, // 7: examples.connect.greeter.v1.Greeter.Chat:output_type -> examples.connect.greeter.v1.SayHelloResponse
 	4, // [4:8] is the sub-list for method output_type
 	0, // [0:4] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name

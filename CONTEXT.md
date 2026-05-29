@@ -75,6 +75,7 @@ _Avoid_: active server
 - Go **Native** server 输入字段类型沿用旧 wrapper：`string -> *rpcruntime.RpcString`、`bytes/message -> *rpcruntime.RpcBytes`、`repeated scalar -> *rpcruntime.RpcRepeat[T]`、`repeated bool -> *rpcruntime.RpcBoolRepeat`。
 - 由 **Message contract** 适配到 **Native** 时，请求侧 wrapper 只应作为 **Call-scoped borrowed view** 存在；其底层数据只保证在该次 generated bridge 同步 native 调用期间有效。
 - Go **Native** server 返回值沿用旧 flat 返回：response 顶层字段按 Go 值/slice 顺序返回，最后一个返回值固定是 `error`。
+- Go **Native** server streaming / bidi streaming 的 response 顶层字段通过 native stream `Send` 的 flat 参数发送；method 本身只返回终态 `error`。
 - **Native** 只拍平 proto request/response 的顶层字段；nested message 作为整体 message bytes/wrapper 传递，不递归展开。
 - `NativeContract` 这类字段计划可以作为参数转换的中间表示保留；它不是最终 **Native** 边界。
 - **Native C ABI plan** 可把 ownership / cleanup / transfer 作为生成计划表达；它不应新增现有 ABI 之外的 ownership 参数，但若现有 C boundary 已包含 ownership slot，plan 应把它作为 ABI slot 结构化表达。

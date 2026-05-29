@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	connect "connectrpc.com/connect"
-	greeterv1 "example.com/rpccgo-full/proto"
+	greeterv1 "example.com/rpccgo-connect/proto"
 	"golang.org/x/net/http2"
 )
 
@@ -22,7 +22,7 @@ func main() {
 }
 
 func run(ctx context.Context) error {
-	connectBaseURL := strings.TrimRight(envOrDefault("RPCCGO_FULL_CONNECT_URL", "http://127.0.0.1:8081"), "/")
+	connectBaseURL := strings.TrimRight(envOrDefault("RPCCGO_CONNECT_CONNECT_URL", "http://127.0.0.1:8081"), "/")
 	return runConnectDemo(ctx, connectBaseURL)
 }
 

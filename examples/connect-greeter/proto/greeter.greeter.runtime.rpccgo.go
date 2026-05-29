@@ -18,26 +18,6 @@ import (
 
 // rpccgo service runtime generated file for Greeter
 
-type GreeterNativeServer interface {
-	SayHello(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error)
-	Collect(ctx context.Context, stream GreeterCollectNativeClientStream) (string, error)
-	Broadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString, stream GreeterBroadcastNativeServerStream) error
-	Chat(ctx context.Context, stream GreeterChatNativeBidiStream) error
-}
-
-type GreeterCollectNativeClientStream interface {
-	Recv(ctx context.Context) (*rpcruntime.RpcString, *rpcruntime.RpcString, error)
-}
-
-type GreeterBroadcastNativeServerStream interface {
-	Send(ctx context.Context, message string) error
-}
-
-type GreeterChatNativeBidiStream interface {
-	Recv(ctx context.Context) (*rpcruntime.RpcString, *rpcruntime.RpcString, error)
-	Send(ctx context.Context, message string) error
-}
-
 var (
 	greeterNativeRequestBridgeNotImplemented = errors.New("rpccgo: native request bridge is not implemented")
 	greeterNativeStreamBridgeNotImplemented  = errors.New("rpccgo: native stream bridge is not implemented")

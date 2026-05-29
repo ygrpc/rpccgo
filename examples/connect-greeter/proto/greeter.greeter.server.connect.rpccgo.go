@@ -16,12 +16,12 @@ import (
 
 // rpccgo message direct generated file for Greeter connect local server adapter
 
-const GreeterConnectServiceName = "examples.full.greeter.v1.Greeter"
-const GreeterConnectServicePathPrefix = "/examples.full.greeter.v1.Greeter/"
-const GreeterSayHelloConnectProcedure = "/examples.full.greeter.v1.Greeter/SayHello"
-const GreeterCollectConnectProcedure = "/examples.full.greeter.v1.Greeter/Collect"
-const GreeterBroadcastConnectProcedure = "/examples.full.greeter.v1.Greeter/Broadcast"
-const GreeterChatConnectProcedure = "/examples.full.greeter.v1.Greeter/Chat"
+const GreeterConnectServiceName = "examples.connect.greeter.v1.Greeter"
+const GreeterConnectServicePathPrefix = "/examples.connect.greeter.v1.Greeter/"
+const GreeterSayHelloConnectProcedure = "/examples.connect.greeter.v1.Greeter/SayHello"
+const GreeterCollectConnectProcedure = "/examples.connect.greeter.v1.Greeter/Collect"
+const GreeterBroadcastConnectProcedure = "/examples.connect.greeter.v1.Greeter/Broadcast"
+const GreeterChatConnectProcedure = "/examples.connect.greeter.v1.Greeter/Chat"
 
 func NewGreeterConnectHandler(options ...connect.HandlerOption) (string, http.Handler) {
 	greeterSayHelloConnectHandler := connect.NewUnaryHandler(GreeterSayHelloConnectProcedure, greeterConnectSayHello, options...)

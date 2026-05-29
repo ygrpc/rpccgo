@@ -27,7 +27,7 @@ connect 和 gRPC 不能在同一个 protobuf Go package 中同时按当前合同
 ## Examples
 
 - `examples/grpc-greeter`：完整 gRPC 路径，覆盖标准 gRPC server/client、gRPC remote client active server、native/message cgo client、c-shared C client 和四类 streaming。
-- `examples/full-greeter`：完整 Connect 路径，覆盖 native/message cgo client、Connect local handler/remote client active server 和三类 streaming。
+- `examples/connect-greeter`：完整 Connect 路径，覆盖 native/message cgo client、Connect local handler/remote client active server 和三类 streaming。
 
 运行 example：
 
@@ -35,7 +35,7 @@ connect 和 gRPC 不能在同一个 protobuf Go package 中同时按当前合同
 cd examples/grpc-greeter
 rtk go run github.com/magefile/mage run
 
-cd ../full-greeter
+cd ../connect-greeter
 rtk go run github.com/magefile/mage run
 ```
 
@@ -45,13 +45,13 @@ rtk go run github.com/magefile/mage run
 cd examples/grpc-greeter
 rtk go run github.com/magefile/mage test
 
-cd ../full-greeter
+cd ../connect-greeter
 rtk go run github.com/magefile/mage test
 ```
 
-手动启动 full example server：
+手动启动 connect example server：
 
 ```bash
-cd examples/full-greeter
+cd examples/connect-greeter
 rtk go run github.com/magefile/mage server
 ```

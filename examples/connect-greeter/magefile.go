@@ -18,7 +18,7 @@ var protocPluginPackages = []string{
 	"../../cmd/protoc-gen-rpc-cgo",
 }
 
-// Generate refreshes all generated files for the full greeter example.
+// Generate refreshes all generated files for the connect greeter example.
 func Generate() error {
 	binDir, cleanup, err := installProtocPlugins()
 	if err != nil {
@@ -28,7 +28,7 @@ func Generate() error {
 	return runWithBinDir(binDir, "go", "generate", "./...")
 }
 
-// Test verifies the full transport matrix and the real c-shared C client demo.
+// Test verifies the connect transport matrix and the real c-shared C client demo.
 func Test() error {
 	binDir, cleanup, err := installProtocPlugins()
 	if err != nil {
@@ -38,7 +38,7 @@ func Test() error {
 	if err := runWithBinDir(binDir, "go", "generate", "./..."); err != nil {
 		return err
 	}
-	if err := runWithBinDir(binDir, "go", "test", "./cmd/rpc", "-run", "^TestFullGreeterTransportAndStreamingMatrix$", "-count=1"); err != nil {
+	if err := runWithBinDir(binDir, "go", "test", "./cmd/rpc", "-run", "^TestConnectGreeterTransportAndStreamingMatrix$", "-count=1"); err != nil {
 		return err
 	}
 	return buildAndRunCClient()
@@ -61,7 +61,7 @@ func Run() error {
 	if err != nil {
 		return err
 	}
-	serverBin := filepath.Join(os.TempDir(), "rpccgo-full-server-"+strconv.FormatInt(time.Now().UnixNano(), 10))
+	serverBin := filepath.Join(os.TempDir(), "rpccgo-connect-server-"+strconv.FormatInt(time.Now().UnixNano(), 10))
 	if err := runWithEnv(map[string]string{"GOFLAGS": "-mod=mod"}, "go", "build", "-o", serverBin, "./cmd/server"); err != nil {
 		return err
 	}
@@ -72,7 +72,7 @@ func Run() error {
 	server.Stderr = os.Stderr
 	server.Env = append(os.Environ(),
 		"GOFLAGS=-mod=mod",
-		"RPCCGO_FULL_CONNECT_ADDR="+connectAddr,
+		"RPCCGO_CONNECT_CONNECT_ADDR="+connectAddr,
 	)
 	if err := server.Start(); err != nil {
 		return err
@@ -87,18 +87,18 @@ func Run() error {
 		return err
 	}
 	return runWithEnv(map[string]string{
-		"GOFLAGS":                 "-mod=mod",
-		"RPCCGO_FULL_CONNECT_URL": "http://" + connectAddr,
+		"GOFLAGS":                    "-mod=mod",
+		"RPCCGO_CONNECT_CONNECT_URL": "http://" + connectAddr,
 	}, "go", "run", "./cmd/client")
 }
 
-// Server starts the full example Connect h2c and gRPC server.
+// Server starts the connect example Connect h2c server.
 func Server() error {
 	return runWithEnv(map[string]string{"GOFLAGS": "-mod=mod"}, "go", "run", "./cmd/server")
 }
 
 func installProtocPlugins() (string, func(), error) {
-	binDir, err := os.MkdirTemp("", "rpccgo-full-example-bin-*")
+	binDir, err := os.MkdirTemp("", "rpccgo-connect-example-bin-*")
 	if err != nil {
 		return "", nil, err
 	}
@@ -113,15 +113,15 @@ func installProtocPlugins() (string, func(), error) {
 }
 
 func buildAndRunCClient() error {
-	artifactDir, err := os.MkdirTemp("", "rpccgo-full-c-shared-*")
+	artifactDir, err := os.MkdirTemp("", "rpccgo-connect-c-shared-*")
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(artifactDir)
 
-	libPath := filepath.Join(artifactDir, "librpccgo_full_greeter.so")
-	headerPath := filepath.Join(artifactDir, "librpccgo_full_greeter.h")
-	callerPath := filepath.Join(artifactDir, "full-greeter-caller")
+	libPath := filepath.Join(artifactDir, "librpccgo_connect_greeter.so")
+	headerPath := filepath.Join(artifactDir, "librpccgo_connect_greeter.h")
+	callerPath := filepath.Join(artifactDir, "connect-greeter-caller")
 
 	if err := runWithEnv(map[string]string{"GOFLAGS": "-mod=mod"}, "go", "build", "-buildmode=c-shared", "-o", libPath, "./cmd/rpc"); err != nil {
 		return err
@@ -138,7 +138,7 @@ func buildAndRunCClient() error {
 		"./c/main.c",
 		"-I"+artifactDir,
 		"-L"+artifactDir,
-		"-lrpccgo_full_greeter",
+		"-lrpccgo_connect_greeter",
 		"-Wl,-rpath,$ORIGIN",
 	); err != nil {
 		return err

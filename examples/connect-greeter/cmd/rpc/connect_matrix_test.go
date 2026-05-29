@@ -13,14 +13,14 @@ import (
 	"time"
 	"unsafe"
 
-	"example.com/rpccgo-full/internal/backend"
-	greeterv1 "example.com/rpccgo-full/proto"
+	"example.com/rpccgo-connect/internal/backend"
+	greeterv1 "example.com/rpccgo-connect/proto"
 	"golang.org/x/net/http2"
 	"google.golang.org/protobuf/proto"
 	rpcruntime "rpccgo/rpcruntime"
 )
 
-func TestFullGreeterTransportAndStreamingMatrix(t *testing.T) {
+func TestConnectGreeterTransportAndStreamingMatrix(t *testing.T) {
 	ctx := context.Background()
 	registerNativeServer(t)
 
@@ -71,22 +71,22 @@ func startExampleServer(t *testing.T) exampleServer {
 	t.Helper()
 
 	connectAddr := reserveTCPAddr(t)
-	serverBin := filepath.Join(t.TempDir(), "full-example-server-"+strconv.FormatInt(time.Now().UnixNano(), 10))
+	serverBin := filepath.Join(t.TempDir(), "connect-example-server-"+strconv.FormatInt(time.Now().UnixNano(), 10))
 	build := exec.Command("go", "build", "-o", serverBin, "./cmd/server")
 	build.Dir = "../.."
 	build.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
 	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build full example server error = %v\n%s", err, out)
+		t.Fatalf("build connect example server error = %v\n%s", err, out)
 	}
 
 	cmd := exec.Command(serverBin)
 	cmd.Dir = "../.."
 	cmd.Env = append(os.Environ(),
 		"GOFLAGS=-mod=mod",
-		"RPCCGO_FULL_CONNECT_ADDR="+connectAddr,
+		"RPCCGO_CONNECT_CONNECT_ADDR="+connectAddr,
 	)
 	if err := cmd.Start(); err != nil {
-		t.Fatalf("start full example server error = %v", err)
+		t.Fatalf("start connect example server error = %v", err)
 	}
 	t.Cleanup(func() {
 		if cmd.Process != nil {

@@ -109,7 +109,7 @@ connect client 和 grpc client 属于标准 RPC client，不进入 rpccgo client
 
 - 常规验证：`rtk go test ./...`。
 - 发布级验证或涉及 planner / ABI / runtime / examples 合同的改动，使用 `docs/release/verification-checklist.md` 的完整流程；至少运行必跑命令：`rtk env GOCACHE=/tmp/rpccgo-go-build go test ./... -count=1`。
-- 完整 checklist 还包括 runtime、generator、integration focused 测试，grpc/full greeter 的 `mage generate`、`mage test`、`mage run`，以及 unsigned 32/64 合同扫描。
+- 完整 checklist 还包括 runtime、generator、integration focused 测试，grpc/connect greeter 的 `mage generate`、`mage test`、`mage run`，以及 unsigned 32/64 合同扫描。
 - runtime focused 验证：`rtk go test ./rpcruntime -count=1`。
 - 涉及 generator planner、ABI plan 或 protogen descriptor 形状的测试，优先使用真实 `.proto` fixture 经过插件/parser/planner 路径构造输入；不要用手写 planner 结构体替代真实 descriptor，除非测试目标明确与 proto/protogen 无关。
 - 搜索文件优先使用 `rtk rg`。

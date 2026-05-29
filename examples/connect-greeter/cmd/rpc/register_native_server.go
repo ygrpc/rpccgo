@@ -3,8 +3,8 @@
 package main
 
 import (
-	backend "example.com/rpccgo-full/internal/backend"
-	greeterv1 "example.com/rpccgo-full/proto"
+	backend "example.com/rpccgo-connect/internal/backend"
+	greeterv1 "example.com/rpccgo-connect/proto"
 )
 
 func init() {

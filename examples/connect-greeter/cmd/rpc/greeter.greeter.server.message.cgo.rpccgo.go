@@ -5,7 +5,7 @@
 package main
 
 import (
-	proto "example.com/rpccgo-full/proto"
+	proto "example.com/rpccgo-connect/proto"
 )
 
 /*

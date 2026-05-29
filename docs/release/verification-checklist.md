@@ -16,9 +16,9 @@ rtk env GOCACHE=/tmp/rpccgo-go-build go test ./... -count=1
 - `cd examples/grpc-greeter && rtk go run github.com/magefile/mage generate`
 - `cd examples/grpc-greeter && rtk go run github.com/magefile/mage test`
 - `cd examples/grpc-greeter && rtk go run github.com/magefile/mage run`
-- `cd examples/full-greeter && rtk go run github.com/magefile/mage generate`
-- `cd examples/full-greeter && rtk go run github.com/magefile/mage test`
-- `cd examples/full-greeter && rtk go run github.com/magefile/mage run`
+- `cd examples/connect-greeter && rtk go run github.com/magefile/mage generate`
+- `cd examples/connect-greeter && rtk go run github.com/magefile/mage test`
+- `cd examples/connect-greeter && rtk go run github.com/magefile/mage run`
 
 ## 合同扫描
 

@@ -1,4 +1,4 @@
-package full
+package connectgreeter
 
 import (
 	"bytes"
@@ -8,9 +8,9 @@ import (
 	"testing"
 )
 
-func TestFullGreeterGenerate(t *testing.T) {
+func TestConnectGreeterGenerate(t *testing.T) {
 	binDir := installProtocPlugins(t)
-	generateFullGreeter(t, binDir)
+	generateConnectGreeter(t, binDir)
 
 	for _, path := range []string{
 		"proto/greeter.pb.go",
@@ -35,24 +35,24 @@ func TestFullGreeterGenerate(t *testing.T) {
 	assertFileContains(t, "proto/greeter.greeter.runtime.rpccgo.go", "func RegisterGreeterConnectRemoteServer(client GreeterClient) (rpcruntime.AdapterSnapshot[GreeterClient], error)")
 }
 
-func TestFullGreeterExample(t *testing.T) {
+func TestConnectGreeterExample(t *testing.T) {
 	binDir := installProtocPlugins(t)
-	generateFullGreeter(t, binDir)
+	generateConnectGreeter(t, binDir)
 
-	cmd := exec.Command("go", "test", "./cmd/rpc", "-run", "^TestFullGreeterTransportAndStreamingMatrix$", "-count=1")
+	cmd := exec.Command("go", "test", "./cmd/rpc", "-run", "^TestConnectGreeterTransportAndStreamingMatrix$", "-count=1")
 	cmd.Env = testEnvWithBinDir(binDir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("full example failed: %v\n%s", err, out)
+		t.Fatalf("connect example failed: %v\n%s", err, out)
 	}
 }
 
-func TestFullGreeterCSharedClientExample(t *testing.T) {
+func TestConnectGreeterCSharedClientExample(t *testing.T) {
 	binDir := installProtocPlugins(t)
-	generateFullGreeter(t, binDir)
+	generateConnectGreeter(t, binDir)
 
 	artifactDir := t.TempDir()
-	headerPath, callerPath := buildFullGreeterCSharedArtifacts(t, artifactDir)
+	headerPath, callerPath := buildConnectGreeterCSharedArtifacts(t, artifactDir)
 
 	header, err := os.ReadFile(headerPath)
 	if err != nil {
@@ -98,7 +98,7 @@ func TestFullGreeterCSharedClientExample(t *testing.T) {
 	}
 }
 
-func TestFullGreeterMageRunNoPanic(t *testing.T) {
+func TestConnectGreeterMageRunNoPanic(t *testing.T) {
 	cmd := exec.Command("go", "run", "github.com/magefile/mage", "run")
 	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
 	out, err := cmd.CombinedOutput()
@@ -129,7 +129,7 @@ func installProtocPlugins(t *testing.T) string {
 	return binDir
 }
 
-func generateFullGreeter(t *testing.T, binDir string) {
+func generateConnectGreeter(t *testing.T, binDir string) {
 	t.Helper()
 
 	cmd := exec.Command("go", "generate", "./...")
@@ -140,12 +140,12 @@ func generateFullGreeter(t *testing.T, binDir string) {
 	}
 }
 
-func buildFullGreeterCSharedArtifacts(t *testing.T, artifactDir string) (string, string) {
+func buildConnectGreeterCSharedArtifacts(t *testing.T, artifactDir string) (string, string) {
 	t.Helper()
 
-	libPath := filepath.Join(artifactDir, "librpccgo_full_greeter.so")
-	headerPath := filepath.Join(artifactDir, "librpccgo_full_greeter.h")
-	callerPath := filepath.Join(artifactDir, "full-greeter-caller")
+	libPath := filepath.Join(artifactDir, "librpccgo_connect_greeter.so")
+	headerPath := filepath.Join(artifactDir, "librpccgo_connect_greeter.h")
+	callerPath := filepath.Join(artifactDir, "connect-greeter-caller")
 
 	build := exec.Command("go", "build", "-buildmode=c-shared", "-o", libPath, "./cmd/rpc")
 	build.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
@@ -166,7 +166,7 @@ func buildFullGreeterCSharedArtifacts(t *testing.T, artifactDir string) (string,
 		"./c/main.c",
 		"-I"+artifactDir,
 		"-L"+artifactDir,
-		"-lrpccgo_full_greeter",
+		"-lrpccgo_connect_greeter",
 		"-Wl,-rpath,$ORIGIN",
 	)
 	compile.Env = os.Environ()
