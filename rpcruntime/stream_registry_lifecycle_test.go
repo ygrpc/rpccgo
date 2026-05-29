@@ -155,8 +155,8 @@ func TestStreamRegistryLifecycleWrongSessionTypeDoesNotConsumeHandle(t *testing.
 	var registry StreamRegistry[*StreamEntry]
 	handle := createRegistryStream(t, &registry)
 
-	if err := StreamRegistryFinish[fakeRegistryStreamSession](&registry, handle, nil); !errors.Is(err, ErrStreamInvalidHandle) {
-		t.Fatalf("wrong typed registry returned %v, want invalid handle", err)
+	if err := StreamRegistryFinish[fakeRegistryStreamSession](&registry, handle, nil); !errors.Is(err, ErrStreamSessionTypeMismatch) {
+		t.Fatalf("wrong typed registry returned %v, want session type mismatch", err)
 	}
 	called := false
 	if err := StreamRegistryReceive(&registry, handle, func(session *fakeRegistryStreamSession) error {

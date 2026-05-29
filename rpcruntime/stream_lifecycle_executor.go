@@ -1,48 +1,31 @@
 package rpcruntime
 
-type streamLifecycleExecutor interface {
-	entryFor(handle StreamHandle) (*StreamEntry, error)
-	delete(handle StreamHandle) bool
-}
-
-type dispatcherStreamExecutor[TAdapter any] struct {
-	dispatcher *Dispatcher[TAdapter]
-}
-
-func (e dispatcherStreamExecutor[TAdapter]) entryFor(handle StreamHandle) (*StreamEntry, error) {
-	if e.dispatcher == nil {
+func streamLifecycleEntryFor(registry *StreamRegistry[*StreamEntry], handle StreamHandle) (*StreamEntry, error) {
+	if registry == nil {
 		return nil, ErrStreamInvalidHandle
 	}
-
-	entry, ok := e.dispatcher.streams.Load(handle)
-	if !ok || entry == nil {
+	entry, ok := registry.Load(handle)
+	if !ok || entry == nil || entry.Lifecycle == nil {
 		return nil, ErrStreamInvalidHandle
 	}
-	return &StreamEntry{Session: entry.session, Lifecycle: &entry.lifecycle}, nil
+	return entry, nil
 }
 
-func (e dispatcherStreamExecutor[TAdapter]) delete(handle StreamHandle) bool {
-	if e.dispatcher == nil {
-		return false
-	}
-	return e.dispatcher.streams.Delete(handle)
-}
-
-func streamLifecycleSessionFor[TSession any](e streamLifecycleExecutor, handle StreamHandle) (*StreamEntry, TSession, error) {
+func streamLifecycleSessionFor[TSession any](registry *StreamRegistry[*StreamEntry], handle StreamHandle) (*StreamEntry, TSession, error) {
 	var zero TSession
-	entry, err := e.entryFor(handle)
+	entry, err := streamLifecycleEntryFor(registry, handle)
 	if err != nil {
 		return nil, zero, err
 	}
 	typed, ok := any(entry.Session).(TSession)
 	if !ok {
-		return nil, zero, ErrStreamInvalidHandle
+		return nil, zero, ErrStreamSessionTypeMismatch
 	}
 	return entry, typed, nil
 }
 
-func streamLifecycleSend[TSession any](e streamLifecycleExecutor, handle StreamHandle, call func(TSession) error) error {
-	entry, session, err := streamLifecycleSessionFor[TSession](e, handle)
+func streamLifecycleSend[TSession any](registry *StreamRegistry[*StreamEntry], handle StreamHandle, call func(TSession) error) error {
+	entry, session, err := streamLifecycleSessionFor[TSession](registry, handle)
 	if err != nil {
 		return err
 	}
@@ -55,8 +38,8 @@ func streamLifecycleSend[TSession any](e streamLifecycleExecutor, handle StreamH
 	return call(session)
 }
 
-func streamLifecycleReceive[TSession any](e streamLifecycleExecutor, handle StreamHandle, call func(TSession) error) error {
-	entry, session, err := streamLifecycleSessionFor[TSession](e, handle)
+func streamLifecycleReceive[TSession any](registry *StreamRegistry[*StreamEntry], handle StreamHandle, call func(TSession) error) error {
+	entry, session, err := streamLifecycleSessionFor[TSession](registry, handle)
 	if err != nil {
 		return err
 	}
@@ -72,8 +55,8 @@ func streamLifecycleReceive[TSession any](e streamLifecycleExecutor, handle Stre
 	return call(session)
 }
 
-func streamLifecycleCloseSend[TSession any](e streamLifecycleExecutor, handle StreamHandle, call func(TSession) error) error {
-	entry, session, err := streamLifecycleSessionFor[TSession](e, handle)
+func streamLifecycleCloseSend[TSession any](registry *StreamRegistry[*StreamEntry], handle StreamHandle, call func(TSession) error) error {
+	entry, session, err := streamLifecycleSessionFor[TSession](registry, handle)
 	if err != nil {
 		return err
 	}
@@ -86,8 +69,8 @@ func streamLifecycleCloseSend[TSession any](e streamLifecycleExecutor, handle St
 	return call(session)
 }
 
-func streamLifecycleFinish[TSession any](e streamLifecycleExecutor, handle StreamHandle, call func(TSession) error) error {
-	entry, session, err := streamLifecycleSessionFor[TSession](e, handle)
+func streamLifecycleFinish[TSession any](registry *StreamRegistry[*StreamEntry], handle StreamHandle, call func(TSession) error) error {
+	entry, session, err := streamLifecycleSessionFor[TSession](registry, handle)
 	if err != nil {
 		return err
 	}
@@ -97,7 +80,7 @@ func streamLifecycleFinish[TSession any](e streamLifecycleExecutor, handle Strea
 		}
 		return ErrStreamFinalized
 	}
-	if !e.delete(handle) {
+	if !registry.Delete(handle) {
 		return ErrStreamInvalidHandle
 	}
 	if call == nil {
@@ -106,15 +89,15 @@ func streamLifecycleFinish[TSession any](e streamLifecycleExecutor, handle Strea
 	return call(session)
 }
 
-func streamLifecycleCancel[TSession any](e streamLifecycleExecutor, handle StreamHandle, call func(TSession) error) error {
-	entry, session, err := streamLifecycleSessionFor[TSession](e, handle)
+func streamLifecycleCancel[TSession any](registry *StreamRegistry[*StreamEntry], handle StreamHandle, call func(TSession) error) error {
+	entry, session, err := streamLifecycleSessionFor[TSession](registry, handle)
 	if err != nil {
 		return err
 	}
 	if err := entry.Lifecycle.Cancel(nil); err != nil {
 		return err
 	}
-	if !e.delete(handle) {
+	if !registry.Delete(handle) {
 		return ErrStreamInvalidHandle
 	}
 	if call == nil {

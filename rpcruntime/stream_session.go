@@ -7,10 +7,11 @@ import (
 )
 
 var (
-	ErrStreamInvalidHandle = errors.New("stream handle is invalid")
-	ErrStreamSendClosed    = errors.New("stream send side is closed")
-	ErrStreamFinalized     = errors.New("stream is finalized")
-	ErrStreamCanceled      = errors.New("stream is canceled")
+	ErrStreamInvalidHandle       = errors.New("stream handle is invalid")
+	ErrStreamSessionTypeMismatch = errors.New("stream session type mismatch")
+	ErrStreamSendClosed          = errors.New("stream send side is closed")
+	ErrStreamFinalized           = errors.New("stream is finalized")
+	ErrStreamCanceled            = errors.New("stream is canceled")
 )
 
 type StreamLifecycle struct {
