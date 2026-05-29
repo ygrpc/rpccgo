@@ -38,8 +38,8 @@ func TestValidateMethodRenderPlanRejectsInvalidMatrix(t *testing.T) {
 		Streaming: StreamingKindUnary,
 		RenderPlan: MethodRenderPlan{
 			Lifecycle: StreamLifecycleProjectionPlan{SessionKind: SessionKindClient, Operations: []SessionOperationPlan{{Kind: SessionOperationStart}}},
-			Symbols:   RenderSymbolsPlan{NativeAdapterMethod: "Unary", MessageAdapterMethod: "UnaryMessage"},
-			Errors:    RenderErrorsPlan{NativeAdapterUnavailableErr: "Native", MessageAdapterUnavailableErr: "Message", UnknownActiveContractErr: "Unknown", NativeMessageConverterErr: "Converter"},
+			Symbols:   RenderSymbolsPlan{NativeAdapterMethod: "Unary", MessageAdapterMethod: "Unary"},
+			Errors:    RenderErrorsPlan{NativeServerUnavailableErr: "Native", MessageServerUnavailableErr: "Message", UnknownActiveContractErr: "Unknown", NativeMessageConverterErr: "Converter"},
 		},
 	}
 	if err := ValidateMethodRenderPlan(method); err == nil {

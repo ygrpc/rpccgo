@@ -35,10 +35,10 @@ func TestRenderMessageServerCGODefinesFlatMethodRegistration(t *testing.T) {
 		"static inline int32_t callGreeterUnaryCGOMessageUnary(GreeterUnaryCGOMessageUnaryCallback callback, uintptr_t request_ptr, int32_t request_len, uintptr_t* response_ptr, int32_t* response_len) {",
 		"type greeterCGOMessageAdapter struct {",
 		"C.GreeterUnaryCGOMessageUnaryCallback",
-		"func (a *greeterCGOMessageAdapter) UnaryMessage(ctx context.Context, req []byte) ([]byte, error) {",
-		"func (a *greeterCGOMessageAdapter) StartUploadMessage(ctx context.Context) (v1.GreeterUploadMessageStreamSession, error) {",
-		"func (a *greeterCGOMessageAdapter) StartListMessage(ctx context.Context, req []byte) (v1.GreeterListMessageStreamSession, error) {",
-		"func (a *greeterCGOMessageAdapter) StartChatMessage(ctx context.Context) (v1.GreeterChatMessageStreamSession, error) {",
+		"func (a *greeterCGOMessageAdapter) Unary(ctx context.Context, req []byte) ([]byte, error) {",
+		"func (a *greeterCGOMessageAdapter) StartUpload(ctx context.Context) (v1.GreeterUploadMessageStreamSession, error) {",
+		"func (a *greeterCGOMessageAdapter) StartList(ctx context.Context, req []byte) (v1.GreeterListMessageStreamSession, error) {",
+		"func (a *greeterCGOMessageAdapter) StartChat(ctx context.Context) (v1.GreeterChatMessageStreamSession, error) {",
 		"requestLen, err := rpcruntime.LengthToInt32(len(req))",
 		"errID := int32(C.callGreeterUnaryCGOMessageUnary(callback, C.uintptr_t(requestPtr), C.int32_t(requestLen), &responsePtr, &responseLen))",
 		"resp, err := decodeGreeterUnaryCGOMessageResponseBytes(responsePtr, responseLen)",
@@ -47,7 +47,7 @@ func TestRenderMessageServerCGODefinesFlatMethodRegistration(t *testing.T) {
 		"decodeGreeterChatCGOMessageResponseBytes",
 		"if err := protobuf.Unmarshal(resp, &v1.HelloReply{}); err != nil {",
 		"//export rpccgo_msg_testv1_Greeter_Unary_register",
-		"v1.RegisterGreeterCGOMessageActiveServer(rpcruntime.ServerKindCGOMessage, greeterCGOMessageServerAdapter)",
+		"v1.RegisterGreeterCGOMessageServer(greeterCGOMessageServerAdapter)",
 		"func rpccgo_msg_testv1_Greeter_Unary_register(callback C.GreeterUnaryCGOMessageUnaryCallback) C.int32_t {",
 		"func greeterCGOMessageServerError(errID int32) error {",
 		"if ok {",
@@ -55,7 +55,7 @@ func TestRenderMessageServerCGODefinesFlatMethodRegistration(t *testing.T) {
 		assertGeneratedContentContains(t, plugin, cgoServerFile, fragment)
 	}
 
-	assertGeneratedFileContentDoesNotContain(t, plugin, cgoServerFile, "typedef struct GreeterCGOMessageServerCallbacks", "callbacks C.GreeterCGOMessageServerCallbacks", "func RegisterGreeterCGOMessageServer")
+	assertGeneratedFileContentDoesNotContain(t, plugin, cgoServerFile, "typedef struct GreeterCGOMessageServerCallbacks", "callbacks C.GreeterCGOMessageServerCallbacks", "func RegisterGreeterCGOMessageServer(")
 
 	for _, file := range plugin.Response().GetFile() {
 		if file.GetName() != cgoServerFile {

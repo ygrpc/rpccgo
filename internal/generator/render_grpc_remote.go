@@ -37,12 +37,8 @@ func renderGRPCRemoteFile(plugin *protogen.Plugin, plan FilePlan, service Servic
 	g.P("}")
 	g.P()
 
-	g.P("func Register", typeName, "(client ", service.GoName, "Client) (rpcruntime.AdapterSnapshot[", service.GoName, "MessageAdapter], error) {")
-	g.P("adapter, err := New", typeName, "(client)")
-	g.P("if err != nil {")
-	g.P("return rpcruntime.AdapterSnapshot[", service.GoName, "MessageAdapter]{}, err")
-	g.P("}")
-	g.P("return Register", service.GoName, "CGOMessageActiveServer(rpcruntime.ServerKindGRPCRemote, adapter)")
+	g.P("func Register", typeName, "(client ", service.GoName, "Client) (rpcruntime.AdapterSnapshot[", service.GoName, "Client], error) {")
+	g.P("return Register", service.GoName, "GRPCRemoteServer(client)")
 	g.P("}")
 	g.P()
 
@@ -65,7 +61,7 @@ func renderGRPCRemoteFile(plugin *protogen.Plugin, plan FilePlan, service Servic
 func renderGRPCRemoteUnary(g *protogen.GeneratedFile, method MethodPlan, typeName string) {
 	reqType := qualifiedMethodType(g, method.Request)
 
-	g.P("func (s *", typeName, ") ", method.GoName, "Message(ctx context.Context, req []byte) ([]byte, error) {")
+	g.P("func (s *", typeName, ") ", method.GoName, "(ctx context.Context, req []byte) ([]byte, error) {")
 	g.P("if s == nil || s.client == nil {")
 	g.P(`return nil, errors.New("rpccgo: grpc remote client is nil")`)
 	g.P("}")
@@ -91,7 +87,7 @@ func renderGRPCRemoteClientStreaming(g *protogen.GeneratedFile, service ServiceP
 	respType := qualifiedMethodType(g, method.Response)
 	sessionType := service.GoName + method.GoName + "GRPCRemoteClientStreamSession"
 
-	g.P("func (s *", typeName, ") Start", method.GoName, "Message(ctx context.Context) (", service.GoName, method.GoName, "MessageStreamSession, error) {")
+	g.P("func (s *", typeName, ") Start", method.GoName, "(ctx context.Context) (", service.GoName, method.GoName, "MessageStreamSession, error) {")
 	g.P("if s == nil || s.client == nil {")
 	g.P(`return nil, errors.New("rpccgo: grpc remote client is nil")`)
 	g.P("}")
@@ -164,7 +160,7 @@ func renderGRPCRemoteServerStreaming(g *protogen.GeneratedFile, service ServiceP
 	respType := qualifiedMethodType(g, method.Response)
 	sessionType := service.GoName + method.GoName + "GRPCRemoteServerStreamSession"
 
-	g.P("func (s *", typeName, ") Start", method.GoName, "Message(ctx context.Context, req []byte) (", service.GoName, method.GoName, "MessageStreamSession, error) {")
+	g.P("func (s *", typeName, ") Start", method.GoName, "(ctx context.Context, req []byte) (", service.GoName, method.GoName, "MessageStreamSession, error) {")
 	g.P("if s == nil || s.client == nil {")
 	g.P(`return nil, errors.New("rpccgo: grpc remote client is nil")`)
 	g.P("}")
@@ -235,7 +231,7 @@ func renderGRPCRemoteBidiStreaming(g *protogen.GeneratedFile, service ServicePla
 	respType := qualifiedMethodType(g, method.Response)
 	sessionType := service.GoName + method.GoName + "GRPCRemoteBidiStreamSession"
 
-	g.P("func (s *", typeName, ") Start", method.GoName, "Message(ctx context.Context) (", service.GoName, method.GoName, "MessageStreamSession, error) {")
+	g.P("func (s *", typeName, ") Start", method.GoName, "(ctx context.Context) (", service.GoName, method.GoName, "MessageStreamSession, error) {")
 	g.P("if s == nil || s.client == nil {")
 	g.P(`return nil, errors.New("rpccgo: grpc remote client is nil")`)
 	g.P("}")

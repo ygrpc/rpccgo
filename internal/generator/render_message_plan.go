@@ -24,6 +24,10 @@ func BuildMessageFileFamilyPlan(file FilePlan, service ServicePlan) MessageFileF
 			Filename: fmt.Sprintf("%s.%s.runtime.rpccgo.go", prefix, serviceName),
 			Enabled:  true,
 		},
+		MessageServer: GeneratedFilePlan{
+			Filename: fmt.Sprintf("%s.%s.server.message.rpccgo.go", prefix, serviceName),
+			Enabled:  needsCGOMessageServerAdapter(service),
+		},
 		CGOMessageServer: GeneratedFilePlan{
 			Filename: fmt.Sprintf("%s.%s.server.message.cgo.rpccgo.go", cgoPrefix, serviceName),
 			Enabled:  needsCGOMessageServerAdapter(service),

@@ -22,33 +22,9 @@ func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) 
 
 	const nativeServerFile = "test/v1/complete_service_plan.all_service.server.native.rpccgo.go"
 	for _, fragment := range []string{
-		"type AllServiceNativeServer interface {",
-		"Unary(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (bool, []byte, error)",
-		"ClientStream(ctx context.Context, stream AllServiceClientStreamNativeClientStream) (bool, []byte, error)",
-		"ServerStream(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes, stream AllServiceServerStreamNativeServerStream) error",
-		"BidiStream(ctx context.Context, stream AllServiceBidiStreamNativeBidiStream) error",
-		`allServiceNativeRequestBridgeNotImplemented`,
-		`allServiceNativeStreamBridgeNotImplemented`,
-		`allServiceNativeStreamIsNil`,
-		`allServiceNativeStreamClosed`,
-		`errors.New("rpccgo: native request bridge is not implemented")`,
-		`errors.New("rpccgo: native stream bridge is not implemented")`,
-		`errors.New("rpccgo: native stream is nil")`,
-		`errors.New("rpccgo: native stream is closed")`,
-		"type allServiceGoNativeAdapter struct {",
-		"server AllServiceNativeServer",
-		"func (a *allServiceGoNativeAdapter) Unary(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (bool, []byte, error) {",
-		"return a.server.Unary(ctx, name, enabled, child)",
-		"func (a *allServiceGoNativeAdapter) StartClientStream(ctx context.Context) (AllServiceClientStreamNativeStreamSession, error) {",
-		"session.result.accepted, session.result.payload, session.result.err = a.server.ClientStream(streamCtx, session)",
-		"func (a *allServiceGoNativeAdapter) StartServerStream(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (AllServiceServerStreamNativeStreamSession, error) {",
-		"session.err = a.server.ServerStream(streamCtx, name, enabled, child, session)",
-		"return session, nil",
-		"func (a *allServiceGoNativeAdapter) StartBidiStream(ctx context.Context) (AllServiceBidiStreamNativeStreamSession, error) {",
-		"session.err = a.server.BidiStream(streamCtx, &allServiceBidiStreamGoNativeBidiStreamFacade{session: session})",
-		"func RegisterAllServiceGoNativeServer(server AllServiceNativeServer) (rpcruntime.AdapterSnapshot[AllServiceNativeAdapter], error) {",
+		"func RegisterAllServiceGoNativeServer(server AllServiceNativeServer) (rpcruntime.AdapterSnapshot[AllServiceNativeServer], error) {",
 		`errors.New("rpccgo: AllService go native server is nil")`,
-		"return registerAllServiceActiveServer(rpcruntime.ServerKindGoNative, &allServiceGoNativeAdapter{server: server})",
+		"return registerAllServiceActiveServer(rpcruntime.ServerKindGoNative, server)",
 	} {
 		assertGeneratedContentContains(t, plugin, nativeServerFile, fragment)
 	}
@@ -60,7 +36,10 @@ func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) 
 		"Recv(ctx context.Context) (*AllReply, error)",
 		"ctx, nil",
 	)
-	assertGeneratedFileContentDoesNotContain(t, plugin, nativeServerFile, "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf")
+	assertGeneratedFileContentDoesNotContain(t, plugin, nativeServerFile,
+		"connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf",
+		"type AllServiceNativeServer interface {", "type allServiceGoNativeAdapter struct {",
+	)
 }
 
 func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
@@ -75,7 +54,7 @@ func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
 		t.Fatalf("RenderNativeStageFiles() error = %v", err)
 	}
 
-	const nativeServerFile = "test/v1/complete_service_plan.all_service.server.native.rpccgo.go"
+	const nativeServerFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"type AllServiceClientStreamNativeClientStream interface {",
 		"Recv(ctx context.Context) (*rpcruntime.RpcString, bool, *rpcruntime.RpcBytes, error)",
@@ -89,7 +68,9 @@ func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
 		"type AllServiceServerStreamNativeServerStream interface {",
 		"Send(ctx context.Context, accepted bool, payload []byte) error",
 		"type allServiceServerStreamGoNativeServerStreamSession struct {",
-		"responses chan allServiceServerStreamGoNativeServerStreamSessionResponse",
+		"responses     chan allServiceServerStreamGoNativeServerStreamSessionResponse",
+		"received      chan struct{}",
+		"doneRequested bool",
 		"func (s *allServiceServerStreamGoNativeServerStreamSession) Recv(ctx context.Context) (bool, []byte, error)",
 		"case s.responses <- resp:",
 		"return false, nil, io.EOF",
@@ -231,7 +212,7 @@ func TestRenderNativeServerGeneratedSourceCompiles(t *testing.T) {
 
 	for _, generated := range plugin.Response().GetFile() {
 		name := generated.GetName()
-		if !strings.Contains(name, ".runtime.rpccgo.go") && !strings.Contains(name, ".server.native.rpccgo.go") {
+		if !strings.Contains(name, ".runtime.rpccgo.go") && !strings.Contains(name, ".server.message.rpccgo.go") && !strings.Contains(name, ".server.native.rpccgo.go") {
 			continue
 		}
 		target := filepath.Join(tmp, name)

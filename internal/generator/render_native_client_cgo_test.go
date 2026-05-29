@@ -433,6 +433,7 @@ func TestRenderNativeClientCGOGeneratedSourceCompiles(t *testing.T) {
 	tmp := t.TempDir()
 	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {
 		return strings.Contains(name, ".runtime.rpccgo.go") ||
+			strings.Contains(name, ".server.message.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go") ||
 			strings.Contains(name, ".client.native.cgo.rpccgo.go")
 	})

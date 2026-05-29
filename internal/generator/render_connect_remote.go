@@ -23,8 +23,6 @@ func renderConnectRemoteFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	g.P()
 
 	typeName := service.GoName + "ConnectRemoteServer"
-	g.P("var _ ", service.GoName, "MessageAdapter = (*", typeName, ")(nil)")
-	g.P()
 	g.P("type ", typeName, " struct {")
 	g.P("client ", service.GoName, "Client")
 	g.P("}")
@@ -38,12 +36,8 @@ func renderConnectRemoteFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	g.P("}")
 	g.P()
 
-	g.P("func Register", typeName, "(client ", service.GoName, "Client) (rpcruntime.AdapterSnapshot[", service.GoName, "MessageAdapter], error) {")
-	g.P("adapter, err := New", typeName, "(client)")
-	g.P("if err != nil {")
-	g.P("return rpcruntime.AdapterSnapshot[", service.GoName, "MessageAdapter]{}, err")
-	g.P("}")
-	g.P("return Register", service.GoName, "CGOMessageActiveServer(rpcruntime.ServerKindConnectRemote, adapter)")
+	g.P("func Register", typeName, "(client ", service.GoName, "Client) (rpcruntime.AdapterSnapshot[", service.GoName, "Client], error) {")
+	g.P("return Register", service.GoName, "ConnectRemoteServer(client)")
 	g.P("}")
 	g.P()
 
@@ -65,7 +59,7 @@ func renderConnectRemoteFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 
 func renderConnectRemoteUnary(g *protogen.GeneratedFile, method MethodPlan, typeName string) {
 	reqType := qualifiedMethodType(g, method.Request)
-	g.P("func (s *", typeName, ") ", method.GoName, "Message(ctx context.Context, req []byte) ([]byte, error) {")
+	g.P("func (s *", typeName, ") ", method.GoName, "(ctx context.Context, req []byte) ([]byte, error) {")
 	g.P("if s == nil || s.client == nil {")
 	g.P(`return nil, errors.New("rpccgo: connect remote client is nil")`)
 	g.P("}")
@@ -94,7 +88,7 @@ func renderConnectRemoteClientStreaming(g *protogen.GeneratedFile, service Servi
 	respType := qualifiedMethodType(g, method.Response)
 	sessionType := service.GoName + method.GoName + "ConnectRemoteClientStreamSession"
 
-	g.P("func (s *", typeName, ") Start", method.GoName, "Message(ctx context.Context) (", service.GoName, method.GoName, "MessageStreamSession, error) {")
+	g.P("func (s *", typeName, ") Start", method.GoName, "(ctx context.Context) (", service.GoName, method.GoName, "MessageStreamSession, error) {")
 	g.P("if s == nil || s.client == nil {")
 	g.P(`return nil, errors.New("rpccgo: connect remote client is nil")`)
 	g.P("}")
@@ -170,7 +164,7 @@ func renderConnectRemoteServerStreaming(g *protogen.GeneratedFile, service Servi
 	respType := qualifiedMethodType(g, method.Response)
 	sessionType := service.GoName + method.GoName + "ConnectRemoteServerStreamSession"
 
-	g.P("func (s *", typeName, ") Start", method.GoName, "Message(ctx context.Context, req []byte) (", service.GoName, method.GoName, "MessageStreamSession, error) {")
+	g.P("func (s *", typeName, ") Start", method.GoName, "(ctx context.Context, req []byte) (", service.GoName, method.GoName, "MessageStreamSession, error) {")
 	g.P("if s == nil || s.client == nil {")
 	g.P(`return nil, errors.New("rpccgo: connect remote client is nil")`)
 	g.P("}")
@@ -247,7 +241,7 @@ func renderConnectRemoteBidiStreaming(g *protogen.GeneratedFile, service Service
 	respType := qualifiedMethodType(g, method.Response)
 	sessionType := service.GoName + method.GoName + "ConnectRemoteBidiStreamSession"
 
-	g.P("func (s *", typeName, ") Start", method.GoName, "Message(ctx context.Context) (", service.GoName, method.GoName, "MessageStreamSession, error) {")
+	g.P("func (s *", typeName, ") Start", method.GoName, "(ctx context.Context) (", service.GoName, method.GoName, "MessageStreamSession, error) {")
 	g.P("if s == nil || s.client == nil {")
 	g.P(`return nil, errors.New("rpccgo: connect remote client is nil")`)
 	g.P("}")

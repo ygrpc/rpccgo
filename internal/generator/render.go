@@ -24,6 +24,7 @@ func renderNativeStageFilesWithSupport(plugin *protogen.Plugin, plan FilePlan, r
 		family := service.NativeFileFamily
 		files := []GeneratedFilePlan{
 			family.Runtime,
+			service.MessageFileFamily.MessageServer,
 			family.NativeServer,
 			family.CGONativeServer,
 			family.CGONativeClient,
@@ -34,6 +35,12 @@ func renderNativeStageFilesWithSupport(plugin *protogen.Plugin, plan FilePlan, r
 			}
 			if file == family.Runtime {
 				if err := renderRuntimeFile(plugin, plan, service, file); err != nil {
+					return err
+				}
+				continue
+			}
+			if file == service.MessageFileFamily.MessageServer {
+				if err := renderMessageServerFile(plugin, plan, service, file); err != nil {
 					return err
 				}
 				continue
@@ -96,11 +103,15 @@ func renderServiceStageFiles(plugin *protogen.Plugin, plan FilePlan, service Ser
 		return err
 	}
 	markRendered(rendered, nativeService.NativeFileFamily.NativeServer)
+	markRendered(rendered, nativeService.MessageFileFamily.MessageServer)
 	markRendered(rendered, nativeService.NativeFileFamily.CGONativeServer)
 	markRendered(rendered, nativeService.NativeFileFamily.CGONativeClient)
 
 	messageService := service
 	messageService.MessageFileFamily.Runtime.Enabled = false
+	if rendered[messageService.MessageFileFamily.MessageServer.Filename] {
+		messageService.MessageFileFamily.MessageServer.Enabled = false
+	}
 	avoidRenderedFilenames(rendered, &messageService.MessageFileFamily.CGOMessageServer, "message")
 	avoidRenderedFilenames(rendered, &messageService.MessageFileFamily.CGOMessageClient, "message")
 	messagePlan := plan
@@ -178,6 +189,7 @@ func renderMessageStageFilesWithSupport(plugin *protogen.Plugin, plan FilePlan, 
 		family := service.MessageFileFamily
 		files := []GeneratedFilePlan{
 			family.Runtime,
+			family.MessageServer,
 			family.CGOMessageServer,
 			family.CGOMessageClient,
 			family.ConnectRemote,
@@ -189,6 +201,12 @@ func renderMessageStageFilesWithSupport(plugin *protogen.Plugin, plan FilePlan, 
 			}
 			if file == family.Runtime {
 				if err := renderRuntimeFile(plugin, plan, service, file); err != nil {
+					return err
+				}
+				continue
+			}
+			if file == family.MessageServer {
+				if err := renderMessageServerFile(plugin, plan, service, file); err != nil {
 					return err
 				}
 				continue
@@ -262,6 +280,8 @@ func messageStageMarker(service ServicePlan, file GeneratedFilePlan) string {
 	switch {
 	case strings.Contains(name, ".runtime.rpccgo.go"):
 		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "runtime"}, " ")
+	case strings.Contains(name, ".server.message.rpccgo.go"):
+		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "cgo message server contract"}, " ")
 	case strings.Contains(name, ".server.message.cgo.rpccgo.go"):
 		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "cgo message server callbacks"}, " ")
 	case strings.Contains(name, ".client.message.cgo.rpccgo.go"):

@@ -75,28 +75,28 @@ var (
 )
 
 type greeterCGOMessageAdapter struct {
-	SayHello        C.GreeterSayHelloCGOMessageUnaryCallback
-	CollectStart    C.GreeterCollectCGOMessageClientStreamStartCallback
-	CollectSend     C.GreeterCollectCGOMessageClientStreamSendCallback
-	CollectFinish   C.GreeterCollectCGOMessageClientStreamFinishCallback
-	CollectCancel   C.GreeterCollectCGOMessageClientStreamCancelCallback
-	BroadcastStart  C.GreeterBroadcastCGOMessageServerStreamStartCallback
-	BroadcastRecv   C.GreeterBroadcastCGOMessageServerStreamRecvCallback
-	BroadcastDone   C.GreeterBroadcastCGOMessageServerStreamDoneCallback
-	BroadcastCancel C.GreeterBroadcastCGOMessageServerStreamCancelCallback
-	ChatStart       C.GreeterChatCGOMessageBidiStreamStartCallback
-	ChatSend        C.GreeterChatCGOMessageBidiStreamSendCallback
-	ChatRecv        C.GreeterChatCGOMessageBidiStreamRecvCallback
-	ChatCloseSend   C.GreeterChatCGOMessageBidiStreamCloseSendCallback
-	ChatDone        C.GreeterChatCGOMessageBidiStreamDoneCallback
-	ChatCancel      C.GreeterChatCGOMessageBidiStreamCancelCallback
+	SayHelloCallback C.GreeterSayHelloCGOMessageUnaryCallback
+	CollectStart     C.GreeterCollectCGOMessageClientStreamStartCallback
+	CollectSend      C.GreeterCollectCGOMessageClientStreamSendCallback
+	CollectFinish    C.GreeterCollectCGOMessageClientStreamFinishCallback
+	CollectCancel    C.GreeterCollectCGOMessageClientStreamCancelCallback
+	BroadcastStart   C.GreeterBroadcastCGOMessageServerStreamStartCallback
+	BroadcastRecv    C.GreeterBroadcastCGOMessageServerStreamRecvCallback
+	BroadcastDone    C.GreeterBroadcastCGOMessageServerStreamDoneCallback
+	BroadcastCancel  C.GreeterBroadcastCGOMessageServerStreamCancelCallback
+	ChatStart        C.GreeterChatCGOMessageBidiStreamStartCallback
+	ChatSend         C.GreeterChatCGOMessageBidiStreamSendCallback
+	ChatRecv         C.GreeterChatCGOMessageBidiStreamRecvCallback
+	ChatCloseSend    C.GreeterChatCGOMessageBidiStreamCloseSendCallback
+	ChatDone         C.GreeterChatCGOMessageBidiStreamDoneCallback
+	ChatCancel       C.GreeterChatCGOMessageBidiStreamCancelCallback
 }
 
-func (a *greeterCGOMessageAdapter) SayHelloMessage(ctx context.Context, req []byte) ([]byte, error) {
+func (a *greeterCGOMessageAdapter) SayHello(ctx context.Context, req []byte) ([]byte, error) {
 	if a == nil {
 		return nil, greeterCGOMessageServerCallbacksNil
 	}
-	callback := a.SayHello
+	callback := a.SayHelloCallback
 	if callback == nil {
 		return nil, greeterCGOMessageServerUnaryCallbackMissing
 	}
@@ -140,7 +140,7 @@ func decodeGreeterSayHelloCGOMessageResponseBytes(responsePtr C.uintptr_t, respo
 	return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(uintptr(responsePtr))), int(responseLen))...), nil
 }
 
-func (a *greeterCGOMessageAdapter) StartCollectMessage(ctx context.Context) (v1.GreeterCollectMessageStreamSession, error) {
+func (a *greeterCGOMessageAdapter) StartCollect(ctx context.Context) (v1.GreeterCollectMessageStreamSession, error) {
 	if a == nil {
 		return nil, greeterCGOMessageServerCallbacksNil
 	}
@@ -219,7 +219,7 @@ func decodeGreeterCollectCGOMessageResponseBytes(responsePtr C.uintptr_t, respon
 	return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(uintptr(responsePtr))), int(responseLen))...), nil
 }
 
-func (a *greeterCGOMessageAdapter) StartBroadcastMessage(ctx context.Context, req []byte) (v1.GreeterBroadcastMessageStreamSession, error) {
+func (a *greeterCGOMessageAdapter) StartBroadcast(ctx context.Context, req []byte) (v1.GreeterBroadcastMessageStreamSession, error) {
 	if a == nil {
 		return nil, greeterCGOMessageServerCallbacksNil
 	}
@@ -298,7 +298,7 @@ func decodeGreeterBroadcastCGOMessageResponseBytes(responsePtr C.uintptr_t, resp
 	return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(uintptr(responsePtr))), int(responseLen))...), nil
 }
 
-func (a *greeterCGOMessageAdapter) StartChatMessage(ctx context.Context) (v1.GreeterChatMessageStreamSession, error) {
+func (a *greeterCGOMessageAdapter) StartChat(ctx context.Context) (v1.GreeterChatMessageStreamSession, error) {
 	if a == nil {
 		return nil, greeterCGOMessageServerCallbacksNil
 	}
@@ -412,8 +412,8 @@ func rpccgo_msg_greeterv1_Greeter_SayHello_register(callback C.GreeterSayHelloCG
 	}
 	greeterCGOMessageServerAdapterMu.Lock()
 	defer greeterCGOMessageServerAdapterMu.Unlock()
-	greeterCGOMessageServerAdapter.SayHello = callback
-	_, err := v1.RegisterGreeterCGOMessageActiveServer(rpcruntime.ServerKindCGOMessage, greeterCGOMessageServerAdapter)
+	greeterCGOMessageServerAdapter.SayHelloCallback = callback
+	_, err := v1.RegisterGreeterCGOMessageServer(greeterCGOMessageServerAdapter)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -431,7 +431,7 @@ func rpccgo_msg_greeterv1_Greeter_Collect_register(start C.GreeterCollectCGOMess
 	greeterCGOMessageServerAdapter.CollectSend = send
 	greeterCGOMessageServerAdapter.CollectFinish = finish
 	greeterCGOMessageServerAdapter.CollectCancel = cancel
-	_, err := v1.RegisterGreeterCGOMessageActiveServer(rpcruntime.ServerKindCGOMessage, greeterCGOMessageServerAdapter)
+	_, err := v1.RegisterGreeterCGOMessageServer(greeterCGOMessageServerAdapter)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -449,7 +449,7 @@ func rpccgo_msg_greeterv1_Greeter_Broadcast_register(start C.GreeterBroadcastCGO
 	greeterCGOMessageServerAdapter.BroadcastRecv = recv
 	greeterCGOMessageServerAdapter.BroadcastDone = done
 	greeterCGOMessageServerAdapter.BroadcastCancel = cancel
-	_, err := v1.RegisterGreeterCGOMessageActiveServer(rpcruntime.ServerKindCGOMessage, greeterCGOMessageServerAdapter)
+	_, err := v1.RegisterGreeterCGOMessageServer(greeterCGOMessageServerAdapter)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -469,7 +469,7 @@ func rpccgo_msg_greeterv1_Greeter_Chat_register(start C.GreeterChatCGOMessageBid
 	greeterCGOMessageServerAdapter.ChatCloseSend = closeSend
 	greeterCGOMessageServerAdapter.ChatDone = done
 	greeterCGOMessageServerAdapter.ChatCancel = cancel
-	_, err := v1.RegisterGreeterCGOMessageActiveServer(rpcruntime.ServerKindCGOMessage, greeterCGOMessageServerAdapter)
+	_, err := v1.RegisterGreeterCGOMessageServer(greeterCGOMessageServerAdapter)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}

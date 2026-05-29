@@ -97,6 +97,7 @@ import (
 	context "context"
 	errors "errors"
 	fmt "fmt"
+	io "io"
 	rpcruntime "rpccgo/rpcruntime"
 	sync "sync"
 	unsafe "unsafe"
@@ -398,6 +399,101 @@ func (s *greeterChatCGONativeBidiStreamSession) Cancel(ctx context.Context) erro
 	return nil
 }
 
+func (a *greeterCGONativeAdapter) Collect(ctx context.Context, stream proto.GreeterCollectNativeClientStream) (string, error) {
+	session, err := a.StartCollect(ctx)
+	if err != nil {
+		return "", err
+	}
+	for {
+		name, city, err := stream.Recv(ctx)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return session.Finish(ctx)
+			}
+			_ = session.Cancel(ctx)
+			return "", err
+		}
+		if err := session.Send(ctx, name, city); err != nil {
+			_ = session.Cancel(ctx)
+			return "", err
+		}
+	}
+}
+
+func (a *greeterCGONativeAdapter) Broadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString, stream proto.GreeterBroadcastNativeServerStream) error {
+	session, err := a.StartBroadcast(ctx, name, city)
+	if err != nil {
+		return err
+	}
+	for {
+		messageResult, err := session.Recv(ctx)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return session.Done(ctx)
+			}
+			_ = session.Cancel(ctx)
+			return err
+		}
+		if err := stream.Send(ctx, messageResult); err != nil {
+			if errors.Is(err, io.EOF) {
+				return session.Done(ctx)
+			}
+			_ = session.Cancel(ctx)
+			return err
+		}
+	}
+}
+
+func (a *greeterCGONativeAdapter) Chat(ctx context.Context, stream proto.GreeterChatNativeBidiStream) error {
+	session, err := a.StartChat(ctx)
+	if err != nil {
+		return err
+	}
+	sendDone := make(chan error, 1)
+	go func() {
+		for {
+			name, city, err := stream.Recv(ctx)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					sendDone <- session.CloseSend(ctx)
+					return
+				}
+				sendDone <- err
+				return
+			}
+			if err := session.Send(ctx, name, city); err != nil {
+				sendDone <- err
+				return
+			}
+		}
+	}()
+	for {
+		messageResult, err := session.Recv(ctx)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				if sendErr := <-sendDone; sendErr != nil {
+					_ = session.Cancel(ctx)
+					return sendErr
+				}
+				return session.Done(ctx)
+			}
+			_ = session.Cancel(ctx)
+			return err
+		}
+		if err := stream.Send(ctx, messageResult); err != nil {
+			if errors.Is(err, io.EOF) {
+				if sendErr := <-sendDone; sendErr != nil {
+					_ = session.Cancel(ctx)
+					return sendErr
+				}
+				return session.Done(ctx)
+			}
+			_ = session.Cancel(ctx)
+			return err
+		}
+	}
+}
+
 func encodeGreeterSayHelloCGONativeUnaryRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) (C.uintptr_t, C.int32_t, C.int32_t, C.uintptr_t, C.int32_t, C.int32_t, func(), error) {
 	var namePtr C.uintptr_t
 	var nameLen C.int32_t
@@ -667,6 +763,9 @@ func greeterCGONativeServerErrorFromID(errID int32) error {
 		if ptr != 0 {
 			defer rpcruntime.Release(ptr)
 		}
+		if string(text) == io.EOF.Error() {
+			return io.EOF
+		}
 		return errors.New(string(text))
 	}
 	return fmt.Errorf("rpccgo: cgo native server callback returned unknown error id %d", errID)
@@ -682,7 +781,7 @@ func rpccgo_native_greeterv1_Greeter_SayHello_register(callback C.GreeterSayHell
 	next := *greeterCGONativeServerAdapter
 	next.SayHelloCallback = callback
 	nextAdapter := &next
-	_, err := proto.RegisterGreeterCGONativeActiveServer(rpcruntime.ServerKindCGONative, nextAdapter)
+	_, err := proto.RegisterGreeterCGONativeServer(nextAdapter)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -703,7 +802,7 @@ func rpccgo_native_greeterv1_Greeter_Collect_register(start C.GreeterCollectCGON
 	next.CollectFinish = finish
 	next.CollectCancel = cancel
 	nextAdapter := &next
-	_, err := proto.RegisterGreeterCGONativeActiveServer(rpcruntime.ServerKindCGONative, nextAdapter)
+	_, err := proto.RegisterGreeterCGONativeServer(nextAdapter)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -724,7 +823,7 @@ func rpccgo_native_greeterv1_Greeter_Broadcast_register(start C.GreeterBroadcast
 	next.BroadcastDone = done
 	next.BroadcastCancel = cancel
 	nextAdapter := &next
-	_, err := proto.RegisterGreeterCGONativeActiveServer(rpcruntime.ServerKindCGONative, nextAdapter)
+	_, err := proto.RegisterGreeterCGONativeServer(nextAdapter)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -747,7 +846,7 @@ func rpccgo_native_greeterv1_Greeter_Chat_register(start C.GreeterChatCGONativeB
 	next.ChatDone = done
 	next.ChatCancel = cancel
 	nextAdapter := &next
-	_, err := proto.RegisterGreeterCGONativeActiveServer(rpcruntime.ServerKindCGONative, nextAdapter)
+	_, err := proto.RegisterGreeterCGONativeServer(nextAdapter)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}

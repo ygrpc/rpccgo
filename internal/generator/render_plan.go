@@ -90,12 +90,12 @@ type RenderSymbolsPlan struct {
 }
 
 type RenderErrorsPlan struct {
-	NativeAdapterUnavailableErr  string
-	MessageAdapterUnavailableErr string
-	UnknownActiveContractErr     string
-	NativeMessageConverterErr    string
-	Role                         string
-	Category                     string
+	NativeServerUnavailableErr  string
+	MessageServerUnavailableErr string
+	UnknownActiveContractErr    string
+	NativeMessageConverterErr   string
+	Role                        string
+	Category                    string
 }
 
 func BuildMethodRenderPlan(method MethodPlan, serviceName string) (MethodRenderPlan, error) {
@@ -108,7 +108,7 @@ func BuildMethodRenderPlan(method MethodPlan, serviceName string) (MethodRenderP
 	if method.Streaming != StreamingKindUnary {
 		nativeAdapterMethod = "Start" + method.GoName
 	}
-	messageAdapterMethod := nativeAdapterMethod + "Message"
+	messageAdapterMethod := nativeAdapterMethod
 	nativeSessionType := ""
 	messageSessionType := ""
 	if lifecycle.SessionKind != SessionKindNone {
@@ -129,12 +129,12 @@ func BuildMethodRenderPlan(method MethodPlan, serviceName string) (MethodRenderP
 			MessageWrapperType:   messageWrapperType,
 		},
 		Errors: RenderErrorsPlan{
-			NativeAdapterUnavailableErr:  serviceName + "NativeAdapterUnavailableErr",
-			MessageAdapterUnavailableErr: serviceName + "MessageAdapterUnavailableErr",
-			UnknownActiveContractErr:     serviceName + "UnknownActiveContractErr",
-			NativeMessageConverterErr:    serviceName + "NativeMessageConverterUnavailableErr",
-			Role:                         "active_router",
-			Category:                     "routing",
+			NativeServerUnavailableErr:  serviceName + "NativeServerUnavailableErr",
+			MessageServerUnavailableErr: serviceName + "MessageServerUnavailableErr",
+			UnknownActiveContractErr:    serviceName + "UnknownActiveContractErr",
+			NativeMessageConverterErr:   serviceName + "NativeMessageConverterUnavailableErr",
+			Role:                        "active_router",
+			Category:                    "routing",
 		},
 	}
 	shape.CallPath = renderCallPath(method, shape.Symbols)
@@ -217,7 +217,7 @@ func validateMethodRenderPlan(method MethodPlan) error {
 	if method.Streaming != StreamingKindUnary && (shape.Symbols.NativeSessionType == "" || shape.Symbols.MessageSessionType == "") {
 		return fmt.Errorf("method %s render session symbols are incomplete", methodPlanName(method))
 	}
-	if shape.Errors.NativeAdapterUnavailableErr == "" || shape.Errors.MessageAdapterUnavailableErr == "" || shape.Errors.UnknownActiveContractErr == "" || shape.Errors.NativeMessageConverterErr == "" {
+	if shape.Errors.NativeServerUnavailableErr == "" || shape.Errors.MessageServerUnavailableErr == "" || shape.Errors.UnknownActiveContractErr == "" || shape.Errors.NativeMessageConverterErr == "" {
 		return fmt.Errorf("method %s render errors are incomplete", methodPlanName(method))
 	}
 	return nil

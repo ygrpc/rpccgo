@@ -15,6 +15,7 @@ func TestRenderMessageFileFamilyPlanMessageAdapterService(t *testing.T) {
 	got := BuildMessageFileFamilyPlan(file, service)
 
 	assertGeneratedFilePlan(t, got.Runtime, "test/v1/greeter.greeter.runtime.rpccgo.go", true)
+	assertGeneratedFilePlan(t, got.MessageServer, "test/v1/greeter.greeter.server.message.rpccgo.go", true)
 	assertGeneratedFilePlan(t, got.CGOMessageServer, "test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go", true)
 	assertGeneratedFilePlan(t, got.CGOMessageClient, "test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go", true)
 	assertMessageFileFamilyDoesNotUseAdapterOrCodecFiles(t, got)
@@ -30,6 +31,7 @@ func TestRenderMessageFileFamilyPlanNativeOnlyStillEnablesMessageClient(t *testi
 	got := BuildMessageFileFamilyPlan(file, service)
 
 	assertGeneratedFilePlan(t, got.Runtime, "test/v1/greeter.greeter.runtime.rpccgo.go", true)
+	assertGeneratedFilePlan(t, got.MessageServer, "test/v1/greeter.greeter.server.message.rpccgo.go", false)
 	assertGeneratedFilePlan(t, got.CGOMessageServer, "test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go", false)
 	assertGeneratedFilePlan(t, got.CGOMessageClient, "test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go", true)
 }
@@ -44,6 +46,7 @@ func TestRenderMessageFileFamilyPlanUsesDistinctCGOFilenamesForStageMerge(t *tes
 	got := BuildMessageFileFamilyPlan(file, service)
 
 	assertGeneratedFilePlan(t, got.CGOMessageServer, "test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go", true)
+	assertGeneratedFilePlan(t, got.MessageServer, "test/v1/greeter.greeter.server.message.rpccgo.go", true)
 	assertGeneratedFilePlan(t, got.CGOMessageClient, "test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go", true)
 }
 
@@ -60,6 +63,7 @@ func TestRenderMessageFileFamilyPlanUsesConfiguredCGODir(t *testing.T) {
 	got := BuildMessageFileFamilyPlan(file, service)
 
 	assertGeneratedFilePlan(t, got.Runtime, "test/v1/greeter.greeter.runtime.rpccgo.go", true)
+	assertGeneratedFilePlan(t, got.MessageServer, "test/v1/greeter.greeter.server.message.rpccgo.go", true)
 	assertGeneratedFilePlan(t, got.CGOMessageServer, "test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go", true)
 	assertGeneratedFilePlan(t, got.CGOMessageClient, "test/cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go", true)
 }
@@ -78,6 +82,7 @@ func TestAttachMessageFileFamilyPlan(t *testing.T) {
 	AttachMessageFileFamilyPlan(&file)
 
 	assertGeneratedFilePlan(t, file.Services[0].MessageFileFamily.Runtime, "test/v1/greeter.greeter.runtime.rpccgo.go", true)
+	assertGeneratedFilePlan(t, file.Services[0].MessageFileFamily.MessageServer, "test/v1/greeter.greeter.server.message.rpccgo.go", true)
 	assertGeneratedFilePlan(t, file.Services[0].MessageFileFamily.CGOMessageServer, "test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go", true)
 	assertGeneratedFilePlan(t, file.Services[0].MessageFileFamily.CGOMessageClient, "test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go", true)
 }
@@ -129,7 +134,7 @@ func TestRenderMessageFileFamilyPlanNeverEnablesRemoteTransportAdapterFiles(t *t
 func assertMessageFileFamilyDoesNotUseAdapterOrCodecFiles(t *testing.T, got MessageFileFamilyPlan) {
 	t.Helper()
 
-	for _, file := range []GeneratedFilePlan{got.Runtime, got.CGOMessageServer, got.CGOMessageClient, got.ConnectServer, got.GRPCServer, got.ConnectRemote, got.GRPCRemote} {
+	for _, file := range []GeneratedFilePlan{got.Runtime, got.MessageServer, got.CGOMessageServer, got.CGOMessageClient, got.ConnectServer, got.GRPCServer, got.ConnectRemote, got.GRPCRemote} {
 		assertFilenameDoesNotContain(t, file.Filename, ".adapter.", ".codec.")
 	}
 }

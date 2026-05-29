@@ -127,7 +127,7 @@ func runMessageDirectRegistrationFixture(t *testing.T, serviceComment, testName 
 		writeFile(t, filepath.Join(tmp, "test/v1/message_direct_registration_test.go"), messageDirectGRPCRegistrationTestSource)
 	}
 
-	cmd := exec.Command("go", "test", "./test/v1", "-run", "^"+testName+"$", "-count=1")
+	cmd := exec.Command("go", "test", "./test/v1", "-run", "^"+testName+"$", "-count=1", "-timeout=30s")
 	cmd.Dir = tmp
 	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
 	out, err := cmd.CombinedOutput()
@@ -155,7 +155,7 @@ func runMessageDirectPathFixture(t *testing.T, testName string) {
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/message_direct_path_callbacks.go"), messageDirectPathFixtureCallbackSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/message_direct_path_test.go"), messageDirectPathFixtureTestSource)
 
-	cmd := exec.Command("go", "test", "./test/v1/cgo", "-run", "^"+testName+"$", "-count=1")
+	cmd := exec.Command("go", "test", "./test/v1/cgo", "-run", "^"+testName+"$", "-count=1", "-timeout=30s")
 	cmd.Dir = tmp
 	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
 	out, err := cmd.CombinedOutput()
@@ -244,6 +244,7 @@ func writeMessageDirectPathGeneratedModule(t *testing.T, root string, plugin *pr
 		name := generated.GetName()
 		include := strings.Contains(name, ".runtime.rpccgo.go") ||
 			strings.Contains(name, ".codec.rpccgo.go") ||
+			strings.Contains(name, ".server.message.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go") ||
 			strings.Contains(name, ".server.native.cgo.rpccgo.go") ||
 			strings.Contains(name, ".client.native.cgo.rpccgo.go") ||

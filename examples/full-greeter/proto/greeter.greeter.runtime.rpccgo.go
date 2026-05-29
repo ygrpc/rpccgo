@@ -12,23 +12,551 @@ import (
 	io "io"
 	sync "sync"
 	connect "connectrpc.com/connect"
+	time "time"
 	rpcruntime "rpccgo/rpcruntime"
 )
 
 // rpccgo service runtime generated file for Greeter
 
-type GreeterNativeAdapter interface {
+type GreeterNativeServer interface {
 	SayHello(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error)
-	StartCollect(ctx context.Context) (GreeterCollectNativeStreamSession, error)
-	StartBroadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (GreeterBroadcastNativeStreamSession, error)
-	StartChat(ctx context.Context) (GreeterChatNativeStreamSession, error)
+	Collect(ctx context.Context, stream GreeterCollectNativeClientStream) (string, error)
+	Broadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString, stream GreeterBroadcastNativeServerStream) error
+	Chat(ctx context.Context, stream GreeterChatNativeBidiStream) error
 }
 
-type GreeterMessageAdapter interface {
-	SayHelloMessage(ctx context.Context, req []byte) ([]byte, error)
-	StartCollectMessage(ctx context.Context) (GreeterCollectMessageStreamSession, error)
-	StartBroadcastMessage(ctx context.Context, req []byte) (GreeterBroadcastMessageStreamSession, error)
-	StartChatMessage(ctx context.Context) (GreeterChatMessageStreamSession, error)
+type GreeterCollectNativeClientStream interface {
+	Recv(ctx context.Context) (*rpcruntime.RpcString, *rpcruntime.RpcString, error)
+}
+
+type GreeterBroadcastNativeServerStream interface {
+	Send(ctx context.Context, message string) error
+}
+
+type GreeterChatNativeBidiStream interface {
+	Recv(ctx context.Context) (*rpcruntime.RpcString, *rpcruntime.RpcString, error)
+	Send(ctx context.Context, message string) error
+}
+
+var (
+	greeterNativeRequestBridgeNotImplemented = errors.New("rpccgo: native request bridge is not implemented")
+	greeterNativeStreamBridgeNotImplemented  = errors.New("rpccgo: native stream bridge is not implemented")
+	greeterNativeStreamIsNil                 = errors.New("rpccgo: native stream is nil")
+	greeterNativeStreamClosed                = errors.New("rpccgo: native stream is closed")
+)
+
+type greeterNativeServerAdapter struct {
+	server GreeterNativeServer
+}
+
+func (a *greeterNativeServerAdapter) SayHello(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error) {
+	return a.server.SayHello(ctx, name, city)
+}
+
+func (a *greeterNativeServerAdapter) StartCollect(ctx context.Context) (GreeterCollectNativeStreamSession, error) {
+	streamCtx, cancel := context.WithCancel(ctx)
+	session := &greeterCollectGoNativeClientStreamSession{
+		ctx:      streamCtx,
+		cancel:   cancel,
+		requests: make(chan greeterCollectGoNativeClientStreamSessionRequest, 16),
+		sendDone: make(chan struct{}),
+		done:     make(chan struct{}),
+	}
+	go func() {
+		defer close(session.done)
+		session.result.message, session.result.err = a.server.Collect(streamCtx, session)
+	}()
+	return session, nil
+}
+
+type greeterCollectGoNativeClientStreamSessionRequest struct {
+	name     *rpcruntime.RpcString
+	city     *rpcruntime.RpcString
+	received chan struct{}
+}
+
+type greeterCollectGoNativeClientStreamSessionResult struct {
+	message string
+	err     error
+}
+
+type greeterCollectGoNativeClientStreamSession struct {
+	ctx           context.Context
+	cancel        context.CancelFunc
+	requests      chan greeterCollectGoNativeClientStreamSessionRequest
+	sendDone      chan struct{}
+	closeSendOnce sync.Once
+	received      chan struct{}
+	done          chan struct{}
+	result        greeterCollectGoNativeClientStreamSessionResult
+}
+
+func (s *greeterCollectGoNativeClientStreamSession) Recv(ctx context.Context) (*rpcruntime.RpcString, *rpcruntime.RpcString, error) {
+	select {
+	case req := <-s.requests:
+		close(req.received)
+		return req.name, req.city, nil
+	default:
+	}
+	select {
+	case <-ctx.Done():
+		return nil, nil, ctx.Err()
+	case <-s.ctx.Done():
+		return nil, nil, s.ctx.Err()
+	case req := <-s.requests:
+		close(req.received)
+		return req.name, req.city, nil
+	case <-s.sendDone:
+		return nil, nil, io.EOF
+	}
+}
+
+func (s *greeterCollectGoNativeClientStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
+	select {
+	case <-s.sendDone:
+		return greeterNativeStreamClosed
+	default:
+	}
+	req := greeterCollectGoNativeClientStreamSessionRequest{name: name, city: city, received: make(chan struct{})}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.ctx.Done():
+		return s.ctx.Err()
+	case <-s.done:
+		if s.result.err != nil {
+			return s.result.err
+		}
+		return greeterNativeStreamClosed
+	case <-s.sendDone:
+		return greeterNativeStreamClosed
+	case s.requests <- req:
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-s.ctx.Done():
+			return s.ctx.Err()
+		case <-s.done:
+			if s.result.err != nil {
+				return s.result.err
+			}
+			return greeterNativeStreamClosed
+		case <-s.sendDone:
+			return greeterNativeStreamClosed
+		case <-req.received:
+			return nil
+		}
+	}
+}
+
+func (s *greeterCollectGoNativeClientStreamSession) Finish(ctx context.Context) (string, error) {
+	s.closeSendOnce.Do(func() { close(s.sendDone) })
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case <-s.done:
+		return s.result.message, s.result.err
+	}
+}
+
+func (s *greeterCollectGoNativeClientStreamSession) Cancel(ctx context.Context) error {
+	s.cancel()
+	if s.received != nil {
+		close(s.received)
+		s.received = nil
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.done:
+		return nil
+	}
+}
+
+func (a *greeterNativeServerAdapter) StartBroadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (GreeterBroadcastNativeStreamSession, error) {
+	streamCtx, cancel := context.WithCancel(ctx)
+	session := &greeterBroadcastGoNativeServerStreamSession{
+		ctx:       streamCtx,
+		cancel:    cancel,
+		responses: make(chan greeterBroadcastGoNativeServerStreamSessionResponse, 1),
+		done:      make(chan struct{}),
+	}
+	go func() {
+		defer close(session.done)
+		defer close(session.responses)
+		session.err = a.server.Broadcast(streamCtx, name, city, session)
+	}()
+	return session, nil
+}
+
+type greeterBroadcastGoNativeServerStreamSessionResponse struct {
+	message  string
+	received chan struct{}
+}
+
+type greeterBroadcastGoNativeServerStreamSession struct {
+	ctx           context.Context
+	cancel        context.CancelFunc
+	responses     chan greeterBroadcastGoNativeServerStreamSessionResponse
+	received      chan struct{}
+	doneRequested bool
+	done          chan struct{}
+	err           error
+}
+
+func (s *greeterBroadcastGoNativeServerStreamSession) Send(ctx context.Context, message string) error {
+	resp := greeterBroadcastGoNativeServerStreamSessionResponse{message: message, received: make(chan struct{})}
+	select {
+	case <-ctx.Done():
+		if s.doneRequested {
+			return io.EOF
+		}
+		return ctx.Err()
+	case <-s.ctx.Done():
+		if s.doneRequested {
+			return io.EOF
+		}
+		return s.ctx.Err()
+	case <-s.done:
+		if s.err != nil {
+			return s.err
+		}
+		return greeterNativeStreamClosed
+	case s.responses <- resp:
+		select {
+		case <-ctx.Done():
+			if s.doneRequested {
+				return io.EOF
+			}
+			return ctx.Err()
+		case <-s.ctx.Done():
+			if s.doneRequested {
+				return io.EOF
+			}
+			return s.ctx.Err()
+		case <-s.done:
+			if s.err != nil {
+				return s.err
+			}
+			return greeterNativeStreamClosed
+		case <-resp.received:
+			if s.ctx.Err() != nil {
+				if s.doneRequested {
+					return io.EOF
+				}
+				return s.ctx.Err()
+			}
+			return nil
+		}
+	}
+}
+
+func (s *greeterBroadcastGoNativeServerStreamSession) Recv(ctx context.Context) (string, error) {
+	if s.received != nil {
+		close(s.received)
+		s.received = nil
+	}
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case <-s.ctx.Done():
+		return "", s.ctx.Err()
+	case resp, ok := <-s.responses:
+		if ok {
+			s.received = resp.received
+			return resp.message, nil
+		}
+		if s.received != nil {
+			close(s.received)
+			s.received = nil
+		}
+		<-s.done
+		if s.err != nil {
+			return "", s.err
+		}
+		return "", io.EOF
+	}
+}
+
+func (s *greeterBroadcastGoNativeServerStreamSession) Done(ctx context.Context) error {
+	s.doneRequested = true
+	s.cancel()
+	if s.received != nil {
+		close(s.received)
+		s.received = nil
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.done:
+		if errors.Is(s.err, context.Canceled) || errors.Is(s.err, io.EOF) {
+			return nil
+		}
+		return s.err
+	}
+}
+
+func (s *greeterBroadcastGoNativeServerStreamSession) Cancel(ctx context.Context) error {
+	s.cancel()
+	if s.received != nil {
+		close(s.received)
+		s.received = nil
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.done:
+		return nil
+	}
+}
+
+func (a *greeterNativeServerAdapter) StartChat(ctx context.Context) (GreeterChatNativeStreamSession, error) {
+	streamCtx, cancel := context.WithCancel(ctx)
+	session := &greeterChatGoNativeBidiStreamSession{
+		ctx:              streamCtx,
+		cancel:           cancel,
+		requests:         make(chan greeterChatGoNativeBidiStreamSessionRequest, 16),
+		sendDone:         make(chan struct{}),
+		sendDoneReceived: make(chan struct{}),
+		responses:        make(chan greeterChatGoNativeBidiStreamSessionResponse, 1),
+		responseReady:    make(chan struct{}),
+		requestReceived:  make(chan struct{}),
+		done:             make(chan struct{}),
+	}
+	go func() {
+		defer close(session.done)
+		defer close(session.responses)
+		session.err = a.server.Chat(streamCtx, &greeterChatGoNativeBidiStreamFacade{session: session})
+	}()
+	return session, nil
+}
+
+type greeterChatGoNativeBidiStreamSessionRequest struct {
+	name     *rpcruntime.RpcString
+	city     *rpcruntime.RpcString
+	received chan struct{}
+}
+
+type greeterChatGoNativeBidiStreamSessionResponse struct {
+	message  string
+	received chan struct{}
+}
+
+type greeterChatGoNativeBidiStreamSession struct {
+	ctx                  context.Context
+	cancel               context.CancelFunc
+	requests             chan greeterChatGoNativeBidiStreamSessionRequest
+	sendDone             chan struct{}
+	sendDoneReceived     chan struct{}
+	sendDoneReceivedOnce sync.Once
+	closeSendOnce        sync.Once
+	responses            chan greeterChatGoNativeBidiStreamSessionResponse
+	responseReady        chan struct{}
+	responseReadyOnce    sync.Once
+	requestReceived      chan struct{}
+	requestReceivedOnce  sync.Once
+	received             chan struct{}
+	doneRequested        bool
+	done                 chan struct{}
+	err                  error
+}
+
+type greeterChatGoNativeBidiStreamFacade struct {
+	session *greeterChatGoNativeBidiStreamSession
+}
+
+func (s *greeterChatGoNativeBidiStreamFacade) Recv(ctx context.Context) (*rpcruntime.RpcString, *rpcruntime.RpcString, error) {
+	select {
+	case req := <-s.session.requests:
+		close(req.received)
+		s.session.requestReceivedOnce.Do(func() { close(s.session.requestReceived) })
+		return req.name, req.city, nil
+	default:
+	}
+	select {
+	case <-ctx.Done():
+		return nil, nil, ctx.Err()
+	case <-s.session.ctx.Done():
+		return nil, nil, s.session.ctx.Err()
+	case req := <-s.session.requests:
+		close(req.received)
+		s.session.requestReceivedOnce.Do(func() { close(s.session.requestReceived) })
+		return req.name, req.city, nil
+	case <-s.session.sendDone:
+		s.session.sendDoneReceivedOnce.Do(func() { close(s.session.sendDoneReceived) })
+		return nil, nil, io.EOF
+	}
+}
+
+func (s *greeterChatGoNativeBidiStreamFacade) Send(ctx context.Context, message string) error {
+	resp := greeterChatGoNativeBidiStreamSessionResponse{message: message, received: make(chan struct{})}
+	select {
+	case <-ctx.Done():
+		if s.session.doneRequested {
+			return io.EOF
+		}
+		return ctx.Err()
+	case <-s.session.ctx.Done():
+		if s.session.doneRequested {
+			return io.EOF
+		}
+		return s.session.ctx.Err()
+	case <-s.session.done:
+		if s.session.err != nil {
+			return s.session.err
+		}
+		return greeterNativeStreamClosed
+	case s.session.responses <- resp:
+		s.session.responseReadyOnce.Do(func() { close(s.session.responseReady) })
+		select {
+		case <-ctx.Done():
+			if s.session.doneRequested {
+				return io.EOF
+			}
+			return ctx.Err()
+		case <-s.session.ctx.Done():
+			if s.session.doneRequested {
+				return io.EOF
+			}
+			return s.session.ctx.Err()
+		case <-s.session.done:
+			if s.session.err != nil {
+				return s.session.err
+			}
+			return greeterNativeStreamClosed
+		case <-resp.received:
+			if s.session.ctx.Err() != nil {
+				if s.session.doneRequested {
+					return io.EOF
+				}
+				return s.session.ctx.Err()
+			}
+			return nil
+		}
+	}
+}
+
+func (s *greeterChatGoNativeBidiStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
+	select {
+	case <-s.sendDone:
+		return greeterNativeStreamClosed
+	default:
+	}
+	req := greeterChatGoNativeBidiStreamSessionRequest{name: name, city: city, received: make(chan struct{})}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.ctx.Done():
+		return s.ctx.Err()
+	case <-s.done:
+		if s.err != nil {
+			return s.err
+		}
+		return greeterNativeStreamClosed
+	case <-s.sendDone:
+		return greeterNativeStreamClosed
+	case s.requests <- req:
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-s.ctx.Done():
+			return s.ctx.Err()
+		case <-s.done:
+			if s.err != nil {
+				return s.err
+			}
+			return greeterNativeStreamClosed
+		case <-s.sendDone:
+			return greeterNativeStreamClosed
+		case <-s.responseReady:
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-s.ctx.Done():
+				return s.ctx.Err()
+			case <-s.done:
+				if s.err != nil {
+					return s.err
+				}
+				return greeterNativeStreamClosed
+			case <-s.sendDone:
+				return greeterNativeStreamClosed
+			case <-s.requestReceived:
+				return nil
+			case <-req.received:
+				return nil
+			}
+			return nil
+		case <-req.received:
+			return nil
+		}
+	}
+}
+
+func (s *greeterChatGoNativeBidiStreamSession) Recv(ctx context.Context) (string, error) {
+	if s.received != nil {
+		close(s.received)
+		s.received = nil
+	}
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case <-s.ctx.Done():
+		return "", s.ctx.Err()
+	case resp, ok := <-s.responses:
+		if ok {
+			s.responseReady = make(chan struct{})
+			s.responseReadyOnce = sync.Once{}
+			s.received = resp.received
+			return resp.message, nil
+		}
+		if s.received != nil {
+			close(s.received)
+			s.received = nil
+		}
+		<-s.done
+		if s.err != nil {
+			return "", s.err
+		}
+		return "", io.EOF
+	}
+}
+
+func (s *greeterChatGoNativeBidiStreamSession) CloseSend(ctx context.Context) error {
+	s.closeSendOnce.Do(func() { close(s.sendDone) })
+	return nil
+}
+
+func (s *greeterChatGoNativeBidiStreamSession) Done(ctx context.Context) error {
+	s.doneRequested = true
+	s.cancel()
+	if s.received != nil {
+		close(s.received)
+		s.received = nil
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.done:
+		if errors.Is(s.err, context.Canceled) || errors.Is(s.err, io.EOF) {
+			return nil
+		}
+		return s.err
+	}
+}
+
+func (s *greeterChatGoNativeBidiStreamSession) Cancel(ctx context.Context) error {
+	s.cancel()
+	if s.received != nil {
+		close(s.received)
+		s.received = nil
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.done:
+		return nil
+	}
 }
 
 type GreeterCollectNativeStreamSession interface {
@@ -288,24 +816,24 @@ var greeterActiveSlot rpcruntime.ActiveServerSlot[any]
 var greeterStreamRegistry rpcruntime.StreamRegistry[*rpcruntime.StreamEntry]
 var greeterBridge = greeterRuntimeBridge{active: &greeterActiveSlot, streams: &greeterStreamRegistry}
 var GreeterNativeMessageConverterUnavailableErr = errors.New("rpccgo: native/message converter is not enabled")
-var GreeterNativeAdapterUnavailableErr = errors.New("rpccgo: native adapter is unavailable")
-var GreeterMessageAdapterUnavailableErr = errors.New("rpccgo: message adapter is unavailable")
+var GreeterNativeServerUnavailableErr = errors.New("rpccgo: native server is unavailable")
+var GreeterMessageServerUnavailableErr = errors.New("rpccgo: message server is unavailable")
 var GreeterUnknownActiveContractErr = errors.New("rpccgo: unknown active server contract")
 
-func registerGreeterActiveServer(kind rpcruntime.ServerKind, adapter GreeterNativeAdapter) (rpcruntime.AdapterSnapshot[GreeterNativeAdapter], error) {
-	snapshot, err := greeterActiveSlot.Store(kind, rpcruntime.ServerContractNative, adapter)
+func registerGreeterActiveServer(kind rpcruntime.ServerKind, server GreeterNativeServer) (rpcruntime.AdapterSnapshot[GreeterNativeServer], error) {
+	snapshot, err := greeterActiveSlot.Store(kind, rpcruntime.ServerContractNative, server)
 	if err != nil {
-		return rpcruntime.AdapterSnapshot[GreeterNativeAdapter]{}, err
+		return rpcruntime.AdapterSnapshot[GreeterNativeServer]{}, err
 	}
-	return rpcruntime.AdapterSnapshot[GreeterNativeAdapter]{Kind: snapshot.Kind, Contract: snapshot.Contract, Version: snapshot.Version, Adapter: adapter}, nil
+	return rpcruntime.AdapterSnapshot[GreeterNativeServer]{Kind: snapshot.Kind, Contract: snapshot.Contract, Version: snapshot.Version, Adapter: server}, nil
 }
 
-func registerGreeterMessageActiveServer(kind rpcruntime.ServerKind, adapter GreeterMessageAdapter) (rpcruntime.AdapterSnapshot[GreeterMessageAdapter], error) {
-	snapshot, err := greeterActiveSlot.Store(kind, rpcruntime.ServerContractMessage, adapter)
+func registerGreeterCGOMessageServer(server GreeterCGOMessageServer) (rpcruntime.AdapterSnapshot[GreeterCGOMessageServer], error) {
+	snapshot, err := greeterActiveSlot.Store(rpcruntime.ServerKindCGOMessage, rpcruntime.ServerContractMessage, server)
 	if err != nil {
-		return rpcruntime.AdapterSnapshot[GreeterMessageAdapter]{}, err
+		return rpcruntime.AdapterSnapshot[GreeterCGOMessageServer]{}, err
 	}
-	return rpcruntime.AdapterSnapshot[GreeterMessageAdapter]{Kind: snapshot.Kind, Contract: snapshot.Contract, Version: snapshot.Version, Adapter: adapter}, nil
+	return rpcruntime.AdapterSnapshot[GreeterCGOMessageServer]{Kind: snapshot.Kind, Contract: snapshot.Contract, Version: snapshot.Version, Adapter: server}, nil
 }
 
 func RegisterGreeterConnectHandler(handler GreeterHandler) (rpcruntime.AdapterSnapshot[GreeterHandler], error) {
@@ -339,11 +867,12 @@ func (r greeterRuntimeBridge) invokeNativeSayHello(ctx context.Context, name *rp
 	}
 	switch snapshot.Contract {
 	case rpcruntime.ServerContractNative:
-		adapter, ok := snapshot.Adapter.(GreeterNativeAdapter)
-		if !ok || adapter == nil {
-			err = GreeterNativeAdapterUnavailableErr
+		server, ok := snapshot.Adapter.(GreeterNativeServer)
+		if !ok || server == nil {
+			err = GreeterNativeServerUnavailableErr
 			break
 		}
+		adapter := &greeterNativeServerAdapter{server: server}
 		messageResult, err = adapter.SayHello(ctx, name, city)
 	case rpcruntime.ServerContractMessage:
 		messageReq, convertErr := convertGreeterSayHelloNativeToMessageRequest(name, city)
@@ -354,16 +883,16 @@ func (r greeterRuntimeBridge) invokeNativeSayHello(ctx context.Context, name *rp
 		var messageResp []byte
 		switch snapshot.Kind {
 		case rpcruntime.ServerKindCGOMessage:
-			adapter, ok := snapshot.Adapter.(GreeterMessageAdapter)
+			adapter, ok := snapshot.Adapter.(GreeterCGOMessageServer)
 			if !ok || adapter == nil {
-				err = GreeterMessageAdapterUnavailableErr
+				err = GreeterMessageServerUnavailableErr
 				break
 			}
-			messageResp, err = adapter.SayHelloMessage(ctx, messageReq)
+			messageResp, err = adapter.SayHello(ctx, messageReq)
 		case rpcruntime.ServerKindConnectHandler:
 			handler, ok := snapshot.Adapter.(GreeterHandler)
 			if !ok || handler == nil {
-				err = GreeterMessageAdapterUnavailableErr
+				err = GreeterMessageServerUnavailableErr
 				break
 			}
 			directReq := new(SayHelloRequest)
@@ -380,7 +909,7 @@ func (r greeterRuntimeBridge) invokeNativeSayHello(ctx context.Context, name *rp
 		case rpcruntime.ServerKindConnectRemote:
 			client, ok := snapshot.Adapter.(GreeterClient)
 			if !ok || client == nil {
-				err = GreeterMessageAdapterUnavailableErr
+				err = GreeterMessageServerUnavailableErr
 				break
 			}
 			directReq := new(SayHelloRequest)
@@ -395,7 +924,7 @@ func (r greeterRuntimeBridge) invokeNativeSayHello(ctx context.Context, name *rp
 			}
 			messageResp, err = proto.Marshal(directResp)
 		default:
-			err = GreeterMessageAdapterUnavailableErr
+			err = GreeterMessageServerUnavailableErr
 		}
 		if err != nil {
 			break
@@ -419,15 +948,15 @@ func (r greeterRuntimeBridge) invokeMessageSayHello(ctx context.Context, req []b
 	case rpcruntime.ServerContractMessage:
 		switch snapshot.Kind {
 		case rpcruntime.ServerKindCGOMessage:
-			adapter, ok := snapshot.Adapter.(GreeterMessageAdapter)
+			adapter, ok := snapshot.Adapter.(GreeterCGOMessageServer)
 			if !ok || adapter == nil {
-				return nil, GreeterMessageAdapterUnavailableErr
+				return nil, GreeterMessageServerUnavailableErr
 			}
-			return adapter.SayHelloMessage(ctx, req)
+			return adapter.SayHello(ctx, req)
 		case rpcruntime.ServerKindConnectHandler:
 			handler, ok := snapshot.Adapter.(GreeterHandler)
 			if !ok || handler == nil {
-				return nil, GreeterMessageAdapterUnavailableErr
+				return nil, GreeterMessageServerUnavailableErr
 			}
 			messageReq := new(SayHelloRequest)
 			if err := proto.Unmarshal(req, messageReq); err != nil {
@@ -445,7 +974,7 @@ func (r greeterRuntimeBridge) invokeMessageSayHello(ctx context.Context, req []b
 		case rpcruntime.ServerKindConnectRemote:
 			client, ok := snapshot.Adapter.(GreeterClient)
 			if !ok || client == nil {
-				return nil, GreeterMessageAdapterUnavailableErr
+				return nil, GreeterMessageServerUnavailableErr
 			}
 			messageReq := new(SayHelloRequest)
 			if err := proto.Unmarshal(req, messageReq); err != nil {
@@ -461,13 +990,14 @@ func (r greeterRuntimeBridge) invokeMessageSayHello(ctx context.Context, req []b
 			}
 			return resp, nil
 		default:
-			return nil, GreeterMessageAdapterUnavailableErr
+			return nil, GreeterMessageServerUnavailableErr
 		}
 	case rpcruntime.ServerContractNative:
-		adapter, ok := snapshot.Adapter.(GreeterNativeAdapter)
-		if !ok || adapter == nil {
-			return nil, GreeterNativeAdapterUnavailableErr
+		server, ok := snapshot.Adapter.(GreeterNativeServer)
+		if !ok || server == nil {
+			return nil, GreeterNativeServerUnavailableErr
 		}
+		adapter := &greeterNativeServerAdapter{server: server}
 		var resp []byte
 		err := withGreeterSayHelloMessageToNativeRequest(req, func(name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
 			messageResult, callErr := adapter.SayHello(ctx, name, city)
@@ -497,10 +1027,24 @@ func (r greeterRuntimeBridge) startNativeCollect(ctx context.Context) (rpcruntim
 	}
 	switch snapshot.Contract {
 	case rpcruntime.ServerContractNative:
-		adapter, ok := snapshot.Adapter.(GreeterNativeAdapter)
-		if !ok || adapter == nil {
-			return 0, GreeterNativeAdapterUnavailableErr
+		if snapshot.Kind == rpcruntime.ServerKindCGONative {
+			adapter, ok := snapshot.Adapter.(interface {
+				StartCollect(ctx context.Context) (GreeterCollectNativeStreamSession, error)
+			})
+			if !ok || adapter == nil {
+				return 0, GreeterNativeServerUnavailableErr
+			}
+			session, err := adapter.StartCollect(ctx)
+			if err != nil {
+				return 0, err
+			}
+			return r.streams.Create(rpcruntime.NewStreamEntry(session))
 		}
+		server, ok := snapshot.Adapter.(GreeterNativeServer)
+		if !ok || server == nil {
+			return 0, GreeterNativeServerUnavailableErr
+		}
+		adapter := &greeterNativeServerAdapter{server: server}
 		session, err := adapter.StartCollect(ctx)
 		if err != nil {
 			return 0, err
@@ -554,10 +1098,11 @@ func (r greeterRuntimeBridge) startMessageCollect(ctx context.Context) (rpcrunti
 		}
 		return r.streams.Create(rpcruntime.NewStreamEntry(session))
 	case rpcruntime.ServerContractNative:
-		adapter, ok := snapshot.Adapter.(GreeterNativeAdapter)
-		if !ok || adapter == nil {
-			return 0, GreeterNativeAdapterUnavailableErr
+		server, ok := snapshot.Adapter.(GreeterNativeServer)
+		if !ok || server == nil {
+			return 0, GreeterNativeServerUnavailableErr
 		}
+		adapter := &greeterNativeServerAdapter{server: server}
 		nativeSession, err := adapter.StartCollect(ctx)
 		if err != nil {
 			return 0, err
@@ -593,25 +1138,25 @@ func (s *greeterCollectNativeToMessageStreamSession) Cancel(ctx context.Context)
 func (r greeterRuntimeBridge) startCollectMessageSession(ctx context.Context, snapshot rpcruntime.AdapterSnapshot[any]) (GreeterCollectMessageStreamSession, error) {
 	switch snapshot.Kind {
 	case rpcruntime.ServerKindCGOMessage:
-		adapter, ok := snapshot.Adapter.(GreeterMessageAdapter)
+		adapter, ok := snapshot.Adapter.(GreeterCGOMessageServer)
 		if !ok || adapter == nil {
-			return nil, GreeterMessageAdapterUnavailableErr
+			return nil, GreeterMessageServerUnavailableErr
 		}
-		return adapter.StartCollectMessage(ctx)
+		return adapter.StartCollect(ctx)
 	case rpcruntime.ServerKindConnectHandler:
 		handler, ok := snapshot.Adapter.(GreeterHandler)
 		if !ok || handler == nil {
-			return nil, GreeterMessageAdapterUnavailableErr
+			return nil, GreeterMessageServerUnavailableErr
 		}
 		return newgreeterCollectConnectDirectMessageStreamSession(ctx, handler), nil
 	case rpcruntime.ServerKindConnectRemote:
 		client, ok := snapshot.Adapter.(GreeterClient)
 		if !ok || client == nil {
-			return nil, GreeterMessageAdapterUnavailableErr
+			return nil, GreeterMessageServerUnavailableErr
 		}
 		return newgreeterCollectConnectRemoteMessageStreamSession(ctx, client)
 	default:
-		return nil, GreeterMessageAdapterUnavailableErr
+		return nil, GreeterMessageServerUnavailableErr
 	}
 }
 
@@ -740,6 +1285,28 @@ func (s *greeterCollectConnectRemoteMessageStreamSession) Finish(ctx context.Con
 
 func (s *greeterCollectConnectRemoteMessageStreamSession) Cancel(ctx context.Context) error {
 	_ = ctx
+	if s != nil && s.stream != nil {
+		closed := make(chan struct{})
+		go func() {
+			_, _ = s.stream.CloseAndReceive()
+			close(closed)
+		}()
+		timer := time.NewTimer(100 * time.Millisecond)
+		select {
+		case <-closed:
+			timer.Stop()
+			return nil
+		case <-timer.C:
+		}
+		if s.cancel != nil {
+			s.cancel()
+		}
+		select {
+		case <-closed:
+		case <-time.After(500 * time.Millisecond):
+		}
+		return nil
+	}
 	if s != nil && s.cancel != nil {
 		s.cancel()
 	}
@@ -753,10 +1320,24 @@ func (r greeterRuntimeBridge) startNativeBroadcast(ctx context.Context, name *rp
 	}
 	switch snapshot.Contract {
 	case rpcruntime.ServerContractNative:
-		adapter, ok := snapshot.Adapter.(GreeterNativeAdapter)
-		if !ok || adapter == nil {
-			return 0, GreeterNativeAdapterUnavailableErr
+		if snapshot.Kind == rpcruntime.ServerKindCGONative {
+			adapter, ok := snapshot.Adapter.(interface {
+				StartBroadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (GreeterBroadcastNativeStreamSession, error)
+			})
+			if !ok || adapter == nil {
+				return 0, GreeterNativeServerUnavailableErr
+			}
+			session, err := adapter.StartBroadcast(ctx, name, city)
+			if err != nil {
+				return 0, err
+			}
+			return r.streams.Create(rpcruntime.NewStreamEntry(session))
 		}
+		server, ok := snapshot.Adapter.(GreeterNativeServer)
+		if !ok || server == nil {
+			return 0, GreeterNativeServerUnavailableErr
+		}
+		adapter := &greeterNativeServerAdapter{server: server}
 		session, err := adapter.StartBroadcast(ctx, name, city)
 		if err != nil {
 			return 0, err
@@ -810,10 +1391,11 @@ func (r greeterRuntimeBridge) startMessageBroadcast(ctx context.Context, req []b
 		}
 		return r.streams.Create(rpcruntime.NewStreamEntry(session))
 	case rpcruntime.ServerContractNative:
-		adapter, ok := snapshot.Adapter.(GreeterNativeAdapter)
-		if !ok || adapter == nil {
-			return 0, GreeterNativeAdapterUnavailableErr
+		server, ok := snapshot.Adapter.(GreeterNativeServer)
+		if !ok || server == nil {
+			return 0, GreeterNativeServerUnavailableErr
 		}
+		adapter := &greeterNativeServerAdapter{server: server}
 		var session any
 		err := withGreeterBroadcastMessageToNativeRequest(req, func(name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
 			nativeSession, err := adapter.StartBroadcast(ctx, name, city)
@@ -855,25 +1437,25 @@ func (s *greeterBroadcastNativeToMessageStreamSession) Cancel(ctx context.Contex
 func (r greeterRuntimeBridge) startBroadcastMessageSession(ctx context.Context, snapshot rpcruntime.AdapterSnapshot[any], req []byte) (GreeterBroadcastMessageStreamSession, error) {
 	switch snapshot.Kind {
 	case rpcruntime.ServerKindCGOMessage:
-		adapter, ok := snapshot.Adapter.(GreeterMessageAdapter)
+		adapter, ok := snapshot.Adapter.(GreeterCGOMessageServer)
 		if !ok || adapter == nil {
-			return nil, GreeterMessageAdapterUnavailableErr
+			return nil, GreeterMessageServerUnavailableErr
 		}
-		return adapter.StartBroadcastMessage(ctx, req)
+		return adapter.StartBroadcast(ctx, req)
 	case rpcruntime.ServerKindConnectHandler:
 		handler, ok := snapshot.Adapter.(GreeterHandler)
 		if !ok || handler == nil {
-			return nil, GreeterMessageAdapterUnavailableErr
+			return nil, GreeterMessageServerUnavailableErr
 		}
 		return newgreeterBroadcastConnectDirectMessageStreamSession(ctx, handler, req)
 	case rpcruntime.ServerKindConnectRemote:
 		client, ok := snapshot.Adapter.(GreeterClient)
 		if !ok || client == nil {
-			return nil, GreeterMessageAdapterUnavailableErr
+			return nil, GreeterMessageServerUnavailableErr
 		}
 		return newgreeterBroadcastConnectRemoteMessageStreamSession(ctx, client, req)
 	default:
-		return nil, GreeterMessageAdapterUnavailableErr
+		return nil, GreeterMessageServerUnavailableErr
 	}
 }
 
@@ -1020,10 +1602,24 @@ func (r greeterRuntimeBridge) startNativeChat(ctx context.Context) (rpcruntime.S
 	}
 	switch snapshot.Contract {
 	case rpcruntime.ServerContractNative:
-		adapter, ok := snapshot.Adapter.(GreeterNativeAdapter)
-		if !ok || adapter == nil {
-			return 0, GreeterNativeAdapterUnavailableErr
+		if snapshot.Kind == rpcruntime.ServerKindCGONative {
+			adapter, ok := snapshot.Adapter.(interface {
+				StartChat(ctx context.Context) (GreeterChatNativeStreamSession, error)
+			})
+			if !ok || adapter == nil {
+				return 0, GreeterNativeServerUnavailableErr
+			}
+			session, err := adapter.StartChat(ctx)
+			if err != nil {
+				return 0, err
+			}
+			return r.streams.Create(rpcruntime.NewStreamEntry(session))
 		}
+		server, ok := snapshot.Adapter.(GreeterNativeServer)
+		if !ok || server == nil {
+			return 0, GreeterNativeServerUnavailableErr
+		}
+		adapter := &greeterNativeServerAdapter{server: server}
 		session, err := adapter.StartChat(ctx)
 		if err != nil {
 			return 0, err
@@ -1085,10 +1681,11 @@ func (r greeterRuntimeBridge) startMessageChat(ctx context.Context) (rpcruntime.
 		}
 		return r.streams.Create(rpcruntime.NewStreamEntry(session))
 	case rpcruntime.ServerContractNative:
-		adapter, ok := snapshot.Adapter.(GreeterNativeAdapter)
-		if !ok || adapter == nil {
-			return 0, GreeterNativeAdapterUnavailableErr
+		server, ok := snapshot.Adapter.(GreeterNativeServer)
+		if !ok || server == nil {
+			return 0, GreeterNativeServerUnavailableErr
 		}
+		adapter := &greeterNativeServerAdapter{server: server}
 		nativeSession, err := adapter.StartChat(ctx)
 		if err != nil {
 			return 0, err
@@ -1132,25 +1729,25 @@ func (s *greeterChatNativeToMessageStreamSession) Cancel(ctx context.Context) er
 func (r greeterRuntimeBridge) startChatMessageSession(ctx context.Context, snapshot rpcruntime.AdapterSnapshot[any]) (GreeterChatMessageStreamSession, error) {
 	switch snapshot.Kind {
 	case rpcruntime.ServerKindCGOMessage:
-		adapter, ok := snapshot.Adapter.(GreeterMessageAdapter)
+		adapter, ok := snapshot.Adapter.(GreeterCGOMessageServer)
 		if !ok || adapter == nil {
-			return nil, GreeterMessageAdapterUnavailableErr
+			return nil, GreeterMessageServerUnavailableErr
 		}
-		return adapter.StartChatMessage(ctx)
+		return adapter.StartChat(ctx)
 	case rpcruntime.ServerKindConnectHandler:
 		handler, ok := snapshot.Adapter.(GreeterHandler)
 		if !ok || handler == nil {
-			return nil, GreeterMessageAdapterUnavailableErr
+			return nil, GreeterMessageServerUnavailableErr
 		}
 		return newgreeterChatConnectDirectMessageStreamSession(ctx, handler), nil
 	case rpcruntime.ServerKindConnectRemote:
 		client, ok := snapshot.Adapter.(GreeterClient)
 		if !ok || client == nil {
-			return nil, GreeterMessageAdapterUnavailableErr
+			return nil, GreeterMessageServerUnavailableErr
 		}
 		return newgreeterChatConnectRemoteMessageStreamSession(ctx, client)
 	default:
-		return nil, GreeterMessageAdapterUnavailableErr
+		return nil, GreeterMessageServerUnavailableErr
 	}
 }
 
@@ -1342,8 +1939,8 @@ func StartGreeterNativeChat(ctx context.Context) (rpcruntime.StreamHandle, error
 	return greeterBridge.startNativeChat(ctx)
 }
 
-func RegisterGreeterCGONativeActiveServer(kind rpcruntime.ServerKind, adapter GreeterNativeAdapter) (rpcruntime.AdapterSnapshot[GreeterNativeAdapter], error) {
-	return registerGreeterActiveServer(kind, adapter)
+func RegisterGreeterCGONativeServer(server GreeterNativeServer) (rpcruntime.AdapterSnapshot[GreeterNativeServer], error) {
+	return registerGreeterActiveServer(rpcruntime.ServerKindCGONative, server)
 }
 
 func InvokeGreeterMessageSayHello(ctx context.Context, req []byte) ([]byte, error) {
@@ -1360,8 +1957,4 @@ func StartGreeterMessageBroadcast(ctx context.Context, req []byte) (rpcruntime.S
 
 func StartGreeterMessageChat(ctx context.Context) (rpcruntime.StreamHandle, error) {
 	return greeterBridge.startMessageChat(ctx)
-}
-
-func RegisterGreeterCGOMessageActiveServer(kind rpcruntime.ServerKind, adapter GreeterMessageAdapter) (rpcruntime.AdapterSnapshot[GreeterMessageAdapter], error) {
-	return registerGreeterMessageActiveServer(kind, adapter)
 }

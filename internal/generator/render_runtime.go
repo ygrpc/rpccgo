@@ -33,14 +33,17 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	if directProto {
 		g.P(`proto "google.golang.org/protobuf/proto"`)
 	}
-	if directConnectStreaming || directGRPCStreaming {
+	if directConnectStreaming || directGRPCStreaming || nativeServerHasStreamingMethod(service) {
 		g.P(`io "io"`)
-		if serviceHasClientStreamingMethod(service) || serviceHasBidiStreamingMethod(service) {
+		if serviceHasClientStreamingMethod(service) || serviceHasBidiStreamingMethod(service) || nativeServerHasClientInputStreamingMethod(service) {
 			g.P(`sync "sync"`)
 		}
 	}
 	if directConnectStreaming {
 		g.P(`connect "connectrpc.com/connect"`)
+		if serviceHasClientStreamingMethod(service) {
+			g.P(`time "time"`)
+		}
 	}
 	if directGRPCStreaming {
 		g.P(`grpc "google.golang.org/grpc"`)
@@ -52,19 +55,23 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P("// ", nativeStageMarker(service, file))
 	g.P()
 
-	adapterName := service.GoName + "NativeAdapter"
-	messageAdapterName := service.GoName + "MessageAdapter"
+	adapterName := service.GoName + "NativeServer"
+	messageAdapterName := service.GoName + "CGOMessageServer"
 	activeSlotName := lowerInitial(service.GoName) + "ActiveSlot"
 	streamRegistryName := lowerInitial(service.GoName) + "StreamRegistry"
 
-	g.P("type ", adapterName, " interface {")
-	for _, method := range runtimeMethods {
-		g.P(method.AdapterName, "(ctx context.Context", method.AdapterArgs, ")", method.AdapterResult)
-	}
-	g.P("}")
+	renderRuntimeNativeServerContract(g, service)
+	renderRuntimeNativeStreamContracts(g, service)
+	errorNames := nativeServerErrorNamesFor(service)
+	g.P("var (")
+	g.P(errorNames.RequestBridgeNotImplemented, ` = errors.New("rpccgo: native request bridge is not implemented")`)
+	g.P(errorNames.StreamBridgeNotImplemented, ` = errors.New("rpccgo: native stream bridge is not implemented")`)
+	g.P(errorNames.StreamIsNil, ` = errors.New("rpccgo: native stream is nil")`)
+	g.P(errorNames.StreamClosed, ` = errors.New("rpccgo: native stream is closed")`)
+	g.P(")")
 	g.P()
-
-	renderRuntimeMessageAdapter(g, service, messageAdapterName, runtimeMethods)
+	nativeServerAdapterName := lowerInitial(service.GoName) + "NativeServerAdapter"
+	renderGoNativeAdapter(g, service, runtimeMethods, service.GoName+"NativeServer", nativeServerAdapterName, errorNames)
 
 	for _, method := range streamingMethods {
 		renderRuntimeSessionInterface(g, method)
@@ -82,26 +89,26 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P("var ", streamRegistryName, " rpcruntime.StreamRegistry[*rpcruntime.StreamEntry]")
 	g.P("var ", bridgeName, " = ", bridgeTypeName, "{active: &", activeSlotName, ", streams: &", streamRegistryName, "}")
 	g.P("var ", service.GoName, `NativeMessageConverterUnavailableErr = errors.New("rpccgo: native/message converter is not enabled")`)
-	g.P("var ", service.GoName, `NativeAdapterUnavailableErr = errors.New("rpccgo: native adapter is unavailable")`)
-	g.P("var ", service.GoName, `MessageAdapterUnavailableErr = errors.New("rpccgo: message adapter is unavailable")`)
+	g.P("var ", service.GoName, `NativeServerUnavailableErr = errors.New("rpccgo: native server is unavailable")`)
+	g.P("var ", service.GoName, `MessageServerUnavailableErr = errors.New("rpccgo: message server is unavailable")`)
 	g.P("var ", service.GoName, `UnknownActiveContractErr = errors.New("rpccgo: unknown active server contract")`)
 	g.P()
 
-	g.P("func register", service.GoName, "ActiveServer(kind rpcruntime.ServerKind, adapter ", adapterName, ") (rpcruntime.AdapterSnapshot[", adapterName, "], error) {")
-	g.P("snapshot, err := ", activeSlotName, ".Store(kind, rpcruntime.ServerContractNative, adapter)")
+	g.P("func register", service.GoName, "ActiveServer(kind rpcruntime.ServerKind, server ", adapterName, ") (rpcruntime.AdapterSnapshot[", adapterName, "], error) {")
+	g.P("snapshot, err := ", activeSlotName, ".Store(kind, rpcruntime.ServerContractNative, server)")
 	g.P("if err != nil {")
 	g.P("return rpcruntime.AdapterSnapshot[", adapterName, "]{}, err")
 	g.P("}")
-	g.P("return rpcruntime.AdapterSnapshot[", adapterName, "]{Kind: snapshot.Kind, Contract: snapshot.Contract, Version: snapshot.Version, Adapter: adapter}, nil")
+	g.P("return rpcruntime.AdapterSnapshot[", adapterName, "]{Kind: snapshot.Kind, Contract: snapshot.Contract, Version: snapshot.Version, Adapter: server}, nil")
 	g.P("}")
 	g.P()
 
-	g.P("func register", service.GoName, "MessageActiveServer(kind rpcruntime.ServerKind, adapter ", messageAdapterName, ") (rpcruntime.AdapterSnapshot[", messageAdapterName, "], error) {")
-	g.P("snapshot, err := ", activeSlotName, ".Store(kind, rpcruntime.ServerContractMessage, adapter)")
+	g.P("func register", service.GoName, "CGOMessageServer(server ", messageAdapterName, ") (rpcruntime.AdapterSnapshot[", messageAdapterName, "], error) {")
+	g.P("snapshot, err := ", activeSlotName, ".Store(rpcruntime.ServerKindCGOMessage, rpcruntime.ServerContractMessage, server)")
 	g.P("if err != nil {")
 	g.P("return rpcruntime.AdapterSnapshot[", messageAdapterName, "]{}, err")
 	g.P("}")
-	g.P("return rpcruntime.AdapterSnapshot[", messageAdapterName, "]{Kind: snapshot.Kind, Contract: snapshot.Contract, Version: snapshot.Version, Adapter: adapter}, nil")
+	g.P("return rpcruntime.AdapterSnapshot[", messageAdapterName, "]{Kind: snapshot.Kind, Contract: snapshot.Contract, Version: snapshot.Version, Adapter: server}, nil")
 	g.P("}")
 	g.P()
 
@@ -111,6 +118,52 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	renderRuntimeMessageEntrypoints(g, service.GoName, messageAdapterName, bridgeName, runtimeMethods)
 
 	return nil
+}
+
+func renderRuntimeNativeServerContract(g *protogen.GeneratedFile, service ServicePlan) {
+	serverName := service.GoName + "NativeServer"
+	g.P("type ", serverName, " interface {")
+	for _, method := range service.Methods {
+		requestParams := nativeGoRequestParams(g, method.Contract.Native.RequestFields)
+		responseReturns := nativeGoResponseReturns(g, method.Contract.Native.ResponseFields)
+		switch method.Streaming {
+		case StreamingKindUnary:
+			g.P(method.GoName, "(ctx context.Context", requestParams, ") (", responseReturns, ")")
+		case StreamingKindClientStreaming:
+			g.P(method.GoName, "(ctx context.Context, stream ", service.GoName, method.GoName, "NativeClientStream) (", responseReturns, ")")
+		case StreamingKindServerStreaming:
+			g.P(method.GoName, "(ctx context.Context", requestParams, ", stream ", service.GoName, method.GoName, "NativeServerStream) error")
+		case StreamingKindBidiStreaming:
+			g.P(method.GoName, "(ctx context.Context, stream ", service.GoName, method.GoName, "NativeBidiStream) error")
+		}
+	}
+	g.P("}")
+	g.P()
+}
+
+func renderRuntimeNativeStreamContracts(g *protogen.GeneratedFile, service ServicePlan) {
+	for _, method := range service.Methods {
+		requestReturns := nativeGoRequestReturns(g, method.Contract.Native.RequestFields)
+		responseParams := nativeGoResponseParams(g, method.Contract.Native.ResponseFields)
+		switch method.Streaming {
+		case StreamingKindClientStreaming:
+			g.P("type ", service.GoName, method.GoName, "NativeClientStream interface {")
+			g.P("Recv(ctx context.Context) (", requestReturns, ")")
+			g.P("}")
+			g.P()
+		case StreamingKindServerStreaming:
+			g.P("type ", service.GoName, method.GoName, "NativeServerStream interface {")
+			g.P("Send(ctx context.Context", responseParams, ") error")
+			g.P("}")
+			g.P()
+		case StreamingKindBidiStreaming:
+			g.P("type ", service.GoName, method.GoName, "NativeBidiStream interface {")
+			g.P("Recv(ctx context.Context) (", requestReturns, ")")
+			g.P("Send(ctx context.Context", responseParams, ") error")
+			g.P("}")
+			g.P()
+		}
+	}
 }
 
 type runtimeAdapterMethod struct {
@@ -235,24 +288,6 @@ func renderRuntimeSessionInterface(g *protogen.GeneratedFile, method runtimeAdap
 		g.P("Cancel(ctx context.Context) error")
 	default:
 		g.P("Cancel(ctx context.Context) error")
-	}
-	g.P("}")
-	g.P()
-}
-
-func renderRuntimeMessageAdapter(g *protogen.GeneratedFile, service ServicePlan, adapterName string, methods []runtimeAdapterMethod) {
-	g.P("type ", adapterName, " interface {")
-	for _, method := range methods {
-		switch method.SessionKind {
-		case SessionKindNone:
-			g.P(method.AdapterName, "Message(ctx context.Context, req []byte) ([]byte, error)")
-		case SessionKindClient:
-			g.P("Start", method.MethodGoName, "Message(ctx context.Context) (", service.GoName, method.MethodGoName, "MessageStreamSession, error)")
-		case SessionKindServer:
-			g.P("Start", method.MethodGoName, "Message(ctx context.Context, req []byte) (", service.GoName, method.MethodGoName, "MessageStreamSession, error)")
-		case SessionKindBidi:
-			g.P("Start", method.MethodGoName, "Message(ctx context.Context) (", service.GoName, method.MethodGoName, "MessageStreamSession, error)")
-		}
 	}
 	g.P("}")
 	g.P()
@@ -581,11 +616,12 @@ func renderRuntimeBridgeNativeUnary(g *protogen.GeneratedFile, service ServicePl
 	g.P("}")
 	g.P("switch snapshot.Contract {")
 	g.P("case rpcruntime.ServerContractNative:")
-	g.P("adapter, ok := snapshot.Adapter.(", nativeAdapterName, ")")
-	g.P("if !ok || adapter == nil {")
-	g.P("err = ", serviceName, "NativeAdapterUnavailableErr")
+	g.P("server, ok := snapshot.Adapter.(", nativeAdapterName, ")")
+	g.P("if !ok || server == nil {")
+	g.P("err = ", serviceName, "NativeServerUnavailableErr")
 	g.P("break")
 	g.P("}")
+	g.P("adapter := &", lowerInitial(serviceName), "NativeServerAdapter{server: server}")
 	if method.NativeNames == "" {
 		g.P("err = adapter.", method.AdapterName, "(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
 	} else {
@@ -619,11 +655,12 @@ func renderRuntimeBridgeMessageUnary(g *protogen.GeneratedFile, service ServiceP
 	g.P("case rpcruntime.ServerContractMessage:")
 	renderRuntimeBridgeMessageUnaryActiveCall(g, service, messageAdapterName, method)
 	g.P("case rpcruntime.ServerContractNative:")
-	g.P("adapter, ok := snapshot.Adapter.(", nativeAdapterName, ")")
-	g.P("if !ok || adapter == nil {")
-	g.P("return nil, ", serviceName, "NativeAdapterUnavailableErr")
+	g.P("server, ok := snapshot.Adapter.(", nativeAdapterName, ")")
+	g.P("if !ok || server == nil {")
+	g.P("return nil, ", serviceName, "NativeServerUnavailableErr")
 	g.P("}")
 	if codecEnabled {
+		g.P("adapter := &", lowerInitial(serviceName), "NativeServerAdapter{server: server}")
 		g.P("var resp []byte")
 		g.P("err := ", codecMessageToNativeRequestName(ServicePlan{GoName: serviceName}, MethodPlan{GoName: method.MethodGoName}), "(req, func(", strings.TrimPrefix(method.NativeArgs, ", "), ") error {")
 		if method.NativeNames == "" {
@@ -661,13 +698,13 @@ func renderRuntimeBridgeMessageUnaryActiveCall(g *protogen.GeneratedFile, servic
 	g.P("case rpcruntime.ServerKindCGOMessage:")
 	g.P("adapter, ok := snapshot.Adapter.(", messageAdapterName, ")")
 	g.P("if !ok || adapter == nil {")
-	g.P("return nil, ", serviceName, "MessageAdapterUnavailableErr")
+	g.P("return nil, ", serviceName, "MessageServerUnavailableErr")
 	g.P("}")
-	g.P("return adapter.", method.AdapterName, "Message(ctx, req)")
+	g.P("return adapter.", method.MethodGoName, "(ctx, req)")
 	renderRuntimeBridgeMessageUnaryDirectCases(g, service, method, "req", "return nil, ")
 	renderRuntimeBridgeMessageUnaryRemoteCases(g, service, method, "req", "return nil, ")
 	g.P("default:")
-	g.P("return nil, ", serviceName, "MessageAdapterUnavailableErr")
+	g.P("return nil, ", serviceName, "MessageServerUnavailableErr")
 	g.P("}")
 }
 
@@ -687,14 +724,14 @@ func renderRuntimeBridgeNativeUnaryMessageActiveCall(g *protogen.GeneratedFile, 
 	g.P("case rpcruntime.ServerKindCGOMessage:")
 	g.P("adapter, ok := snapshot.Adapter.(", messageAdapterName, ")")
 	g.P("if !ok || adapter == nil {")
-	g.P("err = ", serviceName, "MessageAdapterUnavailableErr")
+	g.P("err = ", serviceName, "MessageServerUnavailableErr")
 	g.P("break")
 	g.P("}")
-	g.P("messageResp, err = adapter.", method.AdapterName, "Message(ctx, messageReq)")
+	g.P("messageResp, err = adapter.", method.MethodGoName, "(ctx, messageReq)")
 	renderRuntimeBridgeNativeUnaryDirectCases(g, service, method)
 	renderRuntimeBridgeNativeUnaryRemoteCases(g, service, method)
 	g.P("default:")
-	g.P("err = ", serviceName, "MessageAdapterUnavailableErr")
+	g.P("err = ", serviceName, "MessageServerUnavailableErr")
 	g.P("}")
 	g.P("if err != nil {")
 	g.P("break")
@@ -714,7 +751,7 @@ func renderRuntimeBridgeMessageUnaryDirectCases(g *protogen.GeneratedFile, servi
 		g.P("case rpcruntime.ServerKindConnectHandler:")
 		g.P("handler, ok := snapshot.Adapter.(", handlerName, ")")
 		g.P("if !ok || handler == nil {")
-		g.P(errPrefix, serviceName, "MessageAdapterUnavailableErr")
+		g.P(errPrefix, serviceName, "MessageServerUnavailableErr")
 		g.P("}")
 		g.P("messageReq := new(", reqType, ")")
 		g.P("if err := proto.Unmarshal(", reqExpr, ", messageReq); err != nil {")
@@ -736,7 +773,7 @@ func renderRuntimeBridgeMessageUnaryDirectCases(g *protogen.GeneratedFile, servi
 		g.P("case rpcruntime.ServerKindGRPCServer:")
 		g.P("server, ok := snapshot.Adapter.(", serverName, ")")
 		g.P("if !ok || server == nil {")
-		g.P(errPrefix, serviceName, "MessageAdapterUnavailableErr")
+		g.P(errPrefix, serviceName, "MessageServerUnavailableErr")
 		g.P("}")
 		g.P("messageReq := new(", reqType, ")")
 		g.P("if err := proto.Unmarshal(", reqExpr, ", messageReq); err != nil {")
@@ -762,7 +799,7 @@ func renderRuntimeBridgeMessageUnaryRemoteCases(g *protogen.GeneratedFile, servi
 		g.P("case rpcruntime.ServerKindConnectRemote:")
 		g.P("client, ok := snapshot.Adapter.(", clientName, ")")
 		g.P("if !ok || client == nil {")
-		g.P(errPrefix, serviceName, "MessageAdapterUnavailableErr")
+		g.P(errPrefix, serviceName, "MessageServerUnavailableErr")
 		g.P("}")
 		g.P("messageReq := new(", reqType, ")")
 		g.P("if err := proto.Unmarshal(", reqExpr, ", messageReq); err != nil {")
@@ -784,7 +821,7 @@ func renderRuntimeBridgeMessageUnaryRemoteCases(g *protogen.GeneratedFile, servi
 		g.P("case rpcruntime.ServerKindGRPCRemote:")
 		g.P("client, ok := snapshot.Adapter.(", clientName, ")")
 		g.P("if !ok || client == nil {")
-		g.P(errPrefix, serviceName, "MessageAdapterUnavailableErr")
+		g.P(errPrefix, serviceName, "MessageServerUnavailableErr")
 		g.P("}")
 		g.P("messageReq := new(", reqType, ")")
 		g.P("if err := proto.Unmarshal(", reqExpr, ", messageReq); err != nil {")
@@ -809,7 +846,7 @@ func renderRuntimeBridgeNativeUnaryDirectCases(g *protogen.GeneratedFile, servic
 		g.P("case rpcruntime.ServerKindConnectHandler:")
 		g.P("handler, ok := snapshot.Adapter.(", handlerName, ")")
 		g.P("if !ok || handler == nil {")
-		g.P("err = ", service.GoName, "MessageAdapterUnavailableErr")
+		g.P("err = ", service.GoName, "MessageServerUnavailableErr")
 		g.P("break")
 		g.P("}")
 		g.P("directReq := new(", reqType, ")")
@@ -830,7 +867,7 @@ func renderRuntimeBridgeNativeUnaryDirectCases(g *protogen.GeneratedFile, servic
 		g.P("case rpcruntime.ServerKindGRPCServer:")
 		g.P("server, ok := snapshot.Adapter.(", serverName, ")")
 		g.P("if !ok || server == nil {")
-		g.P("err = ", service.GoName, "MessageAdapterUnavailableErr")
+		g.P("err = ", service.GoName, "MessageServerUnavailableErr")
 		g.P("break")
 		g.P("}")
 		g.P("directReq := new(", reqType, ")")
@@ -854,7 +891,7 @@ func renderRuntimeBridgeNativeUnaryRemoteCases(g *protogen.GeneratedFile, servic
 		g.P("case rpcruntime.ServerKindConnectRemote:")
 		g.P("client, ok := snapshot.Adapter.(", clientName, ")")
 		g.P("if !ok || client == nil {")
-		g.P("err = ", service.GoName, "MessageAdapterUnavailableErr")
+		g.P("err = ", service.GoName, "MessageServerUnavailableErr")
 		g.P("break")
 		g.P("}")
 		g.P("directReq := new(", reqType, ")")
@@ -875,7 +912,7 @@ func renderRuntimeBridgeNativeUnaryRemoteCases(g *protogen.GeneratedFile, servic
 		g.P("case rpcruntime.ServerKindGRPCRemote:")
 		g.P("client, ok := snapshot.Adapter.(", clientName, ")")
 		g.P("if !ok || client == nil {")
-		g.P("err = ", service.GoName, "MessageAdapterUnavailableErr")
+		g.P("err = ", service.GoName, "MessageServerUnavailableErr")
 		g.P("break")
 		g.P("}")
 		g.P("directReq := new(", reqType, ")")
@@ -918,10 +955,32 @@ func renderRuntimeBridgeNativeStream(g *protogen.GeneratedFile, serviceName, bri
 	g.P("}")
 	g.P("switch snapshot.Contract {")
 	g.P("case rpcruntime.ServerContractNative:")
-	g.P("adapter, ok := snapshot.Adapter.(", nativeAdapterName, ")")
+	g.P("if snapshot.Kind == rpcruntime.ServerKindCGONative {")
+	switch method.SessionKind {
+	case SessionKindClient, SessionKindBidi:
+		g.P("adapter, ok := snapshot.Adapter.(interface { ", method.AdapterName, "(ctx context.Context) (", method.SessionName, ", error) })")
+	case SessionKindServer:
+		g.P("adapter, ok := snapshot.Adapter.(interface { ", method.AdapterName, "(ctx context.Context", method.NativeArgs, ") (", method.SessionName, ", error) })")
+	}
 	g.P("if !ok || adapter == nil {")
-	g.P("return 0, ", serviceName, "NativeAdapterUnavailableErr")
+	g.P("return 0, ", serviceName, "NativeServerUnavailableErr")
 	g.P("}")
+	switch method.SessionKind {
+	case SessionKindClient, SessionKindBidi:
+		g.P("session, err := adapter.", method.AdapterName, "(ctx)")
+	case SessionKindServer:
+		g.P("session, err := adapter.", method.AdapterName, "(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
+	}
+	g.P("if err != nil {")
+	g.P("return 0, err")
+	g.P("}")
+	g.P("return r.streams.Create(rpcruntime.NewStreamEntry(session))")
+	g.P("}")
+	g.P("server, ok := snapshot.Adapter.(", nativeAdapterName, ")")
+	g.P("if !ok || server == nil {")
+	g.P("return 0, ", serviceName, "NativeServerUnavailableErr")
+	g.P("}")
+	g.P("adapter := &", lowerInitial(serviceName), "NativeServerAdapter{server: server}")
 	switch method.SessionKind {
 	case SessionKindClient, SessionKindBidi:
 		g.P("session, err := adapter.", method.AdapterName, "(ctx)")
@@ -989,11 +1048,12 @@ func renderRuntimeBridgeMessageStream(g *protogen.GeneratedFile, serviceName, br
 	g.P("}")
 	g.P("return r.streams.Create(rpcruntime.NewStreamEntry(session))")
 	g.P("case rpcruntime.ServerContractNative:")
-	g.P("adapter, ok := snapshot.Adapter.(", nativeAdapterName, ")")
-	g.P("if !ok || adapter == nil {")
-	g.P("return 0, ", serviceName, "NativeAdapterUnavailableErr")
+	g.P("server, ok := snapshot.Adapter.(", nativeAdapterName, ")")
+	g.P("if !ok || server == nil {")
+	g.P("return 0, ", serviceName, "NativeServerUnavailableErr")
 	g.P("}")
 	if codecEnabled {
+		g.P("adapter := &", lowerInitial(serviceName), "NativeServerAdapter{server: server}")
 		switch method.SessionKind {
 		case SessionKindClient, SessionKindBidi:
 			g.P("nativeSession, err := adapter.", method.AdapterName, "(ctx)")
@@ -1044,13 +1104,13 @@ func renderRuntimeBridgeMessageSessionStarter(g *protogen.GeneratedFile, service
 	g.P("case rpcruntime.ServerKindCGOMessage:")
 	g.P("adapter, ok := snapshot.Adapter.(", messageAdapterName, ")")
 	g.P("if !ok || adapter == nil {")
-	g.P("return nil, ", serviceName, "MessageAdapterUnavailableErr")
+	g.P("return nil, ", serviceName, "MessageServerUnavailableErr")
 	g.P("}")
 	switch method.SessionKind {
 	case SessionKindClient, SessionKindBidi:
-		g.P("return adapter.Start", method.MethodGoName, "Message(ctx)")
+		g.P("return adapter.Start", method.MethodGoName, "(ctx)")
 	case SessionKindServer:
-		g.P("return adapter.Start", method.MethodGoName, "Message(ctx, req)")
+		g.P("return adapter.Start", method.MethodGoName, "(ctx, req)")
 	}
 	if service.Adapters.Has(AdapterTokenMessageConnect) {
 		handlerName := service.GoName + "Handler"
@@ -1058,7 +1118,7 @@ func renderRuntimeBridgeMessageSessionStarter(g *protogen.GeneratedFile, service
 		g.P("case rpcruntime.ServerKindConnectHandler:")
 		g.P("handler, ok := snapshot.Adapter.(", handlerName, ")")
 		g.P("if !ok || handler == nil {")
-		g.P("return nil, ", serviceName, "MessageAdapterUnavailableErr")
+		g.P("return nil, ", serviceName, "MessageServerUnavailableErr")
 		g.P("}")
 		switch method.SessionKind {
 		case SessionKindClient, SessionKindBidi:
@@ -1069,7 +1129,7 @@ func renderRuntimeBridgeMessageSessionStarter(g *protogen.GeneratedFile, service
 		g.P("case rpcruntime.ServerKindConnectRemote:")
 		g.P("client, ok := snapshot.Adapter.(", clientName, ")")
 		g.P("if !ok || client == nil {")
-		g.P("return nil, ", serviceName, "MessageAdapterUnavailableErr")
+		g.P("return nil, ", serviceName, "MessageServerUnavailableErr")
 		g.P("}")
 		switch method.SessionKind {
 		case SessionKindClient, SessionKindBidi:
@@ -1084,7 +1144,7 @@ func renderRuntimeBridgeMessageSessionStarter(g *protogen.GeneratedFile, service
 		g.P("case rpcruntime.ServerKindGRPCServer:")
 		g.P("server, ok := snapshot.Adapter.(", serverName, ")")
 		g.P("if !ok || server == nil {")
-		g.P("return nil, ", serviceName, "MessageAdapterUnavailableErr")
+		g.P("return nil, ", serviceName, "MessageServerUnavailableErr")
 		g.P("}")
 		switch method.SessionKind {
 		case SessionKindClient, SessionKindBidi:
@@ -1095,7 +1155,7 @@ func renderRuntimeBridgeMessageSessionStarter(g *protogen.GeneratedFile, service
 		g.P("case rpcruntime.ServerKindGRPCRemote:")
 		g.P("client, ok := snapshot.Adapter.(", clientName, ")")
 		g.P("if !ok || client == nil {")
-		g.P("return nil, ", serviceName, "MessageAdapterUnavailableErr")
+		g.P("return nil, ", serviceName, "MessageServerUnavailableErr")
 		g.P("}")
 		switch method.SessionKind {
 		case SessionKindClient, SessionKindBidi:
@@ -1105,7 +1165,7 @@ func renderRuntimeBridgeMessageSessionStarter(g *protogen.GeneratedFile, service
 		}
 	}
 	g.P("default:")
-	g.P("return nil, ", serviceName, "MessageAdapterUnavailableErr")
+	g.P("return nil, ", serviceName, "MessageServerUnavailableErr")
 	g.P("}")
 	g.P("}")
 	g.P()
@@ -1401,6 +1461,28 @@ func renderConnectRemoteClientStreamSession(g *protogen.GeneratedFile, method ru
 	g.P()
 	g.P("func (s *", wrapperName, ") Cancel(ctx context.Context) error {")
 	g.P("_ = ctx")
+	g.P("if s != nil && s.stream != nil {")
+	g.P("closed := make(chan struct{})")
+	g.P("go func() {")
+	g.P("_, _ = s.stream.CloseAndReceive()")
+	g.P("close(closed)")
+	g.P("}()")
+	g.P("timer := time.NewTimer(100 * time.Millisecond)")
+	g.P("select {")
+	g.P("case <-closed:")
+	g.P("timer.Stop()")
+	g.P("return nil")
+	g.P("case <-timer.C:")
+	g.P("}")
+	g.P("if s.cancel != nil {")
+	g.P("s.cancel()")
+	g.P("}")
+	g.P("select {")
+	g.P("case <-closed:")
+	g.P("case <-time.After(500 * time.Millisecond):")
+	g.P("}")
+	g.P("return nil")
+	g.P("}")
 	g.P("if s != nil && s.cancel != nil {")
 	g.P("s.cancel()")
 	g.P("}")
@@ -2145,8 +2227,8 @@ func renderRuntimeNativeEntrypoints(g *protogen.GeneratedFile, serviceName, adap
 		g.P()
 	}
 
-	g.P("func Register", serviceName, "CGONativeActiveServer(kind rpcruntime.ServerKind, adapter ", adapterName, ") (rpcruntime.AdapterSnapshot[", adapterName, "], error) {")
-	g.P("return register", serviceName, "ActiveServer(kind, adapter)")
+	g.P("func Register", serviceName, "CGONativeServer(server ", adapterName, ") (rpcruntime.AdapterSnapshot[", adapterName, "], error) {")
+	g.P("return register", serviceName, "ActiveServer(rpcruntime.ServerKindCGONative, server)")
 	g.P("}")
 	g.P()
 }
@@ -2177,11 +2259,6 @@ func renderRuntimeMessageEntrypoints(g *protogen.GeneratedFile, serviceName, ada
 		g.P("}")
 		g.P()
 	}
-
-	g.P("func Register", serviceName, "CGOMessageActiveServer(kind rpcruntime.ServerKind, adapter ", adapterName, ") (rpcruntime.AdapterSnapshot[", adapterName, "], error) {")
-	g.P("return register", serviceName, "MessageActiveServer(kind, adapter)")
-	g.P("}")
-	g.P()
 }
 
 func renderNativeToMessageStreamWrapper(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod) {

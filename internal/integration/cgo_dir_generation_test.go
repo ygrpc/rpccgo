@@ -157,6 +157,7 @@ func writeNativeUnaryGeneratedModule(t *testing.T, root string, plugin *protogen
 	for _, generated := range plugin.Response().GetFile() {
 		name := generated.GetName()
 		if !strings.Contains(name, ".runtime.rpccgo.go") &&
+			!strings.Contains(name, ".server.message.rpccgo.go") &&
 			!strings.Contains(name, ".server.native.rpccgo.go") &&
 			!strings.Contains(name, ".server.native.cgo.rpccgo.go") &&
 			!strings.Contains(name, ".client.native.cgo.rpccgo.go") {

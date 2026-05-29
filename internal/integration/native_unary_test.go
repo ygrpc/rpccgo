@@ -35,6 +35,7 @@ func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 	for _, generated := range plugin.Response().GetFile() {
 		name := generated.GetName()
 		if !strings.Contains(name, ".runtime.rpccgo.go") &&
+			!strings.Contains(name, ".server.message.rpccgo.go") &&
 			!strings.Contains(name, ".server.native.rpccgo.go") &&
 			!strings.Contains(name, ".client.native.cgo.rpccgo.go") {
 			continue

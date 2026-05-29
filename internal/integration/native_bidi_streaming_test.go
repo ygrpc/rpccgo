@@ -26,7 +26,7 @@ func TestNativeBidiStreamingRoutesToGoNativeServer(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, "test/v1/native_integration_reset.go"), nativeIntegrationResetSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_bidi_streaming_go_test.go"), nativeBidiStreamingGoFixtureTestSource)
 
-	cmd := exec.Command("go", "test", "-mod=mod", "./test/v1/cgo", "-run", "TestNativeBidiStreamingGo", "-count=1")
+	cmd := exec.Command("go", "test", "-mod=mod", "./test/v1/cgo", "-run", "TestNativeBidiStreamingGo", "-count=1", "-timeout=30s")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -46,7 +46,7 @@ func TestNativeBidiStreamingRoutesToCGONativeServer(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_bidi_streaming_cgo_callbacks.go"), nativeBidiStreamingCGOFixtureCallbackSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_bidi_streaming_cgo_test.go"), nativeBidiStreamingCGOFixtureTestSource)
 
-	cmd := exec.Command("go", "test", "-mod=mod", "./test/v1/cgo", "-run", "TestNativeBidiStreamingCGO", "-count=1")
+	cmd := exec.Command("go", "test", "-mod=mod", "./test/v1/cgo", "-run", "TestNativeBidiStreamingCGO", "-count=1", "-timeout=30s")
 	cmd.Dir = tmp
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -69,6 +69,7 @@ func writeNativeBidiStreamingFixture(t *testing.T, tmp string, plugin *protogen.
 	for _, generated := range plugin.Response().GetFile() {
 		name := generated.GetName()
 		include := strings.Contains(name, ".runtime.rpccgo.go") ||
+			strings.Contains(name, ".server.message.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go") ||
 			strings.Contains(name, ".server.native.cgo.rpccgo.go") ||
 			strings.Contains(name, ".client.native.cgo.rpccgo.go")

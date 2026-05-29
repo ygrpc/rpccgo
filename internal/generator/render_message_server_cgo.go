@@ -7,7 +7,7 @@ import (
 func renderMessageServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedFilePlan) error {
 	cgoImportPath := protogen.GoImportPath(cgoGoImportPath(plan))
 	g := newGeneratedFile(plugin, plan, file, cgoImportPath)
-	servicePackage := cgoServicePackageQualifier(g, plan.GoImportPath, service.GoName+"MessageAdapter")
+	servicePackage := cgoServicePackageQualifier(g, plan.GoImportPath, service.GoName+"CGOMessageServer")
 
 	g.P("package main")
 	g.P()
@@ -101,7 +101,7 @@ func renderCGOMessageServerAdapterFields(g *protogen.GeneratedFile, service Serv
 	for _, method := range service.Methods {
 		switch method.Streaming {
 		case StreamingKindUnary:
-			g.P(method.GoName, " C.", messageCGOServerUnaryCallbackName(service, method))
+			g.P(method.GoName, "Callback C.", messageCGOServerUnaryCallbackName(service, method))
 		case StreamingKindClientStreaming:
 			g.P(method.GoName, "Start C.", messageCGOServerClientStreamStartCallbackName(service, method))
 			g.P(method.GoName, "Send C.", messageCGOServerClientStreamSendCallbackName(service, method))
@@ -124,11 +124,11 @@ func renderCGOMessageServerAdapterFields(g *protogen.GeneratedFile, service Serv
 }
 
 func renderCGOMessageServerUnaryAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, adapterName string) {
-	g.P("func (a *", adapterName, ") ", method.GoName, "Message(ctx context.Context, req []byte) ([]byte, error) {")
+	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context, req []byte) ([]byte, error) {")
 	g.P("if a == nil {")
 	g.P("return nil, ", lowerInitial(service.GoName), "CGOMessageServerCallbacksNil")
 	g.P("}")
-	g.P("callback := a.", method.GoName)
+	g.P("callback := a.", method.GoName, "Callback")
 	g.P("if callback == nil {")
 	g.P("return nil, ", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing")
 	g.P("}")
@@ -168,7 +168,7 @@ func renderCGOMessageServerRegistration(g *protogen.GeneratedFile, plan FilePlan
 			g.P("if callback == nil { return C.int32_t(rpcruntime.StoreError(", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing)) }")
 			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Lock()")
 			g.P("defer ", lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Unlock()")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter.", method.GoName, " = callback")
+			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter.", method.GoName, "Callback = callback")
 		case StreamingKindClientStreaming:
 			g.P("//export ", exportName)
 			g.P("func ", goName, "(start C.", messageCGOServerClientStreamStartCallbackName(service, method), ", send C.", messageCGOServerClientStreamSendCallbackName(service, method), ", finish C.", messageCGOServerClientStreamFinishCallbackName(service, method), ", cancel C.", messageCGOServerClientStreamCancelCallbackName(service, method), ") C.int32_t {")
@@ -202,7 +202,7 @@ func renderCGOMessageServerRegistration(g *protogen.GeneratedFile, plan FilePlan
 			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter.", method.GoName, "Done = done")
 			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter.", method.GoName, "Cancel = cancel")
 		}
-		g.P("_, err := ", servicePackage, "Register", service.GoName, "CGOMessageActiveServer(rpcruntime.ServerKindCGOMessage, ", lowerInitial(service.GoName), "CGOMessageServerAdapter)")
+		g.P("_, err := ", servicePackage, "Register", service.GoName, "CGOMessageServer(", lowerInitial(service.GoName), "CGOMessageServerAdapter)")
 		g.P("if err != nil { return C.int32_t(rpcruntime.StoreError(err)) }")
 		g.P("return 0")
 		g.P("}")
@@ -242,24 +242,24 @@ func renderCGOMessageServerCallbackValidation(g *protogen.GeneratedFile, service
 		switch method.Streaming {
 		case StreamingKindUnary:
 			g.P("if callbacks.", method.GoName, " == nil {")
-			g.P("return rpcruntime.AdapterSnapshot[", servicePackage, service.GoName, "MessageAdapter]{}, ", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing")
+			g.P("return rpcruntime.AdapterSnapshot[", servicePackage, service.GoName, "CGOMessageServer]{}, ", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing")
 			g.P("}")
 		case StreamingKindClientStreaming:
 			for _, suffix := range []string{"Start", "Send", "Finish", "Cancel"} {
 				g.P("if callbacks.", method.GoName, suffix, " == nil {")
-				g.P("return rpcruntime.AdapterSnapshot[", servicePackage, service.GoName, "MessageAdapter]{}, ", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing")
+				g.P("return rpcruntime.AdapterSnapshot[", servicePackage, service.GoName, "CGOMessageServer]{}, ", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing")
 				g.P("}")
 			}
 		case StreamingKindServerStreaming:
 			for _, suffix := range []string{"Start", "Recv", "Done", "Cancel"} {
 				g.P("if callbacks.", method.GoName, suffix, " == nil {")
-				g.P("return rpcruntime.AdapterSnapshot[", servicePackage, service.GoName, "MessageAdapter]{}, ", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing")
+				g.P("return rpcruntime.AdapterSnapshot[", servicePackage, service.GoName, "CGOMessageServer]{}, ", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing")
 				g.P("}")
 			}
 		case StreamingKindBidiStreaming:
 			for _, suffix := range []string{"Start", "Send", "Recv", "CloseSend", "Done", "Cancel"} {
 				g.P("if callbacks.", method.GoName, suffix, " == nil {")
-				g.P("return rpcruntime.AdapterSnapshot[", servicePackage, service.GoName, "MessageAdapter]{}, ", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing")
+				g.P("return rpcruntime.AdapterSnapshot[", servicePackage, service.GoName, "CGOMessageServer]{}, ", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing")
 				g.P("}")
 			}
 		}
@@ -295,7 +295,7 @@ func renderCGOMessageServerTrampolines(g *protogen.GeneratedFile, service Servic
 
 func renderCGOMessageServerClientStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, adapterName, servicePackage string) {
 	sessionName := lowerInitial(service.GoName) + method.GoName + "CGOMessageClientStreamSession"
-	g.P("func (a *", adapterName, ") Start", method.GoName, "Message(ctx context.Context) (", servicePackage, service.GoName, method.GoName, "MessageStreamSession, error) {")
+	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context) (", servicePackage, service.GoName, method.GoName, "MessageStreamSession, error) {")
 	g.P("if a == nil {")
 	g.P("return nil, ", lowerInitial(service.GoName), "CGOMessageServerCallbacksNil")
 	g.P("}")
@@ -341,7 +341,7 @@ func renderCGOMessageServerClientStreamAdapter(g *protogen.GeneratedFile, servic
 
 func renderCGOMessageServerServerStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, adapterName, servicePackage string) {
 	sessionName := lowerInitial(service.GoName) + method.GoName + "CGOMessageServerStreamSession"
-	g.P("func (a *", adapterName, ") Start", method.GoName, "Message(ctx context.Context, req []byte) (", servicePackage, service.GoName, method.GoName, "MessageStreamSession, error) {")
+	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context, req []byte) (", servicePackage, service.GoName, method.GoName, "MessageStreamSession, error) {")
 	renderCGOMessageStartGuard(g, service, method)
 	renderCGOMessageProtoUnmarshalCheck(g, method.Request, "req", "request", "return nil, fmt.Errorf")
 	renderCGOMessageRequestPtrLen(g, "req", "return nil, err")
@@ -380,7 +380,7 @@ func renderCGOMessageServerServerStreamAdapter(g *protogen.GeneratedFile, servic
 
 func renderCGOMessageServerBidiStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, adapterName, servicePackage string) {
 	sessionName := lowerInitial(service.GoName) + method.GoName + "CGOMessageBidiStreamSession"
-	g.P("func (a *", adapterName, ") Start", method.GoName, "Message(ctx context.Context) (", servicePackage, service.GoName, method.GoName, "MessageStreamSession, error) {")
+	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context) (", servicePackage, service.GoName, method.GoName, "MessageStreamSession, error) {")
 	renderCGOMessageStartGuard(g, service, method)
 	g.P("var stream C.int32_t")
 	g.P("errID := int32(C.", messageCGOServerBidiStreamStartTrampolineName(service, method), "(a.", method.GoName, "Start, &stream))")

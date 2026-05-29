@@ -34,7 +34,7 @@ func TestRunEmitsMessageDirectPathForDefaultService(t *testing.T) {
 		t.Fatalf("run() error = %v", err)
 	}
 
-	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "type GreeterMessageAdapter interface {")
+	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go", "type GreeterCGOMessageServer interface {")
 	assertMainGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go", "//export rpccgo_msg_testv1_Greeter_SayHello_register")
 	assertMainGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go", "//export rpccgo_msg_testv1_Greeter_SayHello")
 }

@@ -43,7 +43,7 @@ func TestRenderNativeServerCGODefinesPerMethodCallbackRegistration(t *testing.T)
 		"next := *allServiceCGONativeServerAdapter",
 		"next.UnaryCallback = callback",
 		"nextAdapter := &next",
-		"_, err := v1.RegisterAllServiceCGONativeActiveServer(rpcruntime.ServerKindCGONative, nextAdapter)",
+		"_, err := v1.RegisterAllServiceCGONativeServer(nextAdapter)",
 		"allServiceCGONativeServerAdapter = nextAdapter",
 		"//export rpccgo_native_testv1_AllService_ClientStream_register",
 		"func rpccgo_native_testv1_AllService_ClientStream_register(start C.AllServiceClientStreamCGONativeClientStreamStartCallback, send C.AllServiceClientStreamCGONativeClientStreamSendCallback, finish C.AllServiceClientStreamCGONativeClientStreamFinishCallback, cancel C.AllServiceClientStreamCGONativeClientStreamCancelCallback) C.int32_t {",
@@ -129,6 +129,7 @@ func TestRenderNativeServerCGOScalarOnlyGeneratedSourceCompiles(t *testing.T) {
 	tmp := t.TempDir()
 	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {
 		return strings.Contains(name, ".runtime.rpccgo.go") ||
+			strings.Contains(name, ".server.message.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go") ||
 			strings.Contains(name, ".server.native.cgo.rpccgo.go") ||
 			strings.Contains(name, ".client.native.cgo.rpccgo.go")
@@ -305,6 +306,7 @@ func TestRenderNativeServerCGOGeneratedSourceCompiles(t *testing.T) {
 	tmp := t.TempDir()
 	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {
 		return strings.Contains(name, ".runtime.rpccgo.go") ||
+			strings.Contains(name, ".server.message.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go") ||
 			strings.Contains(name, ".server.native.cgo.rpccgo.go") ||
 			strings.Contains(name, ".client.native.cgo.rpccgo.go")

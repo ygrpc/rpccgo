@@ -95,7 +95,7 @@ capture active server snapshot
 
 connect-go handler 和 grpc-go server 是 message-contract active server。bridge 直接调用用户注册的标准 handler/server；connect streaming 因 connect-go 未公开 stream constructor，由 `rpcruntime` 集中提供 unsafe stream shim，generated code 只生成 service-specific stream session glue。
 
-runtime bridge 的调用方法保持 package-private，但其外部可观察错误应使用 exported sentinel vars，便于用户用 `errors.Is` 判断路由失败类型。没有 active server 是 `rpcruntime` 的通用失败，使用 `rpcruntime.ErrNoActiveServer`；service-specific 失败不沿用旧的 `native/message contract mismatch` 宽泛文案。通用 service-specific 失败不按 native caller/message caller 方向拆分，按 service + 失败分类命名，例如 `GreeterNativeMessageConverterUnavailableErr`、`GreeterNativeAdapterUnavailableErr`、`GreeterMessageAdapterUnavailableErr`、`GreeterUnknownActiveContractErr`。错误至少区分以下情况：
+runtime bridge 的调用方法保持 package-private，但其外部可观察错误应使用 exported sentinel vars，便于用户用 `errors.Is` 判断路由失败类型。没有 active server 是 `rpcruntime` 的通用失败，使用 `rpcruntime.ErrNoActiveServer`；service-specific 失败不沿用旧的 `native/message contract mismatch` 宽泛文案。通用 service-specific 失败不按 native caller/message caller 方向拆分，按 service + 失败分类命名，例如 `GreeterNativeMessageConverterUnavailableErr`、`GreeterNativeServerUnavailableErr`、`GreeterMessageServerUnavailableErr`、`GreeterUnknownActiveContractErr`。错误至少区分以下情况：
 
 - 当前 active slot 没有 active server，返回 `rpcruntime.ErrNoActiveServer`。
 - active server contract 无法服务调用端 contract，且当前生成物没有对应 native/message converter。

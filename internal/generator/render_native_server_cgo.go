@@ -18,7 +18,7 @@ func renderNativeServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 
 	cgoImportPath := protogen.GoImportPath(cgoGoImportPath(plan))
 	g := newGeneratedFile(plugin, plan, file, cgoImportPath)
-	servicePackage := cgoServicePackageQualifier(g, plan.GoImportPath, service.GoName+"NativeAdapter")
+	servicePackage := cgoServicePackageQualifier(g, plan.GoImportPath, service.GoName+"NativeServer")
 	runtimeMethods, err := buildRuntimeAdapterMethods(g, service)
 	if err != nil {
 		return err
@@ -34,6 +34,7 @@ func renderNativeServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	g.P(`context "context"`)
 	g.P(`errors "errors"`)
 	g.P(`fmt "fmt"`)
+	g.P(`io "io"`)
 	g.P(`rpcruntime "rpccgo/rpcruntime"`)
 	g.P(`sync "sync"`)
 	g.P(`unsafe "unsafe"`)
@@ -542,6 +543,16 @@ func renderCGONativeServerAdapter(g *protogen.GeneratedFile, service ServicePlan
 			renderCGONativeServerStreamingFallback(g, adapterName, runtimeMethod, errorNames)
 		}
 	}
+	for _, method := range service.Methods {
+		switch method.Streaming {
+		case StreamingKindClientStreaming:
+			renderCGONativeServerClientStreamServerMethod(g, service, adapterName, method, servicePackage)
+		case StreamingKindServerStreaming:
+			renderCGONativeServerServerStreamServerMethod(g, service, adapterName, method, servicePackage)
+		case StreamingKindBidiStreaming:
+			renderCGONativeServerBidiStreamServerMethod(g, service, adapterName, method, servicePackage)
+		}
+	}
 
 	for _, method := range service.Methods {
 		switch method.Streaming {
@@ -750,6 +761,36 @@ func renderCGONativeServerClientStreamCancel(g *protogen.GeneratedFile, service 
 	g.P()
 }
 
+func renderCGONativeServerClientStreamServerMethod(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, servicePackage string) {
+	streamName := servicePackage + service.GoName + method.GoName + "NativeClientStream"
+	requestNames := nativeGoRequestArgNames(method.Contract.Native.RequestFields)
+	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context, stream ", streamName, ") (", nativeGoResponseReturns(g, method.Contract.Native.ResponseFields), ") {")
+	g.P("session, err := a.Start", method.GoName, "(ctx)")
+	g.P("if err != nil {")
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "err"))
+	g.P("}")
+	g.P("for {")
+	renderNativeStreamRecvAssign(g, method.Contract.Native.RequestFields, "stream.Recv(ctx)", false)
+	g.P("if err != nil {")
+	g.P("if errors.Is(err, io.EOF) {")
+	g.P("return session.Finish(ctx)")
+	g.P("}")
+	g.P("_ = session.Cancel(ctx)")
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "err"))
+	g.P("}")
+	if requestNames == "" {
+		g.P("if err := session.Send(ctx); err != nil {")
+	} else {
+		g.P("if err := session.Send(ctx, ", requestNames, "); err != nil {")
+	}
+	g.P("_ = session.Cancel(ctx)")
+	g.P("return ", nativeGoZeroReturns(method.Contract.Native.ResponseFields, "err"))
+	g.P("}")
+	g.P("}")
+	g.P("}")
+	g.P()
+}
+
 func renderCGONativeServerServerStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, abiPlan NativeCABIPlan, adapterName string, method MethodPlan, errorNames nativeServerCGOErrorNames, servicePackage string) {
 	sessionName := servicePackage + service.GoName + method.GoName + "NativeStreamSession"
 	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context", nativeGoRequestParams(g, method.Contract.Native.RequestFields), ") (", sessionName, ", error) {")
@@ -850,6 +891,45 @@ func renderCGONativeServerServerStreamCancel(g *protogen.GeneratedFile, service 
 	g.P("return ", nativeCGOServerErrorIDHelperName(service), "(errID)")
 	g.P("}")
 	g.P("return nil")
+	g.P("}")
+	g.P()
+}
+
+func renderCGONativeServerServerStreamServerMethod(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, servicePackage string) {
+	streamName := servicePackage + service.GoName + method.GoName + "NativeServerStream"
+	requestParams := nativeGoRequestParams(g, method.Contract.Native.RequestFields)
+	requestArgs := nativeGoRequestArgNames(method.Contract.Native.RequestFields)
+	responseNames := nativeGoResponseResultNames(method.Contract.Native.ResponseFields)
+	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context", requestParams, ", stream ", streamName, ") error {")
+	if requestArgs == "" {
+		g.P("session, err := a.Start", method.GoName, "(ctx)")
+	} else {
+		g.P("session, err := a.Start", method.GoName, "(ctx, ", requestArgs, ")")
+	}
+	g.P("if err != nil {")
+	g.P("return err")
+	g.P("}")
+	g.P("for {")
+	renderNativeStreamRecvAssign(g, method.Contract.Native.ResponseFields, "session.Recv(ctx)", true)
+	g.P("if err != nil {")
+	g.P("if errors.Is(err, io.EOF) {")
+	g.P("return session.Done(ctx)")
+	g.P("}")
+	g.P("_ = session.Cancel(ctx)")
+	g.P("return err")
+	g.P("}")
+	if responseNames == "" {
+		g.P("if err := stream.Send(ctx); err != nil {")
+	} else {
+		g.P("if err := stream.Send(ctx, ", responseNames, "); err != nil {")
+	}
+	g.P("if errors.Is(err, io.EOF) {")
+	g.P("return session.Done(ctx)")
+	g.P("}")
+	g.P("_ = session.Cancel(ctx)")
+	g.P("return err")
+	g.P("}")
+	g.P("}")
 	g.P("}")
 	g.P()
 }
@@ -988,6 +1068,82 @@ func renderCGONativeServerBidiStreamCancel(g *protogen.GeneratedFile, service Se
 	g.P("return nil")
 	g.P("}")
 	g.P()
+}
+
+func renderCGONativeServerBidiStreamServerMethod(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, servicePackage string) {
+	streamName := servicePackage + service.GoName + method.GoName + "NativeBidiStream"
+	requestNames := nativeGoRequestArgNames(method.Contract.Native.RequestFields)
+	responseNames := nativeGoResponseResultNames(method.Contract.Native.ResponseFields)
+	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context, stream ", streamName, ") error {")
+	g.P("session, err := a.Start", method.GoName, "(ctx)")
+	g.P("if err != nil {")
+	g.P("return err")
+	g.P("}")
+	g.P("sendDone := make(chan error, 1)")
+	g.P("go func() {")
+	g.P("for {")
+	renderNativeStreamRecvAssign(g, method.Contract.Native.RequestFields, "stream.Recv(ctx)", false)
+	g.P("if err != nil {")
+	g.P("if errors.Is(err, io.EOF) {")
+	g.P("sendDone <- session.CloseSend(ctx)")
+	g.P("return")
+	g.P("}")
+	g.P("sendDone <- err")
+	g.P("return")
+	g.P("}")
+	if requestNames == "" {
+		g.P("if err := session.Send(ctx); err != nil {")
+	} else {
+		g.P("if err := session.Send(ctx, ", requestNames, "); err != nil {")
+	}
+	g.P("sendDone <- err")
+	g.P("return")
+	g.P("}")
+	g.P("}")
+	g.P("}()")
+	g.P("for {")
+	renderNativeStreamRecvAssign(g, method.Contract.Native.ResponseFields, "session.Recv(ctx)", true)
+	g.P("if err != nil {")
+	g.P("if errors.Is(err, io.EOF) {")
+	g.P("if sendErr := <-sendDone; sendErr != nil {")
+	g.P("_ = session.Cancel(ctx)")
+	g.P("return sendErr")
+	g.P("}")
+	g.P("return session.Done(ctx)")
+	g.P("}")
+	g.P("_ = session.Cancel(ctx)")
+	g.P("return err")
+	g.P("}")
+	if responseNames == "" {
+		g.P("if err := stream.Send(ctx); err != nil {")
+	} else {
+		g.P("if err := stream.Send(ctx, ", responseNames, "); err != nil {")
+	}
+	g.P("if errors.Is(err, io.EOF) {")
+	g.P("if sendErr := <-sendDone; sendErr != nil {")
+	g.P("_ = session.Cancel(ctx)")
+	g.P("return sendErr")
+	g.P("}")
+	g.P("return session.Done(ctx)")
+	g.P("}")
+	g.P("_ = session.Cancel(ctx)")
+	g.P("return err")
+	g.P("}")
+	g.P("}")
+	g.P("}")
+	g.P()
+}
+
+func renderNativeStreamRecvAssign(g *protogen.GeneratedFile, fields []FieldPlan, call string, resultNames bool) {
+	names := nativeGoRequestArgNames(fields)
+	if resultNames {
+		names = nativeGoResponseResultNames(fields)
+	}
+	if names == "" {
+		g.P("err := ", call)
+		return
+	}
+	g.P(names, ", err := ", call)
 }
 
 func renderCGONativeServerStreamingFallback(g *protogen.GeneratedFile, adapterName string, method runtimeAdapterMethod, errorNames nativeServerCGOErrorNames) {
@@ -1342,7 +1498,7 @@ func renderCGONativeServerRegistration(g *protogen.GeneratedFile, service Servic
 			g.P("next.", method.GoName, "Cancel = ", cancelName)
 		}
 		g.P("nextAdapter := &next")
-		g.P("_, err := ", servicePackage, "Register", service.GoName, "CGONativeActiveServer(rpcruntime.ServerKindCGONative, nextAdapter)")
+		g.P("_, err := ", servicePackage, "Register", service.GoName, "CGONativeServer(nextAdapter)")
 		g.P("if err != nil { return C.int32_t(rpcruntime.StoreError(err)) }")
 		g.P(adapterName, " = nextAdapter")
 		g.P("return 0")
@@ -1445,6 +1601,9 @@ func renderCGONativeErrorIDHelper(g *protogen.GeneratedFile, service ServicePlan
 	g.P("if ok {")
 	g.P("if ptr != 0 {")
 	g.P("defer rpcruntime.Release(ptr)")
+	g.P("}")
+	g.P("if string(text) == io.EOF.Error() {")
+	g.P("return io.EOF")
 	g.P("}")
 	g.P("return errors.New(string(text))")
 	g.P("}")

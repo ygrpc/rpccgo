@@ -64,6 +64,7 @@ type NativeFileFamilyPlan struct {
 
 type MessageFileFamilyPlan struct {
 	Runtime          GeneratedFilePlan
+	MessageServer    GeneratedFilePlan
 	CGOMessageServer GeneratedFilePlan
 	CGOMessageClient GeneratedFilePlan
 	ConnectServer    GeneratedFilePlan
