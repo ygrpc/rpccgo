@@ -1,10 +1,15 @@
 package generator
 
 import (
+	"fmt"
+
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
 func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedFilePlan) error {
+	if err := validateMessageServerSymbols(service); err != nil {
+		return err
+	}
 	g := newGeneratedFile(plugin, plan, file, protogen.GoImportPath(plan.GoImportPath))
 	runtimeMethods, err := buildRuntimeAdapterMethods(g, service)
 	if err != nil {
@@ -38,6 +43,7 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	}
 	g.P("}")
 	g.P()
+	renderUnimplementedCGOMessageServer(g, service, runtimeMethods)
 	g.P("func Register", service.GoName, "CGOMessageServer(server ", serverName, ") (rpcruntime.AdapterSnapshot[", serverName, "], error) {")
 	g.P("if server == nil {")
 	g.P(`return rpcruntime.AdapterSnapshot[`, serverName, `]{}, errors.New("rpccgo: `, service.GoName, ` cgo message server is nil")`)
@@ -45,5 +51,71 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	g.P("return register", service.GoName, "CGOMessageServer(server)")
 	g.P("}")
 	g.P()
+	return nil
+}
+
+func renderUnimplementedCGOMessageServer(g *protogen.GeneratedFile, service ServicePlan, runtimeMethods []runtimeAdapterMethod) {
+	serverName := "Unimplemented" + service.GoName + "CGOMessageServer"
+	g.P("type ", serverName, " struct{}")
+	g.P()
+	for _, method := range runtimeMethods {
+		errExpr := `errors.New("rpccgo: ` + service.GoName + "." + method.MethodGoName + ` cgo message server method is not implemented")`
+		switch method.SessionKind {
+		case SessionKindNone:
+			g.P("func (", serverName, ") ", method.MethodGoName, "(ctx context.Context, req []byte) ([]byte, error) {")
+			g.P("return nil, ", errExpr)
+			g.P("}")
+		case SessionKindClient:
+			g.P("func (", serverName, ") Start", method.MethodGoName, "(ctx context.Context) (", service.GoName, method.MethodGoName, "MessageStreamSession, error) {")
+			g.P("return nil, ", errExpr)
+			g.P("}")
+		case SessionKindServer:
+			g.P("func (", serverName, ") Start", method.MethodGoName, "(ctx context.Context, req []byte) (", service.GoName, method.MethodGoName, "MessageStreamSession, error) {")
+			g.P("return nil, ", errExpr)
+			g.P("}")
+		case SessionKindBidi:
+			g.P("func (", serverName, ") Start", method.MethodGoName, "(ctx context.Context) (", service.GoName, method.MethodGoName, "MessageStreamSession, error) {")
+			g.P("return nil, ", errExpr)
+			g.P("}")
+		}
+		g.P()
+	}
+}
+
+func validateMessageServerSymbols(service ServicePlan) error {
+	seen := make(map[string]string)
+	messageTypes := make(map[string]string)
+	for _, method := range service.Methods {
+		if method.Request.GoName != "" {
+			messageTypes[method.Request.GoName] = method.FullName + " request"
+		}
+		if method.Response.GoName != "" {
+			messageTypes[method.Response.GoName] = method.FullName + " response"
+		}
+	}
+
+	addGenerated := func(symbol, source string) error {
+		if symbol == "" {
+			return nil
+		}
+		if previous, exists := seen[symbol]; exists {
+			return fmt.Errorf("message server symbol %s for %s collides with %s", symbol, source, previous)
+		}
+		if messageSource, exists := messageTypes[symbol]; exists {
+			return fmt.Errorf("message server symbol %s for %s collides with protobuf message type from %s", symbol, source, messageSource)
+		}
+		seen[symbol] = source
+		return nil
+	}
+
+	if err := addGenerated(service.GoName+"CGOMessageServer", service.FullName+" cgo message server interface"); err != nil {
+		return err
+	}
+	if err := addGenerated("Unimplemented"+service.GoName+"CGOMessageServer", service.FullName+" unimplemented cgo message server helper"); err != nil {
+		return err
+	}
+	if err := addGenerated("Register"+service.GoName+"CGOMessageServer", service.FullName+" cgo message server registration"); err != nil {
+		return err
+	}
 	return nil
 }
