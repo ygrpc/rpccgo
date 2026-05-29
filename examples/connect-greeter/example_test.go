@@ -17,7 +17,6 @@ func TestConnectGreeterGenerate(t *testing.T) {
 		"proto/greeter.greeter.runtime.rpccgo.go",
 		"proto/greeter.greeter.server.native.rpccgo.go",
 		"proto/greeter.connect.go",
-		"proto/greeter.greeter.server.connect.rpccgo.go",
 		"cmd/rpc/greeter.exports.cgo.rpccgo.go",
 		"cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go",
 		"cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go",
@@ -25,6 +24,9 @@ func TestConnectGreeterGenerate(t *testing.T) {
 		if _, err := os.Stat(path); err != nil {
 			t.Fatalf("generated file %s missing: %v", path, err)
 		}
+	}
+	if _, err := os.Stat("proto/greeter.greeter.server.connect.rpccgo.go"); err == nil || !os.IsNotExist(err) {
+		t.Fatalf("generated file proto/greeter.greeter.server.connect.rpccgo.go should not exist, stat err = %v", err)
 	}
 
 	assertFileContains(t, "cmd/rpc/greeter.exports.cgo.rpccgo.go", "//export rpccgo_take_error_text")
