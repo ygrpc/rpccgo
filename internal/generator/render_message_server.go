@@ -23,21 +23,20 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	g.P("import (")
 	g.P(`context "context"`)
 	g.P(`errors "errors"`)
-	g.P(`rpcruntime "rpccgo/rpcruntime"`)
 	g.P(")")
 	g.P()
 	g.P("// ", messageStageMarker(service, file))
 	g.P()
 	g.P("type ", serverName, " interface {")
 	for _, method := range runtimeMethods {
-		switch method.SessionKind {
-		case SessionKindNone:
+		switch {
+		case !method.Streaming:
 			g.P(method.MethodGoName, "(ctx context.Context, req []byte) ([]byte, error)")
-		case SessionKindClient:
+		case method.CanSend && method.FinishReturnsResponse:
 			g.P(method.MethodGoName, "(ctx context.Context, stream ", service.GoName, method.MethodGoName, "MessageClientStream) ([]byte, error)")
-		case SessionKindServer:
+		case method.CanRecv && !method.CanSend:
 			g.P(method.MethodGoName, "(ctx context.Context, req []byte, stream ", service.GoName, method.MethodGoName, "MessageServerStream) error")
-		case SessionKindBidi:
+		case method.CanSend && method.CanRecv && method.CanCloseSend:
 			g.P(method.MethodGoName, "(ctx context.Context, stream ", service.GoName, method.MethodGoName, "MessageBidiStream) error")
 		}
 	}
@@ -45,9 +44,9 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	g.P()
 	renderCGOMessageServerStreamInterfaces(g, service, runtimeMethods)
 	renderUnimplementedCGOMessageServer(g, service, runtimeMethods)
-	g.P("func Register", service.GoName, "CGOMessageServer(server ", serverName, ") (rpcruntime.AdapterSnapshot[", serverName, "], error) {")
+	g.P("func Register", service.GoName, "CGOMessageServer(server ", serverName, ") error {")
 	g.P("if server == nil {")
-	g.P(`return rpcruntime.AdapterSnapshot[`, serverName, `]{}, errors.New("rpccgo: `, service.GoName, ` cgo message server is nil")`)
+	g.P(`return errors.New("rpccgo: `, service.GoName, ` cgo message server is nil")`)
 	g.P("}")
 	g.P("return register", service.GoName, "CGOMessageServer(server)")
 	g.P("}")
@@ -57,18 +56,18 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 
 func renderCGOMessageServerStreamInterfaces(g *protogen.GeneratedFile, service ServicePlan, runtimeMethods []runtimeAdapterMethod) {
 	for _, method := range runtimeMethods {
-		switch method.SessionKind {
-		case SessionKindClient:
+		switch {
+		case method.CanSend && method.FinishReturnsResponse:
 			g.P("type ", service.GoName, method.MethodGoName, "MessageClientStream interface {")
 			g.P("Recv(ctx context.Context) ([]byte, error)")
 			g.P("}")
 			g.P()
-		case SessionKindServer:
+		case method.CanRecv && !method.CanSend:
 			g.P("type ", service.GoName, method.MethodGoName, "MessageServerStream interface {")
 			g.P("Send(ctx context.Context, resp []byte) error")
 			g.P("}")
 			g.P()
-		case SessionKindBidi:
+		case method.CanSend && method.CanRecv && method.CanCloseSend:
 			g.P("type ", service.GoName, method.MethodGoName, "MessageBidiStream interface {")
 			g.P("Recv(ctx context.Context) ([]byte, error)")
 			g.P("Send(ctx context.Context, resp []byte) error")
@@ -84,20 +83,20 @@ func renderUnimplementedCGOMessageServer(g *protogen.GeneratedFile, service Serv
 	g.P()
 	for _, method := range runtimeMethods {
 		errExpr := `errors.New("rpccgo: ` + service.GoName + "." + method.MethodGoName + ` cgo message server method is not implemented")`
-		switch method.SessionKind {
-		case SessionKindNone:
+		switch {
+		case !method.Streaming:
 			g.P("func (", serverName, ") ", method.MethodGoName, "(ctx context.Context, req []byte) ([]byte, error) {")
 			g.P("return nil, ", errExpr)
 			g.P("}")
-		case SessionKindClient:
+		case method.CanSend && method.FinishReturnsResponse:
 			g.P("func (", serverName, ") ", method.MethodGoName, "(ctx context.Context, stream ", service.GoName, method.MethodGoName, "MessageClientStream) ([]byte, error) {")
 			g.P("return nil, ", errExpr)
 			g.P("}")
-		case SessionKindServer:
+		case method.CanRecv && !method.CanSend:
 			g.P("func (", serverName, ") ", method.MethodGoName, "(ctx context.Context, req []byte, stream ", service.GoName, method.MethodGoName, "MessageServerStream) error {")
 			g.P("return ", errExpr)
 			g.P("}")
-		case SessionKindBidi:
+		case method.CanSend && method.CanRecv && method.CanCloseSend:
 			g.P("func (", serverName, ") ", method.MethodGoName, "(ctx context.Context, stream ", service.GoName, method.MethodGoName, "MessageBidiStream) error {")
 			g.P("return ", errExpr)
 			g.P("}")

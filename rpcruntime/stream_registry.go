@@ -15,15 +15,15 @@ var (
 	errStreamRegistryExhausted   = errors.New("stream registry handle space exhausted")
 )
 
-type StreamRegistry[T any] struct {
+type StreamRegistry struct {
 	mu       sync.Mutex
 	next     StreamHandle
-	sessions map[StreamHandle]T
+	sessions map[StreamHandle]any
 
 	maxHandleForTesting StreamHandle
 }
 
-func (r *StreamRegistry[T]) Create(session T) (StreamHandle, error) {
+func (r *StreamRegistry) Create(session any) (StreamHandle, error) {
 	if !hasNonZeroSession(session) {
 		return 0, errStreamRegistryZeroSession
 	}
@@ -36,16 +36,15 @@ func (r *StreamRegistry[T]) Create(session T) (StreamHandle, error) {
 		return 0, err
 	}
 	if r.sessions == nil {
-		r.sessions = make(map[StreamHandle]T)
+		r.sessions = make(map[StreamHandle]any)
 	}
 	r.sessions[handle] = session
 	return handle, nil
 }
 
-func (r *StreamRegistry[T]) Load(handle StreamHandle) (T, bool) {
-	var zero T
+func (r *StreamRegistry) Load(handle StreamHandle) (any, bool) {
 	if handle == 0 {
-		return zero, false
+		return nil, false
 	}
 
 	r.mu.Lock()
@@ -53,12 +52,12 @@ func (r *StreamRegistry[T]) Load(handle StreamHandle) (T, bool) {
 
 	session, ok := r.sessions[handle]
 	if !ok {
-		return zero, false
+		return nil, false
 	}
 	return session, true
 }
 
-func (r *StreamRegistry[T]) Delete(handle StreamHandle) bool {
+func (r *StreamRegistry) Delete(handle StreamHandle) bool {
 	if handle == 0 {
 		return false
 	}
@@ -73,10 +72,9 @@ func (r *StreamRegistry[T]) Delete(handle StreamHandle) bool {
 	return true
 }
 
-func (r *StreamRegistry[T]) Take(handle StreamHandle) (T, bool) {
-	var zero T
+func (r *StreamRegistry) Take(handle StreamHandle) (any, bool) {
 	if handle == 0 {
-		return zero, false
+		return nil, false
 	}
 
 	r.mu.Lock()
@@ -84,13 +82,13 @@ func (r *StreamRegistry[T]) Take(handle StreamHandle) (T, bool) {
 
 	session, ok := r.sessions[handle]
 	if !ok {
-		return zero, false
+		return nil, false
 	}
 	delete(r.sessions, handle)
 	return session, true
 }
 
-func (r *StreamRegistry[T]) allocateLocked() (StreamHandle, error) {
+func (r *StreamRegistry) allocateLocked() (StreamHandle, error) {
 	limit := r.maxHandle()
 	if limit <= 0 {
 		return 0, errStreamRegistryExhausted
@@ -119,14 +117,14 @@ func (r *StreamRegistry[T]) allocateLocked() (StreamHandle, error) {
 	return 0, errStreamRegistryExhausted
 }
 
-func (r *StreamRegistry[T]) maxHandle() StreamHandle {
+func (r *StreamRegistry) maxHandle() StreamHandle {
 	if r.maxHandleForTesting > 0 {
 		return r.maxHandleForTesting
 	}
 	return maxStreamHandle
 }
 
-func hasNonZeroSession[T any](session T) bool {
+func hasNonZeroSession(session any) bool {
 	value := reflect.ValueOf(session)
 	if !value.IsValid() {
 		return false

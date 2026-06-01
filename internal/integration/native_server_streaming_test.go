@@ -251,10 +251,10 @@ func readList(ctx context.Context, handle int32, output *listOutput) int32 {
 	return ReadGreeterListNativeServerStream(ctx, handle, &output.Index, &output.NamePtr, &output.NameLen)
 }
 
-func TestNativeServerStreamingGoServerReadDoneFinalizesHandle(t *testing.T) {
+func TestNativeServerStreamingGoServerFinishFinalizesHandle(t *testing.T) {
 	v1.ResetGreeterDispatcherForIntegrationTest()
 	server := &listGoServer{}
-	if _, err := v1.RegisterGreeterGoNativeServer(server); err != nil {
+	if err := v1.RegisterGreeterGoNativeServer(server); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 
@@ -265,19 +265,18 @@ func TestNativeServerStreamingGoServerReadDoneFinalizesHandle(t *testing.T) {
 	}
 	assertListRead(t, handle, 1, "go:1")
 	assertListRead(t, handle, 2, "go:2")
-	assertErrorTextContainsServerStream(t, readList(context.Background(), handle, &listOutput{}), "EOF")
-	if errID := DoneGreeterListNativeServerStream(context.Background(), handle); errID != 0 {
-		t.Fatalf("DoneGreeterListNativeServerStream() errID = %d", errID)
+	if errID := FinishGreeterListNativeServerStream(context.Background(), handle); errID != 0 {
+		t.Fatalf("FinishGreeterListNativeServerStream() errID = %d", errID)
 	}
 	if errID := readList(context.Background(), handle, &listOutput{}); errID == 0 {
-		t.Fatal("Read after Done returned errID 0")
+		t.Fatal("Read after Finish returned errID 0")
 	}
 }
 
 func TestNativeServerStreamingGoServerStartCapturesActiveServerSnapshot(t *testing.T) {
 	v1.ResetGreeterDispatcherForIntegrationTest()
 	serverA := &listGoServer{label: "A:"}
-	if _, err := v1.RegisterGreeterGoNativeServer(serverA); err != nil {
+	if err := v1.RegisterGreeterGoNativeServer(serverA); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer(A) error = %v", err)
 	}
 	handle, errID := startList(context.Background(), listInput("x", 1))
@@ -285,7 +284,7 @@ func TestNativeServerStreamingGoServerStartCapturesActiveServerSnapshot(t *testi
 		t.Fatalf("StartGreeterListNativeServerStream() errID = %d", errID)
 	}
 	serverB := &listGoServer{label: "B:"}
-	if _, err := v1.RegisterGreeterGoNativeServer(serverB); err != nil {
+	if err := v1.RegisterGreeterGoNativeServer(serverB); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer(B) error = %v", err)
 	}
 	assertListRead(t, handle, 1, "A:x:1")
@@ -297,7 +296,7 @@ func TestNativeServerStreamingGoServerStartCapturesActiveServerSnapshot(t *testi
 func TestNativeServerStreamingGoServerCancelFinalizesHandle(t *testing.T) {
 	v1.ResetGreeterDispatcherForIntegrationTest()
 	server := &listGoServer{}
-	if _, err := v1.RegisterGreeterGoNativeServer(server); err != nil {
+	if err := v1.RegisterGreeterGoNativeServer(server); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 	handle, errID := startList(context.Background(), listInput("go", 32))
@@ -337,7 +336,8 @@ func assertListRead(t *testing.T, handle int32, wantIndex int32, wantName string
 	t.Helper()
 	output := &listOutput{}
 	if errID := readList(context.Background(), handle, output); errID != 0 {
-		t.Fatalf("ReadGreeterListNativeServerStream() errID = %d", errID)
+		text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+		t.Fatalf("ReadGreeterListNativeServerStream() errID = %d, text = %q, ok = %v", errID, text, ok)
 	}
 	if output.Index != wantIndex {
 		t.Fatalf("Index = %d, want %d", output.Index, wantIndex)
@@ -400,7 +400,7 @@ func readList(ctx context.Context, handle int32, output *listOutput) int32 {
 	return ReadGreeterListNativeServerStream(ctx, handle, &output.Index, &output.NamePtr, &output.NameLen)
 }
 
-func TestNativeServerStreamingCGOServerReadDoneFinalizesHandle(t *testing.T) {
+func TestNativeServerStreamingCGOServerFinishFinalizesHandle(t *testing.T) {
 	v1.ResetGreeterDispatcherForIntegrationTest()
 	rpcruntime.ResetFreeCallbackForTesting()
 	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
@@ -418,15 +418,15 @@ func TestNativeServerStreamingCGOServerReadDoneFinalizesHandle(t *testing.T) {
 	if got := frees(); got != 2 {
 		t.Fatalf("free count after reads = %d, want 2", got)
 	}
-	assertErrorTextContainsCGOServerStream(t, readList(context.Background(), handle, &listOutput{}), "server stream done")
-	if errID := DoneGreeterListNativeServerStream(context.Background(), handle); errID != 0 {
-		t.Fatalf("DoneGreeterListNativeServerStream() errID = %d", errID)
+	if errID := FinishGreeterListNativeServerStream(context.Background(), handle); errID != 0 {
+		text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+		t.Fatalf("FinishGreeterListNativeServerStream() errID = %d, text = %q, ok = %v", errID, text, ok)
 	}
-	if got := greeterServerStreamDoneCount(); got != 1 {
-		t.Fatalf("done count = %d, want 1", got)
+	if got := greeterServerStreamFinishCount(); got != 1 {
+		t.Fatalf("finish count = %d, want 1", got)
 	}
-	if errID := DoneGreeterListNativeServerStream(context.Background(), handle); errID == 0 {
-		t.Fatal("second Done returned errID 0")
+	if errID := FinishGreeterListNativeServerStream(context.Background(), handle); errID == 0 {
+		t.Fatal("second Finish returned errID 0")
 	}
 }
 
@@ -447,48 +447,6 @@ func TestNativeServerStreamingCGOServerCancelFinalizesHandle(t *testing.T) {
 	}
 	if errID := readList(context.Background(), handle, &listOutput{}); errID == 0 {
 		t.Fatal("Read after Cancel returned errID 0")
-	}
-}
-
-func TestNativeServerStreamingCGOServerCallbackErrorsPropagate(t *testing.T) {
-	tests := []struct {
-		name string
-		mode int32
-		run func(t *testing.T, handle int32) int32
-		want string
-	}{
-		{name: "start", mode: 1, run: func(t *testing.T, handle int32) int32 { return 0 }, want: "forced start error"},
-		{name: "recv", mode: 2, run: func(t *testing.T, handle int32) int32 {
-			return readList(context.Background(), handle, &listOutput{})
-		}, want: "forced recv error"},
-		{name: "done", mode: 3, run: func(t *testing.T, handle int32) int32 {
-			return DoneGreeterListNativeServerStream(context.Background(), handle)
-		}, want: "forced done error"},
-		{name: "cancel", mode: 4, run: func(t *testing.T, handle int32) int32 {
-			return CancelGreeterListNativeServerStream(context.Background(), handle)
-		}, want: "forced cancel error"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v1.ResetGreeterDispatcherForIntegrationTest()
-			setGreeterServerStreamErrorMode(tt.mode)
-			t.Cleanup(func() { setGreeterServerStreamErrorMode(0) })
-			if err := registerGreeterServerStreamCGONativeServerCallbacks(); err != nil {
-				t.Fatalf("registerGreeterServerStreamCGONativeServerCallbacks() error = %v", err)
-			}
-			handle, errID := startList(context.Background(), listInputCGO("cgo", 1))
-			if tt.name == "start" {
-				assertErrorTextContainsCGOServerStream(t, errID, tt.want)
-				if handle != 0 {
-					t.Fatalf("handle = %d, want 0", handle)
-				}
-				return
-			}
-			if errID != 0 {
-				t.Fatalf("StartGreeterListNativeServerStream() errID = %d", errID)
-			}
-			assertErrorTextContainsCGOServerStream(t, tt.run(t, handle), tt.want)
-		})
 	}
 }
 
@@ -540,13 +498,13 @@ extern int32_t StoreGreeterCGONativeServerErrorTextForExport(char* text, int32_t
 
 typedef int32_t (*GreeterListCGONativeServerStreamStartCallback)(uintptr_t PrefixPtr, int32_t PrefixLen, int32_t PrefixOwnership, int32_t Limit, int32_t* stream);
 typedef int32_t (*GreeterListCGONativeServerStreamRecvCallback)(int32_t stream, int32_t* outIndex, uintptr_t* outNamePtr, int32_t* outNameLen, int32_t* outNameOwnership);
-typedef int32_t (*GreeterListCGONativeServerStreamDoneCallback)(int32_t stream);
+typedef int32_t (*GreeterListCGONativeServerStreamFinishCallback)(int32_t stream);
 typedef int32_t (*GreeterListCGONativeServerStreamCancelCallback)(int32_t stream);
 
 typedef struct GreeterCGONativeServerCallbacks {
 GreeterListCGONativeServerStreamStartCallback ListStart;
 GreeterListCGONativeServerStreamRecvCallback ListRecv;
-GreeterListCGONativeServerStreamDoneCallback ListDone;
+GreeterListCGONativeServerStreamFinishCallback ListFinish;
 GreeterListCGONativeServerStreamCancelCallback ListCancel;
 } GreeterCGONativeServerCallbacks;
 
@@ -554,7 +512,7 @@ static int32_t greeterServerStreamID;
 static int32_t greeterServerStreamIndex;
 static int32_t greeterServerStreamLimit;
 static int32_t greeterServerStreamCancels;
-static int32_t greeterServerStreamDones;
+static int32_t greeterServerStreamFinishes;
 static int32_t greeterServerStreamErrorMode;
 static char greeterServerStreamPrefix[64];
 
@@ -579,9 +537,13 @@ static int32_t greeterListStart(uintptr_t PrefixPtr, int32_t PrefixLen, int32_t 
 	greeterServerStreamIndex = 0;
 	greeterServerStreamLimit = Limit;
 	greeterServerStreamCancels = 0;
-	greeterServerStreamDones = 0;
+	greeterServerStreamFinishes = 0;
 	*stream = greeterServerStreamID;
 	return 0;
+}
+
+static int32_t greeterListStartForcedError(uintptr_t PrefixPtr, int32_t PrefixLen, int32_t PrefixOwnership, int32_t Limit, int32_t* stream) {
+	return greeterServerStreamError("forced start error");
 }
 
 static int32_t greeterListRecv(int32_t stream, int32_t* outIndex, uintptr_t* outNamePtr, int32_t* outNameLen, int32_t* outNameOwnership) {
@@ -592,7 +554,7 @@ static int32_t greeterListRecv(int32_t stream, int32_t* outIndex, uintptr_t* out
 		return greeterServerStreamError("server stream recv did not reach cgo callback");
 	}
 	if (greeterServerStreamIndex >= greeterServerStreamLimit) {
-		return greeterServerStreamError("server stream done");
+		return greeterServerStreamError("server stream finished");
 	}
 	greeterServerStreamIndex += 1;
 	char buf[96];
@@ -609,15 +571,23 @@ static int32_t greeterListRecv(int32_t stream, int32_t* outIndex, uintptr_t* out
 	return 0;
 }
 
-static int32_t greeterListDone(int32_t stream) {
+static int32_t greeterListRecvForcedError(int32_t stream, int32_t* outIndex, uintptr_t* outNamePtr, int32_t* outNameLen, int32_t* outNameOwnership) {
+	return greeterServerStreamError("forced recv error");
+}
+
+static int32_t greeterListFinish(int32_t stream) {
 	if (greeterServerStreamErrorMode == 3) {
-		return greeterServerStreamError("forced done error");
+		return greeterServerStreamError("forced finish error");
 	}
 	if (stream != greeterServerStreamID) {
-		return greeterServerStreamError("server stream done did not reach cgo callback");
+		return greeterServerStreamError("server stream finish did not reach cgo callback");
 	}
-	greeterServerStreamDones += 1;
+	greeterServerStreamFinishes += 1;
 	return 0;
+}
+
+static int32_t greeterListFinishForcedError(int32_t stream) {
+	return greeterServerStreamError("forced finish error");
 }
 
 static int32_t greeterListCancel(int32_t stream) {
@@ -631,11 +601,15 @@ static int32_t greeterListCancel(int32_t stream) {
 	return 0;
 }
 
+static int32_t greeterListCancelForcedError(int32_t stream) {
+	return greeterServerStreamError("forced cancel error");
+}
+
 static GreeterCGONativeServerCallbacks greeterServerStreamCallbacks(void) {
 	GreeterCGONativeServerCallbacks callbacks;
 	callbacks.ListStart = greeterListStart;
 	callbacks.ListRecv = greeterListRecv;
-	callbacks.ListDone = greeterListDone;
+	callbacks.ListFinish = greeterListFinish;
 	callbacks.ListCancel = greeterListCancel;
 	return callbacks;
 }
@@ -644,12 +618,26 @@ static int32_t greeterServerStreamCancelCount(void) {
 	return greeterServerStreamCancels;
 }
 
-static int32_t greeterServerStreamDoneCount(void) {
-	return greeterServerStreamDones;
+static int32_t greeterServerStreamFinishCount(void) {
+	return greeterServerStreamFinishes;
 }
 
 static void setGreeterServerStreamErrorMode(int32_t mode) {
 	greeterServerStreamErrorMode = mode;
+}
+
+static GreeterCGONativeServerCallbacks greeterServerStreamCallbacksWithMode(int32_t mode) {
+	GreeterCGONativeServerCallbacks callbacks = greeterServerStreamCallbacks();
+	if (mode == 1) {
+		callbacks.ListStart = greeterListStartForcedError;
+	} else if (mode == 2) {
+		callbacks.ListRecv = greeterListRecvForcedError;
+	} else if (mode == 3) {
+		callbacks.ListFinish = greeterListFinishForcedError;
+	} else if (mode == 4) {
+		callbacks.ListCancel = greeterListCancelForcedError;
+	}
+	return callbacks;
 }
 */
 import "C"
@@ -664,7 +652,16 @@ import (
 
 func registerGreeterServerStreamCGONativeServerCallbacks() error {
 	callbacks := C.greeterServerStreamCallbacks()
-	errID := rpccgo_native_testv1_Greeter_List_register(callbacks.ListStart, callbacks.ListRecv, callbacks.ListDone, callbacks.ListCancel)
+	return registerGreeterServerStreamCGONativeServerCallbackTable(callbacks)
+}
+
+func registerGreeterServerStreamCGONativeServerCallbacksWithMode(mode int32) error {
+	callbacks := C.greeterServerStreamCallbacksWithMode(C.int32_t(mode))
+	return registerGreeterServerStreamCGONativeServerCallbackTable(callbacks)
+}
+
+func registerGreeterServerStreamCGONativeServerCallbackTable(callbacks C.GreeterCGONativeServerCallbacks) error {
+	errID := rpccgo_native_testv1_Greeter_register(callbacks.ListStart, callbacks.ListRecv, callbacks.ListFinish, callbacks.ListCancel)
 	if errID == 0 {
 		return nil
 	}
@@ -682,8 +679,8 @@ func greeterServerStreamCancelCount() int32 {
 	return int32(C.greeterServerStreamCancelCount())
 }
 
-func greeterServerStreamDoneCount() int32 {
-	return int32(C.greeterServerStreamDoneCount())
+func greeterServerStreamFinishCount() int32 {
+	return int32(C.greeterServerStreamFinishCount())
 }
 
 func setGreeterServerStreamErrorMode(mode int32) {

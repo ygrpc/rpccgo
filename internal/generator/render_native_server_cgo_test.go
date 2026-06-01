@@ -11,7 +11,7 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-func TestRenderNativeServerCGODefinesPerMethodCallbackRegistration(t *testing.T) {
+func TestRenderNativeServerCGODefinesFlatServiceCallbackRegistration(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
@@ -38,32 +38,27 @@ func TestRenderNativeServerCGODefinesPerMethodCallbackRegistration(t *testing.T)
 		"ClientStreamSend    C.AllServiceClientStreamCGONativeClientStreamSendCallback",
 		"ServerStreamRecv    C.AllServiceServerStreamCGONativeServerStreamRecvCallback",
 		"BidiStreamCloseSend C.AllServiceBidiStreamCGONativeBidiStreamCloseSendCallback",
-		"//export rpccgo_native_testv1_AllService_Unary_register",
-		"func rpccgo_native_testv1_AllService_Unary_register(callback C.AllServiceUnaryCGONativeUnaryCallback) C.int32_t {",
-		"next := *allServiceCGONativeServerAdapter",
-		"next.UnaryCallback = callback",
-		"nextAdapter := &next",
-		"_, err := v1.RegisterAllServiceCGONativeServer(nextAdapter)",
-		"allServiceCGONativeServerAdapter = nextAdapter",
-		"//export rpccgo_native_testv1_AllService_ClientStream_register",
-		"func rpccgo_native_testv1_AllService_ClientStream_register(start C.AllServiceClientStreamCGONativeClientStreamStartCallback, send C.AllServiceClientStreamCGONativeClientStreamSendCallback, finish C.AllServiceClientStreamCGONativeClientStreamFinishCallback, cancel C.AllServiceClientStreamCGONativeClientStreamCancelCallback) C.int32_t {",
-		"next.ClientStreamStart = start",
-		"next.ClientStreamSend = send",
-		"next.ClientStreamFinish = finish",
-		"next.ClientStreamCancel = cancel",
+		"//export rpccgo_native_testv1_AllService_register",
+		"func rpccgo_native_testv1_AllService_register(unaryCallback C.AllServiceUnaryCGONativeUnaryCallback, clientStreamStart C.AllServiceClientStreamCGONativeClientStreamStartCallback, clientStreamSend C.AllServiceClientStreamCGONativeClientStreamSendCallback, clientStreamFinish C.AllServiceClientStreamCGONativeClientStreamFinishCallback, clientStreamCancel C.AllServiceClientStreamCGONativeClientStreamCancelCallback, serverStreamStart C.AllServiceServerStreamCGONativeServerStreamStartCallback, serverStreamRecv C.AllServiceServerStreamCGONativeServerStreamRecvCallback, serverStreamFinish C.AllServiceServerStreamCGONativeServerStreamFinishCallback, serverStreamCancel C.AllServiceServerStreamCGONativeServerStreamCancelCallback, bidiStreamStart C.AllServiceBidiStreamCGONativeBidiStreamStartCallback, bidiStreamSend C.AllServiceBidiStreamCGONativeBidiStreamSendCallback, bidiStreamRecv C.AllServiceBidiStreamCGONativeBidiStreamRecvCallback, bidiStreamCloseSend C.AllServiceBidiStreamCGONativeBidiStreamCloseSendCallback, bidiStreamFinish C.AllServiceBidiStreamCGONativeBidiStreamFinishCallback, bidiStreamCancel C.AllServiceBidiStreamCGONativeBidiStreamCancelCallback) C.int32_t {",
+		"next := &allServiceCGONativeAdapter{}",
+		"next.UnaryCallback = unaryCallback",
+		"next.ClientStreamStart = clientStreamStart",
+		"next.ClientStreamSend = clientStreamSend",
+		"next.ClientStreamFinish = clientStreamFinish",
+		"next.ClientStreamCancel = clientStreamCancel",
+		"if err := v1.RegisterAllServiceCGONativeServer(next); err != nil {",
+		"allServiceCGONativeServerAdapter = next",
 		"return &allServiceClientStreamCGONativeClientStreamSession{send: a.ClientStreamSend, finish: a.ClientStreamFinish, cancel: a.ClientStreamCancel, stream: stream}, nil",
 		"type allServiceClientStreamCGONativeClientStreamSession struct {",
-		"send C.AllServiceClientStreamCGONativeClientStreamSendCallback",
+		"send   C.AllServiceClientStreamCGONativeClientStreamSendCallback",
 		"finish C.AllServiceClientStreamCGONativeClientStreamFinishCallback",
 		"cancel C.AllServiceClientStreamCGONativeClientStreamCancelCallback",
 		"errID := int32(C.callAllServiceClientStreamCGONativeClientStreamSendCallback(s.send, s.stream",
-		"//export rpccgo_native_testv1_AllService_ServerStream_register",
-		"return &allServiceServerStreamCGONativeServerStreamSession{recv: a.ServerStreamRecv, done: a.ServerStreamDone, cancel: a.ServerStreamCancel, stream: stream}, nil",
-		"recv C.AllServiceServerStreamCGONativeServerStreamRecvCallback",
-		"done C.AllServiceServerStreamCGONativeServerStreamDoneCallback",
+		"return &allServiceServerStreamCGONativeServerStreamSession{recv: a.ServerStreamRecv, finish: a.ServerStreamFinish, cancel: a.ServerStreamCancel, stream: stream}, nil",
+		"recv   C.AllServiceServerStreamCGONativeServerStreamRecvCallback",
+		"finish C.AllServiceServerStreamCGONativeServerStreamFinishCallback",
 		"errID := int32(C.callAllServiceServerStreamCGONativeServerStreamRecvCallback(s.recv, s.stream",
-		"//export rpccgo_native_testv1_AllService_BidiStream_register",
-		"return &allServiceBidiStreamCGONativeBidiStreamSession{send: a.BidiStreamSend, recv: a.BidiStreamRecv, closeSend: a.BidiStreamCloseSend, done: a.BidiStreamDone, cancel: a.BidiStreamCancel, stream: stream}, nil",
+		"return &allServiceBidiStreamCGONativeBidiStreamSession{send: a.BidiStreamSend, recv: a.BidiStreamRecv, closeSend: a.BidiStreamCloseSend, finish: a.BidiStreamFinish, cancel: a.BidiStreamCancel, stream: stream}, nil",
 		"closeSend C.AllServiceBidiStreamCGONativeBidiStreamCloseSendCallback",
 		"errID := int32(C.callAllServiceBidiStreamCGONativeBidiStreamCloseSendCallback(s.closeSend, s.stream))",
 		`errors.New("rpccgo: AllService cgo native server callbacks are nil")`,
@@ -110,7 +105,21 @@ func TestRenderNativeServerCGODefinesPerMethodCallbackRegistration(t *testing.T)
 		"GoCGONativeAdapter",
 		"allServiceCGONativeServerAdapter.UnaryCallback = callback",
 		"allServiceCGONativeServerAdapter.ClientStreamStart = start",
+		"rpccgo_native_testv1_AllService_Unary_register",
 	)
+	for _, generated := range plugin.Response().GetFile() {
+		if generated.GetName() != cgoServerFile {
+			continue
+		}
+		content := generated.GetContent()
+		register := "if err := v1.RegisterAllServiceCGONativeServer(next); err != nil {"
+		commit := "allServiceCGONativeServerAdapter = next"
+		if registerIndex, commitIndex := strings.Index(content, register), strings.Index(content, commit); registerIndex < 0 || commitIndex < 0 || commitIndex < registerIndex {
+			t.Fatalf("generated registration side-effect order invalid: register index=%d commit index=%d", registerIndex, commitIndex)
+		}
+		return
+	}
+	t.Fatalf("generated file %q not found", cgoServerFile)
 }
 
 func TestRenderNativeServerCGOScalarOnlyGeneratedSourceCompiles(t *testing.T) {

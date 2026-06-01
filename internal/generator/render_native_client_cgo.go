@@ -12,7 +12,7 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	if err := validateNativeClientCGOSymbols(plan, service); err != nil {
 		return err
 	}
-	nativeCABIPlan, err := BuildNativeCABIPlan(service)
+	nativeCABIPlan, err := BuildNativeCABIPlan(plan, service)
 	if err != nil {
 		return err
 	}
@@ -260,12 +260,12 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, abiPlan Native
 	g.P("}")
 	g.P()
 
-	g.P("func ", nativeServerStreamingDoneFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
+	g.P("func ", nativeServerStreamingFinishFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
 	g.P("var err error")
-	renderNativeClientStreamFacadeCall(g, service, method, servicePackage, "Done", "ctx")
+	renderNativeClientStreamFacadeCall(g, service, method, servicePackage, "Finish", "ctx")
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -374,12 +374,12 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, abiPlan NativeCA
 	g.P("}")
 	g.P()
 
-	g.P("func ", nativeBidiStreamingDoneFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
+	g.P("func ", nativeBidiStreamingFinishFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
 	g.P("var err error")
-	renderNativeClientStreamFacadeCall(g, service, method, servicePackage, "Done", "ctx")
+	renderNativeClientStreamFacadeCall(g, service, method, servicePackage, "Finish", "ctx")
 	g.P("if err != nil {")
 	g.P("return int32(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -835,10 +835,10 @@ func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, servi
 	g.P("}")
 	g.P()
 
-	doneABI := nativeCABIPlanOperation(methodABI, NativeCOperationDone)
-	g.P("//export ", doneABI.Symbol)
-	g.P("func ", doneABI.Symbol, "(", nativeCExportParams(doneABI.Params), ") ", doneABI.Return.CGoType, " {")
-	g.P("return C.int32_t(", nativeServerStreamingDoneFuncName(service, method), "(context.Background(), int32(stream)))")
+	finishABI := nativeCABIPlanOperation(methodABI, NativeCOperationFinish)
+	g.P("//export ", finishABI.Symbol)
+	g.P("func ", finishABI.Symbol, "(", nativeCExportParams(finishABI.Params), ") ", finishABI.Return.CGoType, " {")
+	g.P("return C.int32_t(", nativeServerStreamingFinishFuncName(service, method), "(context.Background(), int32(stream)))")
 	g.P("}")
 	g.P()
 
@@ -886,10 +886,10 @@ func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, service
 	g.P("}")
 	g.P()
 
-	doneABI := nativeCABIPlanOperation(methodABI, NativeCOperationDone)
-	g.P("//export ", doneABI.Symbol)
-	g.P("func ", doneABI.Symbol, "(", nativeCExportParams(doneABI.Params), ") ", doneABI.Return.CGoType, " {")
-	g.P("return C.int32_t(", nativeBidiStreamingDoneFuncName(service, method), "(context.Background(), int32(stream)))")
+	finishABI := nativeCABIPlanOperation(methodABI, NativeCOperationFinish)
+	g.P("//export ", finishABI.Symbol)
+	g.P("func ", finishABI.Symbol, "(", nativeCExportParams(finishABI.Params), ") ", finishABI.Return.CGoType, " {")
+	g.P("return C.int32_t(", nativeBidiStreamingFinishFuncName(service, method), "(context.Background(), int32(stream)))")
 	g.P("}")
 	g.P()
 
@@ -1327,8 +1327,8 @@ func nativeServerStreamingReadFuncName(service ServicePlan, method MethodPlan) s
 	return "Read" + service.GoName + method.GoName + "NativeServerStream"
 }
 
-func nativeServerStreamingDoneFuncName(service ServicePlan, method MethodPlan) string {
-	return "Done" + service.GoName + method.GoName + "NativeServerStream"
+func nativeServerStreamingFinishFuncName(service ServicePlan, method MethodPlan) string {
+	return "Finish" + service.GoName + method.GoName + "NativeServerStream"
 }
 
 func nativeServerStreamingCancelFuncName(service ServicePlan, method MethodPlan) string {
@@ -1371,8 +1371,8 @@ func nativeBidiStreamingCloseSendFuncName(service ServicePlan, method MethodPlan
 	return "CloseSend" + service.GoName + method.GoName + "NativeBidiStream"
 }
 
-func nativeBidiStreamingDoneFuncName(service ServicePlan, method MethodPlan) string {
-	return "Done" + service.GoName + method.GoName + "NativeBidiStream"
+func nativeBidiStreamingFinishFuncName(service ServicePlan, method MethodPlan) string {
+	return "Finish" + service.GoName + method.GoName + "NativeBidiStream"
 }
 
 func nativeBidiStreamingCancelFuncName(service ServicePlan, method MethodPlan) string {
@@ -1574,7 +1574,7 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 			}{
 				{nativeServerStreamingStartFuncName(service, method), method.FullName + " server stream start"},
 				{nativeServerStreamingReadFuncName(service, method), method.FullName + " server stream read"},
-				{nativeServerStreamingDoneFuncName(service, method), method.FullName + " server stream done"},
+				{nativeServerStreamingFinishFuncName(service, method), method.FullName + " server stream finish"},
 				{nativeServerStreamingCancelFuncName(service, method), method.FullName + " server stream cancel"},
 				{nativeServerStreamingDecoderName(service, method), method.FullName + " server stream request decoder"},
 				{nativeServerStreamingEncoderName(service, method), method.FullName + " server stream response encoder"},
@@ -1599,7 +1599,7 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 				{nativeBidiStreamingSendFuncName(service, method), method.FullName + " bidi stream send"},
 				{nativeBidiStreamingReadFuncName(service, method), method.FullName + " bidi stream read"},
 				{nativeBidiStreamingCloseSendFuncName(service, method), method.FullName + " bidi stream close send"},
-				{nativeBidiStreamingDoneFuncName(service, method), method.FullName + " bidi stream done"},
+				{nativeBidiStreamingFinishFuncName(service, method), method.FullName + " bidi stream finish"},
 				{nativeBidiStreamingCancelFuncName(service, method), method.FullName + " bidi stream cancel"},
 				{nativeBidiStreamingDecoderName(service, method), method.FullName + " bidi stream request decoder"},
 				{nativeBidiStreamingEncoderName(service, method), method.FullName + " bidi stream response encoder"},
@@ -1650,7 +1650,7 @@ func addNativeClientGeneratedSymbols(seen map[string]string, service ServicePlan
 		case StreamingKindServerStreaming:
 			add(nativeServerStreamingStartFuncName(service, method), method.FullName+" server stream start")
 			add(nativeServerStreamingReadFuncName(service, method), method.FullName+" server stream read")
-			add(nativeServerStreamingDoneFuncName(service, method), method.FullName+" server stream done")
+			add(nativeServerStreamingFinishFuncName(service, method), method.FullName+" server stream finish")
 			add(nativeServerStreamingCancelFuncName(service, method), method.FullName+" server stream cancel")
 			add(nativeServerStreamingDecoderName(service, method), method.FullName+" server stream request decoder")
 			add(nativeServerStreamingEncoderName(service, method), method.FullName+" server stream response encoder")
@@ -1660,7 +1660,7 @@ func addNativeClientGeneratedSymbols(seen map[string]string, service ServicePlan
 			add(nativeBidiStreamingSendFuncName(service, method), method.FullName+" bidi stream send")
 			add(nativeBidiStreamingReadFuncName(service, method), method.FullName+" bidi stream read")
 			add(nativeBidiStreamingCloseSendFuncName(service, method), method.FullName+" bidi stream close send")
-			add(nativeBidiStreamingDoneFuncName(service, method), method.FullName+" bidi stream done")
+			add(nativeBidiStreamingFinishFuncName(service, method), method.FullName+" bidi stream finish")
 			add(nativeBidiStreamingCancelFuncName(service, method), method.FullName+" bidi stream cancel")
 			add(nativeBidiStreamingDecoderName(service, method), method.FullName+" bidi stream request decoder")
 			add(nativeBidiStreamingEncoderName(service, method), method.FullName+" bidi stream response encoder")

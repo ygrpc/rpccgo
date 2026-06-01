@@ -60,19 +60,19 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"func InvokeGreeterMessageSayHello(ctx context.Context, req []byte) ([]byte, error) {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go",
-		"func RegisterGreeterCGOMessageServer(server GreeterCGOMessageServer) (rpcruntime.AdapterSnapshot[GreeterCGOMessageServer], error) {",
+		"func RegisterGreeterCGOMessageServer(server GreeterCGOMessageServer) error {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go",
-		"func RegisterGreeterGoNativeServer(server GreeterNativeServer) (rpcruntime.AdapterSnapshot[GreeterNativeServer], error) {",
+		"func RegisterGreeterGoNativeServer(server GreeterNativeServer) error {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.codec.rpccgo.go",
 		"func withGreeterSayHelloMessageToNativeRequest(data []byte, fn func(",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go",
-		"func RegisterGreeterConnectRemoteServer(client GreeterClient) (rpcruntime.AdapterSnapshot[GreeterClient], error) {",
+		"func RegisterGreeterConnectRemoteServer(client GreeterClient) error {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.server.native.cgo.rpccgo.go",
-		"//export rpccgo_native_testv1_Greeter_SayHello_register",
+		"//export rpccgo_native_testv1_Greeter_register",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go",
 		"//export rpccgo_native_testv1_Greeter_SayHello",
@@ -84,7 +84,7 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"//export rpccgo_release",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go",
-		"//export rpccgo_msg_testv1_Greeter_SayHello_register",
+		"//export rpccgo_msg_testv1_Greeter_register",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go",
 		"func CallGreeterSayHelloMessageUnary",

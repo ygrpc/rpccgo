@@ -283,7 +283,7 @@ func TestNativeCGOServerUnaryRegistrationOverridesGoServer(t *testing.T) {
 	rpcruntime.ResetFreeCallbackForTesting()
 	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
 	registerCFreeCallback()
-	if _, err := v1.RegisterGreeterGoNativeServer(cgoOverrideGoServer{}); err != nil {
+	if err := v1.RegisterGreeterGoNativeServer(cgoOverrideGoServer{}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 	if err := registerGreeterCGONativeServerCallbacks(); err != nil {
@@ -291,7 +291,7 @@ func TestNativeCGOServerUnaryRegistrationOverridesGoServer(t *testing.T) {
 	}
 	assertUnaryPayload(t, "cgo-server:native")
 
-	if _, err := v1.RegisterGreeterGoNativeServer(cgoOverrideGoServer{}); err != nil {
+	if err := v1.RegisterGreeterGoNativeServer(cgoOverrideGoServer{}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() second error = %v", err)
 	}
 	assertUnaryPayload(t, "go-server")
@@ -452,7 +452,7 @@ func registerGreeterCGONativeServerCallbacksThenClearLocalTable() error {
 }
 
 func registerGreeterCGONativeServerNilCallback() error {
-	return nativeCGORegistrationError(rpccgo_native_testv1_Greeter_SayHello_register(nil))
+	return nativeCGORegistrationError(rpccgo_native_testv1_Greeter_register(nil, nil))
 }
 
 func registerGreeterCGONativeServerEmptyCallbacks() error {
@@ -480,15 +480,7 @@ func registerGreeterCGONativeServerPartialErrorCallback() error {
 }
 
 func registerGreeterCGONativeServerCallbacksTable(callbacks C.GreeterCGONativeServerCallbacks) error {
-	for _, errID := range []C.int32_t{
-		rpccgo_native_testv1_Greeter_SayHello_register(callbacks.SayHello),
-		rpccgo_native_testv1_Greeter_SayUnsupported_register(callbacks.SayUnsupported),
-	} {
-		if err := nativeCGORegistrationError(errID); err != nil {
-			return err
-		}
-	}
-	return nil
+	return nativeCGORegistrationError(rpccgo_native_testv1_Greeter_register(callbacks.SayHello, callbacks.SayUnsupported))
 }
 
 func nativeCGORegistrationError(errID C.int32_t) error {

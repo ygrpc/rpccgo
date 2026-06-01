@@ -22,7 +22,7 @@ func (s *testStreamSessionPointer) sessionName() string {
 }
 
 func TestStreamRegistryCreateLoadDeleteTake(t *testing.T) {
-	var registry StreamRegistry[testStreamSession]
+	var registry StreamRegistry
 
 	handle, err := registry.Create(testStreamSession{name: "stream"})
 	if err != nil {
@@ -36,16 +36,16 @@ func TestStreamRegistryCreateLoadDeleteTake(t *testing.T) {
 	if !ok {
 		t.Fatal("Load returned false for created handle")
 	}
-	if loaded.name != "stream" {
-		t.Fatalf("Load returned session %q, want stream", loaded.name)
+	if loaded != (testStreamSession{name: "stream"}) {
+		t.Fatalf("Load returned session %#v, want stream", loaded)
 	}
 
 	taken, ok := registry.Take(handle)
 	if !ok {
 		t.Fatal("Take returned false for created handle")
 	}
-	if taken.name != "stream" {
-		t.Fatalf("Take returned session %q, want stream", taken.name)
+	if taken != (testStreamSession{name: "stream"}) {
+		t.Fatalf("Take returned session %#v, want stream", taken)
 	}
 	if _, ok := registry.Load(handle); ok {
 		t.Fatal("Load returned true after Take")
@@ -70,27 +70,25 @@ func TestStreamRegistryCreateLoadDeleteTake(t *testing.T) {
 }
 
 func TestStreamRegistryRejectsZeroSession(t *testing.T) {
-	var registry StreamRegistry[testStreamSession]
+	var registry StreamRegistry
 
 	if handle, err := registry.Create(testStreamSession{}); err == nil {
 		t.Fatalf("Create returned nil error for zero struct session with handle %d", handle)
 	}
 
-	var pointerRegistry StreamRegistry[*testStreamSession]
-	if handle, err := pointerRegistry.Create(nil); err == nil {
+	if handle, err := registry.Create(nil); err == nil {
 		t.Fatalf("Create returned nil error for nil pointer session with handle %d", handle)
 	}
 
 	var typedNil *testStreamSessionPointer
 	var interfaceSession testStreamSessionInterface = typedNil
-	var interfaceRegistry StreamRegistry[testStreamSessionInterface]
-	if handle, err := interfaceRegistry.Create(interfaceSession); err == nil {
+	if handle, err := registry.Create(interfaceSession); err == nil {
 		t.Fatalf("Create returned nil error for typed nil interface session with handle %d", handle)
 	}
 }
 
 func TestStreamRegistryUnknownHandle(t *testing.T) {
-	var registry StreamRegistry[testStreamSession]
+	var registry StreamRegistry
 
 	if _, ok := registry.Load(0); ok {
 		t.Fatal("Load returned true for zero handle")
@@ -115,9 +113,9 @@ func TestStreamRegistryUnknownHandle(t *testing.T) {
 }
 
 func TestStreamHandleWrapSkipsZeroAndFindsOpenSlot(t *testing.T) {
-	registry := StreamRegistry[testStreamSession]{
+	registry := StreamRegistry{
 		next:     maxStreamHandle,
-		sessions: map[StreamHandle]testStreamSession{1: {name: "occupied"}},
+		sessions: map[StreamHandle]any{1: testStreamSession{name: "occupied"}},
 	}
 
 	handle, err := registry.Create(testStreamSession{name: "wrapped"})
@@ -141,9 +139,9 @@ func TestStreamHandleWrapSkipsZeroAndFindsOpenSlot(t *testing.T) {
 }
 
 func TestStreamHandleWrapReportsExhaustion(t *testing.T) {
-	registry := StreamRegistry[testStreamSession]{
+	registry := StreamRegistry{
 		next:     maxStreamHandle,
-		sessions: map[StreamHandle]testStreamSession{1: {name: "occupied"}},
+		sessions: map[StreamHandle]any{1: testStreamSession{name: "occupied"}},
 	}
 	registry.maxHandleForTesting = 1
 
@@ -153,11 +151,11 @@ func TestStreamHandleWrapReportsExhaustion(t *testing.T) {
 }
 
 func TestStreamHandleInclusiveMaxIsAllocatable(t *testing.T) {
-	registry := StreamRegistry[testStreamSession]{
+	registry := StreamRegistry{
 		next: 1,
-		sessions: map[StreamHandle]testStreamSession{
-			1: {name: "first"},
-			2: {name: "second"},
+		sessions: map[StreamHandle]any{
+			1: testStreamSession{name: "first"},
+			2: testStreamSession{name: "second"},
 		},
 		maxHandleForTesting: 3,
 	}
@@ -172,12 +170,12 @@ func TestStreamHandleInclusiveMaxIsAllocatable(t *testing.T) {
 }
 
 func TestStreamHandleInclusiveMaxReportsExhaustionOnlyWhenFull(t *testing.T) {
-	registry := StreamRegistry[testStreamSession]{
+	registry := StreamRegistry{
 		next: 1,
-		sessions: map[StreamHandle]testStreamSession{
-			1: {name: "first"},
-			2: {name: "second"},
-			3: {name: "third"},
+		sessions: map[StreamHandle]any{
+			1: testStreamSession{name: "first"},
+			2: testStreamSession{name: "second"},
+			3: testStreamSession{name: "third"},
 		},
 		maxHandleForTesting: 3,
 	}
@@ -188,7 +186,7 @@ func TestStreamHandleInclusiveMaxReportsExhaustionOnlyWhenFull(t *testing.T) {
 }
 
 func TestStreamRegistryConcurrentCreateReturnsUniqueNonZeroInt32Handles(t *testing.T) {
-	var registry StreamRegistry[testStreamSession]
+	var registry StreamRegistry
 	const workers = 8
 	const perWorker = 128
 

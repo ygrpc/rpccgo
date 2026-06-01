@@ -109,8 +109,8 @@ const repeatedNativeABIResetSource = `package repeatedv1
 import rpcruntime "rpccgo/rpcruntime"
 
 func ResetRepeatedGreeterDispatcherForIntegrationTest() {
-	repeatedGreeterActiveSlot = rpcruntime.ActiveServerSlot[any]{}
-	repeatedGreeterStreamRegistry = rpcruntime.StreamRegistry[*rpcruntime.StreamEntry]{}
+	repeatedGreeterActiveServer.Store(nil)
+	repeatedGreeterStreamRegistry = rpcruntime.StreamRegistry{}
 }
 `
 
@@ -155,7 +155,7 @@ import (
 func registerRepeatedGreeterMessageCallbacksForIntegration() error {
 	repeatedv1.ResetRepeatedGreeterDispatcherForIntegrationTest()
 	callbacks := C.repeatedGreeterMessageCallbacks()
-	errID := rpccgo_msg_repeatedv1_RepeatedGreeter_Echo_register(callbacks.Echo)
+	errID := rpccgo_msg_repeatedv1_RepeatedGreeter_register(callbacks.Echo)
 	if errID == 0 {
 		return nil
 	}
@@ -237,7 +237,7 @@ func callRepeatedEcho(ctx context.Context, input *repeatedInput, output *repeate
 func TestRepeatedNativeABI(t *testing.T) {
 	t.Run("native client routes to go native server with repeated fields", func(t *testing.T) {
 		repeatedv1.ResetRepeatedGreeterDispatcherForIntegrationTest()
-		if _, err := repeatedv1.RegisterRepeatedGreeterGoNativeServer(repeatedGoNativeServer{}); err != nil {
+		if err := repeatedv1.RegisterRepeatedGreeterGoNativeServer(repeatedGoNativeServer{}); err != nil {
 			t.Fatalf("RegisterRepeatedGreeterGoNativeServer() error = %v", err)
 		}
 
@@ -301,7 +301,7 @@ func TestRepeatedNativeABI(t *testing.T) {
 
 	t.Run("message client to go native server uses message to native converter", func(t *testing.T) {
 		repeatedv1.ResetRepeatedGreeterDispatcherForIntegrationTest()
-		if _, err := repeatedv1.RegisterRepeatedGreeterGoNativeServer(repeatedGoNativeServer{}); err != nil {
+		if err := repeatedv1.RegisterRepeatedGreeterGoNativeServer(repeatedGoNativeServer{}); err != nil {
 			t.Fatalf("RegisterRepeatedGreeterGoNativeServer() error = %v", err)
 		}
 
@@ -334,7 +334,7 @@ func TestRepeatedNativeABI(t *testing.T) {
 
 	t.Run("negative repeated length returns error id instead of panic", func(t *testing.T) {
 		repeatedv1.ResetRepeatedGreeterDispatcherForIntegrationTest()
-		if _, err := repeatedv1.RegisterRepeatedGreeterGoNativeServer(repeatedGoNativeServer{}); err != nil {
+		if err := repeatedv1.RegisterRepeatedGreeterGoNativeServer(repeatedGoNativeServer{}); err != nil {
 			t.Fatalf("RegisterRepeatedGreeterGoNativeServer() error = %v", err)
 		}
 

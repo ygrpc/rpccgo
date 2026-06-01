@@ -119,8 +119,6 @@ func renderServiceStageFiles(plugin *protogen.Plugin, plan FilePlan, service Ser
 	if err := renderMessageStageFilesWithSupport(plugin, messagePlan, sharedRendered); err != nil {
 		return err
 	}
-	markRendered(rendered, messageService.MessageFileFamily.ConnectRemote)
-	markRendered(rendered, messageService.MessageFileFamily.GRPCRemote)
 
 	codecPlan := plan
 	codecPlan.Services = []ServicePlan{service}
@@ -192,8 +190,6 @@ func renderMessageStageFilesWithSupport(plugin *protogen.Plugin, plan FilePlan, 
 			family.MessageServer,
 			family.CGOMessageServer,
 			family.CGOMessageClient,
-			family.ConnectRemote,
-			family.GRPCRemote,
 		}
 		for _, file := range files {
 			if !file.Enabled {
@@ -219,18 +215,6 @@ func renderMessageStageFilesWithSupport(plugin *protogen.Plugin, plan FilePlan, 
 			}
 			if file == family.CGOMessageClient {
 				if err := renderMessageClientCGOFile(plugin, plan, service, file); err != nil {
-					return err
-				}
-				continue
-			}
-			if file == family.ConnectRemote {
-				if err := renderConnectRemoteFile(plugin, plan, service, file); err != nil {
-					return err
-				}
-				continue
-			}
-			if file == family.GRPCRemote {
-				if err := renderGRPCRemoteFile(plugin, plan, service, file); err != nil {
 					return err
 				}
 				continue
@@ -286,14 +270,6 @@ func messageStageMarker(service ServicePlan, file GeneratedFilePlan) string {
 		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "cgo message server callbacks"}, " ")
 	case strings.Contains(name, ".client.message.cgo.rpccgo.go"):
 		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "cgo message client"}, " ")
-	case strings.Contains(name, ".server.connect.rpccgo.go"):
-		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "connect local server adapter"}, " ")
-	case strings.Contains(name, ".server.grpc.rpccgo.go"):
-		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "grpc local server adapter"}, " ")
-	case strings.Contains(name, ".remote.connect.rpccgo.go"):
-		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "connect remote client active server"}, " ")
-	case strings.Contains(name, ".remote.grpc.rpccgo.go"):
-		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "grpc remote client active server"}, " ")
 	default:
 		return strings.Join([]string{"rpccgo message direct generated file for", service.GoName, "unknown"}, " ")
 	}

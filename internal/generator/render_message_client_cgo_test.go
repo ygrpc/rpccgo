@@ -35,9 +35,11 @@ func TestRenderMessageClientCGODefinesUnaryExportSurface(t *testing.T) {
 		"func FinishGreeterUploadMessageClientStream(ctx context.Context, handle int32, output *GreeterMessageOutput) int32 {",
 		"func StartGreeterListMessageServerStream(ctx context.Context, requestPtr uintptr, requestLen int32) (int32, int32) {",
 		"func ReadGreeterListMessageServerStream(ctx context.Context, handle int32, output *GreeterMessageOutput) int32 {",
+		"func FinishGreeterListMessageServerStream(ctx context.Context, handle int32) int32 {",
 		"func StartGreeterChatMessageBidiStream(ctx context.Context) (int32, int32) {",
 		"func SendGreeterChatMessageBidiStream(ctx context.Context, handle int32, requestPtr uintptr, requestLen int32) int32 {",
 		"func ReadGreeterChatMessageBidiStream(ctx context.Context, handle int32, output *GreeterMessageOutput) int32 {",
+		"func FinishGreeterChatMessageBidiStream(ctx context.Context, handle int32) int32 {",
 		`v1.NewGreeterUploadMessageStream(rpcruntime.StreamHandle(handle)).Send(ctx, req)`,
 		`resp, err = v1.NewGreeterUploadMessageStream(rpcruntime.StreamHandle(handle)).Finish(ctx)`,
 		"CloseSendGreeterChatMessageBidiStream",
@@ -73,8 +75,9 @@ func TestRenderMessageClientCGODefinesUnaryExportSurface(t *testing.T) {
 		"rpcruntime.DispatcherStreamSend[",
 		"rpcruntime.DispatcherStreamReceive[",
 		"rpcruntime.DispatcherStreamFinish[",
-		"rpcruntime.DispatcherStreamDone[",
 		"rpcruntime.DispatcherStreamCancel[",
 		"rpcruntime.DispatcherStreamCloseSend[",
+		"DoneGreeterListMessageServerStream",
+		"DoneGreeterChatMessageBidiStream",
 	)
 }

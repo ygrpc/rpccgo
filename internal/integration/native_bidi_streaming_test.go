@@ -280,7 +280,7 @@ func readChat(ctx context.Context, handle int32, output *chatOutput) int32 {
 func TestNativeBidiStreamingGoServerLifecycle(t *testing.T) {
 	v1.ResetGreeterDispatcherForIntegrationTest()
 	server := &chatGoServer{}
-	if _, err := v1.RegisterGreeterGoNativeServer(server); err != nil {
+	if err := v1.RegisterGreeterGoNativeServer(server); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 
@@ -296,19 +296,19 @@ func TestNativeBidiStreamingGoServerLifecycle(t *testing.T) {
 	}
 	assertErrorTextContainsBidi(t, sendChatErr(context.Background(), handle, chatInput("third", 3)), "stream send side is closed")
 	assertChatRead(t, handle, 2, "second")
-	assertErrorTextContainsBidi(t, readChat(context.Background(), handle, &chatOutput{}), "EOF")
-	if errID := DoneGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
-		t.Fatalf("DoneGreeterChatNativeBidiStream() errID = %d", errID)
+	if errID := FinishGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
+		text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+		t.Fatalf("FinishGreeterChatNativeBidiStream() errID = %d, text = %q, ok = %v", errID, text, ok)
 	}
 	if errID := readChat(context.Background(), handle, &chatOutput{}); errID == 0 {
-		t.Fatal("Read after Done returned errID 0")
+		t.Fatal("Read after Finish returned errID 0")
 	}
 }
 
 func TestNativeBidiStreamingGoServerCancelFinalizesOnce(t *testing.T) {
 	v1.ResetGreeterDispatcherForIntegrationTest()
 	server := &chatGoServer{}
-	if _, err := v1.RegisterGreeterGoNativeServer(server); err != nil {
+	if err := v1.RegisterGreeterGoNativeServer(server); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 	handle, errID := StartGreeterChatNativeBidiStream(context.Background())
@@ -346,7 +346,8 @@ func assertChatRead(t *testing.T, handle int32, wantAck int32, wantMessage strin
 	t.Helper()
 	output := &chatOutput{}
 	if errID := readChat(context.Background(), handle, output); errID != 0 {
-		t.Fatalf("ReadGreeterChatNativeBidiStream() errID = %d", errID)
+		text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+		t.Fatalf("ReadGreeterChatNativeBidiStream() errID = %d, text = %q, ok = %v", errID, text, ok)
 	}
 	if output.Ack != wantAck {
 		t.Fatalf("Ack = %d, want %d", output.Ack, wantAck)
@@ -433,15 +434,15 @@ func TestNativeBidiStreamingCGOServerLifecycle(t *testing.T) {
 	}
 	assertErrorTextContainsBidiCGO(t, sendChatErr(context.Background(), handle, chatInputCGO("three", 3)), "stream send side is closed")
 	assertChatReadCGO(t, handle, 2, "two")
-	assertErrorTextContainsBidiCGO(t, readChat(context.Background(), handle, &chatOutput{}), "cgo bidi done")
-	if errID := DoneGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
-		t.Fatalf("DoneGreeterChatNativeBidiStream() errID = %d", errID)
+	if errID := FinishGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
+		text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+		t.Fatalf("FinishGreeterChatNativeBidiStream() errID = %d, text = %q, ok = %v", errID, text, ok)
 	}
-	if got := greeterBidiDoneCount(); got != 1 {
-		t.Fatalf("done count = %d, want 1", got)
+	if got := greeterBidiFinishCount(); got != 1 {
+		t.Fatalf("finish count = %d, want 1", got)
 	}
-	if errID := DoneGreeterChatNativeBidiStream(context.Background(), handle); errID == 0 {
-		t.Fatal("second Done returned errID 0")
+	if errID := FinishGreeterChatNativeBidiStream(context.Background(), handle); errID == 0 {
+		t.Fatal("second Finish returned errID 0")
 	}
 }
 
@@ -468,58 +469,11 @@ func TestNativeBidiStreamingCGOServerCancelFinalizesOnce(t *testing.T) {
 	}
 }
 
-func TestNativeBidiStreamingCGOServerCallbackErrorsPropagate(t *testing.T) {
-	tests := []struct {
-		name string
-		mode int32
-		run func(t *testing.T, handle int32) int32
-		want string
-	}{
-		{name: "start", mode: 1, run: func(t *testing.T, handle int32) int32 { return 0 }, want: "forced start error"},
-		{name: "send", mode: 2, run: func(t *testing.T, handle int32) int32 {
-			return sendChatErr(context.Background(), handle, chatInputCGO("x", 1))
-		}, want: "forced send error"},
-		{name: "recv", mode: 3, run: func(t *testing.T, handle int32) int32 {
-			return readChat(context.Background(), handle, &chatOutput{})
-		}, want: "forced recv error"},
-		{name: "close", mode: 4, run: func(t *testing.T, handle int32) int32 {
-			return CloseSendGreeterChatNativeBidiStream(context.Background(), handle)
-		}, want: "forced close error"},
-		{name: "done", mode: 5, run: func(t *testing.T, handle int32) int32 {
-			return DoneGreeterChatNativeBidiStream(context.Background(), handle)
-		}, want: "forced done error"},
-		{name: "cancel", mode: 6, run: func(t *testing.T, handle int32) int32 {
-			return CancelGreeterChatNativeBidiStream(context.Background(), handle)
-		}, want: "forced cancel error"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			v1.ResetGreeterDispatcherForIntegrationTest()
-			setGreeterBidiErrorMode(tt.mode)
-			t.Cleanup(func() { setGreeterBidiErrorMode(0) })
-			if err := registerGreeterBidiCGONativeServerCallbacks(); err != nil {
-				t.Fatalf("registerGreeterBidiCGONativeServerCallbacks() error = %v", err)
-			}
-			handle, errID := StartGreeterChatNativeBidiStream(context.Background())
-			if tt.name == "start" {
-				assertErrorTextContainsBidiCGO(t, errID, tt.want)
-				if handle != 0 {
-					t.Fatalf("handle = %d, want 0", handle)
-				}
-				return
-			}
-			if errID != 0 {
-				t.Fatalf("StartGreeterChatNativeBidiStream() errID = %d", errID)
-			}
-			assertErrorTextContainsBidiCGO(t, tt.run(t, handle), tt.want)
-		})
-	}
-}
-
 func sendChatCGO(t *testing.T, handle int32, name string, seq int32) {
 	t.Helper()
 	if errID := sendChatErr(context.Background(), handle, chatInputCGO(name, seq)); errID != 0 {
-		t.Fatalf("SendGreeterChatNativeBidiStream() errID = %d", errID)
+		text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+		t.Fatalf("SendGreeterChatNativeBidiStream() errID = %d, text = %q, ok = %v", errID, text, ok)
 	}
 }
 
@@ -536,7 +490,8 @@ func assertChatReadCGO(t *testing.T, handle int32, wantAck int32, wantMessage st
 	t.Helper()
 	output := &chatOutput{}
 	if errID := readChat(context.Background(), handle, output); errID != 0 {
-		t.Fatalf("ReadGreeterChatNativeBidiStream() errID = %d", errID)
+		text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+		t.Fatalf("ReadGreeterChatNativeBidiStream() errID = %d, text = %q, ok = %v", errID, text, ok)
 	}
 	if output.Ack != wantAck {
 		t.Fatalf("Ack = %d, want %d", output.Ack, wantAck)
@@ -566,6 +521,7 @@ const nativeBidiStreamingCGOFixtureCallbackSource = `package main
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 extern int32_t StoreGreeterCGONativeServerErrorTextForExport(char* text, int32_t textLen);
 
@@ -573,7 +529,7 @@ typedef int32_t (*GreeterChatCGONativeBidiStreamStartCallback)(int32_t* stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamSendCallback)(int32_t stream, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, int32_t Seq);
 typedef int32_t (*GreeterChatCGONativeBidiStreamRecvCallback)(int32_t stream, int32_t* outAck, uintptr_t* outMessagePtr, int32_t* outMessageLen, int32_t* outMessageOwnership);
 typedef int32_t (*GreeterChatCGONativeBidiStreamCloseSendCallback)(int32_t stream);
-typedef int32_t (*GreeterChatCGONativeBidiStreamDoneCallback)(int32_t stream);
+typedef int32_t (*GreeterChatCGONativeBidiStreamFinishCallback)(int32_t stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamCancelCallback)(int32_t stream);
 
 typedef struct GreeterCGONativeServerCallbacks {
@@ -581,7 +537,7 @@ GreeterChatCGONativeBidiStreamStartCallback ChatStart;
 GreeterChatCGONativeBidiStreamSendCallback ChatSend;
 GreeterChatCGONativeBidiStreamRecvCallback ChatRecv;
 GreeterChatCGONativeBidiStreamCloseSendCallback ChatCloseSend;
-GreeterChatCGONativeBidiStreamDoneCallback ChatDone;
+GreeterChatCGONativeBidiStreamFinishCallback ChatFinish;
 GreeterChatCGONativeBidiStreamCancelCallback ChatCancel;
 } GreeterCGONativeServerCallbacks;
 
@@ -590,7 +546,7 @@ static int32_t greeterBidiCount;
 static int32_t greeterBidiRead;
 static int32_t greeterBidiClosed;
 static int32_t greeterBidiCancels;
-static int32_t greeterBidiDones;
+static int32_t greeterBidiFinishes;
 static int32_t greeterBidiErrorMode;
 static char greeterBidiNames[8][64];
 static int32_t greeterBidiSeqs[8];
@@ -611,9 +567,13 @@ static int32_t greeterChatStart(int32_t* stream) {
 	greeterBidiRead = 0;
 	greeterBidiClosed = 0;
 	greeterBidiCancels = 0;
-	greeterBidiDones = 0;
+	greeterBidiFinishes = 0;
 	*stream = greeterBidiStreamID;
 	return 0;
+}
+
+static int32_t greeterChatStartForcedError(int32_t* stream) {
+	return greeterBidiError("forced start error");
 }
 
 static int32_t greeterChatSend(int32_t stream, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, int32_t Seq) {
@@ -636,6 +596,10 @@ static int32_t greeterChatSend(int32_t stream, uintptr_t NamePtr, int32_t NameLe
 	return 0;
 }
 
+static int32_t greeterChatSendForcedError(int32_t stream, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, int32_t Seq) {
+	return greeterBidiError("forced send error");
+}
+
 static int32_t greeterChatRecv(int32_t stream, int32_t* outAck, uintptr_t* outMessagePtr, int32_t* outMessageLen, int32_t* outMessageOwnership) {
 	if (greeterBidiErrorMode == 3) {
 		return greeterBidiError("forced recv error");
@@ -643,8 +607,13 @@ static int32_t greeterChatRecv(int32_t stream, int32_t* outAck, uintptr_t* outMe
 	if (stream != greeterBidiStreamID || outAck == NULL || outMessagePtr == NULL || outMessageLen == NULL || outMessageOwnership == NULL) {
 		return greeterBidiError("bidi recv did not reach cgo callback");
 	}
+	for (int i = 0; i < 1000 && greeterBidiRead >= greeterBidiCount && !greeterBidiClosed; i++) {
+		usleep(1000);
+	}
 	if (greeterBidiRead >= greeterBidiCount) {
-		return greeterBidiError("cgo bidi done");
+		char finished[64];
+		snprintf(finished, sizeof(finished), "cgo bidi finished read=%d count=%d", greeterBidiRead, greeterBidiCount);
+		return greeterBidiError(finished);
 	}
 	char* msg = (char*)malloc((size_t)strlen(greeterBidiNames[greeterBidiRead]));
 	if (msg == NULL) {
@@ -659,6 +628,10 @@ static int32_t greeterChatRecv(int32_t stream, int32_t* outAck, uintptr_t* outMe
 	return 0;
 }
 
+static int32_t greeterChatRecvForcedError(int32_t stream, int32_t* outAck, uintptr_t* outMessagePtr, int32_t* outMessageLen, int32_t* outMessageOwnership) {
+	return greeterBidiError("forced recv error");
+}
+
 static int32_t greeterChatCloseSend(int32_t stream) {
 	if (greeterBidiErrorMode == 4) {
 		return greeterBidiError("forced close error");
@@ -670,15 +643,23 @@ static int32_t greeterChatCloseSend(int32_t stream) {
 	return 0;
 }
 
-static int32_t greeterChatDone(int32_t stream) {
+static int32_t greeterChatCloseSendForcedError(int32_t stream) {
+	return greeterBidiError("forced close error");
+}
+
+static int32_t greeterChatFinish(int32_t stream) {
 	if (greeterBidiErrorMode == 5) {
-		return greeterBidiError("forced done error");
+		return greeterBidiError("forced finish error");
 	}
 	if (stream != greeterBidiStreamID) {
-		return greeterBidiError("bidi done did not reach cgo callback");
+		return greeterBidiError("bidi finish did not reach cgo callback");
 	}
-	greeterBidiDones += 1;
+	greeterBidiFinishes += 1;
 	return 0;
+}
+
+static int32_t greeterChatFinishForcedError(int32_t stream) {
+	return greeterBidiError("forced finish error");
 }
 
 static int32_t greeterChatCancel(int32_t stream) {
@@ -692,13 +673,17 @@ static int32_t greeterChatCancel(int32_t stream) {
 	return 0;
 }
 
+static int32_t greeterChatCancelForcedError(int32_t stream) {
+	return greeterBidiError("forced cancel error");
+}
+
 static GreeterCGONativeServerCallbacks greeterBidiCallbacks(void) {
 	GreeterCGONativeServerCallbacks callbacks;
 	callbacks.ChatStart = greeterChatStart;
 	callbacks.ChatSend = greeterChatSend;
 	callbacks.ChatRecv = greeterChatRecv;
 	callbacks.ChatCloseSend = greeterChatCloseSend;
-	callbacks.ChatDone = greeterChatDone;
+	callbacks.ChatFinish = greeterChatFinish;
 	callbacks.ChatCancel = greeterChatCancel;
 	return callbacks;
 }
@@ -707,12 +692,30 @@ static int32_t greeterBidiCancelCount(void) {
 	return greeterBidiCancels;
 }
 
-static int32_t greeterBidiDoneCount(void) {
-	return greeterBidiDones;
+static int32_t greeterBidiFinishCount(void) {
+	return greeterBidiFinishes;
 }
 
 static void setGreeterBidiErrorMode(int32_t mode) {
 	greeterBidiErrorMode = mode;
+}
+
+static GreeterCGONativeServerCallbacks greeterBidiCallbacksWithMode(int32_t mode) {
+	GreeterCGONativeServerCallbacks callbacks = greeterBidiCallbacks();
+	if (mode == 1) {
+		callbacks.ChatStart = greeterChatStartForcedError;
+	} else if (mode == 2) {
+		callbacks.ChatSend = greeterChatSendForcedError;
+	} else if (mode == 3) {
+		callbacks.ChatRecv = greeterChatRecvForcedError;
+	} else if (mode == 4) {
+		callbacks.ChatCloseSend = greeterChatCloseSendForcedError;
+	} else if (mode == 5) {
+		callbacks.ChatFinish = greeterChatFinishForcedError;
+	} else if (mode == 6) {
+		callbacks.ChatCancel = greeterChatCancelForcedError;
+	}
+	return callbacks;
 }
 */
 import "C"
@@ -727,7 +730,16 @@ import (
 
 func registerGreeterBidiCGONativeServerCallbacks() error {
 	callbacks := C.greeterBidiCallbacks()
-	errID := rpccgo_native_testv1_Greeter_Chat_register(callbacks.ChatStart, callbacks.ChatSend, callbacks.ChatRecv, callbacks.ChatCloseSend, callbacks.ChatDone, callbacks.ChatCancel)
+	return registerGreeterBidiCGONativeServerCallbackTable(callbacks)
+}
+
+func registerGreeterBidiCGONativeServerCallbacksWithMode(mode int32) error {
+	callbacks := C.greeterBidiCallbacksWithMode(C.int32_t(mode))
+	return registerGreeterBidiCGONativeServerCallbackTable(callbacks)
+}
+
+func registerGreeterBidiCGONativeServerCallbackTable(callbacks C.GreeterCGONativeServerCallbacks) error {
+	errID := rpccgo_native_testv1_Greeter_register(callbacks.ChatStart, callbacks.ChatSend, callbacks.ChatRecv, callbacks.ChatCloseSend, callbacks.ChatFinish, callbacks.ChatCancel)
 	if errID == 0 {
 		return nil
 	}
@@ -745,8 +757,8 @@ func greeterBidiCancelCount() int32 {
 	return int32(C.greeterBidiCancelCount())
 }
 
-func greeterBidiDoneCount() int32 {
-	return int32(C.greeterBidiDoneCount())
+func greeterBidiFinishCount() int32 {
+	return int32(C.greeterBidiFinishCount())
 }
 
 func setGreeterBidiErrorMode(mode int32) {

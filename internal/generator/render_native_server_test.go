@@ -29,9 +29,9 @@ func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) 
 		"BidiStream(ctx context.Context, stream AllServiceBidiStreamNativeBidiStream) error",
 		"type UnimplementedAllServiceNativeServer struct{}",
 		`errors.New("rpccgo: AllService.Unary native server method is not implemented")`,
-		"func RegisterAllServiceGoNativeServer(server AllServiceNativeServer) (rpcruntime.AdapterSnapshot[AllServiceNativeServer], error) {",
+		"func RegisterAllServiceGoNativeServer(server AllServiceNativeServer) error {",
 		`errors.New("rpccgo: AllService go native server is nil")`,
-		"return registerAllServiceActiveServer(rpcruntime.ServerKindGoNative, server)",
+		"return registerAllServiceGoNativeServer(server)",
 	} {
 		assertGeneratedContentContains(t, plugin, nativeServerFile, fragment)
 	}
@@ -46,6 +46,7 @@ func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) 
 	assertGeneratedFileContentDoesNotContain(t, plugin, nativeServerFile,
 		"connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf",
 		"type allServiceGoNativeAdapter struct {", "type allServiceNativeServerAdapter struct {",
+		"rpcruntime.AdapterSnapshot", "rpcruntime.ServerKindGoNative", "registerAllServiceActiveServer",
 	)
 }
 
@@ -95,6 +96,8 @@ func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
 		"func (s *allServiceBidiStreamGoNativeBidiStreamFacade) Recv(ctx context.Context) (*rpcruntime.RpcString, bool, *rpcruntime.RpcBytes, error)",
 		"func (s *allServiceBidiStreamGoNativeBidiStreamSession) Recv(ctx context.Context) (bool, []byte, error)",
 		"s.closeSendOnce.Do(func() { close(s.sendDone) })",
+		"func (s *allServiceServerStreamGoNativeServerStreamSession) Finish(ctx context.Context) error",
+		"func (s *allServiceBidiStreamGoNativeBidiStreamSession) Finish(ctx context.Context) error",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
@@ -309,7 +312,7 @@ func (partialAllServiceNativeServer) ServerStream(ctx context.Context, name *rpc
 }
 
 func TestPartialNativeServerUsesUnimplementedFallback(t *testing.T) {
-	if _, err := testv1.RegisterAllServiceGoNativeServer(partialAllServiceNativeServer{}); err != nil {
+	if err := testv1.RegisterAllServiceGoNativeServer(partialAllServiceNativeServer{}); err != nil {
 		t.Fatalf("RegisterAllServiceGoNativeServer() error = %v", err)
 	}
 

@@ -353,12 +353,12 @@ func ReadGreeterBroadcastNativeServerStream(ctx context.Context, handle int32, o
 	return 0
 }
 
-func DoneGreeterBroadcastNativeServerStream(ctx context.Context, handle int32) int32 {
+func FinishGreeterBroadcastNativeServerStream(ctx context.Context, handle int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	var err error
-	err = proto.NewGreeterBroadcastNativeStream(rpcruntime.StreamHandle(handle)).Done(ctx)
+	err = proto.NewGreeterBroadcastNativeStream(rpcruntime.StreamHandle(handle)).Finish(ctx)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -482,9 +482,9 @@ func rpccgo_native_greeterv1_Greeter_Broadcast_read(stream C.int32_t, outMessage
 	return C.int32_t(ReadGreeterBroadcastNativeServerStream(context.Background(), int32(stream), (*uintptr)(unsafe.Pointer(outMessagePtr)), (*int32)(unsafe.Pointer(outMessageLen))))
 }
 
-//export rpccgo_native_greeterv1_Greeter_Broadcast_done
-func rpccgo_native_greeterv1_Greeter_Broadcast_done(stream C.int32_t) C.int32_t {
-	return C.int32_t(DoneGreeterBroadcastNativeServerStream(context.Background(), int32(stream)))
+//export rpccgo_native_greeterv1_Greeter_Broadcast_finish
+func rpccgo_native_greeterv1_Greeter_Broadcast_finish(stream C.int32_t) C.int32_t {
+	return C.int32_t(FinishGreeterBroadcastNativeServerStream(context.Background(), int32(stream)))
 }
 
 //export rpccgo_native_greeterv1_Greeter_Broadcast_cancel
@@ -553,12 +553,12 @@ func CloseSendGreeterChatNativeBidiStream(ctx context.Context, handle int32) int
 	return 0
 }
 
-func DoneGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32 {
+func FinishGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	var err error
-	err = proto.NewGreeterChatNativeStream(rpcruntime.StreamHandle(handle)).Done(ctx)
+	err = proto.NewGreeterChatNativeStream(rpcruntime.StreamHandle(handle)).Finish(ctx)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -692,9 +692,9 @@ func rpccgo_native_greeterv1_Greeter_Chat_close_send(stream C.int32_t) C.int32_t
 	return C.int32_t(CloseSendGreeterChatNativeBidiStream(context.Background(), int32(stream)))
 }
 
-//export rpccgo_native_greeterv1_Greeter_Chat_done
-func rpccgo_native_greeterv1_Greeter_Chat_done(stream C.int32_t) C.int32_t {
-	return C.int32_t(DoneGreeterChatNativeBidiStream(context.Background(), int32(stream)))
+//export rpccgo_native_greeterv1_Greeter_Chat_finish
+func rpccgo_native_greeterv1_Greeter_Chat_finish(stream C.int32_t) C.int32_t {
+	return C.int32_t(FinishGreeterChatNativeBidiStream(context.Background(), int32(stream)))
 }
 
 //export rpccgo_native_greeterv1_Greeter_Chat_cancel

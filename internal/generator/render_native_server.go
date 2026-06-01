@@ -20,7 +20,9 @@ func renderNativeServerFile(plugin *protogen.Plugin, plan FilePlan, service Serv
 		g.P(`context "context"`)
 	}
 	g.P(`errors "errors"`)
-	g.P(`rpcruntime "rpccgo/rpcruntime"`)
+	if nativeServerNeedsRPCRuntime(service) {
+		g.P(`rpcruntime "rpccgo/rpcruntime"`)
+	}
 	g.P(")")
 	g.P()
 	g.P("// ", nativeStageMarker(service, file))
@@ -31,6 +33,21 @@ func renderNativeServerFile(plugin *protogen.Plugin, plan FilePlan, service Serv
 	renderUnimplementedGoNativeServer(g, service)
 	renderGoNativeRegistration(g, service, service.GoName+"NativeServer", "")
 	return nil
+}
+
+func nativeServerNeedsRPCRuntime(service ServicePlan) bool {
+	for _, method := range service.Methods {
+		for _, field := range method.Contract.Native.RequestFields {
+			if field.Repeated {
+				return true
+			}
+			switch field.Kind {
+			case FieldKindString, FieldKindBytes, FieldKindMessage:
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func renderGoNativeServerInterface(g *protogen.GeneratedFile, service ServicePlan, serverName string) {
@@ -235,7 +252,7 @@ func renderGoNativeServerStreamAdapterMethod(g *protogen.GeneratedFile, service 
 	g.P()
 	renderGoNativeServerStreamFacadeSend(g, receiver, method, errorNames)
 	renderGoNativeServerStreamRecv(g, receiver, method, errorNames)
-	renderGeneratedStreamDone(g, receiver)
+	renderGeneratedStreamFinish(g, receiver)
 	renderGeneratedStreamCancel(g, receiver)
 }
 
@@ -295,7 +312,7 @@ func renderGoNativeBidiStreamAdapterMethod(g *protogen.GeneratedFile, service Se
 	renderGoNativeBidiStreamSend(g, receiver, method, errorNames)
 	renderGoNativeBidiStreamRecv(g, receiver, method, errorNames)
 	renderGoNativeBidiStreamCloseSend(g, receiver, errorNames)
-	renderGeneratedStreamDone(g, receiver)
+	renderGeneratedStreamFinish(g, receiver)
 	renderGeneratedStreamCancel(g, receiver)
 }
 
@@ -693,8 +710,8 @@ func renderGeneratedStreamCancel(g *protogen.GeneratedFile, receiver string) {
 	g.P()
 }
 
-func renderGeneratedStreamDone(g *protogen.GeneratedFile, receiver string) {
-	g.P("func (s *", receiver, ") Done(ctx context.Context) error {")
+func renderGeneratedStreamFinish(g *protogen.GeneratedFile, receiver string) {
+	g.P("func (s *", receiver, ") Finish(ctx context.Context) error {")
 	g.P("s.doneRequested = true")
 	g.P("s.cancel()")
 	g.P("if s.received != nil {")
@@ -791,11 +808,11 @@ func nativeEnvelopeFieldNames(fields []FieldPlan) string {
 }
 
 func renderGoNativeRegistration(g *protogen.GeneratedFile, service ServicePlan, serverName, adapterName string) {
-	g.P("func Register", service.GoName, "GoNativeServer(server ", serverName, ") (rpcruntime.AdapterSnapshot[", serverName, "], error) {")
+	g.P("func Register", service.GoName, "GoNativeServer(server ", serverName, ") error {")
 	g.P("if server == nil {")
-	g.P(`return rpcruntime.AdapterSnapshot[`, serverName, `]{}, errors.New("rpccgo: `, service.GoName, ` go native server is nil")`)
+	g.P(`return errors.New("rpccgo: `, service.GoName, ` go native server is nil")`)
 	g.P("}")
-	g.P("return register", service.GoName, "ActiveServer(rpcruntime.ServerKindGoNative, server)")
+	g.P("return register", service.GoName, "GoNativeServer(server)")
 	g.P("}")
 	g.P()
 	_ = adapterName

@@ -1,6 +1,8 @@
 package generator
 
 import (
+	"strings"
+
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
@@ -79,14 +81,14 @@ func renderCGOMessageServerPreamble(g *protogen.GeneratedFile, service ServicePl
 		case StreamingKindServerStreaming:
 			g.P("typedef int32_t (*", messageCGOServerServerStreamStartCallbackName(service, method), ")(uintptr_t request_ptr, int32_t request_len, int32_t* stream);")
 			g.P("typedef int32_t (*", messageCGOServerServerStreamRecvCallbackName(service, method), ")(int32_t stream, uintptr_t* response_ptr, int32_t* response_len);")
-			g.P("typedef int32_t (*", messageCGOServerServerStreamDoneCallbackName(service, method), ")(int32_t stream);")
+			g.P("typedef int32_t (*", messageCGOServerServerStreamFinishCallbackName(service, method), ")(int32_t stream);")
 			g.P("typedef int32_t (*", messageCGOServerServerStreamCancelCallbackName(service, method), ")(int32_t stream);")
 		case StreamingKindBidiStreaming:
 			g.P("typedef int32_t (*", messageCGOServerBidiStreamStartCallbackName(service, method), ")(int32_t* stream);")
 			g.P("typedef int32_t (*", messageCGOServerBidiStreamSendCallbackName(service, method), ")(int32_t stream, uintptr_t request_ptr, int32_t request_len);")
 			g.P("typedef int32_t (*", messageCGOServerBidiStreamRecvCallbackName(service, method), ")(int32_t stream, uintptr_t* response_ptr, int32_t* response_len);")
 			g.P("typedef int32_t (*", messageCGOServerBidiStreamCloseSendCallbackName(service, method), ")(int32_t stream);")
-			g.P("typedef int32_t (*", messageCGOServerBidiStreamDoneCallbackName(service, method), ")(int32_t stream);")
+			g.P("typedef int32_t (*", messageCGOServerBidiStreamFinishCallbackName(service, method), ")(int32_t stream);")
 			g.P("typedef int32_t (*", messageCGOServerBidiStreamCancelCallbackName(service, method), ")(int32_t stream);")
 		}
 		g.P()
@@ -110,14 +112,14 @@ func renderCGOMessageServerAdapterFields(g *protogen.GeneratedFile, service Serv
 		case StreamingKindServerStreaming:
 			g.P(method.GoName, "Start C.", messageCGOServerServerStreamStartCallbackName(service, method))
 			g.P(method.GoName, "Recv C.", messageCGOServerServerStreamRecvCallbackName(service, method))
-			g.P(method.GoName, "Done C.", messageCGOServerServerStreamDoneCallbackName(service, method))
+			g.P(method.GoName, "Finish C.", messageCGOServerServerStreamFinishCallbackName(service, method))
 			g.P(method.GoName, "Cancel C.", messageCGOServerServerStreamCancelCallbackName(service, method))
 		case StreamingKindBidiStreaming:
 			g.P(method.GoName, "Start C.", messageCGOServerBidiStreamStartCallbackName(service, method))
 			g.P(method.GoName, "Send C.", messageCGOServerBidiStreamSendCallbackName(service, method))
 			g.P(method.GoName, "Recv C.", messageCGOServerBidiStreamRecvCallbackName(service, method))
 			g.P(method.GoName, "CloseSend C.", messageCGOServerBidiStreamCloseSendCallbackName(service, method))
-			g.P(method.GoName, "Done C.", messageCGOServerBidiStreamDoneCallbackName(service, method))
+			g.P(method.GoName, "Finish C.", messageCGOServerBidiStreamFinishCallbackName(service, method))
 			g.P(method.GoName, "Cancel C.", messageCGOServerBidiStreamCancelCallbackName(service, method))
 		}
 	}
@@ -158,56 +160,75 @@ func renderCGOMessageServerUnaryAdapter(g *protogen.GeneratedFile, service Servi
 }
 
 func renderCGOMessageServerRegistration(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, adapterName, servicePackage string) {
+	exportName := messageCServiceRegisterExportFuncName(plan, service)
+	var params []string
 	for _, method := range service.Methods {
-		exportName := messageCExportFuncName(plan, service, method, "register")
-		goName := exportName
 		switch method.Streaming {
 		case StreamingKindUnary:
-			g.P("//export ", exportName)
-			g.P("func ", goName, "(callback C.", messageCGOServerUnaryCallbackName(service, method), ") C.int32_t {")
-			g.P("if callback == nil { return C.int32_t(rpcruntime.StoreError(", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing)) }")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Lock()")
-			g.P("defer ", lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Unlock()")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter.", method.GoName, "Callback = callback")
+			params = append(params, lowerInitial(method.GoName)+"Callback C."+messageCGOServerUnaryCallbackName(service, method))
 		case StreamingKindClientStreaming:
-			g.P("//export ", exportName)
-			g.P("func ", goName, "(start C.", messageCGOServerClientStreamStartCallbackName(service, method), ", send C.", messageCGOServerClientStreamSendCallbackName(service, method), ", finish C.", messageCGOServerClientStreamFinishCallbackName(service, method), ", cancel C.", messageCGOServerClientStreamCancelCallbackName(service, method), ") C.int32_t {")
-			g.P("if start == nil || send == nil || finish == nil || cancel == nil { return C.int32_t(rpcruntime.StoreError(", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing)) }")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Lock()")
-			g.P("defer ", lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Unlock()")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter.", method.GoName, "Start = start")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter.", method.GoName, "Send = send")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter.", method.GoName, "Finish = finish")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter.", method.GoName, "Cancel = cancel")
+			params = append(params,
+				lowerInitial(method.GoName)+"Start C."+messageCGOServerClientStreamStartCallbackName(service, method),
+				lowerInitial(method.GoName)+"Send C."+messageCGOServerClientStreamSendCallbackName(service, method),
+				lowerInitial(method.GoName)+"Finish C."+messageCGOServerClientStreamFinishCallbackName(service, method),
+				lowerInitial(method.GoName)+"Cancel C."+messageCGOServerClientStreamCancelCallbackName(service, method),
+			)
 		case StreamingKindServerStreaming:
-			g.P("//export ", exportName)
-			g.P("func ", goName, "(start C.", messageCGOServerServerStreamStartCallbackName(service, method), ", recv C.", messageCGOServerServerStreamRecvCallbackName(service, method), ", done C.", messageCGOServerServerStreamDoneCallbackName(service, method), ", cancel C.", messageCGOServerServerStreamCancelCallbackName(service, method), ") C.int32_t {")
-			g.P("if start == nil || recv == nil || done == nil || cancel == nil { return C.int32_t(rpcruntime.StoreError(", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing)) }")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Lock()")
-			g.P("defer ", lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Unlock()")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter.", method.GoName, "Start = start")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter.", method.GoName, "Recv = recv")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter.", method.GoName, "Done = done")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter.", method.GoName, "Cancel = cancel")
+			params = append(params,
+				lowerInitial(method.GoName)+"Start C."+messageCGOServerServerStreamStartCallbackName(service, method),
+				lowerInitial(method.GoName)+"Recv C."+messageCGOServerServerStreamRecvCallbackName(service, method),
+				lowerInitial(method.GoName)+"Finish C."+messageCGOServerServerStreamFinishCallbackName(service, method),
+				lowerInitial(method.GoName)+"Cancel C."+messageCGOServerServerStreamCancelCallbackName(service, method),
+			)
 		case StreamingKindBidiStreaming:
-			g.P("//export ", exportName)
-			g.P("func ", goName, "(start C.", messageCGOServerBidiStreamStartCallbackName(service, method), ", send C.", messageCGOServerBidiStreamSendCallbackName(service, method), ", recv C.", messageCGOServerBidiStreamRecvCallbackName(service, method), ", closeSend C.", messageCGOServerBidiStreamCloseSendCallbackName(service, method), ", done C.", messageCGOServerBidiStreamDoneCallbackName(service, method), ", cancel C.", messageCGOServerBidiStreamCancelCallbackName(service, method), ") C.int32_t {")
-			g.P("if start == nil || send == nil || recv == nil || closeSend == nil || done == nil || cancel == nil { return C.int32_t(rpcruntime.StoreError(", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing)) }")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Lock()")
-			g.P("defer ", lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Unlock()")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter.", method.GoName, "Start = start")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter.", method.GoName, "Send = send")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter.", method.GoName, "Recv = recv")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter.", method.GoName, "CloseSend = closeSend")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter.", method.GoName, "Done = done")
-			g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter.", method.GoName, "Cancel = cancel")
+			params = append(params,
+				lowerInitial(method.GoName)+"Start C."+messageCGOServerBidiStreamStartCallbackName(service, method),
+				lowerInitial(method.GoName)+"Send C."+messageCGOServerBidiStreamSendCallbackName(service, method),
+				lowerInitial(method.GoName)+"Recv C."+messageCGOServerBidiStreamRecvCallbackName(service, method),
+				lowerInitial(method.GoName)+"CloseSend C."+messageCGOServerBidiStreamCloseSendCallbackName(service, method),
+				lowerInitial(method.GoName)+"Finish C."+messageCGOServerBidiStreamFinishCallbackName(service, method),
+				lowerInitial(method.GoName)+"Cancel C."+messageCGOServerBidiStreamCancelCallbackName(service, method),
+			)
 		}
-		g.P("_, err := ", servicePackage, "Register", service.GoName, "CGOMessageServer(", lowerInitial(service.GoName), "CGOMessageServerAdapter)")
-		g.P("if err != nil { return C.int32_t(rpcruntime.StoreError(err)) }")
-		g.P("return 0")
-		g.P("}")
-		g.P()
 	}
+	g.P("//export ", exportName)
+	g.P("func ", exportName, "(", strings.Join(params, ", "), ") C.int32_t {")
+	g.P("next := &", adapterName, "{}")
+	renderCGOMessageServerRegistrationAssignments(g, service)
+	g.P("if err := ", servicePackage, "Register", service.GoName, "CGOMessageServer(next); err != nil { return C.int32_t(rpcruntime.StoreError(err)) }")
+	g.P(lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Lock()")
+	g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter = next")
+	g.P(lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Unlock()")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+}
+
+func renderCGOMessageServerRegistrationAssignments(g *protogen.GeneratedFile, service ServicePlan) {
+	errorName := lowerInitial(service.GoName) + "CGOMessageServerUnaryCallbackMissing"
+	for _, method := range service.Methods {
+		prefix := lowerInitial(method.GoName)
+		var suffixes []string
+		switch method.Streaming {
+		case StreamingKindUnary:
+			suffixes = []string{"Callback"}
+		case StreamingKindClientStreaming:
+			suffixes = []string{"Start", "Send", "Finish", "Cancel"}
+		case StreamingKindServerStreaming:
+			suffixes = []string{"Start", "Recv", "Finish", "Cancel"}
+		case StreamingKindBidiStreaming:
+			suffixes = []string{"Start", "Send", "Recv", "CloseSend", "Finish", "Cancel"}
+		}
+		for _, suffix := range suffixes {
+			param := prefix + suffix
+			g.P("if ", param, " == nil { return C.int32_t(rpcruntime.StoreError(", errorName, ")) }")
+			g.P("next.", method.GoName, suffix, " = ", param)
+		}
+	}
+}
+
+func messageCServiceRegisterExportFuncName(plan FilePlan, service ServicePlan) string {
+	return "rpccgo_msg_" + plan.GoPackageName + "_" + service.GoName + "_register"
 }
 
 func renderCGOMessageStreamEOFHelper(g *protogen.GeneratedFile, service ServicePlan) {
@@ -237,35 +258,6 @@ func renderCGOMessageErrorIDHelper(g *protogen.GeneratedFile, service ServicePla
 	g.P()
 }
 
-func renderCGOMessageServerCallbackValidation(g *protogen.GeneratedFile, service ServicePlan, servicePackage string) {
-	for _, method := range service.Methods {
-		switch method.Streaming {
-		case StreamingKindUnary:
-			g.P("if callbacks.", method.GoName, " == nil {")
-			g.P("return rpcruntime.AdapterSnapshot[", servicePackage, service.GoName, "CGOMessageServer]{}, ", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing")
-			g.P("}")
-		case StreamingKindClientStreaming:
-			for _, suffix := range []string{"Start", "Send", "Finish", "Cancel"} {
-				g.P("if callbacks.", method.GoName, suffix, " == nil {")
-				g.P("return rpcruntime.AdapterSnapshot[", servicePackage, service.GoName, "CGOMessageServer]{}, ", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing")
-				g.P("}")
-			}
-		case StreamingKindServerStreaming:
-			for _, suffix := range []string{"Start", "Recv", "Done", "Cancel"} {
-				g.P("if callbacks.", method.GoName, suffix, " == nil {")
-				g.P("return rpcruntime.AdapterSnapshot[", servicePackage, service.GoName, "CGOMessageServer]{}, ", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing")
-				g.P("}")
-			}
-		case StreamingKindBidiStreaming:
-			for _, suffix := range []string{"Start", "Send", "Recv", "CloseSend", "Done", "Cancel"} {
-				g.P("if callbacks.", method.GoName, suffix, " == nil {")
-				g.P("return rpcruntime.AdapterSnapshot[", servicePackage, service.GoName, "CGOMessageServer]{}, ", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing")
-				g.P("}")
-			}
-		}
-	}
-}
-
 func renderCGOMessageServerTrampolines(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	switch method.Streaming {
 	case StreamingKindUnary:
@@ -280,14 +272,14 @@ func renderCGOMessageServerTrampolines(g *protogen.GeneratedFile, service Servic
 	case StreamingKindServerStreaming:
 		g.P("static inline int32_t ", messageCGOServerServerStreamStartTrampolineName(service, method), "(", messageCGOServerServerStreamStartCallbackName(service, method), " callback, uintptr_t request_ptr, int32_t request_len, int32_t* stream) { return callback(request_ptr, request_len, stream); }")
 		g.P("static inline int32_t ", messageCGOServerServerStreamRecvTrampolineName(service, method), "(", messageCGOServerServerStreamRecvCallbackName(service, method), " callback, int32_t stream, uintptr_t* response_ptr, int32_t* response_len) { return callback(stream, response_ptr, response_len); }")
-		g.P("static inline int32_t ", messageCGOServerServerStreamDoneTrampolineName(service, method), "(", messageCGOServerServerStreamDoneCallbackName(service, method), " callback, int32_t stream) { return callback(stream); }")
+		g.P("static inline int32_t ", messageCGOServerServerStreamFinishTrampolineName(service, method), "(", messageCGOServerServerStreamFinishCallbackName(service, method), " callback, int32_t stream) { return callback(stream); }")
 		g.P("static inline int32_t ", messageCGOServerServerStreamCancelTrampolineName(service, method), "(", messageCGOServerServerStreamCancelCallbackName(service, method), " callback, int32_t stream) { return callback(stream); }")
 	case StreamingKindBidiStreaming:
 		g.P("static inline int32_t ", messageCGOServerBidiStreamStartTrampolineName(service, method), "(", messageCGOServerBidiStreamStartCallbackName(service, method), " callback, int32_t* stream) { return callback(stream); }")
 		g.P("static inline int32_t ", messageCGOServerBidiStreamSendTrampolineName(service, method), "(", messageCGOServerBidiStreamSendCallbackName(service, method), " callback, int32_t stream, uintptr_t request_ptr, int32_t request_len) { return callback(stream, request_ptr, request_len); }")
 		g.P("static inline int32_t ", messageCGOServerBidiStreamRecvTrampolineName(service, method), "(", messageCGOServerBidiStreamRecvCallbackName(service, method), " callback, int32_t stream, uintptr_t* response_ptr, int32_t* response_len) { return callback(stream, response_ptr, response_len); }")
 		g.P("static inline int32_t ", messageCGOServerBidiStreamCloseSendTrampolineName(service, method), "(", messageCGOServerBidiStreamCloseSendCallbackName(service, method), " callback, int32_t stream) { return callback(stream); }")
-		g.P("static inline int32_t ", messageCGOServerBidiStreamDoneTrampolineName(service, method), "(", messageCGOServerBidiStreamDoneCallbackName(service, method), " callback, int32_t stream) { return callback(stream); }")
+		g.P("static inline int32_t ", messageCGOServerBidiStreamFinishTrampolineName(service, method), "(", messageCGOServerBidiStreamFinishCallbackName(service, method), " callback, int32_t stream) { return callback(stream); }")
 		g.P("static inline int32_t ", messageCGOServerBidiStreamCancelTrampolineName(service, method), "(", messageCGOServerBidiStreamCancelCallbackName(service, method), " callback, int32_t stream) { return callback(stream); }")
 	}
 	g.P()
@@ -369,7 +361,7 @@ func renderCGOMessageServerServerStreamAdapter(g *protogen.GeneratedFile, servic
 	g.P("var stream C.int32_t")
 	g.P("errID := int32(C.", messageCGOServerServerStreamStartTrampolineName(service, method), "(a.", method.GoName, "Start, C.uintptr_t(requestPtr), C.int32_t(requestLen), &stream))")
 	g.P("if errID != 0 { return nil, ", messageCGOServerErrorIDHelperName(service), "(errID) }")
-	g.P("return &", sessionName, "{recv: a.", method.GoName, "Recv, done: a.", method.GoName, "Done, cancel: a.", method.GoName, "Cancel, stream: int32(stream)}, nil")
+	g.P("return &", sessionName, "{recv: a.", method.GoName, "Recv, finish: a.", method.GoName, "Finish, cancel: a.", method.GoName, "Cancel, stream: int32(stream)}, nil")
 	g.P("}")
 	g.P()
 	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context, req []byte, stream ", servicePackage, service.GoName, method.GoName, "MessageServerStream) error {")
@@ -381,14 +373,14 @@ func renderCGOMessageServerServerStreamAdapter(g *protogen.GeneratedFile, servic
 	g.P("resp, err := session.Recv(ctx)")
 	g.P("if err != nil {")
 	g.P("if errors.Is(err, io.EOF) {")
-	g.P("return session.Done(ctx)")
+	g.P("return session.Finish(ctx)")
 	g.P("}")
 	g.P("_ = session.Cancel(ctx)")
 	g.P("return err")
 	g.P("}")
 	g.P("if err := stream.Send(ctx, resp); err != nil {")
 	g.P("if errors.Is(err, io.EOF) {")
-	g.P("return session.Done(ctx)")
+	g.P("return session.Finish(ctx)")
 	g.P("}")
 	g.P("_ = session.Cancel(ctx)")
 	g.P("return err")
@@ -398,7 +390,7 @@ func renderCGOMessageServerServerStreamAdapter(g *protogen.GeneratedFile, servic
 	g.P()
 	g.P("type ", sessionName, " struct {")
 	g.P("recv C.", messageCGOServerServerStreamRecvCallbackName(service, method))
-	g.P("done C.", messageCGOServerServerStreamDoneCallbackName(service, method))
+	g.P("finish C.", messageCGOServerServerStreamFinishCallbackName(service, method))
 	g.P("cancel C.", messageCGOServerServerStreamCancelCallbackName(service, method))
 	g.P("stream int32")
 	g.P("}")
@@ -409,8 +401,8 @@ func renderCGOMessageServerServerStreamAdapter(g *protogen.GeneratedFile, servic
 	renderCGOMessageResponseReturn(g, service, method, "errID")
 	g.P("}")
 	g.P()
-	g.P("func (s *", sessionName, ") Done(ctx context.Context) error {")
-	g.P("errID := int32(C.", messageCGOServerServerStreamDoneTrampolineName(service, method), "(s.done, C.int32_t(s.stream)))")
+	g.P("func (s *", sessionName, ") Finish(ctx context.Context) error {")
+	g.P("errID := int32(C.", messageCGOServerServerStreamFinishTrampolineName(service, method), "(s.finish, C.int32_t(s.stream)))")
 	g.P("if errID != 0 { return ", messageCGOServerErrorIDHelperName(service), "(errID) }")
 	g.P("return nil")
 	g.P("}")
@@ -430,7 +422,7 @@ func renderCGOMessageServerBidiStreamAdapter(g *protogen.GeneratedFile, service 
 	g.P("var stream C.int32_t")
 	g.P("errID := int32(C.", messageCGOServerBidiStreamStartTrampolineName(service, method), "(a.", method.GoName, "Start, &stream))")
 	g.P("if errID != 0 { return nil, ", messageCGOServerErrorIDHelperName(service), "(errID) }")
-	g.P("return &", sessionName, "{send: a.", method.GoName, "Send, recv: a.", method.GoName, "Recv, closeSend: a.", method.GoName, "CloseSend, done: a.", method.GoName, "Done, cancel: a.", method.GoName, "Cancel, stream: int32(stream)}, nil")
+	g.P("return &", sessionName, "{send: a.", method.GoName, "Send, recv: a.", method.GoName, "Recv, closeSend: a.", method.GoName, "CloseSend, finish: a.", method.GoName, "Finish, cancel: a.", method.GoName, "Cancel, stream: int32(stream)}, nil")
 	g.P("}")
 	g.P()
 	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context, stream ", servicePackage, service.GoName, method.GoName, "MessageBidiStream) error {")
@@ -438,30 +430,63 @@ func renderCGOMessageServerBidiStreamAdapter(g *protogen.GeneratedFile, service 
 	g.P("if err != nil {")
 	g.P("return err")
 	g.P("}")
-	g.P("return rpcruntime.RunBidiStream(")
-	g.P("func() ([]byte, error) { return stream.Recv(ctx) },")
-	g.P("func(req []byte) error { return session.Send(ctx, req) },")
-	g.P("func() error { return session.CloseSend(ctx) },")
-	g.P("func() ([]byte, error) { return session.Recv(ctx) },")
-	g.P("func(resp []byte) error {")
-	g.P("err := stream.Send(ctx, resp)")
+	g.P("errs := make(chan error, 2)")
+	g.P("go func() {")
+	g.P("for {")
+	g.P("req, err := stream.Recv(ctx)")
 	g.P("if errors.Is(err, io.EOF) {")
-	g.P("if doneErr := session.Done(ctx); doneErr != nil {")
-	g.P("return errors.Join(err, doneErr)")
+	g.P("errs <- session.CloseSend(ctx)")
+	g.P("return")
+	g.P("}")
+	g.P("if err != nil {")
+	g.P("errs <- err")
+	g.P("return")
+	g.P("}")
+	g.P("if err := session.Send(ctx, req); err != nil {")
+	g.P("errs <- err")
+	g.P("return")
 	g.P("}")
 	g.P("}")
+	g.P("}()")
+	g.P("go func() {")
+	g.P("for {")
+	g.P("resp, err := session.Recv(ctx)")
+	g.P("if errors.Is(err, io.EOF) {")
+	g.P("errs <- session.Finish(ctx)")
+	g.P("return")
+	g.P("}")
+	g.P("if err != nil {")
+	g.P("errs <- err")
+	g.P("return")
+	g.P("}")
+	g.P("if err := stream.Send(ctx, resp); err != nil {")
+	g.P("if errors.Is(err, io.EOF) {")
+	g.P("if finishErr := session.Finish(ctx); finishErr != nil {")
+	g.P("errs <- errors.Join(err, finishErr)")
+	g.P("return")
+	g.P("}")
+	g.P("errs <- nil")
+	g.P("return")
+	g.P("}")
+	g.P("errs <- err")
+	g.P("return")
+	g.P("}")
+	g.P("}")
+	g.P("}()")
+	g.P("for range 2 {")
+	g.P("if err := <-errs; err != nil {")
+	g.P("_ = session.Cancel(ctx)")
 	g.P("return err")
-	g.P("},")
-	g.P("func() error { return session.Done(ctx) },")
-	g.P("func() error { return session.Cancel(ctx) },")
-	g.P(")")
+	g.P("}")
+	g.P("}")
+	g.P("return nil")
 	g.P("}")
 	g.P()
 	g.P("type ", sessionName, " struct {")
 	g.P("send C.", messageCGOServerBidiStreamSendCallbackName(service, method))
 	g.P("recv C.", messageCGOServerBidiStreamRecvCallbackName(service, method))
 	g.P("closeSend C.", messageCGOServerBidiStreamCloseSendCallbackName(service, method))
-	g.P("done C.", messageCGOServerBidiStreamDoneCallbackName(service, method))
+	g.P("finish C.", messageCGOServerBidiStreamFinishCallbackName(service, method))
 	g.P("cancel C.", messageCGOServerBidiStreamCancelCallbackName(service, method))
 	g.P("stream int32")
 	g.P("lifecycle rpcruntime.StreamLifecycle")
@@ -490,8 +515,8 @@ func renderCGOMessageServerBidiStreamAdapter(g *protogen.GeneratedFile, service 
 	g.P("return nil")
 	g.P("}")
 	g.P()
-	g.P("func (s *", sessionName, ") Done(ctx context.Context) error {")
-	g.P("errID := int32(C.", messageCGOServerBidiStreamDoneTrampolineName(service, method), "(s.done, C.int32_t(s.stream)))")
+	g.P("func (s *", sessionName, ") Finish(ctx context.Context) error {")
+	g.P("errID := int32(C.", messageCGOServerBidiStreamFinishTrampolineName(service, method), "(s.finish, C.int32_t(s.stream)))")
 	g.P("if errID != 0 { return ", messageCGOServerErrorIDHelperName(service), "(errID) }")
 	g.P("return nil")
 	g.P("}")
@@ -607,8 +632,8 @@ func messageCGOServerServerStreamRecvCallbackName(service ServicePlan, method Me
 	return service.GoName + method.GoName + "CGOMessageServerStreamRecvCallback"
 }
 
-func messageCGOServerServerStreamDoneCallbackName(service ServicePlan, method MethodPlan) string {
-	return service.GoName + method.GoName + "CGOMessageServerStreamDoneCallback"
+func messageCGOServerServerStreamFinishCallbackName(service ServicePlan, method MethodPlan) string {
+	return service.GoName + method.GoName + "CGOMessageServerStreamFinishCallback"
 }
 
 func messageCGOServerServerStreamCancelCallbackName(service ServicePlan, method MethodPlan) string {
@@ -623,8 +648,8 @@ func messageCGOServerServerStreamRecvTrampolineName(service ServicePlan, method 
 	return "call" + service.GoName + method.GoName + "CGOMessageServerStreamRecv"
 }
 
-func messageCGOServerServerStreamDoneTrampolineName(service ServicePlan, method MethodPlan) string {
-	return "call" + service.GoName + method.GoName + "CGOMessageServerStreamDone"
+func messageCGOServerServerStreamFinishTrampolineName(service ServicePlan, method MethodPlan) string {
+	return "call" + service.GoName + method.GoName + "CGOMessageServerStreamFinish"
 }
 
 func messageCGOServerServerStreamCancelTrampolineName(service ServicePlan, method MethodPlan) string {
@@ -647,8 +672,8 @@ func messageCGOServerBidiStreamCloseSendCallbackName(service ServicePlan, method
 	return service.GoName + method.GoName + "CGOMessageBidiStreamCloseSendCallback"
 }
 
-func messageCGOServerBidiStreamDoneCallbackName(service ServicePlan, method MethodPlan) string {
-	return service.GoName + method.GoName + "CGOMessageBidiStreamDoneCallback"
+func messageCGOServerBidiStreamFinishCallbackName(service ServicePlan, method MethodPlan) string {
+	return service.GoName + method.GoName + "CGOMessageBidiStreamFinishCallback"
 }
 
 func messageCGOServerBidiStreamCancelCallbackName(service ServicePlan, method MethodPlan) string {
@@ -671,8 +696,8 @@ func messageCGOServerBidiStreamCloseSendTrampolineName(service ServicePlan, meth
 	return "call" + service.GoName + method.GoName + "CGOMessageBidiStreamCloseSend"
 }
 
-func messageCGOServerBidiStreamDoneTrampolineName(service ServicePlan, method MethodPlan) string {
-	return "call" + service.GoName + method.GoName + "CGOMessageBidiStreamDone"
+func messageCGOServerBidiStreamFinishTrampolineName(service ServicePlan, method MethodPlan) string {
+	return "call" + service.GoName + method.GoName + "CGOMessageBidiStreamFinish"
 }
 
 func messageCGOServerBidiStreamCancelTrampolineName(service ServicePlan, method MethodPlan) string {

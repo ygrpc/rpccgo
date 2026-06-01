@@ -29,9 +29,14 @@ func TestRenderMessageServerDefinesUnimplementedHelper(t *testing.T) {
 		"func (UnimplementedAllServiceCGOMessageServer) ClientStream(ctx context.Context, stream AllServiceClientStreamMessageClientStream) ([]byte, error) {",
 		"func (UnimplementedAllServiceCGOMessageServer) ServerStream(ctx context.Context, req []byte, stream AllServiceServerStreamMessageServerStream) error {",
 		"func (UnimplementedAllServiceCGOMessageServer) BidiStream(ctx context.Context, stream AllServiceBidiStreamMessageBidiStream) error {",
+		"func RegisterAllServiceCGOMessageServer(server AllServiceCGOMessageServer) error {",
+		"return registerAllServiceCGOMessageServer(server)",
 	} {
 		assertGeneratedContentContains(t, plugin, messageServerFile, fragment)
 	}
+	assertGeneratedFileContentDoesNotContain(t, plugin, messageServerFile,
+		"rpcruntime.AdapterSnapshot", `rpcruntime "rpccgo/rpcruntime"`,
+	)
 }
 
 func TestRenderMessageServerRejectsUnimplementedHelperCollision(t *testing.T) {
@@ -127,10 +132,8 @@ func writeMessageServerRuntimeStub(t *testing.T, root string) {
 
 	const content = `package testv1
 
-import rpcruntime "rpccgo/rpcruntime"
-
-func registerGreeterCGOMessageServer(server GreeterCGOMessageServer) (rpcruntime.AdapterSnapshot[GreeterCGOMessageServer], error) {
-	return rpcruntime.AdapterSnapshot[GreeterCGOMessageServer]{Adapter: server}, nil
+func registerGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
+	return nil
 }
 `
 	target := filepath.Join(root, "test/v1/message_server_runtime_stub.go")

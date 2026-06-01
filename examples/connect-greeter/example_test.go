@@ -34,7 +34,7 @@ func TestConnectGreeterGenerate(t *testing.T) {
 	assertFileContains(t, "cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go", "//export rpccgo_native_greeterv1_Greeter_SayHello")
 	assertFileContains(t, "cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go", "//export rpccgo_native_greeterv1_Greeter_Collect_start")
 	assertFileContains(t, "cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go", "//export rpccgo_msg_greeterv1_Greeter_SayHello")
-	assertFileContains(t, "proto/greeter.greeter.runtime.rpccgo.go", "func RegisterGreeterConnectRemoteServer(client GreeterClient) (rpcruntime.AdapterSnapshot[GreeterClient], error)")
+	assertFileContains(t, "proto/greeter.greeter.runtime.rpccgo.go", "func RegisterGreeterConnectRemoteServer(client GreeterClient) error")
 }
 
 func TestConnectGreeterExample(t *testing.T) {
@@ -65,12 +65,12 @@ func TestConnectGreeterCSharedClientExample(t *testing.T) {
 		"rpccgo_native_greeterv1_Greeter_Collect_start",
 		"rpccgo_native_greeterv1_Greeter_Broadcast_start",
 		"rpccgo_native_greeterv1_Greeter_Broadcast_read",
-		"rpccgo_native_greeterv1_Greeter_Broadcast_done",
+		"rpccgo_native_greeterv1_Greeter_Broadcast_finish",
 		"rpccgo_native_greeterv1_Greeter_Chat_start",
 		"rpccgo_native_greeterv1_Greeter_Chat_send",
 		"rpccgo_native_greeterv1_Greeter_Chat_read",
 		"rpccgo_native_greeterv1_Greeter_Chat_close_send",
-		"rpccgo_native_greeterv1_Greeter_Chat_done",
+		"rpccgo_native_greeterv1_Greeter_Chat_finish",
 		"rpccgo_msg_greeterv1_Greeter_SayHello",
 		"rpccgo_take_error_text",
 		"rpccgo_release",

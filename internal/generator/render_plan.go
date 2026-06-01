@@ -39,46 +39,6 @@ const (
 	CallPathRouteKindMessage CallPathRouteKind = "message"
 )
 
-type SessionKind string
-
-const (
-	SessionKindNone   SessionKind = "none"
-	SessionKindClient SessionKind = "client_streaming"
-	SessionKindServer SessionKind = "server_streaming"
-	SessionKindBidi   SessionKind = "bidi_streaming"
-)
-
-type SessionOperationPlan struct {
-	Kind SessionOperationKind
-}
-
-type SessionOperationKind string
-
-const (
-	SessionOperationStart     SessionOperationKind = "start"
-	SessionOperationSend      SessionOperationKind = "send"
-	SessionOperationReceive   SessionOperationKind = "receive"
-	SessionOperationFinish    SessionOperationKind = "finish"
-	SessionOperationDone      SessionOperationKind = "done"
-	SessionOperationCloseSend SessionOperationKind = "close_send"
-	SessionOperationCancel    SessionOperationKind = "cancel"
-)
-
-type TerminalRenderPlan struct {
-	Kind                    TerminalKind
-	Operation               SessionOperationKind
-	ReleasesHandle          bool
-	RequiresResponseConvert bool
-}
-
-type TerminalKind string
-
-const (
-	TerminalKindUnset  TerminalKind = "unset"
-	TerminalKindFinish TerminalKind = "finish"
-	TerminalKindDone   TerminalKind = "done"
-)
-
 type RenderSymbolsPlan struct {
 	NativeAdapterMethod  string
 	MessageAdapterMethod string
@@ -111,7 +71,7 @@ func BuildMethodRenderPlan(method MethodPlan, serviceName string) (MethodRenderP
 	messageAdapterMethod := nativeAdapterMethod
 	nativeSessionType := ""
 	messageSessionType := ""
-	if lifecycle.SessionKind != SessionKindNone {
+	if lifecycle.Streaming {
 		nativeSessionType = serviceName + method.GoName + "NativeStreamSession"
 		messageSessionType = serviceName + method.GoName + "MessageStreamSession"
 	}
@@ -169,23 +129,12 @@ func ValidateMethodContractPlan(method MethodPlan) error {
 		}
 		return nil
 	}
-	if !lifecycle.HasOperation(StreamLifecycleOperationStart) {
-		return fmt.Errorf("method %s streaming lifecycle is incomplete", methodPlanName(method))
-	}
-	if lifecycle.HasOperation(StreamLifecycleOperationCancel) && !lifecycle.CancelFinalizes {
-		return fmt.Errorf("method %s streaming lifecycle cancel must finalize", methodPlanName(method))
-	}
-	switch method.Streaming {
-	case StreamingKindClientStreaming:
-		if lifecycle.TerminalKind != LifecycleTerminalFinishResult || !lifecycle.HasOperation(StreamLifecycleOperationFinish) {
-			return fmt.Errorf("method %s client streaming lifecycle must finish with result", methodPlanName(method))
-		}
-	case StreamingKindServerStreaming, StreamingKindBidiStreaming:
-		if lifecycle.TerminalKind != LifecycleTerminalOnDone || !lifecycle.HasOperation(StreamLifecycleOperationDone) {
-			return fmt.Errorf("method %s streaming lifecycle must terminate on done", methodPlanName(method))
-		}
-	default:
+	expected, err := expectedLifecyclePlan(method.Streaming)
+	if err != nil {
 		return fmt.Errorf("method %s has unknown streaming kind %d", methodPlanName(method), method.Streaming)
+	}
+	if lifecycle != expected {
+		return fmt.Errorf("method %s streaming lifecycle capabilities do not match descriptor", methodPlanName(method))
 	}
 	return nil
 }
@@ -196,19 +145,20 @@ func ValidateMethodRenderPlan(method MethodPlan) error {
 
 func validateMethodRenderPlan(method MethodPlan) error {
 	shape := method.RenderPlan
+	expectedLifecycle, err := ProjectStreamLifecycle(method.Contract.Lifecycle, method.Contract.RenderInputs.NeedsCodec)
+	if err != nil {
+		return fmt.Errorf("method %s render lifecycle is invalid: %w", methodPlanName(method), err)
+	}
+	if shape.Lifecycle != expectedLifecycle {
+		return fmt.Errorf("method %s render lifecycle does not match contract capabilities", methodPlanName(method))
+	}
 	if method.Streaming == StreamingKindUnary {
-		if shape.Lifecycle.SessionKind != SessionKindNone || len(shape.Lifecycle.Operations) != 0 {
-			return fmt.Errorf("method %s unary render session must be none", methodPlanName(method))
-		}
-		if shape.Lifecycle.Terminal.Kind != "" {
-			return fmt.Errorf("method %s unary render terminal must be empty", methodPlanName(method))
+		if shape.Lifecycle.Streaming {
+			return fmt.Errorf("method %s unary render lifecycle must not stream", methodPlanName(method))
 		}
 	} else {
-		if shape.Lifecycle.SessionKind == SessionKindNone || len(shape.Lifecycle.Operations) == 0 {
-			return fmt.Errorf("method %s streaming render session operations are missing", methodPlanName(method))
-		}
-		if shape.Lifecycle.Terminal.Kind == "" || shape.Lifecycle.Terminal.Operation == "" || !shape.Lifecycle.Terminal.ReleasesHandle {
-			return fmt.Errorf("method %s streaming render terminal is incomplete", methodPlanName(method))
+		if !shape.Lifecycle.Streaming {
+			return fmt.Errorf("method %s streaming render lifecycle is missing", methodPlanName(method))
 		}
 	}
 	if shape.Symbols.NativeAdapterMethod == "" || shape.Symbols.MessageAdapterMethod == "" {

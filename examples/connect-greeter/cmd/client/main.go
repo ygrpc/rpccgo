@@ -29,7 +29,7 @@ func run(ctx context.Context) error {
 func runConnectDemo(ctx context.Context, baseURL string) error {
 	client := connect.NewClient[greeterv1.SayHelloRequest, greeterv1.SayHelloResponse](
 		h2cClient(),
-		baseURL+greeterv1.GreeterSayHelloConnectProcedure,
+		baseURL+greeterv1.GreeterSayHelloProcedure,
 	)
 	response, err := client.CallUnary(ctx, connect.NewRequest(&greeterv1.SayHelloRequest{Name: "connect-demo", City: "local"}))
 	if err != nil {
@@ -39,7 +39,7 @@ func runConnectDemo(ctx context.Context, baseURL string) error {
 
 	collect := connect.NewClient[greeterv1.SayHelloRequest, greeterv1.SayHelloResponse](
 		h2cClient(),
-		baseURL+greeterv1.GreeterCollectConnectProcedure,
+		baseURL+greeterv1.GreeterCollectProcedure,
 	).CallClientStream(ctx)
 	for _, name := range []string{"connect", "stream"} {
 		if err := collect.Send(&greeterv1.SayHelloRequest{Name: name}); err != nil {

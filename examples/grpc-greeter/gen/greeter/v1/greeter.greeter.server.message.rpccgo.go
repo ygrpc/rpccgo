@@ -7,7 +7,6 @@ package greeterv1
 import (
 	context "context"
 	errors "errors"
-	rpcruntime "rpccgo/rpcruntime"
 )
 
 // rpccgo message direct generated file for Greeter cgo message server contract
@@ -50,9 +49,9 @@ func (UnimplementedGreeterCGOMessageServer) Chat(ctx context.Context, stream Gre
 	return errors.New("rpccgo: Greeter.Chat cgo message server method is not implemented")
 }
 
-func RegisterGreeterCGOMessageServer(server GreeterCGOMessageServer) (rpcruntime.AdapterSnapshot[GreeterCGOMessageServer], error) {
+func RegisterGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
 	if server == nil {
-		return rpcruntime.AdapterSnapshot[GreeterCGOMessageServer]{}, errors.New("rpccgo: Greeter cgo message server is nil")
+		return errors.New("rpccgo: Greeter cgo message server is nil")
 	}
 	return registerGreeterCGOMessageServer(server)
 }

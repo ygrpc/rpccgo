@@ -6,7 +6,8 @@ import (
 )
 
 type NativeCABIPlan struct {
-	Methods []MethodNativeCABIPlan
+	Methods  []MethodNativeCABIPlan
+	Register COperationABI
 }
 
 type MethodNativeCABIPlan struct {
@@ -23,7 +24,6 @@ const (
 	NativeCOperationRecv      NativeCOperation = "recv"
 	NativeCOperationFinish    NativeCOperation = "finish"
 	NativeCOperationCloseSend NativeCOperation = "close_send"
-	NativeCOperationDone      NativeCOperation = "done"
 	NativeCOperationCancel    NativeCOperation = "cancel"
 	NativeCOperationRegister  NativeCOperation = "register"
 )
@@ -77,28 +77,44 @@ const (
 	CABICleanupFreeWithRuntime CABICleanup = "free_with_runtime"
 )
 
-func BuildNativeCABIPlan(service ServicePlan) (NativeCABIPlan, error) {
+func BuildNativeCABIPlan(plan FilePlan, service ServicePlan) (NativeCABIPlan, error) {
 	methods := make([]MethodNativeCABIPlan, 0, len(service.Methods))
+	var registerParams []CABISlot
 	for _, method := range service.Methods {
 		if method.Contract.NativeCABI.MethodFullName == "" {
 			return NativeCABIPlan{}, fmt.Errorf("method %s native C ABI plan is missing", methodPlanName(method))
 		}
 		methods = append(methods, method.Contract.NativeCABI)
+		builder := nativeCABIBuilder{file: plan, service: service, method: method}
+		for _, operation := range builder.callbackOperations() {
+			registerParams = append(registerParams, callbackSlot(
+				lowerInitial(method.GoName)+upperInitial(nativeCABIRegisterParamName(operation)),
+				builder.callbackTypeName(operation),
+			))
+		}
 	}
-	return NativeCABIPlan{Methods: methods}, nil
+	return NativeCABIPlan{
+		Methods: methods,
+		Register: COperationABI{
+			Operation: NativeCOperationRegister,
+			Symbol:    nativeCServiceRegisterExportFuncName(plan, service),
+			Params:    registerParams,
+			Return:    errorIDReturnSlot(),
+		},
+	}, nil
 }
 
 func BuildMethodNativeCABIPlan(plan FilePlan, service ServicePlan, method MethodPlan) (MethodNativeCABIPlan, error) {
 	builder := nativeCABIBuilder{file: plan, service: service, method: method}
 	switch method.Streaming {
 	case StreamingKindUnary:
-		return MethodNativeCABIPlan{MethodFullName: method.FullName, Operations: []COperationABI{builder.unary(), builder.register()}}, nil
+		return MethodNativeCABIPlan{MethodFullName: method.FullName, Operations: []COperationABI{builder.unary()}}, nil
 	case StreamingKindClientStreaming:
-		return MethodNativeCABIPlan{MethodFullName: method.FullName, Operations: []COperationABI{builder.startOutHandle(), builder.send(), builder.finish(), builder.cancel(), builder.register()}}, nil
+		return MethodNativeCABIPlan{MethodFullName: method.FullName, Operations: []COperationABI{builder.startOutHandle(), builder.send(), builder.finish(), builder.cancel()}}, nil
 	case StreamingKindServerStreaming:
-		return MethodNativeCABIPlan{MethodFullName: method.FullName, Operations: []COperationABI{builder.serverStreamStart(), builder.recv(), builder.done(), builder.cancel(), builder.register()}}, nil
+		return MethodNativeCABIPlan{MethodFullName: method.FullName, Operations: []COperationABI{builder.serverStreamStart(), builder.recv(), builder.finishTerminal(), builder.cancel()}}, nil
 	case StreamingKindBidiStreaming:
-		return MethodNativeCABIPlan{MethodFullName: method.FullName, Operations: []COperationABI{builder.startOutHandle(), builder.send(), builder.recv(), builder.closeSend(), builder.done(), builder.cancel(), builder.register()}}, nil
+		return MethodNativeCABIPlan{MethodFullName: method.FullName, Operations: []COperationABI{builder.startOutHandle(), builder.send(), builder.recv(), builder.closeSend(), builder.finishTerminal(), builder.cancel()}}, nil
 	default:
 		return MethodNativeCABIPlan{}, fmt.Errorf("method %s: unsupported native C ABI streaming kind %q", method.FullName, method.Streaming)
 	}
@@ -148,33 +164,24 @@ func (b nativeCABIBuilder) closeSend() COperationABI {
 	return COperationABI{Operation: NativeCOperationCloseSend, Symbol: nativeCExportFuncName(b.file, b.service, b.method, "close_send"), TypeName: b.callbackTypeName(NativeCOperationCloseSend), Params: []CABISlot{handleSlot("stream")}, Return: errorIDReturnSlot()}
 }
 
-func (b nativeCABIBuilder) done() COperationABI {
-	return COperationABI{Operation: NativeCOperationDone, Symbol: nativeCExportFuncName(b.file, b.service, b.method, "done"), TypeName: b.callbackTypeName(NativeCOperationDone), Params: []CABISlot{handleSlot("stream")}, Return: errorIDReturnSlot()}
+func (b nativeCABIBuilder) finishTerminal() COperationABI {
+	return COperationABI{Operation: NativeCOperationFinish, Symbol: nativeCExportFuncName(b.file, b.service, b.method, "finish"), TypeName: b.callbackTypeName(NativeCOperationFinish), Params: []CABISlot{handleSlot("stream")}, Return: errorIDReturnSlot()}
 }
 
 func (b nativeCABIBuilder) cancel() COperationABI {
 	return COperationABI{Operation: NativeCOperationCancel, Symbol: nativeCExportFuncName(b.file, b.service, b.method, "cancel"), TypeName: b.callbackTypeName(NativeCOperationCancel), Params: []CABISlot{handleSlot("stream")}, Return: errorIDReturnSlot()}
 }
 
-func (b nativeCABIBuilder) register() COperationABI {
-	params := []CABISlot{callbackSlot("callback", b.callbackTypeName(NativeCOperationUnary))}
-	if b.method.Streaming != StreamingKindUnary {
-		params = nil
-		for _, operation := range b.streamingCallbackOperations() {
-			params = append(params, callbackSlot(nativeCABIRegisterParamName(operation), b.callbackTypeName(operation)))
-		}
-	}
-	return COperationABI{Operation: NativeCOperationRegister, Symbol: nativeCExportFuncName(b.file, b.service, b.method, "register"), TypeName: "", Params: params, Return: errorIDReturnSlot()}
-}
-
-func (b nativeCABIBuilder) streamingCallbackOperations() []NativeCOperation {
+func (b nativeCABIBuilder) callbackOperations() []NativeCOperation {
 	switch b.method.Streaming {
+	case StreamingKindUnary:
+		return []NativeCOperation{NativeCOperationUnary}
 	case StreamingKindClientStreaming:
 		return []NativeCOperation{NativeCOperationStart, NativeCOperationSend, NativeCOperationFinish, NativeCOperationCancel}
 	case StreamingKindServerStreaming:
-		return []NativeCOperation{NativeCOperationStart, NativeCOperationRecv, NativeCOperationDone, NativeCOperationCancel}
+		return []NativeCOperation{NativeCOperationStart, NativeCOperationRecv, NativeCOperationFinish, NativeCOperationCancel}
 	case StreamingKindBidiStreaming:
-		return []NativeCOperation{NativeCOperationStart, NativeCOperationSend, NativeCOperationRecv, NativeCOperationCloseSend, NativeCOperationDone, NativeCOperationCancel}
+		return []NativeCOperation{NativeCOperationStart, NativeCOperationSend, NativeCOperationRecv, NativeCOperationCloseSend, NativeCOperationFinish, NativeCOperationCancel}
 	default:
 		return nil
 	}
@@ -201,8 +208,8 @@ func (b nativeCABIBuilder) callbackTypeName(operation NativeCOperation) string {
 			return nativeCGOServerServerStreamStartCallbackName(b.service, b.method)
 		case NativeCOperationRecv:
 			return nativeCGOServerServerStreamRecvCallbackName(b.service, b.method)
-		case NativeCOperationDone:
-			return nativeCGOServerServerStreamDoneCallbackName(b.service, b.method)
+		case NativeCOperationFinish:
+			return nativeCGOServerServerStreamFinishCallbackName(b.service, b.method)
 		case NativeCOperationCancel:
 			return nativeCGOServerServerStreamCancelCallbackName(b.service, b.method)
 		}
@@ -216,8 +223,8 @@ func (b nativeCABIBuilder) callbackTypeName(operation NativeCOperation) string {
 			return nativeCGOServerBidiStreamRecvCallbackName(b.service, b.method)
 		case NativeCOperationCloseSend:
 			return nativeCGOServerBidiStreamCloseSendCallbackName(b.service, b.method)
-		case NativeCOperationDone:
-			return nativeCGOServerBidiStreamDoneCallbackName(b.service, b.method)
+		case NativeCOperationFinish:
+			return nativeCGOServerBidiStreamFinishCallbackName(b.service, b.method)
 		case NativeCOperationCancel:
 			return nativeCGOServerBidiStreamCancelCallbackName(b.service, b.method)
 		}
@@ -356,11 +363,20 @@ func nativeCABIRegisterParamName(operation NativeCOperation) string {
 		return "finish"
 	case NativeCOperationCloseSend:
 		return "closeSend"
-	case NativeCOperationDone:
-		return "done"
 	case NativeCOperationCancel:
 		return "cancel"
 	default:
 		return "callback"
 	}
+}
+
+func nativeCServiceRegisterExportFuncName(plan FilePlan, service ServicePlan) string {
+	return "rpccgo_native_" + plan.GoPackageName + "_" + service.GoName + "_register"
+}
+
+func upperInitial(value string) string {
+	if value == "" {
+		return ""
+	}
+	return strings.ToUpper(value[:1]) + value[1:]
 }

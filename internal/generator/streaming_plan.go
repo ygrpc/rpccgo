@@ -31,46 +31,23 @@ func AttachMethodLifecyclePlan(method MethodPlan) (MethodPlan, error) {
 }
 
 func expectedLifecyclePlan(streaming StreamingKind) (StreamLifecycleContractPlan, error) {
-	op := func(kind StreamLifecycleOperationKind) StreamLifecycleOperationPlan {
-		return StreamLifecycleOperationPlan{Kind: kind}
-	}
 	switch streaming {
 	case StreamingKindUnary:
 		return StreamLifecycleContractPlan{}, nil
 	case StreamingKindClientStreaming:
 		return StreamLifecycleContractPlan{
-			Operations: []StreamLifecycleOperationPlan{
-				op(StreamLifecycleOperationStart),
-				op(StreamLifecycleOperationSend),
-				op(StreamLifecycleOperationFinish),
-				op(StreamLifecycleOperationCancel),
-			},
-			CancelFinalizes: true,
-			TerminalKind:    LifecycleTerminalFinishResult,
+			CanSend:               true,
+			FinishReturnsResponse: true,
 		}, nil
 	case StreamingKindServerStreaming:
 		return StreamLifecycleContractPlan{
-			Operations: []StreamLifecycleOperationPlan{
-				op(StreamLifecycleOperationStart),
-				op(StreamLifecycleOperationReceive),
-				op(StreamLifecycleOperationDone),
-				op(StreamLifecycleOperationCancel),
-			},
-			CancelFinalizes: true,
-			TerminalKind:    LifecycleTerminalOnDone,
+			CanRecv: true,
 		}, nil
 	case StreamingKindBidiStreaming:
 		return StreamLifecycleContractPlan{
-			Operations: []StreamLifecycleOperationPlan{
-				op(StreamLifecycleOperationStart),
-				op(StreamLifecycleOperationSend),
-				op(StreamLifecycleOperationReceive),
-				op(StreamLifecycleOperationCloseSend),
-				op(StreamLifecycleOperationDone),
-				op(StreamLifecycleOperationCancel),
-			},
-			CancelFinalizes: true,
-			TerminalKind:    LifecycleTerminalOnDone,
+			CanSend:      true,
+			CanRecv:      true,
+			CanCloseSend: true,
 		}, nil
 	default:
 		return StreamLifecycleContractPlan{}, fmt.Errorf("unknown streaming kind %d", streaming)

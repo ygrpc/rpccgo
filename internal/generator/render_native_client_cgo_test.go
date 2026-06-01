@@ -67,8 +67,12 @@ func TestRenderNativeClientCGOStreamsUseDispatcherAccessor(t *testing.T) {
 	for _, fragment := range []string{
 		"v1.NewGreeterUploadNativeStream(rpcruntime.StreamHandle(handle)).Send(ctx",
 		"err = v1.NewGreeterUploadNativeStream(rpcruntime.StreamHandle(handle)).Finish(ctx)",
+		"func FinishGreeterListNativeServerStream(ctx context.Context, handle int32) int32 {",
+		"err = v1.NewGreeterListNativeStream(rpcruntime.StreamHandle(handle)).Finish(ctx)",
 		"CloseSendGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32",
 		"err = v1.NewGreeterChatNativeStream(rpcruntime.StreamHandle(handle)).CloseSend(ctx)",
+		"func FinishGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32 {",
+		"err = v1.NewGreeterChatNativeStream(rpcruntime.StreamHandle(handle)).Finish(ctx)",
 	} {
 		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
 	}
@@ -82,9 +86,10 @@ func TestRenderNativeClientCGOStreamsUseDispatcherAccessor(t *testing.T) {
 		"rpcruntime.DispatcherStreamSend[",
 		"rpcruntime.DispatcherStreamReceive[",
 		"rpcruntime.DispatcherStreamFinish[",
-		"rpcruntime.DispatcherStreamDone[",
 		"rpcruntime.DispatcherStreamCancel[",
 		"rpcruntime.DispatcherStreamCloseSend[",
+		"DoneGreeterListNativeServerStream",
+		"DoneGreeterChatNativeBidiStream",
 	)
 }
 

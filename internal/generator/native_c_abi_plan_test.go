@@ -26,7 +26,7 @@ func TestBuildMethodNativeCABIPlanUnaryAllFields(t *testing.T) {
 	if got, want := abi.MethodFullName, "test.v1.NativeABI.Check"; got != want {
 		t.Fatalf("MethodFullName = %q, want %q", got, want)
 	}
-	if got, want := nativeCABIPlanOperations(abi), []NativeCOperation{NativeCOperationUnary, NativeCOperationRegister}; !reflect.DeepEqual(got, want) {
+	if got, want := nativeCABIPlanOperations(abi), []NativeCOperation{NativeCOperationUnary}; !reflect.DeepEqual(got, want) {
 		t.Fatalf("operations = %#v, want %#v", got, want)
 	}
 
@@ -77,11 +77,6 @@ func TestBuildMethodNativeCABIPlanUnaryAllFields(t *testing.T) {
 		t.Fatalf("unsigned field source = %#v, want unsigned proto scalar metadata", got)
 	}
 
-	register := nativeCABIPlanOperation(abi, NativeCOperationRegister)
-	if register.Symbol != "rpccgo_native_testv1_NativeABI_Check_register" {
-		t.Fatalf("register Symbol = %q", register.Symbol)
-	}
-	assertCABISlots(t, register.Params, []CABISlot{{Name: "callback", CType: "NativeABICheckCGONativeUnaryCallback", CGoType: "C.NativeABICheckCGONativeUnaryCallback", Role: CABISlotRoleCallback, Cleanup: CABICleanupNoCleanup}})
 }
 
 func TestBuildMethodNativeCABIPlanStreamingOperationSets(t *testing.T) {
@@ -97,9 +92,9 @@ func TestBuildMethodNativeCABIPlanStreamingOperationSets(t *testing.T) {
 		method string
 		want   []NativeCOperation
 	}{
-		{method: "Upload", want: []NativeCOperation{NativeCOperationStart, NativeCOperationSend, NativeCOperationFinish, NativeCOperationCancel, NativeCOperationRegister}},
-		{method: "List", want: []NativeCOperation{NativeCOperationStart, NativeCOperationRecv, NativeCOperationDone, NativeCOperationCancel, NativeCOperationRegister}},
-		{method: "Chat", want: []NativeCOperation{NativeCOperationStart, NativeCOperationSend, NativeCOperationRecv, NativeCOperationCloseSend, NativeCOperationDone, NativeCOperationCancel, NativeCOperationRegister}},
+		{method: "Upload", want: []NativeCOperation{NativeCOperationStart, NativeCOperationSend, NativeCOperationFinish, NativeCOperationCancel}},
+		{method: "List", want: []NativeCOperation{NativeCOperationStart, NativeCOperationRecv, NativeCOperationFinish, NativeCOperationCancel}},
+		{method: "Chat", want: []NativeCOperation{NativeCOperationStart, NativeCOperationSend, NativeCOperationRecv, NativeCOperationCloseSend, NativeCOperationFinish, NativeCOperationCancel}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.method, func(t *testing.T) {
@@ -112,6 +107,37 @@ func TestBuildMethodNativeCABIPlanStreamingOperationSets(t *testing.T) {
 				t.Fatalf("operations = %#v, want %#v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestBuildNativeCABIPlanDefinesFlatServiceRegistration(t *testing.T) {
+	file := nativeCABIStreamingFile()
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+	plan, err := BuildDescriptorPlan(plugin.Files[0])
+	if err != nil {
+		t.Fatalf("BuildDescriptorPlan() error = %v", err)
+	}
+
+	service := plan.Services[0]
+	abi, err := BuildNativeCABIPlan(plan, service)
+	if err != nil {
+		t.Fatalf("BuildNativeCABIPlan() error = %v", err)
+	}
+
+	if got, want := abi.Register.Symbol, "rpccgo_native_testv1_Greeter_register"; got != want {
+		t.Fatalf("register Symbol = %q, want %q", got, want)
+	}
+	if got, want := len(abi.Register.Params), 15; got != want {
+		t.Fatalf("register params len = %d, want %d", got, want)
+	}
+	if got, want := abi.Register.Params[0].Name, "unaryCallback"; got != want {
+		t.Fatalf("register params[0].Name = %q, want %q", got, want)
+	}
+	if got, want := abi.Register.Params[7].Name, "listFinish"; got != want {
+		t.Fatalf("register params[6].Name = %q, want %q", got, want)
+	}
+	if got, want := abi.Register.Params[13].Name, "chatFinish"; got != want {
+		t.Fatalf("register params[12].Name = %q, want %q", got, want)
 	}
 }
 

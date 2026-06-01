@@ -77,8 +77,8 @@ func TestMessageClientStreamRejectsOperationsAfterFinish(t *testing.T) {
 	runMessageDirectPathFixture(t, "TestMessageClientStreamRejectsOperationsAfterFinish")
 }
 
-func TestMessageServerStreamRejectsReadAfterDone(t *testing.T) {
-	runMessageDirectPathFixture(t, "TestMessageServerStreamRejectsReadAfterDone")
+func TestMessageServerStreamRejectsReadAfterFinish(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageServerStreamRejectsReadAfterFinish")
 }
 
 func TestMessageBidiRejectsSendAfterCloseSendAndReadAfterCancel(t *testing.T) {
@@ -406,7 +406,7 @@ func (greeterBridgeHandler) List(ctx context.Context, req *emptypb.Empty, stream
 	for {
 		data, err := NewGreeterListMessageStream(handle).Recv(ctx)
 		if err == io.EOF {
-			return NewGreeterListMessageStream(handle).Done(ctx)
+			return NewGreeterListMessageStream(handle).Finish(ctx)
 		}
 		if err != nil {
 			_ = NewGreeterListMessageStream(handle).Cancel(ctx)
@@ -473,7 +473,7 @@ func (greeterBridgeHandler) Chat(ctx context.Context, stream *connect.BidiStream
 			requestErr = nil
 			if err != nil {
 				if strings.Contains(err.Error(), "EOF") {
-					if err := NewGreeterChatMessageStream(handle).Done(ctx); err != nil && !strings.Contains(err.Error(), "EOF") {
+					if err := NewGreeterChatMessageStream(handle).Finish(ctx); err != nil && !strings.Contains(err.Error(), "EOF") {
 						return err
 					}
 					return nil
@@ -483,7 +483,7 @@ func (greeterBridgeHandler) Chat(ctx context.Context, stream *connect.BidiStream
 			}
 		case resp := <-response:
 			if errors.Is(resp.err, io.EOF) || resp.err != nil && strings.Contains(resp.err.Error(), "EOF") {
-				if err := NewGreeterChatMessageStream(handle).Done(ctx); err != nil && !strings.Contains(err.Error(), "EOF") {
+				if err := NewGreeterChatMessageStream(handle).Finish(ctx); err != nil && !strings.Contains(err.Error(), "EOF") {
 					return err
 				}
 				return nil
@@ -553,7 +553,7 @@ func (directConnectGreeter) Chat(context.Context, *connect.BidiStream[emptypb.Em
 
 func TestDirectConnectHandlerRegistration(t *testing.T) {
 	ResetGreeterDispatcherForIntegrationTest()
-	if _, err := RegisterGreeterConnectHandler(directConnectGreeter{}); err != nil {
+	if err := RegisterGreeterConnectHandler(directConnectGreeter{}); err != nil {
 		t.Fatalf("RegisterGreeterConnectHandler() error = %v", err)
 	}
 	if _, err := InvokeGreeterMessageUnary(context.Background(), nil); err != nil {
@@ -576,8 +576,8 @@ func TestDirectConnectHandlerRegistration(t *testing.T) {
 	if _, err := NewGreeterListMessageStream(listHandle).Recv(context.Background()); err != io.EOF {
 		t.Fatalf("list Recv() error = %v, want EOF", err)
 	}
-	if err := NewGreeterListMessageStream(listHandle).Done(context.Background()); err != nil {
-		t.Fatalf("list Done() error = %v", err)
+	if err := NewGreeterListMessageStream(listHandle).Finish(context.Background()); err != nil {
+		t.Fatalf("list Finish() error = %v", err)
 	}
 	chatHandle, err := StartGreeterMessageChat(context.Background())
 	if err != nil {
@@ -589,8 +589,8 @@ func TestDirectConnectHandlerRegistration(t *testing.T) {
 	if _, err := NewGreeterChatMessageStream(chatHandle).Recv(context.Background()); err != io.EOF {
 		t.Fatalf("chat Recv() error = %v, want EOF", err)
 	}
-	if err := NewGreeterChatMessageStream(chatHandle).Done(context.Background()); err != nil {
-		t.Fatalf("chat Done() error = %v", err)
+	if err := NewGreeterChatMessageStream(chatHandle).Finish(context.Background()); err != nil {
+		t.Fatalf("chat Finish() error = %v", err)
 	}
 }
 `
@@ -624,7 +624,7 @@ func (directGRPCGreeter) Chat(Greeter_ChatServer) error { return nil }
 
 func TestDirectGRPCServerRegistration(t *testing.T) {
 	ResetGreeterDispatcherForIntegrationTest()
-	if _, err := RegisterGreeterGRPCServer(directGRPCGreeter{}); err != nil {
+	if err := RegisterGreeterGRPCServer(directGRPCGreeter{}); err != nil {
 		t.Fatalf("RegisterGreeterGRPCServer() error = %v", err)
 	}
 	if _, err := InvokeGreeterMessageUnary(context.Background(), nil); err != nil {
@@ -647,8 +647,8 @@ func TestDirectGRPCServerRegistration(t *testing.T) {
 	if _, err := NewGreeterListMessageStream(listHandle).Recv(context.Background()); err != io.EOF {
 		t.Fatalf("list Recv() error = %v, want EOF", err)
 	}
-	if err := NewGreeterListMessageStream(listHandle).Done(context.Background()); err != nil {
-		t.Fatalf("list Done() error = %v", err)
+	if err := NewGreeterListMessageStream(listHandle).Finish(context.Background()); err != nil {
+		t.Fatalf("list Finish() error = %v", err)
 	}
 	chatHandle, err := StartGreeterMessageChat(context.Background())
 	if err != nil {
@@ -660,8 +660,8 @@ func TestDirectGRPCServerRegistration(t *testing.T) {
 	if _, err := NewGreeterChatMessageStream(chatHandle).Recv(context.Background()); err != io.EOF {
 		t.Fatalf("chat Recv() error = %v, want EOF", err)
 	}
-	if err := NewGreeterChatMessageStream(chatHandle).Done(context.Background()); err != nil {
-		t.Fatalf("chat Done() error = %v", err)
+	if err := NewGreeterChatMessageStream(chatHandle).Finish(context.Background()); err != nil {
+		t.Fatalf("chat Finish() error = %v", err)
 	}
 }
 `
@@ -671,8 +671,8 @@ const messageDirectPathResetSource = `package testv1
 import rpcruntime "rpccgo/rpcruntime"
 
 func ResetGreeterDispatcherForIntegrationTest() {
-	greeterActiveSlot = rpcruntime.ActiveServerSlot[any]{}
-	greeterStreamRegistry = rpcruntime.StreamRegistry[*rpcruntime.StreamEntry]{}
+	greeterActiveServer.Store(nil)
+	greeterStreamRegistry = rpcruntime.StreamRegistry{}
 }
 `
 
@@ -688,13 +688,13 @@ typedef int32_t (*GreeterUploadCGOMessageClientStreamFinishCallback)(int32_t str
 typedef int32_t (*GreeterUploadCGOMessageClientStreamCancelCallback)(int32_t stream);
 typedef int32_t (*GreeterListCGOMessageServerStreamStartCallback)(uintptr_t request_ptr, int32_t request_len, int32_t* stream);
 typedef int32_t (*GreeterListCGOMessageServerStreamRecvCallback)(int32_t stream, uintptr_t* response_ptr, int32_t* response_len);
-typedef int32_t (*GreeterListCGOMessageServerStreamDoneCallback)(int32_t stream);
+typedef int32_t (*GreeterListCGOMessageServerStreamFinishCallback)(int32_t stream);
 typedef int32_t (*GreeterListCGOMessageServerStreamCancelCallback)(int32_t stream);
 typedef int32_t (*GreeterChatCGOMessageBidiStreamStartCallback)(int32_t* stream);
 typedef int32_t (*GreeterChatCGOMessageBidiStreamSendCallback)(int32_t stream, uintptr_t request_ptr, int32_t request_len);
 typedef int32_t (*GreeterChatCGOMessageBidiStreamRecvCallback)(int32_t stream, uintptr_t* response_ptr, int32_t* response_len);
 typedef int32_t (*GreeterChatCGOMessageBidiStreamCloseSendCallback)(int32_t stream);
-typedef int32_t (*GreeterChatCGOMessageBidiStreamDoneCallback)(int32_t stream);
+typedef int32_t (*GreeterChatCGOMessageBidiStreamFinishCallback)(int32_t stream);
 typedef int32_t (*GreeterChatCGOMessageBidiStreamCancelCallback)(int32_t stream);
 
 typedef struct GreeterCGOMessageServerCallbacks {
@@ -705,13 +705,13 @@ typedef struct GreeterCGOMessageServerCallbacks {
 	GreeterUploadCGOMessageClientStreamCancelCallback UploadCancel;
 	GreeterListCGOMessageServerStreamStartCallback ListStart;
 	GreeterListCGOMessageServerStreamRecvCallback ListRecv;
-	GreeterListCGOMessageServerStreamDoneCallback ListDone;
+	GreeterListCGOMessageServerStreamFinishCallback ListFinish;
 	GreeterListCGOMessageServerStreamCancelCallback ListCancel;
 	GreeterChatCGOMessageBidiStreamStartCallback ChatStart;
 	GreeterChatCGOMessageBidiStreamSendCallback ChatSend;
 	GreeterChatCGOMessageBidiStreamRecvCallback ChatRecv;
 	GreeterChatCGOMessageBidiStreamCloseSendCallback ChatCloseSend;
-	GreeterChatCGOMessageBidiStreamDoneCallback ChatDone;
+	GreeterChatCGOMessageBidiStreamFinishCallback ChatFinish;
 	GreeterChatCGOMessageBidiStreamCancelCallback ChatCancel;
 } GreeterCGOMessageServerCallbacks;
 
@@ -722,13 +722,13 @@ typedef int32_t (*GreeterUploadCGONativeClientStreamFinishCallback)(int32_t stre
 typedef int32_t (*GreeterUploadCGONativeClientStreamCancelCallback)(int32_t stream);
 typedef int32_t (*GreeterListCGONativeServerStreamStartCallback)(int32_t* stream);
 typedef int32_t (*GreeterListCGONativeServerStreamRecvCallback)(int32_t stream);
-typedef int32_t (*GreeterListCGONativeServerStreamDoneCallback)(int32_t stream);
+typedef int32_t (*GreeterListCGONativeServerStreamFinishCallback)(int32_t stream);
 typedef int32_t (*GreeterListCGONativeServerStreamCancelCallback)(int32_t stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamStartCallback)(int32_t* stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamSendCallback)(int32_t stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamRecvCallback)(int32_t stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamCloseSendCallback)(int32_t stream);
-typedef int32_t (*GreeterChatCGONativeBidiStreamDoneCallback)(int32_t stream);
+typedef int32_t (*GreeterChatCGONativeBidiStreamFinishCallback)(int32_t stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamCancelCallback)(int32_t stream);
 
 extern int32_t greeterMessageStreamEOFErrorIDForIntegration(void);
@@ -742,13 +742,13 @@ typedef struct GreeterCGONativeServerCallbacks {
 	GreeterUploadCGONativeClientStreamCancelCallback UploadCancel;
 	GreeterListCGONativeServerStreamStartCallback ListStart;
 	GreeterListCGONativeServerStreamRecvCallback ListRecv;
-	GreeterListCGONativeServerStreamDoneCallback ListDone;
+	GreeterListCGONativeServerStreamFinishCallback ListFinish;
 	GreeterListCGONativeServerStreamCancelCallback ListCancel;
 	GreeterChatCGONativeBidiStreamStartCallback ChatStart;
 	GreeterChatCGONativeBidiStreamSendCallback ChatSend;
 	GreeterChatCGONativeBidiStreamRecvCallback ChatRecv;
 	GreeterChatCGONativeBidiStreamCloseSendCallback ChatCloseSend;
-	GreeterChatCGONativeBidiStreamDoneCallback ChatDone;
+	GreeterChatCGONativeBidiStreamFinishCallback ChatFinish;
 	GreeterChatCGONativeBidiStreamCancelCallback ChatCancel;
 } GreeterCGONativeServerCallbacks;
 
@@ -763,13 +763,13 @@ static int uploadFinishes;
 static int uploadCancels;
 static int listStarts;
 static int listRecvs;
-static int listDones;
+static int listFinishes;
 static int listCancels;
 static int chatStarts;
 static int chatSends;
 static int chatRecvs;
 static int chatCloseSends;
-static int chatDones;
+static int chatFinishes;
 static int chatCancels;
 static int nativeUnaryCalls;
 static int nativeUploadStarts;
@@ -778,13 +778,13 @@ static int nativeUploadFinishes;
 static int nativeUploadCancels;
 static int nativeListStarts;
 static int nativeListRecvs;
-static int nativeListDones;
+static int nativeListFinishs;
 static int nativeListCancels;
 static int nativeChatStarts;
 static int nativeChatSends;
 static int nativeChatRecvs;
 static int nativeChatCloseSends;
-static int nativeChatDones;
+static int nativeChatFinishs;
 static int nativeChatCancels;
 static int messageStreamEOFMode;
 static int invalidMessageResponse;
@@ -801,13 +801,13 @@ static void resetMessageCounters(void) {
 	uploadCancels = 0;
 	listStarts = 0;
 	listRecvs = 0;
-	listDones = 0;
+	listFinishes = 0;
 	listCancels = 0;
 	chatStarts = 0;
 	chatSends = 0;
 	chatRecvs = 0;
 	chatCloseSends = 0;
-	chatDones = 0;
+	chatFinishes = 0;
 	chatCancels = 0;
 	nativeUnaryCalls = 0;
 	nativeUploadStarts = 0;
@@ -816,13 +816,13 @@ static void resetMessageCounters(void) {
 	nativeUploadCancels = 0;
 	nativeListStarts = 0;
 	nativeListRecvs = 0;
-	nativeListDones = 0;
+	nativeListFinishs = 0;
 	nativeListCancels = 0;
 	nativeChatStarts = 0;
 	nativeChatSends = 0;
 	nativeChatRecvs = 0;
 	nativeChatCloseSends = 0;
-	nativeChatDones = 0;
+	nativeChatFinishs = 0;
 	nativeChatCancels = 0;
 	messageStreamEOFMode = 0;
 	invalidMessageResponse = 0;
@@ -889,8 +889,8 @@ static int32_t greeterListRecv(int32_t stream, uintptr_t* response_ptr, int32_t*
 	return emptyResponse(response_ptr, response_len);
 }
 
-static int32_t greeterListDone(int32_t stream) {
-	listDones++;
+static int32_t greeterListFinish(int32_t stream) {
+	listFinishes++;
 	return 0;
 }
 
@@ -927,8 +927,8 @@ static int32_t greeterChatCloseSend(int32_t stream) {
 	return 0;
 }
 
-static int32_t greeterChatDone(int32_t stream) {
-	chatDones++;
+static int32_t greeterChatFinish(int32_t stream) {
+	chatFinishes++;
 	return 0;
 }
 
@@ -946,13 +946,13 @@ static GreeterCGOMessageServerCallbacks greeterMessageCallbacks(void) {
 	callbacks.UploadCancel = greeterUploadCancel;
 	callbacks.ListStart = greeterListStart;
 	callbacks.ListRecv = greeterListRecv;
-	callbacks.ListDone = greeterListDone;
+	callbacks.ListFinish = greeterListFinish;
 	callbacks.ListCancel = greeterListCancel;
 	callbacks.ChatStart = greeterChatStart;
 	callbacks.ChatSend = greeterChatSend;
 	callbacks.ChatRecv = greeterChatRecv;
 	callbacks.ChatCloseSend = greeterChatCloseSend;
-	callbacks.ChatDone = greeterChatDone;
+	callbacks.ChatFinish = greeterChatFinish;
 	callbacks.ChatCancel = greeterChatCancel;
 	return callbacks;
 }
@@ -997,8 +997,8 @@ static int32_t nativeGreeterListRecv(int32_t stream) {
 	return 0;
 }
 
-static int32_t nativeGreeterListDone(int32_t stream) {
-	nativeListDones++;
+static int32_t nativeGreeterListFinish(int32_t stream) {
+	nativeListFinishs++;
 	return 0;
 }
 
@@ -1028,8 +1028,8 @@ static int32_t nativeGreeterChatCloseSend(int32_t stream) {
 	return 0;
 }
 
-static int32_t nativeGreeterChatDone(int32_t stream) {
-	nativeChatDones++;
+static int32_t nativeGreeterChatFinish(int32_t stream) {
+	nativeChatFinishs++;
 	return 0;
 }
 
@@ -1047,13 +1047,13 @@ static GreeterCGONativeServerCallbacks greeterNativeCallbacks(void) {
 	callbacks.UploadCancel = nativeGreeterUploadCancel;
 	callbacks.ListStart = nativeGreeterListStart;
 	callbacks.ListRecv = nativeGreeterListRecv;
-	callbacks.ListDone = nativeGreeterListDone;
+	callbacks.ListFinish = nativeGreeterListFinish;
 	callbacks.ListCancel = nativeGreeterListCancel;
 	callbacks.ChatStart = nativeGreeterChatStart;
 	callbacks.ChatSend = nativeGreeterChatSend;
 	callbacks.ChatRecv = nativeGreeterChatRecv;
 	callbacks.ChatCloseSend = nativeGreeterChatCloseSend;
-	callbacks.ChatDone = nativeGreeterChatDone;
+	callbacks.ChatFinish = nativeGreeterChatFinish;
 	callbacks.ChatCancel = nativeGreeterChatCancel;
 	return callbacks;
 }
@@ -1071,13 +1071,13 @@ static int getUploadFinishes(void) { return uploadFinishes; }
 static int getUploadCancels(void) { return uploadCancels; }
 static int getListStarts(void) { return listStarts; }
 static int getListRecvs(void) { return listRecvs; }
-static int getListDones(void) { return listDones; }
+static int getListFinishs(void) { return listFinishes; }
 static int getListCancels(void) { return listCancels; }
 static int getChatStarts(void) { return chatStarts; }
 static int getChatSends(void) { return chatSends; }
 static int getChatRecvs(void) { return chatRecvs; }
 static int getChatCloseSends(void) { return chatCloseSends; }
-static int getChatDones(void) { return chatDones; }
+static int getChatFinishs(void) { return chatFinishes; }
 static int getChatCancels(void) { return chatCancels; }
 static int getNativeUnaryCalls(void) { return nativeUnaryCalls; }
 static int getNativeUploadStarts(void) { return nativeUploadStarts; }
@@ -1086,13 +1086,13 @@ static int getNativeUploadFinishes(void) { return nativeUploadFinishes; }
 static int getNativeUploadCancels(void) { return nativeUploadCancels; }
 static int getNativeListStarts(void) { return nativeListStarts; }
 static int getNativeListRecvs(void) { return nativeListRecvs; }
-static int getNativeListDones(void) { return nativeListDones; }
+static int getNativeListFinishs(void) { return nativeListFinishs; }
 static int getNativeListCancels(void) { return nativeListCancels; }
 static int getNativeChatStarts(void) { return nativeChatStarts; }
 static int getNativeChatSends(void) { return nativeChatSends; }
 static int getNativeChatRecvs(void) { return nativeChatRecvs; }
 static int getNativeChatCloseSends(void) { return nativeChatCloseSends; }
-static int getNativeChatDones(void) { return nativeChatDones; }
+static int getNativeChatFinishs(void) { return nativeChatFinishs; }
 static int getNativeChatCancels(void) { return nativeChatCancels; }
 */
 import "C"
@@ -1143,29 +1143,17 @@ func registerGreeterNativeCallbacksForIntegration() error {
 }
 
 func registerGreeterMessageCallbacks(callbacks C.GreeterCGOMessageServerCallbacks) error {
-	for _, errID := range []C.int32_t{
-		rpccgo_msg_testv1_Greeter_Unary_register(callbacks.Unary),
-		rpccgo_msg_testv1_Greeter_Upload_register(callbacks.UploadStart, callbacks.UploadSend, callbacks.UploadFinish, callbacks.UploadCancel),
-		rpccgo_msg_testv1_Greeter_List_register(callbacks.ListStart, callbacks.ListRecv, callbacks.ListDone, callbacks.ListCancel),
-		rpccgo_msg_testv1_Greeter_Chat_register(callbacks.ChatStart, callbacks.ChatSend, callbacks.ChatRecv, callbacks.ChatCloseSend, callbacks.ChatDone, callbacks.ChatCancel),
-	} {
-		if errID != 0 {
-			return cgoFixtureStoredError(errID)
-		}
+	errID := rpccgo_msg_testv1_Greeter_register(callbacks.Unary, callbacks.UploadStart, callbacks.UploadSend, callbacks.UploadFinish, callbacks.UploadCancel, callbacks.ListStart, callbacks.ListRecv, callbacks.ListFinish, callbacks.ListCancel, callbacks.ChatStart, callbacks.ChatSend, callbacks.ChatRecv, callbacks.ChatCloseSend, callbacks.ChatFinish, callbacks.ChatCancel)
+	if errID != 0 {
+		return cgoFixtureStoredError(errID)
 	}
 	return nil
 }
 
 func registerGreeterNativeCallbacks(callbacks C.GreeterCGONativeServerCallbacks) error {
-	for _, errID := range []C.int32_t{
-		rpccgo_native_testv1_Greeter_Unary_register(callbacks.Unary),
-		rpccgo_native_testv1_Greeter_Upload_register(callbacks.UploadStart, callbacks.UploadSend, callbacks.UploadFinish, callbacks.UploadCancel),
-		rpccgo_native_testv1_Greeter_List_register(callbacks.ListStart, callbacks.ListRecv, callbacks.ListDone, callbacks.ListCancel),
-		rpccgo_native_testv1_Greeter_Chat_register(callbacks.ChatStart, callbacks.ChatSend, callbacks.ChatRecv, callbacks.ChatCloseSend, callbacks.ChatDone, callbacks.ChatCancel),
-	} {
-		if errID != 0 {
-			return cgoFixtureStoredError(errID)
-		}
+	errID := rpccgo_native_testv1_Greeter_register(callbacks.Unary, callbacks.UploadStart, callbacks.UploadSend, callbacks.UploadFinish, callbacks.UploadCancel, callbacks.ListStart, callbacks.ListRecv, callbacks.ListFinish, callbacks.ListCancel, callbacks.ChatStart, callbacks.ChatSend, callbacks.ChatRecv, callbacks.ChatCloseSend, callbacks.ChatFinish, callbacks.ChatCancel)
+	if errID != 0 {
+		return cgoFixtureStoredError(errID)
 	}
 	return nil
 }
@@ -1232,13 +1220,13 @@ func greeterMessageUploadFinishesForIntegration() int { return int(C.getUploadFi
 func greeterMessageUploadCancelsForIntegration() int { return int(C.getUploadCancels()) }
 func greeterMessageListStartsForIntegration() int { return int(C.getListStarts()) }
 func greeterMessageListRecvsForIntegration() int { return int(C.getListRecvs()) }
-func greeterMessageListDonesForIntegration() int { return int(C.getListDones()) }
+func greeterMessageListFinishsForIntegration() int { return int(C.getListFinishs()) }
 func greeterMessageListCancelsForIntegration() int { return int(C.getListCancels()) }
 func greeterMessageChatStartsForIntegration() int { return int(C.getChatStarts()) }
 func greeterMessageChatSendsForIntegration() int { return int(C.getChatSends()) }
 func greeterMessageChatRecvsForIntegration() int { return int(C.getChatRecvs()) }
 func greeterMessageChatCloseSendsForIntegration() int { return int(C.getChatCloseSends()) }
-func greeterMessageChatDonesForIntegration() int { return int(C.getChatDones()) }
+func greeterMessageChatFinishsForIntegration() int { return int(C.getChatFinishs()) }
 func greeterMessageChatCancelsForIntegration() int { return int(C.getChatCancels()) }
 func greeterNativeUnaryCallsForIntegration() int { return int(C.getNativeUnaryCalls()) }
 func greeterNativeUploadStartsForIntegration() int { return int(C.getNativeUploadStarts()) }
@@ -1247,13 +1235,13 @@ func greeterNativeUploadFinishesForIntegration() int { return int(C.getNativeUpl
 func greeterNativeUploadCancelsForIntegration() int { return int(C.getNativeUploadCancels()) }
 func greeterNativeListStartsForIntegration() int { return int(C.getNativeListStarts()) }
 func greeterNativeListRecvsForIntegration() int { return int(C.getNativeListRecvs()) }
-func greeterNativeListDonesForIntegration() int { return int(C.getNativeListDones()) }
+func greeterNativeListFinishsForIntegration() int { return int(C.getNativeListFinishs()) }
 func greeterNativeListCancelsForIntegration() int { return int(C.getNativeListCancels()) }
 func greeterNativeChatStartsForIntegration() int { return int(C.getNativeChatStarts()) }
 func greeterNativeChatSendsForIntegration() int { return int(C.getNativeChatSends()) }
 func greeterNativeChatRecvsForIntegration() int { return int(C.getNativeChatRecvs()) }
 func greeterNativeChatCloseSendsForIntegration() int { return int(C.getNativeChatCloseSends()) }
-func greeterNativeChatDonesForIntegration() int { return int(C.getNativeChatDones()) }
+func greeterNativeChatFinishsForIntegration() int { return int(C.getNativeChatFinishs()) }
 func greeterNativeChatCancelsForIntegration() int { return int(C.getNativeChatCancels()) }
 `
 
@@ -1398,14 +1386,14 @@ func TestMessageBytesRejectInvalidCallbackResponse(t *testing.T) {
 	assertMessageNoErr(t, errID)
 	errID = ReadGreeterListMessageServerStream(context.Background(), listHandle, &GreeterMessageOutput{})
 	assertMessageErrContains(t, errID, "message response protobuf unmarshal failed")
-	assertMessageNoErr(t, DoneGreeterListMessageServerStream(context.Background(), listHandle))
+	assertMessageNoErr(t, FinishGreeterListMessageServerStream(context.Background(), listHandle))
 
 	chatHandle, errID := StartGreeterChatMessageBidiStream(context.Background())
 	assertMessageNoErr(t, errID)
 	assertMessageNoErr(t, SendGreeterChatMessageBidiStream(context.Background(), chatHandle, 0, 0))
 	errID = ReadGreeterChatMessageBidiStream(context.Background(), chatHandle, &GreeterMessageOutput{})
 	assertMessageErrContains(t, errID, "message response protobuf unmarshal failed")
-	assertMessageNoErr(t, DoneGreeterChatMessageBidiStream(context.Background(), chatHandle))
+	assertMessageNoErr(t, FinishGreeterChatMessageBidiStream(context.Background(), chatHandle))
 }
 
 func TestMessageClientStreamRejectsOperationsAfterFinish(t *testing.T) {
@@ -1424,7 +1412,7 @@ func TestMessageClientStreamRejectsOperationsAfterFinish(t *testing.T) {
 	}
 }
 
-func TestMessageServerStreamRejectsReadAfterDone(t *testing.T) {
+func TestMessageServerStreamRejectsReadAfterFinish(t *testing.T) {
 	registerMessageServer(t)
 	setGreeterMessageStreamEOFModeForIntegration(true)
 	handle, errID := StartGreeterListMessageServerStream(context.Background(), 0, 0)
@@ -1432,11 +1420,11 @@ func TestMessageServerStreamRejectsReadAfterDone(t *testing.T) {
 	assertMessageNoErr(t, ReadGreeterListMessageServerStream(context.Background(), handle, &GreeterMessageOutput{}))
 	errID = ReadGreeterListMessageServerStream(context.Background(), handle, &GreeterMessageOutput{})
 	assertMessageErrContains(t, errID, "EOF")
-	assertMessageNoErr(t, DoneGreeterListMessageServerStream(context.Background(), handle))
+	assertMessageNoErr(t, FinishGreeterListMessageServerStream(context.Background(), handle))
 	errID = ReadGreeterListMessageServerStream(context.Background(), handle, &GreeterMessageOutput{})
 	assertMessageErrContains(t, errID, "stream handle is invalid")
-	if got := greeterMessageListDonesForIntegration(); got != 1 {
-		t.Fatalf("list dones = %d, want 1", got)
+	if got := greeterMessageListFinishsForIntegration(); got != 1 {
+		t.Fatalf("list finishes = %d, want 1", got)
 	}
 }
 
@@ -1497,7 +1485,7 @@ func TestMessageStreamInvalidHandleReturnsError(t *testing.T) {
 	assertMessageErrContains(t, SendGreeterUploadMessageClientStream(context.Background(), invalid, 0, 0), "stream handle is invalid")
 	assertMessageErrContains(t, FinishGreeterUploadMessageClientStream(context.Background(), invalid, &GreeterMessageOutput{}), "stream handle is invalid")
 	assertMessageErrContains(t, ReadGreeterListMessageServerStream(context.Background(), invalid, &GreeterMessageOutput{}), "stream handle is invalid")
-	assertMessageErrContains(t, DoneGreeterListMessageServerStream(context.Background(), invalid), "stream handle is invalid")
+	assertMessageErrContains(t, FinishGreeterListMessageServerStream(context.Background(), invalid), "stream handle is invalid")
 	assertMessageErrContains(t, CloseSendGreeterChatMessageBidiStream(context.Background(), invalid), "stream handle is invalid")
 	assertMessageErrContains(t, CancelGreeterChatMessageBidiStream(context.Background(), invalid), "stream handle is invalid")
 }
@@ -1516,9 +1504,9 @@ func TestMessageStreamStartCapturesActiveServerSnapshot(t *testing.T) {
 
 	assertMessageNoErr(t, SendGreeterChatMessageBidiStream(context.Background(), chatHandle, 0, 0))
 	assertMessageNoErr(t, ReadGreeterChatMessageBidiStream(context.Background(), chatHandle, &GreeterMessageOutput{}))
-	assertMessageNoErr(t, DoneGreeterChatMessageBidiStream(context.Background(), chatHandle))
+	assertMessageNoErr(t, FinishGreeterChatMessageBidiStream(context.Background(), chatHandle))
 	assertMessageNoErr(t, ReadGreeterListMessageServerStream(context.Background(), listHandle, &GreeterMessageOutput{}))
-	assertMessageNoErr(t, DoneGreeterListMessageServerStream(context.Background(), listHandle))
+	assertMessageNoErr(t, FinishGreeterListMessageServerStream(context.Background(), listHandle))
 	if got := greeterNativeChatSendsForIntegration(); got != 1 {
 		t.Fatalf("native chat sends = %d, want 1", got)
 	}
@@ -1576,7 +1564,7 @@ func TestMessageServerStreamingDirectPath(t *testing.T) {
 	if errID := ReadGreeterListMessageServerStream(context.Background(), handle, &GreeterMessageOutput{}); errID != 0 {
 		t.Fatalf("ReadGreeterListMessageServerStream() second errID = %d", errID)
 	}
-	if errID := DoneGreeterListMessageServerStream(context.Background(), handle); errID != 0 {
+	if errID := FinishGreeterListMessageServerStream(context.Background(), handle); errID != 0 {
 		t.Fatalf("DoneGreeterListMessageServerStream() errID = %d", errID)
 	}
 	if got := greeterMessageListStartsForIntegration(); got != 1 {
@@ -1585,10 +1573,10 @@ func TestMessageServerStreamingDirectPath(t *testing.T) {
 	if got := greeterMessageListRecvsForIntegration(); got != 2 {
 		t.Fatalf("list recvs = %d, want 2", got)
 	}
-	if got := greeterMessageListDonesForIntegration(); got != 1 {
-		t.Fatalf("list dones = %d, want 1", got)
+	if got := greeterMessageListFinishsForIntegration(); got != 1 {
+		t.Fatalf("list finishes = %d, want 1", got)
 	}
-	errID = DoneGreeterListMessageServerStream(context.Background(), handle)
+	errID = FinishGreeterListMessageServerStream(context.Background(), handle)
 	assertMessageErrContains(t, errID, "stream handle is invalid")
 }
 
@@ -1607,7 +1595,7 @@ func TestMessageBidiStreamingDirectPath(t *testing.T) {
 	if errID := CloseSendGreeterChatMessageBidiStream(context.Background(), handle); errID != 0 {
 		t.Fatalf("CloseSendGreeterChatMessageBidiStream() errID = %d", errID)
 	}
-	if errID := DoneGreeterChatMessageBidiStream(context.Background(), handle); errID != 0 {
+	if errID := FinishGreeterChatMessageBidiStream(context.Background(), handle); errID != 0 {
 		t.Fatalf("DoneGreeterChatMessageBidiStream() errID = %d", errID)
 	}
 	if got := greeterMessageChatStartsForIntegration(); got != 1 {
@@ -1622,8 +1610,8 @@ func TestMessageBidiStreamingDirectPath(t *testing.T) {
 	if got := greeterMessageChatCloseSendsForIntegration(); got != 1 {
 		t.Fatalf("chat close sends = %d, want 1", got)
 	}
-	if got := greeterMessageChatDonesForIntegration(); got != 1 {
-		t.Fatalf("chat dones = %d, want 1", got)
+	if got := greeterMessageChatFinishsForIntegration(); got != 1 {
+		t.Fatalf("chat finishes = %d, want 1", got)
 	}
 	errID = ReadGreeterChatMessageBidiStream(context.Background(), handle, &GreeterMessageOutput{})
 	assertMessageErrContains(t, errID, "stream handle is invalid")
@@ -1631,7 +1619,7 @@ func TestMessageBidiStreamingDirectPath(t *testing.T) {
 
 func TestMessageContractMismatch(t *testing.T) {
 	v1.ResetGreeterDispatcherForIntegrationTest()
-	if _, err := v1.RegisterGreeterGoNativeServer(mismatchNativeServer{}); err != nil {
+	if err := v1.RegisterGreeterGoNativeServer(mismatchNativeServer{}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 
@@ -1647,14 +1635,14 @@ func TestMessageContractMismatch(t *testing.T) {
 	listHandle, errID := StartGreeterListMessageServerStream(context.Background(), 0, 0)
 	assertMessageNoErr(t, errID)
 	assertMessageNoErr(t, ReadGreeterListMessageServerStream(context.Background(), listHandle, &GreeterMessageOutput{}))
-	assertMessageNoErr(t, DoneGreeterListMessageServerStream(context.Background(), listHandle))
+	assertMessageNoErr(t, FinishGreeterListMessageServerStream(context.Background(), listHandle))
 
 	chatHandle, errID := StartGreeterChatMessageBidiStream(context.Background())
 	assertMessageNoErr(t, errID)
 	assertMessageNoErr(t, SendGreeterChatMessageBidiStream(context.Background(), chatHandle, 0, 0))
 	assertMessageNoErr(t, ReadGreeterChatMessageBidiStream(context.Background(), chatHandle, &GreeterMessageOutput{}))
 	assertMessageNoErr(t, CloseSendGreeterChatMessageBidiStream(context.Background(), chatHandle))
-	assertMessageNoErr(t, DoneGreeterChatMessageBidiStream(context.Background(), chatHandle))
+	assertMessageNoErr(t, FinishGreeterChatMessageBidiStream(context.Background(), chatHandle))
 }
 
 func TestMessageClientToCGONative(t *testing.T) {
@@ -1673,14 +1661,14 @@ func TestMessageClientToCGONative(t *testing.T) {
 	listHandle, errID := StartGreeterListMessageServerStream(context.Background(), 0, 0)
 	assertMessageNoErr(t, errID)
 	assertMessageNoErr(t, ReadGreeterListMessageServerStream(context.Background(), listHandle, &GreeterMessageOutput{}))
-	assertMessageNoErr(t, DoneGreeterListMessageServerStream(context.Background(), listHandle))
+	assertMessageNoErr(t, FinishGreeterListMessageServerStream(context.Background(), listHandle))
 
 	chatHandle, errID := StartGreeterChatMessageBidiStream(context.Background())
 	assertMessageNoErr(t, errID)
 	assertMessageNoErr(t, SendGreeterChatMessageBidiStream(context.Background(), chatHandle, 0, 0))
 	assertMessageNoErr(t, ReadGreeterChatMessageBidiStream(context.Background(), chatHandle, &GreeterMessageOutput{}))
 	assertMessageNoErr(t, CloseSendGreeterChatMessageBidiStream(context.Background(), chatHandle))
-	assertMessageNoErr(t, DoneGreeterChatMessageBidiStream(context.Background(), chatHandle))
+	assertMessageNoErr(t, FinishGreeterChatMessageBidiStream(context.Background(), chatHandle))
 
 	if got := greeterNativeUnaryCallsForIntegration(); got != 1 {
 		t.Fatalf("native unary calls = %d, want 1", got)
@@ -1700,8 +1688,8 @@ func TestMessageClientToCGONative(t *testing.T) {
 	if got := greeterNativeListRecvsForIntegration(); got != 1 {
 		t.Fatalf("native list recvs = %d, want 1", got)
 	}
-	if got := greeterNativeListDonesForIntegration(); got != 1 {
-		t.Fatalf("native list dones = %d, want 1", got)
+	if got := greeterNativeListFinishsForIntegration(); got != 1 {
+		t.Fatalf("native list finishes = %d, want 1", got)
 	}
 	if got := greeterNativeChatStartsForIntegration(); got != 1 {
 		t.Fatalf("native chat starts = %d, want 1", got)
@@ -1715,8 +1703,8 @@ func TestMessageClientToCGONative(t *testing.T) {
 	if got := greeterNativeChatCloseSendsForIntegration(); got != 1 {
 		t.Fatalf("native chat close sends = %d, want 1", got)
 	}
-	if got := greeterNativeChatDonesForIntegration(); got != 1 {
-		t.Fatalf("native chat dones = %d, want 1", got)
+	if got := greeterNativeChatFinishsForIntegration(); got != 1 {
+		t.Fatalf("native chat finishes = %d, want 1", got)
 	}
 }
 
@@ -1807,14 +1795,14 @@ func TestNativeContractMismatch(t *testing.T) {
 	listHandle, errID := StartGreeterListNativeServerStream(context.Background())
 	assertMessageNoErr(t, errID)
 	assertMessageNoErr(t, ReadGreeterListNativeServerStream(context.Background(), listHandle))
-	assertMessageNoErr(t, DoneGreeterListNativeServerStream(context.Background(), listHandle))
+	assertMessageNoErr(t, FinishGreeterListNativeServerStream(context.Background(), listHandle))
 
 	chatHandle, errID := StartGreeterChatNativeBidiStream(context.Background())
 	assertMessageNoErr(t, errID)
 	assertMessageNoErr(t, SendGreeterChatNativeBidiStream(context.Background(), chatHandle))
 	assertMessageNoErr(t, ReadGreeterChatNativeBidiStream(context.Background(), chatHandle))
 	assertMessageNoErr(t, CloseSendGreeterChatNativeBidiStream(context.Background(), chatHandle))
-	assertMessageNoErr(t, DoneGreeterChatNativeBidiStream(context.Background(), chatHandle))
+	assertMessageNoErr(t, FinishGreeterChatNativeBidiStream(context.Background(), chatHandle))
 }
 
 type mismatchNativeServer struct{}

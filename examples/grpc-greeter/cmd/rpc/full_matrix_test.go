@@ -46,12 +46,8 @@ func TestGRPCGreeterTransportAndStreamingMatrix(t *testing.T) {
 		t.Cleanup(func() { _ = conn.Close() })
 
 		client := greeterv1.NewGreeterClient(conn)
-		snapshot, err := greeterv1.RegisterGreeterGRPCRemoteServer(client)
-		if err != nil {
+		if err := greeterv1.RegisterGreeterGRPCRemoteServer(client); err != nil {
 			t.Fatalf("RegisterGreeterGRPCRemoteServer() error = %v", err)
-		}
-		if snapshot.Kind != rpcruntime.ServerKindGRPCRemote || snapshot.Contract != rpcruntime.ServerContractMessage || snapshot.Adapter != client {
-			t.Fatalf("RegisterGreeterGRPCRemoteServer() snapshot = %#v, want grpc remote message client snapshot", snapshot)
 		}
 		assertMessageUnary(t, ctx, "grpc", "remote", "hello grpc from remote")
 		assertMessageCollect(t, ctx, []string{"grpc", "collect"}, "collect:grpc,collect")
@@ -62,7 +58,7 @@ func TestGRPCGreeterTransportAndStreamingMatrix(t *testing.T) {
 
 func registerNativeServer(t *testing.T) {
 	t.Helper()
-	if _, err := greeterv1.RegisterGreeterGoNativeServer(backend.Greeter{}); err != nil {
+	if err := greeterv1.RegisterGreeterGoNativeServer(backend.Greeter{}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 }
@@ -193,8 +189,8 @@ func assertNativeBroadcast(t *testing.T, ctx context.Context, name string, wants
 		}
 		assertNativeOutput(t, messagePtr, messageLen, want)
 	}
-	if errID := DoneGreeterBroadcastNativeServerStream(ctx, handle); errID != 0 {
-		t.Fatalf("DoneGreeterBroadcastNativeServerStream() error id = %d", errID)
+	if errID := FinishGreeterBroadcastNativeServerStream(ctx, handle); errID != 0 {
+		t.Fatalf("FinishGreeterBroadcastNativeServerStream() error id = %d", errID)
 	}
 }
 
@@ -223,8 +219,8 @@ func assertNativeChat(t *testing.T, ctx context.Context, name, want string) {
 	if errID := CloseSendGreeterChatNativeBidiStream(ctx, handle); errID != 0 {
 		t.Fatalf("CloseSendGreeterChatNativeBidiStream() error id = %d", errID)
 	}
-	if errID := DoneGreeterChatNativeBidiStream(ctx, handle); errID != 0 {
-		t.Fatalf("DoneGreeterChatNativeBidiStream() error id = %d", errID)
+	if errID := FinishGreeterChatNativeBidiStream(ctx, handle); errID != 0 {
+		t.Fatalf("FinishGreeterChatNativeBidiStream() error id = %d", errID)
 	}
 }
 
@@ -274,8 +270,8 @@ func assertMessageBroadcast(t *testing.T, ctx context.Context, name string, want
 		}
 		assertMessageOutput(t, output, want)
 	}
-	if errID := DoneGreeterBroadcastMessageServerStream(ctx, handle); errID != 0 {
-		t.Fatalf("DoneGreeterBroadcastMessageServerStream() error id = %d", errID)
+	if errID := FinishGreeterBroadcastMessageServerStream(ctx, handle); errID != 0 {
+		t.Fatalf("FinishGreeterBroadcastMessageServerStream() error id = %d", errID)
 	}
 }
 
@@ -298,8 +294,8 @@ func assertMessageChat(t *testing.T, ctx context.Context, name, want string) {
 	if errID := CloseSendGreeterChatMessageBidiStream(ctx, handle); errID != 0 {
 		t.Fatalf("CloseSendGreeterChatMessageBidiStream() error id = %d", errID)
 	}
-	if errID := DoneGreeterChatMessageBidiStream(ctx, handle); errID != 0 {
-		t.Fatalf("DoneGreeterChatMessageBidiStream() error id = %d", errID)
+	if errID := FinishGreeterChatMessageBidiStream(ctx, handle); errID != 0 {
+		t.Fatalf("FinishGreeterChatMessageBidiStream() error id = %d", errID)
 	}
 }
 

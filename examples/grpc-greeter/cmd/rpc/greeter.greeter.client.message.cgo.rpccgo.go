@@ -280,12 +280,12 @@ func ReadGreeterBroadcastMessageServerStream(ctx context.Context, handle int32, 
 	return 0
 }
 
-func DoneGreeterBroadcastMessageServerStream(ctx context.Context, handle int32) int32 {
+func FinishGreeterBroadcastMessageServerStream(ctx context.Context, handle int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	var err error
-	err = v1.NewGreeterBroadcastMessageStream(rpcruntime.StreamHandle(handle)).Done(ctx)
+	err = v1.NewGreeterBroadcastMessageStream(rpcruntime.StreamHandle(handle)).Finish(ctx)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -363,9 +363,9 @@ func rpccgo_msg_greeterv1_Greeter_Broadcast_read(handle C.int32_t, responsePtr *
 	return 0
 }
 
-//export rpccgo_msg_greeterv1_Greeter_Broadcast_done
-func rpccgo_msg_greeterv1_Greeter_Broadcast_done(handle C.int32_t) C.int32_t {
-	return C.int32_t(DoneGreeterBroadcastMessageServerStream(context.Background(), int32(handle)))
+//export rpccgo_msg_greeterv1_Greeter_Broadcast_finish
+func rpccgo_msg_greeterv1_Greeter_Broadcast_finish(handle C.int32_t) C.int32_t {
+	return C.int32_t(FinishGreeterBroadcastMessageServerStream(context.Background(), int32(handle)))
 }
 
 //export rpccgo_msg_greeterv1_Greeter_Broadcast_cancel
@@ -439,12 +439,12 @@ func CloseSendGreeterChatMessageBidiStream(ctx context.Context, handle int32) in
 	return 0
 }
 
-func DoneGreeterChatMessageBidiStream(ctx context.Context, handle int32) int32 {
+func FinishGreeterChatMessageBidiStream(ctx context.Context, handle int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
 	}
 	var err error
-	err = v1.NewGreeterChatMessageStream(rpcruntime.StreamHandle(handle)).Done(ctx)
+	err = v1.NewGreeterChatMessageStream(rpcruntime.StreamHandle(handle)).Finish(ctx)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -530,6 +530,11 @@ func rpccgo_msg_greeterv1_Greeter_Chat_read(handle C.int32_t, responsePtr *C.uin
 //export rpccgo_msg_greeterv1_Greeter_Chat_close_send
 func rpccgo_msg_greeterv1_Greeter_Chat_close_send(handle C.int32_t) C.int32_t {
 	return C.int32_t(CloseSendGreeterChatMessageBidiStream(context.Background(), int32(handle)))
+}
+
+//export rpccgo_msg_greeterv1_Greeter_Chat_finish
+func rpccgo_msg_greeterv1_Greeter_Chat_finish(handle C.int32_t) C.int32_t {
+	return C.int32_t(FinishGreeterChatMessageBidiStream(context.Background(), int32(handle)))
 }
 
 //export rpccgo_msg_greeterv1_Greeter_Chat_cancel

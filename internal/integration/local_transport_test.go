@@ -130,8 +130,8 @@ func TestLocalTransportAcceptance(t *testing.T) {
 		if got := greeterMessageListRecvsForIntegration(); got != 2 {
 			t.Fatalf("message list recvs = %d, want 2 including EOF probe", got)
 		}
-		if got := greeterMessageListDonesForIntegration(); got != 1 {
-			t.Fatalf("message list dones = %d, want 1", got)
+		if got := greeterMessageListFinishsForIntegration(); got != 1 {
+			t.Fatalf("message list finishes = %d, want 1", got)
 		}
 		if got := greeterMessageChatStartsForIntegration(); got != 1 {
 			t.Fatalf("message chat starts = %d, want 1", got)
@@ -145,8 +145,8 @@ func TestLocalTransportAcceptance(t *testing.T) {
 		if got := greeterMessageChatCloseSendsForIntegration(); got > 1 {
 			t.Fatalf("message chat close sends = %d, want at most 1", got)
 		}
-		if got := greeterMessageChatDonesForIntegration(); got != 1 {
-			t.Fatalf("message chat dones = %d, want 1", got)
+		if got := greeterMessageChatFinishsForIntegration(); got != 1 {
+			t.Fatalf("message chat finishes = %d, want 1", got)
 		}
 	})
 
@@ -154,7 +154,7 @@ func TestLocalTransportAcceptance(t *testing.T) {
 	t.Run("connect bidi supports independent response pump", func(t *testing.T) {
 		resetTransportGoNativeCounters()
 		setTransportGoNativeChatResponses(2)
-		if _, err := v1.RegisterGreeterGoNativeServer(transportNativeServer{}); err != nil {
+		if err := v1.RegisterGreeterGoNativeServer(transportNativeServer{}); err != nil {
 			t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 		}
 		httpClient, baseURL, closeServer := startConnectTransport(t)
@@ -251,7 +251,7 @@ func registerTransportGoNativeServer(t *testing.T) {
 	t.Helper()
 	v1.ResetGreeterDispatcherForIntegrationTest()
 	resetTransportGoNativeCounters()
-	if _, err := v1.RegisterGreeterGoNativeServer(transportNativeServer{}); err != nil {
+	if err := v1.RegisterGreeterGoNativeServer(transportNativeServer{}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 }
@@ -373,7 +373,7 @@ var (
 	transportGoNativeUploadFinishes  int
 	transportGoNativeListStarts      int
 	transportGoNativeListRecvs       int
-	transportGoNativeListDones       int
+	transportGoNativeListFinishs       int
 	transportGoNativeChatStarts      int
 	transportGoNativeChatSends       int
 	transportGoNativeChatRecvs       int
@@ -390,7 +390,7 @@ func resetTransportGoNativeCounters() {
 	transportGoNativeUploadFinishes = 0
 	transportGoNativeListStarts = 0
 	transportGoNativeListRecvs = 0
-	transportGoNativeListDones = 0
+	transportGoNativeListFinishs = 0
 	transportGoNativeChatStarts = 0
 	transportGoNativeChatSends = 0
 	transportGoNativeChatRecvs = 0
@@ -473,7 +473,7 @@ func (transportNativeServer) List(ctx context.Context, stream v1.GreeterListNati
 		return err
 	}
 	transportGoNativeListRecvs++
-	transportGoNativeListDones++
+	transportGoNativeListFinishs++
 	return nil
 }
 

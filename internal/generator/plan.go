@@ -67,10 +67,6 @@ type MessageFileFamilyPlan struct {
 	MessageServer    GeneratedFilePlan
 	CGOMessageServer GeneratedFilePlan
 	CGOMessageClient GeneratedFilePlan
-	ConnectServer    GeneratedFilePlan
-	GRPCServer       GeneratedFilePlan
-	ConnectRemote    GeneratedFilePlan
-	GRPCRemote       GeneratedFilePlan
 }
 
 type GeneratedFilePlan struct {
@@ -185,46 +181,15 @@ type MessageContractPlan struct {
 	ResponseType MethodIOPlan
 }
 
-type LifecycleTerminalKind string
-
-const (
-	LifecycleTerminalFinishResult LifecycleTerminalKind = "finish_result"
-	LifecycleTerminalOnDone       LifecycleTerminalKind = "on_done"
-)
-
-type StreamLifecycleOperationKind string
-
-const (
-	StreamLifecycleOperationStart     StreamLifecycleOperationKind = "start"
-	StreamLifecycleOperationSend      StreamLifecycleOperationKind = "send"
-	StreamLifecycleOperationReceive   StreamLifecycleOperationKind = "receive"
-	StreamLifecycleOperationFinish    StreamLifecycleOperationKind = "finish"
-	StreamLifecycleOperationDone      StreamLifecycleOperationKind = "done"
-	StreamLifecycleOperationCloseSend StreamLifecycleOperationKind = "close_send"
-	StreamLifecycleOperationCancel    StreamLifecycleOperationKind = "cancel"
-)
-
-type StreamLifecycleOperationPlan struct {
-	Kind StreamLifecycleOperationKind
-}
-
 type StreamLifecycleContractPlan struct {
-	Operations      []StreamLifecycleOperationPlan
-	CancelFinalizes bool
-	TerminalKind    LifecycleTerminalKind
-}
-
-func (p StreamLifecycleContractPlan) HasOperation(kind StreamLifecycleOperationKind) bool {
-	for _, operation := range p.Operations {
-		if operation.Kind == kind {
-			return true
-		}
-	}
-	return false
+	CanSend               bool
+	CanRecv               bool
+	CanCloseSend          bool
+	FinishReturnsResponse bool
 }
 
 func (p StreamLifecycleContractPlan) IsZero() bool {
-	return len(p.Operations) == 0 && !p.CancelFinalizes && p.TerminalKind == ""
+	return !p.CanSend && !p.CanRecv && !p.CanCloseSend && !p.FinishReturnsResponse
 }
 
 type MethodIOPlan struct {

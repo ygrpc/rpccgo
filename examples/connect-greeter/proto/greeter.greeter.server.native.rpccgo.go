@@ -50,9 +50,9 @@ func (UnimplementedGreeterNativeServer) Chat(ctx context.Context, stream Greeter
 	return errors.New("rpccgo: Greeter.Chat native server method is not implemented")
 }
 
-func RegisterGreeterGoNativeServer(server GreeterNativeServer) (rpcruntime.AdapterSnapshot[GreeterNativeServer], error) {
+func RegisterGreeterGoNativeServer(server GreeterNativeServer) error {
 	if server == nil {
-		return rpcruntime.AdapterSnapshot[GreeterNativeServer]{}, errors.New("rpccgo: Greeter go native server is nil")
+		return errors.New("rpccgo: Greeter go native server is nil")
 	}
-	return registerGreeterActiveServer(rpcruntime.ServerKindGoNative, server)
+	return registerGreeterGoNativeServer(server)
 }

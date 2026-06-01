@@ -8,7 +8,7 @@ import (
 )
 
 func init() {
-	if _, err := greeterv1.RegisterGreeterGoNativeServer(backend.Greeter{}); err != nil {
+	if err := greeterv1.RegisterGreeterGoNativeServer(backend.Greeter{}); err != nil {
 		panic(err)
 	}
 }

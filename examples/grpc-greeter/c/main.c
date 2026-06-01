@@ -120,8 +120,8 @@ static void run_native_broadcast_demo(void) {
                    "native broadcast start error:");
   read_native_stream_message(handle, "broadcast[0]:stream", "native broadcast read 0 error:");
   read_native_stream_message(handle, "broadcast[1]:stream", "native broadcast read 1 error:");
-  assert_status_ok(rpccgo_native_greeterv1_Greeter_Broadcast_done(handle),
-                   "native broadcast done error:");
+  assert_status_ok(rpccgo_native_greeterv1_Greeter_Broadcast_finish(handle),
+                   "native broadcast finish error:");
 }
 
 static void run_native_chat_demo(void) {
@@ -150,8 +150,8 @@ static void run_native_chat_demo(void) {
   }
   assert_status_ok(rpccgo_native_greeterv1_Greeter_Chat_close_send(handle),
                    "native chat close send error:");
-  assert_status_ok(rpccgo_native_greeterv1_Greeter_Chat_done(handle),
-                   "native chat done error:");
+  assert_status_ok(rpccgo_native_greeterv1_Greeter_Chat_finish(handle),
+                   "native chat finish error:");
 }
 
 static void run_output_error_demo(void) {

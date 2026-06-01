@@ -20,9 +20,9 @@ func TestRunEmitsRuntimeGlue(t *testing.T) {
 	}
 
 	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", `rpcruntime "rpccgo/rpcruntime"`)
-	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "var greeterActiveSlot rpcruntime.ActiveServerSlot[any]")
-	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "var greeterStreamRegistry rpcruntime.StreamRegistry[*rpcruntime.StreamEntry]")
-	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "func RegisterGreeterConnectHandler(handler GreeterHandler) (rpcruntime.AdapterSnapshot[GreeterHandler], error)")
+	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "var greeterActiveServer atomic.Pointer[greeterActiveServerRecord]")
+	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "var greeterStreamRegistry rpcruntime.StreamRegistry")
+	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "func RegisterGreeterConnectHandler(handler GreeterHandler) error")
 }
 
 func TestRunEmitsMessageDirectPathForDefaultService(t *testing.T) {
@@ -35,7 +35,7 @@ func TestRunEmitsMessageDirectPathForDefaultService(t *testing.T) {
 	}
 
 	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go", "type GreeterCGOMessageServer interface {")
-	assertMainGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go", "//export rpccgo_msg_testv1_Greeter_SayHello_register")
+	assertMainGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go", "//export rpccgo_msg_testv1_Greeter_register")
 	assertMainGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go", "//export rpccgo_msg_testv1_Greeter_SayHello")
 }
 

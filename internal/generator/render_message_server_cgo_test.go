@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestRenderMessageServerCGODefinesFlatMethodRegistration(t *testing.T) {
+func TestRenderMessageServerCGODefinesFlatServiceRegistration(t *testing.T) {
 	file := messageCgoTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
@@ -46,22 +46,36 @@ func TestRenderMessageServerCGODefinesFlatMethodRegistration(t *testing.T) {
 		"decodeGreeterListCGOMessageResponseBytes",
 		"decodeGreeterChatCGOMessageResponseBytes",
 		"if err := protobuf.Unmarshal(resp, &v1.HelloReply{}); err != nil {",
-		"//export rpccgo_msg_testv1_Greeter_Unary_register",
-		"v1.RegisterGreeterCGOMessageServer(greeterCGOMessageServerAdapter)",
-		"func rpccgo_msg_testv1_Greeter_Unary_register(callback C.GreeterUnaryCGOMessageUnaryCallback) C.int32_t {",
+		"//export rpccgo_msg_testv1_Greeter_register",
+		"func rpccgo_msg_testv1_Greeter_register(unaryCallback C.GreeterUnaryCGOMessageUnaryCallback, uploadStart C.GreeterUploadCGOMessageClientStreamStartCallback, uploadSend C.GreeterUploadCGOMessageClientStreamSendCallback, uploadFinish C.GreeterUploadCGOMessageClientStreamFinishCallback, uploadCancel C.GreeterUploadCGOMessageClientStreamCancelCallback, listStart C.GreeterListCGOMessageServerStreamStartCallback, listRecv C.GreeterListCGOMessageServerStreamRecvCallback, listFinish C.GreeterListCGOMessageServerStreamFinishCallback, listCancel C.GreeterListCGOMessageServerStreamCancelCallback, chatStart C.GreeterChatCGOMessageBidiStreamStartCallback, chatSend C.GreeterChatCGOMessageBidiStreamSendCallback, chatRecv C.GreeterChatCGOMessageBidiStreamRecvCallback, chatCloseSend C.GreeterChatCGOMessageBidiStreamCloseSendCallback, chatFinish C.GreeterChatCGOMessageBidiStreamFinishCallback, chatCancel C.GreeterChatCGOMessageBidiStreamCancelCallback) C.int32_t {",
+		"next := &greeterCGOMessageAdapter{}",
+		"next.UnaryCallback = unaryCallback",
+		"next.ListFinish = listFinish",
+		"next.ChatFinish = chatFinish",
+		"if err := v1.RegisterGreeterCGOMessageServer(next); err != nil {",
+		"greeterCGOMessageServerAdapter = next",
 		"func greeterCGOMessageServerError(errID int32) error {",
 		"if ok {",
 	} {
 		assertGeneratedContentContains(t, plugin, cgoServerFile, fragment)
 	}
 
-	assertGeneratedFileContentDoesNotContain(t, plugin, cgoServerFile, "typedef struct GreeterCGOMessageServerCallbacks", "callbacks C.GreeterCGOMessageServerCallbacks", "func RegisterGreeterCGOMessageServer(")
+	assertGeneratedFileContentDoesNotContain(t, plugin, cgoServerFile,
+		"typedef struct GreeterCGOMessageServerCallbacks",
+		"callbacks C.GreeterCGOMessageServerCallbacks",
+		"rpccgo_msg_testv1_Greeter_Unary_register",
+	)
 
 	for _, file := range plugin.Response().GetFile() {
 		if file.GetName() != cgoServerFile {
 			continue
 		}
 		content := file.GetContent()
+		register := "if err := v1.RegisterGreeterCGOMessageServer(next); err != nil {"
+		commit := "greeterCGOMessageServerAdapter = next"
+		if registerIndex, commitIndex := strings.Index(content, register), strings.Index(content, commit); registerIndex < 0 || commitIndex < 0 || commitIndex < registerIndex {
+			t.Fatalf("generated registration side-effect order invalid: register index=%d commit index=%d", registerIndex, commitIndex)
+		}
 		closeSend := "errID := int32(C.callGreeterChatCGOMessageBidiStreamCloseSend(s.closeSend, C.int32_t(s.stream)))"
 		markClosed := "s.lifecycle.MarkSendClosed()"
 		if closeSendIndex, markClosedIndex := strings.Index(content, closeSend), strings.Index(content, markClosed); closeSendIndex < 0 || markClosedIndex < 0 || markClosedIndex < closeSendIndex {

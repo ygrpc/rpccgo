@@ -2,7 +2,7 @@ package generator
 
 import "testing"
 
-func TestBuildStreamingPlanAttachesRenderPlanToDescriptorPlan(t *testing.T) {
+func TestBuildStreamingPlanAttachesCapabilityProjectionFromDescriptor(t *testing.T) {
 	plugin := newTestPlugin(t, "paths=source_relative", streamingPlanTestFile())
 
 	plan, err := BuildDescriptorPlan(plugin.Files[0])
@@ -11,39 +11,36 @@ func TestBuildStreamingPlanAttachesRenderPlanToDescriptorPlan(t *testing.T) {
 	}
 
 	methods := methodsByName(t, plan.Services[0].Methods, "Unary", "ClientStream", "ServerStream", "BidiStream")
-	assertLifecycleOperations(t, methods["Unary"])
-	assertRenderSession(t, methods["Unary"], SessionKindNone)
-	assertRenderOperations(t, methods["Unary"])
-	assertLifecycleOperations(t, methods["ClientStream"], StreamLifecycleOperationStart, StreamLifecycleOperationSend, StreamLifecycleOperationFinish, StreamLifecycleOperationCancel)
-	assertLifecycleTerminal(t, methods["ClientStream"], LifecycleTerminalFinishResult)
-	assertRenderSession(t, methods["ClientStream"], SessionKindClient)
-	assertRenderOperations(t, methods["ClientStream"], SessionOperationStart, SessionOperationSend, SessionOperationFinish, SessionOperationCancel)
-	assertRenderTerminal(t, methods["ClientStream"], TerminalKindFinish, SessionOperationFinish)
-	assertLifecycleOperations(t, methods["ServerStream"], StreamLifecycleOperationStart, StreamLifecycleOperationReceive, StreamLifecycleOperationDone, StreamLifecycleOperationCancel)
-	assertLifecycleTerminal(t, methods["ServerStream"], LifecycleTerminalOnDone)
-	assertRenderSession(t, methods["ServerStream"], SessionKindServer)
-	assertRenderOperations(t, methods["ServerStream"], SessionOperationStart, SessionOperationReceive, SessionOperationDone, SessionOperationCancel)
-	assertRenderTerminal(t, methods["ServerStream"], TerminalKindDone, SessionOperationDone)
-	assertLifecycleOperations(t, methods["BidiStream"], StreamLifecycleOperationStart, StreamLifecycleOperationSend, StreamLifecycleOperationReceive, StreamLifecycleOperationCloseSend, StreamLifecycleOperationDone, StreamLifecycleOperationCancel)
-	assertLifecycleTerminal(t, methods["BidiStream"], LifecycleTerminalOnDone)
-	assertRenderSession(t, methods["BidiStream"], SessionKindBidi)
-	assertRenderOperations(t, methods["BidiStream"], SessionOperationStart, SessionOperationSend, SessionOperationReceive, SessionOperationCloseSend, SessionOperationDone, SessionOperationCancel)
-	assertRenderTerminal(t, methods["BidiStream"], TerminalKindDone, SessionOperationDone)
+	assertLifecycleCapabilities(t, methods["Unary"], StreamLifecycleContractPlan{})
+	assertLifecycleCapabilities(t, methods["ClientStream"], StreamLifecycleContractPlan{
+		CanSend:               true,
+		FinishReturnsResponse: true,
+	})
+	assertLifecycleCapabilities(t, methods["ServerStream"], StreamLifecycleContractPlan{
+		CanRecv: true,
+	})
+	assertLifecycleCapabilities(t, methods["BidiStream"], StreamLifecycleContractPlan{
+		CanSend:      true,
+		CanRecv:      true,
+		CanCloseSend: true,
+	})
 }
 
-func TestValidateMethodRenderPlanRejectsInvalidMatrix(t *testing.T) {
-	method := MethodPlan{
-		Name:      "Unary",
-		FullName:  "test.v1.Streamer.Unary",
-		Streaming: StreamingKindUnary,
-		RenderPlan: MethodRenderPlan{
-			Lifecycle: StreamLifecycleProjectionPlan{SessionKind: SessionKindClient, Operations: []SessionOperationPlan{{Kind: SessionOperationStart}}},
-			Symbols:   RenderSymbolsPlan{NativeAdapterMethod: "Unary", MessageAdapterMethod: "Unary"},
-			Errors:    RenderErrorsPlan{NativeServerUnavailableErr: "Native", MessageServerUnavailableErr: "Message", UnknownActiveContractErr: "Unknown", NativeMessageConverterErr: "Converter"},
-		},
+func TestValidateMethodRenderPlanRejectsCapabilityMismatch(t *testing.T) {
+	method := minimalStreamingMethod(StreamingKindClientStreaming)
+	method.Contract.Lifecycle = StreamLifecycleContractPlan{
+		CanSend:               true,
+		FinishReturnsResponse: true,
 	}
+	renderPlan, err := BuildMethodRenderPlan(method, "Streamer")
+	if err != nil {
+		t.Fatalf("BuildMethodRenderPlan() error = %v", err)
+	}
+	method.RenderPlan = renderPlan
+	method.RenderPlan.Lifecycle.FinishReturnsResponse = false
+
 	if err := ValidateMethodRenderPlan(method); err == nil {
-		t.Fatal("ValidateMethodRenderPlan() error = nil, want invalid render matrix error")
+		t.Fatal("ValidateMethodRenderPlan() error = nil, want lifecycle capability mismatch")
 	}
 }
 
@@ -60,12 +57,8 @@ func TestValidateMethodRenderPlanKeepsCodecInRenderInputs(t *testing.T) {
 	method.NeedsCodec = true
 	method.Contract.RenderInputs.NeedsCodec = true
 	method.Contract.Lifecycle = StreamLifecycleContractPlan{
-		Operations: []StreamLifecycleOperationPlan{
-			{Kind: StreamLifecycleOperationStart},
-			{Kind: StreamLifecycleOperationSend},
-			{Kind: StreamLifecycleOperationFinish},
-		},
-		TerminalKind: LifecycleTerminalFinishResult,
+		CanSend:               true,
+		FinishReturnsResponse: true,
 	}
 
 	renderPlan, err := BuildMethodRenderPlan(method, "Streamer")
@@ -82,7 +75,7 @@ func TestValidateMethodRenderPlanKeepsCodecInRenderInputs(t *testing.T) {
 	}
 }
 
-func TestValidateMethodContractPlanRejectsLifecyclePolicyMismatches(t *testing.T) {
+func TestValidateMethodContractPlanRejectsLifecycleCapabilityMismatches(t *testing.T) {
 	tests := []struct {
 		name      string
 		streaming StreamingKind
@@ -91,27 +84,22 @@ func TestValidateMethodContractPlanRejectsLifecyclePolicyMismatches(t *testing.T
 		{
 			name:      "unary lifecycle must be empty",
 			streaming: StreamingKindUnary,
-			lifecycle: StreamLifecycleContractPlan{Operations: []StreamLifecycleOperationPlan{{Kind: StreamLifecycleOperationStart}}},
+			lifecycle: StreamLifecycleContractPlan{CanRecv: true},
 		},
 		{
-			name:      "streaming lifecycle must have start",
+			name:      "client streaming finish returns response",
 			streaming: StreamingKindClientStreaming,
-			lifecycle: StreamLifecycleContractPlan{Operations: []StreamLifecycleOperationPlan{{Kind: StreamLifecycleOperationFinish}}, TerminalKind: LifecycleTerminalFinishResult},
+			lifecycle: StreamLifecycleContractPlan{CanSend: true},
 		},
 		{
-			name:      "client streaming must finish with result",
-			streaming: StreamingKindClientStreaming,
-			lifecycle: StreamLifecycleContractPlan{Operations: []StreamLifecycleOperationPlan{{Kind: StreamLifecycleOperationStart}, {Kind: StreamLifecycleOperationDone}}, TerminalKind: LifecycleTerminalOnDone},
-		},
-		{
-			name:      "server streaming must terminate on done",
+			name:      "server streaming cannot send",
 			streaming: StreamingKindServerStreaming,
-			lifecycle: StreamLifecycleContractPlan{Operations: []StreamLifecycleOperationPlan{{Kind: StreamLifecycleOperationStart}, {Kind: StreamLifecycleOperationFinish}}, TerminalKind: LifecycleTerminalFinishResult},
+			lifecycle: StreamLifecycleContractPlan{CanSend: true, CanRecv: true, CanCloseSend: true},
 		},
 		{
-			name:      "cancel operation must finalize",
-			streaming: StreamingKindServerStreaming,
-			lifecycle: StreamLifecycleContractPlan{Operations: []StreamLifecycleOperationPlan{{Kind: StreamLifecycleOperationStart}, {Kind: StreamLifecycleOperationReceive}, {Kind: StreamLifecycleOperationDone}, {Kind: StreamLifecycleOperationCancel}}, TerminalKind: LifecycleTerminalOnDone},
+			name:      "bidi streaming can close send",
+			streaming: StreamingKindBidiStreaming,
+			lifecycle: StreamLifecycleContractPlan{CanSend: true, CanRecv: true},
 		},
 	}
 
@@ -120,32 +108,30 @@ func TestValidateMethodContractPlanRejectsLifecyclePolicyMismatches(t *testing.T
 			method := minimalStreamingMethod(tt.streaming)
 			method.Contract.Lifecycle = tt.lifecycle
 			if err := ValidateMethodContractPlan(method); err == nil {
-				t.Fatal("ValidateMethodContractPlan() error = nil, want lifecycle policy error")
+				t.Fatal("ValidateMethodContractPlan() error = nil, want lifecycle capability mismatch")
 			}
 		})
 	}
 }
 
-func assertLifecycleOperations(t *testing.T, method MethodPlan, want ...StreamLifecycleOperationKind) {
+func assertLifecycleCapabilities(t *testing.T, method MethodPlan, want StreamLifecycleContractPlan) {
 	t.Helper()
-	got := method.Contract.Lifecycle.Operations
-	if len(got) != len(want) {
-		t.Fatalf("%s lifecycle operations = %d, want %d: %#v", method.Name, len(got), len(want), got)
+	if method.Contract.Lifecycle != want {
+		t.Fatalf("%s lifecycle = %+v, want %+v", method.Name, method.Contract.Lifecycle, want)
 	}
-	for i, op := range got {
-		if op.Kind != want[i] {
-			t.Fatalf("%s lifecycle operation[%d] = %#v, want %q", method.Name, i, op, want[i])
-		}
-		if !method.Contract.Lifecycle.HasOperation(want[i]) {
-			t.Fatalf("%s lifecycle HasOperation(%q) = false", method.Name, want[i])
-		}
+	wantProjection := StreamLifecycleProjectionPlan{
+		Streaming:             !want.IsZero(),
+		CanSend:               want.CanSend,
+		CanRecv:               want.CanRecv,
+		CanCloseSend:          want.CanCloseSend,
+		FinishReturnsResponse: want.FinishReturnsResponse,
+		RequiresCodec:         method.Contract.RenderInputs.NeedsCodec,
 	}
-}
-
-func assertLifecycleTerminal(t *testing.T, method MethodPlan, want LifecycleTerminalKind) {
-	t.Helper()
-	if method.Contract.Lifecycle.TerminalKind != want || !method.Contract.Lifecycle.CancelFinalizes {
-		t.Fatalf("%s lifecycle terminal = %#v, want terminal %q with cancel finalizes", method.Name, method.Contract.Lifecycle, want)
+	if method.RenderPlan.Lifecycle != wantProjection {
+		t.Fatalf("%s render lifecycle = %+v, want %+v", method.Name, method.RenderPlan.Lifecycle, wantProjection)
+	}
+	if err := ValidateMethodRenderPlan(method); err != nil {
+		t.Fatalf("%s ValidateMethodRenderPlan() error = %v", method.Name, err)
 	}
 }
 
@@ -162,37 +148,6 @@ func minimalStreamingMethod(streaming StreamingKind) MethodPlan {
 	method.Contract.Message.ResponseType = method.Response
 	method.Contract.RenderInputs.NeedsCodec = method.NeedsCodec
 	return method
-}
-
-func assertRenderSession(t *testing.T, method MethodPlan, want SessionKind) {
-	t.Helper()
-	if method.RenderPlan.Lifecycle.SessionKind != want {
-		t.Fatalf("%s Session.Kind = %q, want %q", method.Name, method.RenderPlan.Lifecycle.SessionKind, want)
-	}
-	if err := ValidateMethodRenderPlan(method); err != nil {
-		t.Fatalf("%s ValidateMethodRenderPlan() error = %v", method.Name, err)
-	}
-}
-
-func assertRenderOperations(t *testing.T, method MethodPlan, want ...SessionOperationKind) {
-	t.Helper()
-	got := method.RenderPlan.Lifecycle.Operations
-	if len(got) != len(want) {
-		t.Fatalf("%s operations = %d, want %d: %#v", method.Name, len(got), len(want), got)
-	}
-	for i, op := range got {
-		if op.Kind != want[i] {
-			t.Fatalf("%s operation[%d] = %#v, want %q", method.Name, i, op, want[i])
-		}
-	}
-}
-
-func assertRenderTerminal(t *testing.T, method MethodPlan, wantKind TerminalKind, wantOperation SessionOperationKind) {
-	t.Helper()
-	terminal := method.RenderPlan.Lifecycle.Terminal
-	if terminal.Kind != wantKind || terminal.Operation != wantOperation || !terminal.ReleasesHandle {
-		t.Fatalf("%s terminal = %#v, want kind %q operation %q releasing handle", method.Name, terminal, wantKind, wantOperation)
-	}
 }
 
 func methodsByName(t *testing.T, methods []MethodPlan, wantNames ...string) map[string]MethodPlan {

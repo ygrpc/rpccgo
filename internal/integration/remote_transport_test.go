@@ -207,7 +207,7 @@ func main() {
 	flag.Parse()
 
 	if *cancelObserver {
-		if _, err := remotev1.RegisterGreeterGoNativeServer(cancelObserverGreeter{signalFile: *cancelSignalFile}); err != nil {
+		if err := remotev1.RegisterGreeterGoNativeServer(cancelObserverGreeter{signalFile: *cancelSignalFile}); err != nil {
 			panic(err)
 		}
 	} else {
@@ -597,12 +597,8 @@ func registerConnectRemote(t *testing.T, remote remoteTransportProcess) {
 	t.Helper()
 	localv1.ResetGreeterDispatcherForIntegrationTest()
 	client := localv1.NewGreeterClient(http.DefaultClient, "http://"+remote.addr)
-	snapshot, err := localv1.RegisterGreeterConnectRemoteServer(client)
-	if err != nil {
+	if err := localv1.RegisterGreeterConnectRemoteServer(client); err != nil {
 		t.Fatalf("RegisterGreeterConnectRemoteServer() error = %v", err)
-	}
-	if snapshot.Kind != rpcruntime.ServerKindConnectRemote || snapshot.Contract != rpcruntime.ServerContractMessage || snapshot.Adapter != client {
-		t.Fatalf("RegisterGreeterConnectRemoteServer() snapshot = %#v, want connect remote message client snapshot", snapshot)
 	}
 }
 
