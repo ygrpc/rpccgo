@@ -6,7 +6,7 @@ write cgo like rpc
 
 rpccgo 把 C/FFI 调用接入 Go、Connect 或 gRPC 服务，并在 native 字段 ABI 与 protobuf message ABI 之间做转换。
 
-完整设计见 [rpccgo Modular Dispatcher Architecture](docs/specs/2026-04-27-rpccgo-modular-dispatcher-architecture.md)。
+完整设计见 [rpccgo Service-local Active Server Architecture](docs/specs/2026-04-27-rpccgo-service-local-active-server-architecture.md)。
 
 ## 发布前验证
 
@@ -20,9 +20,9 @@ gRPC remote client active server 依赖 `protoc-gen-go-grpc` 生成的泛型 ser
 
 connect 和 gRPC 不能在同一个 protobuf Go package 中同时按当前合同生成。按项目要求，connect-go 使用同包 simple client，grpc-go 也在同包生成 `GreeterClient`、`NewGreeterClient` 等符号；两者同时生成会发生 Go 符号重声明。因此当前 parser 会拒绝同时选择 `msg-connect` 和 `msg-grpc`。
 
-不需要也不支持 `@remote` 注释。`Register<Service>ConnectRemoteServer` 和 `Register<Service>GRPCRemoteServer` 保留现有命名，但它们直接注册标准 connect/gRPC client，并返回 client-typed snapshot。`ServerKindConnectRemote` 和 `ServerKindGRPCRemote` 保留为独立 active server kind；generated runtime 在这些 kind 下直接调用 client 的 unary/streaming 方法，并在 runtime 文件中生成所需 streaming session wrapper，不再生成独立的 `remote.connect.rpccgo.go` 或 `remote.grpc.rpccgo.go` adapter 文件。
+不需要也不支持 `@remote` 注释。`Register<Service>ConnectRemoteServer` 和 `Register<Service>GRPCRemoteServer` 保留现有命名，但它们接收标准 connect/gRPC client，归一化为 immutable active server record，并返回 `error`。generated runtime 在注册阶段组装 unary/streaming closure，不再生成独立的 `remote.connect.rpccgo.go` 或 `remote.grpc.rpccgo.go` adapter 文件。
 
-生成文件按 service 拆分为 `<proto-prefix>.<service>.<role>[.<contract|transport>].rpccgo.go`；cgo 文件输出到 `cgo_dir` 且使用 `package main`，native/message contract token 显式写入文件名，例如 `.client.native.cgo.rpccgo.go` 与 `.client.message.cgo.rpccgo.go`。完整布局见 [rpccgo Modular Dispatcher Architecture](docs/specs/2026-04-27-rpccgo-modular-dispatcher-architecture.md) 的“生成物布局”章节。
+生成文件按 service 拆分为 `<proto-prefix>.<service>.<role>[.<contract|transport>].rpccgo.go`；cgo 文件输出到 `cgo_dir` 且使用 `package main`，native/message contract token 显式写入文件名，例如 `.client.native.cgo.rpccgo.go` 与 `.client.message.cgo.rpccgo.go`。完整布局见 [rpccgo Service-local Active Server Architecture](docs/specs/2026-04-27-rpccgo-service-local-active-server-architecture.md) 的“生成物布局”章节。
 
 ## Examples
 
