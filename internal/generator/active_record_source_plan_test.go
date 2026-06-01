@@ -10,11 +10,11 @@ func TestActiveRecordSourcesForConnectNativeService(t *testing.T) {
 
 	got := activeRecordSourcesForService(service)
 	want := []ActiveRecordSourcePlan{
-		activeRecordSourceTestPlan(ActiveRecordOriginGo, ActiveRecordContractNative, ActiveRecordTransportNone, ActiveRecordModeLocal, ActiveRecordRendererNative, false, "server", "go native", "registerGreeterGoNativeServer", "server", "GreeterNativeServer", "GreeterNativeServerUnavailableErr"),
-		activeRecordSourceTestPlan(ActiveRecordOriginCGO, ActiveRecordContractNative, ActiveRecordTransportNone, ActiveRecordModeLocal, ActiveRecordRendererNative, true, "server", "cgo native", "RegisterGreeterCGONativeServer", "server", "GreeterNativeServer", "GreeterNativeServerUnavailableErr"),
-		activeRecordSourceTestPlan(ActiveRecordOriginCGO, ActiveRecordContractMessage, ActiveRecordTransportNone, ActiveRecordModeLocal, ActiveRecordRendererMessage, false, "server", "cgo message", "registerGreeterCGOMessageServer", "server", "GreeterCGOMessageServer", "GreeterMessageServerUnavailableErr"),
-		activeRecordSourceTestPlan(ActiveRecordOriginGo, ActiveRecordContractTransportMessage, ActiveRecordTransportConnect, ActiveRecordModeLocal, ActiveRecordRendererTransportMessage, false, "handler", "connect handler", "RegisterGreeterConnectHandler", "handler", "GreeterHandler", "GreeterMessageServerUnavailableErr"),
-		activeRecordSourceTestPlan(ActiveRecordOriginGo, ActiveRecordContractTransportMessage, ActiveRecordTransportConnect, ActiveRecordModeRemote, ActiveRecordRendererTransportMessage, false, "client", "connect remote", "RegisterGreeterConnectRemoteServer", "client", "GreeterClient", "GreeterMessageServerUnavailableErr"),
+		activeRecordSourceTestPlan(ActiveRecordOriginGo, ActiveRecordTransportNone, ActiveRecordModeLocal, ActiveRecordRendererNative, false, "server", "go native", "registerGreeterGoNativeServer", "server", "GreeterNativeServer", "GreeterNativeServerUnavailableErr"),
+		activeRecordSourceTestPlan(ActiveRecordOriginCGO, ActiveRecordTransportNone, ActiveRecordModeLocal, ActiveRecordRendererNative, true, "server", "cgo native", "RegisterGreeterCGONativeServer", "server", "GreeterNativeServer", "GreeterNativeServerUnavailableErr"),
+		activeRecordSourceTestPlan(ActiveRecordOriginCGO, ActiveRecordTransportNone, ActiveRecordModeLocal, ActiveRecordRendererMessage, false, "server", "cgo message", "registerGreeterCGOMessageServer", "server", "GreeterCGOMessageServer", "GreeterMessageServerUnavailableErr"),
+		activeRecordSourceTestPlan(ActiveRecordOriginGo, ActiveRecordTransportConnect, ActiveRecordModeLocal, ActiveRecordRendererTransportMessage, false, "handler", "connect handler", "RegisterGreeterConnectHandler", "handler", "GreeterHandler", "GreeterMessageServerUnavailableErr"),
+		activeRecordSourceTestPlan(ActiveRecordOriginGo, ActiveRecordTransportConnect, ActiveRecordModeRemote, ActiveRecordRendererTransportMessage, false, "client", "connect remote", "RegisterGreeterConnectRemoteServer", "client", "GreeterClient", "GreeterMessageServerUnavailableErr"),
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("activeRecordSourcesForService() = %#v, want %#v", got, want)
@@ -26,11 +26,11 @@ func TestActiveRecordSourcesForGRPCNativeService(t *testing.T) {
 
 	got := activeRecordSourcesForService(service)
 	want := []ActiveRecordSourcePlan{
-		activeRecordSourceTestPlan(ActiveRecordOriginGo, ActiveRecordContractNative, ActiveRecordTransportNone, ActiveRecordModeLocal, ActiveRecordRendererNative, false, "server", "go native", "registerGreeterGoNativeServer", "server", "GreeterNativeServer", "GreeterNativeServerUnavailableErr"),
-		activeRecordSourceTestPlan(ActiveRecordOriginCGO, ActiveRecordContractNative, ActiveRecordTransportNone, ActiveRecordModeLocal, ActiveRecordRendererNative, true, "server", "cgo native", "RegisterGreeterCGONativeServer", "server", "GreeterNativeServer", "GreeterNativeServerUnavailableErr"),
-		activeRecordSourceTestPlan(ActiveRecordOriginCGO, ActiveRecordContractMessage, ActiveRecordTransportNone, ActiveRecordModeLocal, ActiveRecordRendererMessage, false, "server", "cgo message", "registerGreeterCGOMessageServer", "server", "GreeterCGOMessageServer", "GreeterMessageServerUnavailableErr"),
-		activeRecordSourceTestPlan(ActiveRecordOriginGo, ActiveRecordContractTransportMessage, ActiveRecordTransportGRPC, ActiveRecordModeLocal, ActiveRecordRendererTransportMessage, false, "server", "grpc server", "RegisterGreeterGRPCServer", "server", "GreeterServer", "GreeterMessageServerUnavailableErr"),
-		activeRecordSourceTestPlan(ActiveRecordOriginGo, ActiveRecordContractTransportMessage, ActiveRecordTransportGRPC, ActiveRecordModeRemote, ActiveRecordRendererTransportMessage, false, "client", "grpc remote", "RegisterGreeterGRPCRemoteServer", "client", "GreeterClient", "GreeterMessageServerUnavailableErr"),
+		activeRecordSourceTestPlan(ActiveRecordOriginGo, ActiveRecordTransportNone, ActiveRecordModeLocal, ActiveRecordRendererNative, false, "server", "go native", "registerGreeterGoNativeServer", "server", "GreeterNativeServer", "GreeterNativeServerUnavailableErr"),
+		activeRecordSourceTestPlan(ActiveRecordOriginCGO, ActiveRecordTransportNone, ActiveRecordModeLocal, ActiveRecordRendererNative, true, "server", "cgo native", "RegisterGreeterCGONativeServer", "server", "GreeterNativeServer", "GreeterNativeServerUnavailableErr"),
+		activeRecordSourceTestPlan(ActiveRecordOriginCGO, ActiveRecordTransportNone, ActiveRecordModeLocal, ActiveRecordRendererMessage, false, "server", "cgo message", "registerGreeterCGOMessageServer", "server", "GreeterCGOMessageServer", "GreeterMessageServerUnavailableErr"),
+		activeRecordSourceTestPlan(ActiveRecordOriginGo, ActiveRecordTransportGRPC, ActiveRecordModeLocal, ActiveRecordRendererTransportMessage, false, "server", "grpc server", "RegisterGreeterGRPCServer", "server", "GreeterServer", "GreeterMessageServerUnavailableErr"),
+		activeRecordSourceTestPlan(ActiveRecordOriginGo, ActiveRecordTransportGRPC, ActiveRecordModeRemote, ActiveRecordRendererTransportMessage, false, "client", "grpc remote", "RegisterGreeterGRPCRemoteServer", "client", "GreeterClient", "GreeterMessageServerUnavailableErr"),
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("activeRecordSourcesForService() = %#v, want %#v", got, want)
@@ -74,10 +74,9 @@ func activeRecordSourceTestService(name string, tokens ...AdapterToken) ServiceP
 	}
 }
 
-func activeRecordSourceTestPlan(origin ActiveRecordOrigin, contract ActiveRecordContract, transport ActiveRecordTransport, mode ActiveRecordMode, renderer ActiveRecordRenderer, aliasGoNative bool, sourceExpr, label, registerName, inputName, inputType, nilErr string) ActiveRecordSourcePlan {
+func activeRecordSourceTestPlan(origin ActiveRecordOrigin, transport ActiveRecordTransport, mode ActiveRecordMode, renderer ActiveRecordRenderer, aliasGoNative bool, sourceExpr, label, registerName, inputName, inputType, nilErr string) ActiveRecordSourcePlan {
 	return ActiveRecordSourcePlan{
 		Origin:                    origin,
-		Contract:                  contract,
 		Transport:                 transport,
 		Mode:                      mode,
 		RecordRenderer:            renderer,

@@ -7,14 +7,6 @@ const (
 	ActiveRecordOriginCGO ActiveRecordOrigin = "cgo"
 )
 
-type ActiveRecordContract string
-
-const (
-	ActiveRecordContractNative           ActiveRecordContract = "native"
-	ActiveRecordContractMessage          ActiveRecordContract = "message"
-	ActiveRecordContractTransportMessage ActiveRecordContract = "transport_message"
-)
-
 type ActiveRecordTransport string
 
 const (
@@ -40,7 +32,6 @@ const (
 
 type ActiveRecordSourcePlan struct {
 	Origin    ActiveRecordOrigin
-	Contract  ActiveRecordContract
 	Transport ActiveRecordTransport
 	Mode      ActiveRecordMode
 
@@ -63,7 +54,6 @@ func activeRecordSourcesForService(service ServicePlan) []ActiveRecordSourcePlan
 	sources := []ActiveRecordSourcePlan{
 		{
 			Origin:         ActiveRecordOriginGo,
-			Contract:       ActiveRecordContractNative,
 			Transport:      ActiveRecordTransportNone,
 			Mode:           ActiveRecordModeLocal,
 			RecordRenderer: ActiveRecordRendererNative,
@@ -76,7 +66,6 @@ func activeRecordSourcesForService(service ServicePlan) []ActiveRecordSourcePlan
 		},
 		{
 			Origin:                    ActiveRecordOriginCGO,
-			Contract:                  ActiveRecordContractNative,
 			Transport:                 ActiveRecordTransportNone,
 			Mode:                      ActiveRecordModeLocal,
 			RecordRenderer:            ActiveRecordRendererNative,
@@ -90,7 +79,6 @@ func activeRecordSourcesForService(service ServicePlan) []ActiveRecordSourcePlan
 		},
 		{
 			Origin:         ActiveRecordOriginCGO,
-			Contract:       ActiveRecordContractMessage,
 			Transport:      ActiveRecordTransportNone,
 			Mode:           ActiveRecordModeLocal,
 			RecordRenderer: ActiveRecordRendererMessage,
@@ -107,7 +95,6 @@ func activeRecordSourcesForService(service ServicePlan) []ActiveRecordSourcePlan
 		sources = append(sources,
 			ActiveRecordSourcePlan{
 				Origin:         ActiveRecordOriginGo,
-				Contract:       ActiveRecordContractTransportMessage,
 				Transport:      ActiveRecordTransportConnect,
 				Mode:           ActiveRecordModeLocal,
 				RecordRenderer: ActiveRecordRendererTransportMessage,
@@ -120,7 +107,6 @@ func activeRecordSourcesForService(service ServicePlan) []ActiveRecordSourcePlan
 			},
 			ActiveRecordSourcePlan{
 				Origin:         ActiveRecordOriginGo,
-				Contract:       ActiveRecordContractTransportMessage,
 				Transport:      ActiveRecordTransportConnect,
 				Mode:           ActiveRecordModeRemote,
 				RecordRenderer: ActiveRecordRendererTransportMessage,
@@ -138,7 +124,6 @@ func activeRecordSourcesForService(service ServicePlan) []ActiveRecordSourcePlan
 		sources = append(sources,
 			ActiveRecordSourcePlan{
 				Origin:         ActiveRecordOriginGo,
-				Contract:       ActiveRecordContractTransportMessage,
 				Transport:      ActiveRecordTransportGRPC,
 				Mode:           ActiveRecordModeLocal,
 				RecordRenderer: ActiveRecordRendererTransportMessage,
@@ -151,7 +136,6 @@ func activeRecordSourcesForService(service ServicePlan) []ActiveRecordSourcePlan
 			},
 			ActiveRecordSourcePlan{
 				Origin:         ActiveRecordOriginGo,
-				Contract:       ActiveRecordContractTransportMessage,
 				Transport:      ActiveRecordTransportGRPC,
 				Mode:           ActiveRecordModeRemote,
 				RecordRenderer: ActiveRecordRendererTransportMessage,
