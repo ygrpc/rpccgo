@@ -88,7 +88,7 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P("var ", service.GoName, `NativeMessageConverterUnavailableErr = errors.New("rpccgo: native/message converter is not enabled")`)
 	g.P()
 
-	renderRuntimeRegistrations(g, service, adapterName, messageAdapterName, runtimeMethods, codecEnabled, activeName)
+	renderRuntimeRegistrations(g, service, runtimeMethods, codecEnabled, activeName)
 	renderRuntimeTransportMessageSessions(g, service, streamingMethods)
 	renderRuntimeEntrypoints(g, service.GoName, adapterName, activeName, streamRegistryName, runtimeMethods)
 
