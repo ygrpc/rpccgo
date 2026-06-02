@@ -66,7 +66,7 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"func RegisterGreeterGoNativeServer(server GreeterNativeServer) error {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.codec.rpccgo.go",
-		"func withGreeterSayHelloMessageToNativeRequest(data []byte, fn func(",
+		"func convertGreeterSayHelloMessageToNativeRequest(data []byte) (*greeterSayHelloNativeRequestView, error) {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go",
 		"func RegisterGreeterConnectRemoteServer(client GreeterClient) error {",

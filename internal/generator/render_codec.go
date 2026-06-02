@@ -28,7 +28,6 @@ func renderCodecFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan
 	g.P("import (")
 	g.P(`errors "errors"`)
 	g.P(`fmt "fmt"`)
-	g.P(`goruntime "runtime"`)
 	if codecNeedsRuntime(service) {
 		g.P(`rpcruntime "rpccgo/rpcruntime"`)
 	}
@@ -68,11 +67,10 @@ func renderCodecMethodStubs(g *protogen.GeneratedFile, service ServicePlan, meth
 	responseType := nativeRuntimeMessageType(g, method.Response)
 
 	renderCodecMessageToNativeRequestFunction(g,
-		codecMessageToNativeRequestName(service, method),
+		service,
+		method,
 		requestType,
-		nativeGoRequestParams(g, method.Contract.Native.RequestFields),
 		method.Contract.Native.RequestFields,
-		nativeGoResponseValueNames(method.Contract.Native.RequestFields),
 	)
 	renderCodecNativeToMessageFunction(g,
 		codecNativeRequestToMessageName(service, method),
@@ -101,110 +99,92 @@ func renderCodecMethodStubs(g *protogen.GeneratedFile, service ServicePlan, meth
 	)
 }
 
-func renderCodecMessageToNativeRequestFunction(g *protogen.GeneratedFile, name, messageType, nativeArgs string, fields []FieldPlan, argNames string) {
-	g.P("func ", name, "(data []byte, fn func(", strings.TrimPrefix(nativeArgs, ", "), ") error) error {")
-	g.P("var msg ", strings.TrimPrefix(messageType, "*"))
-	g.P("if err := proto.Unmarshal(data, &msg); err != nil {")
-	g.P("return err")
-	g.P("}")
-	renderCodecMessageToNativeRequestValues(g, fields, "msg", argNames, "")
-	g.P("err := fn(", argNames, ")")
-	g.P("goruntime.KeepAlive(&msg)")
-	for _, owner := range codecMessageToNativeRequestRawOwners(fields) {
-		g.P("goruntime.KeepAlive(", owner, ")")
+func renderCodecMessageToNativeRequestFunction(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, messageType string, fields []FieldPlan) {
+	viewName := codecNativeRequestViewName(service, method)
+	g.P("type ", viewName, " struct {")
+	g.P("msg ", strings.TrimPrefix(messageType, "*"))
+	for _, field := range fields {
+		if field.Repeated && field.Kind == FieldKindBool {
+			g.P(lowerInitial(field.GoName), "Raw []byte")
+		}
+		if field.Repeated && field.Kind == FieldKindEnum {
+			g.P(lowerInitial(field.GoName), "Raw []int32")
+		}
+		g.P(lowerInitial(field.GoName), " ", nativeGoRequestFieldType(g, field))
 	}
-	g.P("return err")
+	g.P("}")
+	g.P()
+	g.P("func ", codecMessageToNativeRequestName(service, method), "(data []byte) (*", viewName, ", error) {")
+	g.P("view := &", viewName, "{}")
+	g.P("if err := proto.Unmarshal(data, &view.msg); err != nil {")
+	g.P("return nil, err")
+	g.P("}")
+	renderCodecMessageToNativeRequestViewValues(g, fields, "view")
+	g.P("return view, nil")
 	g.P("}")
 	g.P()
 }
 
-func renderCodecMessageToNativeFunction(g *protogen.GeneratedFile, name, messageType, nativeReturns, errZero string, fields []FieldPlan, returnNames string, renderValues func(*protogen.GeneratedFile, []FieldPlan, string, string, string)) {
-	g.P("func ", name, "(data []byte) (", nativeReturns, ") {")
-	g.P("var msg ", strings.TrimPrefix(messageType, "*"))
-	g.P("if err := proto.Unmarshal(data, &msg); err != nil {")
-	g.P("return ", errZero)
-	g.P("}")
-	renderValues(g, fields, "msg", returnNames, errZero)
-	g.P("}")
-	g.P()
-}
-
-func renderCodecNativeToMessageFunction(g *protogen.GeneratedFile, name, messageType, nativeArgs string, fields []FieldPlan, label string, renderValues func(*protogen.GeneratedFile, []FieldPlan, string)) {
-	g.P("func ", name, "(", strings.TrimPrefix(nativeArgs, ", "), ") ([]byte, error) {")
-	g.P("msg := &", strings.TrimPrefix(messageType, "*"), "{}")
-	renderValues(g, fields, "msg")
-	g.P("data, err := proto.Marshal(msg)")
-	g.P("if err != nil {")
-	g.P(`return nil, fmt.Errorf("rpccgo: native `, label, ` protobuf marshal failed: %w", err)`)
-	g.P("}")
-	g.P("return data, nil")
-	g.P("}")
-	g.P()
-}
-
-func renderCodecMessageToNativeRequestValues(g *protogen.GeneratedFile, fields []FieldPlan, msgName, _, _ string) {
+func renderCodecMessageToNativeRequestViewValues(g *protogen.GeneratedFile, fields []FieldPlan, viewName string) {
 	if codecRequestNeedsOwner(fields) {
-		g.P("msgOwner := &", msgName)
+		g.P("msgOwner := ", viewName)
 	}
 	for _, field := range fields {
-		name := lowerInitial(field.GoName)
+		name := viewName + "." + lowerInitial(field.GoName)
+		msgField := viewName + ".msg." + field.GoName
+		rawName := viewName + "." + lowerInitial(field.GoName) + "Raw"
 		switch field.Kind {
 		case FieldKindString:
-			g.P("var ", name, " *rpcruntime.RpcString")
-			g.P("if ", msgName, ".", field.GoName, " != \"\" {")
-			g.P(name, " = rpcruntime.NewRpcStringView(unsafe.StringData(", msgName, ".", field.GoName, "), int32(len(", msgName, ".", field.GoName, ")), msgOwner)")
+			g.P("if ", msgField, " != \"\" {")
+			g.P(name, " = rpcruntime.NewRpcStringView(unsafe.StringData(", msgField, "), int32(len(", msgField, ")), msgOwner)")
 			g.P("} else {")
 			g.P(name, " = rpcruntime.EmptyRpcString()")
 			g.P("}")
 		case FieldKindBytes, FieldKindMessage:
-			g.P("var ", name, " *rpcruntime.RpcBytes")
-			g.P("if len(", msgName, ".", field.GoName, ") > 0 {")
-			g.P(name, " = rpcruntime.NewRpcBytesView(unsafe.SliceData(", msgName, ".", field.GoName, "), int32(len(", msgName, ".", field.GoName, ")), msgOwner)")
+			g.P("if len(", msgField, ") > 0 {")
+			g.P(name, " = rpcruntime.NewRpcBytesView(unsafe.SliceData(", msgField, "), int32(len(", msgField, ")), msgOwner)")
 			g.P("} else {")
 			g.P(name, " = rpcruntime.EmptyRpcBytes()")
 			g.P("}")
 		case FieldKindBool:
 			if field.Repeated {
-				g.P(name, "Raw := make([]byte, len(", msgName, ".", field.GoName, "))")
-				g.P("for i := range ", msgName, ".", field.GoName, " {")
-				g.P("if ", msgName, ".", field.GoName, "[i] {")
-				g.P(name, "Raw[i] = 1")
+				g.P(rawName, " = make([]byte, len(", msgField, "))")
+				g.P("for i := range ", msgField, " {")
+				g.P("if ", msgField, "[i] {")
+				g.P(rawName, "[i] = 1")
 				g.P("}")
 				g.P("}")
-				g.P("var ", name, " *rpcruntime.RpcBoolRepeat")
-				g.P("if len(", name, "Raw) > 0 {")
-				g.P(name, " = rpcruntime.NewRpcBoolRepeatView(unsafe.SliceData(", name, "Raw), int32(len(", name, "Raw)), ", name, "Raw)")
+				g.P("if len(", rawName, ") > 0 {")
+				g.P(name, " = rpcruntime.NewRpcBoolRepeatView(unsafe.SliceData(", rawName, "), int32(len(", rawName, ")), msgOwner)")
 				g.P("} else {")
 				g.P(name, " = rpcruntime.EmptyRpcBoolRepeat()")
 				g.P("}")
 			} else {
-				g.P(name, " := ", msgName, ".", field.GoName)
+				g.P(name, " = ", msgField)
 			}
 		case FieldKindEnum:
 			if field.Repeated {
-				g.P(name, "Raw := make([]int32, len(", msgName, ".", field.GoName, "))")
-				g.P("for i := range ", msgName, ".", field.GoName, " {")
-				g.P(name, "Raw[i] = int32(", msgName, ".", field.GoName, "[i])")
+				g.P(rawName, " = make([]int32, len(", msgField, "))")
+				g.P("for i := range ", msgField, " {")
+				g.P(rawName, "[i] = int32(", msgField, "[i])")
 				g.P("}")
-				g.P("var ", name, " *rpcruntime.RpcRepeat[int32]")
-				g.P("if len(", name, "Raw) > 0 {")
-				g.P(name, " = rpcruntime.NewRpcRepeatView[int32](unsafe.SliceData(", name, "Raw), int32(len(", name, "Raw)), ", name, "Raw)")
+				g.P("if len(", rawName, ") > 0 {")
+				g.P(name, " = rpcruntime.NewRpcRepeatView[int32](unsafe.SliceData(", rawName, "), int32(len(", rawName, ")), msgOwner)")
 				g.P("} else {")
 				g.P(name, " = rpcruntime.EmptyRpcRepeat[int32]()")
 				g.P("}")
 			} else {
-				g.P(name, " := ", msgName, ".", field.GoName)
+				g.P(name, " = ", msgField)
 			}
 		default:
 			if field.Repeated {
-				g.P("var ", name, " *rpcruntime.RpcRepeat[", nativeGoScalarType(g, field), "]")
-				g.P("if len(", msgName, ".", field.GoName, ") > 0 {")
-				g.P(name, " = rpcruntime.NewRpcRepeatView[", nativeGoScalarType(g, field), "](unsafe.SliceData(", msgName, ".", field.GoName, "), int32(len(", msgName, ".", field.GoName, ")), msgOwner)")
+				g.P("if len(", msgField, ") > 0 {")
+				g.P(name, " = rpcruntime.NewRpcRepeatView[", nativeGoRequestRepeatElemType(g, field), "](unsafe.SliceData(", msgField, "), int32(len(", msgField, ")), msgOwner)")
 				g.P("} else {")
-				g.P(name, " = rpcruntime.EmptyRpcRepeat[", nativeGoScalarType(g, field), "]()")
+				g.P(name, " = rpcruntime.EmptyRpcRepeat[", nativeGoRequestRepeatElemType(g, field), "]()")
 				g.P("}")
 			} else {
-				g.P(name, " := ", msgName, ".", field.GoName)
+				g.P(name, " = ", msgField)
 			}
 		}
 	}
@@ -217,16 +197,6 @@ func codecRequestNeedsOwner(fields []FieldPlan) bool {
 		}
 	}
 	return false
-}
-
-func codecMessageToNativeRequestRawOwners(fields []FieldPlan) []string {
-	var owners []string
-	for _, field := range fields {
-		if field.Repeated && (field.Kind == FieldKindBool || field.Kind == FieldKindEnum) {
-			owners = append(owners, lowerInitial(field.GoName)+"Raw")
-		}
-	}
-	return owners
 }
 
 func renderCodecMessageToNativeValues(g *protogen.GeneratedFile, fields []FieldPlan, msgName, returnNames, _ string) {
@@ -315,8 +285,36 @@ func renderCodecNativeRequestValuesToMessage(g *protogen.GeneratedFile, fields [
 	}
 }
 
+func renderCodecMessageToNativeFunction(g *protogen.GeneratedFile, name, messageType, nativeReturns, errZero string, fields []FieldPlan, returnNames string, renderValues func(*protogen.GeneratedFile, []FieldPlan, string, string, string)) {
+	g.P("func ", name, "(data []byte) (", nativeReturns, ") {")
+	g.P("var msg ", strings.TrimPrefix(messageType, "*"))
+	g.P("if err := proto.Unmarshal(data, &msg); err != nil {")
+	g.P("return ", errZero)
+	g.P("}")
+	renderValues(g, fields, "msg", returnNames, errZero)
+	g.P("}")
+	g.P()
+}
+
+func renderCodecNativeToMessageFunction(g *protogen.GeneratedFile, name, messageType, nativeArgs string, fields []FieldPlan, label string, renderValues func(*protogen.GeneratedFile, []FieldPlan, string)) {
+	g.P("func ", name, "(", strings.TrimPrefix(nativeArgs, ", "), ") ([]byte, error) {")
+	g.P("msg := &", strings.TrimPrefix(messageType, "*"), "{}")
+	renderValues(g, fields, "msg")
+	g.P("data, err := proto.Marshal(msg)")
+	g.P("if err != nil {")
+	g.P(`return nil, fmt.Errorf("rpccgo: native `, label, ` protobuf marshal failed: %w", err)`)
+	g.P("}")
+	g.P("return data, nil")
+	g.P("}")
+	g.P()
+}
+
 func codecMessageToNativeRequestName(service ServicePlan, method MethodPlan) string {
-	return "with" + service.GoName + method.GoName + "MessageToNativeRequest"
+	return "convert" + service.GoName + method.GoName + "MessageToNativeRequest"
+}
+
+func codecNativeRequestViewName(service ServicePlan, method MethodPlan) string {
+	return lowerInitial(service.GoName) + method.GoName + "NativeRequestView"
 }
 
 func codecNativeRequestToMessageName(service ServicePlan, method MethodPlan) string {

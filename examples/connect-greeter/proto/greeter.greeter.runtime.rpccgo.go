@@ -10,6 +10,7 @@ import (
 	atomic "sync/atomic"
 	fmt "fmt"
 	proto "google.golang.org/protobuf/proto"
+	goruntime "runtime"
 	io "io"
 	sync "sync"
 	connect "connectrpc.com/connect"
@@ -1541,23 +1542,20 @@ func registerGreeterGoNativeServer(server GreeterNativeServer) error {
 		return adapter.SayHello(ctx, name, city)
 	}
 	record.invokeMessageSayHello = func(ctx context.Context, req []byte) ([]byte, error) {
-		var resp []byte
-		err := withGreeterSayHelloMessageToNativeRequest(req, func(name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
-			messageResult, callErr := adapter.SayHello(ctx, name, city)
-			if callErr != nil {
-				return callErr
-			}
-			messageResp, err := convertGreeterSayHelloNativeToMessageResponse(messageResult)
-			if err != nil {
-				return err
-			}
-			resp = messageResp
-			return nil
-		})
+		reqView, err := convertGreeterSayHelloMessageToNativeRequest(req)
 		if err != nil {
 			return nil, err
 		}
-		return resp, nil
+		messageResult, callErr := adapter.SayHello(ctx, reqView.name, reqView.city)
+		goruntime.KeepAlive(reqView)
+		if callErr != nil {
+			return nil, callErr
+		}
+		messageResp, err := convertGreeterSayHelloNativeToMessageResponse(messageResult)
+		if err != nil {
+			return nil, err
+		}
+		return messageResp, nil
 	}
 	record.startNativeCollect = func(ctx context.Context) (*greeterCollectNativeFinalSession, error) {
 		source, err := adapter.StartCollect(ctx)
@@ -1577,9 +1575,13 @@ func registerGreeterGoNativeServer(server GreeterNativeServer) error {
 		}
 		return &greeterCollectMessageFinalSession{
 			send: func(ctx context.Context, req []byte) error {
-				return withGreeterCollectMessageToNativeRequest(req, func(name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
-					return source.Send(ctx, name, city)
-				})
+				reqView, err := convertGreeterCollectMessageToNativeRequest(req)
+				if err != nil {
+					return err
+				}
+				err = source.Send(ctx, reqView.name, reqView.city)
+				goruntime.KeepAlive(reqView)
+				return err
 			},
 			finish: func(ctx context.Context) ([]byte, error) {
 				messageResult, err := source.Finish(ctx)
@@ -1603,29 +1605,26 @@ func registerGreeterGoNativeServer(server GreeterNativeServer) error {
 		}, nil
 	}
 	record.startMessageBroadcast = func(ctx context.Context, req []byte) (*greeterBroadcastMessageFinalSession, error) {
-		var final *greeterBroadcastMessageFinalSession
-		err := withGreeterBroadcastMessageToNativeRequest(req, func(name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
-			source, err := adapter.StartBroadcast(ctx, name, city)
-			if err != nil {
-				return err
-			}
-			final = &greeterBroadcastMessageFinalSession{
-				recv: func(ctx context.Context) ([]byte, error) {
-					messageResult, err := source.Recv(ctx)
-					if err != nil {
-						return nil, err
-					}
-					return convertGreeterBroadcastNativeToMessageResponse(messageResult)
-				},
-				finish: source.Finish,
-				cancel: source.Cancel,
-			}
-			return nil
-		})
+		reqView, err := convertGreeterBroadcastMessageToNativeRequest(req)
 		if err != nil {
 			return nil, err
 		}
-		return final, nil
+		source, err := adapter.StartBroadcast(ctx, reqView.name, reqView.city)
+		goruntime.KeepAlive(reqView)
+		if err != nil {
+			return nil, err
+		}
+		return &greeterBroadcastMessageFinalSession{
+			recv: func(ctx context.Context) ([]byte, error) {
+				messageResult, err := source.Recv(ctx)
+				if err != nil {
+					return nil, err
+				}
+				return convertGreeterBroadcastNativeToMessageResponse(messageResult)
+			},
+			finish: source.Finish,
+			cancel: source.Cancel,
+		}, nil
 	}
 	record.startNativeChat = func(ctx context.Context) (*greeterChatNativeFinalSession, error) {
 		source, err := adapter.StartChat(ctx)
@@ -1647,9 +1646,13 @@ func registerGreeterGoNativeServer(server GreeterNativeServer) error {
 		}
 		return &greeterChatMessageFinalSession{
 			send: func(ctx context.Context, req []byte) error {
-				return withGreeterChatMessageToNativeRequest(req, func(name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
-					return source.Send(ctx, name, city)
-				})
+				reqView, err := convertGreeterChatMessageToNativeRequest(req)
+				if err != nil {
+					return err
+				}
+				err = source.Send(ctx, reqView.name, reqView.city)
+				goruntime.KeepAlive(reqView)
+				return err
 			},
 			recv: func(ctx context.Context) ([]byte, error) {
 				messageResult, err := source.Recv(ctx)

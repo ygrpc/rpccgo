@@ -28,6 +28,9 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	if directProto {
 		g.P(`proto "google.golang.org/protobuf/proto"`)
 	}
+	if service.Generation.NativeEnabled {
+		g.P(`goruntime "runtime"`)
+	}
 	if directConnectStreaming || directGRPCStreaming || nativeServerHasStreamingMethod(service) || serviceHasStreamingMethod(service) {
 		g.P(`io "io"`)
 		if serviceHasClientStreamingMethod(service) || serviceHasBidiStreamingMethod(service) || nativeServerHasClientInputStreamingMethod(service) {

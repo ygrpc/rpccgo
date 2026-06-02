@@ -7,7 +7,6 @@ package greeterv1
 import (
 	errors "errors"
 	fmt "fmt"
-	goruntime "runtime"
 	rpcruntime "rpccgo/rpcruntime"
 	unsafe "unsafe"
 	proto "google.golang.org/protobuf/proto"
@@ -17,27 +16,29 @@ import (
 
 var greeterNativeMessageCodecNotReadyErr = errors.New("rpccgo: native message codec is not implemented in this build")
 
-func withGreeterSayHelloMessageToNativeRequest(data []byte, fn func(name *rpcruntime.RpcString, city *rpcruntime.RpcString) error) error {
-	var msg SayHelloRequest
-	if err := proto.Unmarshal(data, &msg); err != nil {
-		return err
+type greeterSayHelloNativeRequestView struct {
+	msg  SayHelloRequest
+	name *rpcruntime.RpcString
+	city *rpcruntime.RpcString
+}
+
+func convertGreeterSayHelloMessageToNativeRequest(data []byte) (*greeterSayHelloNativeRequestView, error) {
+	view := &greeterSayHelloNativeRequestView{}
+	if err := proto.Unmarshal(data, &view.msg); err != nil {
+		return nil, err
 	}
-	msgOwner := &msg
-	var name *rpcruntime.RpcString
-	if msg.Name != "" {
-		name = rpcruntime.NewRpcStringView(unsafe.StringData(msg.Name), int32(len(msg.Name)), msgOwner)
+	msgOwner := view
+	if view.msg.Name != "" {
+		view.name = rpcruntime.NewRpcStringView(unsafe.StringData(view.msg.Name), int32(len(view.msg.Name)), msgOwner)
 	} else {
-		name = rpcruntime.EmptyRpcString()
+		view.name = rpcruntime.EmptyRpcString()
 	}
-	var city *rpcruntime.RpcString
-	if msg.City != "" {
-		city = rpcruntime.NewRpcStringView(unsafe.StringData(msg.City), int32(len(msg.City)), msgOwner)
+	if view.msg.City != "" {
+		view.city = rpcruntime.NewRpcStringView(unsafe.StringData(view.msg.City), int32(len(view.msg.City)), msgOwner)
 	} else {
-		city = rpcruntime.EmptyRpcString()
+		view.city = rpcruntime.EmptyRpcString()
 	}
-	err := fn(name, city)
-	goruntime.KeepAlive(&msg)
-	return err
+	return view, nil
 }
 
 func convertGreeterSayHelloNativeToMessageRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) ([]byte, error) {
@@ -70,27 +71,29 @@ func convertGreeterSayHelloNativeToMessageResponse(message string) ([]byte, erro
 	return data, nil
 }
 
-func withGreeterCollectMessageToNativeRequest(data []byte, fn func(name *rpcruntime.RpcString, city *rpcruntime.RpcString) error) error {
-	var msg SayHelloRequest
-	if err := proto.Unmarshal(data, &msg); err != nil {
-		return err
+type greeterCollectNativeRequestView struct {
+	msg  SayHelloRequest
+	name *rpcruntime.RpcString
+	city *rpcruntime.RpcString
+}
+
+func convertGreeterCollectMessageToNativeRequest(data []byte) (*greeterCollectNativeRequestView, error) {
+	view := &greeterCollectNativeRequestView{}
+	if err := proto.Unmarshal(data, &view.msg); err != nil {
+		return nil, err
 	}
-	msgOwner := &msg
-	var name *rpcruntime.RpcString
-	if msg.Name != "" {
-		name = rpcruntime.NewRpcStringView(unsafe.StringData(msg.Name), int32(len(msg.Name)), msgOwner)
+	msgOwner := view
+	if view.msg.Name != "" {
+		view.name = rpcruntime.NewRpcStringView(unsafe.StringData(view.msg.Name), int32(len(view.msg.Name)), msgOwner)
 	} else {
-		name = rpcruntime.EmptyRpcString()
+		view.name = rpcruntime.EmptyRpcString()
 	}
-	var city *rpcruntime.RpcString
-	if msg.City != "" {
-		city = rpcruntime.NewRpcStringView(unsafe.StringData(msg.City), int32(len(msg.City)), msgOwner)
+	if view.msg.City != "" {
+		view.city = rpcruntime.NewRpcStringView(unsafe.StringData(view.msg.City), int32(len(view.msg.City)), msgOwner)
 	} else {
-		city = rpcruntime.EmptyRpcString()
+		view.city = rpcruntime.EmptyRpcString()
 	}
-	err := fn(name, city)
-	goruntime.KeepAlive(&msg)
-	return err
+	return view, nil
 }
 
 func convertGreeterCollectNativeToMessageRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) ([]byte, error) {
@@ -123,27 +126,29 @@ func convertGreeterCollectNativeToMessageResponse(message string) ([]byte, error
 	return data, nil
 }
 
-func withGreeterBroadcastMessageToNativeRequest(data []byte, fn func(name *rpcruntime.RpcString, city *rpcruntime.RpcString) error) error {
-	var msg SayHelloRequest
-	if err := proto.Unmarshal(data, &msg); err != nil {
-		return err
+type greeterBroadcastNativeRequestView struct {
+	msg  SayHelloRequest
+	name *rpcruntime.RpcString
+	city *rpcruntime.RpcString
+}
+
+func convertGreeterBroadcastMessageToNativeRequest(data []byte) (*greeterBroadcastNativeRequestView, error) {
+	view := &greeterBroadcastNativeRequestView{}
+	if err := proto.Unmarshal(data, &view.msg); err != nil {
+		return nil, err
 	}
-	msgOwner := &msg
-	var name *rpcruntime.RpcString
-	if msg.Name != "" {
-		name = rpcruntime.NewRpcStringView(unsafe.StringData(msg.Name), int32(len(msg.Name)), msgOwner)
+	msgOwner := view
+	if view.msg.Name != "" {
+		view.name = rpcruntime.NewRpcStringView(unsafe.StringData(view.msg.Name), int32(len(view.msg.Name)), msgOwner)
 	} else {
-		name = rpcruntime.EmptyRpcString()
+		view.name = rpcruntime.EmptyRpcString()
 	}
-	var city *rpcruntime.RpcString
-	if msg.City != "" {
-		city = rpcruntime.NewRpcStringView(unsafe.StringData(msg.City), int32(len(msg.City)), msgOwner)
+	if view.msg.City != "" {
+		view.city = rpcruntime.NewRpcStringView(unsafe.StringData(view.msg.City), int32(len(view.msg.City)), msgOwner)
 	} else {
-		city = rpcruntime.EmptyRpcString()
+		view.city = rpcruntime.EmptyRpcString()
 	}
-	err := fn(name, city)
-	goruntime.KeepAlive(&msg)
-	return err
+	return view, nil
 }
 
 func convertGreeterBroadcastNativeToMessageRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) ([]byte, error) {
@@ -176,27 +181,29 @@ func convertGreeterBroadcastNativeToMessageResponse(message string) ([]byte, err
 	return data, nil
 }
 
-func withGreeterChatMessageToNativeRequest(data []byte, fn func(name *rpcruntime.RpcString, city *rpcruntime.RpcString) error) error {
-	var msg SayHelloRequest
-	if err := proto.Unmarshal(data, &msg); err != nil {
-		return err
+type greeterChatNativeRequestView struct {
+	msg  SayHelloRequest
+	name *rpcruntime.RpcString
+	city *rpcruntime.RpcString
+}
+
+func convertGreeterChatMessageToNativeRequest(data []byte) (*greeterChatNativeRequestView, error) {
+	view := &greeterChatNativeRequestView{}
+	if err := proto.Unmarshal(data, &view.msg); err != nil {
+		return nil, err
 	}
-	msgOwner := &msg
-	var name *rpcruntime.RpcString
-	if msg.Name != "" {
-		name = rpcruntime.NewRpcStringView(unsafe.StringData(msg.Name), int32(len(msg.Name)), msgOwner)
+	msgOwner := view
+	if view.msg.Name != "" {
+		view.name = rpcruntime.NewRpcStringView(unsafe.StringData(view.msg.Name), int32(len(view.msg.Name)), msgOwner)
 	} else {
-		name = rpcruntime.EmptyRpcString()
+		view.name = rpcruntime.EmptyRpcString()
 	}
-	var city *rpcruntime.RpcString
-	if msg.City != "" {
-		city = rpcruntime.NewRpcStringView(unsafe.StringData(msg.City), int32(len(msg.City)), msgOwner)
+	if view.msg.City != "" {
+		view.city = rpcruntime.NewRpcStringView(unsafe.StringData(view.msg.City), int32(len(view.msg.City)), msgOwner)
 	} else {
-		city = rpcruntime.EmptyRpcString()
+		view.city = rpcruntime.EmptyRpcString()
 	}
-	err := fn(name, city)
-	goruntime.KeepAlive(&msg)
-	return err
+	return view, nil
 }
 
 func convertGreeterChatNativeToMessageRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) ([]byte, error) {

@@ -45,7 +45,7 @@ _Avoid_: runtime core
 _Avoid_: remote adapter, remote server adapter
 
 **Call-scoped borrowed view**:
-仅在一次 generated message→native closure 调用同步执行期间有效的 borrowed wrapper 视图；不得把 wrapper 本身跨调用保存。
+仅在一次 generated message→native 同步 native operation 调用期间有效的 borrowed wrapper 视图；generated request view 可持有底层 protobuf message 和 raw buffer 来维持 owner reachability，但不得把 wrapper 本身跨调用或跨 stream session 保存。
 _Avoid_: owned wrapper, long-lived native input
 
 **Native C ABI lowering**:
@@ -78,7 +78,7 @@ _Avoid_: active server
 - C **Native** server callback 必须作为完整 service callback set 注册；只有完整校验通过后才能激活为 **Active server**，不能按 method 增量激活。
 - C 导出符号命名以 `<contract> + <namespace> + <service> + <method> + <operation>` 组成；`namespace` 默认取 Go package name，冲突时由用户显式覆盖，不使用调用端/实现端语言前缀区分方向。
 - Go **Native** server 输入字段类型沿用旧 wrapper：`string -> *rpcruntime.RpcString`、`bytes/message -> *rpcruntime.RpcBytes`、`repeated scalar -> *rpcruntime.RpcRepeat[T]`、`repeated bool -> *rpcruntime.RpcBoolRepeat`。
-- 由 **Message contract** 适配到 **Native** 时，请求侧 wrapper 只应作为 **Call-scoped borrowed view** 存在；其底层数据只保证在该次 generated closure 同步 native 调用期间有效。
+- 由 **Message contract** 适配到 **Native** 时，请求侧 wrapper 只应作为 **Call-scoped borrowed view** 存在；其底层数据只保证在该次 generated 同步 native operation 调用期间有效。
 - Go **Native** server 返回值沿用旧 flat 返回：response 顶层字段按 Go 值/slice 顺序返回，最后一个返回值固定是 `error`。
 - Go **Native** server streaming / bidi streaming 的 response 顶层字段通过 native stream `Send` 的 flat 参数发送；method 本身只返回终态 `error`。
 - **Native** 只拍平 proto request/response 的顶层字段；nested message 作为整体 message bytes/wrapper 传递，不递归展开。

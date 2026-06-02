@@ -14,21 +14,18 @@ func renderRuntimeNativeRecord(g *protogen.GeneratedFile, service ServicePlan, m
 			g.P("return ", adapterExpr, ".", method.AdapterName, "(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
 			g.P("}")
 			g.P("record.invokeMessage", method.MethodGoName, " = func(ctx context.Context, req []byte) ([]byte, error) {")
-			g.P("var resp []byte")
-			g.P("err := ", codecMessageToNativeRequestName(service, methodForRuntimeService(service, method)), "(req, func(", strings.TrimPrefix(method.NativeArgs, ", "), ") error {")
-			if method.NativeNames == "" {
-				g.P("callErr := ", adapterExpr, ".", method.AdapterName, "(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
-			} else {
-				g.P(method.NativeNames, ", callErr := ", adapterExpr, ".", method.AdapterName, "(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
-			}
-			g.P("if callErr != nil { return callErr }")
-			g.P("messageResp, err := ", codecNativeResponseToMessageName(service, methodForRuntimeService(service, method)), "(", method.NativeNames, ")")
-			g.P("if err != nil { return err }")
-			g.P("resp = messageResp")
-			g.P("return nil")
-			g.P("})")
+			g.P("reqView, err := ", codecMessageToNativeRequestName(service, methodForRuntimeService(service, method)), "(req)")
 			g.P("if err != nil { return nil, err }")
-			g.P("return resp, nil")
+			if method.NativeNames == "" {
+				g.P("callErr := ", adapterExpr, ".", method.AdapterName, "(ctx", nativeRequestViewCallSuffix(service, method), ")")
+			} else {
+				g.P(method.NativeNames, ", callErr := ", adapterExpr, ".", method.AdapterName, "(ctx", nativeRequestViewCallSuffix(service, method), ")")
+			}
+			g.P("goruntime.KeepAlive(reqView)")
+			g.P("if callErr != nil { return nil, callErr }")
+			g.P("messageResp, err := ", codecNativeResponseToMessageName(service, methodForRuntimeService(service, method)), "(", method.NativeNames, ")")
+			g.P("if err != nil { return nil, err }")
+			g.P("return messageResp, nil")
 			g.P("}")
 			continue
 		}
@@ -53,15 +50,12 @@ func renderRuntimeNativeStreamRecord(g *protogen.GeneratedFile, service ServiceP
 	g.P("}")
 	if runtimeStreamShapeFor(method) == runtimeStreamServer {
 		g.P("record.startMessage", method.MethodGoName, " = func(ctx context.Context, req []byte) (*", messageSession, ", error) {")
-		g.P("var final *", messageSession)
-		g.P("err := ", codecMessageToNativeRequestName(service, methodForRuntimeService(service, method)), "(req, func(", strings.TrimPrefix(method.NativeArgs, ", "), ") error {")
-		g.P("source, err := ", adapterExpr, ".", method.AdapterName, "(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
-		g.P("if err != nil { return err }")
-		renderRuntimeMessageFinalSessionFromNativeSource(g, service, messageSession, method, "source", true)
-		g.P("return nil")
-		g.P("})")
+		g.P("reqView, err := ", codecMessageToNativeRequestName(service, methodForRuntimeService(service, method)), "(req)")
 		g.P("if err != nil { return nil, err }")
-		g.P("return final, nil")
+		g.P("source, err := ", adapterExpr, ".", method.AdapterName, "(ctx", nativeRequestViewCallSuffix(service, method), ")")
+		g.P("goruntime.KeepAlive(reqView)")
+		g.P("if err != nil { return nil, err }")
+		renderRuntimeMessageFinalSessionFromNativeSource(g, service, messageSession, method, "source", false)
 	} else {
 		g.P("record.startMessage", method.MethodGoName, " = func(ctx context.Context) (*", messageSession, ", error) {")
 		g.P("source, err := ", adapterExpr, ".", method.AdapterName, "(ctx)")
@@ -95,9 +89,11 @@ func renderRuntimeMessageFinalSessionFromNativeSource(g *protogen.GeneratedFile,
 	g.P(target, "&", sessionName, "{")
 	if method.CanSend {
 		g.P("send: func(ctx context.Context, req []byte) error {")
-		g.P("return ", codecMessageToNativeRequestName(service, methodForRuntimeService(service, method)), "(req, func(", strings.TrimPrefix(method.NativeArgs, ", "), ") error {")
-		g.P("return ", sourceExpr, ".Send(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
-		g.P("})")
+		g.P("reqView, err := ", codecMessageToNativeRequestName(service, methodForRuntimeService(service, method)), "(req)")
+		g.P("if err != nil { return err }")
+		g.P("err = ", sourceExpr, ".Send(ctx", nativeRequestViewCallSuffix(service, method), ")")
+		g.P("goruntime.KeepAlive(reqView)")
+		g.P("return err")
 		g.P("},")
 	}
 	if method.CanRecv {
@@ -133,4 +129,16 @@ func renderRuntimeMessageFinalSessionFromNativeSource(g *protogen.GeneratedFile,
 	} else {
 		g.P("}, nil")
 	}
+}
+
+func nativeRequestViewCallSuffix(service ServicePlan, method runtimeAdapterMethod) string {
+	methodPlan := methodForRuntimeService(service, method)
+	if len(methodPlan.Contract.Native.RequestFields) == 0 {
+		return ""
+	}
+	args := make([]string, 0, len(methodPlan.Contract.Native.RequestFields))
+	for _, field := range methodPlan.Contract.Native.RequestFields {
+		args = append(args, "reqView."+lowerInitial(field.GoName))
+	}
+	return ", " + strings.Join(args, ", ")
 }

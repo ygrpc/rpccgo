@@ -926,7 +926,7 @@ func nativeGoRequestFieldType(g *protogen.GeneratedFile, field FieldPlan) string
 		if field.Kind == FieldKindBool {
 			return "*rpcruntime.RpcBoolRepeat"
 		}
-		return "*rpcruntime.RpcRepeat[" + nativeGoScalarType(g, field) + "]"
+		return "*rpcruntime.RpcRepeat[" + nativeGoRequestRepeatElemType(g, field) + "]"
 	}
 	switch field.Kind {
 	case FieldKindString:
@@ -936,6 +936,13 @@ func nativeGoRequestFieldType(g *protogen.GeneratedFile, field FieldPlan) string
 	default:
 		return nativeGoScalarType(g, field)
 	}
+}
+
+func nativeGoRequestRepeatElemType(g *protogen.GeneratedFile, field FieldPlan) string {
+	if field.Kind == FieldKindEnum {
+		return "int32"
+	}
+	return nativeGoScalarType(g, field)
 }
 
 func nativeGoResponseFieldType(g *protogen.GeneratedFile, field FieldPlan) string {

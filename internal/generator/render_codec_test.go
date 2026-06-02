@@ -25,9 +25,10 @@ func TestRenderCodecFilesEmitsServiceCodecFile(t *testing.T) {
 		`proto "google.golang.org/protobuf/proto"`,
 		"rpccgo native message codec generated file for Greeter",
 		`var greeterNativeMessageCodecNotReadyErr = errors.New("rpccgo: native message codec is not implemented in this build")`,
-		"func withGreeterSayHelloMessageToNativeRequest(data []byte, fn func(",
-		"if err := proto.Unmarshal(data, &msg); err != nil {",
-		"return err",
+		"type greeterSayHelloNativeRequestView struct {",
+		"func convertGreeterSayHelloMessageToNativeRequest(data []byte) (*greeterSayHelloNativeRequestView, error) {",
+		"if err := proto.Unmarshal(data, &view.msg); err != nil {",
+		"return nil, err",
 		"func convertGreeterSayHelloNativeToMessageRequest() ([]byte, error) {",
 		"msg := &HelloRequest{}",
 		"data, err := proto.Marshal(msg)",
@@ -74,9 +75,9 @@ func TestCodecMessageToNativeRendersProtobufUnmarshalAndErrors(t *testing.T) {
 
 	const codecFile = "test/v1/greeter.greeter.codec.rpccgo.go"
 	for _, fragment := range []string{
-		"func withGreeterSayHelloMessageToNativeRequest(data []byte, fn func(",
-		"if err := proto.Unmarshal(data, &msg); err != nil {",
-		"return err",
+		"func convertGreeterSayHelloMessageToNativeRequest(data []byte) (*greeterSayHelloNativeRequestView, error) {",
+		"if err := proto.Unmarshal(data, &view.msg); err != nil {",
+		"return nil, err",
 		"func convertGreeterSayHelloMessageToNativeResponse(data []byte) error {",
 	} {
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)
@@ -124,18 +125,17 @@ func TestCodecMessageToNativeRequestUsesOwnerRetainedViewsAndCanonicalEmptyWrapp
 
 	const codecFile = "test/v1/complete_service_plan.all_service.codec.rpccgo.go"
 	for _, fragment := range []string{
-		"msgOwner := &msg",
-		"name = rpcruntime.EmptyRpcString()",
-		"child = rpcruntime.EmptyRpcBytes()",
-		"name = rpcruntime.NewRpcStringView(unsafe.StringData(msg.Name), int32(len(msg.Name)), msgOwner)",
-		"child = rpcruntime.NewRpcBytesView(unsafe.SliceData(msg.Child), int32(len(msg.Child)), msgOwner)",
-		"err := fn(name, enabled, child)",
-		"goruntime.KeepAlive(&msg)",
-		"return err",
+		"type allServiceUnaryNativeRequestView struct {",
+		"msgOwner := view",
+		"view.name = rpcruntime.EmptyRpcString()",
+		"view.child = rpcruntime.EmptyRpcBytes()",
+		"view.name = rpcruntime.NewRpcStringView(unsafe.StringData(view.msg.Name), int32(len(view.msg.Name)), msgOwner)",
+		"view.child = rpcruntime.NewRpcBytesView(unsafe.SliceData(view.msg.Child), int32(len(view.msg.Child)), msgOwner)",
+		"return view, nil",
 	} {
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "PinString(", "PinBytes(", "PinSlice(", "defer rpcruntime.Release(ptr)", "cleanup := func()", "rpcruntime.NewRpcString(nil, 0, false)", "rpcruntime.NewRpcBytes(nil, 0, false)")
+	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "fn func(", "goruntime.KeepAlive(&msg)", "PinString(", "PinBytes(", "PinSlice(", "defer rpcruntime.Release(ptr)", "cleanup := func()", "rpcruntime.NewRpcString(nil, 0, false)", "rpcruntime.NewRpcBytes(nil, 0, false)")
 }
 
 func TestCodecMessageToNativeRequestKeepsRepeatedBoolAndEnumRawOwnersAlive(t *testing.T) {
@@ -152,17 +152,17 @@ func TestCodecMessageToNativeRequestKeepsRepeatedBoolAndEnumRawOwnersAlive(t *te
 
 	const codecFile = "test/v1/native_repeated.repeated_service.codec.rpccgo.go"
 	for _, fragment := range []string{
-		"flagsRaw := make([]byte, len(msg.Flags))",
-		"flags = rpcruntime.NewRpcBoolRepeatView(unsafe.SliceData(flagsRaw), int32(len(flagsRaw)), flagsRaw)",
-		"moodsRaw := make([]int32, len(msg.Moods))",
-		"moods = rpcruntime.NewRpcRepeatView[int32](unsafe.SliceData(moodsRaw), int32(len(moodsRaw)), moodsRaw)",
-		"err := fn(scores, flags, counts, ratios, moods)",
-		"goruntime.KeepAlive(&msg)",
-		"goruntime.KeepAlive(flagsRaw)",
-		"goruntime.KeepAlive(moodsRaw)",
+		"flagsRaw []byte",
+		"view.flagsRaw = make([]byte, len(view.msg.Flags))",
+		"view.flags = rpcruntime.NewRpcBoolRepeatView(unsafe.SliceData(view.flagsRaw), int32(len(view.flagsRaw)), msgOwner)",
+		"moodsRaw []int32",
+		"view.moodsRaw = make([]int32, len(view.msg.Moods))",
+		"view.moods = rpcruntime.NewRpcRepeatView[int32](unsafe.SliceData(view.moodsRaw), int32(len(view.moodsRaw)), msgOwner)",
+		"return view, nil",
 	} {
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)
 	}
+	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "fn func(", "goruntime.KeepAlive(&msg)", "goruntime.KeepAlive(flagsRaw)", "goruntime.KeepAlive(moodsRaw)")
 }
 
 func TestGenerateWithOptionsEmitsCodecWithoutRemoteAdapterFiles(t *testing.T) {
