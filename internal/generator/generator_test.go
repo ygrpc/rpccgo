@@ -197,7 +197,7 @@ func TestGenerateNativeOnlyServiceIncludesNativeAndMessageArtifacts(t *testing.T
 	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go", "rpccgo message direct generated file for Greeter cgo message client")
 }
 
-func TestGenerateWithNativeRendererEmitsNativeStageFiles(t *testing.T) {
+func TestGenerateWithNativeSelectionEmitsNativeArtifacts(t *testing.T) {
 	file := simpleTestFile()
 	setSimpleServiceComment(t, file, "@rpccgo: native\n")
 	plugin := newTestPlugin(t, "paths=source_relative", file)
@@ -229,7 +229,7 @@ func TestGenerateWithNativeRendererEmitsNativeStageFiles(t *testing.T) {
 	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.native.cgo.rpccgo.go", "rpccgo native generated file for Greeter cgo native client")
 }
 
-func TestGenerateWithNativeRendererSkipsNativeServerForMessageOnlyService(t *testing.T) {
+func TestGenerateWithMessageOnlySelectionSkipsNativeArtifacts(t *testing.T) {
 	plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())
 
 	_, err := GenerateWithOptions(plugin)
@@ -250,7 +250,7 @@ func TestGenerateWithNativeRendererSkipsNativeServerForMessageOnlyService(t *tes
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "rpccgo service runtime generated file for Greeter")
 }
 
-func TestGenerateWithNativeRendererUsesNonSourceRelativeGeneratedPrefix(t *testing.T) {
+func TestGenerateWithNativeSelectionUsesNonSourceRelativeGeneratedPrefix(t *testing.T) {
 	file := simpleTestFile()
 	setSimpleServiceComment(t, file, "@rpccgo: native\n")
 	plugin := newTestPlugin(t, "", file)

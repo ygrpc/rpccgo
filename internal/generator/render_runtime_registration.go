@@ -42,7 +42,7 @@ func renderRuntimeRegistrationForSource(g *protogen.GeneratedFile, ctx runtimeRe
 	}
 
 	switch projection.recordKind {
-	case runtimeRegistrationRecordKindGoNativeAlias:
+	case runtimeRegistrationRecordKindCGONativeForward:
 		g.P("func ", projection.registerName, "(", projection.inputName, " ", projection.inputType, ") error {")
 		g.P("return register", serviceName, "GoNativeServer(", projection.sourceExpr, ")")
 		g.P("}")
@@ -79,7 +79,7 @@ type runtimeRegistrationRecordKind string
 
 const (
 	runtimeRegistrationRecordKindNative           runtimeRegistrationRecordKind = "native"
-	runtimeRegistrationRecordKindGoNativeAlias    runtimeRegistrationRecordKind = "go_native_alias"
+	runtimeRegistrationRecordKindCGONativeForward runtimeRegistrationRecordKind = "cgo_native_forward"
 	runtimeRegistrationRecordKindMessage          runtimeRegistrationRecordKind = "message"
 	runtimeRegistrationRecordKindTransportMessage runtimeRegistrationRecordKind = "transport_message"
 )
@@ -113,7 +113,7 @@ func projectRuntimeRegistrationSource(service ServicePlan, source ActiveRecordSo
 		}, nil
 	case ActiveRecordSourcePlan{Origin: ActiveRecordOriginCGO, Contract: ActiveRecordContractNative, Transport: ActiveRecordTransportNone, Mode: ActiveRecordModeLocal}:
 		return runtimeRegistrationSourceProjection{
-			recordKind:   runtimeRegistrationRecordKindGoNativeAlias,
+			recordKind:   runtimeRegistrationRecordKindCGONativeForward,
 			registerName: "Register" + serviceName + "CGONativeServer",
 			inputName:    "server",
 			inputType:    serviceName + "NativeServer",

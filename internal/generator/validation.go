@@ -50,6 +50,9 @@ func ValidatePackagePlan(pkg PackagePlan) error {
 			}
 		}
 	}
+	if err := validateArtifactSet(pkg.SharedArtifacts, BuildSharedArtifactPlans(pkg), "package shared artifacts"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -74,6 +77,9 @@ func ValidateFilePlan(file FilePlan) error {
 		if err := ValidateServicePlan(service); err != nil {
 			return fmt.Errorf("service[%d] %s: %w", si, service.FullName, err)
 		}
+		if err := validateArtifactSet(service.Artifacts, BuildServiceArtifactPlans(file, service), fmt.Sprintf("service %s artifacts", service.FullName)); err != nil {
+			return err
+		}
 		kinds := make(map[GeneratedArtifactKind]bool)
 		for _, artifact := range service.Artifacts {
 			if kinds[artifact.Kind] {
@@ -97,9 +103,20 @@ func ValidateServicePlan(service ServicePlan) error {
 	if err := validateArtifacts(service.Artifacts, false); err != nil {
 		return err
 	}
+	for _, source := range activeRecordSourcesForService(service) {
+		if err := ValidateActiveRecordSourcePlan(source); err != nil {
+			return err
+		}
+	}
 	for mi, method := range service.Methods {
 		if !method.HasIdentity() {
 			return fmt.Errorf("method[%d] identity is incomplete", mi)
+		}
+		if err := ValidateMethodContractPlan(method); err != nil {
+			return fmt.Errorf("method[%d] %s: %w", mi, method.FullName, err)
+		}
+		if err := ValidateMethodRenderPlan(method); err != nil {
+			return fmt.Errorf("method[%d] %s: %w", mi, method.FullName, err)
 		}
 	}
 	return nil
@@ -137,4 +154,28 @@ func isServiceArtifactKind(kind GeneratedArtifactKind) bool {
 	default:
 		return false
 	}
+}
+
+func validateArtifactSet(actual []GeneratedArtifactPlan, expected []GeneratedArtifactPlan, scope string) error {
+	expectedByKind := make(map[GeneratedArtifactKind]GeneratedArtifactPlan, len(expected))
+	for _, artifact := range expected {
+		expectedByKind[artifact.Kind] = artifact
+	}
+	actualByKind := make(map[GeneratedArtifactKind]GeneratedArtifactPlan, len(actual))
+	for _, artifact := range actual {
+		actualByKind[artifact.Kind] = artifact
+		expectedArtifact, ok := expectedByKind[artifact.Kind]
+		if !ok {
+			return fmt.Errorf("%s unexpected artifact %q", scope, artifact.Kind)
+		}
+		if artifact.Filename != expectedArtifact.Filename {
+			return fmt.Errorf("%s artifact %q filename = %q, want %q", scope, artifact.Kind, artifact.Filename, expectedArtifact.Filename)
+		}
+	}
+	for _, artifact := range expected {
+		if _, ok := actualByKind[artifact.Kind]; !ok {
+			return fmt.Errorf("%s missing artifact %q", scope, artifact.Kind)
+		}
+	}
+	return nil
 }

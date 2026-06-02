@@ -282,7 +282,7 @@ func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleForMessageHelpers(t *testing
 	)
 }
 
-func TestRenderRuntimeStageFilesWrapsNativeStreamsForMessageClientCodec(t *testing.T) {
+func TestRenderRuntimeGlueWrapsNativeStreamsForMessageClientCodec(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
@@ -314,7 +314,7 @@ func TestRenderRuntimeStageFilesWrapsNativeStreamsForMessageClientCodec(t *testi
 	}
 }
 
-func TestRenderRuntimeStageFilesWrapsMessageStreamsForNativeClientCodec(t *testing.T) {
+func TestRenderRuntimeGlueWrapsMessageStreamsForNativeClientCodec(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
