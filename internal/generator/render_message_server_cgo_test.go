@@ -9,14 +9,8 @@ func TestRenderMessageServerCGODefinesFlatServiceRegistration(t *testing.T) {
 	file := messageCgoTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	plans, err := Generate(plugin)
-	if err != nil {
-		t.Fatalf("Generate() error = %v", err)
-	}
-	AttachMessageFileFamilyPlan(&plans[0])
-
-	if err := RenderMessageStageFiles(plugin, plans[0]); err != nil {
-		t.Fatalf("RenderMessageStageFiles() error = %v", err)
+	if _, err := GenerateWithOptions(plugin); err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
 	const cgoServerFile = "test/v1/cgo/message_cgo.greeter.server.message.cgo.rpccgo.go"
@@ -91,14 +85,8 @@ func TestRenderMessageServerCGOFileEmitsStreamEOFHelper(t *testing.T) {
 	setSimpleServiceComment(t, file, "@rpccgo: msg-connect\n")
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	plans, err := Generate(plugin)
-	if err != nil {
-		t.Fatalf("Generate() error = %v", err)
-	}
-	AttachMessageFileFamilyPlan(&plans[0])
-
-	if err := RenderMessageStageFiles(plugin, plans[0]); err != nil {
-		t.Fatalf("RenderMessageStageFiles() error = %v", err)
+	if _, err := GenerateWithOptions(plugin); err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
 	const cgoServerFile = "test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go"

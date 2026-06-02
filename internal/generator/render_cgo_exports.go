@@ -1,53 +1,9 @@
 package generator
 
-import (
-	"path"
+import "google.golang.org/protobuf/compiler/protogen"
 
-	"google.golang.org/protobuf/compiler/protogen"
-)
-
-func renderCGOExportSupportFileOnce(plugin *protogen.Plugin, plan FilePlan, rendered map[string]bool) error {
-	file := cgoExportSupportFilePlan(plan)
-	if !file.Enabled {
-		return nil
-	}
-	if rendered != nil && rendered[file.Filename] {
-		return nil
-	}
-	renderCGOExportSupportFile(plugin, plan, file)
-	if rendered != nil {
-		rendered[file.Filename] = true
-	}
-	return nil
-}
-
-func cgoExportSupportFilePlan(plan FilePlan) GeneratedFilePlan {
-	return GeneratedFilePlan{
-		Filename: cgoExportSupportFilename(plan),
-		Enabled:  plan.GeneratedFilenamePrefix != "" && planHasCGOPackageFiles(plan),
-	}
-}
-
-func cgoExportSupportFilename(plan FilePlan) string {
-	prefix := plan.GeneratedFilenamePrefix
-	cgoPrefix := path.Join(path.Dir(prefix), cgoDirForFilePlan(plan), path.Base(prefix))
-	return cgoPrefix + ".exports.cgo.rpccgo.go"
-}
-
-func planHasCGOPackageFiles(plan FilePlan) bool {
-	for _, service := range plan.Services {
-		if service.NativeFileFamily.CGONativeServer.Enabled || service.NativeFileFamily.CGONativeClient.Enabled {
-			return true
-		}
-		if service.MessageFileFamily.CGOMessageServer.Enabled || service.MessageFileFamily.CGOMessageClient.Enabled {
-			return true
-		}
-	}
-	return false
-}
-
-func renderCGOExportSupportFile(plugin *protogen.Plugin, plan FilePlan, file GeneratedFilePlan) {
-	g := newGeneratedSharedFile(plugin, file, protogen.GoImportPath(cgoGoImportPath(plan)), "rpccgo cgo export support")
+func renderCGOExportSupportFile(plugin *protogen.Plugin, pkg PackagePlan, file GeneratedArtifactPlan) {
+	g := newGeneratedSharedFile(plugin, file, protogen.GoImportPath(packageCGOImportPath(pkg)), "rpccgo cgo export support")
 	g.P("package main")
 	g.P()
 	g.P("/*")

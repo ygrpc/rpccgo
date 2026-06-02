@@ -2,7 +2,7 @@ package generator
 
 import "google.golang.org/protobuf/compiler/protogen"
 
-func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedFilePlan) error {
+func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedArtifactPlan) error {
 	g := newGeneratedFile(plugin, plan, file, protogen.GoImportPath(plan.GoImportPath))
 
 	runtimeMethods, err := buildRuntimeAdapterMethods(g, service)
@@ -10,10 +10,9 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 		return err
 	}
 	streamingMethods := runtimeStreamingMethods(runtimeMethods)
-	codecEnabled := service.CodecEnabled
-	directConnectStreaming := service.Adapters.Has(AdapterTokenMessageConnect) && serviceHasStreamingMethod(service)
-	directGRPCStreaming := service.Adapters.Has(AdapterTokenMessageGRPC) && serviceHasStreamingMethod(service)
-	directUnary := (service.Adapters.Has(AdapterTokenMessageConnect) || service.Adapters.Has(AdapterTokenMessageGRPC)) && serviceHasUnaryMethod(service)
+	directConnectStreaming := service.Generation.MessageTransport == MessageTransportConnect && serviceHasStreamingMethod(service)
+	directGRPCStreaming := service.Generation.MessageTransport == MessageTransportGRPC && serviceHasStreamingMethod(service)
+	directUnary := serviceHasUnaryMethod(service)
 	directFmt := directUnary || directConnectStreaming || directGRPCStreaming
 	directProto := directUnary || directConnectStreaming || directGRPCStreaming
 
@@ -56,7 +55,7 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	activeName := lowerInitial(service.GoName) + "ActiveServer"
 	streamRegistryName := lowerInitial(service.GoName) + "StreamRegistry"
 
-	if !service.NativeFileFamily.NativeServer.Enabled {
+	if !service.HasArtifact(GeneratedArtifactKindNativeServer) {
 		renderGoNativeServerInterface(g, service, adapterName)
 		renderGoNativeStreamInterfaces(g, service)
 	}
@@ -85,10 +84,11 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P("var ", streamRegistryName, " rpcruntime.StreamRegistry")
 	g.P("var ", service.GoName, `NativeServerUnavailableErr = errors.New("rpccgo: native server is unavailable")`)
 	g.P("var ", service.GoName, `MessageServerUnavailableErr = errors.New("rpccgo: message server is unavailable")`)
-	g.P("var ", service.GoName, `NativeMessageConverterUnavailableErr = errors.New("rpccgo: native/message converter is not enabled")`)
 	g.P()
 
-	renderRuntimeRegistrations(g, service, runtimeMethods, codecEnabled, activeName)
+	if err := renderRuntimeRegistrations(g, service, runtimeMethods, activeName); err != nil {
+		return err
+	}
 	renderRuntimeTransportMessageSessions(g, service, streamingMethods)
 	renderRuntimeEntrypoints(g, service.GoName, adapterName, activeName, streamRegistryName, runtimeMethods)
 

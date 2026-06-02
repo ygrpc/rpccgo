@@ -52,10 +52,8 @@ func TestBuildStreamingPlanRejectsUnknownStreamingKind(t *testing.T) {
 	}
 }
 
-func TestValidateMethodRenderPlanKeepsCodecInRenderInputs(t *testing.T) {
+func TestValidateMethodRenderPlanRequiresCodec(t *testing.T) {
 	method := minimalStreamingMethod(StreamingKindClientStreaming)
-	method.NeedsCodec = true
-	method.Contract.RenderInputs.NeedsCodec = true
 	method.Contract.Lifecycle = StreamLifecycleContractPlan{
 		CanSend:               true,
 		FinishReturnsResponse: true,
@@ -66,12 +64,7 @@ func TestValidateMethodRenderPlanKeepsCodecInRenderInputs(t *testing.T) {
 		t.Fatalf("BuildMethodRenderPlan() error = %v", err)
 	}
 	if !renderPlan.Lifecycle.RequiresCodec {
-		t.Fatal("render lifecycle RequiresCodec = false, want true from render input")
-	}
-
-	method.Contract.RenderInputs.NeedsCodec = false
-	if err := ValidateMethodContractPlan(method); err == nil {
-		t.Fatal("ValidateMethodContractPlan() error = nil, want codec render input mismatch")
+		t.Fatal("render lifecycle RequiresCodec = false, want true")
 	}
 }
 
@@ -125,7 +118,7 @@ func assertLifecycleCapabilities(t *testing.T, method MethodPlan, want StreamLif
 		CanRecv:               want.CanRecv,
 		CanCloseSend:          want.CanCloseSend,
 		FinishReturnsResponse: want.FinishReturnsResponse,
-		RequiresCodec:         method.Contract.RenderInputs.NeedsCodec,
+		RequiresCodec:         true,
 	}
 	if method.RenderPlan.Lifecycle != wantProjection {
 		t.Fatalf("%s render lifecycle = %+v, want %+v", method.Name, method.RenderPlan.Lifecycle, wantProjection)
@@ -146,7 +139,6 @@ func minimalStreamingMethod(streaming StreamingKind) MethodPlan {
 	}
 	method.Contract.Message.RequestType = method.Request
 	method.Contract.Message.ResponseType = method.Response
-	method.Contract.RenderInputs.NeedsCodec = method.NeedsCodec
 	return method
 }
 

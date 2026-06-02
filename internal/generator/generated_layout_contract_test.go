@@ -14,7 +14,7 @@ func TestGeneratedLayoutContract(t *testing.T) {
 		"test/v1/greeter.greeter.runtime.rpccgo.go",
 		"test/v1/greeter.greeter.server.native.rpccgo.go",
 		"test/v1/greeter.greeter.server.message.rpccgo.go",
-		"test/cmd/rpc/greeter.exports.cgo.rpccgo.go",
+		"test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
 		"test/cmd/rpc/greeter.greeter.server.native.cgo.rpccgo.go",
 		"test/cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go",
 		"test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go",
@@ -25,7 +25,7 @@ func TestGeneratedLayoutContract(t *testing.T) {
 	assertGeneratedPackage(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go", "package testv1")
 	assertGeneratedPackage(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go", "package testv1")
 	assertGeneratedPackage(t, plugin, "test/v1/greeter.greeter.codec.rpccgo.go", "package testv1")
-	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.exports.cgo.rpccgo.go", "package main")
+	assertGeneratedPackage(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go", "package main")
 	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.server.native.cgo.rpccgo.go", "package main")
 	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go", "package main")
 	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go", "package main")
@@ -77,10 +77,10 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go",
 		"//export rpccgo_native_testv1_Greeter_SayHello",
 	)
-	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.exports.cgo.rpccgo.go",
+	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
 		"//export rpccgo_take_error_text",
 	)
-	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.exports.cgo.rpccgo.go",
+	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
 		"//export rpccgo_release",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go",
@@ -122,8 +122,8 @@ func newGeneratedLayoutPlugin(t *testing.T) *protogen.Plugin {
 	file := simpleTestFile()
 	setSimpleServiceComment(t, file, "@rpccgo: msg-connect|native\n")
 	plugin := newTestPlugin(t, "paths=source_relative,cgo_dir=../cmd/rpc", file)
-	if _, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true}); err != nil {
-		t.Fatalf("GenerateWithOptions(RenderStageFiles) error = %v", err)
+	if _, err := GenerateWithOptions(plugin); err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 	return plugin
 }

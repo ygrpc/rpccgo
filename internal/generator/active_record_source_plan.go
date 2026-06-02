@@ -1,5 +1,7 @@
 package generator
 
+import "fmt"
+
 type ActiveRecordOrigin string
 
 const (
@@ -7,10 +9,17 @@ const (
 	ActiveRecordOriginCGO ActiveRecordOrigin = "cgo"
 )
 
+type ActiveRecordContract string
+
+const (
+	ActiveRecordContractNative  ActiveRecordContract = "native"
+	ActiveRecordContractMessage ActiveRecordContract = "message"
+)
+
 type ActiveRecordTransport string
 
 const (
-	ActiveRecordTransportNone    ActiveRecordTransport = ""
+	ActiveRecordTransportNone    ActiveRecordTransport = "none"
 	ActiveRecordTransportConnect ActiveRecordTransport = "connect"
 	ActiveRecordTransportGRPC    ActiveRecordTransport = "grpc"
 )
@@ -22,132 +31,100 @@ const (
 	ActiveRecordModeRemote ActiveRecordMode = "remote"
 )
 
-type ActiveRecordRenderer string
-
-const (
-	ActiveRecordRendererNative           ActiveRecordRenderer = "native"
-	ActiveRecordRendererMessage          ActiveRecordRenderer = "message"
-	ActiveRecordRendererTransportMessage ActiveRecordRenderer = "transport_message"
-)
-
 type ActiveRecordSourcePlan struct {
 	Origin    ActiveRecordOrigin
+	Contract  ActiveRecordContract
 	Transport ActiveRecordTransport
 	Mode      ActiveRecordMode
-
-	RecordRenderer            ActiveRecordRenderer
-	AliasGoNativeRegistration bool
-
-	SourceExpr string
-	Label      string
-
-	RegisterName string
-	InputName    string
-	InputType    string
-	NilErr       string
 }
 
 func activeRecordSourcesForService(service ServicePlan) []ActiveRecordSourcePlan {
-	serviceName := service.GoName
-	nativeInputType := serviceName + "NativeServer"
+	selection := activeRecordSourceSelectionForService(service)
 
 	sources := []ActiveRecordSourcePlan{
 		{
-			Origin:         ActiveRecordOriginGo,
-			Transport:      ActiveRecordTransportNone,
-			Mode:           ActiveRecordModeLocal,
-			RecordRenderer: ActiveRecordRendererNative,
-			SourceExpr:     "server",
-			Label:          "go native",
-			RegisterName:   "register" + serviceName + "GoNativeServer",
-			InputName:      "server",
-			InputType:      nativeInputType,
-			NilErr:         serviceName + "NativeServerUnavailableErr",
-		},
-		{
-			Origin:                    ActiveRecordOriginCGO,
-			Transport:                 ActiveRecordTransportNone,
-			Mode:                      ActiveRecordModeLocal,
-			RecordRenderer:            ActiveRecordRendererNative,
-			AliasGoNativeRegistration: true,
-			SourceExpr:                "server",
-			Label:                     "cgo native",
-			RegisterName:              "Register" + serviceName + "CGONativeServer",
-			InputName:                 "server",
-			InputType:                 nativeInputType,
-			NilErr:                    serviceName + "NativeServerUnavailableErr",
-		},
-		{
-			Origin:         ActiveRecordOriginCGO,
-			Transport:      ActiveRecordTransportNone,
-			Mode:           ActiveRecordModeLocal,
-			RecordRenderer: ActiveRecordRendererMessage,
-			SourceExpr:     "server",
-			Label:          "cgo message",
-			RegisterName:   "register" + serviceName + "CGOMessageServer",
-			InputName:      "server",
-			InputType:      serviceName + "CGOMessageServer",
-			NilErr:         serviceName + "MessageServerUnavailableErr",
+			Origin:    ActiveRecordOriginCGO,
+			Contract:  ActiveRecordContractMessage,
+			Transport: ActiveRecordTransportNone,
+			Mode:      ActiveRecordModeLocal,
 		},
 	}
 
-	if service.Adapters.Has(AdapterTokenMessageConnect) {
+	if selection.NativeEnabled {
+		sources = append([]ActiveRecordSourcePlan{
+			{
+				Origin:    ActiveRecordOriginGo,
+				Contract:  ActiveRecordContractNative,
+				Transport: ActiveRecordTransportNone,
+				Mode:      ActiveRecordModeLocal,
+			},
+			{
+				Origin:    ActiveRecordOriginCGO,
+				Contract:  ActiveRecordContractNative,
+				Transport: ActiveRecordTransportNone,
+				Mode:      ActiveRecordModeLocal,
+			},
+		}, sources...)
+	}
+
+	switch selection.MessageTransport {
+	case MessageTransportConnect:
 		sources = append(sources,
 			ActiveRecordSourcePlan{
-				Origin:         ActiveRecordOriginGo,
-				Transport:      ActiveRecordTransportConnect,
-				Mode:           ActiveRecordModeLocal,
-				RecordRenderer: ActiveRecordRendererTransportMessage,
-				SourceExpr:     "handler",
-				Label:          "connect handler",
-				RegisterName:   "Register" + serviceName + "ConnectHandler",
-				InputName:      "handler",
-				InputType:      serviceName + "Handler",
-				NilErr:         serviceName + "MessageServerUnavailableErr",
+				Origin:    ActiveRecordOriginGo,
+				Contract:  ActiveRecordContractMessage,
+				Transport: ActiveRecordTransportConnect,
+				Mode:      ActiveRecordModeLocal,
 			},
 			ActiveRecordSourcePlan{
-				Origin:         ActiveRecordOriginGo,
-				Transport:      ActiveRecordTransportConnect,
-				Mode:           ActiveRecordModeRemote,
-				RecordRenderer: ActiveRecordRendererTransportMessage,
-				SourceExpr:     "client",
-				Label:          "connect remote",
-				RegisterName:   "Register" + serviceName + "ConnectRemoteServer",
-				InputName:      "client",
-				InputType:      serviceName + "Client",
-				NilErr:         serviceName + "MessageServerUnavailableErr",
+				Origin:    ActiveRecordOriginGo,
+				Contract:  ActiveRecordContractMessage,
+				Transport: ActiveRecordTransportConnect,
+				Mode:      ActiveRecordModeRemote,
 			},
 		)
-	}
-
-	if service.Adapters.Has(AdapterTokenMessageGRPC) {
+	case MessageTransportGRPC:
 		sources = append(sources,
 			ActiveRecordSourcePlan{
-				Origin:         ActiveRecordOriginGo,
-				Transport:      ActiveRecordTransportGRPC,
-				Mode:           ActiveRecordModeLocal,
-				RecordRenderer: ActiveRecordRendererTransportMessage,
-				SourceExpr:     "server",
-				Label:          "grpc server",
-				RegisterName:   "Register" + serviceName + "GRPCServer",
-				InputName:      "server",
-				InputType:      serviceName + "Server",
-				NilErr:         serviceName + "MessageServerUnavailableErr",
+				Origin:    ActiveRecordOriginGo,
+				Contract:  ActiveRecordContractMessage,
+				Transport: ActiveRecordTransportGRPC,
+				Mode:      ActiveRecordModeLocal,
 			},
 			ActiveRecordSourcePlan{
-				Origin:         ActiveRecordOriginGo,
-				Transport:      ActiveRecordTransportGRPC,
-				Mode:           ActiveRecordModeRemote,
-				RecordRenderer: ActiveRecordRendererTransportMessage,
-				SourceExpr:     "client",
-				Label:          "grpc remote",
-				RegisterName:   "Register" + serviceName + "GRPCRemoteServer",
-				InputName:      "client",
-				InputType:      serviceName + "Client",
-				NilErr:         serviceName + "MessageServerUnavailableErr",
+				Origin:    ActiveRecordOriginGo,
+				Contract:  ActiveRecordContractMessage,
+				Transport: ActiveRecordTransportGRPC,
+				Mode:      ActiveRecordModeRemote,
 			},
 		)
 	}
 
 	return sources
+}
+
+func activeRecordSourceSelectionForService(service ServicePlan) ServiceGenerationSelection {
+	if service.Generation.HasIdentity() {
+		return service.Generation
+	}
+	return ServiceGenerationSelection{MessageTransport: MessageTransportConnect}
+}
+
+func ValidateActiveRecordSourcePlan(source ActiveRecordSourcePlan) error {
+	for _, allowed := range validActiveRecordSourcePlans {
+		if source == allowed {
+			return nil
+		}
+	}
+	return fmt.Errorf("unknown active record source origin=%q contract=%q transport=%q mode=%q", source.Origin, source.Contract, source.Transport, source.Mode)
+}
+
+var validActiveRecordSourcePlans = []ActiveRecordSourcePlan{
+	{Origin: ActiveRecordOriginGo, Contract: ActiveRecordContractNative, Transport: ActiveRecordTransportNone, Mode: ActiveRecordModeLocal},
+	{Origin: ActiveRecordOriginCGO, Contract: ActiveRecordContractNative, Transport: ActiveRecordTransportNone, Mode: ActiveRecordModeLocal},
+	{Origin: ActiveRecordOriginCGO, Contract: ActiveRecordContractMessage, Transport: ActiveRecordTransportNone, Mode: ActiveRecordModeLocal},
+	{Origin: ActiveRecordOriginGo, Contract: ActiveRecordContractMessage, Transport: ActiveRecordTransportConnect, Mode: ActiveRecordModeLocal},
+	{Origin: ActiveRecordOriginGo, Contract: ActiveRecordContractMessage, Transport: ActiveRecordTransportConnect, Mode: ActiveRecordModeRemote},
+	{Origin: ActiveRecordOriginGo, Contract: ActiveRecordContractMessage, Transport: ActiveRecordTransportGRPC, Mode: ActiveRecordModeLocal},
+	{Origin: ActiveRecordOriginGo, Contract: ActiveRecordContractMessage, Transport: ActiveRecordTransportGRPC, Mode: ActiveRecordModeRemote},
 }

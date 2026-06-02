@@ -114,16 +114,15 @@ func TestPlanLifecycleUsesCapabilities(t *testing.T) {
 	}
 }
 
-func TestPlanAdapterTokenConstants(t *testing.T) {
-	tests := map[AdapterToken]string{
-		AdapterTokenMessageConnect: "msg-connect",
-		AdapterTokenMessageGRPC:    "msg-grpc",
-		AdapterTokenNative:         "native",
+func TestPlanMessageTransportConstants(t *testing.T) {
+	tests := map[MessageTransport]string{
+		MessageTransportConnect: "connect",
+		MessageTransportGRPC:    "grpc",
 	}
 
-	for token, want := range tests {
-		if string(token) != want {
-			t.Fatalf("adapter token = %q, want %q", token, want)
+	for transport, want := range tests {
+		if string(transport) != want {
+			t.Fatalf("message transport = %q, want %q", transport, want)
 		}
 	}
 }

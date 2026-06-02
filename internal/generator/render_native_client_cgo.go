@@ -8,7 +8,7 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedFilePlan) error {
+func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedArtifactPlan) error {
 	if err := validateNativeClientCGOSymbols(plan, service); err != nil {
 		return err
 	}
@@ -1263,6 +1263,10 @@ func cgoGoImportPath(plan FilePlan) string {
 	return path.Join(string(plan.GoImportPath), cgoDirForFilePlan(plan))
 }
 
+func packageCGOImportPath(pkg PackagePlan) string {
+	return path.Join(string(pkg.GoImportPath), cgoDirForPackagePlan(pkg))
+}
+
 func cgoServicePackageQualifier(g *protogen.GeneratedFile, goImportPath string, symbol string) string {
 	qualified := g.QualifiedGoIdent(protogen.GoIdent{
 		GoName:       symbol,
@@ -1495,7 +1499,7 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 		}
 	}
 	for _, otherService := range plan.Services {
-		if otherService.FullName != service.FullName && otherService.NativeFileFamily.CGONativeClient.Enabled {
+		if otherService.FullName != service.FullName && otherService.HasArtifact(GeneratedArtifactKindCGONativeClient) {
 			addNativeClientGeneratedSymbols(seen, otherService)
 		}
 	}

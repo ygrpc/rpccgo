@@ -6,4 +6,4 @@ rpccgo keeps the service-local active server architecture, but `native` continue
 
 - Go native server interfaces, Go native client APIs, C native callbacks, and streaming native operations must all expose flat field-level boundaries.
 - `NativeContract`-style field plans may remain as conversion metadata, but generated `Request`/`Response` structs are not a valid native ABI.
-- `@rpccgo:native` keeps the new server registration selection behavior, while its native side must satisfy the flat boundary contract.
+- `@rpccgo:native` keeps the new service generation selection behavior, while its native side must satisfy the flat boundary contract.

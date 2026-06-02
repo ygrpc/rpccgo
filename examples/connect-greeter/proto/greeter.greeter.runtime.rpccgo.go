@@ -1530,7 +1530,6 @@ var greeterActiveServer atomic.Pointer[greeterActiveServerRecord]
 var greeterStreamRegistry rpcruntime.StreamRegistry
 var GreeterNativeServerUnavailableErr = errors.New("rpccgo: native server is unavailable")
 var GreeterMessageServerUnavailableErr = errors.New("rpccgo: message server is unavailable")
-var GreeterNativeMessageConverterUnavailableErr = errors.New("rpccgo: native/message converter is not enabled")
 
 func registerGreeterGoNativeServer(server GreeterNativeServer) error {
 	if server == nil {

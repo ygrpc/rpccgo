@@ -8,11 +8,11 @@ import (
 
 func renderRuntimeTransportMessageSessions(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeAdapterMethod) {
 	for _, method := range methods {
-		if service.Adapters.Has(AdapterTokenMessageConnect) {
+		if service.Generation.MessageTransport == MessageTransportConnect {
 			renderConnectDirectMessageSession(g, service, method)
 			renderConnectRemoteMessageSession(g, service, method)
 		}
-		if service.Adapters.Has(AdapterTokenMessageGRPC) {
+		if service.Generation.MessageTransport == MessageTransportGRPC {
 			renderGRPCDirectMessageSession(g, service, method)
 			renderGRPCRemoteMessageSession(g, service, method)
 		}

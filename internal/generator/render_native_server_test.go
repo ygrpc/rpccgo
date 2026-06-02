@@ -12,12 +12,8 @@ func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) 
 	file := completeServicePlanTestFile()
 	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/complete_service_plan.proto", file)
 
-	plans, err := Generate(plugin)
-	if err != nil {
-		t.Fatalf("Generate() error = %v", err)
-	}
-	if err := RenderNativeStageFiles(plugin, plans[0]); err != nil {
-		t.Fatalf("RenderNativeStageFiles() error = %v", err)
+	if _, err := GenerateWithOptions(plugin); err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
 	const nativeServerFile = "test/v1/complete_service_plan.all_service.server.native.rpccgo.go"
@@ -54,12 +50,8 @@ func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/complete_service_plan.proto", file)
 
-	plans, err := Generate(plugin)
-	if err != nil {
-		t.Fatalf("Generate() error = %v", err)
-	}
-	if err := RenderNativeStageFiles(plugin, plans[0]); err != nil {
-		t.Fatalf("RenderNativeStageFiles() error = %v", err)
+	if _, err := GenerateWithOptions(plugin); err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
 	const nativeServerFile = "test/v1/complete_service_plan.all_service.server.native.rpccgo.go"
@@ -114,12 +106,12 @@ func TestRenderNativeServerRejectsUnknownStreamingKind(t *testing.T) {
 		Response:  MethodIOPlan{GoName: "HelloReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.HelloReply"},
 	}})
 
-	err := RenderNativeStageFiles(plugin, plan)
+	err := renderNativeServerFile(plugin, plan, plan.Services[0], plan.Services[0].Artifacts[0])
 	if err == nil {
-		t.Fatal("RenderNativeStageFiles() error = nil, want unknown native server streaming kind error")
+		t.Fatal("renderNativeServerFile() error = nil, want unknown native server streaming kind error")
 	}
 	if got := err.Error(); !strings.Contains(got, "Mystery") || !strings.Contains(got, "unknown native server streaming kind") {
-		t.Fatalf("RenderNativeStageFiles() error = %q, want method name and unknown native server streaming kind", got)
+		t.Fatalf("renderNativeServerFile() error = %q, want method name and unknown native server streaming kind", got)
 	}
 }
 
@@ -204,12 +196,13 @@ func TestRenderNativeServerRejectsGeneratedSymbolCollisions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())
-			err := RenderNativeStageFiles(plugin, nativeServerCollisionTestFilePlan(tt.service.GoName, tt.service.Methods))
+			plan := nativeServerCollisionTestFilePlan(tt.service.GoName, tt.service.Methods)
+			err := renderNativeServerFile(plugin, plan, plan.Services[0], plan.Services[0].Artifacts[0])
 			if err == nil {
-				t.Fatal("RenderNativeStageFiles() error = nil, want native server symbol collision")
+				t.Fatal("renderNativeServerFile() error = nil, want native server symbol collision")
 			}
 			if got := err.Error(); !strings.Contains(got, tt.wantError) || !strings.Contains(got, "collides") {
-				t.Fatalf("RenderNativeStageFiles() error = %q, want collision for %q", got, tt.wantError)
+				t.Fatalf("renderNativeServerFile() error = %q, want collision for %q", got, tt.wantError)
 			}
 		})
 	}
@@ -219,7 +212,7 @@ func TestRenderNativeServerGeneratedSourceCompiles(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/complete_service_plan.proto", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -242,7 +235,7 @@ func TestRenderNativeServerGeneratedSourceCompiles(t *testing.T) {
 
 	for _, generated := range plugin.Response().GetFile() {
 		name := generated.GetName()
-		if !strings.Contains(name, ".runtime.rpccgo.go") && !strings.Contains(name, ".server.message.rpccgo.go") && !strings.Contains(name, ".server.native.rpccgo.go") {
+		if !strings.Contains(name, ".runtime.rpccgo.go") && !strings.Contains(name, ".codec.rpccgo.go") && !strings.Contains(name, ".server.message.rpccgo.go") && !strings.Contains(name, ".server.native.rpccgo.go") {
 			continue
 		}
 		target := filepath.Join(tmp, name)
@@ -267,7 +260,7 @@ func TestRenderNativeServerUnimplementedHelperSupportsPartialImplementation(t *t
 	file := completeServicePlanTestFile()
 	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/complete_service_plan.proto", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -275,6 +268,7 @@ func TestRenderNativeServerUnimplementedHelperSupportsPartialImplementation(t *t
 	tmp := t.TempDir()
 	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {
 		return strings.Contains(name, ".runtime.rpccgo.go") ||
+			strings.Contains(name, ".codec.rpccgo.go") ||
 			strings.Contains(name, ".server.message.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go")
 	})
@@ -350,6 +344,7 @@ import (
 type AllRequest struct {
 	Name string
 	Enabled bool
+	Child []byte
 }
 type AllReply struct {
 	Accepted bool
@@ -358,6 +353,7 @@ type AllReply struct {
 type DefaultRequest struct {
 	Name string
 	Enabled bool
+	Child []byte
 }
 type DefaultReply struct {
 	Accepted bool
@@ -366,6 +362,7 @@ type DefaultReply struct {
 type ConnectRequest struct {
 	Name string
 	Enabled bool
+	Child []byte
 }
 type ConnectReply struct {
 	Accepted bool
@@ -374,6 +371,7 @@ type ConnectReply struct {
 type GrpcRequest struct {
 	Name string
 	Enabled bool
+	Child []byte
 }
 type GrpcReply struct {
 	Accepted bool
@@ -382,6 +380,7 @@ type GrpcReply struct {
 type MessageRequest struct {
 	Name string
 	Enabled bool
+	Child []byte
 }
 type MessageReply struct {
 	Accepted bool
@@ -390,6 +389,7 @@ type MessageReply struct {
 type ConnectNativeRequest struct {
 	Name string
 	Enabled bool
+	Child []byte
 }
 type ConnectNativeReply struct {
 	Accepted bool
@@ -398,6 +398,7 @@ type ConnectNativeReply struct {
 type NativeOnlyRequest struct {
 	Name string
 	Enabled bool
+	Child []byte
 }
 type NativeOnlyReply struct {
 	Accepted bool
@@ -489,13 +490,13 @@ func nativeServerCollisionTestFilePlan(serviceName string, methods []MethodPlan)
 
 func nativeServerCollisionTestService(serviceName string, methods []MethodPlan) ServicePlan {
 	return ServicePlan{
-		Name:     serviceName,
-		GoName:   serviceName,
-		FullName: "test.v1." + serviceName,
-		Adapters: AdapterSelection{Tokens: []AdapterToken{AdapterTokenNative}},
-		Methods:  methods,
-		NativeFileFamily: NativeFileFamilyPlan{
-			NativeServer: GeneratedFilePlan{Filename: "test/v1/collision.server.native.rpccgo.go", Enabled: true},
+		Name:       serviceName,
+		GoName:     serviceName,
+		FullName:   "test.v1." + serviceName,
+		Generation: ServiceGenerationSelection{MessageTransport: MessageTransportConnect, NativeEnabled: true},
+		Methods:    methods,
+		Artifacts: []GeneratedArtifactPlan{
+			{Kind: GeneratedArtifactKindNativeServer, Filename: "test/v1/collision.server.native.rpccgo.go"},
 		},
 	}
 }

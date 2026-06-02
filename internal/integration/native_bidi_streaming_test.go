@@ -18,7 +18,7 @@ import (
 func TestNativeBidiStreamingRoutesToGoNativeServer(t *testing.T) {
 	tmp := t.TempDir()
 	plugin := newNativeBidiStreamingTestPlugin(t, "example.com/nativebidi/test/v1;testv1")
-	if _, err := generator.GenerateWithOptions(plugin, generator.GenerateOptions{RenderNativeStageFiles: true}); err != nil {
+	if _, err := generator.GenerateWithOptions(plugin); err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
@@ -37,7 +37,7 @@ func TestNativeBidiStreamingRoutesToGoNativeServer(t *testing.T) {
 func TestNativeBidiStreamingRoutesToCGONativeServer(t *testing.T) {
 	tmp := t.TempDir()
 	plugin := newNativeBidiStreamingTestPlugin(t, "example.com/nativebidicgo/test/v1;testv1")
-	if _, err := generator.GenerateWithOptions(plugin, generator.GenerateOptions{RenderNativeStageFiles: true}); err != nil {
+	if _, err := generator.GenerateWithOptions(plugin); err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
@@ -69,8 +69,10 @@ func writeNativeBidiStreamingFixture(t *testing.T, tmp string, plugin *protogen.
 	for _, generated := range plugin.Response().GetFile() {
 		name := generated.GetName()
 		include := strings.Contains(name, ".runtime.rpccgo.go") ||
+			strings.Contains(name, ".codec.rpccgo.go") ||
 			strings.Contains(name, ".server.message.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go") ||
+			strings.Contains(name, ".exports.cgo.rpccgo.go") ||
 			strings.Contains(name, ".server.native.cgo.rpccgo.go") ||
 			strings.Contains(name, ".client.native.cgo.rpccgo.go")
 		if !include {

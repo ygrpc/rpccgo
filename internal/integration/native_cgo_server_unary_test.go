@@ -13,7 +13,7 @@ import (
 func TestNativeCGOServerUnaryRoutesThroughDispatcher(t *testing.T) {
 	tmp := t.TempDir()
 	plugin := newNativeUnaryTestPluginForPackage(t, "example.com/nativecgoserver/test/v1;testv1")
-	if _, err := generator.GenerateWithOptions(plugin, generator.GenerateOptions{RenderNativeStageFiles: true}); err != nil {
+	if _, err := generator.GenerateWithOptions(plugin); err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
@@ -30,8 +30,10 @@ func TestNativeCGOServerUnaryRoutesThroughDispatcher(t *testing.T) {
 	for _, generated := range plugin.Response().GetFile() {
 		name := generated.GetName()
 		include := strings.Contains(name, ".runtime.rpccgo.go") ||
+			strings.Contains(name, ".codec.rpccgo.go") ||
 			strings.Contains(name, ".server.message.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go") ||
+			strings.Contains(name, ".exports.cgo.rpccgo.go") ||
 			strings.Contains(name, ".server.native.cgo.rpccgo.go") ||
 			strings.Contains(name, ".client.native.cgo.rpccgo.go")
 		if !include {

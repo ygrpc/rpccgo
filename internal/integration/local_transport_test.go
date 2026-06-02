@@ -19,7 +19,7 @@ import (
 func TestLocalTransportAcceptance(t *testing.T) {
 	tmp := t.TempDir()
 	plugin := newLocalTransportTestPlugin(t, "example.com/messagedirect/test/v1;testv1")
-	if _, err := generator.GenerateWithOptions(plugin, generator.GenerateOptions{RenderStageFiles: true}); err != nil {
+	if _, err := generator.GenerateWithOptions(plugin); err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 

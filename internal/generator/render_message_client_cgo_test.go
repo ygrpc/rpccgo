@@ -6,14 +6,8 @@ func TestRenderMessageClientCGODefinesUnaryExportSurface(t *testing.T) {
 	file := messageCgoTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	plans, err := Generate(plugin)
-	if err != nil {
-		t.Fatalf("Generate() error = %v", err)
-	}
-	AttachMessageFileFamilyPlan(&plans[0])
-
-	if err := RenderMessageStageFiles(plugin, plans[0]); err != nil {
-		t.Fatalf("RenderMessageStageFiles() error = %v", err)
+	if _, err := GenerateWithOptions(plugin); err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
 	const cgoClientFile = "test/v1/cgo/message_cgo.greeter.client.message.cgo.rpccgo.go"

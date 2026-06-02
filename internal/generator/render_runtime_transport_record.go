@@ -1,8 +1,12 @@
 package generator
 
-import "google.golang.org/protobuf/compiler/protogen"
+import (
+	"fmt"
 
-func renderRuntimeTransportMessageRecord(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeAdapterMethod, codecEnabled bool, activeName, recordName, transportExpr, label string) {
+	"google.golang.org/protobuf/compiler/protogen"
+)
+
+func renderRuntimeTransportMessageRecord(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeAdapterMethod, activeName, recordName, transportExpr, label string, source ActiveRecordSourcePlan) error {
 	g.P("record := &", recordName, "{")
 	g.P("}")
 	for _, method := range methods {
@@ -11,36 +15,35 @@ func renderRuntimeTransportMessageRecord(g *protogen.GeneratedFile, service Serv
 			renderRuntimeTransportUnaryMessageCall(g, service, method, transportExpr, label, "req")
 			g.P("}")
 			g.P("record.invokeNative", method.MethodGoName, " = func(ctx context.Context", method.NativeArgs, ") (", method.NativeReturns, ") {")
-			if codecEnabled {
-				g.P("messageReq, err := ", codecNativeRequestToMessageName(service, methodForRuntimeService(service, method)), "(", method.NativeArgNames, ")")
-				g.P("if err != nil { return ", method.NativeErrZero, " }")
-				g.P("var messageResp []byte")
-				renderRuntimeTransportUnaryNativeMessageCall(g, service, method, transportExpr, label, "messageReq")
-				g.P("if err != nil { return ", method.NativeErrZero, " }")
-				for _, decl := range method.NativeVarDecls {
-					g.P(decl)
-				}
-				if method.NativeNames == "" {
-					g.P("err = ", codecMessageToNativeResponseName(service, methodForRuntimeService(service, method)), "(messageResp)")
-				} else {
-					g.P(method.NativeNames, ", err = ", codecMessageToNativeResponseName(service, methodForRuntimeService(service, method)), "(messageResp)")
-				}
-				g.P("if err != nil { return ", method.NativeErrZero, " }")
-				if method.NativeNames == "" {
-					g.P("return nil")
-				} else {
-					g.P("return ", method.NativeNames, ", nil")
-				}
+			g.P("messageReq, err := ", codecNativeRequestToMessageName(service, methodForRuntimeService(service, method)), "(", method.NativeArgNames, ")")
+			g.P("if err != nil { return ", method.NativeErrZero, " }")
+			g.P("var messageResp []byte")
+			renderRuntimeTransportUnaryNativeMessageCall(g, service, method, transportExpr, label, "messageReq")
+			g.P("if err != nil { return ", method.NativeErrZero, " }")
+			for _, decl := range method.NativeVarDecls {
+				g.P(decl)
+			}
+			if method.NativeNames == "" {
+				g.P("err = ", codecMessageToNativeResponseName(service, methodForRuntimeService(service, method)), "(messageResp)")
 			} else {
-				g.P("return ", method.NativeConverterZero)
+				g.P(method.NativeNames, ", err = ", codecMessageToNativeResponseName(service, methodForRuntimeService(service, method)), "(messageResp)")
+			}
+			g.P("if err != nil { return ", method.NativeErrZero, " }")
+			if method.NativeNames == "" {
+				g.P("return nil")
+			} else {
+				g.P("return ", method.NativeNames, ", nil")
 			}
 			g.P("}")
 			continue
 		}
-		renderRuntimeTransportMessageStreamRecord(g, service, method, codecEnabled, transportExpr, label)
+		if err := renderRuntimeTransportMessageStreamRecord(g, service, method, transportExpr, source); err != nil {
+			return err
+		}
 	}
 	g.P(activeName, ".Store(record)")
 	g.P("return nil")
+	return nil
 }
 
 func renderRuntimeTransportUnaryMessageCall(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod, transportExpr, label, reqExpr string) {
@@ -71,65 +74,82 @@ func renderRuntimeTransportUnaryNativeMessageCall(g *protogen.GeneratedFile, ser
 	g.P("messageResp, err = proto.Marshal(directResp)")
 }
 
-func renderRuntimeTransportMessageStreamRecord(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod, codecEnabled bool, transportExpr, label string) {
+func renderRuntimeTransportMessageStreamRecord(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod, transportExpr string, source ActiveRecordSourcePlan) error {
 	nativeSession := runtimeFinalNativeSessionName(service.GoName, method)
 	messageSession := runtimeFinalMessageSessionName(service.GoName, method)
 	if runtimeStreamShapeFor(method) == runtimeStreamServer {
 		g.P("record.startMessage", method.MethodGoName, " = func(ctx context.Context, req []byte) (*", messageSession, ", error) {")
-		renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, label, "ctx", "req")
+		if err := renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, source, "ctx", "req"); err != nil {
+			return err
+		}
 	} else {
 		g.P("record.startMessage", method.MethodGoName, " = func(ctx context.Context) (*", messageSession, ", error) {")
-		renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, label, "ctx", "")
+		if err := renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, source, "ctx", ""); err != nil {
+			return err
+		}
 	}
 	g.P("if err != nil { return nil, err }")
 	renderRuntimeMessageFinalSessionFromSource(g, messageSession, method, "source")
 	g.P("}")
 	if runtimeStreamShapeFor(method) == runtimeStreamServer {
 		g.P("record.startNative", method.MethodGoName, " = func(ctx context.Context", method.NativeArgs, ") (*", nativeSession, ", error) {")
-		if codecEnabled {
-			g.P("messageReq, err := ", codecNativeRequestToMessageName(service, methodForRuntimeService(service, method)), "(", method.NativeArgNames, ")")
-			g.P("if err != nil { return nil, err }")
-			renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, label, "ctx", "messageReq")
-			g.P("if err != nil { return nil, err }")
-			renderRuntimeNativeFinalSessionFromMessageSource(g, service, nativeSession, method, "source")
-		} else {
-			g.P("return nil, ", service.GoName, "NativeMessageConverterUnavailableErr")
+		g.P("messageReq, err := ", codecNativeRequestToMessageName(service, methodForRuntimeService(service, method)), "(", method.NativeArgNames, ")")
+		g.P("if err != nil { return nil, err }")
+		if err := renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, source, "ctx", "messageReq"); err != nil {
+			return err
 		}
+		g.P("if err != nil { return nil, err }")
+		renderRuntimeNativeFinalSessionFromMessageSource(g, service, nativeSession, method, "source")
 	} else {
 		g.P("record.startNative", method.MethodGoName, " = func(ctx context.Context) (*", nativeSession, ", error) {")
-		if codecEnabled {
-			renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, label, "ctx", "")
-			g.P("if err != nil { return nil, err }")
-			renderRuntimeNativeFinalSessionFromMessageSource(g, service, nativeSession, method, "source")
-		} else {
-			g.P("return nil, ", service.GoName, "NativeMessageConverterUnavailableErr")
+		if err := renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, source, "ctx", ""); err != nil {
+			return err
 		}
+		g.P("if err != nil { return nil, err }")
+		renderRuntimeNativeFinalSessionFromMessageSource(g, service, nativeSession, method, "source")
 	}
 	g.P("}")
+	return nil
 }
 
-func renderRuntimeTransportMessageStreamSource(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod, transportExpr, label, ctxExpr, reqExpr string) {
-	constructor := ""
-	switch label {
-	case "connect handler":
-		constructor = "new" + connectDirectMessageSessionName(service.GoName, method)
-	case "connect remote":
-		constructor = "new" + connectRemoteMessageSessionName(service.GoName, method)
-	case "grpc server":
-		constructor = "new" + grpcDirectMessageSessionName(service.GoName, method)
-	case "grpc remote":
-		constructor = "new" + grpcRemoteMessageSessionName(service.GoName, method)
-	default:
-		panic("unknown transport message source")
+func renderRuntimeTransportMessageStreamSource(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod, transportExpr string, source ActiveRecordSourcePlan, ctxExpr, reqExpr string) error {
+	constructor, err := runtimeTransportMessageStreamConstructor(service, method, source)
+	if err != nil {
+		return err
 	}
 	if runtimeStreamShapeFor(method) == runtimeStreamServer {
 		g.P("source, err := ", constructor, "(", ctxExpr, ", ", transportExpr, ", ", reqExpr, ")")
-		return
+		return nil
 	}
-	if label == "connect handler" || label == "grpc server" {
+	if source.Mode == ActiveRecordModeLocal {
 		g.P("source := ", constructor, "(", ctxExpr, ", ", transportExpr, ")")
 		g.P("var err error")
-		return
+		return nil
 	}
 	g.P("source, err := ", constructor, "(", ctxExpr, ", ", transportExpr, ")")
+	return nil
+}
+
+func runtimeTransportMessageStreamConstructor(service ServicePlan, method runtimeAdapterMethod, source ActiveRecordSourcePlan) (string, error) {
+	if err := ValidateActiveRecordSourcePlan(source); err != nil {
+		return "", err
+	}
+	if source.Contract != ActiveRecordContractMessage {
+		return "", fmt.Errorf("active record source %q/%q/%q/%q is not a message transport source", source.Origin, source.Contract, source.Transport, source.Mode)
+	}
+
+	var constructor string
+	switch {
+	case source.Transport == ActiveRecordTransportConnect && source.Mode == ActiveRecordModeLocal:
+		constructor = "new" + connectDirectMessageSessionName(service.GoName, method)
+	case source.Transport == ActiveRecordTransportConnect && source.Mode == ActiveRecordModeRemote:
+		constructor = "new" + connectRemoteMessageSessionName(service.GoName, method)
+	case source.Transport == ActiveRecordTransportGRPC && source.Mode == ActiveRecordModeLocal:
+		constructor = "new" + grpcDirectMessageSessionName(service.GoName, method)
+	case source.Transport == ActiveRecordTransportGRPC && source.Mode == ActiveRecordModeRemote:
+		constructor = "new" + grpcRemoteMessageSessionName(service.GoName, method)
+	default:
+		return "", fmt.Errorf("unknown transport message source origin=%q contract=%q transport=%q mode=%q", source.Origin, source.Contract, source.Transport, source.Mode)
+	}
+	return constructor, nil
 }

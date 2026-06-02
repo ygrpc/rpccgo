@@ -9,61 +9,61 @@ func TestParseServiceRPCCGOOptions(t *testing.T) {
 	tests := []struct {
 		name     string
 		comments string
-		want     []AdapterToken
+		want     ServiceGenerationSelection
 	}{
 		{
 			name:     "defaults to msg connect when annotation is absent",
 			comments: "Service comment without generator options.",
-			want:     []AdapterToken{AdapterTokenMessageConnect},
+			want:     ServiceGenerationSelection{MessageTransport: MessageTransportConnect},
 		},
 		{
 			name:     "parses msg connect",
 			comments: "@rpccgo:msg-connect",
-			want:     []AdapterToken{AdapterTokenMessageConnect},
+			want:     ServiceGenerationSelection{MessageTransport: MessageTransportConnect},
 		},
 		{
 			name:     "parses msg grpc",
 			comments: "@rpccgo:msg-grpc",
-			want:     []AdapterToken{AdapterTokenMessageGRPC},
+			want:     ServiceGenerationSelection{MessageTransport: MessageTransportGRPC},
 		},
 		{
 			name:     "parses message connect plus native",
 			comments: "@rpccgo:msg-connect|native",
-			want:     []AdapterToken{AdapterTokenMessageConnect, AdapterTokenNative},
+			want:     ServiceGenerationSelection{MessageTransport: MessageTransportConnect, NativeEnabled: true},
 		},
 		{
 			name:     "parses message grpc plus native",
 			comments: "@rpccgo:msg-grpc|native",
-			want:     []AdapterToken{AdapterTokenMessageGRPC, AdapterTokenNative},
+			want:     ServiceGenerationSelection{MessageTransport: MessageTransportGRPC, NativeEnabled: true},
 		},
 		{
 			name:     "expands native only to msg connect plus native",
 			comments: "@rpccgo:native",
-			want:     []AdapterToken{AdapterTokenMessageConnect, AdapterTokenNative},
+			want:     ServiceGenerationSelection{MessageTransport: MessageTransportConnect, NativeEnabled: true},
 		},
 		{
 			name:     "deduplicates and canonicalizes adapter tokens",
 			comments: "@rpccgo:native|msg-grpc|native|msg-grpc",
-			want:     []AdapterToken{AdapterTokenMessageGRPC, AdapterTokenNative},
+			want:     ServiceGenerationSelection{MessageTransport: MessageTransportGRPC, NativeEnabled: true},
 		},
 		{
 			name: "finds annotation in service leading comments",
 			comments: `// Greeter serves greeting requests.
 // @rpccgo: msg-connect | native
 // More service docs.`,
-			want: []AdapterToken{AdapterTokenMessageConnect, AdapterTokenNative},
+			want: ServiceGenerationSelection{MessageTransport: MessageTransportConnect, NativeEnabled: true},
 		},
 		{
 			name: "ignores inline mention in prose",
 			comments: `// Greeter docs mention @rpccgo:msg-grpc as an example.
 // No actual directive here.`,
-			want: []AdapterToken{AdapterTokenMessageConnect},
+			want: ServiceGenerationSelection{MessageTransport: MessageTransportConnect},
 		},
 		{
 			name: "treats native and expanded native directives as equivalent",
 			comments: `// @rpccgo:native
 // @rpccgo:msg-connect|native`,
-			want: []AdapterToken{AdapterTokenMessageConnect, AdapterTokenNative},
+			want: ServiceGenerationSelection{MessageTransport: MessageTransportConnect, NativeEnabled: true},
 		},
 	}
 
@@ -73,7 +73,9 @@ func TestParseServiceRPCCGOOptions(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ParseServiceRPCCGOOptions() error = %v", err)
 			}
-			assertAdapterTokens(t, got, tt.want)
+			if got != tt.want {
+				t.Fatalf("ParseServiceRPCCGOOptions() = %#v, want %#v", got, tt.want)
+			}
 		})
 	}
 }
@@ -144,29 +146,34 @@ func TestParseServiceRPCCGOOptionsErrors(t *testing.T) {
 	}
 }
 
-func TestAdapterSelectionHas(t *testing.T) {
-	selection := AdapterSelection{Tokens: []AdapterToken{AdapterTokenMessageConnect, AdapterTokenNative}}
+func TestServiceGenerationSelectionHasIdentity(t *testing.T) {
+	tests := []struct {
+		name      string
+		selection ServiceGenerationSelection
+		want      bool
+	}{
+		{
+			name:      "connect transport is initialized",
+			selection: ServiceGenerationSelection{MessageTransport: MessageTransportConnect},
+			want:      true,
+		},
+		{
+			name:      "grpc transport is initialized",
+			selection: ServiceGenerationSelection{MessageTransport: MessageTransportGRPC},
+			want:      true,
+		},
+		{
+			name:      "zero transport is uninitialized",
+			selection: ServiceGenerationSelection{},
+			want:      false,
+		},
+	}
 
-	if !selection.Has(AdapterTokenMessageConnect) {
-		t.Fatalf("selection.Has(%q) = false, want true", AdapterTokenMessageConnect)
-	}
-	if !selection.Has(AdapterTokenNative) {
-		t.Fatalf("selection.Has(%q) = false, want true", AdapterTokenNative)
-	}
-	if selection.Has(AdapterTokenMessageGRPC) {
-		t.Fatalf("selection.Has(%q) = true, want false", AdapterTokenMessageGRPC)
-	}
-}
-
-func assertAdapterTokens(t *testing.T, got AdapterSelection, want []AdapterToken) {
-	t.Helper()
-
-	if len(got.Tokens) != len(want) {
-		t.Fatalf("tokens = %#v, want %#v", got.Tokens, want)
-	}
-	for i := range want {
-		if got.Tokens[i] != want[i] {
-			t.Fatalf("tokens = %#v, want %#v", got.Tokens, want)
-		}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.selection.HasIdentity(); got != tt.want {
+				t.Fatalf("HasIdentity() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }

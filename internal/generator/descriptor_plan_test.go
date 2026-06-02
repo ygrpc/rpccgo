@@ -34,10 +34,7 @@ func TestBuildDescriptorPlanBuildsServicesAndMethods(t *testing.T) {
 	if greeter.Name != "Greeter" || greeter.GoName != "Greeter" || greeter.FullName != "test.v1.Greeter" {
 		t.Fatalf("Greeter identity = (%q, %q, %q), want descriptor identity", greeter.Name, greeter.GoName, greeter.FullName)
 	}
-	assertAdapterTokens(t, greeter.Adapters, []AdapterToken{
-		AdapterTokenMessageConnect,
-		AdapterTokenNative,
-	})
+	assertServiceGeneration(t, greeter.Generation, ServiceGenerationSelection{MessageTransport: MessageTransportConnect, NativeEnabled: true})
 	if len(greeter.Methods) != 2 {
 		t.Fatalf("Greeter methods = %d, want 2", len(greeter.Methods))
 	}
@@ -78,7 +75,7 @@ func TestBuildDescriptorPlanBuildsServicesAndMethods(t *testing.T) {
 	if health.Name != "Health" || health.GoName != "Health" || health.FullName != "test.v1.Health" {
 		t.Fatalf("Health identity = (%q, %q, %q), want descriptor identity", health.Name, health.GoName, health.FullName)
 	}
-	assertAdapterTokens(t, health.Adapters, []AdapterToken{AdapterTokenMessageConnect})
+	assertServiceGeneration(t, health.Generation, ServiceGenerationSelection{MessageTransport: MessageTransportConnect})
 	if len(health.Methods) != 1 {
 		t.Fatalf("Health methods = %d, want 1", len(health.Methods))
 	}
@@ -116,25 +113,19 @@ func TestBuildDescriptorPlanBuildsCompleteServicePlans(t *testing.T) {
 		"ConnectNativeService", "AllService", "NativeOnlyService",
 	)
 
-	wantServices := map[string][]AdapterToken{
-		"DefaultService":       {AdapterTokenMessageConnect},
-		"ConnectService":       {AdapterTokenMessageConnect},
-		"GrpcService":          {AdapterTokenMessageGRPC},
-		"MessageService":       {AdapterTokenMessageConnect},
-		"ConnectNativeService": {AdapterTokenMessageConnect, AdapterTokenNative},
-		"AllService":           {AdapterTokenMessageConnect, AdapterTokenNative},
-		"NativeOnlyService":    {AdapterTokenMessageConnect, AdapterTokenNative},
+	wantServices := map[string]ServiceGenerationSelection{
+		"DefaultService":       {MessageTransport: MessageTransportConnect},
+		"ConnectService":       {MessageTransport: MessageTransportConnect},
+		"GrpcService":          {MessageTransport: MessageTransportGRPC},
+		"MessageService":       {MessageTransport: MessageTransportConnect},
+		"ConnectNativeService": {MessageTransport: MessageTransportConnect, NativeEnabled: true},
+		"AllService":           {MessageTransport: MessageTransportConnect, NativeEnabled: true},
+		"NativeOnlyService":    {MessageTransport: MessageTransportConnect, NativeEnabled: true},
 	}
-	for name, wantTokens := range wantServices {
+	for name, wantGeneration := range wantServices {
 		service := services[name]
-		assertAdapterTokens(t, service.Adapters, wantTokens)
-		if !service.NeedsCodec {
-			t.Fatalf("%s NeedsCodec = false, want true", name)
-		}
+		assertServiceGeneration(t, service.Generation, wantGeneration)
 		for _, method := range service.Methods {
-			if !method.NeedsCodec {
-				t.Fatalf("%s.%s NeedsCodec = false, want true", name, method.Name)
-			}
 			assertCompleteMethodContracts(t, method)
 		}
 	}
@@ -272,6 +263,13 @@ func hasTopLevelSymbol(symbols []TopLevelSymbolPlan, goName, fullName string, ki
 		}
 	}
 	return false
+}
+
+func assertServiceGeneration(t *testing.T, got, want ServiceGenerationSelection) {
+	t.Helper()
+	if got != want {
+		t.Fatalf("ServiceGeneration = %#v, want %#v", got, want)
+	}
 }
 
 func assertMethodPlan(t *testing.T, got MethodPlan, want MethodPlan) {

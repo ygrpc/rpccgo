@@ -7,32 +7,40 @@ import (
 
 const serviceRPCCGODirective = "@rpccgo:"
 
-var canonicalAdapterTokens = []AdapterToken{
-	AdapterTokenMessageConnect,
-	AdapterTokenMessageGRPC,
-	AdapterTokenNative,
+type serviceGenerationToken string
+
+const (
+	serviceGenerationTokenMessageConnect serviceGenerationToken = "msg-connect"
+	serviceGenerationTokenMessageGRPC    serviceGenerationToken = "msg-grpc"
+	serviceGenerationTokenNative         serviceGenerationToken = "native"
+)
+
+var canonicalServiceGenerationTokens = []serviceGenerationToken{
+	serviceGenerationTokenMessageConnect,
+	serviceGenerationTokenMessageGRPC,
+	serviceGenerationTokenNative,
 }
 
 // ParseServiceRPCCGOOptions parses the service leading comment text for the
 // @rpccgo directive. Descriptor-specific extraction is intentionally left to
 // the descriptor planning layer so this parser can be tested as a pure string
 // contract.
-func ParseServiceRPCCGOOptions(comments string) (AdapterSelection, error) {
+func ParseServiceRPCCGOOptions(comments string) (ServiceGenerationSelection, error) {
 	directives := serviceRPCCGODirectives(comments)
 	if len(directives) == 0 {
-		return AdapterSelection{Tokens: []AdapterToken{AdapterTokenMessageConnect}}, nil
+		return ServiceGenerationSelection{MessageTransport: MessageTransportConnect}, nil
 	}
 
-	var selection AdapterSelection
+	var selection ServiceGenerationSelection
 	var canonical string
 	var firstDirective string
 	for i, directive := range directives {
 		parsed, err := parseServiceRPCCGODirective(directive)
 		if err != nil {
-			return AdapterSelection{}, err
+			return ServiceGenerationSelection{}, err
 		}
 
-		current := adapterSelectionKey(parsed)
+		current := serviceGenerationSelectionKey(parsed)
 		if i == 0 {
 			selection = parsed
 			canonical = current
@@ -40,7 +48,7 @@ func ParseServiceRPCCGOOptions(comments string) (AdapterSelection, error) {
 			continue
 		}
 		if current != canonical {
-			return AdapterSelection{}, fmt.Errorf("conflicting @rpccgo directives: %q selects %q but %q selects %q",
+			return ServiceGenerationSelection{}, fmt.Errorf("conflicting @rpccgo directives: %q selects %q but %q selects %q",
 				firstDirective, canonical, strings.TrimSpace(directive), current)
 		}
 	}
@@ -48,38 +56,38 @@ func ParseServiceRPCCGOOptions(comments string) (AdapterSelection, error) {
 	return selection, nil
 }
 
-func parseServiceRPCCGODirective(directive string) (AdapterSelection, error) {
+func parseServiceRPCCGODirective(directive string) (ServiceGenerationSelection, error) {
 	if strings.Contains(directive, ":") {
-		return AdapterSelection{}, fmt.Errorf("invalid @rpccgo directive %q: repeated ':' is not allowed", directive)
+		return ServiceGenerationSelection{}, fmt.Errorf("invalid @rpccgo directive %q: repeated ':' is not allowed", directive)
 	}
 
 	trimmed := strings.TrimSpace(directive)
 	if trimmed == "" {
-		return AdapterSelection{}, fmt.Errorf("empty @rpccgo directive")
+		return ServiceGenerationSelection{}, fmt.Errorf("empty @rpccgo directive")
 	}
 
-	seen := make(map[AdapterToken]bool)
+	seen := make(map[serviceGenerationToken]bool)
 	for _, rawToken := range strings.Split(trimmed, "|") {
 		token := strings.TrimSpace(rawToken)
 		if token == "" {
-			return AdapterSelection{}, fmt.Errorf("empty @rpccgo token in directive %q", directive)
+			return ServiceGenerationSelection{}, fmt.Errorf("empty @rpccgo token in directive %q", directive)
 		}
 
-		adapterToken := AdapterToken(token)
-		if !isKnownAdapterToken(adapterToken) {
-			return AdapterSelection{}, fmt.Errorf("unknown @rpccgo token %q; valid tokens: msg-connect, msg-grpc, native", token)
+		parsedToken := serviceGenerationToken(token)
+		if !isKnownServiceGenerationToken(parsedToken) {
+			return ServiceGenerationSelection{}, fmt.Errorf("unknown @rpccgo token %q; valid tokens: msg-connect, msg-grpc, native", token)
 		}
-		seen[adapterToken] = true
+		seen[parsedToken] = true
 	}
 
-	if len(seen) == 1 && seen[AdapterTokenNative] {
-		seen[AdapterTokenMessageConnect] = true
+	if len(seen) == 1 && seen[serviceGenerationTokenNative] {
+		seen[serviceGenerationTokenMessageConnect] = true
 	}
-	if seen[AdapterTokenMessageConnect] && seen[AdapterTokenMessageGRPC] {
-		return AdapterSelection{}, fmt.Errorf("@rpccgo message transport must select exactly one of msg-connect or msg-grpc")
+	if seen[serviceGenerationTokenMessageConnect] && seen[serviceGenerationTokenMessageGRPC] {
+		return ServiceGenerationSelection{}, fmt.Errorf("@rpccgo message transport must select exactly one of msg-connect or msg-grpc")
 	}
 
-	return adapterSelectionFromSet(seen), nil
+	return serviceGenerationSelectionFromSet(seen), nil
 }
 
 func serviceRPCCGODirectives(comments string) []string {
@@ -94,26 +102,35 @@ func serviceRPCCGODirectives(comments string) []string {
 	return directives
 }
 
-func adapterSelectionFromSet(seen map[AdapterToken]bool) AdapterSelection {
-	tokens := make([]AdapterToken, 0, len(canonicalAdapterTokens))
-	for _, token := range canonicalAdapterTokens {
-		if seen[token] {
-			tokens = append(tokens, token)
-		}
+func serviceGenerationSelectionFromSet(seen map[serviceGenerationToken]bool) ServiceGenerationSelection {
+	selection := ServiceGenerationSelection{
+		NativeEnabled: seen[serviceGenerationTokenNative],
 	}
-	return AdapterSelection{Tokens: tokens}
+	switch {
+	case seen[serviceGenerationTokenMessageGRPC]:
+		selection.MessageTransport = MessageTransportGRPC
+	default:
+		selection.MessageTransport = MessageTransportConnect
+	}
+	return selection
 }
 
-func adapterSelectionKey(selection AdapterSelection) string {
-	parts := make([]string, 0, len(selection.Tokens))
-	for _, token := range selection.Tokens {
-		parts = append(parts, string(token))
+func serviceGenerationSelectionKey(selection ServiceGenerationSelection) string {
+	parts := []string{}
+	switch selection.MessageTransport {
+	case MessageTransportConnect:
+		parts = append(parts, string(serviceGenerationTokenMessageConnect))
+	case MessageTransportGRPC:
+		parts = append(parts, string(serviceGenerationTokenMessageGRPC))
+	}
+	if selection.NativeEnabled {
+		parts = append(parts, string(serviceGenerationTokenNative))
 	}
 	return strings.Join(parts, "|")
 }
 
-func isKnownAdapterToken(token AdapterToken) bool {
-	for _, known := range canonicalAdapterTokens {
+func isKnownServiceGenerationToken(token serviceGenerationToken) bool {
+	for _, known := range canonicalServiceGenerationTokens {
 		if token == known {
 			return true
 		}

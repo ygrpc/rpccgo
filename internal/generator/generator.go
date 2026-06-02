@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
@@ -11,44 +12,48 @@ import (
 
 const defaultCGODir = "cgo"
 
-type GenerateOptions struct {
-	RenderNativeStageFiles  bool
-	RenderMessageStageFiles bool
-	RenderStageFiles        bool
-}
-
 type GeneratorConfig struct {
 	CGODir string
 }
 
-var renderNativeStageFiles = RenderNativeStageFiles
-var renderMessageStageFiles = RenderMessageStageFiles
-var renderStageFiles = RenderStageFiles
-
-// Generate parses the protoc plugin request into planning data, including file
-// family plans, without emitting generated files.
-func Generate(plugin *protogen.Plugin) ([]FilePlan, error) {
-	return GenerateWithOptions(plugin, GenerateOptions{})
-}
-
-func GenerateWithOptions(plugin *protogen.Plugin, options GenerateOptions) ([]FilePlan, error) {
+// Generate parses the protoc plugin request into a generation plan without
+// emitting generated files.
+func Generate(plugin *protogen.Plugin) (GenerationPlan, error) {
 	if plugin == nil {
-		return nil, fmt.Errorf("generator plugin is nil")
+		return GenerationPlan{}, fmt.Errorf("generator plugin is nil")
 	}
 	config, err := generatorConfigFromPlugin(plugin)
 	if err != nil {
-		return nil, err
+		return GenerationPlan{}, err
 	}
 
-	plans, err := buildFilePlans(plugin, config)
+	plan, err := buildGenerationPlan(plugin, config)
 	if err != nil {
-		return nil, err
+		return GenerationPlan{}, err
 	}
-	attachPackageLevelSymbols(plans, plugin.Files)
-	if err := renderRequestedStageFiles(plugin, plans, options); err != nil {
-		return nil, err
+	if err := ValidateGenerationPlan(plan); err != nil {
+		return GenerationPlan{}, err
 	}
-	return plans, nil
+	return plan, nil
+}
+
+func GenerateWithOptions(plugin *protogen.Plugin) (GenerationPlan, error) {
+	plan, err := Generate(plugin)
+	if err != nil {
+		return GenerationPlan{}, err
+	}
+	if err := RenderGeneratedFiles(plugin, plan); err != nil {
+		return GenerationPlan{}, err
+	}
+	return plan, nil
+}
+
+func buildGenerationPlan(plugin *protogen.Plugin, config GeneratorConfig) (GenerationPlan, error) {
+	files, err := buildFilePlans(plugin, config)
+	if err != nil {
+		return GenerationPlan{}, err
+	}
+	return GenerationPlan{Packages: packagePlansFromFiles(files, plugin.Files, config)}, nil
 }
 
 func buildFilePlans(plugin *protogen.Plugin, config GeneratorConfig) ([]FilePlan, error) {
@@ -62,42 +67,42 @@ func buildFilePlans(plugin *protogen.Plugin, config GeneratorConfig) ([]FilePlan
 			return nil, err
 		}
 		plan.CGODir = config.CGODir
-		AttachNativeFileFamilyPlan(&plan)
-		AttachMessageFileFamilyPlan(&plan)
+		AttachServiceArtifactPlans(&plan)
 		plans = append(plans, plan)
 	}
 	return plans, nil
 }
 
-func attachPackageLevelSymbols(plans []FilePlan, files []*protogen.File) {
-	for i := range plans {
-		plans[i].TopLevelSymbols = buildPackageLevelSymbolPlans(files, plans[i].GoImportPath)
+func packagePlansFromFiles(files []FilePlan, descriptors []*protogen.File, config GeneratorConfig) []PackagePlan {
+	byImportPath := make(map[string]*PackagePlan)
+	var order []string
+	for _, file := range files {
+		key := file.GoImportPath
+		pkg := byImportPath[key]
+		if pkg == nil {
+			pkg = &PackagePlan{
+				GoPackageName: file.GoPackageName,
+				GoImportPath:  file.GoImportPath,
+				CGODir:        config.CGODir,
+			}
+			byImportPath[key] = pkg
+			order = append(order, key)
+		}
+		pkg.Files = append(pkg.Files, file)
 	}
-}
+	sort.Strings(order)
 
-func renderRequestedStageFiles(plugin *protogen.Plugin, plans []FilePlan, options GenerateOptions) error {
-	if options.RenderNativeStageFiles {
-		for _, plan := range plans {
-			if err := renderNativeStageFiles(plugin, plan); err != nil {
-				return err
-			}
+	packages := make([]PackagePlan, 0, len(order))
+	for _, key := range order {
+		pkg := *byImportPath[key]
+		pkg.TopLevelSymbols = buildPackageLevelSymbolPlans(descriptors, key)
+		for i := range pkg.Files {
+			pkg.Files[i].TopLevelSymbols = pkg.TopLevelSymbols
 		}
+		pkg.SharedArtifacts = BuildSharedArtifactPlans(pkg)
+		packages = append(packages, pkg)
 	}
-	if options.RenderMessageStageFiles {
-		for _, plan := range plans {
-			if err := renderMessageStageFiles(plugin, plan); err != nil {
-				return err
-			}
-		}
-	}
-	if options.RenderStageFiles {
-		for _, plan := range plans {
-			if err := renderStageFiles(plugin, plan); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return packages
 }
 
 func ProtogenOptions() protogen.Options {

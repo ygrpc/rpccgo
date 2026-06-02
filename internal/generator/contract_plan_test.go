@@ -20,9 +20,6 @@ func TestBuildContractPlanBuildsNativeAndMessageFields(t *testing.T) {
 	if method.Contract.Message.RequestType != method.Request || method.Contract.Message.ResponseType != method.Response {
 		t.Fatalf("Message contract = %#v, want method request/response identity", method.Contract.Message)
 	}
-	if !method.Contract.RenderInputs.NeedsCodec {
-		t.Fatalf("RenderInputs.NeedsCodec = false, want true")
-	}
 	if len(method.Contract.Native.RequestFields) != 8 {
 		t.Fatalf("request native fields = %d, want 8", len(method.Contract.Native.RequestFields))
 	}

@@ -109,7 +109,7 @@ func runMessageDirectRegistrationFixture(t *testing.T, serviceComment, testName 
 	t.Helper()
 	tmp := t.TempDir()
 	plugin := newMessageDirectPathTestPluginWithServiceComment(t, "paths=source_relative", "example.com/messagedirect/test/v1;testv1", serviceComment)
-	if _, err := generator.GenerateWithOptions(plugin, generator.GenerateOptions{RenderStageFiles: true}); err != nil {
+	if _, err := generator.GenerateWithOptions(plugin); err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
@@ -144,7 +144,7 @@ func runMessageDirectPathFixture(t *testing.T, testName string) {
 	t.Helper()
 	tmp := t.TempDir()
 	plugin := newMessageDirectPathTestPlugin(t, "example.com/messagedirect/test/v1;testv1")
-	if _, err := generator.GenerateWithOptions(plugin, generator.GenerateOptions{RenderStageFiles: true}); err != nil {
+	if _, err := generator.GenerateWithOptions(plugin); err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
@@ -246,6 +246,7 @@ func writeMessageDirectPathGeneratedModule(t *testing.T, root string, plugin *pr
 			strings.Contains(name, ".codec.rpccgo.go") ||
 			strings.Contains(name, ".server.message.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go") ||
+			strings.Contains(name, ".exports.cgo.rpccgo.go") ||
 			strings.Contains(name, ".server.native.cgo.rpccgo.go") ||
 			strings.Contains(name, ".client.native.cgo.rpccgo.go") ||
 			strings.Contains(name, ".message.cgo.rpccgo.go")

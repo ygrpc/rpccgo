@@ -7,7 +7,7 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-func renderNativeServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedFilePlan) error {
+func renderNativeServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedArtifactPlan) error {
 	if err := validateNativeServerCGOSymbols(plan, service); err != nil {
 		return err
 	}
@@ -1866,7 +1866,7 @@ func validateNativeServerCGOSymbols(plan FilePlan, service ServicePlan) error {
 		}
 	}
 	for _, otherService := range plan.Services {
-		if otherService.FullName != service.FullName && otherService.NativeFileFamily.CGONativeServer.Enabled {
+		if otherService.FullName != service.FullName && otherService.HasArtifact(GeneratedArtifactKindCGONativeServer) {
 			addNativeServerCGOGeneratedSymbols(seen, otherService)
 		}
 	}

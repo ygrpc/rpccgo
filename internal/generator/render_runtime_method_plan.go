@@ -69,7 +69,7 @@ func runtimeAdapterMethodFor(g *protogen.GeneratedFile, method MethodPlan) (runt
 	nativeZero := nativeGoZeroReturns(responseFields, `errors.New("rpccgo native server method is not implemented")`)
 	nativeErrZero := nativeGoZeroReturns(responseFields, "err")
 	nativeNoActiveZero := nativeGoZeroReturns(responseFields, "rpcruntime.ErrNoActiveServer")
-	nativeConverterZero := nativeGoZeroReturns(responseFields, shape.Errors.NativeMessageConverterErr)
+	nativeConverterZero := nativeGoZeroReturns(responseFields, "err")
 	nativeInvalidZero := nativeGoZeroReturns(responseFields, "rpcruntime.ErrStreamInvalidHandle")
 	nativeArgNames := nativeGoRequestArgNames(nativeFields)
 	nativeResultNames := nativeGoResponseResultNames(responseFields)
@@ -110,7 +110,8 @@ func runtimeAdapterMethodFor(g *protogen.GeneratedFile, method MethodPlan) (runt
 type runtimeStreamShape int
 
 const (
-	runtimeStreamUnary runtimeStreamShape = iota
+	runtimeStreamInvalid runtimeStreamShape = iota
+	runtimeStreamUnary
 	runtimeStreamClient
 	runtimeStreamServer
 	runtimeStreamBidi
@@ -127,7 +128,7 @@ func runtimeStreamShapeFor(method runtimeAdapterMethod) runtimeStreamShape {
 	case method.CanSend && method.CanRecv && method.CanCloseSend:
 		return runtimeStreamBidi
 	default:
-		panic("invalid runtime stream capabilities")
+		return runtimeStreamInvalid
 	}
 }
 

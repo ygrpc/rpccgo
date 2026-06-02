@@ -13,16 +13,14 @@ func RenderCodecFiles(plugin *protogen.Plugin, plan FilePlan) error {
 	}
 
 	for _, service := range plan.Services {
-		file := BuildCodecFilePlan(plan, service)
-		if !file.Enabled {
-			continue
+		if file, ok := service.Artifact(GeneratedArtifactKindCodec); ok {
+			renderCodecFile(plugin, plan, service, file)
 		}
-		renderCodecFile(plugin, plan, service, file)
 	}
 	return nil
 }
 
-func renderCodecFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedFilePlan) {
+func renderCodecFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedArtifactPlan) {
 	g := newGeneratedFile(plugin, plan, file, protogen.GoImportPath(plan.GoImportPath))
 
 	g.P("package ", plan.GoPackageName)

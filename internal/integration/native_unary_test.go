@@ -18,7 +18,7 @@ import (
 func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 	tmp := t.TempDir()
 	plugin := newNativeUnaryTestPlugin(t)
-	if _, err := generator.GenerateWithOptions(plugin, generator.GenerateOptions{RenderNativeStageFiles: true}); err != nil {
+	if _, err := generator.GenerateWithOptions(plugin); err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
@@ -35,8 +35,10 @@ func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 	for _, generated := range plugin.Response().GetFile() {
 		name := generated.GetName()
 		if !strings.Contains(name, ".runtime.rpccgo.go") &&
+			!strings.Contains(name, ".codec.rpccgo.go") &&
 			!strings.Contains(name, ".server.message.rpccgo.go") &&
 			!strings.Contains(name, ".server.native.rpccgo.go") &&
+			!strings.Contains(name, ".exports.cgo.rpccgo.go") &&
 			!strings.Contains(name, ".client.native.cgo.rpccgo.go") {
 			continue
 		}
@@ -94,10 +96,9 @@ func newNativeUnaryTestPluginForPackage(t *testing.T, goPackage string) *protoge
 					Field: []*descriptorpb.FieldDescriptorProto{
 						fieldDescriptor("payload", 1, descriptorpb.FieldDescriptorProto_TYPE_BYTES, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 						fieldDescriptor("note", 2, descriptorpb.FieldDescriptorProto_TYPE_STRING, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
-						fieldDescriptor("unsupported", 4, descriptorpb.FieldDescriptorProto_TYPE_MESSAGE, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ".test.v1.Child"),
+						fieldDescriptor("unsupported", 4, descriptorpb.FieldDescriptorProto_TYPE_BYTES, descriptorpb.FieldDescriptorProto_LABEL_OPTIONAL, ""),
 					},
 				},
-				{Name: proto.String("Child")},
 			},
 			Service: []*descriptorpb.ServiceDescriptorProto{{
 				Name: proto.String("Greeter"),
@@ -176,12 +177,10 @@ func (*HelloReply) ProtoReflect() protoreflect.Message { return nil }
 type UnsupportedReply struct {
 	Payload []byte
 	Note string
-	Unsupported *Child
+	Unsupported []byte
 }
 
 func (*UnsupportedReply) ProtoReflect() protoreflect.Message { return nil }
-
-type Child struct{}
 
 type GreeterHandler interface {
 	SayHello(context.Context, *HelloRequest) (*HelloReply, error)

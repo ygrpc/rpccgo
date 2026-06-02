@@ -16,7 +16,7 @@ func TestRenderRuntimeGlueImportsRPCRuntimeOnly(t *testing.T) {
 	setSimpleServiceComment(t, file, "@rpccgo: native\n")
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -31,12 +31,8 @@ func TestRenderRuntimeGlueDefinesServiceActiveSlotAndRegistration(t *testing.T) 
 	file := completeServicePlanTestFile()
 	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/complete_service_plan.proto", file)
 
-	plans, err := Generate(plugin)
-	if err != nil {
-		t.Fatalf("Generate() error = %v", err)
-	}
-	if err := RenderNativeStageFiles(plugin, plans[0]); err != nil {
-		t.Fatalf("RenderNativeStageFiles() error = %v", err)
+	if _, err := GenerateWithOptions(plugin); err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
 	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
@@ -78,7 +74,7 @@ func TestRenderRuntimeGlueDefinesMessageContractActiveSlotAndRegistration(t *tes
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -101,7 +97,6 @@ func TestRenderRuntimeGlueDefinesMessageContractActiveSlotAndRegistration(t *tes
 		"func InvokeAllServiceMessageUnary(ctx context.Context, req []byte) ([]byte, error) {",
 		"return active.invokeMessageUnary(ctx, req)",
 		"return AllServiceMessageServerUnavailableErr",
-		"AllServiceNativeMessageConverterUnavailableErr",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
@@ -119,7 +114,7 @@ func TestRenderRuntimeGlueDefinesConnectDirectRegistration(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -139,7 +134,7 @@ func TestRenderRuntimeGlueRoutesNativeUnaryToConnectHandler(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -161,7 +156,7 @@ func TestRenderRuntimeGlueDefinesGRPCDirectRegistration(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -181,7 +176,7 @@ func TestRenderRuntimeGlueDefinesGRPCDirectStreamingSessions(t *testing.T) {
 	file := grpcStreamingRuntimeTestFile()
 	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/grpc_streaming_runtime.proto", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -202,7 +197,7 @@ func TestRenderRuntimeGlueDefinesMethodSpecificStreamFacades(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -237,7 +232,7 @@ func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleAndCoreStreamRegistry(t *tes
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -266,7 +261,7 @@ func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleForMessageHelpers(t *testing
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -291,7 +286,7 @@ func TestRenderRuntimeStageFilesWrapsNativeStreamsForMessageClientCodec(t *testi
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -323,7 +318,7 @@ func TestRenderRuntimeStageFilesWrapsMessageStreamsForNativeClientCodec(t *testi
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -375,18 +370,18 @@ func TestRenderRuntimeRejectsUnknownStreamingKind(t *testing.T) {
 				FullName:  "test.v1.Greeter.Mystery",
 				Streaming: StreamingKind(99),
 			}},
-			NativeFileFamily: NativeFileFamilyPlan{
-				Runtime: GeneratedFilePlan{Filename: "test/v1/greeter.greeter.runtime.rpccgo.go", Enabled: true},
+			Artifacts: []GeneratedArtifactPlan{
+				{Kind: GeneratedArtifactKindRuntime, Filename: "test/v1/greeter.greeter.runtime.rpccgo.go"},
 			},
 		}},
 	}
 
-	err := RenderNativeStageFiles(plugin, plan)
+	err := renderRuntimeFile(plugin, plan, plan.Services[0], plan.Services[0].Artifacts[0])
 	if err == nil {
-		t.Fatal("RenderNativeStageFiles() error = nil, want unknown streaming kind error")
+		t.Fatal("renderRuntimeFile() error = nil, want unknown streaming kind error")
 	}
-	if got := err.Error(); !strings.Contains(got, "Mystery") || !strings.Contains(got, "streaming render lifecycle") {
-		t.Fatalf("RenderNativeStageFiles() error = %q, want method name and render-shape validation error", got)
+	if got := err.Error(); !strings.Contains(got, "Mystery") || !strings.Contains(got, "render lifecycle does not match contract capabilities") {
+		t.Fatalf("renderRuntimeFile() error = %q, want method name and render-shape validation error", got)
 	}
 }
 
@@ -402,18 +397,18 @@ func TestRenderRuntimeRejectsAdapterMethodSymbolCollision(t *testing.T) {
 				runtimeTestMethod("StartFoo", StreamingKindUnary, "StartFoo", "StartFoo", runtimeStreamUnary),
 				runtimeTestMethod("Foo", StreamingKindClientStreaming, "StartFoo", "StartFoo", runtimeStreamClient),
 			},
-			NativeFileFamily: NativeFileFamilyPlan{
-				Runtime: GeneratedFilePlan{Filename: "test/v1/greeter.greeter.runtime.rpccgo.go", Enabled: true},
+			Artifacts: []GeneratedArtifactPlan{
+				{Kind: GeneratedArtifactKindRuntime, Filename: "test/v1/greeter.greeter.runtime.rpccgo.go"},
 			},
 		}},
 	}
 
-	err := RenderNativeStageFiles(plugin, plan)
+	err := renderRuntimeFile(plugin, plan, plan.Services[0], plan.Services[0].Artifacts[0])
 	if err == nil {
-		t.Fatal("RenderNativeStageFiles() error = nil, want adapter method collision error")
+		t.Fatal("renderRuntimeFile() error = nil, want adapter method collision error")
 	}
 	if got := err.Error(); !strings.Contains(got, "StartFoo") || !strings.Contains(got, "collides") {
-		t.Fatalf("RenderNativeStageFiles() error = %q, want colliding adapter method name", got)
+		t.Fatalf("renderRuntimeFile() error = %q, want colliding adapter method name", got)
 	}
 }
 
@@ -426,7 +421,6 @@ func runtimeTestMethod(name string, streaming StreamingKind, nativeAdapterMethod
 			NativeServerUnavailableErr:  "GreeterNativeServerUnavailableErr",
 			MessageServerUnavailableErr: "GreeterMessageServerUnavailableErr",
 			UnknownActiveContractErr:    "GreeterUnknownActiveContractErr",
-			NativeMessageConverterErr:   "GreeterNativeMessageConverterUnavailableErr",
 		},
 	}
 	if streamShape != runtimeStreamUnary {
@@ -440,13 +434,13 @@ func runtimeTestMethod(name string, streaming StreamingKind, nativeAdapterMethod
 func runtimeTestLifecycleProjection(streamShape runtimeStreamShape) StreamLifecycleProjectionPlan {
 	switch streamShape {
 	case runtimeStreamClient:
-		return StreamLifecycleProjectionPlan{Streaming: true, CanSend: true, FinishReturnsResponse: true}
+		return StreamLifecycleProjectionPlan{Streaming: true, CanSend: true, FinishReturnsResponse: true, RequiresCodec: true}
 	case runtimeStreamServer:
-		return StreamLifecycleProjectionPlan{Streaming: true, CanRecv: true}
+		return StreamLifecycleProjectionPlan{Streaming: true, CanRecv: true, RequiresCodec: true}
 	case runtimeStreamBidi:
-		return StreamLifecycleProjectionPlan{Streaming: true, CanSend: true, CanRecv: true, CanCloseSend: true}
+		return StreamLifecycleProjectionPlan{Streaming: true, CanSend: true, CanRecv: true, CanCloseSend: true, RequiresCodec: true}
 	default:
-		return StreamLifecycleProjectionPlan{}
+		return StreamLifecycleProjectionPlan{RequiresCodec: true}
 	}
 }
 
@@ -467,7 +461,7 @@ func TestRenderRuntimeGeneratedSourceCompiles(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -490,7 +484,7 @@ func TestRenderRuntimeGeneratedSourceCompiles(t *testing.T) {
 
 	for _, generated := range plugin.Response().GetFile() {
 		name := generated.GetName()
-		if !strings.Contains(name, ".runtime.rpccgo.go") && !strings.Contains(name, ".server.message.rpccgo.go") && !strings.Contains(name, ".server.native.rpccgo.go") {
+		if !strings.Contains(name, ".runtime.rpccgo.go") && !strings.Contains(name, ".codec.rpccgo.go") && !strings.Contains(name, ".server.message.rpccgo.go") && !strings.Contains(name, ".server.native.rpccgo.go") {
 			continue
 		}
 		target := filepath.Join(tmp, name)
@@ -516,7 +510,7 @@ func TestRenderRuntimeGeneratedSourceCompilesWithImportedMessages(t *testing.T) 
 	service := importedNativeServiceFile()
 	plugin := newTestPluginGenerating(t, "paths=source_relative", service.GetName(), common, service)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -524,6 +518,7 @@ func TestRenderRuntimeGeneratedSourceCompilesWithImportedMessages(t *testing.T) 
 	tmp := t.TempDir()
 	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {
 		return strings.Contains(name, ".runtime.rpccgo.go") ||
+			strings.Contains(name, ".codec.rpccgo.go") ||
 			strings.Contains(name, ".server.message.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go")
 	})
@@ -617,6 +612,7 @@ import (
 type GRPCStreamingRequest struct {
 	Name    string
 	Enabled bool
+	Child   []byte
 }
 
 type GRPCStreamingReply struct {
@@ -653,7 +649,7 @@ func TestRenderRuntimeGeneratedSourceCompilesWithGRPCDirectStreaming(t *testing.
 	file := grpcStreamingRuntimeTestFile()
 	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/grpc_streaming_runtime.proto", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -661,6 +657,7 @@ func TestRenderRuntimeGeneratedSourceCompilesWithGRPCDirectStreaming(t *testing.
 	tmp := t.TempDir()
 	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {
 		return strings.Contains(name, ".runtime.rpccgo.go") ||
+			strings.Contains(name, ".codec.rpccgo.go") ||
 			strings.Contains(name, ".server.message.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go")
 	})

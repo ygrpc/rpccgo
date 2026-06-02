@@ -12,7 +12,7 @@ func TestRenderMessageServerDefinesUnimplementedHelper(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/complete_service_plan.proto", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -55,7 +55,7 @@ func TestRenderMessageServerRejectsUnimplementedHelperCollision(t *testing.T) {
 			Response:  MethodIOPlan{GoName: "HelloReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.HelloReply"},
 		}},
 	}
-	file := GeneratedFilePlan{Filename: "test/v1/collision.server.message.rpccgo.go", Enabled: true}
+	file := GeneratedArtifactPlan{Kind: GeneratedArtifactKindMessageServer, Filename: "test/v1/collision.server.message.rpccgo.go"}
 
 	err := renderMessageServerFile(plugin, plan, service, file)
 	if err == nil {
@@ -70,7 +70,7 @@ func TestRenderMessageServerUnimplementedHelperSupportsPartialImplementation(t *
 	file := simpleTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderMessageStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}

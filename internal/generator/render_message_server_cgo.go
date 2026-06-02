@@ -6,7 +6,7 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-func renderMessageServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedFilePlan) error {
+func renderMessageServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedArtifactPlan) error {
 	cgoImportPath := protogen.GoImportPath(cgoGoImportPath(plan))
 	g := newGeneratedFile(plugin, plan, file, cgoImportPath)
 	servicePackage := cgoServicePackageQualifier(g, plan.GoImportPath, service.GoName+"CGOMessageServer")

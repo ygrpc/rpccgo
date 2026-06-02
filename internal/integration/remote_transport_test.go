@@ -23,10 +23,10 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 	tmp := t.TempDir()
 	remotePlugin := newRemoteTransportTestPlugin(t, "remote/v1/remote_transport.proto", "example.com/remotetransport/remote/v1;remotev1")
 	localPlugin := newRemoteTransportTestPlugin(t, "local/v1/remote_transport.proto", "example.com/remotetransport/local/v1;localv1")
-	if _, err := generator.GenerateWithOptions(remotePlugin, generator.GenerateOptions{RenderStageFiles: true}); err != nil {
+	if _, err := generator.GenerateWithOptions(remotePlugin); err != nil {
 		t.Fatalf("GenerateWithOptions(remote) error = %v", err)
 	}
-	if _, err := generator.GenerateWithOptions(localPlugin, generator.GenerateOptions{RenderStageFiles: true}); err != nil {
+	if _, err := generator.GenerateWithOptions(localPlugin); err != nil {
 		t.Fatalf("GenerateWithOptions(local) error = %v", err)
 	}
 

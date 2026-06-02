@@ -199,7 +199,7 @@ func buildServiceDescriptorPlan(service *protogen.Service) (ServicePlan, error) 
 		return ServicePlan{}, fmt.Errorf("protogen service is nil")
 	}
 
-	adapters, err := ParseServiceRPCCGOOptions(string(service.Comments.Leading))
+	generation, err := ParseServiceRPCCGOOptions(string(service.Comments.Leading))
 	if err != nil {
 		return ServicePlan{}, fmt.Errorf("service %s: %w", service.Desc.FullName(), err)
 	}
@@ -208,28 +208,22 @@ func buildServiceDescriptorPlan(service *protogen.Service) (ServicePlan, error) 
 		Name:       string(service.Desc.Name()),
 		GoName:     service.GoName,
 		FullName:   string(service.Desc.FullName()),
-		Adapters:   adapters,
+		Generation: generation,
 		Methods:    make([]MethodPlan, 0, len(service.Methods)),
-		NeedsCodec: serviceNeedsNativeMessageCodec(),
 	}
 	for _, method := range service.Methods {
-		methodPlan := buildMethodDescriptorPlan(method, plan.NeedsCodec)
+		methodPlan := buildMethodDescriptorPlan(method)
 		plan.Methods = append(plan.Methods, methodPlan)
 	}
 	return plan, nil
 }
 
-func serviceNeedsNativeMessageCodec() bool {
-	return true
-}
-
-func buildMethodDescriptorPlan(method *protogen.Method, needsCodec bool) MethodPlan {
+func buildMethodDescriptorPlan(method *protogen.Method) MethodPlan {
 	return MethodPlan{
-		Name:       string(method.Desc.Name()),
-		GoName:     method.GoName,
-		FullName:   string(method.Desc.FullName()),
-		Streaming:  StreamingKindOf(method.Desc.IsStreamingClient(), method.Desc.IsStreamingServer()),
-		NeedsCodec: needsCodec,
+		Name:      string(method.Desc.Name()),
+		GoName:    method.GoName,
+		FullName:  string(method.Desc.FullName()),
+		Streaming: StreamingKindOf(method.Desc.IsStreamingClient(), method.Desc.IsStreamingServer()),
 		Request: MethodIOPlan{
 			GoName:       method.Input.GoIdent.GoName,
 			GoImportPath: string(method.Input.GoIdent.GoImportPath),

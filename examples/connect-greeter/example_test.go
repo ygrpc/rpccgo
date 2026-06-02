@@ -17,7 +17,7 @@ func TestConnectGreeterGenerate(t *testing.T) {
 		"proto/greeter.greeter.runtime.rpccgo.go",
 		"proto/greeter.greeter.server.native.rpccgo.go",
 		"proto/greeter.connect.go",
-		"cmd/rpc/greeter.exports.cgo.rpccgo.go",
+		"cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
 		"cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go",
 		"cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go",
 	} {
@@ -29,8 +29,8 @@ func TestConnectGreeterGenerate(t *testing.T) {
 		t.Fatalf("generated file proto/greeter.greeter.server.connect.rpccgo.go should not exist, stat err = %v", err)
 	}
 
-	assertFileContains(t, "cmd/rpc/greeter.exports.cgo.rpccgo.go", "//export rpccgo_take_error_text")
-	assertFileContains(t, "cmd/rpc/greeter.exports.cgo.rpccgo.go", "//export rpccgo_release")
+	assertFileContains(t, "cmd/rpc/rpccgo.exports.cgo.rpccgo.go", "//export rpccgo_take_error_text")
+	assertFileContains(t, "cmd/rpc/rpccgo.exports.cgo.rpccgo.go", "//export rpccgo_release")
 	assertFileContains(t, "cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go", "//export rpccgo_native_greeterv1_Greeter_SayHello")
 	assertFileContains(t, "cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go", "//export rpccgo_native_greeterv1_Greeter_Collect_start")
 	assertFileContains(t, "cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go", "//export rpccgo_msg_greeterv1_Greeter_SayHello")

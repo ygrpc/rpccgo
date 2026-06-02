@@ -1,28 +1,36 @@
 package generator
 
-type AdapterToken string
+type MessageTransport string
 
 const (
-	AdapterTokenMessageConnect AdapterToken = "msg-connect"
-	AdapterTokenMessageGRPC    AdapterToken = "msg-grpc"
-	AdapterTokenNative         AdapterToken = "native"
+	MessageTransportConnect MessageTransport = "connect"
+	MessageTransportGRPC    MessageTransport = "grpc"
 )
 
-type AdapterSelection struct {
-	Tokens []AdapterToken
+type ServiceGenerationSelection struct {
+	MessageTransport MessageTransport
+	NativeEnabled    bool
 }
 
-func (s AdapterSelection) HasTokens() bool {
-	return len(s.Tokens) > 0
+func (s ServiceGenerationSelection) HasIdentity() bool {
+	return s.MessageTransport == MessageTransportConnect || s.MessageTransport == MessageTransportGRPC
 }
 
-func (s AdapterSelection) Has(token AdapterToken) bool {
-	for _, current := range s.Tokens {
-		if current == token {
-			return true
-		}
-	}
-	return false
+type GenerationPlan struct {
+	Packages []PackagePlan
+}
+
+type PackagePlan struct {
+	GoPackageName   string
+	GoImportPath    string
+	CGODir          string
+	TopLevelSymbols []TopLevelSymbolPlan
+	SharedArtifacts []GeneratedArtifactPlan
+	Files           []FilePlan
+}
+
+func (p PackagePlan) HasIdentity() bool {
+	return p.GoPackageName != "" && p.GoImportPath != ""
 }
 
 type FilePlan struct {
@@ -40,38 +48,49 @@ func (p FilePlan) HasIdentity() bool {
 }
 
 type ServicePlan struct {
-	Name              string
-	GoName            string
-	FullName          string
-	Adapters          AdapterSelection
-	Methods           []MethodPlan
-	NeedsCodec        bool
-	CodecEnabled      bool
-	NativeFileFamily  NativeFileFamilyPlan
-	MessageFileFamily MessageFileFamilyPlan
+	Name       string
+	GoName     string
+	FullName   string
+	Generation ServiceGenerationSelection
+	Methods    []MethodPlan
+	Artifacts  []GeneratedArtifactPlan
 }
 
 func (p ServicePlan) HasIdentity() bool {
-	return p.Name != "" && p.GoName != "" && p.FullName != "" && p.Adapters.HasTokens()
+	return p.Name != "" && p.GoName != "" && p.FullName != "" && p.Generation.HasIdentity()
 }
 
-type NativeFileFamilyPlan struct {
-	Runtime         GeneratedFilePlan
-	NativeServer    GeneratedFilePlan
-	CGONativeServer GeneratedFilePlan
-	CGONativeClient GeneratedFilePlan
-}
+type GeneratedArtifactKind string
 
-type MessageFileFamilyPlan struct {
-	Runtime          GeneratedFilePlan
-	MessageServer    GeneratedFilePlan
-	CGOMessageServer GeneratedFilePlan
-	CGOMessageClient GeneratedFilePlan
-}
+const (
+	GeneratedArtifactKindRuntime          GeneratedArtifactKind = "runtime"
+	GeneratedArtifactKindCodec            GeneratedArtifactKind = "codec"
+	GeneratedArtifactKindNativeServer     GeneratedArtifactKind = "native_server"
+	GeneratedArtifactKindCGONativeServer  GeneratedArtifactKind = "cgo_native_server"
+	GeneratedArtifactKindCGONativeClient  GeneratedArtifactKind = "cgo_native_client"
+	GeneratedArtifactKindMessageServer    GeneratedArtifactKind = "message_server"
+	GeneratedArtifactKindCGOMessageServer GeneratedArtifactKind = "cgo_message_server"
+	GeneratedArtifactKindCGOMessageClient GeneratedArtifactKind = "cgo_message_client"
+	GeneratedArtifactKindSharedCGOExports GeneratedArtifactKind = "shared_cgo_exports"
+)
 
-type GeneratedFilePlan struct {
+type GeneratedArtifactPlan struct {
+	Kind     GeneratedArtifactKind
 	Filename string
-	Enabled  bool
+}
+
+func (p ServicePlan) Artifact(kind GeneratedArtifactKind) (GeneratedArtifactPlan, bool) {
+	for _, artifact := range p.Artifacts {
+		if artifact.Kind == kind {
+			return artifact, true
+		}
+	}
+	return GeneratedArtifactPlan{}, false
+}
+
+func (p ServicePlan) HasArtifact(kind GeneratedArtifactKind) bool {
+	_, ok := p.Artifact(kind)
+	return ok
 }
 
 type TopLevelSymbolKind string
@@ -95,7 +114,6 @@ type MethodPlan struct {
 	Streaming  StreamingKind
 	Request    MethodIOPlan
 	Response   MethodIOPlan
-	NeedsCodec bool
 	Contract   MethodContractPlan
 	RenderPlan MethodRenderPlan
 }
@@ -160,15 +178,10 @@ type NativeFieldPlan struct {
 }
 
 type MethodContractPlan struct {
-	Native       NativeContractPlan
-	Message      MessageContractPlan
-	Lifecycle    StreamLifecycleContractPlan
-	RenderInputs MethodRenderInputPlan
-	NativeCABI   MethodNativeCABIPlan
-}
-
-type MethodRenderInputPlan struct {
-	NeedsCodec bool
+	Native     NativeContractPlan
+	Message    MessageContractPlan
+	Lifecycle  StreamLifecycleContractPlan
+	NativeCABI MethodNativeCABIPlan
 }
 
 type NativeContractPlan struct {

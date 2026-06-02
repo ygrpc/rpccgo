@@ -33,9 +33,6 @@ func BuildContractPlan(service *protogen.Service, method *protogen.Method, metho
 			RequestType:  methodPlan.Request,
 			ResponseType: methodPlan.Response,
 		},
-		RenderInputs: MethodRenderInputPlan{
-			NeedsCodec: methodPlan.NeedsCodec,
-		},
 	}, nil
 }
 

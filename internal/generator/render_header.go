@@ -2,7 +2,7 @@ package generator
 
 import "google.golang.org/protobuf/compiler/protogen"
 
-func newGeneratedFile(plugin *protogen.Plugin, plan FilePlan, file GeneratedFilePlan, importPath protogen.GoImportPath) *protogen.GeneratedFile {
+func newGeneratedFile(plugin *protogen.Plugin, plan FilePlan, file GeneratedArtifactPlan, importPath protogen.GoImportPath) *protogen.GeneratedFile {
 	g := plugin.NewGeneratedFile(file.Filename, importPath)
 	renderGeneratedHeader(g)
 	g.P("// Source: ", plan.ProtoPath)
@@ -10,7 +10,7 @@ func newGeneratedFile(plugin *protogen.Plugin, plan FilePlan, file GeneratedFile
 	return g
 }
 
-func newGeneratedSharedFile(plugin *protogen.Plugin, file GeneratedFilePlan, importPath protogen.GoImportPath, shared string) *protogen.GeneratedFile {
+func newGeneratedSharedFile(plugin *protogen.Plugin, file GeneratedArtifactPlan, importPath protogen.GoImportPath, shared string) *protogen.GeneratedFile {
 	g := plugin.NewGeneratedFile(file.Filename, importPath)
 	renderGeneratedHeader(g)
 	g.P("// Shared: ", shared)

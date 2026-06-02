@@ -15,7 +15,7 @@ func TestRenderNativeServerCGODefinesFlatServiceCallbackRegistration(t *testing.
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -126,7 +126,7 @@ func TestRenderNativeServerCGOScalarOnlyGeneratedSourceCompiles(t *testing.T) {
 	file := nativeServerScalarOnlyFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -138,6 +138,7 @@ func TestRenderNativeServerCGOScalarOnlyGeneratedSourceCompiles(t *testing.T) {
 	tmp := t.TempDir()
 	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {
 		return strings.Contains(name, ".runtime.rpccgo.go") ||
+			strings.Contains(name, ".codec.rpccgo.go") ||
 			strings.Contains(name, ".server.message.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go") ||
 			strings.Contains(name, ".server.native.cgo.rpccgo.go") ||
@@ -184,7 +185,7 @@ func TestRenderNativeServerCGOSupportsRepeatedNativeABI(t *testing.T) {
 	file := nativeServerRepeatedFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -231,12 +232,12 @@ func TestRenderNativeServerCGORejectsGeneratedSymbolCollisions(t *testing.T) {
 		Response:  MethodIOPlan{GoName: "HelloReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.HelloReply"},
 	}})
 
-	err := RenderNativeStageFiles(plugin, plan)
+	err := renderNativeServerCGOFile(plugin, plan, plan.Services[0], plan.Services[0].Artifacts[0])
 	if err == nil {
-		t.Fatal("RenderNativeStageFiles() error = nil, want cgo native server symbol collision")
+		t.Fatal("renderNativeServerCGOFile() error = nil, want cgo native server symbol collision")
 	}
 	if got := err.Error(); !strings.Contains(got, "GreeterSayHelloCGONativeUnaryRequest") || !strings.Contains(got, "collides") {
-		t.Fatalf("RenderNativeStageFiles() error = %q, want collision for cgo request type", got)
+		t.Fatalf("renderNativeServerCGOFile() error = %q, want collision for cgo request type", got)
 	}
 }
 
@@ -257,12 +258,12 @@ func TestRenderNativeServerCGORejectsPackageAndSiblingSymbolCollisions(t *testin
 			Kind:     TopLevelSymbolKindEnum,
 		}}
 
-		err := RenderNativeStageFiles(plugin, plan)
+		err := renderNativeServerCGOFile(plugin, plan, plan.Services[0], plan.Services[0].Artifacts[0])
 		if err == nil {
-			t.Fatal("RenderNativeStageFiles() error = nil, want package symbol collision")
+			t.Fatal("renderNativeServerCGOFile() error = nil, want package symbol collision")
 		}
 		if got := err.Error(); !strings.Contains(got, "greeterCGONativeAdapter") || !strings.Contains(got, "collides") {
-			t.Fatalf("RenderNativeStageFiles() error = %q, want package collision", got)
+			t.Fatalf("renderNativeServerCGOFile() error = %q, want package collision", got)
 		}
 	})
 
@@ -288,17 +289,17 @@ func TestRenderNativeServerCGORejectsPackageAndSiblingSymbolCollisions(t *testin
 				Request:   MethodIOPlan{GoName: "OtherRequest", GoImportPath: "example.com/test/v1", FullName: "test.v1.OtherRequest"},
 				Response:  MethodIOPlan{GoName: "OtherReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.OtherReply"},
 			}},
-			NativeFileFamily: NativeFileFamilyPlan{
-				CGONativeServer: GeneratedFilePlan{Filename: "test/v1/collision_sibling.server.native.cgo.rpccgo.go", Enabled: true},
+			Artifacts: []GeneratedArtifactPlan{
+				{Kind: GeneratedArtifactKindCGONativeServer, Filename: "test/v1/collision_sibling.server.native.cgo.rpccgo.go"},
 			},
 		})
 
-		err := RenderNativeStageFiles(plugin, plan)
+		err := renderNativeServerCGOFile(plugin, plan, plan.Services[0], plan.Services[0].Artifacts[0])
 		if err == nil {
-			t.Fatal("RenderNativeStageFiles() error = nil, want sibling symbol collision")
+			t.Fatal("renderNativeServerCGOFile() error = nil, want sibling symbol collision")
 		}
 		if got := err.Error(); !strings.Contains(got, "AllServiceUnaryCGONativeUnaryRequest") || !strings.Contains(got, "collides") {
-			t.Fatalf("RenderNativeStageFiles() error = %q, want sibling collision", got)
+			t.Fatalf("renderNativeServerCGOFile() error = %q, want sibling collision", got)
 		}
 	})
 }
@@ -307,7 +308,7 @@ func TestRenderNativeServerCGOGeneratedSourceCompiles(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -315,6 +316,7 @@ func TestRenderNativeServerCGOGeneratedSourceCompiles(t *testing.T) {
 	tmp := t.TempDir()
 	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {
 		return strings.Contains(name, ".runtime.rpccgo.go") ||
+			strings.Contains(name, ".codec.rpccgo.go") ||
 			strings.Contains(name, ".server.message.rpccgo.go") ||
 			strings.Contains(name, ".server.native.rpccgo.go") ||
 			strings.Contains(name, ".server.native.cgo.rpccgo.go") ||
@@ -441,13 +443,13 @@ func nativeServerCGOCollisionTestFilePlan(serviceName string, methods []MethodPl
 		GoPackageName: "testv1",
 		GoImportPath:  "example.com/test/v1",
 		Services: []ServicePlan{{
-			Name:     serviceName,
-			GoName:   serviceName,
-			FullName: "test.v1." + serviceName,
-			Adapters: AdapterSelection{Tokens: []AdapterToken{AdapterTokenNative}},
-			Methods:  methods,
-			NativeFileFamily: NativeFileFamilyPlan{
-				CGONativeServer: GeneratedFilePlan{Filename: "test/v1/collision.server.native.cgo.rpccgo.go", Enabled: true},
+			Name:       serviceName,
+			GoName:     serviceName,
+			FullName:   "test.v1." + serviceName,
+			Generation: ServiceGenerationSelection{MessageTransport: MessageTransportConnect, NativeEnabled: true},
+			Methods:    methods,
+			Artifacts: []GeneratedArtifactPlan{
+				{Kind: GeneratedArtifactKindCGONativeServer, Filename: "test/v1/collision.server.native.cgo.rpccgo.go"},
 			},
 		}},
 	}

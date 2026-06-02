@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"errors"
 	"sort"
 	"strings"
 	"testing"
@@ -15,15 +14,12 @@ import (
 func TestGenerateBuildsBasicFilePlans(t *testing.T) {
 	plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())
 
-	plans, err := Generate(plugin)
+	generation, err := Generate(plugin)
 	if err != nil {
 		t.Fatalf("Generate() error = %v", err)
 	}
 
-	if len(plans) != 1 {
-		t.Fatalf("Generate() returned %d plans, want 1", len(plans))
-	}
-	plan := plans[0]
+	plan := firstFilePlan(t, generation)
 	if plan.ProtoPath != "test/v1/greeter.proto" {
 		t.Fatalf("ProtoPath = %q, want %q", plan.ProtoPath, "test/v1/greeter.proto")
 	}
@@ -46,28 +42,28 @@ func TestGenerateBuildsBasicFilePlans(t *testing.T) {
 	if service.Name != "Greeter" || service.GoName != "Greeter" || service.FullName != "test.v1.Greeter" {
 		t.Fatalf("Service identity = (%q, %q, %q), want Greeter metadata", service.Name, service.GoName, service.FullName)
 	}
-	if !service.Adapters.Has(AdapterTokenMessageConnect) || len(service.Adapters.Tokens) != 1 {
-		t.Fatalf("Service adapters = %#v, want default msg-connect", service.Adapters.Tokens)
+	if service.Generation != (ServiceGenerationSelection{MessageTransport: MessageTransportConnect}) {
+		t.Fatalf("Service generation = %#v, want default msg-connect", service.Generation)
 	}
 	if len(service.Methods) != 1 {
 		t.Fatalf("Methods = %d, want 1", len(service.Methods))
 	}
-	assertGeneratedFilePlan(t, service.NativeFileFamily.Runtime, "test/v1/greeter.greeter.runtime.rpccgo.go", true)
-	assertGeneratedFilePlan(t, service.NativeFileFamily.NativeServer, "test/v1/greeter.greeter.server.native.rpccgo.go", false)
-	assertGeneratedFilePlan(t, service.NativeFileFamily.CGONativeServer, "test/v1/cgo/greeter.greeter.server.native.cgo.rpccgo.go", false)
-	assertGeneratedFilePlan(t, service.NativeFileFamily.CGONativeClient, "test/v1/cgo/greeter.greeter.client.native.cgo.rpccgo.go", true)
-	assertGeneratedFilePlan(t, BuildCodecFilePlan(plan, service), "test/v1/greeter.greeter.codec.rpccgo.go", true)
+	assertServiceArtifact(t, service, GeneratedArtifactKindRuntime, "test/v1/greeter.greeter.runtime.rpccgo.go", true)
+	assertServiceArtifact(t, service, GeneratedArtifactKindNativeServer, "test/v1/greeter.greeter.server.native.rpccgo.go", false)
+	assertServiceArtifact(t, service, GeneratedArtifactKindCGONativeServer, "test/v1/cgo/greeter.greeter.server.native.cgo.rpccgo.go", false)
+	assertServiceArtifact(t, service, GeneratedArtifactKindCGONativeClient, "test/v1/cgo/greeter.greeter.client.native.cgo.rpccgo.go", false)
+	assertServiceArtifact(t, service, GeneratedArtifactKindCodec, "test/v1/greeter.greeter.codec.rpccgo.go", true)
 	if len(plugin.Response().GetFile()) != 0 {
-		t.Fatalf("Generate() may attach file family plans, but must not emit files during plan-only generation")
+		t.Fatalf("Generate() must not emit files during plan-only generation")
 	}
 }
 
-func TestRenderStageFilesEmitsGeneratedHeader(t *testing.T) {
+func TestRenderGeneratedArtifactsEmitsGeneratedHeader(t *testing.T) {
 	file := simpleTestFile()
 	setSimpleServiceComment(t, file, "@rpccgo: msg-grpc|native\n")
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	if _, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true}); err != nil {
+	if _, err := GenerateWithOptions(plugin); err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
@@ -82,30 +78,25 @@ func TestRenderStageFilesEmitsGeneratedHeader(t *testing.T) {
 	}
 }
 
-func TestRenderMessageStageFilesEmitsDirectPathFileFamily(t *testing.T) {
+func TestRenderMessageArtifactsEmitsDirectTransportArtifacts(t *testing.T) {
 	t.Run("grpc service token emits grpc transport files", func(t *testing.T) {
 		file := simpleTestFile()
 		setSimpleServiceComment(t, file, "@rpccgo: msg-grpc\n")
 		plugin := newTestPlugin(t, "paths=source_relative", file)
 
-		plans, err := Generate(plugin)
-		if err != nil {
-			t.Fatalf("Generate() error = %v", err)
-		}
-		AttachMessageFileFamilyPlan(&plans[0])
-
-		if err := RenderMessageStageFiles(plugin, plans[0]); err != nil {
-			t.Fatalf("RenderMessageStageFiles() error = %v", err)
+		if _, err := GenerateWithOptions(plugin); err != nil {
+			t.Fatalf("GenerateWithOptions() error = %v", err)
 		}
 
 		assertGeneratedFilenames(t, plugin, []string{
 			"test/v1/greeter.greeter.runtime.rpccgo.go",
+			"test/v1/greeter.greeter.codec.rpccgo.go",
 			"test/v1/greeter.greeter.server.message.rpccgo.go",
-			"test/v1/cgo/greeter.exports.cgo.rpccgo.go",
+			"test/v1/cgo/rpccgo.exports.cgo.rpccgo.go",
 			"test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go",
 			"test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go",
 		})
-		assertNoGeneratedFilenameContains(t, plugin, ".connect.", ".codec.")
+		assertNoGeneratedFilenameContains(t, plugin, ".connect.", ".native.")
 		assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go", "type GreeterCGOMessageServer interface {")
 		assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go", "func RegisterGreeterCGOMessageServer(server GreeterCGOMessageServer)")
 		assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "func RegisterGreeterGRPCRemoteServer(client GreeterClient) error {")
@@ -116,15 +107,14 @@ func TestRenderMessageStageFilesEmitsDirectPathFileFamily(t *testing.T) {
 	t.Run("default message contract keeps connect-only artifact contract", func(t *testing.T) {
 		plugin := newTestPlugin(t, "paths=source_relative", messageContractTestFile())
 
-		if _, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true}); err != nil {
+		if _, err := GenerateWithOptions(plugin); err != nil {
 			t.Fatalf("GenerateWithOptions() error = %v", err)
 		}
 
 		assertGeneratedFilenames(t, plugin, []string{
 			"test/v1/message_contract.greeter.runtime.rpccgo.go",
 			"test/v1/message_contract.greeter.server.message.rpccgo.go",
-			"test/v1/cgo/message_contract.exports.cgo.rpccgo.go",
-			"test/v1/cgo/message_contract.greeter.client.native.cgo.rpccgo.go",
+			"test/v1/cgo/rpccgo.exports.cgo.rpccgo.go",
 			"test/v1/cgo/message_contract.greeter.server.message.cgo.rpccgo.go",
 			"test/v1/cgo/message_contract.greeter.client.message.cgo.rpccgo.go",
 			"test/v1/message_contract.greeter.codec.rpccgo.go",
@@ -134,7 +124,6 @@ func TestRenderMessageStageFilesEmitsDirectPathFileFamily(t *testing.T) {
 		const runtimeFile = "test/v1/message_contract.greeter.runtime.rpccgo.go"
 		const messageContractFile = "test/v1/message_contract.greeter.server.message.rpccgo.go"
 		for _, fragment := range []string{
-			"native/message converter is not enabled",
 			"rpcruntime.StreamHandle",
 			"func RegisterGreeterConnectRemoteServer(client GreeterClient) error {",
 		} {
@@ -184,28 +173,27 @@ func TestRenderMessageStageFilesEmitsDirectPathFileFamily(t *testing.T) {
 	})
 }
 
-func TestRenderMessageStageFilesSkipsServerCallbacksForNativeOnlyService(t *testing.T) {
+func TestGenerateNativeOnlyServiceIncludesNativeAndMessageArtifacts(t *testing.T) {
 	file := simpleTestFile()
 	setSimpleServiceComment(t, file, "@rpccgo: native\n")
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	plans, err := Generate(plugin)
-	if err != nil {
-		t.Fatalf("Generate() error = %v", err)
-	}
-	plans[0].Services[0].Adapters = AdapterSelection{Tokens: []AdapterToken{AdapterTokenNative}}
-	AttachMessageFileFamilyPlan(&plans[0])
-
-	if err := RenderMessageStageFiles(plugin, plans[0]); err != nil {
-		t.Fatalf("RenderMessageStageFiles() error = %v", err)
+	if _, err := GenerateWithOptions(plugin); err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
 	assertGeneratedFilenames(t, plugin, []string{
 		"test/v1/greeter.greeter.runtime.rpccgo.go",
-		"test/v1/cgo/greeter.exports.cgo.rpccgo.go",
+		"test/v1/greeter.greeter.codec.rpccgo.go",
+		"test/v1/greeter.greeter.server.message.rpccgo.go",
+		"test/v1/greeter.greeter.server.native.rpccgo.go",
+		"test/v1/cgo/rpccgo.exports.cgo.rpccgo.go",
+		"test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go",
 		"test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go",
+		"test/v1/cgo/greeter.greeter.server.native.cgo.rpccgo.go",
+		"test/v1/cgo/greeter.greeter.client.native.cgo.rpccgo.go",
 	})
-	assertNoGeneratedFilenameContains(t, plugin, ".server.cgo.", ".connect.", ".grpc.", ".remote.", ".codec.")
+	assertNoGeneratedFilenameContains(t, plugin, ".grpc.", ".remote.")
 	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go", "rpccgo message direct generated file for Greeter cgo message client")
 }
 
@@ -214,23 +202,26 @@ func TestGenerateWithNativeRendererEmitsNativeStageFiles(t *testing.T) {
 	setSimpleServiceComment(t, file, "@rpccgo: native\n")
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	plans, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	generation, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	if len(plans) != 1 {
-		t.Fatalf("GenerateWithOptions() returned %d plans, want 1", len(plans))
+	if len(generation.Packages) != 1 {
+		t.Fatalf("GenerateWithOptions() returned %d packages, want 1", len(generation.Packages))
 	}
 	assertGeneratedFilenames(t, plugin, []string{
 		"test/v1/greeter.greeter.runtime.rpccgo.go",
+		"test/v1/greeter.greeter.codec.rpccgo.go",
 		"test/v1/greeter.greeter.server.message.rpccgo.go",
-		"test/v1/cgo/greeter.exports.cgo.rpccgo.go",
+		"test/v1/cgo/rpccgo.exports.cgo.rpccgo.go",
 		"test/v1/greeter.greeter.server.native.rpccgo.go",
 		"test/v1/cgo/greeter.greeter.server.native.cgo.rpccgo.go",
 		"test/v1/cgo/greeter.greeter.client.native.cgo.rpccgo.go",
+		"test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go",
+		"test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go",
 	})
-	assertNoGeneratedFilenameContains(t, plugin, ".connect.", ".grpc.", ".server.message.cgo.", ".client.message.", ".remote.")
+	assertNoGeneratedFilenameContains(t, plugin, ".connect.", ".grpc.", ".remote.")
 	assertGeneratedContentDoesNotContain(t, plugin, "connectrpc.com/connect", "google.golang.org/grpc")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "rpccgo service runtime generated file for Greeter")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go", "rpccgo native generated file for Greeter go native server")
@@ -241,21 +232,22 @@ func TestGenerateWithNativeRendererEmitsNativeStageFiles(t *testing.T) {
 func TestGenerateWithNativeRendererSkipsNativeServerForMessageOnlyService(t *testing.T) {
 	plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
 	assertGeneratedFilenames(t, plugin, []string{
 		"test/v1/greeter.greeter.runtime.rpccgo.go",
+		"test/v1/greeter.greeter.codec.rpccgo.go",
 		"test/v1/greeter.greeter.server.message.rpccgo.go",
-		"test/v1/cgo/greeter.exports.cgo.rpccgo.go",
-		"test/v1/cgo/greeter.greeter.client.native.cgo.rpccgo.go",
+		"test/v1/cgo/rpccgo.exports.cgo.rpccgo.go",
+		"test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go",
+		"test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go",
 	})
-	assertNoGeneratedFilenameContains(t, plugin, ".server.native.", ".server.cgo.", ".connect.", ".grpc.", ".server.message.cgo.", ".client.message.", ".remote.")
-	assertGeneratedContentDoesNotContain(t, plugin, "go native server", "cgo native server", "connectrpc.com/connect", "google.golang.org/grpc")
+	assertNoGeneratedFilenameContains(t, plugin, ".server.native.", ".client.native.", ".connect.", ".grpc.", ".remote.")
+	assertGeneratedContentDoesNotContain(t, plugin, "go native server", "cgo native server", "cgo native client", "connectrpc.com/connect", "google.golang.org/grpc")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "rpccgo service runtime generated file for Greeter")
-	assertGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.native.cgo.rpccgo.go", "rpccgo native generated file for Greeter cgo native client")
 }
 
 func TestGenerateWithNativeRendererUsesNonSourceRelativeGeneratedPrefix(t *testing.T) {
@@ -263,30 +255,34 @@ func TestGenerateWithNativeRendererUsesNonSourceRelativeGeneratedPrefix(t *testi
 	setSimpleServiceComment(t, file, "@rpccgo: native\n")
 	plugin := newTestPlugin(t, "", file)
 
-	plans, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	generation, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	if got, want := plans[0].GeneratedFilenamePrefix, "example.com/test/v1/greeter"; got != want {
+	plan := firstFilePlan(t, generation)
+	if got, want := plan.GeneratedFilenamePrefix, "example.com/test/v1/greeter"; got != want {
 		t.Fatalf("GeneratedFilenamePrefix = %q, want %q", got, want)
 	}
 	assertGeneratedFilenames(t, plugin, []string{
 		"example.com/test/v1/greeter.greeter.runtime.rpccgo.go",
+		"example.com/test/v1/greeter.greeter.codec.rpccgo.go",
 		"example.com/test/v1/greeter.greeter.server.message.rpccgo.go",
-		"example.com/test/v1/cgo/greeter.exports.cgo.rpccgo.go",
+		"example.com/test/v1/cgo/rpccgo.exports.cgo.rpccgo.go",
 		"example.com/test/v1/greeter.greeter.server.native.rpccgo.go",
 		"example.com/test/v1/cgo/greeter.greeter.server.native.cgo.rpccgo.go",
 		"example.com/test/v1/cgo/greeter.greeter.client.native.cgo.rpccgo.go",
+		"example.com/test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go",
+		"example.com/test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go",
 	})
 }
 
-func TestRenderStageFilesEmitsMixedNativeAndMessageCGOFamilies(t *testing.T) {
+func TestRenderGeneratedArtifactsEmitsMixedNativeAndMessageCGOArtifacts(t *testing.T) {
 	file := simpleTestFile()
 	setSimpleServiceComment(t, file, "@rpccgo: native\n")
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	_, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true})
+	_, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
@@ -294,7 +290,7 @@ func TestRenderStageFilesEmitsMixedNativeAndMessageCGOFamilies(t *testing.T) {
 	assertGeneratedFilenames(t, plugin, []string{
 		"test/v1/greeter.greeter.runtime.rpccgo.go",
 		"test/v1/greeter.greeter.server.message.rpccgo.go",
-		"test/v1/cgo/greeter.exports.cgo.rpccgo.go",
+		"test/v1/cgo/rpccgo.exports.cgo.rpccgo.go",
 		"test/v1/greeter.greeter.server.native.rpccgo.go",
 		"test/v1/cgo/greeter.greeter.server.native.cgo.rpccgo.go",
 		"test/v1/cgo/greeter.greeter.client.native.cgo.rpccgo.go",
@@ -314,17 +310,17 @@ func TestRenderStageFilesEmitsMixedNativeAndMessageCGOFamilies(t *testing.T) {
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.codec.rpccgo.go", "rpccgo native message codec generated file for Greeter")
 }
 
-func TestRenderStageFilesSkipsLocalTransportAdaptersByServiceToken(t *testing.T) {
+func TestRenderGeneratedArtifactsSkipsLocalTransportAdaptersBySelection(t *testing.T) {
 	file := simpleTestFile()
 	setSimpleServiceComment(t, file, "@rpccgo: msg-connect|native\n")
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
-	if _, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true}); err != nil {
-		t.Fatalf("GenerateWithOptions(RenderStageFiles) error = %v", err)
+	if _, err := GenerateWithOptions(plugin); err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
 	assertGeneratedFilenames(t, plugin, []string{
-		"test/v1/cgo/greeter.exports.cgo.rpccgo.go",
+		"test/v1/cgo/rpccgo.exports.cgo.rpccgo.go",
 		"test/v1/greeter.greeter.runtime.rpccgo.go",
 		"test/v1/greeter.greeter.server.message.rpccgo.go",
 		"test/v1/greeter.greeter.server.native.rpccgo.go",
@@ -336,18 +332,18 @@ func TestRenderStageFilesSkipsLocalTransportAdaptersByServiceToken(t *testing.T)
 	})
 }
 
-func TestRenderStageFilesEmitsRemoteClientRegistrationsByServiceToken(t *testing.T) {
+func TestRenderGeneratedArtifactsEmitsRemoteClientRegistrationsBySelection(t *testing.T) {
 	t.Run("connect", func(t *testing.T) {
 		file := simpleTestFile()
 		setSimpleServiceComment(t, file, "@rpccgo: msg-connect|native\n")
 		plugin := newTestPlugin(t, "paths=source_relative", file)
 
-		if _, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true}); err != nil {
-			t.Fatalf("GenerateWithOptions(RenderStageFiles) error = %v", err)
+		if _, err := GenerateWithOptions(plugin); err != nil {
+			t.Fatalf("GenerateWithOptions() error = %v", err)
 		}
 
 		assertGeneratedFilenames(t, plugin, []string{
-			"test/v1/cgo/greeter.exports.cgo.rpccgo.go",
+			"test/v1/cgo/rpccgo.exports.cgo.rpccgo.go",
 			"test/v1/greeter.greeter.runtime.rpccgo.go",
 			"test/v1/greeter.greeter.server.message.rpccgo.go",
 			"test/v1/greeter.greeter.server.native.rpccgo.go",
@@ -367,12 +363,12 @@ func TestRenderStageFilesEmitsRemoteClientRegistrationsByServiceToken(t *testing
 		setSimpleServiceComment(t, file, "@rpccgo: msg-grpc|native\n")
 		plugin := newTestPlugin(t, "paths=source_relative", file)
 
-		if _, err := GenerateWithOptions(plugin, GenerateOptions{RenderStageFiles: true}); err != nil {
-			t.Fatalf("GenerateWithOptions(RenderStageFiles) error = %v", err)
+		if _, err := GenerateWithOptions(plugin); err != nil {
+			t.Fatalf("GenerateWithOptions() error = %v", err)
 		}
 
 		assertGeneratedFilenames(t, plugin, []string{
-			"test/v1/cgo/greeter.exports.cgo.rpccgo.go",
+			"test/v1/cgo/rpccgo.exports.cgo.rpccgo.go",
 			"test/v1/greeter.greeter.runtime.rpccgo.go",
 			"test/v1/greeter.greeter.server.message.rpccgo.go",
 			"test/v1/greeter.greeter.server.native.rpccgo.go",
@@ -393,18 +389,21 @@ func TestGenerateAcceptsCGODirParameter(t *testing.T) {
 	setSimpleServiceComment(t, file, "@rpccgo: native\n")
 	plugin := newTestPlugin(t, "paths=source_relative,cgo_dir=../cmd/rpc", file)
 
-	plans, err := GenerateWithOptions(plugin, GenerateOptions{RenderNativeStageFiles: true})
+	generation, err := GenerateWithOptions(plugin)
 	if err != nil {
 		t.Fatalf("GenerateWithOptions() error = %v", err)
 	}
 
-	if got, want := plans[0].CGODir, "../cmd/rpc"; got != want {
+	if got, want := firstFilePlan(t, generation).CGODir, "../cmd/rpc"; got != want {
 		t.Fatalf("CGODir = %q, want %q", got, want)
 	}
 	assertGeneratedFilenames(t, plugin, []string{
 		"test/v1/greeter.greeter.runtime.rpccgo.go",
+		"test/v1/greeter.greeter.codec.rpccgo.go",
 		"test/v1/greeter.greeter.server.message.rpccgo.go",
-		"test/cmd/rpc/greeter.exports.cgo.rpccgo.go",
+		"test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
+		"test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go",
+		"test/cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go",
 		"test/v1/greeter.greeter.server.native.rpccgo.go",
 		"test/cmd/rpc/greeter.greeter.server.native.cgo.rpccgo.go",
 		"test/cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go",
@@ -435,30 +434,21 @@ func TestPluginOptionsRejectAbsoluteCGODirParameter(t *testing.T) {
 	}
 }
 
-func TestGenerateWithNativeRendererPropagatesRendererError(t *testing.T) {
-	wantErr := errors.New("renderer failed")
+func TestRenderGeneratedFilesRejectsUnknownArtifactKind(t *testing.T) {
 	plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())
-	config, err := generatorConfigFromPlugin(plugin)
+	plan, err := Generate(plugin)
 	if err != nil {
-		t.Fatalf("generatorConfigFromPlugin() error = %v", err)
+		t.Fatalf("Generate() error = %v", err)
 	}
-	plan, err := BuildDescriptorPlan(plugin.Files[0])
-	if err != nil {
-		t.Fatalf("BuildDescriptorPlan() error = %v", err)
-	}
-	plan.CGODir = config.CGODir
-	AttachNativeFileFamilyPlan(&plan)
 
-	original := renderNativeStageFiles
-	renderNativeStageFiles = func(plugin *protogen.Plugin, plan FilePlan) error {
-		return wantErr
-	}
-	err = renderNativeStageFiles(plugin, plan)
-	renderNativeStageFiles = RenderNativeStageFiles
-	_ = original
+	plan.Packages[0].Files[0].Services[0].Artifacts = append(plan.Packages[0].Files[0].Services[0].Artifacts, GeneratedArtifactPlan{
+		Kind:     GeneratedArtifactKind("bogus"),
+		Filename: "test/v1/greeter.bogus.rpccgo.go",
+	})
+	err = RenderGeneratedFiles(plugin, plan)
 
-	if !errors.Is(err, wantErr) {
-		t.Fatalf("GenerateWithOptions() error = %v, want %v", err, wantErr)
+	if err == nil || !strings.Contains(err.Error(), `artifact kind "bogus" is not valid for service artifacts`) {
+		t.Fatalf("RenderGeneratedFiles() error = %v, want invalid artifact kind validation error", err)
 	}
 }
 
@@ -502,6 +492,41 @@ func newTestPlugin(t *testing.T, parameter string, files ...*descriptorpb.FileDe
 		t.Fatalf("protogen.Options.New() error = %v", err)
 	}
 	return plugin
+}
+
+func firstFilePlan(t *testing.T, plan GenerationPlan) FilePlan {
+	t.Helper()
+	if len(plan.Packages) != 1 {
+		t.Fatalf("GenerationPlan packages = %d, want 1", len(plan.Packages))
+	}
+	if len(plan.Packages[0].Files) != 1 {
+		t.Fatalf("PackagePlan files = %d, want 1", len(plan.Packages[0].Files))
+	}
+	return plan.Packages[0].Files[0]
+}
+
+func renderSingleFilePlanForTest(plugin *protogen.Plugin, file FilePlan) error {
+	return RenderGeneratedFiles(plugin, GenerationPlan{Packages: []PackagePlan{{
+		GoPackageName:   file.GoPackageName,
+		GoImportPath:    file.GoImportPath,
+		CGODir:          cgoDirForFilePlan(file),
+		TopLevelSymbols: file.TopLevelSymbols,
+		Files:           []FilePlan{file},
+	}}})
+}
+
+func assertServiceArtifact(t *testing.T, service ServicePlan, kind GeneratedArtifactKind, wantFilename string, wantPresent bool) {
+	t.Helper()
+	got, ok := service.Artifact(kind)
+	if ok != wantPresent {
+		t.Fatalf("service artifact %q present = %v, want %v", kind, ok, wantPresent)
+	}
+	if !wantPresent {
+		return
+	}
+	if got.Filename != wantFilename {
+		t.Fatalf("service artifact %q filename = %q, want %q", kind, got.Filename, wantFilename)
+	}
 }
 
 func newTestPluginGenerating(t *testing.T, parameter, fileToGenerate string, files ...*descriptorpb.FileDescriptorProto) *protogen.Plugin {
@@ -703,6 +728,17 @@ func assertNoGeneratedFilenameContains(t *testing.T, plugin *protogen.Plugin, fr
 			}
 		}
 	}
+}
+
+func assertGeneratedFilenameContains(t *testing.T, plugin *protogen.Plugin, fragment string) {
+	t.Helper()
+
+	for _, name := range generatedFilenames(plugin) {
+		if strings.Contains(name, fragment) {
+			return
+		}
+	}
+	t.Fatalf("generated filenames = %v, want one containing %q", generatedFilenames(plugin), fragment)
 }
 
 func assertGeneratedContentContains(t *testing.T, plugin *protogen.Plugin, filename string, fragment string) {

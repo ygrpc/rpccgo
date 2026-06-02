@@ -11,6 +11,9 @@ func main() {
 }
 
 func run(plugin *protogen.Plugin) error {
-	_, err := generator.GenerateWithOptions(plugin, generator.GenerateOptions{RenderStageFiles: true})
-	return err
+	plan, err := generator.Generate(plugin)
+	if err != nil {
+		return err
+	}
+	return generator.RenderGeneratedFiles(plugin, plan)
 }

@@ -43,7 +43,7 @@ func TestCGODirGeneration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmp := t.TempDir()
 			plugin := newNativeUnaryTestPluginWithParameter(t, tt.parameter)
-			if _, err := generator.GenerateWithOptions(plugin, generator.GenerateOptions{RenderNativeStageFiles: true}); err != nil {
+			if _, err := generator.GenerateWithOptions(plugin); err != nil {
 				t.Fatalf("GenerateWithOptions() error = %v", err)
 			}
 
@@ -103,7 +103,7 @@ func TestMessageCGODirGeneration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmp := t.TempDir()
 			plugin := newMessageDirectPathTestPluginWithParameter(t, tt.parameter, "example.com/messagecgodir/test/v1;testv1")
-			if _, err := generator.GenerateWithOptions(plugin, generator.GenerateOptions{RenderStageFiles: true}); err != nil {
+			if _, err := generator.GenerateWithOptions(plugin); err != nil {
 				t.Fatalf("GenerateWithOptions() error = %v", err)
 			}
 
@@ -157,8 +157,10 @@ func writeNativeUnaryGeneratedModule(t *testing.T, root string, plugin *protogen
 	for _, generated := range plugin.Response().GetFile() {
 		name := generated.GetName()
 		if !strings.Contains(name, ".runtime.rpccgo.go") &&
+			!strings.Contains(name, ".codec.rpccgo.go") &&
 			!strings.Contains(name, ".server.message.rpccgo.go") &&
 			!strings.Contains(name, ".server.native.rpccgo.go") &&
+			!strings.Contains(name, ".exports.cgo.rpccgo.go") &&
 			!strings.Contains(name, ".server.native.cgo.rpccgo.go") &&
 			!strings.Contains(name, ".client.native.cgo.rpccgo.go") {
 			continue
