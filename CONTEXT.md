@@ -48,12 +48,12 @@ _Avoid_: remote adapter, remote server adapter
 仅在一次 generated message→native closure 调用同步执行期间有效的 borrowed wrapper 视图；不得把 wrapper 本身跨调用保存。
 _Avoid_: owned wrapper, long-lived native input
 
-**Native C ABI plan**:
-由 **Native** 的 Go-level flat contract 派生出的跨 Go/C ABI shape；按 operation 表达 C signature、field lowering、ownership、cleanup、callback/export 和 error bridge 需求。
-_Avoid_: NativeContract, Go native server/client API
+**Native C ABI lowering**:
+从 **Native** 的 Go-level flat contract 到跨 Go/C ABI shape 的共享投影规则；按 operation 表达 C signature、field lowering、ownership、cleanup、callback/export 和 error bridge 需求。它不形成独立 contract。
+_Avoid_: persisted Native C ABI plan, separate native contract, renderer-specific ABI inference
 
 **Method contract plan**:
-单个 method 从 descriptor 派生出的完整 contract-level planning 结果；集中表达 **Native**、**Message contract**、**Stream lifecycle** operation plan、render planning inputs 和 **Native C ABI plan** 的来源关系，但不生成代码字符串。
+单个 method 从 descriptor 派生出的完整 contract-level planning 结果；集中表达 **Native**、**Message contract**、**Stream lifecycle** operation plan 和 render planning inputs，但不生成代码字符串。
 _Avoid_: renderer, generated code, runtime state machine
 
 **Native projection**:
@@ -72,7 +72,7 @@ _Avoid_: active server
 - Go native server 与 C native server 都实现同一个 **Native** server contract；C message server 属于 **Message contract**，不应被混入 native server 命名。
 - C message server 应有独立的 generated server contract，例如 `GreeterCGOMessageServer`；其方法名使用 service method Go name，不额外追加 `Message` 或 `Start` 前缀，message contract 由 server contract 名称表达。
 - C message server streaming 方法属于 handler-style server contract：stream 对象作为方法参数传入；`Start` 返回 final session 只属于 generated runtime 与 C callback ABI 的内部投影。
-- **Native C ABI plan** 必须从 **Native** / `NativeContractPlan` 派生，不能重新解释 proto descriptor 或形成独立 contract。
+- **Native C ABI lowering** 必须从 **Native** / `NativeContractPlan` 派生，不能重新解释 proto descriptor 或形成独立 contract。
 - C 侧 **Native** callback 必须使用字段级参数列表，例如 `field_ptr/field_len/ownership` 和输出字段指针参数；不能接收 generated `Request*` / `Response*` struct。
 - 跨 runtime 的 C **Native** ABI 不能以 `struct` 或 `struct*` 作为调用边界参数；service-level callback 注册也必须使用 flat callback 参数。
 - C **Native** server callback 必须作为完整 service callback set 注册；只有完整校验通过后才能激活为 **Active server**，不能按 method 增量激活。
@@ -83,12 +83,16 @@ _Avoid_: active server
 - Go **Native** server streaming / bidi streaming 的 response 顶层字段通过 native stream `Send` 的 flat 参数发送；method 本身只返回终态 `error`。
 - **Native** 只拍平 proto request/response 的顶层字段；nested message 作为整体 message bytes/wrapper 传递，不递归展开。
 - `NativeContract` 这类字段计划可以作为参数转换的中间表示保留；它不是最终 **Native** 边界。
-- **Native C ABI plan** 可把 ownership / cleanup / transfer 作为生成计划表达；它不应新增现有 ABI 之外的 ownership 参数，但若现有 C boundary 已包含 ownership slot，plan 应把它作为 ABI slot 结构化表达。
-- **Native C ABI plan** 位于 `NativeContract` 之后、renderer 之前；它按 C boundary operation 表达结构化 ABI shape，不生成代码字符串。
-- **Method contract plan** 应由 `MethodPlan` 显式持有，集中保存单个 method 的 **Native**、**Message contract**、**Stream lifecycle**、render planning inputs 和 method-level **Native C ABI plan**，避免 renderer 或后续 builder 从 `RenderShape` 反读 contract facts。
-- **Native C ABI plan** 应保留 slot role、source field metadata、最终 C type spelling、cleanup capability、export symbol naming 和 callback typedef naming，使 renderer 不再重复推断 ABI 语义。
-- **Native C ABI plan** 不表达 callback missing policy、error bridge lifecycle 语义或 **Stream lifecycle** handle cleanup；这些分别属于 **Generated service runtime**、error bridge Module 和 **Runtime core**。
-- protobuf schema 中的 unsigned 字段可进入 **Native C ABI plan** 的 field value slot；proto 无关的 length/count/handle/error id 等辅助 slot 不应使用 unsigned 32/64 类型。
+- **Native C ABI lowering** 可表达 ownership / cleanup / transfer；它不应新增现有 ABI 之外的 ownership 参数，但若现有 C boundary 已包含 ownership slot，lowering 应把它作为 ABI slot 结构化表达。
+- **Native C ABI lowering** 位于 `NativeContract` 之后、renderer 之前；client/server renderer 共享同一套按需 lowering，不持久化独立的 service-level 或 method-level C ABI plan。
+- generator 不保留 `NativeCABIPlan`、`MethodNativeCABIPlan`、`MethodContractPlan.NativeCABI` 或 method C ABI attach/finalize 阶段；service-level callback 注册 ABI 由各 method 的按需 lowering 结果直接组装。
+- **Native C ABI lowering** 应返回 slot role、最终 C type spelling、cleanup capability、export symbol naming 和 callback typedef naming，使 renderer 不再重复推断 ABI 语义。
+- **Native C ABI lowering** 拥有 method-level C boundary operation inventory；renderer 不重复维护 unary、client streaming、server streaming 和 bidi streaming 的 operation 列表。
+- lowered ABI slot 只保留 renderer 实际消费的最小字段：name、C type、cgo Go type、role 和可选 field Go name；不保留只用于解释旧 plan 的 source metadata 或未被 renderer 消费的 cleanup metadata。
+- **Native C ABI lowering** 对未知 streaming kind、非法 operation 和无法组装的 service-level callback 注册 ABI 返回显式 `error`；renderer 逐层传递错误，不使用空 ABI slot 兜底，也不允许 `panic`。
+- C native preamble、callback registration 和 C export renderer 遍历 **Native C ABI lowering** 返回的 operation inventory；renderer 仅在生成文本确实不同的地方按 streaming kind 分支。
+- **Native C ABI lowering** 不表达 callback missing policy、error bridge lifecycle 语义或 **Stream lifecycle** handle cleanup；这些分别属于 **Generated service runtime**、error bridge Module 和 **Runtime core**。
+- protobuf schema 中的 unsigned 字段可进入 **Native C ABI lowering** 的 field value slot；proto 无关的 length/count/handle/error id 等辅助 slot 不应使用 unsigned 32/64 类型。
 - 修改 ABI / runtime type mapping 后，必须使用 `docs/release/verification-checklist.md` 验证测试命令和合同扫描。
 - **Active server** 是新版调用模型的一部分；它不能改变 **Native** 的字段级函数边界语义。
 - **Runtime core** 负责通用 stream registry、stream lifecycle state 和 connect stream unsafe shim；**Generated service runtime** 负责 typed atomic active slot、service-specific typed glue 和 active record closure。

@@ -8,7 +8,7 @@ import (
 	"google.golang.org/protobuf/types/descriptorpb"
 )
 
-func TestBuildMethodNativeCABIPlanUnaryAllFields(t *testing.T) {
+func TestNativeCOperationABIUnaryAllFields(t *testing.T) {
 	file := nativeCABIAllFieldsFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 	plan, err := BuildDescriptorPlan(plugin.Files[0])
@@ -18,19 +18,18 @@ func TestBuildMethodNativeCABIPlanUnaryAllFields(t *testing.T) {
 
 	service := plan.Services[0]
 	method := service.Methods[0]
-	abi, err := BuildMethodNativeCABIPlan(plan, service, method)
+	unary, err := NativeCOperationABI(plan, service, method, NativeCOperationUnary)
 	if err != nil {
-		t.Fatalf("BuildMethodNativeCABIPlan() error = %v", err)
+		t.Fatalf("NativeCOperationABI() error = %v", err)
+	}
+	gotOperations, err := NativeCOperationsForMethod(method)
+	if err != nil {
+		t.Fatalf("NativeCOperationsForMethod() error = %v", err)
+	}
+	if want := []NativeCOperation{NativeCOperationUnary}; !reflect.DeepEqual(gotOperations, want) {
+		t.Fatalf("operations = %#v, want %#v", gotOperations, want)
 	}
 
-	if got, want := abi.MethodFullName, "test.v1.NativeABI.Check"; got != want {
-		t.Fatalf("MethodFullName = %q, want %q", got, want)
-	}
-	if got, want := nativeCABIPlanOperations(abi), []NativeCOperation{NativeCOperationUnary}; !reflect.DeepEqual(got, want) {
-		t.Fatalf("operations = %#v, want %#v", got, want)
-	}
-
-	unary := nativeCABIPlanOperation(abi, NativeCOperationUnary)
 	if unary.Symbol != "rpccgo_native_testv1_NativeABI_Check" {
 		t.Fatalf("unary Symbol = %q", unary.Symbol)
 	}
@@ -42,44 +41,39 @@ func TestBuildMethodNativeCABIPlanUnaryAllFields(t *testing.T) {
 	}
 
 	want := []CABISlot{
-		{Name: "SignedCount", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "UnsignedCount", CType: "uint32_t", CGoType: "C.uint32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "SignedTotal", CType: "int64_t", CGoType: "C.int64_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "UnsignedTotal", CType: "uint64_t", CGoType: "C.uint64_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "Ratio", CType: "float", CGoType: "C.float", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "Enabled", CType: "int8_t", CGoType: "C.int8_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "NamePtr", CType: "uintptr_t", CGoType: "C.uintptr_t", Role: CABISlotRolePointer, Cleanup: CABICleanupNoCleanup},
-		{Name: "NameLen", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleLength, Cleanup: CABICleanupNoCleanup},
-		{Name: "NameOwnership", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "PayloadPtr", CType: "uintptr_t", CGoType: "C.uintptr_t", Role: CABISlotRolePointer, Cleanup: CABICleanupNoCleanup},
-		{Name: "PayloadLen", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleLength, Cleanup: CABICleanupNoCleanup},
-		{Name: "PayloadOwnership", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "ChildPtr", CType: "uintptr_t", CGoType: "C.uintptr_t", Role: CABISlotRolePointer, Cleanup: CABICleanupNoCleanup},
-		{Name: "ChildLen", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleLength, Cleanup: CABICleanupNoCleanup},
-		{Name: "ChildOwnership", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "ScoresPtr", CType: "uintptr_t", CGoType: "C.uintptr_t", Role: CABISlotRolePointer, Cleanup: CABICleanupNoCleanup},
-		{Name: "ScoresLen", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleCount, Cleanup: CABICleanupNoCleanup},
-		{Name: "ScoresOwnership", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "FlagsPtr", CType: "uintptr_t", CGoType: "C.uintptr_t", Role: CABISlotRolePointer, Cleanup: CABICleanupNoCleanup},
-		{Name: "FlagsLen", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleCount, Cleanup: CABICleanupNoCleanup},
-		{Name: "FlagsOwnership", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "outAccepted", CType: "int8_t*", CGoType: "*C.int8_t", Role: CABISlotRoleOutValue, Cleanup: CABICleanupNoCleanup},
-		{Name: "outReplyPayloadPtr", CType: "uintptr_t*", CGoType: "*C.uintptr_t", Role: CABISlotRoleOutPointer, Cleanup: CABICleanupFreeWithRuntime},
-		{Name: "outReplyPayloadLen", CType: "int32_t*", CGoType: "*C.int32_t", Role: CABISlotRoleOutLength, Cleanup: CABICleanupFreeWithRuntime},
-		{Name: "outReplyPayloadOwnership", CType: "int32_t*", CGoType: "*C.int32_t", Role: CABISlotRoleOutValue, Cleanup: CABICleanupFreeWithRuntime},
-		{Name: "outReplyFlagsPtr", CType: "uintptr_t*", CGoType: "*C.uintptr_t", Role: CABISlotRoleOutPointer, Cleanup: CABICleanupFreeWithRuntime},
-		{Name: "outReplyFlagsLen", CType: "int32_t*", CGoType: "*C.int32_t", Role: CABISlotRoleOutCount, Cleanup: CABICleanupFreeWithRuntime},
-		{Name: "outReplyFlagsOwnership", CType: "int32_t*", CGoType: "*C.int32_t", Role: CABISlotRoleOutValue, Cleanup: CABICleanupFreeWithRuntime},
+		{Name: "SignedCount", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleValue, FieldGoName: "SignedCount"},
+		{Name: "UnsignedCount", CType: "uint32_t", CGoType: "C.uint32_t", Role: CABISlotRoleValue, FieldGoName: "UnsignedCount"},
+		{Name: "SignedTotal", CType: "int64_t", CGoType: "C.int64_t", Role: CABISlotRoleValue, FieldGoName: "SignedTotal"},
+		{Name: "UnsignedTotal", CType: "uint64_t", CGoType: "C.uint64_t", Role: CABISlotRoleValue, FieldGoName: "UnsignedTotal"},
+		{Name: "Ratio", CType: "float", CGoType: "C.float", Role: CABISlotRoleValue, FieldGoName: "Ratio"},
+		{Name: "Enabled", CType: "int8_t", CGoType: "C.int8_t", Role: CABISlotRoleValue, FieldGoName: "Enabled"},
+		{Name: "NamePtr", CType: "uintptr_t", CGoType: "C.uintptr_t", Role: CABISlotRolePointer, FieldGoName: "Name"},
+		{Name: "NameLen", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleLength, FieldGoName: "Name"},
+		{Name: "NameOwnership", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleValue, FieldGoName: "Name"},
+		{Name: "PayloadPtr", CType: "uintptr_t", CGoType: "C.uintptr_t", Role: CABISlotRolePointer, FieldGoName: "Payload"},
+		{Name: "PayloadLen", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleLength, FieldGoName: "Payload"},
+		{Name: "PayloadOwnership", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleValue, FieldGoName: "Payload"},
+		{Name: "ChildPtr", CType: "uintptr_t", CGoType: "C.uintptr_t", Role: CABISlotRolePointer, FieldGoName: "Child"},
+		{Name: "ChildLen", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleLength, FieldGoName: "Child"},
+		{Name: "ChildOwnership", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleValue, FieldGoName: "Child"},
+		{Name: "ScoresPtr", CType: "uintptr_t", CGoType: "C.uintptr_t", Role: CABISlotRolePointer, FieldGoName: "Scores"},
+		{Name: "ScoresLen", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleCount, FieldGoName: "Scores"},
+		{Name: "ScoresOwnership", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleValue, FieldGoName: "Scores"},
+		{Name: "FlagsPtr", CType: "uintptr_t", CGoType: "C.uintptr_t", Role: CABISlotRolePointer, FieldGoName: "Flags"},
+		{Name: "FlagsLen", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleCount, FieldGoName: "Flags"},
+		{Name: "FlagsOwnership", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleValue, FieldGoName: "Flags"},
+		{Name: "outAccepted", CType: "int8_t*", CGoType: "*C.int8_t", Role: CABISlotRoleOutValue, FieldGoName: "Accepted"},
+		{Name: "outReplyPayloadPtr", CType: "uintptr_t*", CGoType: "*C.uintptr_t", Role: CABISlotRoleOutPointer, FieldGoName: "ReplyPayload"},
+		{Name: "outReplyPayloadLen", CType: "int32_t*", CGoType: "*C.int32_t", Role: CABISlotRoleOutLength, FieldGoName: "ReplyPayload"},
+		{Name: "outReplyPayloadOwnership", CType: "int32_t*", CGoType: "*C.int32_t", Role: CABISlotRoleOutValue, FieldGoName: "ReplyPayload"},
+		{Name: "outReplyFlagsPtr", CType: "uintptr_t*", CGoType: "*C.uintptr_t", Role: CABISlotRoleOutPointer, FieldGoName: "ReplyFlags"},
+		{Name: "outReplyFlagsLen", CType: "int32_t*", CGoType: "*C.int32_t", Role: CABISlotRoleOutCount, FieldGoName: "ReplyFlags"},
+		{Name: "outReplyFlagsOwnership", CType: "int32_t*", CGoType: "*C.int32_t", Role: CABISlotRoleOutValue, FieldGoName: "ReplyFlags"},
 	}
 	assertCABISlots(t, unary.Params, want)
-
-	if got := unary.Params[1].Source; got == nil || got.Kind != FieldKindUnsignedInt32 || !got.Scalar || got.ProtoName != "unsigned_count" {
-		t.Fatalf("unsigned field source = %#v, want unsigned proto scalar metadata", got)
-	}
-
 }
 
-func TestBuildMethodNativeCABIPlanStreamingOperationSets(t *testing.T) {
+func TestNativeCOperationsForMethodStreamingOperationSets(t *testing.T) {
 	file := nativeCABIStreamingFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 	plan, err := BuildDescriptorPlan(plugin.Files[0])
@@ -99,18 +93,18 @@ func TestBuildMethodNativeCABIPlanStreamingOperationSets(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.method, func(t *testing.T) {
 			method := methodByGoName(t, service, tt.method)
-			abi, err := BuildMethodNativeCABIPlan(plan, service, method)
+			got, err := NativeCOperationsForMethod(method)
 			if err != nil {
-				t.Fatalf("BuildMethodNativeCABIPlan() error = %v", err)
+				t.Fatalf("NativeCOperationsForMethod() error = %v", err)
 			}
-			if got := nativeCABIPlanOperations(abi); !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Fatalf("operations = %#v, want %#v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestBuildNativeCABIPlanDefinesFlatServiceRegistration(t *testing.T) {
+func TestNativeCRegisterABIDefinesFlatServiceRegistration(t *testing.T) {
 	file := nativeCABIStreamingFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 	plan, err := BuildDescriptorPlan(plugin.Files[0])
@@ -119,25 +113,65 @@ func TestBuildNativeCABIPlanDefinesFlatServiceRegistration(t *testing.T) {
 	}
 
 	service := plan.Services[0]
-	abi, err := BuildNativeCABIPlan(plan, service)
+	abi, err := NativeCRegisterABI(plan, service)
 	if err != nil {
-		t.Fatalf("BuildNativeCABIPlan() error = %v", err)
+		t.Fatalf("NativeCRegisterABI() error = %v", err)
 	}
 
-	if got, want := abi.Register.Symbol, "rpccgo_native_testv1_Greeter_register"; got != want {
+	if got, want := abi.Symbol, "rpccgo_native_testv1_Greeter_register"; got != want {
 		t.Fatalf("register Symbol = %q, want %q", got, want)
 	}
-	if got, want := len(abi.Register.Params), 15; got != want {
+	if got, want := len(abi.Params), 15; got != want {
 		t.Fatalf("register params len = %d, want %d", got, want)
 	}
-	if got, want := abi.Register.Params[0].Name, "unaryCallback"; got != want {
+	if got, want := abi.Params[0].Name, "unaryCallback"; got != want {
 		t.Fatalf("register params[0].Name = %q, want %q", got, want)
 	}
-	if got, want := abi.Register.Params[7].Name, "listFinish"; got != want {
+	if got, want := abi.Params[7].Name, "listFinish"; got != want {
 		t.Fatalf("register params[6].Name = %q, want %q", got, want)
 	}
-	if got, want := abi.Register.Params[13].Name, "chatFinish"; got != want {
+	if got, want := abi.Params[13].Name, "chatFinish"; got != want {
 		t.Fatalf("register params[12].Name = %q, want %q", got, want)
+	}
+}
+
+func TestNativeCOperationsForMethodRejectsUnknownStreamingKind(t *testing.T) {
+	_, err := NativeCOperationsForMethod(MethodPlan{FullName: "test.v1.Bad.Unknown", Streaming: StreamingKind(99)})
+	if err == nil {
+		t.Fatal("NativeCOperationsForMethod() error = nil, want unsupported streaming kind")
+	}
+}
+
+func TestNativeCOperationABIRejectsInvalidOperation(t *testing.T) {
+	file := nativeCABIAllFieldsFile()
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+	plan, err := BuildDescriptorPlan(plugin.Files[0])
+	if err != nil {
+		t.Fatalf("BuildDescriptorPlan() error = %v", err)
+	}
+
+	service := plan.Services[0]
+	method := service.Methods[0]
+	_, err = NativeCOperationABI(plan, service, method, NativeCOperationSend)
+	if err == nil {
+		t.Fatal("NativeCOperationABI() error = nil, want invalid operation")
+	}
+}
+
+func TestNativeCRegisterABIReportsMethodLoweringFailure(t *testing.T) {
+	plan := FilePlan{GoPackageName: "testv1"}
+	service := ServicePlan{
+		FullName: "test.v1.Bad",
+		GoName:   "Bad",
+		Methods: []MethodPlan{{
+			FullName:  "test.v1.Bad.Unknown",
+			GoName:    "Unknown",
+			Streaming: StreamingKind(99),
+		}},
+	}
+	_, err := NativeCRegisterABI(plan, service)
+	if err == nil {
+		t.Fatal("NativeCRegisterABI() error = nil, want method lowering failure")
 	}
 }
 
@@ -147,18 +181,10 @@ func assertCABISlots(t *testing.T, got, want []CABISlot) {
 		t.Fatalf("slots len = %d, want %d\ngot: %#v", len(got), len(want), got)
 	}
 	for i := range want {
-		if got[i].Name != want[i].Name || got[i].CType != want[i].CType || got[i].CGoType != want[i].CGoType || got[i].Role != want[i].Role || got[i].Cleanup != want[i].Cleanup {
-			t.Fatalf("slot[%d] = {Name:%q CType:%q CGoType:%q Role:%q Cleanup:%q}, want {Name:%q CType:%q CGoType:%q Role:%q Cleanup:%q}", i, got[i].Name, got[i].CType, got[i].CGoType, got[i].Role, got[i].Cleanup, want[i].Name, want[i].CType, want[i].CGoType, want[i].Role, want[i].Cleanup)
+		if got[i].Name != want[i].Name || got[i].CType != want[i].CType || got[i].CGoType != want[i].CGoType || got[i].Role != want[i].Role || got[i].FieldGoName != want[i].FieldGoName {
+			t.Fatalf("slot[%d] = {Name:%q CType:%q CGoType:%q Role:%q FieldGoName:%q}, want {Name:%q CType:%q CGoType:%q Role:%q FieldGoName:%q}", i, got[i].Name, got[i].CType, got[i].CGoType, got[i].Role, got[i].FieldGoName, want[i].Name, want[i].CType, want[i].CGoType, want[i].Role, want[i].FieldGoName)
 		}
 	}
-}
-
-func nativeCABIPlanOperations(plan MethodNativeCABIPlan) []NativeCOperation {
-	operations := make([]NativeCOperation, 0, len(plan.Operations))
-	for _, operation := range plan.Operations {
-		operations = append(operations, operation.Operation)
-	}
-	return operations
 }
 
 func methodByGoName(t *testing.T, service ServicePlan, goName string) MethodPlan {

@@ -224,9 +224,6 @@ func assertCompleteMethodContracts(t *testing.T, method MethodPlan) {
 	if method.Contract.Message.RequestType != method.Request || method.Contract.Message.ResponseType != method.Response {
 		t.Fatalf("%s MessageContract = %#v, want request/response IO metadata", method.FullName, method.Contract.Message)
 	}
-	if method.Contract.NativeCABI.MethodFullName != method.FullName {
-		t.Fatalf("%s NativeCABI.MethodFullName = %q", method.FullName, method.Contract.NativeCABI.MethodFullName)
-	}
 	if len(method.Contract.Native.RequestFields) == 0 || len(method.Contract.Native.ResponseFields) == 0 {
 		t.Fatalf("%s NativeContract missing request or response fields", method.FullName)
 	}

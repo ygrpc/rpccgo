@@ -20,9 +20,6 @@ func BuildDescriptorPlan(file *protogen.File) (FilePlan, error) {
 	if err := AttachMethodRenderPlans(&plan); err != nil {
 		return FilePlan{}, err
 	}
-	if err := AttachMethodNativeCABIPlans(&plan); err != nil {
-		return FilePlan{}, err
-	}
 	return plan, nil
 }
 
@@ -114,28 +111,6 @@ func AttachMethodRenderPlans(plan *FilePlan) error {
 		}
 	}
 	return nil
-}
-
-func AttachMethodNativeCABIPlans(plan *FilePlan) error {
-	if plan == nil {
-		return fmt.Errorf("file plan is nil")
-	}
-	for si := range plan.Services {
-		for mi := range plan.Services[si].Methods {
-			service := plan.Services[si]
-			method := plan.Services[si].Methods[mi]
-			abi, err := BuildMethodNativeCABIPlan(*plan, service, method)
-			if err != nil {
-				return err
-			}
-			plan.Services[si].Methods[mi].Contract.NativeCABI = abi
-		}
-	}
-	return nil
-}
-
-func finalizeMethodNativeCABIPlans(plan *FilePlan) error {
-	return AttachMethodNativeCABIPlans(plan)
 }
 
 func buildTopLevelSymbolPlans(file *protogen.File) []TopLevelSymbolPlan {

@@ -178,10 +178,9 @@ type NativeFieldPlan struct {
 }
 
 type MethodContractPlan struct {
-	Native     NativeContractPlan
-	Message    MessageContractPlan
-	Lifecycle  StreamLifecycleContractPlan
-	NativeCABI MethodNativeCABIPlan
+	Native    NativeContractPlan
+	Message   MessageContractPlan
+	Lifecycle StreamLifecycleContractPlan
 }
 
 type NativeContractPlan struct {

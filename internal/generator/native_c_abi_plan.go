@@ -5,16 +5,6 @@ import (
 	"strings"
 )
 
-type NativeCABIPlan struct {
-	Methods  []MethodNativeCABIPlan
-	Register COperationABI
-}
-
-type MethodNativeCABIPlan struct {
-	MethodFullName string
-	Operations     []COperationABI
-}
-
 type NativeCOperation string
 
 const (
@@ -36,22 +26,17 @@ type COperationABI struct {
 	Return    CABISlot
 }
 
-type CABISlot struct {
-	Source  *NativeFieldRef
-	Name    string
-	CType   string
-	CGoType string
-	Role    CABISlotRole
-	Cleanup CABICleanup
+type nativeCServiceABI struct {
+	Methods  map[string]map[NativeCOperation]COperationABI
+	Register COperationABI
 }
 
-type NativeFieldRef struct {
-	ProtoName string
-	GoName    string
-	CName     string
-	GoType    string
-	Kind      FieldKind
-	Scalar    bool
+type CABISlot struct {
+	Name        string
+	CType       string
+	CGoType     string
+	Role        CABISlotRole
+	FieldGoName string
 }
 
 type CABISlotRole string
@@ -70,54 +55,125 @@ const (
 	CABISlotRoleCallback   CABISlotRole = "callback"
 )
 
-type CABICleanup string
-
-const (
-	CABICleanupNoCleanup       CABICleanup = "no_cleanup"
-	CABICleanupFreeWithRuntime CABICleanup = "free_with_runtime"
-)
-
-func BuildNativeCABIPlan(plan FilePlan, service ServicePlan) (NativeCABIPlan, error) {
-	methods := make([]MethodNativeCABIPlan, 0, len(service.Methods))
+func NativeCRegisterABI(plan FilePlan, service ServicePlan) (COperationABI, error) {
 	var registerParams []CABISlot
 	for _, method := range service.Methods {
-		if method.Contract.NativeCABI.MethodFullName == "" {
-			return NativeCABIPlan{}, fmt.Errorf("method %s native C ABI plan is missing", methodPlanName(method))
+		operations, err := NativeCOperationsForMethod(method)
+		if err != nil {
+			return COperationABI{}, fmt.Errorf("service %s native C register ABI: %w", service.FullName, err)
 		}
-		methods = append(methods, method.Contract.NativeCABI)
-		builder := nativeCABIBuilder{file: plan, service: service, method: method}
-		for _, operation := range builder.callbackOperations() {
+		for _, operation := range operations {
+			abi, err := NativeCOperationABI(plan, service, method, operation)
+			if err != nil {
+				return COperationABI{}, fmt.Errorf("service %s native C register ABI: %w", service.FullName, err)
+			}
+			if abi.TypeName == "" {
+				return COperationABI{}, fmt.Errorf("service %s native C register ABI: method %s operation %s callback type is empty", service.FullName, methodPlanName(method), operation)
+			}
 			registerParams = append(registerParams, callbackSlot(
 				lowerInitial(method.GoName)+upperInitial(nativeCABIRegisterParamName(operation)),
-				builder.callbackTypeName(operation),
+				abi.TypeName,
 			))
 		}
 	}
-	return NativeCABIPlan{
-		Methods: methods,
-		Register: COperationABI{
-			Operation: NativeCOperationRegister,
-			Symbol:    nativeCServiceRegisterExportFuncName(plan, service),
-			Params:    registerParams,
-			Return:    errorIDReturnSlot(),
-		},
+	return COperationABI{
+		Operation: NativeCOperationRegister,
+		Symbol:    nativeCServiceRegisterExportFuncName(plan, service),
+		Params:    registerParams,
+		Return:    errorIDReturnSlot(),
 	}, nil
 }
 
-func BuildMethodNativeCABIPlan(plan FilePlan, service ServicePlan, method MethodPlan) (MethodNativeCABIPlan, error) {
-	builder := nativeCABIBuilder{file: plan, service: service, method: method}
+func nativeCServiceABIs(plan FilePlan, service ServicePlan) (nativeCServiceABI, error) {
+	methods := make(map[string]map[NativeCOperation]COperationABI, len(service.Methods))
+	for _, method := range service.Methods {
+		abi, err := nativeCOperationABIsByOperation(plan, service, method)
+		if err != nil {
+			return nativeCServiceABI{}, err
+		}
+		methods[method.FullName] = abi
+	}
+	registerABI, err := NativeCRegisterABI(plan, service)
+	if err != nil {
+		return nativeCServiceABI{}, err
+	}
+	return nativeCServiceABI{Methods: methods, Register: registerABI}, nil
+}
+
+func NativeCOperationsForMethod(method MethodPlan) ([]NativeCOperation, error) {
 	switch method.Streaming {
 	case StreamingKindUnary:
-		return MethodNativeCABIPlan{MethodFullName: method.FullName, Operations: []COperationABI{builder.unary()}}, nil
+		return []NativeCOperation{NativeCOperationUnary}, nil
 	case StreamingKindClientStreaming:
-		return MethodNativeCABIPlan{MethodFullName: method.FullName, Operations: []COperationABI{builder.startOutHandle(), builder.send(), builder.finish(), builder.cancel()}}, nil
+		return []NativeCOperation{NativeCOperationStart, NativeCOperationSend, NativeCOperationFinish, NativeCOperationCancel}, nil
 	case StreamingKindServerStreaming:
-		return MethodNativeCABIPlan{MethodFullName: method.FullName, Operations: []COperationABI{builder.serverStreamStart(), builder.recv(), builder.finishTerminal(), builder.cancel()}}, nil
+		return []NativeCOperation{NativeCOperationStart, NativeCOperationRecv, NativeCOperationFinish, NativeCOperationCancel}, nil
 	case StreamingKindBidiStreaming:
-		return MethodNativeCABIPlan{MethodFullName: method.FullName, Operations: []COperationABI{builder.startOutHandle(), builder.send(), builder.recv(), builder.closeSend(), builder.finishTerminal(), builder.cancel()}}, nil
+		return []NativeCOperation{NativeCOperationStart, NativeCOperationSend, NativeCOperationRecv, NativeCOperationCloseSend, NativeCOperationFinish, NativeCOperationCancel}, nil
 	default:
-		return MethodNativeCABIPlan{}, fmt.Errorf("method %s: unsupported native C ABI streaming kind %q", method.FullName, method.Streaming)
+		return nil, fmt.Errorf("method %s: unsupported native C ABI streaming kind %q", methodPlanName(method), method.Streaming)
 	}
+}
+
+func NativeCOperationABI(plan FilePlan, service ServicePlan, method MethodPlan, operation NativeCOperation) (COperationABI, error) {
+	operations, err := NativeCOperationsForMethod(method)
+	if err != nil {
+		return COperationABI{}, err
+	}
+	if !nativeCOperationAllowed(operations, operation) {
+		return COperationABI{}, fmt.Errorf("method %s: native C operation %q is invalid for streaming kind %q", methodPlanName(method), operation, method.Streaming)
+	}
+
+	builder := nativeCABIBuilder{file: plan, service: service, method: method}
+	switch operation {
+	case NativeCOperationUnary:
+		return builder.unary(), nil
+	case NativeCOperationStart:
+		if method.Streaming == StreamingKindServerStreaming {
+			return builder.serverStreamStart(), nil
+		}
+		return builder.startOutHandle(), nil
+	case NativeCOperationSend:
+		return builder.send(), nil
+	case NativeCOperationRecv:
+		return builder.recv(), nil
+	case NativeCOperationFinish:
+		if method.Streaming == StreamingKindClientStreaming {
+			return builder.finish(), nil
+		}
+		return builder.finishTerminal(), nil
+	case NativeCOperationCloseSend:
+		return builder.closeSend(), nil
+	case NativeCOperationCancel:
+		return builder.cancel(), nil
+	default:
+		return COperationABI{}, fmt.Errorf("method %s: unknown native C operation %q", methodPlanName(method), operation)
+	}
+}
+
+func nativeCOperationABIsByOperation(plan FilePlan, service ServicePlan, method MethodPlan) (map[NativeCOperation]COperationABI, error) {
+	operations, err := NativeCOperationsForMethod(method)
+	if err != nil {
+		return nil, err
+	}
+	byOperation := make(map[NativeCOperation]COperationABI, len(operations))
+	for _, operation := range operations {
+		abi, err := NativeCOperationABI(plan, service, method, operation)
+		if err != nil {
+			return nil, err
+		}
+		byOperation[operation] = abi
+	}
+	return byOperation, nil
+}
+
+func nativeCOperationAllowed(operations []NativeCOperation, operation NativeCOperation) bool {
+	for _, current := range operations {
+		if current == operation {
+			return true
+		}
+	}
+	return false
 }
 
 type nativeCABIBuilder struct {
@@ -170,21 +226,6 @@ func (b nativeCABIBuilder) finishTerminal() COperationABI {
 
 func (b nativeCABIBuilder) cancel() COperationABI {
 	return COperationABI{Operation: NativeCOperationCancel, Symbol: nativeCExportFuncName(b.file, b.service, b.method, "cancel"), TypeName: b.callbackTypeName(NativeCOperationCancel), Params: []CABISlot{handleSlot("stream")}, Return: errorIDReturnSlot()}
-}
-
-func (b nativeCABIBuilder) callbackOperations() []NativeCOperation {
-	switch b.method.Streaming {
-	case StreamingKindUnary:
-		return []NativeCOperation{NativeCOperationUnary}
-	case StreamingKindClientStreaming:
-		return []NativeCOperation{NativeCOperationStart, NativeCOperationSend, NativeCOperationFinish, NativeCOperationCancel}
-	case StreamingKindServerStreaming:
-		return []NativeCOperation{NativeCOperationStart, NativeCOperationRecv, NativeCOperationFinish, NativeCOperationCancel}
-	case StreamingKindBidiStreaming:
-		return []NativeCOperation{NativeCOperationStart, NativeCOperationSend, NativeCOperationRecv, NativeCOperationCloseSend, NativeCOperationFinish, NativeCOperationCancel}
-	default:
-		return nil
-	}
 }
 
 func (b nativeCABIBuilder) callbackTypeName(operation NativeCOperation) string {
@@ -249,15 +290,8 @@ func (b nativeCABIBuilder) outputSlots(fields []FieldPlan) []CABISlot {
 }
 
 func nativeCABIFieldSlots(field FieldPlan, output bool) []CABISlot {
-	source := nativeCABIFieldRef(field)
-	cleanup := CABICleanupNoCleanup
-	if output && nativeCABIFieldNeedsRuntimeFree(field) {
-		cleanup = CABICleanupFreeWithRuntime
-	}
 	slot := func(name, ctype string, role CABISlotRole) CABISlot {
-		ref := source
-		ref.CName = name
-		return CABISlot{Source: &ref, Name: name, CType: ctype, CGoType: nativeCGoType(ctype), Role: role, Cleanup: cleanup}
+		return CABISlot{Name: name, CType: ctype, CGoType: nativeCGoType(ctype), Role: role, FieldGoName: field.GoName}
 	}
 	ptr := ""
 	if output {
@@ -309,37 +343,20 @@ func nativeCABIFieldSlots(field FieldPlan, output bool) []CABISlot {
 	}
 }
 
-func nativeCABIFieldRef(field FieldPlan) NativeFieldRef {
-	return NativeFieldRef{
-		ProtoName: field.Name,
-		GoName:    field.GoName,
-		GoType:    string(field.Kind),
-		Kind:      field.Kind,
-		Scalar:    !field.Repeated,
-	}
-}
-
-func nativeCABIFieldNeedsRuntimeFree(field FieldPlan) bool {
-	if field.Native.Shape == NativeABIShapeRepeated || field.Native.Shape == NativeABIShapeBoolByteBufferWrapper {
-		return true
-	}
-	return field.Native.Shape == NativeABIShapeScalar && (field.Kind == FieldKindString || field.Kind == FieldKindBytes)
-}
-
 func handleSlot(name string) CABISlot {
-	return CABISlot{Name: name, CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleHandle, Cleanup: CABICleanupNoCleanup}
+	return CABISlot{Name: name, CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleHandle}
 }
 
 func outHandleSlot(name string) CABISlot {
-	return CABISlot{Name: name, CType: "int32_t*", CGoType: "*C.int32_t", Role: CABISlotRoleHandle, Cleanup: CABICleanupNoCleanup}
+	return CABISlot{Name: name, CType: "int32_t*", CGoType: "*C.int32_t", Role: CABISlotRoleHandle}
 }
 
 func errorIDReturnSlot() CABISlot {
-	return CABISlot{Name: "error_id", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleErrorID, Cleanup: CABICleanupNoCleanup}
+	return CABISlot{Name: "error_id", CType: "int32_t", CGoType: "C.int32_t", Role: CABISlotRoleErrorID}
 }
 
 func callbackSlot(name, typeName string) CABISlot {
-	return CABISlot{Name: name, CType: typeName, CGoType: "C." + typeName, Role: CABISlotRoleCallback, Cleanup: CABICleanupNoCleanup}
+	return CABISlot{Name: name, CType: typeName, CGoType: "C." + typeName, Role: CABISlotRoleCallback}
 }
 
 func nativeCGoType(ctype string) string {
