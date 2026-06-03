@@ -1353,44 +1353,43 @@ func renderCGONativeServerFlatResponseDecoder(g *protogen.GeneratedFile, name st
 }
 
 func renderCGONativeServerResponseFieldDecode(g *protogen.GeneratedFile, fields []FieldPlan, field FieldPlan, errorNames nativeServerCGOErrorNames) {
-	errReturn := func(errExpr string) string { return nativeGoZeroReturns(fields, errExpr) }
 	fieldName := lowerInitial(field.GoName)
 	name := fieldName + "Result"
 	switch field.Native.Shape {
 	case NativeABIShapeBoolByte:
 		g.P(name, " := ", fieldName, "Value != 0")
 	case NativeABIShapeBoolByteBufferWrapper:
-		renderCGONativeServerResponseRepeatDecode(g, field, name, "byte", "rpcruntime.NewRpcBoolRepeatChecked", errReturn)
+		renderCGONativeServerResponseRepeatDecode(g, fields, field, name, "byte", "rpcruntime.NewRpcBoolRepeatChecked")
 		g.P(name, " := ", name, "Wrapper.SafeSlice()")
 	case NativeABIShapeRepeated:
 		switch field.Kind {
 		case FieldKindSignedInt32:
-			renderCGONativeServerResponseRepeatDecode(g, field, name, "int32", "rpcruntime.NewRpcRepeatChecked", errReturn)
+			renderCGONativeServerResponseRepeatDecode(g, fields, field, name, "int32", "rpcruntime.NewRpcRepeatChecked")
 			g.P(name, " := ", name, "Wrapper.SafeSlice()")
 		case FieldKindUnsignedInt32:
-			renderCGONativeServerResponseRepeatDecode(g, field, name, "uint32", "rpcruntime.NewRpcRepeatChecked", errReturn)
+			renderCGONativeServerResponseRepeatDecode(g, fields, field, name, "uint32", "rpcruntime.NewRpcRepeatChecked")
 			g.P(name, " := ", name, "Wrapper.SafeSlice()")
 		case FieldKindSignedInt64:
-			renderCGONativeServerResponseRepeatDecode(g, field, name, "int64", "rpcruntime.NewRpcRepeatChecked", errReturn)
+			renderCGONativeServerResponseRepeatDecode(g, fields, field, name, "int64", "rpcruntime.NewRpcRepeatChecked")
 			g.P(name, " := ", name, "Wrapper.SafeSlice()")
 		case FieldKindUnsignedInt64:
-			renderCGONativeServerResponseRepeatDecode(g, field, name, "uint64", "rpcruntime.NewRpcRepeatChecked", errReturn)
+			renderCGONativeServerResponseRepeatDecode(g, fields, field, name, "uint64", "rpcruntime.NewRpcRepeatChecked")
 			g.P(name, " := ", name, "Wrapper.SafeSlice()")
 		case FieldKindFloat:
-			renderCGONativeServerResponseRepeatDecode(g, field, name, "float32", "rpcruntime.NewRpcRepeatChecked", errReturn)
+			renderCGONativeServerResponseRepeatDecode(g, fields, field, name, "float32", "rpcruntime.NewRpcRepeatChecked")
 			g.P(name, " := ", name, "Wrapper.SafeSlice()")
 		case FieldKindDouble:
-			renderCGONativeServerResponseRepeatDecode(g, field, name, "float64", "rpcruntime.NewRpcRepeatChecked", errReturn)
+			renderCGONativeServerResponseRepeatDecode(g, fields, field, name, "float64", "rpcruntime.NewRpcRepeatChecked")
 			g.P(name, " := ", name, "Wrapper.SafeSlice()")
 		case FieldKindEnum:
-			renderCGONativeServerResponseRepeatDecode(g, field, name, "int32", "rpcruntime.NewRpcRepeatChecked", errReturn)
+			renderCGONativeServerResponseRepeatDecode(g, fields, field, name, "int32", "rpcruntime.NewRpcRepeatChecked")
 			g.P(name, "Raw := ", name, "Wrapper.SafeSlice()")
 			g.P(name, " := make([]", nativeGoEnumType(g, field), ", len(", name, "Raw))")
 			g.P("for i := range ", name, "Raw {")
 			g.P(name, "[i] = ", nativeGoEnumType(g, field), "(", name, "Raw[i])")
 			g.P("}")
 		default:
-			g.P("return ", errReturn(errorNames.UnsupportedField))
+			g.P("return ", nativeGoZeroReturns(fields, errorNames.UnsupportedField))
 		}
 	case NativeABIShapeScalar, NativeABIShapeMessageBytes:
 		switch field.Kind {
@@ -1409,32 +1408,32 @@ func renderCGONativeServerResponseFieldDecode(g *protogen.GeneratedFile, fields 
 		case FieldKindEnum:
 			g.P(name, " := ", nativeGoEnumType(g, field), "(int32(", fieldName, "Value))")
 		case FieldKindString:
-			renderCGONativeServerResponseTextDecode(g, field, name, "String", "SafeString", errReturn)
+			renderCGONativeServerResponseTextDecode(g, fields, field, name, "String", "SafeString")
 		case FieldKindBytes, FieldKindMessage:
-			renderCGONativeServerResponseTextDecode(g, field, name, "Bytes", "SafeBytes", errReturn)
+			renderCGONativeServerResponseTextDecode(g, fields, field, name, "Bytes", "SafeBytes")
 		default:
-			g.P("return ", errReturn(errorNames.UnsupportedField))
+			g.P("return ", nativeGoZeroReturns(fields, errorNames.UnsupportedField))
 		}
 	default:
-		g.P("return ", errReturn(errorNames.UnsupportedField))
+		g.P("return ", nativeGoZeroReturns(fields, errorNames.UnsupportedField))
 	}
 }
 
-func renderCGONativeServerResponseRepeatDecode(g *protogen.GeneratedFile, field FieldPlan, name, elemType, ctor string, errReturn func(string) string) {
+func renderCGONativeServerResponseRepeatDecode(g *protogen.GeneratedFile, fields []FieldPlan, field FieldPlan, name, elemType, ctor string) {
 	fieldName := lowerInitial(field.GoName)
 	g.P("if _, err := rpcruntime.LengthFromInt32(int32(", fieldName, "Len)); err != nil {")
-	g.P(`return `, errReturn(`fmt.Errorf("`+field.FullName+`: %w", err)`))
+	g.P(`return `, nativeGoZeroReturns(fields, `fmt.Errorf("`+field.FullName+`: %w", err)`))
 	g.P("}")
 	g.P(name, "Wrapper, err := ", ctor, "((*", elemType, ")(unsafe.Pointer(uintptr(", fieldName, "Ptr))), int32(", fieldName, "Len), false)")
 	g.P("if err != nil {")
-	g.P(`return `, errReturn(`fmt.Errorf("`+field.FullName+`: %w", err)`))
+	g.P(`return `, nativeGoZeroReturns(fields, `fmt.Errorf("`+field.FullName+`: %w", err)`))
 	g.P("}")
 }
 
-func renderCGONativeServerResponseTextDecode(g *protogen.GeneratedFile, field FieldPlan, name, wrapper, safeMethod string, errReturn func(string) string) {
+func renderCGONativeServerResponseTextDecode(g *protogen.GeneratedFile, fields []FieldPlan, field FieldPlan, name, wrapper, safeMethod string) {
 	fieldName := lowerInitial(field.GoName)
 	g.P("if _, err := rpcruntime.LengthFromInt32(int32(", fieldName, "Len)); err != nil {")
-	g.P(`return `, errReturn(`fmt.Errorf("`+field.FullName+`: %w", err)`))
+	g.P(`return `, nativeGoZeroReturns(fields, `fmt.Errorf("`+field.FullName+`: %w", err)`))
 	g.P("}")
 	g.P(fieldName, "Wrapper := rpcruntime.NewRpc", wrapper, "((*byte)(unsafe.Pointer(uintptr(", fieldName, "Ptr))), int32(", fieldName, "Len), false)")
 	g.P(name, " := ", fieldName, "Wrapper.", safeMethod, "()")

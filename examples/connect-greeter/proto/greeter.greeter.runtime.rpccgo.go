@@ -1154,7 +1154,10 @@ func (s GreeterCollectNativeStream) Cancel(ctx context.Context) error {
 	if !ok || taken != session {
 		return rpcruntime.ErrStreamInvalidHandle
 	}
-	return session.lifecycle.Cancel(func() error { return session.cancel(ctx) })
+	if err := session.lifecycle.MarkCanceled(); err != nil {
+		return err
+	}
+	return session.cancel(ctx)
 }
 
 type GreeterCollectMessageStream struct {
@@ -1212,7 +1215,10 @@ func (s GreeterCollectMessageStream) Cancel(ctx context.Context) error {
 	if !ok || taken != session {
 		return rpcruntime.ErrStreamInvalidHandle
 	}
-	return session.lifecycle.Cancel(func() error { return session.cancel(ctx) })
+	if err := session.lifecycle.MarkCanceled(); err != nil {
+		return err
+	}
+	return session.cancel(ctx)
 }
 
 type greeterBroadcastNativeFinalSession struct {
@@ -1281,7 +1287,10 @@ func (s GreeterBroadcastNativeStream) Cancel(ctx context.Context) error {
 	if !ok || taken != session {
 		return rpcruntime.ErrStreamInvalidHandle
 	}
-	return session.lifecycle.Cancel(func() error { return session.cancel(ctx) })
+	if err := session.lifecycle.MarkCanceled(); err != nil {
+		return err
+	}
+	return session.cancel(ctx)
 }
 
 type GreeterBroadcastMessageStream struct {
@@ -1336,7 +1345,10 @@ func (s GreeterBroadcastMessageStream) Cancel(ctx context.Context) error {
 	if !ok || taken != session {
 		return rpcruntime.ErrStreamInvalidHandle
 	}
-	return session.lifecycle.Cancel(func() error { return session.cancel(ctx) })
+	if err := session.lifecycle.MarkCanceled(); err != nil {
+		return err
+	}
+	return session.cancel(ctx)
 }
 
 type greeterChatNativeFinalSession struct {
@@ -1439,7 +1451,10 @@ func (s GreeterChatNativeStream) Cancel(ctx context.Context) error {
 	if !ok || taken != session {
 		return rpcruntime.ErrStreamInvalidHandle
 	}
-	return session.lifecycle.Cancel(func() error { return session.cancel(ctx) })
+	if err := session.lifecycle.MarkCanceled(); err != nil {
+		return err
+	}
+	return session.cancel(ctx)
 }
 
 type GreeterChatMessageStream struct {
@@ -1524,7 +1539,10 @@ func (s GreeterChatMessageStream) Cancel(ctx context.Context) error {
 	if !ok || taken != session {
 		return rpcruntime.ErrStreamInvalidHandle
 	}
-	return session.lifecycle.Cancel(func() error { return session.cancel(ctx) })
+	if err := session.lifecycle.MarkCanceled(); err != nil {
+		return err
+	}
+	return session.cancel(ctx)
 }
 
 var greeterActiveServer atomic.Pointer[greeterActiveServerRecord]

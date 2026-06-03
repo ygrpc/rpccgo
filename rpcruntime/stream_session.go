@@ -63,24 +63,19 @@ func (l *StreamLifecycle) Finalize() bool {
 	return true
 }
 
-func (l *StreamLifecycle) Cancel(cancel func() error) error {
+func (l *StreamLifecycle) MarkCanceled() error {
 	l.mu.Lock()
+	defer l.mu.Unlock()
+
 	if l.finalized {
-		err := ErrStreamFinalized
 		if l.canceled {
-			err = ErrStreamCanceled
+			return ErrStreamCanceled
 		}
-		l.mu.Unlock()
-		return err
+		return ErrStreamFinalized
 	}
 	l.canceled = true
 	l.finalized = true
-	l.mu.Unlock()
-
-	if cancel == nil {
-		return nil
-	}
-	return cancel()
+	return nil
 }
 
 func (l *StreamLifecycle) Finalized() bool {

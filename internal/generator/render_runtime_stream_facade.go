@@ -93,7 +93,8 @@ func renderRuntimeNativeStreamCloseSend(g *protogen.GeneratedFile, streamRegistr
 func renderRuntimeNativeStreamCancel(g *protogen.GeneratedFile, streamRegistryName, sessionName, facadeName string) {
 	g.P("func (s ", facadeName, ") Cancel(ctx context.Context) error {")
 	renderRuntimeTakeSessionWithoutFinalize(g, streamRegistryName, sessionName)
-	g.P("return session.lifecycle.Cancel(func() error { return session.cancel(ctx) })")
+	g.P("if err := session.lifecycle.MarkCanceled(); err != nil { return err }")
+	g.P("return session.cancel(ctx)")
 	g.P("}")
 	g.P()
 }
@@ -141,7 +142,8 @@ func renderRuntimeMessageStreamCloseSend(g *protogen.GeneratedFile, streamRegist
 func renderRuntimeMessageStreamCancel(g *protogen.GeneratedFile, streamRegistryName, sessionName, facadeName string) {
 	g.P("func (s ", facadeName, ") Cancel(ctx context.Context) error {")
 	renderRuntimeTakeSessionWithoutFinalize(g, streamRegistryName, sessionName)
-	g.P("return session.lifecycle.Cancel(func() error { return session.cancel(ctx) })")
+	g.P("if err := session.lifecycle.MarkCanceled(); err != nil { return err }")
+	g.P("return session.cancel(ctx)")
 	g.P("}")
 	g.P()
 }

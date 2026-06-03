@@ -602,35 +602,29 @@ func renderNativeClientDecodedResources(g *protogen.GeneratedFile, service Servi
 
 func renderNativeRequestFieldDecode(g *protogen.GeneratedFile, fields []FieldPlan, field FieldPlan, unsupportedError string) {
 	name := nativeClientValueName(field)
-	errReturn := func(errExpr string) string {
-		if nativeClientRequestCleanupError(fields) == "" {
-			return nativeClientZeroReturns(fields, errExpr)
-		}
-		return nativeClientZeroReturns(fields, "errors.Join("+errExpr+", decoded.Release())")
-	}
 	switch field.Native.Shape {
 	case NativeABIShapeBoolByte:
 		g.P(name, " := ", field.GoName, " != 0")
 	case NativeABIShapeBoolByteBufferWrapper:
-		renderNativeClientRepeatedDecode(g, fields, field, name, "byte", "rpcruntime.RpcBoolRepeat", "rpcruntime.EmptyRpcBoolRepeat()", "rpcruntime.NewRpcBoolRepeatChecked", errReturn)
+		renderNativeClientRepeatedDecode(g, fields, field, name, "byte", "rpcruntime.RpcBoolRepeat", "rpcruntime.EmptyRpcBoolRepeat()", "rpcruntime.NewRpcBoolRepeatChecked")
 	case NativeABIShapeRepeated:
 		switch field.Kind {
 		case FieldKindSignedInt32:
-			renderNativeClientRepeatedDecode(g, fields, field, name, "int32", "rpcruntime.RpcRepeat[int32]", "rpcruntime.EmptyRpcRepeat[int32]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
+			renderNativeClientRepeatedDecode(g, fields, field, name, "int32", "rpcruntime.RpcRepeat[int32]", "rpcruntime.EmptyRpcRepeat[int32]()", "rpcruntime.NewRpcRepeatChecked")
 		case FieldKindUnsignedInt32:
-			renderNativeClientRepeatedDecode(g, fields, field, name, "uint32", "rpcruntime.RpcRepeat[uint32]", "rpcruntime.EmptyRpcRepeat[uint32]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
+			renderNativeClientRepeatedDecode(g, fields, field, name, "uint32", "rpcruntime.RpcRepeat[uint32]", "rpcruntime.EmptyRpcRepeat[uint32]()", "rpcruntime.NewRpcRepeatChecked")
 		case FieldKindSignedInt64:
-			renderNativeClientRepeatedDecode(g, fields, field, name, "int64", "rpcruntime.RpcRepeat[int64]", "rpcruntime.EmptyRpcRepeat[int64]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
+			renderNativeClientRepeatedDecode(g, fields, field, name, "int64", "rpcruntime.RpcRepeat[int64]", "rpcruntime.EmptyRpcRepeat[int64]()", "rpcruntime.NewRpcRepeatChecked")
 		case FieldKindUnsignedInt64:
-			renderNativeClientRepeatedDecode(g, fields, field, name, "uint64", "rpcruntime.RpcRepeat[uint64]", "rpcruntime.EmptyRpcRepeat[uint64]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
+			renderNativeClientRepeatedDecode(g, fields, field, name, "uint64", "rpcruntime.RpcRepeat[uint64]", "rpcruntime.EmptyRpcRepeat[uint64]()", "rpcruntime.NewRpcRepeatChecked")
 		case FieldKindFloat:
-			renderNativeClientRepeatedDecode(g, fields, field, name, "float32", "rpcruntime.RpcRepeat[float32]", "rpcruntime.EmptyRpcRepeat[float32]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
+			renderNativeClientRepeatedDecode(g, fields, field, name, "float32", "rpcruntime.RpcRepeat[float32]", "rpcruntime.EmptyRpcRepeat[float32]()", "rpcruntime.NewRpcRepeatChecked")
 		case FieldKindDouble:
-			renderNativeClientRepeatedDecode(g, fields, field, name, "float64", "rpcruntime.RpcRepeat[float64]", "rpcruntime.EmptyRpcRepeat[float64]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
+			renderNativeClientRepeatedDecode(g, fields, field, name, "float64", "rpcruntime.RpcRepeat[float64]", "rpcruntime.EmptyRpcRepeat[float64]()", "rpcruntime.NewRpcRepeatChecked")
 		case FieldKindEnum:
-			renderNativeClientRepeatedDecode(g, fields, field, name, "int32", "rpcruntime.RpcRepeat[int32]", "rpcruntime.EmptyRpcRepeat[int32]()", "rpcruntime.NewRpcRepeatChecked", errReturn)
+			renderNativeClientRepeatedDecode(g, fields, field, name, "int32", "rpcruntime.RpcRepeat[int32]", "rpcruntime.EmptyRpcRepeat[int32]()", "rpcruntime.NewRpcRepeatChecked")
 		default:
-			g.P("return ", errReturn(unsupportedError))
+			g.P("return ", nativeClientDecodeErrorReturn(fields, unsupportedError))
 		}
 	case NativeABIShapeScalar, NativeABIShapeMessageBytes:
 		switch field.Kind {
@@ -639,11 +633,11 @@ func renderNativeRequestFieldDecode(g *protogen.GeneratedFile, fields []FieldPla
 		case FieldKindEnum:
 			g.P(name, " := ", nativeGoEnumType(g, field), "(", field.GoName, ")")
 		case FieldKindString:
-			renderNativeClientStringDecode(g, fields, field, name, errReturn)
+			renderNativeClientStringDecode(g, fields, field, name)
 		case FieldKindBytes, FieldKindMessage:
-			renderNativeClientBytesDecode(g, fields, field, name, errReturn)
+			renderNativeClientBytesDecode(g, fields, field, name)
 		default:
-			g.P("return ", errReturn(unsupportedError))
+			g.P("return ", nativeClientDecodeErrorReturn(fields, unsupportedError))
 		}
 	}
 	if nativeClientFieldNeedsRequestRelease(field) {
@@ -693,6 +687,13 @@ func nativeClientZeroReturns(fields []FieldPlan, errExpr string) string {
 	return strings.Join(values, ", ")
 }
 
+func nativeClientDecodeErrorReturn(fields []FieldPlan, errExpr string) string {
+	if nativeClientRequestCleanupError(fields) == "" {
+		return nativeClientZeroReturns(fields, errExpr)
+	}
+	return nativeClientZeroReturns(fields, "errors.Join("+errExpr+", decoded.Release())")
+}
+
 func nativeClientRequestCleanupError(fields []FieldPlan) string {
 	parts := make([]string, 0, len(fields))
 	for _, field := range fields {
@@ -722,9 +723,9 @@ func nativeGoRequestZeroValue(field FieldPlan) string {
 	return nativeGoZeroValue(field)
 }
 
-func renderNativeClientRepeatedDecode(g *protogen.GeneratedFile, _ []FieldPlan, field FieldPlan, name, elemType, wrapperType, emptyExpr, ctor string, errReturn func(string) string) {
+func renderNativeClientRepeatedDecode(g *protogen.GeneratedFile, fields []FieldPlan, field FieldPlan, name, elemType, wrapperType, emptyExpr, ctor string) {
 	g.P("if _, err := rpcruntime.LengthFromInt32(", field.GoName, "Len); err != nil {")
-	g.P(`return `, errReturn(`fmt.Errorf("`+field.FullName+`: %w", err)`))
+	g.P(`return `, nativeClientDecodeErrorReturn(fields, `fmt.Errorf("`+field.FullName+`: %w", err)`))
 	g.P("}")
 	g.P("var ", name, " *", wrapperType)
 	g.P("if ", field.GoName, "Ptr == 0 || ", field.GoName, "Len == 0 {")
@@ -733,14 +734,14 @@ func renderNativeClientRepeatedDecode(g *protogen.GeneratedFile, _ []FieldPlan, 
 	g.P("var decodeErr error")
 	g.P(name, ", decodeErr = ", ctor, "((*", elemType, ")(unsafe.Pointer(", field.GoName, "Ptr)), ", field.GoName, "Len, ", field.GoName, "Ownership > 0)")
 	g.P("if decodeErr != nil {")
-	g.P(`return `, errReturn(`fmt.Errorf("`+field.FullName+`: %w", decodeErr)`))
+	g.P(`return `, nativeClientDecodeErrorReturn(fields, `fmt.Errorf("`+field.FullName+`: %w", decodeErr)`))
 	g.P("}")
 	g.P("}")
 }
 
-func renderNativeClientStringDecode(g *protogen.GeneratedFile, _ []FieldPlan, field FieldPlan, name string, errReturn func(string) string) {
+func renderNativeClientStringDecode(g *protogen.GeneratedFile, fields []FieldPlan, field FieldPlan, name string) {
 	g.P("if _, err := rpcruntime.LengthFromInt32(", field.GoName, "Len); err != nil {")
-	g.P(`return `, errReturn(`fmt.Errorf("`+field.FullName+`: %w", err)`))
+	g.P(`return `, nativeClientDecodeErrorReturn(fields, `fmt.Errorf("`+field.FullName+`: %w", err)`))
 	g.P("}")
 	g.P("var ", name, " *rpcruntime.RpcString")
 	g.P("if ", field.GoName, "Ptr == 0 || ", field.GoName, "Len == 0 {")
@@ -749,14 +750,14 @@ func renderNativeClientStringDecode(g *protogen.GeneratedFile, _ []FieldPlan, fi
 	g.P("var decodeErr error")
 	g.P(name, ", decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(", field.GoName, "Ptr)), ", field.GoName, "Len, ", field.GoName, "Ownership > 0)")
 	g.P("if decodeErr != nil {")
-	g.P(`return `, errReturn(`fmt.Errorf("`+field.FullName+`: %w", decodeErr)`))
+	g.P(`return `, nativeClientDecodeErrorReturn(fields, `fmt.Errorf("`+field.FullName+`: %w", decodeErr)`))
 	g.P("}")
 	g.P("}")
 }
 
-func renderNativeClientBytesDecode(g *protogen.GeneratedFile, _ []FieldPlan, field FieldPlan, name string, errReturn func(string) string) {
+func renderNativeClientBytesDecode(g *protogen.GeneratedFile, fields []FieldPlan, field FieldPlan, name string) {
 	g.P("if _, err := rpcruntime.LengthFromInt32(", field.GoName, "Len); err != nil {")
-	g.P(`return `, errReturn(`fmt.Errorf("`+field.FullName+`: %w", err)`))
+	g.P(`return `, nativeClientDecodeErrorReturn(fields, `fmt.Errorf("`+field.FullName+`: %w", err)`))
 	g.P("}")
 	g.P("var ", name, " *rpcruntime.RpcBytes")
 	g.P("if ", field.GoName, "Ptr == 0 || ", field.GoName, "Len == 0 {")
@@ -765,7 +766,7 @@ func renderNativeClientBytesDecode(g *protogen.GeneratedFile, _ []FieldPlan, fie
 	g.P("var decodeErr error")
 	g.P(name, ", decodeErr = rpcruntime.NewRpcBytesChecked((*byte)(unsafe.Pointer(", field.GoName, "Ptr)), ", field.GoName, "Len, ", field.GoName, "Ownership > 0)")
 	g.P("if decodeErr != nil {")
-	g.P(`return `, errReturn(`fmt.Errorf("`+field.FullName+`: %w", decodeErr)`))
+	g.P(`return `, nativeClientDecodeErrorReturn(fields, `fmt.Errorf("`+field.FullName+`: %w", decodeErr)`))
 	g.P("}")
 	g.P("}")
 }

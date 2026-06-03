@@ -215,6 +215,8 @@ func TestRenderRuntimeGlueDefinesMethodSpecificStreamFacades(t *testing.T) {
 		"func (s AllServiceServerStreamNativeStream) Recv(ctx context.Context) (bool, []byte, error) {",
 		"func (s AllServiceServerStreamNativeStream) Finish(ctx context.Context) error {",
 		"func (s AllServiceBidiStreamNativeStream) CloseSend(ctx context.Context) error {",
+		"if err := session.lifecycle.MarkCanceled(); err != nil {",
+		"return session.cancel(ctx)",
 		"type AllServiceClientStreamMessageStream struct {",
 		"func NewAllServiceClientStreamMessageStream(handle rpcruntime.StreamHandle) AllServiceClientStreamMessageStream {",
 		"func (s AllServiceClientStreamMessageStream) Send(ctx context.Context, req []byte) error {",
@@ -225,7 +227,7 @@ func TestRenderRuntimeGlueDefinesMethodSpecificStreamFacades(t *testing.T) {
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, runtimeFile, "type AllServiceUnaryNativeStream", "type AllServiceUnaryMessageStream")
+	assertGeneratedFileContentDoesNotContain(t, plugin, runtimeFile, "session.lifecycle.Cancel(", "type AllServiceUnaryNativeStream", "type AllServiceUnaryMessageStream")
 }
 
 func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleAndCoreStreamRegistry(t *testing.T) {
