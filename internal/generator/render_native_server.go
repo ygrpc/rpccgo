@@ -129,7 +129,7 @@ func renderUnimplementedGoNativeServer(g *protogen.GeneratedFile, service Servic
 	}
 }
 
-func renderGoNativeAdapter(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeAdapterMethod, serverName, adapterName, bindingName string, errorNames nativeServerErrorNames) {
+func renderGoNativeAdapter(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeMethodProjection, serverName, adapterName, bindingName string, errorNames nativeServerErrorNames) {
 	g.P("// ", adapterName, " exposes a native server implementation through the")
 	g.P("// method shape used while building a ", bindingName, ".")
 	g.P("type ", adapterName, " struct {")
@@ -143,7 +143,7 @@ func renderGoNativeAdapter(g *protogen.GeneratedFile, service ServicePlan, metho
 	}
 
 	for _, runtimeMethod := range methods {
-		method, ok := byName[runtimeMethod.MethodGoName]
+		method, ok := byName[runtimeMethod.Identity.GoName]
 		if !ok {
 			renderGoNativeFallbackAdapterMethod(g, adapterName, runtimeMethod)
 			continue
@@ -318,9 +318,9 @@ func renderGoNativeBidiStreamAdapterMethod(g *protogen.GeneratedFile, service Se
 	renderGeneratedStreamCancel(g, receiver)
 }
 
-func renderGoNativeFallbackAdapterMethod(g *protogen.GeneratedFile, adapterName string, method runtimeAdapterMethod) {
-	g.P("func (a *", adapterName, ") ", method.AdapterName, "(ctx context.Context)", method.AdapterResult, " {")
-	if method.Streaming {
+func renderGoNativeFallbackAdapterMethod(g *protogen.GeneratedFile, adapterName string, method runtimeMethodProjection) {
+	g.P("func (a *", adapterName, ") ", method.Symbols.NativeAdapterMethod, "(ctx context.Context)", method.Native.AdapterResult, " {")
+	if method.Stream.Streaming {
 		g.P(`return nil, errors.New("rpccgo native server method is not implemented")`)
 	} else {
 		g.P(`return errors.New("rpccgo native server method is not implemented")`)

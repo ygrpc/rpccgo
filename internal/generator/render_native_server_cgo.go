@@ -19,11 +19,11 @@ func renderNativeServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	cgoImportPath := protogen.GoImportPath(cgoGoImportPath(plan))
 	g := newGeneratedFile(plugin, plan, file, cgoImportPath)
 	servicePackage := cgoServicePackageQualifier(g, plan.GoImportPath, service.GoName+"NativeServer")
-	runtimeMethods, err := buildRuntimeAdapterMethods(g, service)
+	runtimeMethods, err := buildRuntimeMethodProjectionsWithMessageTypes(g, service, false)
 	if err != nil {
 		return err
 	}
-	runtimeMethods = qualifyRuntimeAdapterMethods(runtimeMethods, servicePackage)
+	runtimeMethods = qualifyRuntimeMethodProjections(runtimeMethods, servicePackage)
 
 	g.P("package main")
 	g.P()
@@ -61,16 +61,16 @@ func renderNativeServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	return nil
 }
 
-func qualifyRuntimeAdapterMethods(methods []runtimeAdapterMethod, servicePackage string) []runtimeAdapterMethod {
-	qualified := make([]runtimeAdapterMethod, len(methods))
+func qualifyRuntimeMethodProjections(methods []runtimeMethodProjection, servicePackage string) []runtimeMethodProjection {
+	qualified := make([]runtimeMethodProjection, len(methods))
 	copy(qualified, methods)
 	for i := range qualified {
-		if !qualified[i].Streaming {
+		if !qualified[i].Stream.Streaming {
 			continue
 		}
-		rawSessionName := qualified[i].SessionName
-		qualified[i].SessionName = servicePackage + rawSessionName
-		qualified[i].AdapterResult = strings.ReplaceAll(qualified[i].AdapterResult, rawSessionName, qualified[i].SessionName)
+		rawSessionName := qualified[i].Symbols.NativeSourceSessionType
+		qualified[i].Symbols.NativeSourceSessionType = servicePackage + rawSessionName
+		qualified[i].Native.AdapterResult = strings.ReplaceAll(qualified[i].Native.AdapterResult, rawSessionName, qualified[i].Symbols.NativeSourceSessionType)
 	}
 	return qualified
 }
@@ -543,7 +543,7 @@ func nativeCGOServerCFieldArgNames(field FieldPlan, output bool) []string {
 	}
 }
 
-func renderCGONativeServerAdapter(g *protogen.GeneratedFile, service ServicePlan, abi nativeCServiceABI, methods []runtimeAdapterMethod, adapterName string, errorNames nativeServerCGOErrorNames, servicePackage string) {
+func renderCGONativeServerAdapter(g *protogen.GeneratedFile, service ServicePlan, abi nativeCServiceABI, methods []runtimeMethodProjection, adapterName string, errorNames nativeServerCGOErrorNames, servicePackage string) {
 	g.P("type ", adapterName, " struct {")
 	renderCGONativeServerAdapterFields(g, service, abi)
 	g.P("}")
@@ -554,7 +554,7 @@ func renderCGONativeServerAdapter(g *protogen.GeneratedFile, service ServicePlan
 		byName[method.GoName] = method
 	}
 	for _, runtimeMethod := range methods {
-		method, ok := byName[runtimeMethod.MethodGoName]
+		method, ok := byName[runtimeMethod.Identity.GoName]
 		if !ok {
 			renderCGONativeServerStreamingFallback(g, adapterName, runtimeMethod, errorNames)
 			continue
@@ -1178,11 +1178,11 @@ func renderNativeStreamRecvAssign(g *protogen.GeneratedFile, fields []FieldPlan,
 	g.P(names, ", err := ", call)
 }
 
-func renderCGONativeServerStreamingFallback(g *protogen.GeneratedFile, adapterName string, method runtimeAdapterMethod, errorNames nativeServerCGOErrorNames) {
-	g.P("func (a *", adapterName, ") ", method.AdapterName, "(ctx context.Context", method.AdapterArgs, ")", method.AdapterResult, " {")
-	if method.Streaming {
+func renderCGONativeServerStreamingFallback(g *protogen.GeneratedFile, adapterName string, method runtimeMethodProjection, errorNames nativeServerCGOErrorNames) {
+	g.P("func (a *", adapterName, ") ", method.Symbols.NativeAdapterMethod, "(ctx context.Context", method.Native.AdapterArgs, ")", method.Native.AdapterResult, " {")
+	if method.Stream.Streaming {
 		g.P("return nil, ", errorNames.StreamNotImplemented)
-	} else if method.AdapterResult == " error" {
+	} else if method.Native.AdapterResult == " error" {
 		g.P("return ", errorNames.StreamNotImplemented)
 	} else {
 		g.P("return nil, ", errorNames.UnaryCallbackMissing)

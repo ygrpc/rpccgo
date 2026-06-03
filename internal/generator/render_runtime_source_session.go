@@ -1,27 +1,23 @@
 package generator
 
-import (
-	"strings"
+import "google.golang.org/protobuf/compiler/protogen"
 
-	"google.golang.org/protobuf/compiler/protogen"
-)
-
-func renderRuntimeSourceSessionInterfaces(g *protogen.GeneratedFile, serviceName string, methods []runtimeAdapterMethod) {
+func renderRuntimeSourceSessionInterfaces(g *protogen.GeneratedFile, serviceName string, methods []runtimeMethodProjection) {
 	for _, method := range methods {
-		nativeName := method.SessionName
-		messageName := methodMessageSessionName(method)
+		nativeName := method.Symbols.NativeSourceSessionType
+		messageName := method.Symbols.MessageSourceSessionType
 		g.P("type ", nativeName, " interface {")
-		if method.CanSend {
-			g.P("Send(ctx context.Context", method.NativeArgs, ") error")
+		if method.Stream.CanSend {
+			g.P("Send(ctx context.Context", method.Native.Args, ") error")
 		}
-		if method.CanRecv {
-			g.P("Recv(ctx context.Context) (", method.NativeReturns, ")")
+		if method.Stream.CanRecv {
+			g.P("Recv(ctx context.Context) (", method.Native.Returns, ")")
 		}
-		if method.CanCloseSend {
+		if method.Stream.CanCloseSend {
 			g.P("CloseSend(ctx context.Context) error")
 		}
-		if method.FinishReturnsResponse {
-			g.P("Finish(ctx context.Context) (", method.NativeReturns, ")")
+		if method.Stream.FinishReturnsResponse {
+			g.P("Finish(ctx context.Context) (", method.Native.Returns, ")")
 		} else {
 			g.P("Finish(ctx context.Context) error")
 		}
@@ -29,16 +25,16 @@ func renderRuntimeSourceSessionInterfaces(g *protogen.GeneratedFile, serviceName
 		g.P("}")
 		g.P()
 		g.P("type ", messageName, " interface {")
-		if method.CanSend {
+		if method.Stream.CanSend {
 			g.P("Send(ctx context.Context, req []byte) error")
 		}
-		if method.CanRecv {
+		if method.Stream.CanRecv {
 			g.P("Recv(ctx context.Context) ([]byte, error)")
 		}
-		if method.CanCloseSend {
+		if method.Stream.CanCloseSend {
 			g.P("CloseSend(ctx context.Context) error")
 		}
-		if method.FinishReturnsResponse {
+		if method.Stream.FinishReturnsResponse {
 			g.P("Finish(ctx context.Context) ([]byte, error)")
 		} else {
 			g.P("Finish(ctx context.Context) error")
@@ -48,8 +44,4 @@ func renderRuntimeSourceSessionInterfaces(g *protogen.GeneratedFile, serviceName
 		g.P()
 	}
 	_ = serviceName
-}
-
-func methodMessageSessionName(method runtimeAdapterMethod) string {
-	return strings.Replace(method.SessionName, "NativeStreamSession", "MessageStreamSession", 1)
 }

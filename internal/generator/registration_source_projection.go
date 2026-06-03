@@ -121,7 +121,7 @@ func ProjectRegistrationSource(service ServicePlan, source RegistrationSourcePla
 	}
 }
 
-func registrationTransportMessageStreamConstructor(service ServicePlan, method runtimeAdapterMethod, projection registrationSourceProjection) (string, bool, error) {
+func registrationTransportMessageStreamConstructor(service ServicePlan, method runtimeMethodProjection, projection registrationSourceProjection) (string, bool, error) {
 	if projection.bindingKind != runtimeRegistrationBindingKindTransportMessage {
 		return "", false, fmt.Errorf("registration source %q is not a transport message binding", projection.label)
 	}
@@ -140,5 +140,5 @@ func registrationTransportMessageStreamConstructor(service ServicePlan, method r
 		return "", false, fmt.Errorf("registration source %q does not define a transport stream constructor", projection.label)
 	}
 
-	return constructor, projection.transportStreamConstructorReturnsErr || runtimeStreamShapeFor(method) == runtimeStreamServer, nil
+	return constructor, projection.transportStreamConstructorReturnsErr || method.Stream.Shape == runtimeStreamServer, nil
 }

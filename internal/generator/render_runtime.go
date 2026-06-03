@@ -5,11 +5,11 @@ import "google.golang.org/protobuf/compiler/protogen"
 func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedArtifactPlan) error {
 	g := newGeneratedFile(plugin, plan, file, protogen.GoImportPath(plan.GoImportPath))
 
-	runtimeMethods, err := buildRuntimeAdapterMethods(g, service)
+	runtimeMethods, err := buildRuntimeMethodProjections(g, service)
 	if err != nil {
 		return err
 	}
-	streamingMethods := runtimeStreamingMethods(runtimeMethods)
+	streamingMethods := runtimeStreamingMethodProjections(runtimeMethods)
 	directConnectStreaming := service.Generation.MessageTransport == MessageTransportConnect && serviceHasStreamingMethod(service)
 	directGRPCStreaming := service.Generation.MessageTransport == MessageTransportGRPC && serviceHasStreamingMethod(service)
 	directUnary := serviceHasUnaryMethod(service)

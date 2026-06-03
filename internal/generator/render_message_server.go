@@ -11,7 +11,7 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 		return err
 	}
 	g := newGeneratedFile(plugin, plan, file, protogen.GoImportPath(plan.GoImportPath))
-	runtimeMethods, err := buildRuntimeAdapterMethods(g, service)
+	runtimeMethods, err := buildRuntimeMethodProjectionsWithMessageTypes(g, service, false)
 	if err != nil {
 		return err
 	}
@@ -30,14 +30,14 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	renderDocLine(g, service.DocComment, "type ", serverName, " interface {")
 	for _, method := range runtimeMethods {
 		switch {
-		case !method.Streaming:
-			renderDocLine(g, method.MethodDocComment, method.MethodGoName, "(ctx context.Context, req []byte) ([]byte, error)")
-		case method.CanSend && method.FinishReturnsResponse:
-			renderDocLine(g, method.MethodDocComment, method.MethodGoName, "(ctx context.Context, stream ", service.GoName, method.MethodGoName, "MessageClientStream) ([]byte, error)")
-		case method.CanRecv && !method.CanSend:
-			renderDocLine(g, method.MethodDocComment, method.MethodGoName, "(ctx context.Context, req []byte, stream ", service.GoName, method.MethodGoName, "MessageServerStream) error")
-		case method.CanSend && method.CanRecv && method.CanCloseSend:
-			renderDocLine(g, method.MethodDocComment, method.MethodGoName, "(ctx context.Context, stream ", service.GoName, method.MethodGoName, "MessageBidiStream) error")
+		case !method.Stream.Streaming:
+			renderDocLine(g, method.Identity.DocComment, method.Identity.GoName, "(ctx context.Context, req []byte) ([]byte, error)")
+		case method.Stream.CanSend && method.Stream.FinishReturnsResponse:
+			renderDocLine(g, method.Identity.DocComment, method.Identity.GoName, "(ctx context.Context, stream ", service.GoName, method.Identity.GoName, "MessageClientStream) ([]byte, error)")
+		case method.Stream.CanRecv && !method.Stream.CanSend:
+			renderDocLine(g, method.Identity.DocComment, method.Identity.GoName, "(ctx context.Context, req []byte, stream ", service.GoName, method.Identity.GoName, "MessageServerStream) error")
+		case method.Stream.CanSend && method.Stream.CanRecv && method.Stream.CanCloseSend:
+			renderDocLine(g, method.Identity.DocComment, method.Identity.GoName, "(ctx context.Context, stream ", service.GoName, method.Identity.GoName, "MessageBidiStream) error")
 		}
 	}
 	g.P("}")
@@ -54,21 +54,21 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	return nil
 }
 
-func renderCGOMessageServerStreamInterfaces(g *protogen.GeneratedFile, service ServicePlan, runtimeMethods []runtimeAdapterMethod) {
+func renderCGOMessageServerStreamInterfaces(g *protogen.GeneratedFile, service ServicePlan, runtimeMethods []runtimeMethodProjection) {
 	for _, method := range runtimeMethods {
 		switch {
-		case method.CanSend && method.FinishReturnsResponse:
-			g.P("type ", service.GoName, method.MethodGoName, "MessageClientStream interface {")
+		case method.Stream.CanSend && method.Stream.FinishReturnsResponse:
+			g.P("type ", service.GoName, method.Identity.GoName, "MessageClientStream interface {")
 			g.P("Recv(ctx context.Context) ([]byte, error)")
 			g.P("}")
 			g.P()
-		case method.CanRecv && !method.CanSend:
-			g.P("type ", service.GoName, method.MethodGoName, "MessageServerStream interface {")
+		case method.Stream.CanRecv && !method.Stream.CanSend:
+			g.P("type ", service.GoName, method.Identity.GoName, "MessageServerStream interface {")
 			g.P("Send(ctx context.Context, resp []byte) error")
 			g.P("}")
 			g.P()
-		case method.CanSend && method.CanRecv && method.CanCloseSend:
-			g.P("type ", service.GoName, method.MethodGoName, "MessageBidiStream interface {")
+		case method.Stream.CanSend && method.Stream.CanRecv && method.Stream.CanCloseSend:
+			g.P("type ", service.GoName, method.Identity.GoName, "MessageBidiStream interface {")
 			g.P("Recv(ctx context.Context) ([]byte, error)")
 			g.P("Send(ctx context.Context, resp []byte) error")
 			g.P("}")
@@ -77,27 +77,27 @@ func renderCGOMessageServerStreamInterfaces(g *protogen.GeneratedFile, service S
 	}
 }
 
-func renderUnimplementedCGOMessageServer(g *protogen.GeneratedFile, service ServicePlan, runtimeMethods []runtimeAdapterMethod) {
+func renderUnimplementedCGOMessageServer(g *protogen.GeneratedFile, service ServicePlan, runtimeMethods []runtimeMethodProjection) {
 	serverName := "Unimplemented" + service.GoName + "CGOMessageServer"
 	g.P("type ", serverName, " struct{}")
 	g.P()
 	for _, method := range runtimeMethods {
-		errExpr := `errors.New("rpccgo: ` + service.GoName + "." + method.MethodGoName + ` cgo message server method is not implemented")`
+		errExpr := `errors.New("rpccgo: ` + service.GoName + "." + method.Identity.GoName + ` cgo message server method is not implemented")`
 		switch {
-		case !method.Streaming:
-			g.P("func (", serverName, ") ", method.MethodGoName, "(ctx context.Context, req []byte) ([]byte, error) {")
+		case !method.Stream.Streaming:
+			g.P("func (", serverName, ") ", method.Identity.GoName, "(ctx context.Context, req []byte) ([]byte, error) {")
 			g.P("return nil, ", errExpr)
 			g.P("}")
-		case method.CanSend && method.FinishReturnsResponse:
-			g.P("func (", serverName, ") ", method.MethodGoName, "(ctx context.Context, stream ", service.GoName, method.MethodGoName, "MessageClientStream) ([]byte, error) {")
+		case method.Stream.CanSend && method.Stream.FinishReturnsResponse:
+			g.P("func (", serverName, ") ", method.Identity.GoName, "(ctx context.Context, stream ", service.GoName, method.Identity.GoName, "MessageClientStream) ([]byte, error) {")
 			g.P("return nil, ", errExpr)
 			g.P("}")
-		case method.CanRecv && !method.CanSend:
-			g.P("func (", serverName, ") ", method.MethodGoName, "(ctx context.Context, req []byte, stream ", service.GoName, method.MethodGoName, "MessageServerStream) error {")
+		case method.Stream.CanRecv && !method.Stream.CanSend:
+			g.P("func (", serverName, ") ", method.Identity.GoName, "(ctx context.Context, req []byte, stream ", service.GoName, method.Identity.GoName, "MessageServerStream) error {")
 			g.P("return ", errExpr)
 			g.P("}")
-		case method.CanSend && method.CanRecv && method.CanCloseSend:
-			g.P("func (", serverName, ") ", method.MethodGoName, "(ctx context.Context, stream ", service.GoName, method.MethodGoName, "MessageBidiStream) error {")
+		case method.Stream.CanSend && method.Stream.CanRecv && method.Stream.CanCloseSend:
+			g.P("func (", serverName, ") ", method.Identity.GoName, "(ctx context.Context, stream ", service.GoName, method.Identity.GoName, "MessageBidiStream) error {")
 			g.P("return ", errExpr)
 			g.P("}")
 		}

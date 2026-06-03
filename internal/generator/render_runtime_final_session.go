@@ -2,22 +2,22 @@ package generator
 
 import "google.golang.org/protobuf/compiler/protogen"
 
-func renderRuntimeStreamSessions(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod) {
+func renderRuntimeStreamSessions(g *protogen.GeneratedFile, serviceName string, method runtimeMethodProjection) {
 	nativeName := runtimeStreamNativeSessionName(serviceName, method)
 	messageName := runtimeStreamMessageSessionName(serviceName, method)
 	g.P("type ", nativeName, " struct {")
 	g.P("lifecycle rpcruntime.StreamLifecycle")
-	if method.CanSend {
-		g.P("send func(ctx context.Context", method.NativeArgs, ") error")
+	if method.Stream.CanSend {
+		g.P("send func(ctx context.Context", method.Native.Args, ") error")
 	}
-	if method.CanRecv {
-		g.P("recv func(ctx context.Context) (", method.NativeReturns, ")")
+	if method.Stream.CanRecv {
+		g.P("recv func(ctx context.Context) (", method.Native.Returns, ")")
 	}
-	if method.CanCloseSend {
+	if method.Stream.CanCloseSend {
 		g.P("closeSend func(ctx context.Context) error")
 	}
-	if method.FinishReturnsResponse {
-		g.P("finish func(ctx context.Context) (", method.NativeReturns, ")")
+	if method.Stream.FinishReturnsResponse {
+		g.P("finish func(ctx context.Context) (", method.Native.Returns, ")")
 	} else {
 		g.P("finish func(ctx context.Context) error")
 	}
@@ -30,16 +30,16 @@ func renderRuntimeStreamSessions(g *protogen.GeneratedFile, serviceName string, 
 	g.P()
 	g.P("type ", messageName, " struct {")
 	g.P("lifecycle rpcruntime.StreamLifecycle")
-	if method.CanSend {
+	if method.Stream.CanSend {
 		g.P("send func(ctx context.Context, req []byte) error")
 	}
-	if method.CanRecv {
+	if method.Stream.CanRecv {
 		g.P("recv func(ctx context.Context) ([]byte, error)")
 	}
-	if method.CanCloseSend {
+	if method.Stream.CanCloseSend {
 		g.P("closeSend func(ctx context.Context) error")
 	}
-	if method.FinishReturnsResponse {
+	if method.Stream.FinishReturnsResponse {
 		g.P("finish func(ctx context.Context) ([]byte, error)")
 	} else {
 		g.P("finish func(ctx context.Context) error")
@@ -53,10 +53,10 @@ func renderRuntimeStreamSessions(g *protogen.GeneratedFile, serviceName string, 
 	g.P()
 }
 
-func runtimeStreamNativeSessionName(serviceName string, method runtimeAdapterMethod) string {
-	return lowerInitial(serviceName) + method.MethodGoName + "NativeStreamSession"
+func runtimeStreamNativeSessionName(serviceName string, method runtimeMethodProjection) string {
+	return lowerInitial(serviceName) + method.Identity.GoName + "NativeStreamSession"
 }
 
-func runtimeStreamMessageSessionName(serviceName string, method runtimeAdapterMethod) string {
-	return lowerInitial(serviceName) + method.MethodGoName + "MessageStreamSession"
+func runtimeStreamMessageSessionName(serviceName string, method runtimeMethodProjection) string {
+	return lowerInitial(serviceName) + method.Identity.GoName + "MessageStreamSession"
 }

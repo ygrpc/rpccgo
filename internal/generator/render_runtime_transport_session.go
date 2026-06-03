@@ -6,7 +6,7 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-func renderRuntimeTransportMessageSessions(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeAdapterMethod) {
+func renderRuntimeTransportMessageSessions(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeMethodProjection) {
 	for _, method := range methods {
 		if service.Generation.MessageTransport == MessageTransportConnect {
 			renderConnectDirectMessageSession(g, service, method)
@@ -19,12 +19,11 @@ func renderRuntimeTransportMessageSessions(g *protogen.GeneratedFile, service Se
 	}
 }
 
-func renderConnectDirectMessageSession(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod) {
-	methodPlan := methodForRuntimeService(service, method)
+func renderConnectDirectMessageSession(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection) {
 	wrapperName := connectDirectMessageSessionName(service.GoName, method)
 	resultName := wrapperName + "Result"
-	reqType := qualifiedMethodType(g, methodPlan.Request)
-	respType := qualifiedMethodType(g, methodPlan.Response)
+	reqType := method.Message.RequestType
+	respType := method.Message.ResponseType
 	handlerName := service.GoName + "Handler"
 	g.P("type ", resultName, " struct {")
 	g.P("data []byte")
@@ -35,18 +34,18 @@ func renderConnectDirectMessageSession(g *protogen.GeneratedFile, service Servic
 	g.P("type ", wrapperName, " struct {")
 	g.P("ctx context.Context")
 	g.P("cancel context.CancelFunc")
-	if method.CanSend {
+	if method.Stream.CanSend {
 		g.P("requests chan []byte")
 		g.P("closeRequests sync.Once")
 	}
-	if method.FinishReturnsResponse {
+	if method.Stream.FinishReturnsResponse {
 		g.P("result chan ", resultName)
 	} else {
 		g.P("responses chan ", resultName)
 	}
 	g.P("}")
 	g.P()
-	switch runtimeStreamShapeFor(method) {
+	switch method.Stream.Shape {
 	case runtimeStreamClient:
 		renderConnectDirectClientStreamSession(g, method, wrapperName, resultName, reqType, handlerName)
 	case runtimeStreamServer:
@@ -56,7 +55,7 @@ func renderConnectDirectMessageSession(g *protogen.GeneratedFile, service Servic
 	}
 }
 
-func renderConnectDirectClientStreamSession(g *protogen.GeneratedFile, method runtimeAdapterMethod, wrapperName, resultName, reqType, handlerName string) {
+func renderConnectDirectClientStreamSession(g *protogen.GeneratedFile, method runtimeMethodProjection, wrapperName, resultName, reqType, handlerName string) {
 	g.P("func new", wrapperName, "(ctx context.Context, handler ", handlerName, ") *", wrapperName, " {")
 	g.P("streamCtx, cancel := context.WithCancel(ctx)")
 	g.P("session := &", wrapperName, "{ctx: streamCtx, cancel: cancel, requests: make(chan []byte), result: make(chan ", resultName, ", 1)}")
@@ -68,7 +67,7 @@ func renderConnectDirectClientStreamSession(g *protogen.GeneratedFile, method ru
 	g.P("}")
 	g.P("return proto.Unmarshal(data, msg.(proto.Message))")
 	g.P("}}")
-	g.P("resp, err := handler.", method.MethodGoName, "(streamCtx, rpcruntime.NewConnectClientStream[", reqType, "](conn))")
+	g.P("resp, err := handler.", method.Identity.MessageMethodRef, "(streamCtx, rpcruntime.NewConnectClientStream[", reqType, "](conn))")
 	g.P("if err != nil {")
 	g.P("session.result <- ", resultName, "{err: err, terminal: true}")
 	g.P("return")
@@ -109,7 +108,7 @@ func renderConnectDirectClientStreamSession(g *protogen.GeneratedFile, method ru
 	g.P()
 }
 
-func renderConnectDirectServerStreamSession(g *protogen.GeneratedFile, method runtimeAdapterMethod, wrapperName, resultName, reqType, respType, handlerName string) {
+func renderConnectDirectServerStreamSession(g *protogen.GeneratedFile, method runtimeMethodProjection, wrapperName, resultName, reqType, respType, handlerName string) {
 	g.P("func new", wrapperName, "(ctx context.Context, handler ", handlerName, ", req []byte) (*", wrapperName, ", error) {")
 	g.P("messageReq := new(", reqType, ")")
 	g.P("if err := proto.Unmarshal(req, messageReq); err != nil {")
@@ -134,7 +133,7 @@ func renderConnectDirectServerStreamSession(g *protogen.GeneratedFile, method ru
 	g.P("return nil")
 	g.P("}")
 	g.P("}}")
-	g.P("err := handler.", method.MethodGoName, "(streamCtx, messageReq, rpcruntime.NewConnectServerStream[", respType, "](conn))")
+	g.P("err := handler.", method.Identity.MessageMethodRef, "(streamCtx, messageReq, rpcruntime.NewConnectServerStream[", respType, "](conn))")
 	g.P("session.responses <- ", resultName, "{err: err, terminal: true}")
 	g.P("}()")
 	g.P("return session, nil")
@@ -143,7 +142,7 @@ func renderConnectDirectServerStreamSession(g *protogen.GeneratedFile, method ru
 	renderConnectDirectRecvFinishCancel(g, wrapperName)
 }
 
-func renderConnectDirectBidiStreamSession(g *protogen.GeneratedFile, method runtimeAdapterMethod, wrapperName, resultName, reqType, respType, handlerName string) {
+func renderConnectDirectBidiStreamSession(g *protogen.GeneratedFile, method runtimeMethodProjection, wrapperName, resultName, reqType, respType, handlerName string) {
 	g.P("func new", wrapperName, "(ctx context.Context, handler ", handlerName, ") *", wrapperName, " {")
 	g.P("streamCtx, cancel := context.WithCancel(ctx)")
 	g.P("session := &", wrapperName, "{ctx: streamCtx, cancel: cancel, requests: make(chan []byte), responses: make(chan ", resultName, ", 1)}")
@@ -173,7 +172,7 @@ func renderConnectDirectBidiStreamSession(g *protogen.GeneratedFile, method runt
 	g.P("}")
 	g.P("},")
 	g.P("}")
-	g.P("err := handler.", method.MethodGoName, "(streamCtx, rpcruntime.NewConnectBidiStream[", reqType, ", ", respType, "](conn))")
+	g.P("err := handler.", method.Identity.MessageMethodRef, "(streamCtx, rpcruntime.NewConnectBidiStream[", reqType, ", ", respType, "](conn))")
 	g.P("session.responses <- ", resultName, "{err: err, terminal: true}")
 	g.P("}()")
 	g.P("return session")
@@ -227,28 +226,27 @@ func renderConnectDirectRecvFinishCancel(g *protogen.GeneratedFile, wrapperName 
 	g.P()
 }
 
-func renderConnectRemoteMessageSession(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod) {
-	methodPlan := methodForRuntimeService(service, method)
+func renderConnectRemoteMessageSession(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection) {
 	wrapperName := connectRemoteMessageSessionName(service.GoName, method)
-	reqType := qualifiedMethodType(g, methodPlan.Request)
-	respType := qualifiedMethodType(g, methodPlan.Response)
-	switch runtimeStreamShapeFor(method) {
+	reqType := method.Message.RequestType
+	respType := method.Message.ResponseType
+	switch method.Stream.Shape {
 	case runtimeStreamClient:
-		clientType := "interface { " + method.MethodGoName + "(context.Context) (*connect.ClientStreamForClientSimple[" + strings.TrimPrefix(reqType, "*") + ", " + strings.TrimPrefix(respType, "*") + "], error) }"
+		clientType := "interface { " + method.Identity.MessageMethodRef + "(context.Context) (*connect.ClientStreamForClientSimple[" + strings.TrimPrefix(reqType, "*") + ", " + strings.TrimPrefix(respType, "*") + "], error) }"
 		renderConnectRemoteClientStreamSession(g, method, wrapperName, reqType, respType, clientType)
 	case runtimeStreamServer:
-		clientType := "interface { " + method.MethodGoName + "(context.Context, *" + strings.TrimPrefix(reqType, "*") + ") (*connect.ServerStreamForClient[" + strings.TrimPrefix(respType, "*") + "], error) }"
+		clientType := "interface { " + method.Identity.MessageMethodRef + "(context.Context, *" + strings.TrimPrefix(reqType, "*") + ") (*connect.ServerStreamForClient[" + strings.TrimPrefix(respType, "*") + "], error) }"
 		renderConnectRemoteServerStreamSession(g, method, wrapperName, reqType, respType, clientType)
 	case runtimeStreamBidi:
-		clientType := "interface { " + method.MethodGoName + "(context.Context) (*connect.BidiStreamForClientSimple[" + strings.TrimPrefix(reqType, "*") + ", " + strings.TrimPrefix(respType, "*") + "], error) }"
+		clientType := "interface { " + method.Identity.MessageMethodRef + "(context.Context) (*connect.BidiStreamForClientSimple[" + strings.TrimPrefix(reqType, "*") + ", " + strings.TrimPrefix(respType, "*") + "], error) }"
 		renderConnectRemoteBidiStreamSession(g, method, wrapperName, reqType, respType, clientType)
 	}
 }
 
-func renderConnectRemoteClientStreamSession(g *protogen.GeneratedFile, method runtimeAdapterMethod, wrapperName, reqType, respType, clientType string) {
+func renderConnectRemoteClientStreamSession(g *protogen.GeneratedFile, method runtimeMethodProjection, wrapperName, reqType, respType, clientType string) {
 	g.P("func new", wrapperName, "(ctx context.Context, client ", clientType, ") (*", wrapperName, ", error) {")
 	g.P("streamCtx, cancel := context.WithCancel(ctx)")
-	g.P("stream, err := client.", method.MethodGoName, "(streamCtx)")
+	g.P("stream, err := client.", method.Identity.MessageMethodRef, "(streamCtx)")
 	g.P("if err != nil {")
 	g.P("cancel()")
 	g.P("return nil, err")
@@ -331,14 +329,14 @@ func renderConnectRemoteClientStreamSession(g *protogen.GeneratedFile, method ru
 	g.P()
 }
 
-func renderConnectRemoteServerStreamSession(g *protogen.GeneratedFile, method runtimeAdapterMethod, wrapperName, reqType, respType, clientType string) {
+func renderConnectRemoteServerStreamSession(g *protogen.GeneratedFile, method runtimeMethodProjection, wrapperName, reqType, respType, clientType string) {
 	g.P("func new", wrapperName, "(ctx context.Context, client ", clientType, ", req []byte) (*", wrapperName, ", error) {")
 	g.P("request := new(", reqType, ")")
 	g.P("if err := proto.Unmarshal(req, request); err != nil {")
 	g.P(`return nil, fmt.Errorf("rpccgo: connect remote request protobuf unmarshal failed: %w", err)`)
 	g.P("}")
 	g.P("streamCtx, cancel := context.WithCancel(ctx)")
-	g.P("stream, err := client.", method.MethodGoName, "(streamCtx, request)")
+	g.P("stream, err := client.", method.Identity.MessageMethodRef, "(streamCtx, request)")
 	g.P("if err != nil {")
 	g.P("cancel()")
 	g.P("return nil, err")
@@ -354,10 +352,10 @@ func renderConnectRemoteServerStreamSession(g *protogen.GeneratedFile, method ru
 	renderConnectRemoteRecvFinishCancel(g, wrapperName, "server stream")
 }
 
-func renderConnectRemoteBidiStreamSession(g *protogen.GeneratedFile, method runtimeAdapterMethod, wrapperName, reqType, respType, clientType string) {
+func renderConnectRemoteBidiStreamSession(g *protogen.GeneratedFile, method runtimeMethodProjection, wrapperName, reqType, respType, clientType string) {
 	g.P("func new", wrapperName, "(ctx context.Context, client ", clientType, ") (*", wrapperName, ", error) {")
 	g.P("streamCtx, cancel := context.WithCancel(ctx)")
-	g.P("stream, err := client.", method.MethodGoName, "(streamCtx)")
+	g.P("stream, err := client.", method.Identity.MessageMethodRef, "(streamCtx)")
 	g.P("if err != nil {")
 	g.P("cancel()")
 	g.P("return nil, err")
@@ -490,12 +488,11 @@ func renderConnectRemoteBidiRecvFinishCancel(g *protogen.GeneratedFile, wrapperN
 	g.P()
 }
 
-func renderGRPCDirectMessageSession(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod) {
-	methodPlan := methodForRuntimeService(service, method)
+func renderGRPCDirectMessageSession(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection) {
 	wrapperName := grpcDirectMessageSessionName(service.GoName, method)
 	resultName := wrapperName + "Result"
-	reqType := qualifiedMethodType(g, methodPlan.Request)
-	respType := qualifiedMethodType(g, methodPlan.Response)
+	reqType := method.Message.RequestType
+	respType := method.Message.ResponseType
 	serverName := service.GoName + "Server"
 	g.P("type ", resultName, " struct {")
 	g.P("data []byte")
@@ -506,11 +503,11 @@ func renderGRPCDirectMessageSession(g *protogen.GeneratedFile, service ServicePl
 	g.P("type ", wrapperName, " struct {")
 	g.P("ctx context.Context")
 	g.P("cancel context.CancelFunc")
-	if method.CanSend {
+	if method.Stream.CanSend {
 		g.P("requests chan []byte")
 		g.P("closeRequests sync.Once")
 	}
-	if method.FinishReturnsResponse {
+	if method.Stream.FinishReturnsResponse {
 		g.P("result chan ", resultName)
 		g.P("resultOnce sync.Once")
 	} else {
@@ -520,7 +517,7 @@ func renderGRPCDirectMessageSession(g *protogen.GeneratedFile, service ServicePl
 	g.P("trailer metadata.MD")
 	g.P("}")
 	g.P()
-	switch runtimeStreamShapeFor(method) {
+	switch method.Stream.Shape {
 	case runtimeStreamClient:
 		renderGRPCDirectClientStreamSession(g, method, wrapperName, resultName, reqType, respType, serverName)
 	case runtimeStreamServer:
@@ -530,12 +527,12 @@ func renderGRPCDirectMessageSession(g *protogen.GeneratedFile, service ServicePl
 	}
 }
 
-func renderGRPCDirectClientStreamSession(g *protogen.GeneratedFile, method runtimeAdapterMethod, wrapperName, resultName, reqType, respType, serverName string) {
+func renderGRPCDirectClientStreamSession(g *protogen.GeneratedFile, method runtimeMethodProjection, wrapperName, resultName, reqType, respType, serverName string) {
 	g.P("func new", wrapperName, "(ctx context.Context, server ", serverName, ") *", wrapperName, " {")
 	g.P("streamCtx, cancel := context.WithCancel(ctx)")
 	g.P("session := &", wrapperName, "{ctx: streamCtx, cancel: cancel, requests: make(chan []byte), result: make(chan ", resultName, ", 1)}")
 	g.P("go func() {")
-	g.P("err := server.", method.MethodGoName, "(session)")
+	g.P("err := server.", method.Identity.MessageMethodRef, "(session)")
 	g.P("if err != nil {")
 	g.P("session.deliver(", resultName, "{err: err, terminal: true})")
 	g.P("return")
@@ -659,7 +656,7 @@ func renderGRPCDirectClientStreamSession(g *protogen.GeneratedFile, method runti
 	g.P()
 }
 
-func renderGRPCDirectServerStreamSession(g *protogen.GeneratedFile, method runtimeAdapterMethod, wrapperName, resultName, reqType, respType, serverName string) {
+func renderGRPCDirectServerStreamSession(g *protogen.GeneratedFile, method runtimeMethodProjection, wrapperName, resultName, reqType, respType, serverName string) {
 	g.P("func new", wrapperName, "(ctx context.Context, server ", serverName, ", req []byte) (*", wrapperName, ", error) {")
 	g.P("messageReq := new(", reqType, ")")
 	g.P("if err := proto.Unmarshal(req, messageReq); err != nil {")
@@ -668,7 +665,7 @@ func renderGRPCDirectServerStreamSession(g *protogen.GeneratedFile, method runti
 	g.P("streamCtx, cancel := context.WithCancel(ctx)")
 	g.P("session := &", wrapperName, "{ctx: streamCtx, cancel: cancel, responses: make(chan ", resultName, ", 1)}")
 	g.P("go func() {")
-	g.P("err := server.", method.MethodGoName, "(messageReq, session)")
+	g.P("err := server.", method.Identity.MessageMethodRef, "(messageReq, session)")
 	g.P("session.responses <- ", resultName, "{err: err, terminal: true}")
 	g.P("}()")
 	g.P("return session, nil")
@@ -734,7 +731,7 @@ func renderGRPCDirectServerStreamSession(g *protogen.GeneratedFile, method runti
 	renderConnectDirectRecvFinishCancel(g, wrapperName)
 }
 
-func renderGRPCDirectBidiStreamSession(g *protogen.GeneratedFile, method runtimeAdapterMethod, wrapperName, resultName, reqType, respType, serverName string) {
+func renderGRPCDirectBidiStreamSession(g *protogen.GeneratedFile, method runtimeMethodProjection, wrapperName, resultName, reqType, respType, serverName string) {
 	streamName := wrapperName + "GRPCStream"
 	g.P("type ", streamName, " struct {")
 	g.P("session *", wrapperName)
@@ -744,7 +741,7 @@ func renderGRPCDirectBidiStreamSession(g *protogen.GeneratedFile, method runtime
 	g.P("streamCtx, cancel := context.WithCancel(ctx)")
 	g.P("session := &", wrapperName, "{ctx: streamCtx, cancel: cancel, requests: make(chan []byte), responses: make(chan ", resultName, ", 1)}")
 	g.P("go func() {")
-	g.P("err := server.", method.MethodGoName, "(&", streamName, "{session: session})")
+	g.P("err := server.", method.Identity.MessageMethodRef, "(&", streamName, "{session: session})")
 	g.P("session.responses <- ", resultName, "{err: err, terminal: true}")
 	g.P("}()")
 	g.P("return session")
@@ -863,13 +860,12 @@ func renderGRPCDirectBidiStreamSession(g *protogen.GeneratedFile, method runtime
 	renderConnectDirectRecvFinishCancel(g, wrapperName)
 }
 
-func renderGRPCRemoteMessageSession(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod) {
-	methodPlan := methodForRuntimeService(service, method)
+func renderGRPCRemoteMessageSession(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection) {
 	wrapperName := grpcRemoteMessageSessionName(service.GoName, method)
-	reqType := qualifiedMethodType(g, methodPlan.Request)
-	respType := qualifiedMethodType(g, methodPlan.Response)
+	reqType := method.Message.RequestType
+	respType := method.Message.ResponseType
 	clientName := service.GoName + "Client"
-	switch runtimeStreamShapeFor(method) {
+	switch method.Stream.Shape {
 	case runtimeStreamClient:
 		renderGRPCRemoteClientStreamSession(g, method, wrapperName, reqType, respType, clientName)
 	case runtimeStreamServer:
@@ -879,10 +875,10 @@ func renderGRPCRemoteMessageSession(g *protogen.GeneratedFile, service ServicePl
 	}
 }
 
-func renderGRPCRemoteClientStreamSession(g *protogen.GeneratedFile, method runtimeAdapterMethod, wrapperName, reqType, respType, clientName string) {
+func renderGRPCRemoteClientStreamSession(g *protogen.GeneratedFile, method runtimeMethodProjection, wrapperName, reqType, respType, clientName string) {
 	g.P("func new", wrapperName, "(ctx context.Context, client ", clientName, ") (*", wrapperName, ", error) {")
 	g.P("streamCtx, cancel := context.WithCancel(ctx)")
-	g.P("stream, err := client.", method.MethodGoName, "(streamCtx)")
+	g.P("stream, err := client.", method.Identity.MessageMethodRef, "(streamCtx)")
 	g.P("if err != nil {")
 	g.P("cancel()")
 	g.P("return nil, err")
@@ -937,14 +933,14 @@ func renderGRPCRemoteClientStreamSession(g *protogen.GeneratedFile, method runti
 	g.P()
 }
 
-func renderGRPCRemoteServerStreamSession(g *protogen.GeneratedFile, method runtimeAdapterMethod, wrapperName, reqType, respType, clientName string) {
+func renderGRPCRemoteServerStreamSession(g *protogen.GeneratedFile, method runtimeMethodProjection, wrapperName, reqType, respType, clientName string) {
 	g.P("func new", wrapperName, "(ctx context.Context, client ", clientName, ", req []byte) (*", wrapperName, ", error) {")
 	g.P("request := new(", reqType, ")")
 	g.P("if err := proto.Unmarshal(req, request); err != nil {")
 	g.P(`return nil, fmt.Errorf("rpccgo: grpc remote request protobuf unmarshal failed: %w", err)`)
 	g.P("}")
 	g.P("streamCtx, cancel := context.WithCancel(ctx)")
-	g.P("stream, err := client.", method.MethodGoName, "(streamCtx, request)")
+	g.P("stream, err := client.", method.Identity.MessageMethodRef, "(streamCtx, request)")
 	g.P("if err != nil {")
 	g.P("cancel()")
 	g.P("return nil, err")
@@ -960,10 +956,10 @@ func renderGRPCRemoteServerStreamSession(g *protogen.GeneratedFile, method runti
 	renderGRPCRemoteRecvFinishCancel(g, wrapperName, "server stream")
 }
 
-func renderGRPCRemoteBidiStreamSession(g *protogen.GeneratedFile, method runtimeAdapterMethod, wrapperName, reqType, respType, clientName string) {
+func renderGRPCRemoteBidiStreamSession(g *protogen.GeneratedFile, method runtimeMethodProjection, wrapperName, reqType, respType, clientName string) {
 	g.P("func new", wrapperName, "(ctx context.Context, client ", clientName, ") (*", wrapperName, ", error) {")
 	g.P("streamCtx, cancel := context.WithCancel(ctx)")
-	g.P("stream, err := client.", method.MethodGoName, "(streamCtx)")
+	g.P("stream, err := client.", method.Identity.MessageMethodRef, "(streamCtx)")
 	g.P("if err != nil {")
 	g.P("cancel()")
 	g.P("return nil, err")
@@ -1040,18 +1036,18 @@ func renderGRPCRemoteRecvFinishCancel(g *protogen.GeneratedFile, wrapperName, la
 	g.P()
 }
 
-func grpcDirectMessageSessionName(serviceName string, method runtimeAdapterMethod) string {
-	return lowerInitial(serviceName) + method.MethodGoName + "GRPCDirectMessageStreamSession"
+func grpcDirectMessageSessionName(serviceName string, method runtimeMethodProjection) string {
+	return lowerInitial(serviceName) + method.Identity.GoName + "GRPCDirectMessageStreamSession"
 }
 
-func connectDirectMessageSessionName(serviceName string, method runtimeAdapterMethod) string {
-	return lowerInitial(serviceName) + method.MethodGoName + "ConnectDirectMessageStreamSession"
+func connectDirectMessageSessionName(serviceName string, method runtimeMethodProjection) string {
+	return lowerInitial(serviceName) + method.Identity.GoName + "ConnectDirectMessageStreamSession"
 }
 
-func grpcRemoteMessageSessionName(serviceName string, method runtimeAdapterMethod) string {
-	return lowerInitial(serviceName) + method.MethodGoName + "GRPCRemoteMessageStreamSession"
+func grpcRemoteMessageSessionName(serviceName string, method runtimeMethodProjection) string {
+	return lowerInitial(serviceName) + method.Identity.GoName + "GRPCRemoteMessageStreamSession"
 }
 
-func connectRemoteMessageSessionName(serviceName string, method runtimeAdapterMethod) string {
-	return lowerInitial(serviceName) + method.MethodGoName + "ConnectRemoteMessageStreamSession"
+func connectRemoteMessageSessionName(serviceName string, method runtimeMethodProjection) string {
+	return lowerInitial(serviceName) + method.Identity.GoName + "ConnectRemoteMessageStreamSession"
 }

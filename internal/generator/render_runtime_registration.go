@@ -6,7 +6,7 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-func renderRuntimeRegistrations(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeAdapterMethod, currentBindingName, bindingName, nativeBindingName, messageBindingName string) error {
+func renderRuntimeRegistrations(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeMethodProjection, currentBindingName, bindingName, nativeBindingName, messageBindingName string) error {
 	ctx := runtimeRegistrationRenderContext{
 		service:            service,
 		methods:            methods,
@@ -26,7 +26,7 @@ func renderRuntimeRegistrations(g *protogen.GeneratedFile, service ServicePlan, 
 
 type runtimeRegistrationRenderContext struct {
 	service            ServicePlan
-	methods            []runtimeAdapterMethod
+	methods            []runtimeMethodProjection
 	currentBindingName string
 	nativeBindingName  string
 	messageBindingName string
