@@ -64,7 +64,7 @@ func RegisterGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
 }
 
 // greeterMessageBinding exposes a message server implementation through the
-// method shape used while building a greeterBinding.
+// method shape used while building a greeterMessageCallerBinding.
 type greeterMessageBinding struct {
 	server GreeterCGOMessageServer
 }
@@ -195,11 +195,11 @@ func (s *greeterCollectMessageServerClientStreamSession) Cancel(ctx context.Cont
 
 func (a *greeterMessageBinding) StartBroadcast(ctx context.Context, req []byte) (GreeterBroadcastMessageStreamSession, error) {
 	streamCtx, cancel := context.WithCancel(ctx)
-	session := &greeterBroadcastMessageServerServerStreamSession{ctx: streamCtx, cancel: cancel, responses: make(chan greeterBroadcastMessageServerServerStreamSessionResponse, 1), done: make(chan struct{})}
+	finishCtx, finishCancel := context.WithCancel(context.Background())
+	session := &greeterBroadcastMessageServerServerStreamSession{ctx: streamCtx, cancel: cancel, finishCtx: finishCtx, finishCancel: finishCancel, responses: make(chan greeterBroadcastMessageServerServerStreamSessionResponse, 1), done: make(chan struct{})}
 	req = append([]byte(nil), req...)
 	go func() {
 		defer close(session.done)
-		defer close(session.responses)
 		session.err = a.server.Broadcast(streamCtx, req, session)
 	}()
 	return session, nil
@@ -211,28 +211,45 @@ type greeterBroadcastMessageServerServerStreamSessionResponse struct {
 }
 
 type greeterBroadcastMessageServerServerStreamSession struct {
-	ctx           context.Context
-	cancel        context.CancelFunc
-	responses     chan greeterBroadcastMessageServerServerStreamSessionResponse
-	received      chan struct{}
-	doneRequested bool
-	done          chan struct{}
-	err           error
+	ctx          context.Context
+	cancel       context.CancelFunc
+	finishCtx    context.Context
+	finishCancel context.CancelFunc
+	responses    chan greeterBroadcastMessageServerServerStreamSessionResponse
+	received     chan struct{}
+	done         chan struct{}
+	err          error
 }
 
 func (s *greeterBroadcastMessageServerServerStreamSession) Send(ctx context.Context, resp []byte) error {
 	response := greeterBroadcastMessageServerServerStreamSessionResponse{data: append([]byte(nil), resp...), received: make(chan struct{})}
 	select {
+	case <-s.done:
+		if s.err != nil {
+			return s.err
+		}
+		return errors.New("rpccgo: message stream is closed")
+	case <-s.finishCtx.Done():
+		return io.EOF
+	default:
+	}
+	select {
 	case <-ctx.Done():
-		if s.doneRequested {
+		select {
+		case <-s.finishCtx.Done():
 			return io.EOF
+		default:
 		}
 		return ctx.Err()
 	case <-s.ctx.Done():
-		if s.doneRequested {
+		select {
+		case <-s.finishCtx.Done():
 			return io.EOF
+		default:
 		}
 		return s.ctx.Err()
+	case <-s.finishCtx.Done():
+		return io.EOF
 	case <-s.done:
 		if s.err != nil {
 			return s.err
@@ -241,15 +258,21 @@ func (s *greeterBroadcastMessageServerServerStreamSession) Send(ctx context.Cont
 	case s.responses <- response:
 		select {
 		case <-ctx.Done():
-			if s.doneRequested {
+			select {
+			case <-s.finishCtx.Done():
 				return io.EOF
+			default:
 			}
 			return ctx.Err()
 		case <-s.ctx.Done():
-			if s.doneRequested {
+			select {
+			case <-s.finishCtx.Done():
 				return io.EOF
+			default:
 			}
 			return s.ctx.Err()
+		case <-s.finishCtx.Done():
+			return io.EOF
 		case <-s.done:
 			if s.err != nil {
 				return s.err
@@ -257,8 +280,10 @@ func (s *greeterBroadcastMessageServerServerStreamSession) Send(ctx context.Cont
 			return errors.New("rpccgo: message stream is closed")
 		case <-response.received:
 			if s.ctx.Err() != nil {
-				if s.doneRequested {
+				select {
+				case <-s.finishCtx.Done():
 					return io.EOF
+				default:
 				}
 				return s.ctx.Err()
 			}
@@ -277,27 +302,23 @@ func (s *greeterBroadcastMessageServerServerStreamSession) Recv(ctx context.Cont
 		return nil, ctx.Err()
 	case <-s.ctx.Done():
 		return nil, s.ctx.Err()
-	case resp, ok := <-s.responses:
-		if ok {
-			s.received = resp.received
-			return resp.data, nil
-		}
+	case resp := <-s.responses:
+		s.received = resp.received
+		return resp.data, nil
+	case <-s.done:
 		if s.received != nil {
 			close(s.received)
 			s.received = nil
 		}
-		<-s.done
 		if s.err != nil {
-			err := s.err
-			s.err = nil
-			return nil, err
+			return nil, s.err
 		}
 		return nil, io.EOF
 	}
 }
 
 func (s *greeterBroadcastMessageServerServerStreamSession) Finish(ctx context.Context) error {
-	s.doneRequested = true
+	s.finishCancel()
 	s.cancel()
 	if s.received != nil {
 		close(s.received)
@@ -327,10 +348,10 @@ func (s *greeterBroadcastMessageServerServerStreamSession) Cancel(ctx context.Co
 
 func (a *greeterMessageBinding) StartChat(ctx context.Context) (GreeterChatMessageStreamSession, error) {
 	streamCtx, cancel := context.WithCancel(ctx)
-	session := &greeterChatMessageServerBidiStreamSession{ctx: streamCtx, cancel: cancel, requests: make(chan greeterChatMessageServerBidiStreamSessionRequest, 16), sendDone: make(chan struct{}), sendDoneReceived: make(chan struct{}), responses: make(chan greeterChatMessageServerBidiStreamSessionResponse, 1), done: make(chan struct{})}
+	finishCtx, finishCancel := context.WithCancel(context.Background())
+	session := &greeterChatMessageServerBidiStreamSession{ctx: streamCtx, cancel: cancel, finishCtx: finishCtx, finishCancel: finishCancel, requests: make(chan greeterChatMessageServerBidiStreamSessionRequest, 16), sendDone: make(chan struct{}), sendDoneReceived: make(chan struct{}), responses: make(chan greeterChatMessageServerBidiStreamSessionResponse, 1), done: make(chan struct{})}
 	go func() {
 		defer close(session.done)
-		defer close(session.responses)
 		session.err = a.server.Chat(streamCtx, &greeterChatMessageServerBidiStreamFacade{session: session})
 	}()
 	return session, nil
@@ -349,6 +370,8 @@ type greeterChatMessageServerBidiStreamSessionResponse struct {
 type greeterChatMessageServerBidiStreamSession struct {
 	ctx                  context.Context
 	cancel               context.CancelFunc
+	finishCtx            context.Context
+	finishCancel         context.CancelFunc
 	requests             chan greeterChatMessageServerBidiStreamSessionRequest
 	sendDone             chan struct{}
 	sendDoneReceived     chan struct{}
@@ -356,7 +379,6 @@ type greeterChatMessageServerBidiStreamSession struct {
 	closeSendOnce        sync.Once
 	responses            chan greeterChatMessageServerBidiStreamSessionResponse
 	received             chan struct{}
-	doneRequested        bool
 	done                 chan struct{}
 	err                  error
 }
@@ -397,16 +419,32 @@ func (s *greeterChatMessageServerBidiStreamSession) recvRequest(ctx context.Cont
 func (s *greeterChatMessageServerBidiStreamSession) sendResponse(ctx context.Context, resp []byte) error {
 	response := greeterChatMessageServerBidiStreamSessionResponse{data: append([]byte(nil), resp...), received: make(chan struct{})}
 	select {
+	case <-s.done:
+		if s.err != nil {
+			return s.err
+		}
+		return errors.New("rpccgo: message stream is closed")
+	case <-s.finishCtx.Done():
+		return io.EOF
+	default:
+	}
+	select {
 	case <-ctx.Done():
-		if s.doneRequested {
+		select {
+		case <-s.finishCtx.Done():
 			return io.EOF
+		default:
 		}
 		return ctx.Err()
 	case <-s.ctx.Done():
-		if s.doneRequested {
+		select {
+		case <-s.finishCtx.Done():
 			return io.EOF
+		default:
 		}
 		return s.ctx.Err()
+	case <-s.finishCtx.Done():
+		return io.EOF
 	case <-s.done:
 		if s.err != nil {
 			return s.err
@@ -415,15 +453,21 @@ func (s *greeterChatMessageServerBidiStreamSession) sendResponse(ctx context.Con
 	case s.responses <- response:
 		select {
 		case <-ctx.Done():
-			if s.doneRequested {
+			select {
+			case <-s.finishCtx.Done():
 				return io.EOF
+			default:
 			}
 			return ctx.Err()
 		case <-s.ctx.Done():
-			if s.doneRequested {
+			select {
+			case <-s.finishCtx.Done():
 				return io.EOF
+			default:
 			}
 			return s.ctx.Err()
+		case <-s.finishCtx.Done():
+			return io.EOF
 		case <-s.done:
 			if s.err != nil {
 				return s.err
@@ -431,8 +475,10 @@ func (s *greeterChatMessageServerBidiStreamSession) sendResponse(ctx context.Con
 			return errors.New("rpccgo: message stream is closed")
 		case <-response.received:
 			if s.ctx.Err() != nil {
-				if s.doneRequested {
+				select {
+				case <-s.finishCtx.Done():
 					return io.EOF
+				default:
 				}
 				return s.ctx.Err()
 			}
@@ -493,20 +539,16 @@ func (s *greeterChatMessageServerBidiStreamSession) Recv(ctx context.Context) ([
 		return nil, ctx.Err()
 	case <-s.ctx.Done():
 		return nil, s.ctx.Err()
-	case resp, ok := <-s.responses:
-		if ok {
-			s.received = resp.received
-			return resp.data, nil
-		}
+	case resp := <-s.responses:
+		s.received = resp.received
+		return resp.data, nil
+	case <-s.done:
 		if s.received != nil {
 			close(s.received)
 			s.received = nil
 		}
-		<-s.done
 		if s.err != nil {
-			err := s.err
-			s.err = nil
-			return nil, err
+			return nil, s.err
 		}
 		return nil, io.EOF
 	}
@@ -530,7 +572,7 @@ func (s *greeterChatMessageServerBidiStreamSession) CloseSend(ctx context.Contex
 }
 
 func (s *greeterChatMessageServerBidiStreamSession) Finish(ctx context.Context) error {
-	s.doneRequested = true
+	s.finishCancel()
 	s.cancel()
 	if s.received != nil {
 		close(s.received)

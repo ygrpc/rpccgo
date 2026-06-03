@@ -13,19 +13,19 @@ _Avoid_: struct native ABI, message-shaped native adapter
 _Avoid_: native
 
 **Active server**:
-新版架构中由 generated service runtime 的 typed atomic active slot 捕获并调用的唯一服务实现。
+新版架构中由 generated service runtime 的 typed atomic active slot 捕获并调用的唯一服务实现；slot 保存不可变 active server record，该 record 同时持有 native caller binding 与 message caller binding。
 _Avoid_: provider bootstrap
 
 **Binding**:
-Generated service runtime 内部的 package-private service-local 调用闭包集合；在注册阶段由完整且校验通过的具体 server 归一化而来，持有 caller-facing method-level invoke/start closure，供 current binding slot 保存和切换。binding 发布后不可变。
+Generated service runtime 内部的 package-private service-local contract-specific 调用闭包集合；在注册阶段由完整且校验通过的具体 server 归一化而来。native caller binding 只持有 native caller-facing invoke/start closure，message caller binding 只持有 message caller-facing invoke/start closure。binding 发布后不可变。
 _Avoid_: provider bootstrap, remote adapter file, active server record
 
 **Current binding**:
-Generated service runtime 内部保存当前 **Binding** 的 package-private typed atomic slot；新调用和新 stream start 从这里读取 binding，已开始的 stream session 固定使用 Start 时捕获的 binding。
+Generated service runtime 内部保存当前 **Active server** record 的 package-private typed atomic slot；新调用和新 stream start 从这里读取 record，再选择 native caller binding 或 message caller binding。已开始的 stream session 固定使用 Start 时捕获的 binding closure。
 _Avoid_: active record slot, adapter snapshot
 
 **Registration source**:
-generated registration function 接受的具体服务来源；使用 `Origin + Contract + Transport + Mode` 四个正交维度描述。source 被接受后归一化为 **Binding**。renderer 是由 source 推导出的生成策略，不是 source contract。
+generated registration function 接受的具体服务来源；使用 `Origin + Contract + Transport + Mode` 四个正交维度描述。source 被接受后归一化为 **Active server** record，record 内分别保存 native caller binding 与 message caller binding。renderer 是由 source 推导出的生成策略，不是 source contract。
 _Avoid_: Active record source, RecordRenderer as contract
 
 **Runtime core**:
@@ -103,6 +103,7 @@ _Avoid_: active server
 - **Stream lifecycle** 的 ownership、terminal-once 和 invalid-handle 通用状态语义属于 **Runtime core**；method-specific session 操作、native/message 转换和 flat ABI 编解码属于 **Generated service runtime**。
 - **Generated service runtime** 可以组合 **Runtime core** 的 stream registry 与 lifecycle primitive，但 registry 应直接保存 final session，不应生成无语义的 per-method `load/take/delete` 薄包装。
 - Register helper 留在 **Generated service runtime** 中，因为它们校验并原子发布 service-specific **Binding**；成功时只需返回 `nil`，不返回 adapter snapshot。
+- **Generated service runtime** 不应把 **Native** 与 **Message contract** 的 caller-facing closure 混放在同一个 **Binding**；单个 active server record 可以同时持有 native caller binding 与 message caller binding，以保持每个 service 一个 typed atomic active slot。
 - **Registration source** 使用 `Origin + Contract + Transport + Mode` 描述；renderer 选择由这四个维度派生，source plan 不存储 `RecordRenderer`。`Label` 只用于错误文本，不能控制生成逻辑。
 - **Registration source** planner 只枚举 7 类合法 server source，不接受四个维度的任意组合再做宽泛校验；未列出的组合没有生成语义。
 - 单个 service 的 **Registration source** 由 `ServiceGenerationSelection` 派生：未启用 `native` 时只包含 cgo message、本地 message transport 和 remote message transport 三类 source；启用 `native` 时再追加 Go native 与 cgo native source。

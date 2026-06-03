@@ -2,12 +2,13 @@ package generator
 
 import "google.golang.org/protobuf/compiler/protogen"
 
-func renderRuntimeMessageBinding(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeMethodProjection, currentBindingName, bindingName, adapterExpr string) {
-	g.P("binding := &", bindingName, "{}")
+func renderRuntimeMessageBinding(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeMethodProjection, currentBindingName, activeServerName, nativeCallerBindingName, messageCallerBindingName, adapterExpr string) {
+	g.P("nativeBinding := &", nativeCallerBindingName, "{}")
+	g.P("messageBinding := &", messageCallerBindingName, "{}")
 	for _, method := range methods {
 		if !method.Stream.Streaming {
-			g.P("binding.invokeMessage", method.Identity.GoName, " = ", adapterExpr, ".", method.Identity.MessageMethodRef)
-			g.P("binding.invokeNative", method.Identity.GoName, " = func(ctx context.Context", method.Native.Args, ") (", method.Native.Returns, ") {")
+			g.P("messageBinding.invoke", method.Identity.GoName, " = ", adapterExpr, ".", method.Identity.MessageMethodRef)
+			g.P("nativeBinding.invoke", method.Identity.GoName, " = func(ctx context.Context", method.Native.Args, ") (", method.Native.Returns, ") {")
 			g.P("messageReq, err := ", method.Codec.NativeRequestToMessage, "(", method.Native.ArgNames, ")")
 			g.P("if err != nil { return ", method.Native.ErrZero, " }")
 			g.P("messageResp, err := ", adapterExpr, ".", method.Identity.MessageMethodRef, "(ctx, messageReq)")
@@ -31,7 +32,7 @@ func renderRuntimeMessageBinding(g *protogen.GeneratedFile, service ServicePlan,
 		}
 		renderRuntimeMessageStreamBinding(g, service, method, adapterExpr)
 	}
-	g.P(currentBindingName, ".Store(binding)")
+	g.P(currentBindingName, ".Store(&", activeServerName, "{native: nativeBinding, message: messageBinding})")
 	g.P("return nil")
 }
 
@@ -39,24 +40,24 @@ func renderRuntimeMessageStreamBinding(g *protogen.GeneratedFile, service Servic
 	nativeSession := runtimeStreamNativeSessionName(service.GoName, method)
 	messageSession := runtimeStreamMessageSessionName(service.GoName, method)
 	if method.Stream.StartAcceptsRequest {
-		g.P("binding.startMessage", method.Identity.GoName, " = func(ctx context.Context, req []byte) (*", messageSession, ", error) {")
+		g.P("messageBinding.start", method.Identity.GoName, " = func(ctx context.Context, req []byte) (*", messageSession, ", error) {")
 		g.P("source, err := ", adapterExpr, ".Start", method.Identity.MessageMethodRef, "(ctx, req)")
 	} else {
-		g.P("binding.startMessage", method.Identity.GoName, " = func(ctx context.Context) (*", messageSession, ", error) {")
+		g.P("messageBinding.start", method.Identity.GoName, " = func(ctx context.Context) (*", messageSession, ", error) {")
 		g.P("source, err := ", adapterExpr, ".Start", method.Identity.MessageMethodRef, "(ctx)")
 	}
 	g.P("if err != nil { return nil, err }")
 	renderRuntimeMessageFinalSessionFromSource(g, messageSession, method, "source")
 	g.P("}")
 	if method.Stream.StartAcceptsRequest {
-		g.P("binding.startNative", method.Identity.GoName, " = func(ctx context.Context", method.Native.Args, ") (*", nativeSession, ", error) {")
+		g.P("nativeBinding.start", method.Identity.GoName, " = func(ctx context.Context", method.Native.Args, ") (*", nativeSession, ", error) {")
 		g.P("messageReq, err := ", method.Codec.NativeRequestToMessage, "(", method.Native.ArgNames, ")")
 		g.P("if err != nil { return nil, err }")
 		g.P("source, err := ", adapterExpr, ".Start", method.Identity.MessageMethodRef, "(ctx, messageReq)")
 		g.P("if err != nil { return nil, err }")
 		renderRuntimeNativeFinalSessionFromMessageSource(g, service, nativeSession, method, "source")
 	} else {
-		g.P("binding.startNative", method.Identity.GoName, " = func(ctx context.Context) (*", nativeSession, ", error) {")
+		g.P("nativeBinding.start", method.Identity.GoName, " = func(ctx context.Context) (*", nativeSession, ", error) {")
 		g.P("source, err := ", adapterExpr, ".Start", method.Identity.MessageMethodRef, "(ctx)")
 		g.P("if err != nil { return nil, err }")
 		renderRuntimeNativeFinalSessionFromMessageSource(g, service, nativeSession, method, "source")

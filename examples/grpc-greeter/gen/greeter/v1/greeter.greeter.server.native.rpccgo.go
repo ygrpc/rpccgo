@@ -72,7 +72,7 @@ func RegisterGreeterGoNativeServer(server GreeterNativeServer) error {
 }
 
 // greeterNativeBinding exposes a native server implementation through the
-// method shape used while building a greeterBinding.
+// method shape used while building a greeterNativeCallerBinding.
 type greeterNativeBinding struct {
 	server GreeterNativeServer
 }

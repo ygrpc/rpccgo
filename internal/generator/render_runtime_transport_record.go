@@ -2,15 +2,15 @@ package generator
 
 import "google.golang.org/protobuf/compiler/protogen"
 
-func renderRuntimeTransportMessageBinding(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeMethodProjection, currentBindingName, bindingName, transportExpr string, projection registrationSourceProjection) error {
-	g.P("binding := &", bindingName, "{")
-	g.P("}")
+func renderRuntimeTransportMessageBinding(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeMethodProjection, currentBindingName, activeServerName, nativeCallerBindingName, messageCallerBindingName, transportExpr string, projection registrationSourceProjection) error {
+	g.P("nativeBinding := &", nativeCallerBindingName, "{}")
+	g.P("messageBinding := &", messageCallerBindingName, "{}")
 	for _, method := range methods {
 		if !method.Stream.Streaming {
-			g.P("binding.invokeMessage", method.Identity.GoName, " = func(ctx context.Context, req []byte) ([]byte, error) {")
+			g.P("messageBinding.invoke", method.Identity.GoName, " = func(ctx context.Context, req []byte) ([]byte, error) {")
 			renderRuntimeTransportUnaryMessageCall(g, service, method, transportExpr, projection.label, "req")
 			g.P("}")
-			g.P("binding.invokeNative", method.Identity.GoName, " = func(ctx context.Context", method.Native.Args, ") (", method.Native.Returns, ") {")
+			g.P("nativeBinding.invoke", method.Identity.GoName, " = func(ctx context.Context", method.Native.Args, ") (", method.Native.Returns, ") {")
 			g.P("messageReq, err := ", method.Codec.NativeRequestToMessage, "(", method.Native.ArgNames, ")")
 			g.P("if err != nil { return ", method.Native.ErrZero, " }")
 			g.P("var messageResp []byte")
@@ -37,7 +37,7 @@ func renderRuntimeTransportMessageBinding(g *protogen.GeneratedFile, service Ser
 			return err
 		}
 	}
-	g.P(currentBindingName, ".Store(binding)")
+	g.P(currentBindingName, ".Store(&", activeServerName, "{native: nativeBinding, message: messageBinding})")
 	g.P("return nil")
 	return nil
 }
@@ -72,14 +72,14 @@ func renderRuntimeTransportMessageStreamBinding(g *protogen.GeneratedFile, servi
 	nativeSession := runtimeStreamNativeSessionName(service.GoName, method)
 	messageSession := runtimeStreamMessageSessionName(service.GoName, method)
 	if method.Stream.StartAcceptsRequest {
-		g.P("binding.startMessage", method.Identity.GoName, " = func(ctx context.Context, req []byte) (*", messageSession, ", error) {")
+		g.P("messageBinding.start", method.Identity.GoName, " = func(ctx context.Context, req []byte) (*", messageSession, ", error) {")
 		hasErr, err := renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, projection, "ctx", "req")
 		if err != nil {
 			return err
 		}
 		renderRuntimeTransportMessageStreamSourceErrCheck(g, hasErr)
 	} else {
-		g.P("binding.startMessage", method.Identity.GoName, " = func(ctx context.Context) (*", messageSession, ", error) {")
+		g.P("messageBinding.start", method.Identity.GoName, " = func(ctx context.Context) (*", messageSession, ", error) {")
 		hasErr, err := renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, projection, "ctx", "")
 		if err != nil {
 			return err
@@ -89,7 +89,7 @@ func renderRuntimeTransportMessageStreamBinding(g *protogen.GeneratedFile, servi
 	renderRuntimeMessageFinalSessionFromSource(g, messageSession, method, "source")
 	g.P("}")
 	if method.Stream.StartAcceptsRequest {
-		g.P("binding.startNative", method.Identity.GoName, " = func(ctx context.Context", method.Native.Args, ") (*", nativeSession, ", error) {")
+		g.P("nativeBinding.start", method.Identity.GoName, " = func(ctx context.Context", method.Native.Args, ") (*", nativeSession, ", error) {")
 		g.P("messageReq, err := ", method.Codec.NativeRequestToMessage, "(", method.Native.ArgNames, ")")
 		g.P("if err != nil { return nil, err }")
 		hasErr, err := renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, projection, "ctx", "messageReq")
@@ -99,7 +99,7 @@ func renderRuntimeTransportMessageStreamBinding(g *protogen.GeneratedFile, servi
 		renderRuntimeTransportMessageStreamSourceErrCheck(g, hasErr)
 		renderRuntimeNativeFinalSessionFromMessageSource(g, service, nativeSession, method, "source")
 	} else {
-		g.P("binding.startNative", method.Identity.GoName, " = func(ctx context.Context) (*", nativeSession, ", error) {")
+		g.P("nativeBinding.start", method.Identity.GoName, " = func(ctx context.Context) (*", nativeSession, ", error) {")
 		hasErr, err := renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, projection, "ctx", "")
 		if err != nil {
 			return err

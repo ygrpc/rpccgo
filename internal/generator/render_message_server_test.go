@@ -31,11 +31,19 @@ func TestRenderMessageServerDefinesUnimplementedHelper(t *testing.T) {
 		"func (UnimplementedAllServiceCGOMessageServer) BidiStream(ctx context.Context, stream AllServiceBidiStreamMessageBidiStream) error {",
 		"func RegisterAllServiceCGOMessageServer(server AllServiceCGOMessageServer) error {",
 		"return registerAllServiceCGOMessageServer(server)",
+		"case <-s.done:",
 	} {
 		assertGeneratedContentContains(t, plugin, messageServerFile, fragment)
 	}
 	assertGeneratedFileContentDoesNotContain(t, plugin, messageServerFile,
-		"rpcruntime.AdapterSnapshot", `rpcruntime "rpccgo/rpcruntime"`,
+		"rpcruntime.AdapterSnapshot",
+		`rpcruntime "rpccgo/rpcruntime"`,
+		"defer close(session.responses)",
+		"closeResponses",
+		"responsesMu",
+		"responsesClosed",
+		"doneRequested",
+		"s.err = nil",
 	)
 }
 

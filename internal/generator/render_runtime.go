@@ -54,7 +54,7 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P()
 
 	adapterName := service.GoName + "NativeServer"
-	bindingName := lowerInitial(service.GoName) + "Binding"
+	activeServerName := lowerInitial(service.GoName) + "ActiveServer"
 	currentBindingName := lowerInitial(service.GoName) + "CurrentBinding"
 	streamRegistryName := lowerInitial(service.GoName) + "StreamRegistry"
 
@@ -64,9 +64,11 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	}
 	nativeBindingName := lowerInitial(service.GoName) + "NativeBinding"
 	messageBindingName := lowerInitial(service.GoName) + "MessageBinding"
+	nativeCallerBindingName := lowerInitial(service.GoName) + "NativeCallerBinding"
+	messageCallerBindingName := lowerInitial(service.GoName) + "MessageCallerBinding"
 	renderRuntimeSourceSessionInterfaces(g, service.GoName, streamingMethods)
 
-	renderRuntimeBindingType(g, service, runtimeMethods)
+	renderRuntimeActiveServerType(g, service, runtimeMethods)
 	for _, method := range streamingMethods {
 		renderRuntimeStreamSessions(g, service.GoName, method)
 		renderRuntimeNativeStreamFacade(g, service.GoName, streamRegistryName, method)
@@ -75,13 +77,13 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 
 	g.P("// ", currentBindingName, " stores the binding used by new calls and stream starts.")
 	g.P("// Existing stream handles keep using the binding captured by Start.")
-	g.P("var ", currentBindingName, " atomic.Pointer[", bindingName, "]")
+	g.P("var ", currentBindingName, " atomic.Pointer[", activeServerName, "]")
 	g.P("var ", streamRegistryName, " rpcruntime.StreamRegistry")
 	g.P("var ", service.GoName, `NativeServerUnavailableErr = errors.New("rpccgo: native server is unavailable")`)
 	g.P("var ", service.GoName, `MessageServerUnavailableErr = errors.New("rpccgo: message server is unavailable")`)
 	g.P()
 
-	if err := renderRuntimeRegistrations(g, service, runtimeMethods, currentBindingName, bindingName, nativeBindingName, messageBindingName); err != nil {
+	if err := renderRuntimeRegistrations(g, service, runtimeMethods, currentBindingName, activeServerName, nativeBindingName, messageBindingName, nativeCallerBindingName, messageCallerBindingName); err != nil {
 		return err
 	}
 	renderRuntimeTransportMessageSessions(g, service, streamingMethods)
