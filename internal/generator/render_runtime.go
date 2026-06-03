@@ -55,7 +55,8 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 
 	adapterName := service.GoName + "NativeServer"
 	messageAdapterName := service.GoName + "CGOMessageServer"
-	activeName := lowerInitial(service.GoName) + "ActiveServer"
+	bindingName := lowerInitial(service.GoName) + "Binding"
+	currentBindingName := lowerInitial(service.GoName) + "CurrentBinding"
 	streamRegistryName := lowerInitial(service.GoName) + "StreamRegistry"
 
 	if !service.HasArtifact(GeneratedArtifactKindNativeServer) {
@@ -70,30 +71,32 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P(errorNames.StreamClosed, ` = errors.New("rpccgo: native stream is closed")`)
 	g.P(")")
 	g.P()
-	nativeServerAdapterName := lowerInitial(service.GoName) + "NativeServerAdapter"
-	renderGoNativeAdapter(g, service, runtimeMethods, service.GoName+"NativeServer", nativeServerAdapterName, errorNames)
-	messageServerAdapterName := lowerInitial(service.GoName) + "MessageServerAdapter"
+	nativeBindingName := lowerInitial(service.GoName) + "NativeBinding"
+	renderGoNativeAdapter(g, service, runtimeMethods, service.GoName+"NativeServer", nativeBindingName, bindingName, errorNames)
+	messageBindingName := lowerInitial(service.GoName) + "MessageBinding"
 	renderRuntimeSourceSessionInterfaces(g, service.GoName, streamingMethods)
-	renderMessageServerAdapter(g, service, runtimeMethods, messageAdapterName, messageServerAdapterName)
+	renderMessageBinding(g, service, runtimeMethods, messageAdapterName, messageBindingName, bindingName)
 
-	renderRuntimeActiveServerRecord(g, service, runtimeMethods)
+	renderRuntimeBindingType(g, service, runtimeMethods)
 	for _, method := range streamingMethods {
 		renderRuntimeStreamSessions(g, service.GoName, method)
 		renderRuntimeNativeStreamFacade(g, service.GoName, streamRegistryName, method)
 		renderRuntimeMessageStreamFacade(g, service.GoName, streamRegistryName, method)
 	}
 
-	g.P("var ", activeName, " atomic.Pointer[", lowerInitial(service.GoName), "ActiveServerRecord]")
+	g.P("// ", currentBindingName, " stores the binding used by new calls and stream starts.")
+	g.P("// Existing stream handles keep using the binding captured by Start.")
+	g.P("var ", currentBindingName, " atomic.Pointer[", bindingName, "]")
 	g.P("var ", streamRegistryName, " rpcruntime.StreamRegistry")
 	g.P("var ", service.GoName, `NativeServerUnavailableErr = errors.New("rpccgo: native server is unavailable")`)
 	g.P("var ", service.GoName, `MessageServerUnavailableErr = errors.New("rpccgo: message server is unavailable")`)
 	g.P()
 
-	if err := renderRuntimeRegistrations(g, service, runtimeMethods, activeName); err != nil {
+	if err := renderRuntimeRegistrations(g, service, runtimeMethods, currentBindingName, bindingName, nativeBindingName, messageBindingName); err != nil {
 		return err
 	}
 	renderRuntimeTransportMessageSessions(g, service, streamingMethods)
-	renderRuntimeEntrypoints(g, service.GoName, adapterName, activeName, streamRegistryName, runtimeMethods)
+	renderRuntimeEntrypoints(g, service.GoName, adapterName, currentBindingName, streamRegistryName, runtimeMethods)
 
 	return nil
 }

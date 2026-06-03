@@ -129,7 +129,9 @@ func renderUnimplementedGoNativeServer(g *protogen.GeneratedFile, service Servic
 	}
 }
 
-func renderGoNativeAdapter(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeAdapterMethod, serverName, adapterName string, errorNames nativeServerErrorNames) {
+func renderGoNativeAdapter(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeAdapterMethod, serverName, adapterName, bindingName string, errorNames nativeServerErrorNames) {
+	g.P("// ", adapterName, " exposes a native server implementation through the")
+	g.P("// method shape used while building a ", bindingName, ".")
 	g.P("type ", adapterName, " struct {")
 	g.P("server ", serverName)
 	g.P("}")

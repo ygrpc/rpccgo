@@ -2,9 +2,11 @@ package generator
 
 import "google.golang.org/protobuf/compiler/protogen"
 
-func renderRuntimeActiveServerRecord(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeAdapterMethod) {
-	recordName := lowerInitial(service.GoName) + "ActiveServerRecord"
-	g.P("type ", recordName, " struct {")
+func renderRuntimeBindingType(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeAdapterMethod) {
+	bindingName := lowerInitial(service.GoName) + "Binding"
+	g.P("// ", bindingName, " is the immutable set of caller-facing method closures")
+	g.P("// built after a registration source is accepted.")
+	g.P("type ", bindingName, " struct {")
 	for _, method := range methods {
 		if !method.Streaming {
 			g.P("invokeNative", method.MethodGoName, " func(ctx context.Context", method.NativeArgs, ") (", method.NativeReturns, ")")

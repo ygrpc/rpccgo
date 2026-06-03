@@ -6,14 +6,14 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-func renderRuntimeNativeRecord(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeAdapterMethod, activeName, recordName, adapterExpr string) {
-	g.P("record := &", recordName, "{}")
+func renderRuntimeNativeBinding(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeAdapterMethod, currentBindingName, bindingName, adapterExpr string) {
+	g.P("binding := &", bindingName, "{}")
 	for _, method := range methods {
 		if !method.Streaming {
-			g.P("record.invokeNative", method.MethodGoName, " = func(ctx context.Context", method.NativeArgs, ") (", method.NativeReturns, ") {")
+			g.P("binding.invokeNative", method.MethodGoName, " = func(ctx context.Context", method.NativeArgs, ") (", method.NativeReturns, ") {")
 			g.P("return ", adapterExpr, ".", method.AdapterName, "(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
 			g.P("}")
-			g.P("record.invokeMessage", method.MethodGoName, " = func(ctx context.Context, req []byte) ([]byte, error) {")
+			g.P("binding.invokeMessage", method.MethodGoName, " = func(ctx context.Context, req []byte) ([]byte, error) {")
 			g.P(codecMessageToNativeRequestAssignNames(methodForRuntimeService(service, method).Contract.Native.RequestFields, "reqOwner", "err"), " := ", codecMessageToNativeRequestName(service, methodForRuntimeService(service, method)), "(req)")
 			g.P("if err != nil { return nil, err }")
 			if method.NativeNames == "" {
@@ -29,27 +29,27 @@ func renderRuntimeNativeRecord(g *protogen.GeneratedFile, service ServicePlan, m
 			g.P("}")
 			continue
 		}
-		renderRuntimeNativeStreamRecord(g, service, method, adapterExpr)
+		renderRuntimeNativeStreamBinding(g, service, method, adapterExpr)
 	}
-	g.P(activeName, ".Store(record)")
+	g.P(currentBindingName, ".Store(binding)")
 	g.P("return nil")
 }
 
-func renderRuntimeNativeStreamRecord(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod, adapterExpr string) {
+func renderRuntimeNativeStreamBinding(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod, adapterExpr string) {
 	nativeSession := runtimeStreamNativeSessionName(service.GoName, method)
 	messageSession := runtimeStreamMessageSessionName(service.GoName, method)
 	if runtimeStreamShapeFor(method) == runtimeStreamServer {
-		g.P("record.startNative", method.MethodGoName, " = func(ctx context.Context", method.NativeArgs, ") (*", nativeSession, ", error) {")
+		g.P("binding.startNative", method.MethodGoName, " = func(ctx context.Context", method.NativeArgs, ") (*", nativeSession, ", error) {")
 		g.P("source, err := ", adapterExpr, ".", method.AdapterName, "(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")
 	} else {
-		g.P("record.startNative", method.MethodGoName, " = func(ctx context.Context) (*", nativeSession, ", error) {")
+		g.P("binding.startNative", method.MethodGoName, " = func(ctx context.Context) (*", nativeSession, ", error) {")
 		g.P("source, err := ", adapterExpr, ".", method.AdapterName, "(ctx)")
 	}
 	g.P("if err != nil { return nil, err }")
 	renderRuntimeNativeFinalSessionFromSource(g, nativeSession, method, "source")
 	g.P("}")
 	if runtimeStreamShapeFor(method) == runtimeStreamServer {
-		g.P("record.startMessage", method.MethodGoName, " = func(ctx context.Context, req []byte) (*", messageSession, ", error) {")
+		g.P("binding.startMessage", method.MethodGoName, " = func(ctx context.Context, req []byte) (*", messageSession, ", error) {")
 		g.P(codecMessageToNativeRequestAssignNames(methodForRuntimeService(service, method).Contract.Native.RequestFields, "reqOwner", "err"), " := ", codecMessageToNativeRequestName(service, methodForRuntimeService(service, method)), "(req)")
 		g.P("if err != nil { return nil, err }")
 		g.P("source, err := ", adapterExpr, ".", method.AdapterName, "(ctx", nativeGoCallSuffix(nativeGoRequestArgNames(methodForRuntimeService(service, method).Contract.Native.RequestFields)), ")")
@@ -57,7 +57,7 @@ func renderRuntimeNativeStreamRecord(g *protogen.GeneratedFile, service ServiceP
 		g.P("if err != nil { return nil, err }")
 		renderRuntimeMessageFinalSessionFromNativeSource(g, service, messageSession, method, "source", false)
 	} else {
-		g.P("record.startMessage", method.MethodGoName, " = func(ctx context.Context) (*", messageSession, ", error) {")
+		g.P("binding.startMessage", method.MethodGoName, " = func(ctx context.Context) (*", messageSession, ", error) {")
 		g.P("source, err := ", adapterExpr, ".", method.AdapterName, "(ctx)")
 		g.P("if err != nil { return nil, err }")
 		renderRuntimeMessageFinalSessionFromNativeSource(g, service, messageSession, method, "source", false)

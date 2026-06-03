@@ -16,13 +16,17 @@ _Avoid_: native
 新版架构中由 generated service runtime 的 typed atomic active slot 捕获并调用的唯一服务实现。
 _Avoid_: provider bootstrap
 
-**Active server record**:
-Generated service runtime 内部的 package-private service-local 调用表；在注册阶段由完整且校验通过的具体 server 归一化而来，持有 caller-facing method-level invoke/start closure，供 typed atomic active slot 保存和切换。record 激活后不可变。
-_Avoid_: provider bootstrap, remote adapter file
+**Binding**:
+Generated service runtime 内部的 package-private service-local 调用闭包集合；在注册阶段由完整且校验通过的具体 server 归一化而来，持有 caller-facing method-level invoke/start closure，供 current binding slot 保存和切换。binding 发布后不可变。
+_Avoid_: provider bootstrap, remote adapter file, active server record
 
-**Active record source**:
-可以注册为 **Active server record** 的具体服务来源；使用 `Origin + Contract + Transport + Mode` 四个正交维度描述。renderer 是由 source 推导出的生成策略，不是 source contract。
-_Avoid_: RecordRenderer as contract
+**Current binding**:
+Generated service runtime 内部保存当前 **Binding** 的 package-private typed atomic slot；新调用和新 stream start 从这里读取 binding，已开始的 stream session 固定使用 Start 时捕获的 binding。
+_Avoid_: active record slot, adapter snapshot
+
+**Registration source**:
+generated registration function 接受的具体服务来源；使用 `Origin + Contract + Transport + Mode` 四个正交维度描述。source 被接受后归一化为 **Binding**。renderer 是由 source 推导出的生成策略，不是 source contract。
+_Avoid_: Active record source, RecordRenderer as contract
 
 **Runtime core**:
 手写的 `rpcruntime` 包，承载跨 service 复用的 stream registry、stream lifecycle state 和 connect stream unsafe shim 等通用机制。
@@ -41,7 +45,7 @@ _Avoid_: runtime stream lifecycle executor, stream registry helper plan
 _Avoid_: runtime core
 
 **Remote client active server**:
-以标准 connect/gRPC client 注册，并在 generated runtime 内归一化为 **Active server record** 的 message-contract active server，真实执行目标位于远端进程。
+以标准 connect/gRPC client 注册，并在 generated runtime 内归一化为 **Binding** 的 message-contract active server，真实执行目标位于远端进程。
 _Avoid_: remote adapter, remote server adapter
 
 **Call-scoped borrowed view**:
@@ -98,15 +102,15 @@ _Avoid_: active server
 - **Runtime core** 负责通用 stream registry、stream lifecycle state 和 connect stream unsafe shim；**Generated service runtime** 负责 typed atomic active slot、service-specific typed glue 和 active record closure。
 - **Stream lifecycle** 的 ownership、terminal-once 和 invalid-handle 通用状态语义属于 **Runtime core**；method-specific session 操作、native/message 转换和 flat ABI 编解码属于 **Generated service runtime**。
 - **Generated service runtime** 可以组合 **Runtime core** 的 stream registry 与 lifecycle primitive，但 registry 应直接保存 final session，不应生成无语义的 per-method `load/take/delete` 薄包装。
-- Register helper 留在 **Generated service runtime** 中，因为它们校验并原子发布 service-specific **Active server record**；成功时只需返回 `nil`，不返回 adapter snapshot。
-- **Active record source** 使用 `Origin + Contract + Transport + Mode` 描述；renderer 选择由这四个维度派生，source plan 不存储 `RecordRenderer`。`Label` 只用于错误文本，不能控制生成逻辑。
-- **Active record source** planner 只枚举 7 类合法 server source，不接受四个维度的任意组合再做宽泛校验；未列出的组合没有生成语义。
-- 单个 service 的 **Active record source** 由 `ServiceGenerationSelection` 派生：未启用 `native` 时只包含 cgo message、本地 message transport 和 remote message transport 三类 source；启用 `native` 时再追加 Go native 与 cgo native source。
-- cgo native source 复用 Go native record 构造路径是由 `Origin=cgo + Contract=native + Transport=none + Mode=local` 派生出的行为；source plan 不存储额外 alias flag。
-- **Active record source** plan 只保留 `Origin + Contract + Transport + Mode` 身份字段；register name、input name/type、source expression、error label 和 nil error 等 renderer projection 数据统一从 service 与四轴身份派生。
-- **Active record source** 的无 Connect/gRPC transport 来源使用显式 `Transport=none`；四轴字段的空字符串统一表示未初始化并由 validation 拒绝。
-- **Active record source** 必须经过 validation：四轴字段非空、组合属于 7 类白名单、renderer projection 可完整派生。projection 与 renderer 对未知组合显式返回 `error`，不允许 `panic`。
-- `Origin + Contract + Transport + Mode` 只描述 **Active record source**，不复用于 generated artifact planning。service-shared runtime、codec 和 cgo client artifact 不是 active server source，应使用独立 artifact plan 表达。
+- Register helper 留在 **Generated service runtime** 中，因为它们校验并原子发布 service-specific **Binding**；成功时只需返回 `nil`，不返回 adapter snapshot。
+- **Registration source** 使用 `Origin + Contract + Transport + Mode` 描述；renderer 选择由这四个维度派生，source plan 不存储 `RecordRenderer`。`Label` 只用于错误文本，不能控制生成逻辑。
+- **Registration source** planner 只枚举 7 类合法 server source，不接受四个维度的任意组合再做宽泛校验；未列出的组合没有生成语义。
+- 单个 service 的 **Registration source** 由 `ServiceGenerationSelection` 派生：未启用 `native` 时只包含 cgo message、本地 message transport 和 remote message transport 三类 source；启用 `native` 时再追加 Go native 与 cgo native source。
+- cgo native source 复用 Go native binding 构造路径是由 `Origin=cgo + Contract=native + Transport=none + Mode=local` 派生出的行为；source plan 不存储额外 alias flag。
+- **Registration source** plan 只保留 `Origin + Contract + Transport + Mode` 身份字段；register name、input name/type、source expression、error label 和 nil error 等 renderer projection 数据统一从 service 与四轴身份派生。
+- **Registration source** 的无 Connect/gRPC transport 来源使用显式 `Transport=none`；四轴字段的空字符串统一表示未初始化并由 validation 拒绝。
+- **Registration source** 必须经过 validation：四轴字段非空、组合属于 7 类白名单、renderer projection 可完整派生。projection 与 renderer 对未知组合显式返回 `error`，不允许 `panic`。
+- `Origin + Contract + Transport + Mode` 只描述 **Registration source**，不复用于 generated artifact planning。service-shared runtime、codec 和 cgo client artifact 不是 registration source，应使用独立 artifact plan 表达。
 - generator plan 使用 `GenerationPlan -> PackagePlan -> FilePlan -> ServicePlan` 层级：package-level symbols、cgo import path 和 shared cgo exports 属于 `PackagePlan`，proto descriptor 与 service artifact 属于 `FilePlan` / `ServicePlan`。
 - generator 入口直接返回 `GenerationPlan`；项目未发布，不保留返回 `[]FilePlan` 的兼容 API。
 - generated artifact planner 使用 `PackagePlan.SharedArtifacts` 与 `ServicePlan.Artifacts` 两级白名单列表；两者共用同一个 `GeneratedArtifactPlan` item 类型，每项只保存 artifact kind 和 filename。不保留重复表达 runtime 的 native/message file family，也不保留 `Enabled` 字段。未启用 artifact 不进入列表。
@@ -119,10 +123,10 @@ _Avoid_: active server
 - `@rpccgo` token 表达 service generation selection，不是 adapter selection 或纯 server registration selection。generator 使用 `ServiceGenerationToken`、`ServiceGenerationSelection` 和 `ServicePlan.Generation` 命名，不保留 `AdapterToken`、`AdapterSelection` 或 `ServicePlan.Adapters`。
 - `@rpccgo` token 只停留在 parser 层；planner 中的 `ServiceGenerationSelection` 收敛为结构化能力：一个 message transport 与 `NativeEnabled`。后续 planner 和 renderer 不重复扫描 token 列表。
 - `ServiceGenerationSelection.MessageTransport` 必须是 `connect` 或 `grpc`；zero value 只表示未初始化并由 validation 拒绝，不引入具有业务含义的 `none`，因为当前没有 native-only generation 模式。
-- **Active server record** 在注册阶段组装 caller-facing method closure；closure 内直接绑定具体 server 调用与必要的 native/message 转换。调用阶段不再按 server kind 或 contract 路由。
+- **Binding** 在注册阶段组装 caller-facing method closure；closure 内直接绑定具体 server 调用与必要的 native/message 转换。调用阶段不再按 server kind 或 contract 路由。
 - 外部包只能通过 generated package-level invoke/start 函数进入；不应再生成只转发到内部对象的 public client object，也不应保留 runtime bridge struct。
 - 无 active server 使用 `rpcruntime.ErrNoActiveServer`。错误必须显式传递，但不为注册阶段已经排除的不可能状态保留调用阶段 routing sentinel。
-- **Remote client active server** 使用标准 transport client 作为注册输入，由 generated runtime 归一化为 **Active server record**；rpccgo generated code 不应构造 per-method client。
+- **Remote client active server** 使用标准 transport client 作为注册输入，由 generated runtime 归一化为 **Binding**；rpccgo generated code 不应构造 per-method client。
 - **Remote client active server** 只转发 protobuf message payload 和 error；metadata/header/trailer 不属于当前 contract。
 - `Register<Service>ConnectRemoteServer` 与 `Register<Service>GRPCRemoteServer` 命名可以保留，但它们应直接接收标准 transport client 并返回 `error`，不应构造 service-specific wrapper adapter。
 - **Remote client active server** 的 direct invocation 与 final session closure 属于 **Generated service runtime**；不应再生成独立 `remote.connect.rpccgo.go` 或 `remote.grpc.rpccgo.go` adapter 文件。

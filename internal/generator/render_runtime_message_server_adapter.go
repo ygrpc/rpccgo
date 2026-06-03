@@ -2,10 +2,12 @@ package generator
 
 import "google.golang.org/protobuf/compiler/protogen"
 
-func renderMessageServerAdapter(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeAdapterMethod, serverName, adapterName string) {
+func renderMessageBinding(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeAdapterMethod, serverName, adapterName, bindingName string) {
 	if len(methods) == 0 {
 		return
 	}
+	g.P("// ", adapterName, " exposes a message server implementation through the")
+	g.P("// method shape used while building a ", bindingName, ".")
 	g.P("type ", adapterName, " struct {")
 	g.P("server ", serverName)
 	g.P("}")

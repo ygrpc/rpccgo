@@ -103,8 +103,8 @@ func ValidateServicePlan(service ServicePlan) error {
 	if err := validateArtifacts(service.Artifacts, false); err != nil {
 		return err
 	}
-	for _, source := range activeRecordSourcesForService(service) {
-		if err := ValidateActiveRecordSourcePlan(source); err != nil {
+	for _, source := range registrationSourcesForService(service) {
+		if err := ValidateRegistrationSourcePlan(source); err != nil {
 			return err
 		}
 	}

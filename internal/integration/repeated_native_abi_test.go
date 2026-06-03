@@ -109,7 +109,7 @@ const repeatedNativeABIResetSource = `package repeatedv1
 import rpcruntime "rpccgo/rpcruntime"
 
 func ResetRepeatedGreeterDispatcherForIntegrationTest() {
-	repeatedGreeterActiveServer.Store(nil)
+	repeatedGreeterCurrentBinding.Store(nil)
 	repeatedGreeterStreamRegistry = rpcruntime.StreamRegistry{}
 }
 `

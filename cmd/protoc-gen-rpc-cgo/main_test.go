@@ -20,7 +20,7 @@ func TestRunEmitsRuntimeGlue(t *testing.T) {
 	}
 
 	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", `rpcruntime "rpccgo/rpcruntime"`)
-	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "var greeterActiveServer atomic.Pointer[greeterActiveServerRecord]")
+	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "var greeterCurrentBinding atomic.Pointer[greeterBinding]")
 	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "var greeterStreamRegistry rpcruntime.StreamRegistry")
 	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "func RegisterGreeterConnectHandler(handler GreeterHandler) error")
 }

@@ -672,7 +672,7 @@ const messageDirectPathResetSource = `package testv1
 import rpcruntime "rpccgo/rpcruntime"
 
 func ResetGreeterDispatcherForIntegrationTest() {
-	greeterActiveServer.Store(nil)
+	greeterCurrentBinding.Store(nil)
 	greeterStreamRegistry = rpcruntime.StreamRegistry{}
 }
 `

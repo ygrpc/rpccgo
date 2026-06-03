@@ -45,8 +45,9 @@ func TestRenderRuntimeGlueDefinesServiceActiveSlotAndRegistration(t *testing.T) 
 		"type AllServiceBidiStreamNativeBidiStream interface {",
 	)
 	for _, fragment := range []string{
-		"type allServiceNativeServerAdapter struct {",
-		"func (a *allServiceNativeServerAdapter) StartClientStream(ctx context.Context) (AllServiceClientStreamNativeStreamSession, error)",
+		"// allServiceNativeBinding exposes a native server implementation through the",
+		"type allServiceNativeBinding struct {",
+		"func (a *allServiceNativeBinding) StartClientStream(ctx context.Context) (AllServiceClientStreamNativeStreamSession, error)",
 		"type AllServiceClientStreamNativeStreamSession interface {",
 		"Send(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) error",
 		"Finish(ctx context.Context) (bool, []byte, error)",
@@ -58,12 +59,14 @@ func TestRenderRuntimeGlueDefinesServiceActiveSlotAndRegistration(t *testing.T) 
 		"CloseSend(ctx context.Context) error",
 		"Finish(ctx context.Context) error",
 		"var allServiceStreamRegistry rpcruntime.StreamRegistry",
-		"type allServiceActiveServerRecord struct {",
+		"// allServiceBinding is the immutable set of caller-facing method closures",
+		"type allServiceBinding struct {",
 		"invokeNativeUnary",
-		"var allServiceActiveServer atomic.Pointer[allServiceActiveServerRecord]",
+		"// allServiceCurrentBinding stores the binding used by new calls and stream starts.",
+		"var allServiceCurrentBinding atomic.Pointer[allServiceBinding]",
 		"func InvokeAllServiceNativeUnary(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (bool, []byte, error) {",
 		"return active.invokeNativeUnary(ctx, name, enabled, child)",
-		"return adapter.Unary(ctx, name, enabled, child)",
+		"return serverBinding.Unary(ctx, name, enabled, child)",
 		"func RegisterAllServiceCGONativeServer(server AllServiceNativeServer) error {",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
@@ -92,8 +95,8 @@ func TestRenderRuntimeGlueDefinesMessageContractActiveSlotAndRegistration(t *tes
 		"CloseSend(ctx context.Context) error",
 		"Finish(ctx context.Context) error",
 		"func registerAllServiceCGOMessageServer(server AllServiceCGOMessageServer) error {",
-		"record := &allServiceActiveServerRecord{}",
-		"record.invokeMessageUnary = adapter.Unary",
+		"binding := &allServiceBinding{}",
+		"binding.invokeMessageUnary = serverBinding.Unary",
 		"func InvokeAllServiceMessageUnary(ctx context.Context, req []byte) ([]byte, error) {",
 		"return active.invokeMessageUnary(ctx, req)",
 		"return AllServiceMessageServerUnavailableErr",
@@ -122,8 +125,8 @@ func TestRenderRuntimeGlueDefinesConnectDirectRegistration(t *testing.T) {
 	const runtimeFile = "test/v1/complete_service_plan.default_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"func RegisterDefaultServiceConnectHandler(handler DefaultServiceHandler) error {",
-		"record := &defaultServiceActiveServerRecord{",
-		"defaultServiceActiveServer.Store(record)",
+		"binding := &defaultServiceBinding{",
+		"defaultServiceCurrentBinding.Store(binding)",
 		"messageResp, err := handler.DefaultUnary(ctx, messageReq)",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
@@ -142,7 +145,7 @@ func TestRenderRuntimeGlueRoutesNativeUnaryToConnectHandler(t *testing.T) {
 	const runtimeFile = "test/v1/complete_service_plan.connect_native_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"func RegisterConnectNativeServiceConnectHandler(handler ConnectNativeServiceHandler) error {",
-		"record := &connectNativeServiceActiveServerRecord{",
+		"binding := &connectNativeServiceBinding{",
 		"new(ConnectNativeRequest)",
 		"proto.Unmarshal(messageReq",
 		"handler.ConnectNativeUnary(ctx",
@@ -164,8 +167,8 @@ func TestRenderRuntimeGlueDefinesGRPCDirectRegistration(t *testing.T) {
 	const runtimeFile = "test/v1/complete_service_plan.grpc_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"func RegisterGrpcServiceGRPCServer(server GrpcServiceServer) error {",
-		"record := &grpcServiceActiveServerRecord{",
-		"grpcServiceActiveServer.Store(record)",
+		"binding := &grpcServiceBinding{",
+		"grpcServiceCurrentBinding.Store(binding)",
 		"messageResp, err := server.GrpcUnary(ctx, messageReq)",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
@@ -184,7 +187,7 @@ func TestRenderRuntimeGlueDefinesGRPCDirectStreamingSessions(t *testing.T) {
 	const runtimeFile = "test/v1/grpc_streaming_runtime.grpc_streaming_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"func RegisterGrpcStreamingServiceGRPCServer(server GrpcStreamingServiceServer) error {",
-		"record := &grpcStreamingServiceActiveServerRecord{",
+		"binding := &grpcStreamingServiceBinding{",
 		"source := newgrpcStreamingServiceClientStreamGRPCDirectMessageStreamSession(ctx, server)",
 		"source, err := newgrpcStreamingServiceServerStreamGRPCDirectMessageStreamSession(ctx, server, req)",
 		"source := newgrpcStreamingServiceBidiStreamGRPCDirectMessageStreamSession(ctx, server)",
@@ -313,7 +316,7 @@ func TestRenderRuntimeGlueWrapsNativeStreamsForMessageClientCodec(t *testing.T) 
 	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"startMessageClientStream func(ctx context.Context) (*allServiceClientStreamMessageStreamSession, error)",
-		"source, err := adapter.StartClientStream(ctx)",
+		"source, err := serverBinding.StartClientStream(ctx)",
 		"return &allServiceClientStreamMessageStreamSession{",
 		"send: func(ctx context.Context, req []byte) error {",
 		"name, enabled, child, reqOwner, err := convertAllServiceClientStreamMessageToNativeRequest(req)",
@@ -322,12 +325,12 @@ func TestRenderRuntimeGlueWrapsNativeStreamsForMessageClientCodec(t *testing.T) 
 		"acceptedResult, payloadResult, err := source.Finish(ctx)",
 		"return convertAllServiceClientStreamNativeToMessageResponse(acceptedResult, payloadResult)",
 		"name, enabled, child, reqOwner, err := convertAllServiceServerStreamMessageToNativeRequest(req)",
-		"source, err := adapter.StartServerStream(ctx, name, enabled, child)",
+		"source, err := serverBinding.StartServerStream(ctx, name, enabled, child)",
 		"goruntime.KeepAlive(reqOwner)",
 		"return &allServiceServerStreamMessageStreamSession{",
 		"acceptedResult, payloadResult, err := source.Recv(ctx)",
 		"return convertAllServiceServerStreamNativeToMessageResponse(acceptedResult, payloadResult)",
-		"source, err := adapter.StartBidiStream(ctx)",
+		"source, err := serverBinding.StartBidiStream(ctx)",
 		"return &allServiceBidiStreamMessageStreamSession{",
 		"send: func(ctx context.Context, req []byte) error {",
 		"return convertAllServiceBidiStreamNativeToMessageResponse(acceptedResult, payloadResult)",
@@ -347,26 +350,26 @@ func TestRenderRuntimeGlueWrapsMessageStreamsForNativeClientCodec(t *testing.T) 
 
 	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
-		"source, err := adapter.StartClientStream(ctx)",
+		"source, err := serverBinding.StartClientStream(ctx)",
 		"return &allServiceClientStreamNativeStreamSession{",
 		"messageReq, err := convertAllServiceClientStreamNativeToMessageRequest(name, enabled, child)",
 		"return source.Send(ctx, messageReq)",
 		"messageResp, err := source.Finish(ctx)",
 		"return convertAllServiceClientStreamMessageToNativeResponse(messageResp)",
 		"messageReq, err := convertAllServiceServerStreamNativeToMessageRequest(name, enabled, child)",
-		"source, err := adapter.StartServerStream(ctx, messageReq)",
+		"source, err := serverBinding.StartServerStream(ctx, messageReq)",
 		"return &allServiceServerStreamNativeStreamSession{",
 		"messageResp, err := source.Recv(ctx)",
 		"return convertAllServiceServerStreamMessageToNativeResponse(messageResp)",
 		"finish: source.Finish,",
-		"source, err := adapter.StartBidiStream(ctx)",
+		"source, err := serverBinding.StartBidiStream(ctx)",
 		"return &allServiceBidiStreamNativeStreamSession{",
 		"messageReq, err := convertAllServiceBidiStreamNativeToMessageRequest(name, enabled, child)",
 		"return convertAllServiceBidiStreamMessageToNativeResponse(messageResp)",
 		"closeSend: source.CloseSend,",
-		"source, err := adapter.StartClientStream(ctx)",
-		"source, err := adapter.StartServerStream(ctx, req)",
-		"source, err := adapter.StartBidiStream(ctx)",
+		"source, err := serverBinding.StartClientStream(ctx)",
+		"source, err := serverBinding.StartServerStream(ctx, req)",
+		"source, err := serverBinding.StartBidiStream(ctx)",
 		"source := newallServiceClientStreamConnectDirectMessageStreamSession(ctx, handler)",
 		"source, err := newallServiceServerStreamConnectDirectMessageStreamSession(ctx, handler, req)",
 		"source := newallServiceBidiStreamConnectDirectMessageStreamSession(ctx, handler)",
