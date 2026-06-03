@@ -84,6 +84,14 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"//export rpccgo_take_error_text",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
+		"if textPtr == nil || textLen == nil {\n\t\treturn -1\n\t}",
+	)
+	assertGeneratedFileContentDoesNotContain(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
+		"*textPtr = 0",
+		"*textLen = 0",
+		"return 1",
+	)
+	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
 		"//export rpccgo_release",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go",

@@ -154,17 +154,11 @@ func clearRpcInputReleaseStates() {
 }
 
 // TakeErrorTextForExport wraps TakeErrorText with output-pointer semantics
-// suitable for the cgo export ABI. Returns 0 on success, 1 on failure.
+// suitable for the cgo export ABI. Returns 0 on success, -1 on failure.
 func TakeErrorTextForExport(errID int32, textPtr *uintptr, textLen *int32) int32 {
-	if textPtr != nil {
-		*textPtr = 0
-	}
-	if textLen != nil {
-		*textLen = 0
-	}
 	prepared, ok := takeErrorTextForExport(ErrorID(errID))
 	if !ok {
-		return 1
+		return -1
 	}
 	if textPtr != nil {
 		*textPtr = prepared.ptr

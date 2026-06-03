@@ -57,11 +57,11 @@ func TestTakeErrorTextForExportKeepsRecordAndReleasesPointerWhenLengthConversion
 	var textPtr uintptr = 99
 	var textLen int32 = 99
 	status := TakeErrorTextForExport(int32(id), &textPtr, &textLen)
-	if status != 1 {
+	if status != -1 {
 		t.Fatalf("expected TakeErrorTextForExport to fail, got status %d", status)
 	}
-	if textPtr != 0 || textLen != 0 {
-		t.Fatalf("expected failed export to zero outputs, got ptr=%#x len=%d", textPtr, textLen)
+	if textPtr != 99 || textLen != 99 {
+		t.Fatalf("expected failed export to leave outputs unchanged, got ptr=%#x len=%d", textPtr, textLen)
 	}
 	if got := countPinnedEntriesForTesting(); got != beforePinned {
 		t.Fatalf("expected failed export not to leak pinned entries: got %d want %d", got, beforePinned)
