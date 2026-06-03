@@ -2,9 +2,9 @@ package generator
 
 import "google.golang.org/protobuf/compiler/protogen"
 
-func renderRuntimeFinalSessions(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod) {
-	nativeName := runtimeFinalNativeSessionName(serviceName, method)
-	messageName := runtimeFinalMessageSessionName(serviceName, method)
+func renderRuntimeStreamSessions(g *protogen.GeneratedFile, serviceName string, method runtimeAdapterMethod) {
+	nativeName := runtimeStreamNativeSessionName(serviceName, method)
+	messageName := runtimeStreamMessageSessionName(serviceName, method)
 	g.P("type ", nativeName, " struct {")
 	g.P("lifecycle rpcruntime.StreamLifecycle")
 	if method.CanSend {
@@ -22,6 +22,10 @@ func renderRuntimeFinalSessions(g *protogen.GeneratedFile, serviceName string, m
 		g.P("finish func(ctx context.Context) error")
 	}
 	g.P("cancel func(ctx context.Context) error")
+	g.P("}")
+	g.P()
+	g.P("func (s *", nativeName, ") StreamLifecycle() *rpcruntime.StreamLifecycle {")
+	g.P("return &s.lifecycle")
 	g.P("}")
 	g.P()
 	g.P("type ", messageName, " struct {")
@@ -43,12 +47,16 @@ func renderRuntimeFinalSessions(g *protogen.GeneratedFile, serviceName string, m
 	g.P("cancel func(ctx context.Context) error")
 	g.P("}")
 	g.P()
+	g.P("func (s *", messageName, ") StreamLifecycle() *rpcruntime.StreamLifecycle {")
+	g.P("return &s.lifecycle")
+	g.P("}")
+	g.P()
 }
 
-func runtimeFinalNativeSessionName(serviceName string, method runtimeAdapterMethod) string {
-	return lowerInitial(serviceName) + method.MethodGoName + "NativeFinalSession"
+func runtimeStreamNativeSessionName(serviceName string, method runtimeAdapterMethod) string {
+	return lowerInitial(serviceName) + method.MethodGoName + "NativeStreamSession"
 }
 
-func runtimeFinalMessageSessionName(serviceName string, method runtimeAdapterMethod) string {
-	return lowerInitial(serviceName) + method.MethodGoName + "MessageFinalSession"
+func runtimeStreamMessageSessionName(serviceName string, method runtimeAdapterMethod) string {
+	return lowerInitial(serviceName) + method.MethodGoName + "MessageStreamSession"
 }

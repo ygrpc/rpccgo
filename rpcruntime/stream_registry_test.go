@@ -21,6 +21,15 @@ func (s *testStreamSessionPointer) sessionName() string {
 	return s.name
 }
 
+type testLifecycleStreamSession struct {
+	name      string
+	lifecycle StreamLifecycle
+}
+
+func (s *testLifecycleStreamSession) StreamLifecycle() *StreamLifecycle {
+	return &s.lifecycle
+}
+
 func TestStreamRegistryCreateLoadDeleteTake(t *testing.T) {
 	var registry StreamRegistry
 
@@ -109,6 +118,146 @@ func TestStreamRegistryUnknownHandle(t *testing.T) {
 	}
 	if _, ok := registry.Take(unknown); ok {
 		t.Fatal("Take returned true for unknown handle")
+	}
+}
+
+func TestLoadStreamSessionSucceedsForMatchingSessionType(t *testing.T) {
+	var registry StreamRegistry
+	session := &testLifecycleStreamSession{name: "stream"}
+	handle, err := registry.Create(session)
+	if err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+
+	loaded, err := LoadStreamSession[*testLifecycleStreamSession](&registry, handle)
+	if err != nil {
+		t.Fatalf("LoadStreamSession returned error: %v", err)
+	}
+	if loaded != session {
+		t.Fatalf("LoadStreamSession returned %#v, want %#v", loaded, session)
+	}
+}
+
+func TestLoadStreamSessionRejectsUnknownHandle(t *testing.T) {
+	var registry StreamRegistry
+
+	if _, err := LoadStreamSession[*testLifecycleStreamSession](&registry, 99); err != ErrStreamInvalidHandle {
+		t.Fatalf("LoadStreamSession returned %v, want ErrStreamInvalidHandle", err)
+	}
+}
+
+func TestLoadStreamSessionRejectsWrongSessionType(t *testing.T) {
+	var registry StreamRegistry
+	handle, err := registry.Create(&testLifecycleStreamSession{name: "stream"})
+	if err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+
+	if _, err := LoadStreamSession[*testOtherLifecycleStreamSession](&registry, handle); err != ErrStreamInvalidHandle {
+		t.Fatalf("LoadStreamSession returned %v, want ErrStreamInvalidHandle", err)
+	}
+}
+
+type testOtherLifecycleStreamSession struct {
+	lifecycle StreamLifecycle
+}
+
+func (s *testOtherLifecycleStreamSession) StreamLifecycle() *StreamLifecycle {
+	return &s.lifecycle
+}
+
+func TestFinishStreamSessionTakesSessionAndRejectsRepeatedFinish(t *testing.T) {
+	var registry StreamRegistry
+	session := &testLifecycleStreamSession{name: "finish"}
+	handle, err := registry.Create(session)
+	if err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+
+	finished, err := FinishStreamSession[*testLifecycleStreamSession](&registry, handle)
+	if err != nil {
+		t.Fatalf("FinishStreamSession returned error: %v", err)
+	}
+	if finished != session {
+		t.Fatalf("FinishStreamSession returned %#v, want %#v", finished, session)
+	}
+	if !session.lifecycle.Finalized() {
+		t.Fatal("FinishStreamSession did not finalize lifecycle")
+	}
+	if _, err := FinishStreamSession[*testLifecycleStreamSession](&registry, handle); err != ErrStreamInvalidHandle {
+		t.Fatalf("repeated FinishStreamSession returned %v, want ErrStreamInvalidHandle", err)
+	}
+}
+
+func TestCancelStreamSessionTakesSessionAndRejectsRepeatedCancel(t *testing.T) {
+	var registry StreamRegistry
+	session := &testLifecycleStreamSession{name: "cancel"}
+	handle, err := registry.Create(session)
+	if err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+
+	canceled, err := CancelStreamSession[*testLifecycleStreamSession](&registry, handle)
+	if err != nil {
+		t.Fatalf("CancelStreamSession returned error: %v", err)
+	}
+	if canceled != session {
+		t.Fatalf("CancelStreamSession returned %#v, want %#v", canceled, session)
+	}
+	if !session.lifecycle.Canceled() {
+		t.Fatal("CancelStreamSession did not mark lifecycle canceled")
+	}
+	if _, err := CancelStreamSession[*testLifecycleStreamSession](&registry, handle); err != ErrStreamInvalidHandle {
+		t.Fatalf("repeated CancelStreamSession returned %v, want ErrStreamInvalidHandle", err)
+	}
+}
+
+func TestSendStreamSessionRejectsClosedFinalizedAndCanceledLifecycle(t *testing.T) {
+	tests := []struct {
+		name string
+		mark func(*StreamLifecycle) error
+		want error
+	}{
+		{
+			name: "close send",
+			mark: func(l *StreamLifecycle) error {
+				return l.MarkSendClosed()
+			},
+			want: ErrStreamSendClosed,
+		},
+		{
+			name: "finalize",
+			mark: func(l *StreamLifecycle) error {
+				l.Finalize()
+				return nil
+			},
+			want: ErrStreamFinalized,
+		},
+		{
+			name: "cancel",
+			mark: func(l *StreamLifecycle) error {
+				return l.MarkCanceled()
+			},
+			want: ErrStreamCanceled,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var registry StreamRegistry
+			session := &testLifecycleStreamSession{name: tt.name}
+			handle, err := registry.Create(session)
+			if err != nil {
+				t.Fatalf("Create returned error: %v", err)
+			}
+			if err := tt.mark(&session.lifecycle); err != nil {
+				t.Fatalf("mark returned error: %v", err)
+			}
+
+			if _, err := SendStreamSession[*testLifecycleStreamSession](&registry, handle); err != tt.want {
+				t.Fatalf("SendStreamSession returned %v, want %v", err, tt.want)
+			}
+		})
 	}
 }
 

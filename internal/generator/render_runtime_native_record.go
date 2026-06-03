@@ -36,8 +36,8 @@ func renderRuntimeNativeRecord(g *protogen.GeneratedFile, service ServicePlan, m
 }
 
 func renderRuntimeNativeStreamRecord(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod, adapterExpr string) {
-	nativeSession := runtimeFinalNativeSessionName(service.GoName, method)
-	messageSession := runtimeFinalMessageSessionName(service.GoName, method)
+	nativeSession := runtimeStreamNativeSessionName(service.GoName, method)
+	messageSession := runtimeStreamMessageSessionName(service.GoName, method)
 	if runtimeStreamShapeFor(method) == runtimeStreamServer {
 		g.P("record.startNative", method.MethodGoName, " = func(ctx context.Context", method.NativeArgs, ") (*", nativeSession, ", error) {")
 		g.P("source, err := ", adapterExpr, ".", method.AdapterName, "(ctx", nativeGoCallSuffix(method.NativeArgNames), ")")

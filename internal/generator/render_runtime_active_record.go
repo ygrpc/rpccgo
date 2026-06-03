@@ -11,8 +11,8 @@ func renderRuntimeActiveServerRecord(g *protogen.GeneratedFile, service ServiceP
 			g.P("invokeMessage", method.MethodGoName, " func(ctx context.Context, req []byte) ([]byte, error)")
 			continue
 		}
-		nativeSession := runtimeFinalNativeSessionName(service.GoName, method)
-		messageSession := runtimeFinalMessageSessionName(service.GoName, method)
+		nativeSession := runtimeStreamNativeSessionName(service.GoName, method)
+		messageSession := runtimeStreamMessageSessionName(service.GoName, method)
 		if runtimeStreamShapeFor(method) == runtimeStreamServer {
 			g.P("startNative", method.MethodGoName, " func(ctx context.Context", method.NativeArgs, ") (*", nativeSession, ", error)")
 			g.P("startMessage", method.MethodGoName, " func(ctx context.Context, req []byte) (*", messageSession, ", error)")

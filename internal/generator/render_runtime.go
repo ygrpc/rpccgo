@@ -78,7 +78,7 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 
 	renderRuntimeActiveServerRecord(g, service, runtimeMethods)
 	for _, method := range streamingMethods {
-		renderRuntimeFinalSessions(g, service.GoName, method)
+		renderRuntimeStreamSessions(g, service.GoName, method)
 		renderRuntimeNativeStreamFacade(g, service.GoName, streamRegistryName, method)
 		renderRuntimeMessageStreamFacade(g, service.GoName, streamRegistryName, method)
 	}

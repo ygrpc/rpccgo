@@ -36,8 +36,8 @@ func renderRuntimeMessageRecord(g *protogen.GeneratedFile, service ServicePlan, 
 }
 
 func renderRuntimeMessageStreamRecord(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod, adapterExpr string) {
-	nativeSession := runtimeFinalNativeSessionName(service.GoName, method)
-	messageSession := runtimeFinalMessageSessionName(service.GoName, method)
+	nativeSession := runtimeStreamNativeSessionName(service.GoName, method)
+	messageSession := runtimeStreamMessageSessionName(service.GoName, method)
 	if runtimeStreamShapeFor(method) == runtimeStreamServer {
 		g.P("record.startMessage", method.MethodGoName, " = func(ctx context.Context, req []byte) (*", messageSession, ", error) {")
 		g.P("source, err := ", adapterExpr, ".Start", method.MethodGoName, "(ctx, req)")

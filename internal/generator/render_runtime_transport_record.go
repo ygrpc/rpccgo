@@ -75,8 +75,8 @@ func renderRuntimeTransportUnaryNativeMessageCall(g *protogen.GeneratedFile, ser
 }
 
 func renderRuntimeTransportMessageStreamRecord(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod, transportExpr string, source ActiveRecordSourcePlan) error {
-	nativeSession := runtimeFinalNativeSessionName(service.GoName, method)
-	messageSession := runtimeFinalMessageSessionName(service.GoName, method)
+	nativeSession := runtimeStreamNativeSessionName(service.GoName, method)
+	messageSession := runtimeStreamMessageSessionName(service.GoName, method)
 	if runtimeStreamShapeFor(method) == runtimeStreamServer {
 		g.P("record.startMessage", method.MethodGoName, " = func(ctx context.Context, req []byte) (*", messageSession, ", error) {")
 		hasErr, err := renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, source, "ctx", "req")
