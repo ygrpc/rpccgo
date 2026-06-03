@@ -44,9 +44,13 @@ const (
 
 // GreeterClient is a client for the examples.connect.greeter.v1.Greeter service.
 type GreeterClient interface {
+	// SayHello returns a single greeting.
 	SayHello(context.Context, *SayHelloRequest) (*SayHelloResponse, error)
+	// Collect accepts many requests and returns one greeting.
 	Collect(context.Context) (*connect.ClientStreamForClientSimple[SayHelloRequest, SayHelloResponse], error)
+	// Broadcast accepts one request and streams greetings back.
 	Broadcast(context.Context, *SayHelloRequest) (*connect.ServerStreamForClient[SayHelloResponse], error)
+	// Chat exchanges greeting requests and responses bidirectionally.
 	Chat(context.Context) (*connect.BidiStreamForClientSimple[SayHelloRequest, SayHelloResponse], error)
 }
 
@@ -122,9 +126,13 @@ func (c *greeterClient) Chat(ctx context.Context) (*connect.BidiStreamForClientS
 
 // GreeterHandler is an implementation of the examples.connect.greeter.v1.Greeter service.
 type GreeterHandler interface {
+	// SayHello returns a single greeting.
 	SayHello(context.Context, *SayHelloRequest) (*SayHelloResponse, error)
+	// Collect accepts many requests and returns one greeting.
 	Collect(context.Context, *connect.ClientStream[SayHelloRequest]) (*SayHelloResponse, error)
+	// Broadcast accepts one request and streams greetings back.
 	Broadcast(context.Context, *SayHelloRequest, *connect.ServerStream[SayHelloResponse]) error
+	// Chat exchanges greeting requests and responses bidirectionally.
 	Chat(context.Context, *connect.BidiStream[SayHelloRequest, SayHelloResponse]) error
 }
 

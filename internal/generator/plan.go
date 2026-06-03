@@ -51,6 +51,7 @@ type ServicePlan struct {
 	Name       string
 	GoName     string
 	FullName   string
+	DocComment string
 	Generation ServiceGenerationSelection
 	Methods    []MethodPlan
 	Artifacts  []GeneratedArtifactPlan
@@ -111,6 +112,7 @@ type MethodPlan struct {
 	Name       string
 	GoName     string
 	FullName   string
+	DocComment string
 	Streaming  StreamingKind
 	Request    MethodIOPlan
 	Response   MethodIOPlan

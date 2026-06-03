@@ -12,6 +12,7 @@ type runtimeAdapterMethod struct {
 	AdapterArgs           string
 	AdapterResult         string
 	MethodGoName          string
+	MethodDocComment      string
 	SessionName           string
 	NativeArgs            string
 	NativeReturns         string
@@ -77,6 +78,7 @@ func runtimeAdapterMethodFor(g *protogen.GeneratedFile, method MethodPlan) (runt
 	rendered := runtimeAdapterMethod{
 		SourceFullName:        method.FullName,
 		MethodGoName:          method.GoName,
+		MethodDocComment:      method.DocComment,
 		AdapterName:           shape.Symbols.NativeAdapterMethod,
 		SessionName:           sessionName,
 		NativeArgs:            nativeArgs,

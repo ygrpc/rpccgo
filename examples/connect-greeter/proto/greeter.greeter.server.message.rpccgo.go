@@ -11,10 +11,15 @@ import (
 
 // rpccgo message direct generated file for Greeter cgo message server contract
 
+// Greeter serves greeting RPCs for the Connect example.
 type GreeterCGOMessageServer interface {
+	// SayHello returns a single greeting.
 	SayHello(ctx context.Context, req []byte) ([]byte, error)
+	// Collect accepts many requests and returns one greeting.
 	Collect(ctx context.Context, stream GreeterCollectMessageClientStream) ([]byte, error)
+	// Broadcast accepts one request and streams greetings back.
 	Broadcast(ctx context.Context, req []byte, stream GreeterBroadcastMessageServerStream) error
+	// Chat exchanges greeting requests and responses bidirectionally.
 	Chat(ctx context.Context, stream GreeterChatMessageBidiStream) error
 }
 

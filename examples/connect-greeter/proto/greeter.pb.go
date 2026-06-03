@@ -21,6 +21,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// SayHelloRequest carries the name and city used to build a greeting.
 type SayHelloRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
@@ -73,6 +74,7 @@ func (x *SayHelloRequest) GetCity() string {
 	return ""
 }
 
+// SayHelloResponse carries the greeting text returned by the server.
 type SayHelloResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`

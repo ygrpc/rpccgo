@@ -78,6 +78,33 @@ func TestRenderGeneratedArtifactsEmitsGeneratedHeader(t *testing.T) {
 	}
 }
 
+func TestRenderGeneratedArtifactsEmitsProtoCommentsWithoutRPCCGODirectives(t *testing.T) {
+	file := simpleTestFile()
+	setSimpleServiceAndMethodComments(t, file,
+		"Greeter handles greeting requests.\n@rpccgo: native\nMore service docs.\n",
+		"SayHello returns a greeting.\n",
+	)
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	if _, err := GenerateWithOptions(plugin); err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	const nativeServerFile = "test/v1/greeter.greeter.server.native.rpccgo.go"
+	assertGeneratedContentContains(t, plugin, nativeServerFile,
+		"// Greeter handles greeting requests.\n// More service docs.\ntype GreeterNativeServer interface {")
+	assertGeneratedContentContains(t, plugin, nativeServerFile,
+		"// SayHello returns a greeting.\n\tSayHello(ctx context.Context")
+	assertGeneratedFileContentDoesNotContain(t, plugin, nativeServerFile, "@rpccgo:")
+
+	const messageServerFile = "test/v1/greeter.greeter.server.message.rpccgo.go"
+	assertGeneratedContentContains(t, plugin, messageServerFile,
+		"// Greeter handles greeting requests.\n// More service docs.\ntype GreeterCGOMessageServer interface {")
+	assertGeneratedContentContains(t, plugin, messageServerFile,
+		"// SayHello returns a greeting.\n\tSayHello(ctx context.Context")
+	assertGeneratedFileContentDoesNotContain(t, plugin, messageServerFile, "@rpccgo:")
+}
+
 func TestRenderMessageArtifactsEmitsDirectTransportArtifacts(t *testing.T) {
 	t.Run("grpc service token emits grpc transport files", func(t *testing.T) {
 		file := simpleTestFile()
@@ -686,6 +713,31 @@ func setSimpleServiceComment(t *testing.T, file *descriptorpb.FileDescriptorProt
 				Path:            []int32{6, 0},
 				Span:            []int32{0, 0, 0},
 				LeadingComments: proto.String(comment),
+			},
+		},
+	}
+}
+
+func setSimpleServiceAndMethodComments(t *testing.T, file *descriptorpb.FileDescriptorProto, serviceComment, methodComment string) {
+	t.Helper()
+
+	if len(file.Service) != 1 {
+		t.Fatalf("simple test file has %d services, want 1", len(file.Service))
+	}
+	if len(file.Service[0].Method) != 1 {
+		t.Fatalf("simple test service has %d methods, want 1", len(file.Service[0].Method))
+	}
+	file.SourceCodeInfo = &descriptorpb.SourceCodeInfo{
+		Location: []*descriptorpb.SourceCodeInfo_Location{
+			{
+				Path:            []int32{6, 0},
+				Span:            []int32{0, 0, 0},
+				LeadingComments: proto.String(serviceComment),
+			},
+			{
+				Path:            []int32{6, 0, 2, 0},
+				Span:            []int32{1, 0, 1},
+				LeadingComments: proto.String(methodComment),
 			},
 		},
 	}

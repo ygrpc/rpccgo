@@ -12,10 +12,15 @@ import (
 
 // rpccgo native generated file for Greeter go native server
 
+// Greeter serves greeting RPCs for the gRPC example.
 type GreeterNativeServer interface {
+	// SayHello returns a single greeting.
 	SayHello(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error)
+	// Collect accepts many requests and returns one greeting.
 	Collect(ctx context.Context, stream GreeterCollectNativeClientStream) (string, error)
+	// Broadcast accepts one request and streams greetings back.
 	Broadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString, stream GreeterBroadcastNativeServerStream) error
+	// Chat exchanges greeting requests and responses bidirectionally.
 	Chat(ctx context.Context, stream GreeterChatNativeBidiStream) error
 }
 

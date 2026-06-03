@@ -27,17 +27,17 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	g.P()
 	g.P("// ", messageStageMarker(service, file))
 	g.P()
-	g.P("type ", serverName, " interface {")
+	renderDocLine(g, service.DocComment, "type ", serverName, " interface {")
 	for _, method := range runtimeMethods {
 		switch {
 		case !method.Streaming:
-			g.P(method.MethodGoName, "(ctx context.Context, req []byte) ([]byte, error)")
+			renderDocLine(g, method.MethodDocComment, method.MethodGoName, "(ctx context.Context, req []byte) ([]byte, error)")
 		case method.CanSend && method.FinishReturnsResponse:
-			g.P(method.MethodGoName, "(ctx context.Context, stream ", service.GoName, method.MethodGoName, "MessageClientStream) ([]byte, error)")
+			renderDocLine(g, method.MethodDocComment, method.MethodGoName, "(ctx context.Context, stream ", service.GoName, method.MethodGoName, "MessageClientStream) ([]byte, error)")
 		case method.CanRecv && !method.CanSend:
-			g.P(method.MethodGoName, "(ctx context.Context, req []byte, stream ", service.GoName, method.MethodGoName, "MessageServerStream) error")
+			renderDocLine(g, method.MethodDocComment, method.MethodGoName, "(ctx context.Context, req []byte, stream ", service.GoName, method.MethodGoName, "MessageServerStream) error")
 		case method.CanSend && method.CanRecv && method.CanCloseSend:
-			g.P(method.MethodGoName, "(ctx context.Context, stream ", service.GoName, method.MethodGoName, "MessageBidiStream) error")
+			renderDocLine(g, method.MethodDocComment, method.MethodGoName, "(ctx context.Context, stream ", service.GoName, method.MethodGoName, "MessageBidiStream) error")
 		}
 	}
 	g.P("}")

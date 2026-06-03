@@ -51,19 +51,19 @@ func nativeServerNeedsRPCRuntime(service ServicePlan) bool {
 }
 
 func renderGoNativeServerInterface(g *protogen.GeneratedFile, service ServicePlan, serverName string) {
-	g.P("type ", serverName, " interface {")
+	renderDocLine(g, service.DocComment, "type ", serverName, " interface {")
 	for _, method := range service.Methods {
 		requestParams := nativeGoRequestParams(g, method.Contract.Native.RequestFields)
 		responseReturns := nativeGoResponseReturns(g, method.Contract.Native.ResponseFields)
 		switch method.Streaming {
 		case StreamingKindUnary:
-			g.P(method.GoName, "(ctx context.Context", requestParams, ") (", responseReturns, ")")
+			renderDocLine(g, method.DocComment, method.GoName, "(ctx context.Context", requestParams, ") (", responseReturns, ")")
 		case StreamingKindClientStreaming:
-			g.P(method.GoName, "(ctx context.Context, stream ", service.GoName, method.GoName, "NativeClientStream) (", responseReturns, ")")
+			renderDocLine(g, method.DocComment, method.GoName, "(ctx context.Context, stream ", service.GoName, method.GoName, "NativeClientStream) (", responseReturns, ")")
 		case StreamingKindServerStreaming:
-			g.P(method.GoName, "(ctx context.Context", requestParams, ", stream ", service.GoName, method.GoName, "NativeServerStream) error")
+			renderDocLine(g, method.DocComment, method.GoName, "(ctx context.Context", requestParams, ", stream ", service.GoName, method.GoName, "NativeServerStream) error")
 		case StreamingKindBidiStreaming:
-			g.P(method.GoName, "(ctx context.Context, stream ", service.GoName, method.GoName, "NativeBidiStream) error")
+			renderDocLine(g, method.DocComment, method.GoName, "(ctx context.Context, stream ", service.GoName, method.GoName, "NativeBidiStream) error")
 		}
 	}
 	g.P("}")

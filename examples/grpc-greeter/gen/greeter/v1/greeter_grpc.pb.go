@@ -29,11 +29,16 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 //
+// Greeter serves greeting RPCs for the gRPC example.
 // @rpccgo: msg-grpc|native
 type GreeterClient interface {
+	// SayHello returns a single greeting.
 	SayHello(ctx context.Context, in *SayHelloRequest, opts ...grpc.CallOption) (*SayHelloResponse, error)
+	// Collect accepts many requests and returns one greeting.
 	Collect(ctx context.Context, opts ...grpc.CallOption) (grpc.ClientStreamingClient[SayHelloRequest, SayHelloResponse], error)
+	// Broadcast accepts one request and streams greetings back.
 	Broadcast(ctx context.Context, in *SayHelloRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[SayHelloResponse], error)
+	// Chat exchanges greeting requests and responses bidirectionally.
 	Chat(ctx context.Context, opts ...grpc.CallOption) (grpc.BidiStreamingClient[SayHelloRequest, SayHelloResponse], error)
 }
 
@@ -104,11 +109,16 @@ type Greeter_ChatClient = grpc.BidiStreamingClient[SayHelloRequest, SayHelloResp
 // All implementations must embed UnimplementedGreeterServer
 // for forward compatibility.
 //
+// Greeter serves greeting RPCs for the gRPC example.
 // @rpccgo: msg-grpc|native
 type GreeterServer interface {
+	// SayHello returns a single greeting.
 	SayHello(context.Context, *SayHelloRequest) (*SayHelloResponse, error)
+	// Collect accepts many requests and returns one greeting.
 	Collect(grpc.ClientStreamingServer[SayHelloRequest, SayHelloResponse]) error
+	// Broadcast accepts one request and streams greetings back.
 	Broadcast(*SayHelloRequest, grpc.ServerStreamingServer[SayHelloResponse]) error
+	// Chat exchanges greeting requests and responses bidirectionally.
 	Chat(grpc.BidiStreamingServer[SayHelloRequest, SayHelloResponse]) error
 	mustEmbedUnimplementedGreeterServer()
 }

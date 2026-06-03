@@ -183,6 +183,7 @@ func buildServiceDescriptorPlan(service *protogen.Service) (ServicePlan, error) 
 		Name:       string(service.Desc.Name()),
 		GoName:     service.GoName,
 		FullName:   string(service.Desc.FullName()),
+		DocComment: protoDocComment(string(service.Comments.Leading)),
 		Generation: generation,
 		Methods:    make([]MethodPlan, 0, len(service.Methods)),
 	}
@@ -195,10 +196,11 @@ func buildServiceDescriptorPlan(service *protogen.Service) (ServicePlan, error) 
 
 func buildMethodDescriptorPlan(method *protogen.Method) MethodPlan {
 	return MethodPlan{
-		Name:      string(method.Desc.Name()),
-		GoName:    method.GoName,
-		FullName:  string(method.Desc.FullName()),
-		Streaming: StreamingKindOf(method.Desc.IsStreamingClient(), method.Desc.IsStreamingServer()),
+		Name:       string(method.Desc.Name()),
+		GoName:     method.GoName,
+		FullName:   string(method.Desc.FullName()),
+		DocComment: protoDocComment(string(method.Comments.Leading)),
+		Streaming:  StreamingKindOf(method.Desc.IsStreamingClient(), method.Desc.IsStreamingServer()),
 		Request: MethodIOPlan{
 			GoName:       method.Input.GoIdent.GoName,
 			GoImportPath: string(method.Input.GoIdent.GoImportPath),
