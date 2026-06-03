@@ -25,9 +25,8 @@ func TestRenderCodecFilesEmitsServiceCodecFile(t *testing.T) {
 		`proto "google.golang.org/protobuf/proto"`,
 		"rpccgo native message codec generated file for Greeter",
 		`var greeterNativeMessageCodecNotReadyErr = errors.New("rpccgo: native message codec is not implemented in this build")`,
-		"type greeterSayHelloNativeRequestView struct {",
-		"func convertGreeterSayHelloMessageToNativeRequest(data []byte) (*greeterSayHelloNativeRequestView, error) {",
-		"if err := proto.Unmarshal(data, &view.msg); err != nil {",
+		"func convertGreeterSayHelloMessageToNativeRequest(data []byte) (any, error) {",
+		"if err := proto.Unmarshal(data, &msg); err != nil {",
 		"return nil, err",
 		"func convertGreeterSayHelloNativeToMessageRequest() ([]byte, error) {",
 		"msg := &HelloRequest{}",
@@ -37,7 +36,7 @@ func TestRenderCodecFilesEmitsServiceCodecFile(t *testing.T) {
 	} {
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "connectrpc.com/connect", "google.golang.org/grpc", ".remote.", "panic(", "TODO")
+	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "NativeRequestView", "connectrpc.com/connect", "google.golang.org/grpc", ".remote.", "panic(", "TODO")
 }
 
 func TestRenderCodecFilesSkipsServiceWithoutCodecArtifact(t *testing.T) {
@@ -75,8 +74,9 @@ func TestCodecMessageToNativeRendersProtobufUnmarshalAndErrors(t *testing.T) {
 
 	const codecFile = "test/v1/greeter.greeter.codec.rpccgo.go"
 	for _, fragment := range []string{
-		"func convertGreeterSayHelloMessageToNativeRequest(data []byte) (*greeterSayHelloNativeRequestView, error) {",
-		"if err := proto.Unmarshal(data, &view.msg); err != nil {",
+		"func convertGreeterSayHelloMessageToNativeRequest(data []byte) (any, error) {",
+		"var msg HelloRequest",
+		"if err := proto.Unmarshal(data, &msg); err != nil {",
 		"return nil, err",
 		"func convertGreeterSayHelloMessageToNativeResponse(data []byte) error {",
 	} {
@@ -125,17 +125,17 @@ func TestCodecMessageToNativeRequestUsesOwnerRetainedViewsAndCanonicalEmptyWrapp
 
 	const codecFile = "test/v1/complete_service_plan.all_service.codec.rpccgo.go"
 	for _, fragment := range []string{
-		"type allServiceUnaryNativeRequestView struct {",
-		"msgOwner := view",
-		"view.name = rpcruntime.EmptyRpcString()",
-		"view.child = rpcruntime.EmptyRpcBytes()",
-		"view.name = rpcruntime.NewRpcStringView(unsafe.StringData(view.msg.Name), int32(len(view.msg.Name)), msgOwner)",
-		"view.child = rpcruntime.NewRpcBytesView(unsafe.SliceData(view.msg.Child), int32(len(view.msg.Child)), msgOwner)",
-		"return view, nil",
+		"func convertAllServiceUnaryMessageToNativeRequest(data []byte) (*rpcruntime.RpcString, bool, *rpcruntime.RpcBytes, any, error) {",
+		"reqOwner := []any{&msg}",
+		"name = rpcruntime.EmptyRpcString()",
+		"child = rpcruntime.EmptyRpcBytes()",
+		"name = rpcruntime.NewRpcStringView(unsafe.StringData(msg.Name), int32(len(msg.Name)), reqOwner)",
+		"child = rpcruntime.NewRpcBytesView(unsafe.SliceData(msg.Child), int32(len(msg.Child)), reqOwner)",
+		"return name, enabled, child, reqOwner, nil",
 	} {
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "fn func(", "goruntime.KeepAlive(&msg)", "PinString(", "PinBytes(", "PinSlice(", "defer rpcruntime.Release(ptr)", "cleanup := func()", "rpcruntime.NewRpcString(nil, 0, false)", "rpcruntime.NewRpcBytes(nil, 0, false)")
+	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "NativeRequestView", "fn func(", "goruntime.KeepAlive(&msg)", "PinString(", "PinBytes(", "PinSlice(", "defer rpcruntime.Release(ptr)", "cleanup := func()", "rpcruntime.NewRpcString(nil, 0, false)", "rpcruntime.NewRpcBytes(nil, 0, false)")
 }
 
 func TestCodecMessageToNativeRequestKeepsRepeatedBoolAndEnumRawOwnersAlive(t *testing.T) {
@@ -152,17 +152,17 @@ func TestCodecMessageToNativeRequestKeepsRepeatedBoolAndEnumRawOwnersAlive(t *te
 
 	const codecFile = "test/v1/native_repeated.repeated_service.codec.rpccgo.go"
 	for _, fragment := range []string{
-		"flagsRaw []byte",
-		"view.flagsRaw = make([]byte, len(view.msg.Flags))",
-		"view.flags = rpcruntime.NewRpcBoolRepeatView(unsafe.SliceData(view.flagsRaw), int32(len(view.flagsRaw)), msgOwner)",
-		"moodsRaw []int32",
-		"view.moodsRaw = make([]int32, len(view.msg.Moods))",
-		"view.moods = rpcruntime.NewRpcRepeatView[int32](unsafe.SliceData(view.moodsRaw), int32(len(view.moodsRaw)), msgOwner)",
-		"return view, nil",
+		"flagsRaw := make([]byte, len(msg.Flags))",
+		"reqOwner = append(reqOwner, flagsRaw)",
+		"flags = rpcruntime.NewRpcBoolRepeatView(unsafe.SliceData(flagsRaw), int32(len(flagsRaw)), reqOwner)",
+		"moodsRaw := make([]int32, len(msg.Moods))",
+		"reqOwner = append(reqOwner, moodsRaw)",
+		"moods = rpcruntime.NewRpcRepeatView[int32](unsafe.SliceData(moodsRaw), int32(len(moodsRaw)), reqOwner)",
+		"return scores, flags, counts, ratios, moods, reqOwner, nil",
 	} {
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "fn func(", "goruntime.KeepAlive(&msg)", "goruntime.KeepAlive(flagsRaw)", "goruntime.KeepAlive(moodsRaw)")
+	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "NativeRequestView", "fn func(", "goruntime.KeepAlive(&msg)", "goruntime.KeepAlive(flagsRaw)", "goruntime.KeepAlive(moodsRaw)")
 }
 
 func TestGenerateWithOptionsEmitsCodecWithoutRemoteAdapterFiles(t *testing.T) {

@@ -1560,12 +1560,12 @@ func registerGreeterGoNativeServer(server GreeterNativeServer) error {
 		return adapter.SayHello(ctx, name, city)
 	}
 	record.invokeMessageSayHello = func(ctx context.Context, req []byte) ([]byte, error) {
-		reqView, err := convertGreeterSayHelloMessageToNativeRequest(req)
+		name, city, reqOwner, err := convertGreeterSayHelloMessageToNativeRequest(req)
 		if err != nil {
 			return nil, err
 		}
-		messageResult, callErr := adapter.SayHello(ctx, reqView.name, reqView.city)
-		goruntime.KeepAlive(reqView)
+		messageResult, callErr := adapter.SayHello(ctx, name, city)
+		goruntime.KeepAlive(reqOwner)
 		if callErr != nil {
 			return nil, callErr
 		}
@@ -1593,12 +1593,12 @@ func registerGreeterGoNativeServer(server GreeterNativeServer) error {
 		}
 		return &greeterCollectMessageFinalSession{
 			send: func(ctx context.Context, req []byte) error {
-				reqView, err := convertGreeterCollectMessageToNativeRequest(req)
+				name, city, reqOwner, err := convertGreeterCollectMessageToNativeRequest(req)
 				if err != nil {
 					return err
 				}
-				err = source.Send(ctx, reqView.name, reqView.city)
-				goruntime.KeepAlive(reqView)
+				err = source.Send(ctx, name, city)
+				goruntime.KeepAlive(reqOwner)
 				return err
 			},
 			finish: func(ctx context.Context) ([]byte, error) {
@@ -1623,12 +1623,12 @@ func registerGreeterGoNativeServer(server GreeterNativeServer) error {
 		}, nil
 	}
 	record.startMessageBroadcast = func(ctx context.Context, req []byte) (*greeterBroadcastMessageFinalSession, error) {
-		reqView, err := convertGreeterBroadcastMessageToNativeRequest(req)
+		name, city, reqOwner, err := convertGreeterBroadcastMessageToNativeRequest(req)
 		if err != nil {
 			return nil, err
 		}
-		source, err := adapter.StartBroadcast(ctx, reqView.name, reqView.city)
-		goruntime.KeepAlive(reqView)
+		source, err := adapter.StartBroadcast(ctx, name, city)
+		goruntime.KeepAlive(reqOwner)
 		if err != nil {
 			return nil, err
 		}
@@ -1664,12 +1664,12 @@ func registerGreeterGoNativeServer(server GreeterNativeServer) error {
 		}
 		return &greeterChatMessageFinalSession{
 			send: func(ctx context.Context, req []byte) error {
-				reqView, err := convertGreeterChatMessageToNativeRequest(req)
+				name, city, reqOwner, err := convertGreeterChatMessageToNativeRequest(req)
 				if err != nil {
 					return err
 				}
-				err = source.Send(ctx, reqView.name, reqView.city)
-				goruntime.KeepAlive(reqView)
+				err = source.Send(ctx, name, city)
+				goruntime.KeepAlive(reqOwner)
 				return err
 			},
 			recv: func(ctx context.Context) ([]byte, error) {
