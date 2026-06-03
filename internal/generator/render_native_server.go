@@ -12,14 +12,25 @@ func renderNativeServerFile(plugin *protogen.Plugin, plan FilePlan, service Serv
 		return err
 	}
 	g := newGeneratedFile(plugin, plan, file, protogen.GoImportPath(plan.GoImportPath))
+	runtimeMethods, err := buildRuntimeMethodProjectionsWithMessageTypes(g, service, false)
+	if err != nil {
+		return err
+	}
+	errorNames := nativeServerErrorNamesFor(service)
 
 	g.P("package ", plan.GoPackageName)
 	g.P()
 	g.P("import (")
-	if len(service.Methods) > 0 {
+	if len(runtimeMethods) > 0 {
 		g.P(`context "context"`)
 	}
 	g.P(`errors "errors"`)
+	if nativeServerHasStreamingMethod(service) {
+		g.P(`io "io"`)
+		if nativeServerHasClientInputStreamingMethod(service) {
+			g.P(`sync "sync"`)
+		}
+	}
 	if nativeServerNeedsRPCRuntime(service) {
 		g.P(`rpcruntime "rpccgo/rpcruntime"`)
 	}
@@ -27,11 +38,19 @@ func renderNativeServerFile(plugin *protogen.Plugin, plan FilePlan, service Serv
 	g.P()
 	g.P("// ", nativeStageMarker(service, file))
 	g.P()
+	g.P("var (")
+	g.P(errorNames.RequestBridgeNotImplemented, ` = errors.New("rpccgo: native request bridge is not implemented")`)
+	g.P(errorNames.StreamBridgeNotImplemented, ` = errors.New("rpccgo: native stream bridge is not implemented")`)
+	g.P(errorNames.StreamIsNil, ` = errors.New("rpccgo: native stream is nil")`)
+	g.P(errorNames.StreamClosed, ` = errors.New("rpccgo: native stream is closed")`)
+	g.P(")")
+	g.P()
 
 	renderGoNativeServerInterface(g, service, service.GoName+"NativeServer")
 	renderGoNativeStreamInterfaces(g, service)
 	renderUnimplementedGoNativeServer(g, service)
 	renderGoNativeRegistration(g, service, service.GoName+"NativeServer", "")
+	renderGoNativeAdapter(g, service, runtimeMethods, service.GoName+"NativeServer", lowerInitial(service.GoName)+"NativeBinding", lowerInitial(service.GoName)+"Binding", errorNames)
 	return nil
 }
 

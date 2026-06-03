@@ -33,7 +33,7 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	}
 	if directConnectStreaming || directGRPCStreaming || nativeServerHasStreamingMethod(service) || serviceHasStreamingMethod(service) {
 		g.P(`io "io"`)
-		if serviceHasClientStreamingMethod(service) || serviceHasBidiStreamingMethod(service) || nativeServerHasClientInputStreamingMethod(service) {
+		if serviceHasClientStreamingMethod(service) || serviceHasBidiStreamingMethod(service) {
 			g.P(`sync "sync"`)
 		}
 	}
@@ -54,7 +54,6 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P()
 
 	adapterName := service.GoName + "NativeServer"
-	messageAdapterName := service.GoName + "CGOMessageServer"
 	bindingName := lowerInitial(service.GoName) + "Binding"
 	currentBindingName := lowerInitial(service.GoName) + "CurrentBinding"
 	streamRegistryName := lowerInitial(service.GoName) + "StreamRegistry"
@@ -63,19 +62,9 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 		renderGoNativeServerInterface(g, service, adapterName)
 		renderGoNativeStreamInterfaces(g, service)
 	}
-	errorNames := nativeServerErrorNamesFor(service)
-	g.P("var (")
-	g.P(errorNames.RequestBridgeNotImplemented, ` = errors.New("rpccgo: native request bridge is not implemented")`)
-	g.P(errorNames.StreamBridgeNotImplemented, ` = errors.New("rpccgo: native stream bridge is not implemented")`)
-	g.P(errorNames.StreamIsNil, ` = errors.New("rpccgo: native stream is nil")`)
-	g.P(errorNames.StreamClosed, ` = errors.New("rpccgo: native stream is closed")`)
-	g.P(")")
-	g.P()
 	nativeBindingName := lowerInitial(service.GoName) + "NativeBinding"
-	renderGoNativeAdapter(g, service, runtimeMethods, service.GoName+"NativeServer", nativeBindingName, bindingName, errorNames)
 	messageBindingName := lowerInitial(service.GoName) + "MessageBinding"
 	renderRuntimeSourceSessionInterfaces(g, service.GoName, streamingMethods)
-	renderMessageBinding(g, service, runtimeMethods, messageAdapterName, messageBindingName, bindingName)
 
 	renderRuntimeBindingType(g, service, runtimeMethods)
 	for _, method := range streamingMethods {

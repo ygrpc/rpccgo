@@ -40,12 +40,17 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"type GreeterMessageAdapter interface {",
 		"type GreeterNativeServer interface {",
 		"type UnimplementedGreeterNativeServer struct{}",
+		"type greeterNativeBinding struct {",
+		"type greeterMessageBinding struct {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go",
 		"type GreeterNativeServer interface {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go",
 		"type UnimplementedGreeterNativeServer struct{}",
+	)
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go",
+		"type greeterNativeBinding struct {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go",
 		"type GreeterCGOMessageServer interface {",
@@ -61,6 +66,9 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go",
 		"func RegisterGreeterCGOMessageServer(server GreeterCGOMessageServer) error {",
+	)
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go",
+		"type greeterMessageBinding struct {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go",
 		"func RegisterGreeterGoNativeServer(server GreeterNativeServer) error {",

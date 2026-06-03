@@ -43,11 +43,9 @@ func TestRenderRuntimeGlueDefinesServiceActiveSlotAndRegistration(t *testing.T) 
 		"type AllServiceClientStreamNativeClientStream interface {",
 		"type AllServiceServerStreamNativeServerStream interface {",
 		"type AllServiceBidiStreamNativeBidiStream interface {",
+		"type allServiceNativeBinding struct {",
 	)
 	for _, fragment := range []string{
-		"// allServiceNativeBinding exposes a native server implementation through the",
-		"type allServiceNativeBinding struct {",
-		"func (a *allServiceNativeBinding) StartClientStream(ctx context.Context) (AllServiceClientStreamNativeStreamSession, error)",
 		"type AllServiceClientStreamNativeStreamSession interface {",
 		"Send(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) error",
 		"Finish(ctx context.Context) (bool, []byte, error)",
@@ -108,6 +106,7 @@ func TestRenderRuntimeGlueDefinesMessageContractActiveSlotAndRegistration(t *tes
 		"rpcruntime.Dispatcher[AllServiceNativeAdapter]",
 		"rpcruntime.Dispatcher[AllServiceMessageAdapter]",
 		"type AllServiceMessageAdapter interface {",
+		"type allServiceMessageBinding struct {",
 		"renderRuntimeMessageContractMismatchCheck",
 		"if _, nativeErr :=",
 	)

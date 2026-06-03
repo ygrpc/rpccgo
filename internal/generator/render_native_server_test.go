@@ -67,8 +67,10 @@ func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
 		assertGeneratedContentContains(t, plugin, nativeServerFile, fragment)
 	}
 
-	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
+		"// allServiceNativeBinding exposes a native server implementation through the",
+		"type allServiceNativeBinding struct {",
+		"func (a *allServiceNativeBinding) StartClientStream(ctx context.Context) (AllServiceClientStreamNativeStreamSession, error)",
 		"type allServiceClientStreamGoNativeClientStreamSessionRequest struct {",
 		"type allServiceClientStreamGoNativeClientStreamSessionResult struct {",
 		"func (s *allServiceClientStreamGoNativeClientStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) error",
@@ -91,7 +93,7 @@ func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
 		"func (s *allServiceServerStreamGoNativeServerStreamSession) Finish(ctx context.Context) error",
 		"func (s *allServiceBidiStreamGoNativeBidiStreamSession) Finish(ctx context.Context) error",
 	} {
-		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
+		assertGeneratedContentContains(t, plugin, nativeServerFile, fragment)
 	}
 }
 

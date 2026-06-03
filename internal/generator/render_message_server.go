@@ -23,6 +23,12 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	g.P("import (")
 	g.P(`context "context"`)
 	g.P(`errors "errors"`)
+	if serviceHasStreamingMethod(service) {
+		g.P(`io "io"`)
+		if serviceHasClientStreamingMethod(service) || serviceHasBidiStreamingMethod(service) {
+			g.P(`sync "sync"`)
+		}
+	}
 	g.P(")")
 	g.P()
 	g.P("// ", messageStageMarker(service, file))
@@ -51,6 +57,7 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	g.P("return register", service.GoName, "CGOMessageServer(server)")
 	g.P("}")
 	g.P()
+	renderMessageBinding(g, service, runtimeMethods, serverName, lowerInitial(service.GoName)+"MessageBinding", lowerInitial(service.GoName)+"Binding")
 	return nil
 }
 
