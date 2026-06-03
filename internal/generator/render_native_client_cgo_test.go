@@ -32,6 +32,9 @@ func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
 		"nameValue, enabledValue, childValue, err := decodeAllServiceUnaryNativeUnaryRequest(NamePtr, NameLen, NameOwnership, Enabled, ChildPtr, ChildLen, ChildOwnership)",
 		"acceptedResult, payloadResult, err := v1.InvokeAllServiceNativeUnary(ctx, nameValue, enabledValue, childValue)",
 		"return int32(rpcruntime.StoreError(err))",
+		"type allServiceNativeClientDecodedResource interface {",
+		"type allServiceNativeClientDecodedResources struct {",
+		"func (r *allServiceNativeClientDecodedResources) Release() error {",
 		"if _, err := rpcruntime.LengthFromInt32(NameLen); err != nil {",
 		"if NamePtr == 0 || NameLen == 0 {",
 		"nameValue = rpcruntime.EmptyRpcString()",
@@ -39,6 +42,8 @@ func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
 		"nameValue, decodeErr = rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(NamePtr)), NameLen, NameOwnership > 0)",
 		"if decodeErr != nil {",
 		`fmt.Errorf("test.v1.AllRequest.name: %w", decodeErr)`,
+		"return nil, false, nil, errors.Join(fmt.Errorf(\"test.v1.AllRequest.name: %w\", decodeErr), decoded.Release())",
+		"decoded.Add(nameValue)",
 		"NameOwnership > 0",
 		"var acceptedResultValue int8",
 		"acceptedResultValue = 1",
@@ -50,7 +55,7 @@ func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
 	} {
 		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "type AllServiceUnaryNativeUnaryInput struct", "type AllServiceUnaryNativeUnaryOutput struct", "PayloadOwnership *int32", "allServiceDispatcher", "loadAllService", "takeAllService", "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf", "rpcruntime.NewRpcString((*byte)(unsafe.Pointer(NamePtr))")
+	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "cleanupDecoded := func() error", "cleanupDecoded()", "type AllServiceUnaryNativeUnaryInput struct", "type AllServiceUnaryNativeUnaryOutput struct", "PayloadOwnership *int32", "allServiceDispatcher", "loadAllService", "takeAllService", "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf", "rpcruntime.NewRpcString((*byte)(unsafe.Pointer(NamePtr))")
 }
 
 func TestRenderNativeClientCGOStreamsUseDispatcherAccessor(t *testing.T) {
