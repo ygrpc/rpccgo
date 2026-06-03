@@ -1870,10 +1870,6 @@ func RegisterGreeterGRPCServer(server GreeterServer) error {
 	}
 	record.startMessageCollect = func(ctx context.Context) (*greeterCollectMessageFinalSession, error) {
 		source := newgreeterCollectGRPCDirectMessageStreamSession(ctx, server)
-		var err error
-		if err != nil {
-			return nil, err
-		}
 		return &greeterCollectMessageFinalSession{
 			send:   source.Send,
 			finish: source.Finish,
@@ -1882,10 +1878,6 @@ func RegisterGreeterGRPCServer(server GreeterServer) error {
 	}
 	record.startNativeCollect = func(ctx context.Context) (*greeterCollectNativeFinalSession, error) {
 		source := newgreeterCollectGRPCDirectMessageStreamSession(ctx, server)
-		var err error
-		if err != nil {
-			return nil, err
-		}
 		return &greeterCollectNativeFinalSession{
 			send: func(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
 				messageReq, err := convertGreeterCollectNativeToMessageRequest(name, city)
@@ -1938,10 +1930,6 @@ func RegisterGreeterGRPCServer(server GreeterServer) error {
 	}
 	record.startMessageChat = func(ctx context.Context) (*greeterChatMessageFinalSession, error) {
 		source := newgreeterChatGRPCDirectMessageStreamSession(ctx, server)
-		var err error
-		if err != nil {
-			return nil, err
-		}
 		return &greeterChatMessageFinalSession{
 			send:      source.Send,
 			recv:      source.Recv,
@@ -1952,10 +1940,6 @@ func RegisterGreeterGRPCServer(server GreeterServer) error {
 	}
 	record.startNativeChat = func(ctx context.Context) (*greeterChatNativeFinalSession, error) {
 		source := newgreeterChatGRPCDirectMessageStreamSession(ctx, server)
-		var err error
-		if err != nil {
-			return nil, err
-		}
 		return &greeterChatNativeFinalSession{
 			send: func(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
 				messageReq, err := convertGreeterChatNativeToMessageRequest(name, city)

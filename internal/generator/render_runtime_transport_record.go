@@ -79,55 +79,65 @@ func renderRuntimeTransportMessageStreamRecord(g *protogen.GeneratedFile, servic
 	messageSession := runtimeFinalMessageSessionName(service.GoName, method)
 	if runtimeStreamShapeFor(method) == runtimeStreamServer {
 		g.P("record.startMessage", method.MethodGoName, " = func(ctx context.Context, req []byte) (*", messageSession, ", error) {")
-		if err := renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, source, "ctx", "req"); err != nil {
+		hasErr, err := renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, source, "ctx", "req")
+		if err != nil {
 			return err
 		}
+		renderRuntimeTransportMessageStreamSourceErrCheck(g, hasErr)
 	} else {
 		g.P("record.startMessage", method.MethodGoName, " = func(ctx context.Context) (*", messageSession, ", error) {")
-		if err := renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, source, "ctx", ""); err != nil {
+		hasErr, err := renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, source, "ctx", "")
+		if err != nil {
 			return err
 		}
+		renderRuntimeTransportMessageStreamSourceErrCheck(g, hasErr)
 	}
-	g.P("if err != nil { return nil, err }")
 	renderRuntimeMessageFinalSessionFromSource(g, messageSession, method, "source")
 	g.P("}")
 	if runtimeStreamShapeFor(method) == runtimeStreamServer {
 		g.P("record.startNative", method.MethodGoName, " = func(ctx context.Context", method.NativeArgs, ") (*", nativeSession, ", error) {")
 		g.P("messageReq, err := ", codecNativeRequestToMessageName(service, methodForRuntimeService(service, method)), "(", method.NativeArgNames, ")")
 		g.P("if err != nil { return nil, err }")
-		if err := renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, source, "ctx", "messageReq"); err != nil {
+		hasErr, err := renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, source, "ctx", "messageReq")
+		if err != nil {
 			return err
 		}
-		g.P("if err != nil { return nil, err }")
+		renderRuntimeTransportMessageStreamSourceErrCheck(g, hasErr)
 		renderRuntimeNativeFinalSessionFromMessageSource(g, service, nativeSession, method, "source")
 	} else {
 		g.P("record.startNative", method.MethodGoName, " = func(ctx context.Context) (*", nativeSession, ", error) {")
-		if err := renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, source, "ctx", ""); err != nil {
+		hasErr, err := renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, source, "ctx", "")
+		if err != nil {
 			return err
 		}
-		g.P("if err != nil { return nil, err }")
+		renderRuntimeTransportMessageStreamSourceErrCheck(g, hasErr)
 		renderRuntimeNativeFinalSessionFromMessageSource(g, service, nativeSession, method, "source")
 	}
 	g.P("}")
 	return nil
 }
 
-func renderRuntimeTransportMessageStreamSource(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod, transportExpr string, source ActiveRecordSourcePlan, ctxExpr, reqExpr string) error {
+func renderRuntimeTransportMessageStreamSource(g *protogen.GeneratedFile, service ServicePlan, method runtimeAdapterMethod, transportExpr string, source ActiveRecordSourcePlan, ctxExpr, reqExpr string) (bool, error) {
 	constructor, err := runtimeTransportMessageStreamConstructor(service, method, source)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if runtimeStreamShapeFor(method) == runtimeStreamServer {
 		g.P("source, err := ", constructor, "(", ctxExpr, ", ", transportExpr, ", ", reqExpr, ")")
-		return nil
+		return true, nil
 	}
-	if source.Mode == ActiveRecordModeLocal {
-		g.P("source := ", constructor, "(", ctxExpr, ", ", transportExpr, ")")
-		g.P("var err error")
-		return nil
+	if source.Mode == ActiveRecordModeRemote {
+		g.P("source, err := ", constructor, "(", ctxExpr, ", ", transportExpr, ")")
+		return true, nil
 	}
-	g.P("source, err := ", constructor, "(", ctxExpr, ", ", transportExpr, ")")
-	return nil
+	g.P("source := ", constructor, "(", ctxExpr, ", ", transportExpr, ")")
+	return false, nil
+}
+
+func renderRuntimeTransportMessageStreamSourceErrCheck(g *protogen.GeneratedFile, hasErr bool) {
+	if hasErr {
+		g.P("if err != nil { return nil, err }")
+	}
 }
 
 func runtimeTransportMessageStreamConstructor(service ServicePlan, method runtimeAdapterMethod, source ActiveRecordSourcePlan) (string, error) {

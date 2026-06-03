@@ -191,6 +191,10 @@ func TestRenderRuntimeGlueDefinesGRPCDirectStreamingSessions(t *testing.T) {
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
+	assertGeneratedFileContentDoesNotContain(t, plugin, runtimeFile,
+		"source := newgrpcStreamingServiceClientStreamGRPCDirectMessageStreamSession(ctx, server)\n\t\tvar err error\n\t\tif err != nil",
+		"source := newgrpcStreamingServiceBidiStreamGRPCDirectMessageStreamSession(ctx, server)\n\t\tvar err error\n\t\tif err != nil",
+	)
 }
 
 func TestRenderRuntimeGlueDefinesMethodSpecificStreamFacades(t *testing.T) {
@@ -359,6 +363,10 @@ func TestRenderRuntimeGlueWrapsMessageStreamsForNativeClientCodec(t *testing.T) 
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
+	assertGeneratedFileContentDoesNotContain(t, plugin, runtimeFile,
+		"source := newallServiceClientStreamConnectDirectMessageStreamSession(ctx, handler)\n\t\tvar err error\n\t\tif err != nil",
+		"source := newallServiceBidiStreamConnectDirectMessageStreamSession(ctx, handler)\n\t\tvar err error\n\t\tif err != nil",
+	)
 }
 
 func TestRenderRuntimeRejectsUnknownStreamingKind(t *testing.T) {
