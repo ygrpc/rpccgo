@@ -65,9 +65,12 @@ func TestRenderNativeServerCGODefinesFlatServiceCallbackRegistration(t *testing.
 		`errors.New("rpccgo: AllService cgo native server unary callback is missing")`,
 		`errors.New("rpccgo: cgo native server streaming is not implemented")`,
 		"callback := a.UnaryCallback",
-		"errID := int32(C.callAllServiceUnaryCGONativeUnaryCallback(callback, namePtr, nameLen, nameOwnership, enabledValue, childPtr, childLen, childOwnership, &outAcceptedValue, &outPayloadPtr, &outPayloadLen, &outPayloadOwnership))",
+		"errID := int32(C.callAllServiceUnaryCGONativeUnaryCallback(callback, allServiceUnaryCGONativeUnaryRequest.namePtr, allServiceUnaryCGONativeUnaryRequest.nameLen, allServiceUnaryCGONativeUnaryRequest.nameOwnership, allServiceUnaryCGONativeUnaryRequest.enabledValue, allServiceUnaryCGONativeUnaryRequest.childPtr, allServiceUnaryCGONativeUnaryRequest.childLen, allServiceUnaryCGONativeUnaryRequest.childOwnership, &outAcceptedValue, &outPayloadPtr, &outPayloadLen, &outPayloadOwnership))",
 		"callbackErr := allServiceCGONativeServerErrorFromID(errID)",
 		"return false, nil, errors.Join(callbackErr, cleanupErr)",
+		"type allServiceUnaryCGONativeUnaryRequest struct {",
+		"func (r *allServiceUnaryCGONativeUnaryRequest) Release() {",
+		"return &allServiceUnaryCGONativeUnaryRequest{namePtr: namePtr, nameLen: nameLen, nameOwnership: nameOwnership, enabledValue: enabledValue, childPtr: childPtr, childLen: childLen, childOwnership: childOwnership, pinned: pinned}, nil",
 		"_, namePtrValue, err := rpcruntime.PinString(name.SafeString())",
 		"pinned = append(pinned, namePtrValue)",
 		"rpcruntime.Release(pinned[i])",
@@ -98,6 +101,9 @@ func TestRenderNativeServerCGODefinesFlatServiceCallbackRegistration(t *testing.
 		"type AllServiceUnaryCGONativeUnaryResponse struct",
 		"*AllServiceUnaryCGONativeUnaryRequest",
 		"*AllServiceUnaryCGONativeUnaryResponse",
+		"func(), error",
+		"cleanup := func()",
+		"defer cleanup()",
 		"* input",
 		"* output",
 		"GoCGONativeServerCallbacks",
@@ -228,15 +234,20 @@ func TestRenderNativeServerCGORejectsGeneratedSymbolCollisions(t *testing.T) {
 		GoName:    "SayHello",
 		FullName:  "test.v1.Greeter.SayHello",
 		Streaming: StreamingKindUnary,
-		Request:   MethodIOPlan{GoName: "GreeterSayHelloCGONativeUnaryRequest", GoImportPath: "example.com/test/v1", FullName: "test.v1.GreeterSayHelloCGONativeUnaryRequest"},
+		Request:   MethodIOPlan{GoName: "HelloRequest", GoImportPath: "example.com/test/v1", FullName: "test.v1.HelloRequest"},
 		Response:  MethodIOPlan{GoName: "HelloReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.HelloReply"},
 	}})
+	plan.TopLevelSymbols = []TopLevelSymbolPlan{{
+		GoName:   "greeterSayHelloCGONativeUnaryRequest",
+		FullName: "test.v1.greeterSayHelloCGONativeUnaryRequest",
+		Kind:     TopLevelSymbolKindMessage,
+	}}
 
 	err := renderNativeServerCGOFile(plugin, plan, plan.Services[0], plan.Services[0].Artifacts[0])
 	if err == nil {
 		t.Fatal("renderNativeServerCGOFile() error = nil, want cgo native server symbol collision")
 	}
-	if got := err.Error(); !strings.Contains(got, "GreeterSayHelloCGONativeUnaryRequest") || !strings.Contains(got, "collides") {
+	if got := err.Error(); !strings.Contains(got, "greeterSayHelloCGONativeUnaryRequest") || !strings.Contains(got, "collides") {
 		t.Fatalf("renderNativeServerCGOFile() error = %q, want collision for cgo request type", got)
 	}
 }
@@ -298,7 +309,7 @@ func TestRenderNativeServerCGORejectsPackageAndSiblingSymbolCollisions(t *testin
 		if err == nil {
 			t.Fatal("renderNativeServerCGOFile() error = nil, want sibling symbol collision")
 		}
-		if got := err.Error(); !strings.Contains(got, "AllServiceUnaryCGONativeUnaryRequest") || !strings.Contains(got, "collides") {
+		if got := err.Error(); !strings.Contains(got, "allServiceUnaryCGONativeUnaryRequest") || !strings.Contains(got, "collides") {
 			t.Fatalf("renderNativeServerCGOFile() error = %q, want sibling collision", got)
 		}
 	})

@@ -140,15 +140,15 @@ func (a *greeterCGONativeAdapter) SayHello(ctx context.Context, name *rpcruntime
 	if callback == nil {
 		return "", greeterCGONativeServerUnaryCallbackMissing
 	}
-	namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership, cleanup, err := encodeGreeterSayHelloCGONativeUnaryRequest(name, city)
+	greeterSayHelloCGONativeUnaryRequest, err := encodeGreeterSayHelloCGONativeUnaryRequest(name, city)
 	if err != nil {
 		return "", err
 	}
-	defer cleanup()
+	defer greeterSayHelloCGONativeUnaryRequest.Release()
 	var outMessagePtr C.uintptr_t
 	var outMessageLen C.int32_t
 	var outMessageOwnership C.int32_t
-	errID := int32(C.callGreeterSayHelloCGONativeUnaryCallback(callback, namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership, &outMessagePtr, &outMessageLen, &outMessageOwnership))
+	errID := int32(C.callGreeterSayHelloCGONativeUnaryCallback(callback, greeterSayHelloCGONativeUnaryRequest.namePtr, greeterSayHelloCGONativeUnaryRequest.nameLen, greeterSayHelloCGONativeUnaryRequest.nameOwnership, greeterSayHelloCGONativeUnaryRequest.cityPtr, greeterSayHelloCGONativeUnaryRequest.cityLen, greeterSayHelloCGONativeUnaryRequest.cityOwnership, &outMessagePtr, &outMessageLen, &outMessageOwnership))
 	if errID != 0 {
 		cleanupErr := cleanupGreeterSayHelloCGONativeUnaryResponse(outMessagePtr, outMessageLen, outMessageOwnership)
 		callbackErr := greeterCGONativeServerErrorFromID(errID)
@@ -194,12 +194,12 @@ type greeterCollectCGONativeClientStreamSession struct {
 }
 
 func (s *greeterCollectCGONativeClientStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
-	namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership, cleanup, err := encodeGreeterCollectCGONativeClientStreamRequest(name, city)
+	greeterCollectCGONativeClientStreamRequest, err := encodeGreeterCollectCGONativeClientStreamRequest(name, city)
 	if err != nil {
 		return err
 	}
-	defer cleanup()
-	errID := int32(C.callGreeterCollectCGONativeClientStreamSendCallback(s.send, s.stream, namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership))
+	defer greeterCollectCGONativeClientStreamRequest.Release()
+	errID := int32(C.callGreeterCollectCGONativeClientStreamSendCallback(s.send, s.stream, greeterCollectCGONativeClientStreamRequest.namePtr, greeterCollectCGONativeClientStreamRequest.nameLen, greeterCollectCGONativeClientStreamRequest.nameOwnership, greeterCollectCGONativeClientStreamRequest.cityPtr, greeterCollectCGONativeClientStreamRequest.cityLen, greeterCollectCGONativeClientStreamRequest.cityOwnership))
 	if errID != 0 {
 		return greeterCGONativeServerErrorFromID(errID)
 	}
@@ -248,13 +248,13 @@ func (a *greeterCGONativeAdapter) StartBroadcast(ctx context.Context, name *rpcr
 	if a.BroadcastStart == nil || a.BroadcastRecv == nil || a.BroadcastFinish == nil || a.BroadcastCancel == nil {
 		return nil, greeterCGONativeServerStreamNotImplemented
 	}
-	namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership, cleanup, err := encodeGreeterBroadcastCGONativeServerStreamRequest(name, city)
+	greeterBroadcastCGONativeServerStreamRequest, err := encodeGreeterBroadcastCGONativeServerStreamRequest(name, city)
 	if err != nil {
 		return nil, err
 	}
-	defer cleanup()
+	defer greeterBroadcastCGONativeServerStreamRequest.Release()
 	var stream C.int32_t
-	errID := int32(C.callGreeterBroadcastCGONativeServerStreamStartCallback(a.BroadcastStart, namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership, &stream))
+	errID := int32(C.callGreeterBroadcastCGONativeServerStreamStartCallback(a.BroadcastStart, greeterBroadcastCGONativeServerStreamRequest.namePtr, greeterBroadcastCGONativeServerStreamRequest.nameLen, greeterBroadcastCGONativeServerStreamRequest.nameOwnership, greeterBroadcastCGONativeServerStreamRequest.cityPtr, greeterBroadcastCGONativeServerStreamRequest.cityLen, greeterBroadcastCGONativeServerStreamRequest.cityOwnership, &stream))
 	if errID != 0 {
 		return nil, greeterCGONativeServerErrorFromID(errID)
 	}
@@ -336,12 +336,12 @@ type greeterChatCGONativeBidiStreamSession struct {
 }
 
 func (s *greeterChatCGONativeBidiStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
-	namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership, cleanup, err := encodeGreeterChatCGONativeBidiStreamRequest(name, city)
+	greeterChatCGONativeBidiStreamRequest, err := encodeGreeterChatCGONativeBidiStreamRequest(name, city)
 	if err != nil {
 		return err
 	}
-	defer cleanup()
-	errID := int32(C.callGreeterChatCGONativeBidiStreamSendCallback(s.send, s.stream, namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership))
+	defer greeterChatCGONativeBidiStreamRequest.Release()
+	errID := int32(C.callGreeterChatCGONativeBidiStreamSendCallback(s.send, s.stream, greeterChatCGONativeBidiStreamRequest.namePtr, greeterChatCGONativeBidiStreamRequest.nameLen, greeterChatCGONativeBidiStreamRequest.nameOwnership, greeterChatCGONativeBidiStreamRequest.cityPtr, greeterChatCGONativeBidiStreamRequest.cityLen, greeterChatCGONativeBidiStreamRequest.cityOwnership))
 	if errID != 0 {
 		return greeterCGONativeServerErrorFromID(errID)
 	}
@@ -494,7 +494,27 @@ func (a *greeterCGONativeAdapter) Chat(ctx context.Context, stream v1.GreeterCha
 	}
 }
 
-func encodeGreeterSayHelloCGONativeUnaryRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) (C.uintptr_t, C.int32_t, C.int32_t, C.uintptr_t, C.int32_t, C.int32_t, func(), error) {
+type greeterSayHelloCGONativeUnaryRequest struct {
+	namePtr       C.uintptr_t
+	nameLen       C.int32_t
+	nameOwnership C.int32_t
+	cityPtr       C.uintptr_t
+	cityLen       C.int32_t
+	cityOwnership C.int32_t
+	pinned        []uintptr
+}
+
+func (r *greeterSayHelloCGONativeUnaryRequest) Release() {
+	if r == nil {
+		return
+	}
+	for i := len(r.pinned) - 1; i >= 0; i-- {
+		rpcruntime.Release(r.pinned[i])
+	}
+	r.pinned = nil
+}
+
+func encodeGreeterSayHelloCGONativeUnaryRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) (*greeterSayHelloCGONativeUnaryRequest, error) {
 	var namePtr C.uintptr_t
 	var nameLen C.int32_t
 	var nameOwnership C.int32_t
@@ -502,20 +522,19 @@ func encodeGreeterSayHelloCGONativeUnaryRequest(name *rpcruntime.RpcString, city
 	var cityLen C.int32_t
 	var cityOwnership C.int32_t
 	var pinned []uintptr
-	cleanup := func() {
+	nameLenValue, err := rpcruntime.LengthToInt32(len(name.SafeString()))
+	if err != nil {
 		for i := len(pinned) - 1; i >= 0; i-- {
 			rpcruntime.Release(pinned[i])
 		}
-	}
-	nameLenValue, err := rpcruntime.LengthToInt32(len(name.SafeString()))
-	if err != nil {
-		cleanup()
-		return 0, 0, 0, 0, 0, 0, func() {}, err
+		return nil, err
 	}
 	_, namePtrValue, err := rpcruntime.PinString(name.SafeString())
 	if err != nil {
-		cleanup()
-		return 0, 0, 0, 0, 0, 0, func() {}, err
+		for i := len(pinned) - 1; i >= 0; i-- {
+			rpcruntime.Release(pinned[i])
+		}
+		return nil, err
 	}
 	if namePtrValue != 0 {
 		pinned = append(pinned, namePtrValue)
@@ -524,20 +543,24 @@ func encodeGreeterSayHelloCGONativeUnaryRequest(name *rpcruntime.RpcString, city
 	nameLen = C.int32_t(nameLenValue)
 	cityLenValue, err := rpcruntime.LengthToInt32(len(city.SafeString()))
 	if err != nil {
-		cleanup()
-		return 0, 0, 0, 0, 0, 0, func() {}, err
+		for i := len(pinned) - 1; i >= 0; i-- {
+			rpcruntime.Release(pinned[i])
+		}
+		return nil, err
 	}
 	_, cityPtrValue, err := rpcruntime.PinString(city.SafeString())
 	if err != nil {
-		cleanup()
-		return 0, 0, 0, 0, 0, 0, func() {}, err
+		for i := len(pinned) - 1; i >= 0; i-- {
+			rpcruntime.Release(pinned[i])
+		}
+		return nil, err
 	}
 	if cityPtrValue != 0 {
 		pinned = append(pinned, cityPtrValue)
 	}
 	cityPtr = C.uintptr_t(cityPtrValue)
 	cityLen = C.int32_t(cityLenValue)
-	return namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership, cleanup, nil
+	return &greeterSayHelloCGONativeUnaryRequest{namePtr: namePtr, nameLen: nameLen, nameOwnership: nameOwnership, cityPtr: cityPtr, cityLen: cityLen, cityOwnership: cityOwnership, pinned: pinned}, nil
 }
 
 func decodeGreeterSayHelloCGONativeUnaryResponse(messagePtr C.uintptr_t, messageLen C.int32_t, messageOwnership C.int32_t) (string, error) {
@@ -559,7 +582,27 @@ func cleanupGreeterSayHelloCGONativeUnaryResponse(messagePtr C.uintptr_t, messag
 	return cleanupErr
 }
 
-func encodeGreeterCollectCGONativeClientStreamRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) (C.uintptr_t, C.int32_t, C.int32_t, C.uintptr_t, C.int32_t, C.int32_t, func(), error) {
+type greeterCollectCGONativeClientStreamRequest struct {
+	namePtr       C.uintptr_t
+	nameLen       C.int32_t
+	nameOwnership C.int32_t
+	cityPtr       C.uintptr_t
+	cityLen       C.int32_t
+	cityOwnership C.int32_t
+	pinned        []uintptr
+}
+
+func (r *greeterCollectCGONativeClientStreamRequest) Release() {
+	if r == nil {
+		return
+	}
+	for i := len(r.pinned) - 1; i >= 0; i-- {
+		rpcruntime.Release(r.pinned[i])
+	}
+	r.pinned = nil
+}
+
+func encodeGreeterCollectCGONativeClientStreamRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) (*greeterCollectCGONativeClientStreamRequest, error) {
 	var namePtr C.uintptr_t
 	var nameLen C.int32_t
 	var nameOwnership C.int32_t
@@ -567,20 +610,19 @@ func encodeGreeterCollectCGONativeClientStreamRequest(name *rpcruntime.RpcString
 	var cityLen C.int32_t
 	var cityOwnership C.int32_t
 	var pinned []uintptr
-	cleanup := func() {
+	nameLenValue, err := rpcruntime.LengthToInt32(len(name.SafeString()))
+	if err != nil {
 		for i := len(pinned) - 1; i >= 0; i-- {
 			rpcruntime.Release(pinned[i])
 		}
-	}
-	nameLenValue, err := rpcruntime.LengthToInt32(len(name.SafeString()))
-	if err != nil {
-		cleanup()
-		return 0, 0, 0, 0, 0, 0, func() {}, err
+		return nil, err
 	}
 	_, namePtrValue, err := rpcruntime.PinString(name.SafeString())
 	if err != nil {
-		cleanup()
-		return 0, 0, 0, 0, 0, 0, func() {}, err
+		for i := len(pinned) - 1; i >= 0; i-- {
+			rpcruntime.Release(pinned[i])
+		}
+		return nil, err
 	}
 	if namePtrValue != 0 {
 		pinned = append(pinned, namePtrValue)
@@ -589,20 +631,24 @@ func encodeGreeterCollectCGONativeClientStreamRequest(name *rpcruntime.RpcString
 	nameLen = C.int32_t(nameLenValue)
 	cityLenValue, err := rpcruntime.LengthToInt32(len(city.SafeString()))
 	if err != nil {
-		cleanup()
-		return 0, 0, 0, 0, 0, 0, func() {}, err
+		for i := len(pinned) - 1; i >= 0; i-- {
+			rpcruntime.Release(pinned[i])
+		}
+		return nil, err
 	}
 	_, cityPtrValue, err := rpcruntime.PinString(city.SafeString())
 	if err != nil {
-		cleanup()
-		return 0, 0, 0, 0, 0, 0, func() {}, err
+		for i := len(pinned) - 1; i >= 0; i-- {
+			rpcruntime.Release(pinned[i])
+		}
+		return nil, err
 	}
 	if cityPtrValue != 0 {
 		pinned = append(pinned, cityPtrValue)
 	}
 	cityPtr = C.uintptr_t(cityPtrValue)
 	cityLen = C.int32_t(cityLenValue)
-	return namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership, cleanup, nil
+	return &greeterCollectCGONativeClientStreamRequest{namePtr: namePtr, nameLen: nameLen, nameOwnership: nameOwnership, cityPtr: cityPtr, cityLen: cityLen, cityOwnership: cityOwnership, pinned: pinned}, nil
 }
 
 func decodeGreeterCollectCGONativeClientStreamResponse(messagePtr C.uintptr_t, messageLen C.int32_t, messageOwnership C.int32_t) (string, error) {
@@ -624,7 +670,27 @@ func cleanupGreeterCollectCGONativeClientStreamResponse(messagePtr C.uintptr_t, 
 	return cleanupErr
 }
 
-func encodeGreeterBroadcastCGONativeServerStreamRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) (C.uintptr_t, C.int32_t, C.int32_t, C.uintptr_t, C.int32_t, C.int32_t, func(), error) {
+type greeterBroadcastCGONativeServerStreamRequest struct {
+	namePtr       C.uintptr_t
+	nameLen       C.int32_t
+	nameOwnership C.int32_t
+	cityPtr       C.uintptr_t
+	cityLen       C.int32_t
+	cityOwnership C.int32_t
+	pinned        []uintptr
+}
+
+func (r *greeterBroadcastCGONativeServerStreamRequest) Release() {
+	if r == nil {
+		return
+	}
+	for i := len(r.pinned) - 1; i >= 0; i-- {
+		rpcruntime.Release(r.pinned[i])
+	}
+	r.pinned = nil
+}
+
+func encodeGreeterBroadcastCGONativeServerStreamRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) (*greeterBroadcastCGONativeServerStreamRequest, error) {
 	var namePtr C.uintptr_t
 	var nameLen C.int32_t
 	var nameOwnership C.int32_t
@@ -632,20 +698,19 @@ func encodeGreeterBroadcastCGONativeServerStreamRequest(name *rpcruntime.RpcStri
 	var cityLen C.int32_t
 	var cityOwnership C.int32_t
 	var pinned []uintptr
-	cleanup := func() {
+	nameLenValue, err := rpcruntime.LengthToInt32(len(name.SafeString()))
+	if err != nil {
 		for i := len(pinned) - 1; i >= 0; i-- {
 			rpcruntime.Release(pinned[i])
 		}
-	}
-	nameLenValue, err := rpcruntime.LengthToInt32(len(name.SafeString()))
-	if err != nil {
-		cleanup()
-		return 0, 0, 0, 0, 0, 0, func() {}, err
+		return nil, err
 	}
 	_, namePtrValue, err := rpcruntime.PinString(name.SafeString())
 	if err != nil {
-		cleanup()
-		return 0, 0, 0, 0, 0, 0, func() {}, err
+		for i := len(pinned) - 1; i >= 0; i-- {
+			rpcruntime.Release(pinned[i])
+		}
+		return nil, err
 	}
 	if namePtrValue != 0 {
 		pinned = append(pinned, namePtrValue)
@@ -654,20 +719,24 @@ func encodeGreeterBroadcastCGONativeServerStreamRequest(name *rpcruntime.RpcStri
 	nameLen = C.int32_t(nameLenValue)
 	cityLenValue, err := rpcruntime.LengthToInt32(len(city.SafeString()))
 	if err != nil {
-		cleanup()
-		return 0, 0, 0, 0, 0, 0, func() {}, err
+		for i := len(pinned) - 1; i >= 0; i-- {
+			rpcruntime.Release(pinned[i])
+		}
+		return nil, err
 	}
 	_, cityPtrValue, err := rpcruntime.PinString(city.SafeString())
 	if err != nil {
-		cleanup()
-		return 0, 0, 0, 0, 0, 0, func() {}, err
+		for i := len(pinned) - 1; i >= 0; i-- {
+			rpcruntime.Release(pinned[i])
+		}
+		return nil, err
 	}
 	if cityPtrValue != 0 {
 		pinned = append(pinned, cityPtrValue)
 	}
 	cityPtr = C.uintptr_t(cityPtrValue)
 	cityLen = C.int32_t(cityLenValue)
-	return namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership, cleanup, nil
+	return &greeterBroadcastCGONativeServerStreamRequest{namePtr: namePtr, nameLen: nameLen, nameOwnership: nameOwnership, cityPtr: cityPtr, cityLen: cityLen, cityOwnership: cityOwnership, pinned: pinned}, nil
 }
 
 func decodeGreeterBroadcastCGONativeServerStreamResponse(messagePtr C.uintptr_t, messageLen C.int32_t, messageOwnership C.int32_t) (string, error) {
@@ -689,7 +758,27 @@ func cleanupGreeterBroadcastCGONativeServerStreamResponse(messagePtr C.uintptr_t
 	return cleanupErr
 }
 
-func encodeGreeterChatCGONativeBidiStreamRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) (C.uintptr_t, C.int32_t, C.int32_t, C.uintptr_t, C.int32_t, C.int32_t, func(), error) {
+type greeterChatCGONativeBidiStreamRequest struct {
+	namePtr       C.uintptr_t
+	nameLen       C.int32_t
+	nameOwnership C.int32_t
+	cityPtr       C.uintptr_t
+	cityLen       C.int32_t
+	cityOwnership C.int32_t
+	pinned        []uintptr
+}
+
+func (r *greeterChatCGONativeBidiStreamRequest) Release() {
+	if r == nil {
+		return
+	}
+	for i := len(r.pinned) - 1; i >= 0; i-- {
+		rpcruntime.Release(r.pinned[i])
+	}
+	r.pinned = nil
+}
+
+func encodeGreeterChatCGONativeBidiStreamRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) (*greeterChatCGONativeBidiStreamRequest, error) {
 	var namePtr C.uintptr_t
 	var nameLen C.int32_t
 	var nameOwnership C.int32_t
@@ -697,20 +786,19 @@ func encodeGreeterChatCGONativeBidiStreamRequest(name *rpcruntime.RpcString, cit
 	var cityLen C.int32_t
 	var cityOwnership C.int32_t
 	var pinned []uintptr
-	cleanup := func() {
+	nameLenValue, err := rpcruntime.LengthToInt32(len(name.SafeString()))
+	if err != nil {
 		for i := len(pinned) - 1; i >= 0; i-- {
 			rpcruntime.Release(pinned[i])
 		}
-	}
-	nameLenValue, err := rpcruntime.LengthToInt32(len(name.SafeString()))
-	if err != nil {
-		cleanup()
-		return 0, 0, 0, 0, 0, 0, func() {}, err
+		return nil, err
 	}
 	_, namePtrValue, err := rpcruntime.PinString(name.SafeString())
 	if err != nil {
-		cleanup()
-		return 0, 0, 0, 0, 0, 0, func() {}, err
+		for i := len(pinned) - 1; i >= 0; i-- {
+			rpcruntime.Release(pinned[i])
+		}
+		return nil, err
 	}
 	if namePtrValue != 0 {
 		pinned = append(pinned, namePtrValue)
@@ -719,20 +807,24 @@ func encodeGreeterChatCGONativeBidiStreamRequest(name *rpcruntime.RpcString, cit
 	nameLen = C.int32_t(nameLenValue)
 	cityLenValue, err := rpcruntime.LengthToInt32(len(city.SafeString()))
 	if err != nil {
-		cleanup()
-		return 0, 0, 0, 0, 0, 0, func() {}, err
+		for i := len(pinned) - 1; i >= 0; i-- {
+			rpcruntime.Release(pinned[i])
+		}
+		return nil, err
 	}
 	_, cityPtrValue, err := rpcruntime.PinString(city.SafeString())
 	if err != nil {
-		cleanup()
-		return 0, 0, 0, 0, 0, 0, func() {}, err
+		for i := len(pinned) - 1; i >= 0; i-- {
+			rpcruntime.Release(pinned[i])
+		}
+		return nil, err
 	}
 	if cityPtrValue != 0 {
 		pinned = append(pinned, cityPtrValue)
 	}
 	cityPtr = C.uintptr_t(cityPtrValue)
 	cityLen = C.int32_t(cityLenValue)
-	return namePtr, nameLen, nameOwnership, cityPtr, cityLen, cityOwnership, cleanup, nil
+	return &greeterChatCGONativeBidiStreamRequest{namePtr: namePtr, nameLen: nameLen, nameOwnership: nameOwnership, cityPtr: cityPtr, cityLen: cityLen, cityOwnership: cityOwnership, pinned: pinned}, nil
 }
 
 func decodeGreeterChatCGONativeBidiStreamResponse(messagePtr C.uintptr_t, messageLen C.int32_t, messageOwnership C.int32_t) (string, error) {
