@@ -42,7 +42,6 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	g.P("var ", errorName, ` = errors.New("rpccgo: native unary client field codec is not implemented")`)
 	g.P("var ", streamHandleErrorName, ` = errors.New("rpccgo: native client stream handle is invalid")`)
 	g.P()
-	renderNativeClientDecodedResources(g, service)
 
 	for _, method := range service.Methods {
 		var err error
@@ -541,26 +540,26 @@ func nativeClientStreamOperationArgs(args string) string {
 }
 
 func renderNativeUnaryRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
-	renderNativeClientRequestDecoder(g, nativeUnaryClientDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError, nativeClientDecodedResourcesName(service))
+	renderNativeClientRequestDecoder(g, nativeUnaryClientDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError)
 }
 
 func renderNativeClientStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
-	renderNativeClientRequestDecoder(g, nativeClientStreamingDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError, nativeClientDecodedResourcesName(service))
+	renderNativeClientRequestDecoder(g, nativeClientStreamingDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError)
 }
 
 func renderNativeServerStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
-	renderNativeClientRequestDecoder(g, nativeServerStreamingDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError, nativeClientDecodedResourcesName(service))
+	renderNativeClientRequestDecoder(g, nativeServerStreamingDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError)
 }
 
 func renderNativeBidiStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
-	renderNativeClientRequestDecoder(g, nativeBidiStreamingDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError, nativeClientDecodedResourcesName(service))
+	renderNativeClientRequestDecoder(g, nativeBidiStreamingDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError)
 }
 
-func renderNativeClientRequestDecoder(g *protogen.GeneratedFile, name string, fields []FieldPlan, unsupportedError, decodedResourcesName string) {
+func renderNativeClientRequestDecoder(g *protogen.GeneratedFile, name string, fields []FieldPlan, unsupportedError string) {
 	returns := nativeGoRequestReturns(g, fields)
 	g.P("func ", name, "(", nativeClientRequestParams(fields), ") (", returns, ") {")
 	if nativeClientRequestCleanupError(fields) != "" {
-		g.P("var decoded ", decodedResourcesName)
+		g.P("var decoded rpcruntime.NativeReleaseStack")
 	}
 
 	for _, field := range fields {
@@ -572,34 +571,6 @@ func renderNativeClientRequestDecoder(g *protogen.GeneratedFile, name string, fi
 	} else {
 		g.P("return ", argNames, ", nil")
 	}
-	g.P("}")
-	g.P()
-}
-
-func renderNativeClientDecodedResources(g *protogen.GeneratedFile, service ServicePlan) {
-	if !nativeClientNeedsDecodedResources(service) {
-		return
-	}
-	resourceName := nativeClientDecodedResourceName(service)
-	resourcesName := nativeClientDecodedResourcesName(service)
-	g.P("type ", resourceName, " interface {")
-	g.P("Release() error")
-	g.P("}")
-	g.P()
-	g.P("type ", resourcesName, " struct {")
-	g.P("values []", resourceName)
-	g.P("}")
-	g.P()
-	g.P("func (r *", resourcesName, ") Add(value ", resourceName, ") {")
-	g.P("r.values = append(r.values, value)")
-	g.P("}")
-	g.P()
-	g.P("func (r *", resourcesName, ") Release() error {")
-	g.P("var err error")
-	g.P("for i := len(r.values) - 1; i >= 0; i-- {")
-	g.P("err = errors.Join(err, r.values[i].Release())")
-	g.P("}")
-	g.P("return err")
 	g.P("}")
 	g.P()
 }
@@ -645,7 +616,7 @@ func renderNativeRequestFieldDecode(g *protogen.GeneratedFile, fields []FieldPla
 		}
 	}
 	if nativeClientFieldNeedsRequestRelease(field) {
-		g.P("decoded.Add(", name, ")")
+		g.P("decoded = append(decoded, ", name, ")")
 	}
 }
 
@@ -1447,25 +1418,6 @@ func nativeUnaryClientOutputValidatorName(service ServicePlan, method MethodPlan
 	return "validate" + service.GoName + method.GoName + "NativeUnaryResponse"
 }
 
-func nativeClientDecodedResourceName(service ServicePlan) string {
-	return lowerInitial(service.GoName) + "NativeClientDecodedResource"
-}
-
-func nativeClientDecodedResourcesName(service ServicePlan) string {
-	return lowerInitial(service.GoName) + "NativeClientDecodedResources"
-}
-
-func nativeClientNeedsDecodedResources(service ServicePlan) bool {
-	for _, method := range service.Methods {
-		for _, field := range method.Contract.Native.RequestFields {
-			if nativeClientFieldNeedsRequestRelease(field) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func nativeClientNeedsFmt(service ServicePlan) bool {
 	for _, method := range service.Methods {
 		if method.Streaming != StreamingKindUnary && method.Streaming != StreamingKindClientStreaming && method.Streaming != StreamingKindServerStreaming && method.Streaming != StreamingKindBidiStreaming {
@@ -1578,14 +1530,6 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 	if err := addGenerated(lowerInitial(service.GoName)+"NativeClientStreamHandleInvalid", service.FullName+" stream handle error"); err != nil {
 		return err
 	}
-	if nativeClientNeedsDecodedResources(service) {
-		if err := addGenerated(nativeClientDecodedResourceName(service), service.FullName+" decoded resource interface"); err != nil {
-			return err
-		}
-		if err := addGenerated(nativeClientDecodedResourcesName(service), service.FullName+" decoded resources"); err != nil {
-			return err
-		}
-	}
 	for _, method := range service.Methods {
 		switch method.Streaming {
 		case StreamingKindUnary:
@@ -1695,10 +1639,6 @@ func addNativeClientGeneratedSymbols(seen map[string]string, service ServicePlan
 
 	add(lowerInitial(service.GoName)+"NativeClientUnsupportedField", service.FullName+" unsupported field error")
 	add(lowerInitial(service.GoName)+"NativeClientStreamHandleInvalid", service.FullName+" stream handle error")
-	if nativeClientNeedsDecodedResources(service) {
-		add(nativeClientDecodedResourceName(service), service.FullName+" decoded resource interface")
-		add(nativeClientDecodedResourcesName(service), service.FullName+" decoded resources")
-	}
 	for _, method := range service.Methods {
 		switch method.Streaming {
 		case StreamingKindUnary:

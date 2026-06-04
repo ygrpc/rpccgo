@@ -1,6 +1,7 @@
 package rpcruntime
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -8,6 +9,48 @@ import (
 	"strings"
 	"testing"
 )
+
+type testReleaser struct {
+	name  string
+	err   error
+	calls *[]string
+}
+
+func (r testReleaser) Release() error {
+	*r.calls = append(*r.calls, r.name)
+	return r.err
+}
+
+func TestNativeReleaseStackReleasesInReverseOrderAndJoinsErrors(t *testing.T) {
+	firstErr := errors.New("first release failed")
+	thirdErr := errors.New("third release failed")
+	calls := []string{}
+
+	stack := NativeReleaseStack{
+		testReleaser{name: "first", err: firstErr, calls: &calls},
+		testReleaser{name: "second", calls: &calls},
+		testReleaser{name: "third", err: thirdErr, calls: &calls},
+	}
+
+	err := stack.Release()
+	if !errors.Is(err, firstErr) {
+		t.Fatalf("NativeReleaseStack.Release() error does not include first error: %v", err)
+	}
+	if !errors.Is(err, thirdErr) {
+		t.Fatalf("NativeReleaseStack.Release() error does not include third error: %v", err)
+	}
+
+	want := []string{"third", "second", "first"}
+	if strings.Join(calls, ",") != strings.Join(want, ",") {
+		t.Fatalf("release order = %v, want %v", calls, want)
+	}
+}
+
+func TestNativeReleaseStackEmptyReleaseReturnsNil(t *testing.T) {
+	if err := (NativeReleaseStack{}).Release(); err != nil {
+		t.Fatalf("empty NativeReleaseStack.Release() error = %v, want nil", err)
+	}
+}
 
 func TestPinBytesAndRelease(t *testing.T) {
 	data := []byte("hello")

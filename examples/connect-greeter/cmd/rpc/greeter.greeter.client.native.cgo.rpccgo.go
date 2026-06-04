@@ -26,26 +26,6 @@ import (
 var greeterNativeClientUnsupportedField = errors.New("rpccgo: native unary client field codec is not implemented")
 var greeterNativeClientStreamHandleInvalid = errors.New("rpccgo: native client stream handle is invalid")
 
-type greeterNativeClientDecodedResource interface {
-	Release() error
-}
-
-type greeterNativeClientDecodedResources struct {
-	values []greeterNativeClientDecodedResource
-}
-
-func (r *greeterNativeClientDecodedResources) Add(value greeterNativeClientDecodedResource) {
-	r.values = append(r.values, value)
-}
-
-func (r *greeterNativeClientDecodedResources) Release() error {
-	var err error
-	for i := len(r.values) - 1; i >= 0; i-- {
-		err = errors.Join(err, r.values[i].Release())
-	}
-	return err
-}
-
 func CallGreeterSayHelloNativeUnary(ctx context.Context, NamePtr uintptr, NameLen int32, NameOwnership int32, CityPtr uintptr, CityLen int32, CityOwnership int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -71,7 +51,7 @@ func CallGreeterSayHelloNativeUnary(ctx context.Context, NamePtr uintptr, NameLe
 }
 
 func decodeGreeterSayHelloNativeUnaryRequest(NamePtr uintptr, NameLen int32, NameOwnership int32, CityPtr uintptr, CityLen int32, CityOwnership int32) (*rpcruntime.RpcString, *rpcruntime.RpcString, error) {
-	var decoded greeterNativeClientDecodedResources
+	var decoded rpcruntime.NativeReleaseStack
 	if _, err := rpcruntime.LengthFromInt32(NameLen); err != nil {
 		return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.name: %w", err), decoded.Release())
 	}
@@ -85,7 +65,7 @@ func decodeGreeterSayHelloNativeUnaryRequest(NamePtr uintptr, NameLen int32, Nam
 			return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.name: %w", decodeErr), decoded.Release())
 		}
 	}
-	decoded.Add(nameValue)
+	decoded = append(decoded, nameValue)
 	if _, err := rpcruntime.LengthFromInt32(CityLen); err != nil {
 		return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.city: %w", err), decoded.Release())
 	}
@@ -99,7 +79,7 @@ func decodeGreeterSayHelloNativeUnaryRequest(NamePtr uintptr, NameLen int32, Nam
 			return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.city: %w", decodeErr), decoded.Release())
 		}
 	}
-	decoded.Add(cityValue)
+	decoded = append(decoded, cityValue)
 	return nameValue, cityValue, nil
 }
 
@@ -214,7 +194,7 @@ func CancelGreeterCollectNativeClientStream(ctx context.Context, handle int32) i
 }
 
 func decodeGreeterCollectNativeClientStreamRequest(NamePtr uintptr, NameLen int32, NameOwnership int32, CityPtr uintptr, CityLen int32, CityOwnership int32) (*rpcruntime.RpcString, *rpcruntime.RpcString, error) {
-	var decoded greeterNativeClientDecodedResources
+	var decoded rpcruntime.NativeReleaseStack
 	if _, err := rpcruntime.LengthFromInt32(NameLen); err != nil {
 		return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.name: %w", err), decoded.Release())
 	}
@@ -228,7 +208,7 @@ func decodeGreeterCollectNativeClientStreamRequest(NamePtr uintptr, NameLen int3
 			return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.name: %w", decodeErr), decoded.Release())
 		}
 	}
-	decoded.Add(nameValue)
+	decoded = append(decoded, nameValue)
 	if _, err := rpcruntime.LengthFromInt32(CityLen); err != nil {
 		return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.city: %w", err), decoded.Release())
 	}
@@ -242,7 +222,7 @@ func decodeGreeterCollectNativeClientStreamRequest(NamePtr uintptr, NameLen int3
 			return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.city: %w", decodeErr), decoded.Release())
 		}
 	}
-	decoded.Add(cityValue)
+	decoded = append(decoded, cityValue)
 	return nameValue, cityValue, nil
 }
 
@@ -384,7 +364,7 @@ func CancelGreeterBroadcastNativeServerStream(ctx context.Context, handle int32)
 }
 
 func decodeGreeterBroadcastNativeServerStreamRequest(NamePtr uintptr, NameLen int32, NameOwnership int32, CityPtr uintptr, CityLen int32, CityOwnership int32) (*rpcruntime.RpcString, *rpcruntime.RpcString, error) {
-	var decoded greeterNativeClientDecodedResources
+	var decoded rpcruntime.NativeReleaseStack
 	if _, err := rpcruntime.LengthFromInt32(NameLen); err != nil {
 		return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.name: %w", err), decoded.Release())
 	}
@@ -398,7 +378,7 @@ func decodeGreeterBroadcastNativeServerStreamRequest(NamePtr uintptr, NameLen in
 			return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.name: %w", decodeErr), decoded.Release())
 		}
 	}
-	decoded.Add(nameValue)
+	decoded = append(decoded, nameValue)
 	if _, err := rpcruntime.LengthFromInt32(CityLen); err != nil {
 		return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.city: %w", err), decoded.Release())
 	}
@@ -412,7 +392,7 @@ func decodeGreeterBroadcastNativeServerStreamRequest(NamePtr uintptr, NameLen in
 			return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.city: %w", decodeErr), decoded.Release())
 		}
 	}
-	decoded.Add(cityValue)
+	decoded = append(decoded, cityValue)
 	return nameValue, cityValue, nil
 }
 
@@ -577,7 +557,7 @@ func CancelGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32 
 }
 
 func decodeGreeterChatNativeBidiStreamRequest(NamePtr uintptr, NameLen int32, NameOwnership int32, CityPtr uintptr, CityLen int32, CityOwnership int32) (*rpcruntime.RpcString, *rpcruntime.RpcString, error) {
-	var decoded greeterNativeClientDecodedResources
+	var decoded rpcruntime.NativeReleaseStack
 	if _, err := rpcruntime.LengthFromInt32(NameLen); err != nil {
 		return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.name: %w", err), decoded.Release())
 	}
@@ -591,7 +571,7 @@ func decodeGreeterChatNativeBidiStreamRequest(NamePtr uintptr, NameLen int32, Na
 			return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.name: %w", decodeErr), decoded.Release())
 		}
 	}
-	decoded.Add(nameValue)
+	decoded = append(decoded, nameValue)
 	if _, err := rpcruntime.LengthFromInt32(CityLen); err != nil {
 		return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.city: %w", err), decoded.Release())
 	}
@@ -605,7 +585,7 @@ func decodeGreeterChatNativeBidiStreamRequest(NamePtr uintptr, NameLen int32, Na
 			return nil, nil, errors.Join(fmt.Errorf("examples.connect.greeter.v1.SayHelloRequest.city: %w", decodeErr), decoded.Release())
 		}
 	}
-	decoded.Add(cityValue)
+	decoded = append(decoded, cityValue)
 	return nameValue, cityValue, nil
 }
 
