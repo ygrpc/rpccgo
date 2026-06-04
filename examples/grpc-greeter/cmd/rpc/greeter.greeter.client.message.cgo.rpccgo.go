@@ -124,7 +124,7 @@ func SendGreeterCollectMessageClientStream(ctx context.Context, handle int32, re
 	if err := protobuf.Unmarshal(req, &v1.SayHelloRequest{}); err != nil {
 		return int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)))
 	}
-	err = v1.NewGreeterCollectMessageStream(rpcruntime.StreamHandle(handle)).Send(ctx, req)
+	err = v1.SendGreeterMessageCollect(ctx, rpcruntime.StreamHandle(handle), req)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -140,7 +140,7 @@ func FinishGreeterCollectMessageClientStream(ctx context.Context, handle int32, 
 	}
 	var resp []byte
 	var err error
-	resp, err = v1.NewGreeterCollectMessageStream(rpcruntime.StreamHandle(handle)).Finish(ctx)
+	resp, err = v1.FinishGreeterMessageCollect(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -161,7 +161,7 @@ func CancelGreeterCollectMessageClientStream(ctx context.Context, handle int32) 
 		ctx = context.Background()
 	}
 	var err error
-	err = v1.NewGreeterCollectMessageStream(rpcruntime.StreamHandle(handle)).Cancel(ctx)
+	err = v1.CancelGreeterMessageCollect(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -264,7 +264,7 @@ func ReadGreeterBroadcastMessageServerStream(ctx context.Context, handle int32, 
 	}
 	var resp []byte
 	var err error
-	resp, err = v1.NewGreeterBroadcastMessageStream(rpcruntime.StreamHandle(handle)).Recv(ctx)
+	resp, err = v1.RecvGreeterMessageBroadcast(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -285,7 +285,7 @@ func FinishGreeterBroadcastMessageServerStream(ctx context.Context, handle int32
 		ctx = context.Background()
 	}
 	var err error
-	err = v1.NewGreeterBroadcastMessageStream(rpcruntime.StreamHandle(handle)).Finish(ctx)
+	err = v1.FinishGreeterMessageBroadcast(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -297,7 +297,7 @@ func CancelGreeterBroadcastMessageServerStream(ctx context.Context, handle int32
 		ctx = context.Background()
 	}
 	var err error
-	err = v1.NewGreeterBroadcastMessageStream(rpcruntime.StreamHandle(handle)).Cancel(ctx)
+	err = v1.CancelGreeterMessageBroadcast(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -395,7 +395,7 @@ func SendGreeterChatMessageBidiStream(ctx context.Context, handle int32, request
 	if err := protobuf.Unmarshal(req, &v1.SayHelloRequest{}); err != nil {
 		return int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)))
 	}
-	err = v1.NewGreeterChatMessageStream(rpcruntime.StreamHandle(handle)).Send(ctx, req)
+	err = v1.SendGreeterMessageChat(ctx, rpcruntime.StreamHandle(handle), req)
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -411,7 +411,7 @@ func ReadGreeterChatMessageBidiStream(ctx context.Context, handle int32, output 
 	}
 	var resp []byte
 	var err error
-	resp, err = v1.NewGreeterChatMessageStream(rpcruntime.StreamHandle(handle)).Recv(ctx)
+	resp, err = v1.RecvGreeterMessageChat(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -432,7 +432,7 @@ func CloseSendGreeterChatMessageBidiStream(ctx context.Context, handle int32) in
 		ctx = context.Background()
 	}
 	var err error
-	err = v1.NewGreeterChatMessageStream(rpcruntime.StreamHandle(handle)).CloseSend(ctx)
+	err = v1.CloseSendGreeterMessageChat(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -444,7 +444,7 @@ func FinishGreeterChatMessageBidiStream(ctx context.Context, handle int32) int32
 		ctx = context.Background()
 	}
 	var err error
-	err = v1.NewGreeterChatMessageStream(rpcruntime.StreamHandle(handle)).Finish(ctx)
+	err = v1.FinishGreeterMessageChat(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -456,7 +456,7 @@ func CancelGreeterChatMessageBidiStream(ctx context.Context, handle int32) int32
 		ctx = context.Background()
 	}
 	var err error
-	err = v1.NewGreeterChatMessageStream(rpcruntime.StreamHandle(handle)).Cancel(ctx)
+	err = v1.CancelGreeterMessageChat(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}

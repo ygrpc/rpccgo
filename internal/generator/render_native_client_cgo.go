@@ -521,19 +521,23 @@ func nativeClientOutputLenSymbol(field FieldPlan) string {
 }
 
 func renderNativeClientStreamFacadeCall(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, operation, args string) {
-	g.P("err = ", servicePackage, "New", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle)).", operation, "(", args, ")")
+	g.P("err = ", servicePackage, operation, service.GoName, "Native", method.GoName, "(", nativeClientStreamOperationArgs(args), ")")
 }
 
 func renderNativeClientStreamFacadeResultCall(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, result, operation, args string) {
-	g.P(result, ", err = ", servicePackage, "New", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle)).", operation, "(", args, ")")
+	g.P(result, ", err = ", servicePackage, operation, service.GoName, "Native", method.GoName, "(", nativeClientStreamOperationArgs(args), ")")
 }
 
 func renderNativeClientStreamResultCall(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, result, operation string) {
 	if result == "" {
-		g.P("err = ", servicePackage, "New", service.GoName, method.GoName, "NativeStream(rpcruntime.StreamHandle(handle)).", operation, "(ctx)")
+		g.P("err = ", servicePackage, operation, service.GoName, "Native", method.GoName, "(ctx, rpcruntime.StreamHandle(handle))")
 		return
 	}
 	renderNativeClientStreamFacadeResultCall(g, service, method, servicePackage, result, operation, "ctx")
+}
+
+func nativeClientStreamOperationArgs(args string) string {
+	return strings.Replace(args, "ctx", "ctx, rpcruntime.StreamHandle(handle)", 1)
 }
 
 func renderNativeUnaryRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {

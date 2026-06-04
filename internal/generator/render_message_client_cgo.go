@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
 )
@@ -342,11 +343,15 @@ func renderMessageClientContextPrefix(g *protogen.GeneratedFile) {
 }
 
 func renderMessageClientStreamFacadeCall(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, operation, args string) {
-	g.P("err = ", servicePackage, "New", service.GoName, method.GoName, "MessageStream(rpcruntime.StreamHandle(handle)).", operation, "(", args, ")")
+	g.P("err = ", servicePackage, operation, service.GoName, "Message", method.GoName, "(", messageClientStreamOperationArgs(args), ")")
 }
 
 func renderMessageClientStreamFacadeResultCall(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, result, operation, args string) {
-	g.P(result, ", err = ", servicePackage, "New", service.GoName, method.GoName, "MessageStream(rpcruntime.StreamHandle(handle)).", operation, "(", args, ")")
+	g.P(result, ", err = ", servicePackage, operation, service.GoName, "Message", method.GoName, "(", messageClientStreamOperationArgs(args), ")")
+}
+
+func messageClientStreamOperationArgs(args string) string {
+	return strings.Replace(args, "ctx", "ctx, rpcruntime.StreamHandle(handle)", 1)
 }
 
 func renderMessageProtoUnmarshalCheck(g *protogen.GeneratedFile, message MethodIOPlan, dataName, label string) {

@@ -16,9 +16,9 @@ var (
 )
 
 type StreamRegistry struct {
-	mu       sync.Mutex
-	next     StreamHandle
-	sessions map[StreamHandle]any
+	mu      sync.Mutex
+	next    StreamHandle
+	entries map[StreamHandle]any
 
 	maxHandleForTesting StreamHandle
 }
@@ -35,10 +35,10 @@ func (r *StreamRegistry) Create(session any) (StreamHandle, error) {
 	if err != nil {
 		return 0, err
 	}
-	if r.sessions == nil {
-		r.sessions = make(map[StreamHandle]any)
+	if r.entries == nil {
+		r.entries = make(map[StreamHandle]any)
 	}
-	r.sessions[handle] = session
+	r.entries[handle] = session
 	return handle, nil
 }
 
@@ -50,7 +50,7 @@ func (r *StreamRegistry) Load(handle StreamHandle) (any, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	session, ok := r.sessions[handle]
+	session, ok := r.entries[handle]
 	if !ok {
 		return nil, false
 	}
@@ -65,10 +65,10 @@ func (r *StreamRegistry) Delete(handle StreamHandle) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, ok := r.sessions[handle]; !ok {
+	if _, ok := r.entries[handle]; !ok {
 		return false
 	}
-	delete(r.sessions, handle)
+	delete(r.entries, handle)
 	return true
 }
 
@@ -80,11 +80,11 @@ func (r *StreamRegistry) Take(handle StreamHandle) (any, bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	session, ok := r.sessions[handle]
+	session, ok := r.entries[handle]
 	if !ok {
 		return nil, false
 	}
-	delete(r.sessions, handle)
+	delete(r.entries, handle)
 	return session, true
 }
 
@@ -108,7 +108,7 @@ func (r *StreamRegistry) allocateLocked() (StreamHandle, error) {
 		if handle == 0 {
 			continue
 		}
-		if _, exists := r.sessions[handle]; exists {
+		if _, exists := r.entries[handle]; exists {
 			continue
 		}
 		r.next = next

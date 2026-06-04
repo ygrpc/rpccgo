@@ -116,109 +116,110 @@ func TestStreamRegistryUnknownHandle(t *testing.T) {
 	}
 }
 
-func TestLoadStreamSessionSucceedsForMatchingSessionType(t *testing.T) {
-	var registry StreamRegistry
+func TestLoadStreamSessionReturnsGlobalSessionRecord(t *testing.T) {
+	streamSessions = StreamRegistry{}
 	session := &testTypedStreamSession{name: "stream"}
-	handle, err := registry.Create(session)
+	handle, err := CreateStreamSession(ServerKindGoNative, session)
 	if err != nil {
-		t.Fatalf("Create returned error: %v", err)
+		t.Fatalf("CreateStreamSession returned error: %v", err)
 	}
 
-	loaded, err := LoadStreamSession[*testTypedStreamSession](&registry, handle)
+	loaded, err := LoadStreamSession(handle)
 	if err != nil {
 		t.Fatalf("LoadStreamSession returned error: %v", err)
 	}
-	if loaded != session {
-		t.Fatalf("LoadStreamSession returned %#v, want %#v", loaded, session)
+	if loaded.Kind != ServerKindGoNative {
+		t.Fatalf("LoadStreamSession kind = %d, want %d", loaded.Kind, ServerKindGoNative)
+	}
+	if loaded.Session != session {
+		t.Fatalf("LoadStreamSession session = %#v, want %#v", loaded.Session, session)
 	}
 }
 
 func TestLoadStreamSessionRejectsUnknownHandle(t *testing.T) {
-	var registry StreamRegistry
+	streamSessions = StreamRegistry{}
 
-	if _, err := LoadStreamSession[*testTypedStreamSession](&registry, 99); err != ErrStreamInvalidHandle {
+	if _, err := LoadStreamSession(99); err != ErrStreamInvalidHandle {
 		t.Fatalf("LoadStreamSession returned %v, want ErrStreamInvalidHandle", err)
 	}
 }
 
-func TestLoadStreamSessionRejectsWrongSessionType(t *testing.T) {
-	var registry StreamRegistry
-	handle, err := registry.Create(&testTypedStreamSession{name: "stream"})
-	if err != nil {
-		t.Fatalf("Create returned error: %v", err)
+func TestCreateStreamSessionRejectsInvalidRecord(t *testing.T) {
+	streamSessions = StreamRegistry{}
+	if handle, err := CreateStreamSession(ServerKindInvalid, &testTypedStreamSession{name: "stream"}); err != ErrInvalidServerKind {
+		t.Fatalf("CreateStreamSession invalid kind returned handle=%d err=%v, want ErrInvalidServerKind", handle, err)
 	}
-
-	if _, err := LoadStreamSession[*testOtherTypedStreamSession](&registry, handle); err != ErrStreamInvalidHandle {
-		t.Fatalf("LoadStreamSession returned %v, want ErrStreamInvalidHandle", err)
+	if handle, err := CreateStreamSession(ServerKindGoNative, nil); err == nil {
+		t.Fatalf("CreateStreamSession nil session returned nil error with handle %d", handle)
 	}
 }
 
 type testOtherTypedStreamSession struct{}
 
 func TestFinishStreamSessionTakesSessionAndRejectsRepeatedFinish(t *testing.T) {
-	var registry StreamRegistry
+	streamSessions = StreamRegistry{}
 	session := &testTypedStreamSession{name: "finish"}
-	handle, err := registry.Create(session)
+	handle, err := CreateStreamSession(ServerKindCGOMessage, session)
 	if err != nil {
-		t.Fatalf("Create returned error: %v", err)
+		t.Fatalf("CreateStreamSession returned error: %v", err)
 	}
 
-	finished, err := FinishStreamSession[*testTypedStreamSession](&registry, handle)
+	finished, err := FinishStreamSession(handle)
 	if err != nil {
 		t.Fatalf("FinishStreamSession returned error: %v", err)
 	}
-	if finished != session {
-		t.Fatalf("FinishStreamSession returned %#v, want %#v", finished, session)
+	if finished.Kind != ServerKindCGOMessage || finished.Session != session {
+		t.Fatalf("FinishStreamSession returned %#v, want kind=%d session=%#v", finished, ServerKindCGOMessage, session)
 	}
-	if _, err := FinishStreamSession[*testTypedStreamSession](&registry, handle); err != ErrStreamInvalidHandle {
+	if _, err := FinishStreamSession(handle); err != ErrStreamInvalidHandle {
 		t.Fatalf("repeated FinishStreamSession returned %v, want ErrStreamInvalidHandle", err)
 	}
 }
 
 func TestCancelStreamSessionTakesSessionAndRejectsRepeatedCancel(t *testing.T) {
-	var registry StreamRegistry
+	streamSessions = StreamRegistry{}
 	session := &testTypedStreamSession{name: "cancel"}
-	handle, err := registry.Create(session)
+	handle, err := CreateStreamSession(ServerKindConnect, session)
 	if err != nil {
-		t.Fatalf("Create returned error: %v", err)
+		t.Fatalf("CreateStreamSession returned error: %v", err)
 	}
 
-	canceled, err := CancelStreamSession[*testTypedStreamSession](&registry, handle)
+	canceled, err := CancelStreamSession(handle)
 	if err != nil {
 		t.Fatalf("CancelStreamSession returned error: %v", err)
 	}
-	if canceled != session {
-		t.Fatalf("CancelStreamSession returned %#v, want %#v", canceled, session)
+	if canceled.Kind != ServerKindConnect || canceled.Session != session {
+		t.Fatalf("CancelStreamSession returned %#v, want kind=%d session=%#v", canceled, ServerKindConnect, session)
 	}
-	if _, err := CancelStreamSession[*testTypedStreamSession](&registry, handle); err != ErrStreamInvalidHandle {
+	if _, err := CancelStreamSession(handle); err != ErrStreamInvalidHandle {
 		t.Fatalf("repeated CancelStreamSession returned %v, want ErrStreamInvalidHandle", err)
 	}
 }
 
 func TestSendStreamSessionOnlyLoadsSession(t *testing.T) {
-	var registry StreamRegistry
+	streamSessions = StreamRegistry{}
 	session := &testTypedStreamSession{name: "send"}
-	handle, err := registry.Create(session)
+	handle, err := CreateStreamSession(ServerKindGRPC, session)
 	if err != nil {
-		t.Fatalf("Create returned error: %v", err)
+		t.Fatalf("CreateStreamSession returned error: %v", err)
 	}
 
-	loaded, err := SendStreamSession[*testTypedStreamSession](&registry, handle)
+	loaded, err := SendStreamSession(handle)
 	if err != nil {
 		t.Fatalf("SendStreamSession returned error: %v", err)
 	}
-	if loaded != session {
-		t.Fatalf("SendStreamSession returned %#v, want %#v", loaded, session)
+	if loaded.Kind != ServerKindGRPC || loaded.Session != session {
+		t.Fatalf("SendStreamSession returned %#v, want kind=%d session=%#v", loaded, ServerKindGRPC, session)
 	}
-	if _, ok := registry.Load(handle); !ok {
+	if _, ok := streamSessions.Load(handle); !ok {
 		t.Fatal("SendStreamSession removed the session")
 	}
 }
 
 func TestStreamHandleWrapSkipsZeroAndFindsOpenSlot(t *testing.T) {
 	registry := StreamRegistry{
-		next:     maxStreamHandle,
-		sessions: map[StreamHandle]any{1: testStreamSession{name: "occupied"}},
+		next:    maxStreamHandle,
+		entries: map[StreamHandle]any{1: testStreamSession{name: "occupied"}},
 	}
 
 	handle, err := registry.Create(testStreamSession{name: "wrapped"})
@@ -243,8 +244,8 @@ func TestStreamHandleWrapSkipsZeroAndFindsOpenSlot(t *testing.T) {
 
 func TestStreamHandleWrapReportsExhaustion(t *testing.T) {
 	registry := StreamRegistry{
-		next:     maxStreamHandle,
-		sessions: map[StreamHandle]any{1: testStreamSession{name: "occupied"}},
+		next:    maxStreamHandle,
+		entries: map[StreamHandle]any{1: testStreamSession{name: "occupied"}},
 	}
 	registry.maxHandleForTesting = 1
 
@@ -256,7 +257,7 @@ func TestStreamHandleWrapReportsExhaustion(t *testing.T) {
 func TestStreamHandleInclusiveMaxIsAllocatable(t *testing.T) {
 	registry := StreamRegistry{
 		next: 1,
-		sessions: map[StreamHandle]any{
+		entries: map[StreamHandle]any{
 			1: testStreamSession{name: "first"},
 			2: testStreamSession{name: "second"},
 		},
@@ -275,7 +276,7 @@ func TestStreamHandleInclusiveMaxIsAllocatable(t *testing.T) {
 func TestStreamHandleInclusiveMaxReportsExhaustionOnlyWhenFull(t *testing.T) {
 	registry := StreamRegistry{
 		next: 1,
-		sessions: map[StreamHandle]any{
+		entries: map[StreamHandle]any{
 			1: testStreamSession{name: "first"},
 			2: testStreamSession{name: "second"},
 			3: testStreamSession{name: "third"},

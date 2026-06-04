@@ -11,14 +11,18 @@ func renderRuntimeEntrypoints(g *protogen.GeneratedFile, service ServicePlan, se
 		if method.Stream.Streaming {
 			continue
 		}
-		renderRuntimeUnaryNativeEntrypoint(g, service, serviceIDName, method)
+		if service.Generation.NativeEnabled {
+			renderRuntimeUnaryNativeEntrypoint(g, service, serviceIDName, method)
+		}
 		renderRuntimeUnaryMessageEntrypoint(g, service, serviceIDName, method)
 	}
 	for _, method := range methods {
 		if !method.Stream.Streaming {
 			continue
 		}
-		renderRuntimeNativeStartEntrypoint(g, service, serviceIDName, streamRegistryName, method)
+		if service.Generation.NativeEnabled {
+			renderRuntimeNativeStartEntrypoint(g, service, serviceIDName, streamRegistryName, method)
+		}
 		if err := renderRuntimeMessageStartEntrypoint(g, service, serviceIDName, streamRegistryName, method); err != nil {
 			return err
 		}
@@ -334,13 +338,17 @@ func renderRuntimeTransportStreamSource(g *protogen.GeneratedFile, service Servi
 }
 
 func renderRuntimeCreateNativeStreamHandle(g *protogen.GeneratedFile, service ServicePlan, streamRegistryName string, method runtimeMethodProjection, kind, sourceExpr string) {
-	sessionName := runtimeStreamNativeSessionName(service.GoName, method)
-	g.P("return ", streamRegistryName, ".Create(&", sessionName, "{kind: ", kind, ", session: ", sourceExpr, "})")
+	_ = service
+	_ = streamRegistryName
+	_ = method
+	g.P("return rpcruntime.CreateStreamSession(", kind, ", ", sourceExpr, ")")
 }
 
 func renderRuntimeCreateMessageStreamHandle(g *protogen.GeneratedFile, service ServicePlan, streamRegistryName string, method runtimeMethodProjection, kind, sourceExpr string) {
-	sessionName := runtimeStreamMessageSessionName(service.GoName, method)
-	g.P("return ", streamRegistryName, ".Create(&", sessionName, "{kind: ", kind, ", session: ", sourceExpr, "})")
+	_ = service
+	_ = streamRegistryName
+	_ = method
+	g.P("return rpcruntime.CreateStreamSession(", kind, ", ", sourceExpr, ")")
 }
 
 func nativeGoZeroReturnsForError(method runtimeMethodProjection, errExpr string) string {

@@ -203,7 +203,7 @@ import rpcruntime "rpccgo/rpcruntime"
 
 func ResetGreeterServerForIntegrationTest() {
 	_ = ClearGreeterServer()
-	greeterStreamRegistry = rpcruntime.StreamRegistry{}
+	rpcruntime.ResetStreamSessionsForTesting()
 }
 `
 

@@ -57,7 +57,6 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	renderCGOMessageServerStreamInterfaces(g, service, runtimeMethods)
 	renderMessageSourceSessionInterfaces(g, streamingMethods)
 	for _, method := range streamingMethods {
-		renderRuntimeMessageStreamSession(g, service.GoName, method)
 		renderRuntimeMessageStreamFacade(g, service.GoName, lowerInitial(service.GoName)+"StreamRegistry", method, service.Generation.NativeEnabled)
 	}
 	renderUnimplementedCGOMessageServer(g, service, runtimeMethods)

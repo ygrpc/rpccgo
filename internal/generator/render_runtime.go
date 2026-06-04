@@ -63,15 +63,15 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	if service.Generation.NativeEnabled && !service.HasArtifact(GeneratedArtifactKindNativeServer) {
 		renderGoNativeServerInterface(g, service, adapterName)
 		renderGoNativeStreamInterfaces(g, service)
+		renderNativeSourceSessionInterfaces(g, streamingMethods)
 	}
 	for _, method := range streamingMethods {
-		if !service.HasArtifact(GeneratedArtifactKindNativeServer) {
-			renderRuntimeNativeStreamSession(g, service.GoName, method)
+		if service.Generation.NativeEnabled && !service.HasArtifact(GeneratedArtifactKindNativeServer) {
+			renderRuntimeNativeStreamFacade(g, service.GoName, streamRegistryName, method)
 		}
 	}
 
 	g.P("const ", serviceIDName, " rpcruntime.ServiceID = ", strconv.Quote(service.FullName))
-	g.P("var ", streamRegistryName, " rpcruntime.StreamRegistry")
 	if service.Generation.NativeEnabled {
 		g.P("var ", service.GoName, `NativeServerUnavailableErr = errors.New("rpccgo: native server is unavailable")`)
 	}

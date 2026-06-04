@@ -172,7 +172,7 @@ func SendGreeterCollectNativeClientStream(ctx context.Context, handle int32, Nam
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
-	err = v1.NewGreeterCollectNativeStream(rpcruntime.StreamHandle(handle)).Send(ctx, nameValue, cityValue)
+	err = v1.SendGreeterNativeCollect(ctx, rpcruntime.StreamHandle(handle), nameValue, cityValue)
 	if cleanupErr := errors.Join(nameValue.Release(), cityValue.Release()); cleanupErr != nil {
 		err = errors.Join(err, cleanupErr)
 	}
@@ -191,7 +191,7 @@ func FinishGreeterCollectNativeClientStream(ctx context.Context, handle int32, o
 	}
 	var err error
 	var messageResult string
-	messageResult, err = v1.NewGreeterCollectNativeStream(rpcruntime.StreamHandle(handle)).Finish(ctx)
+	messageResult, err = v1.FinishGreeterNativeCollect(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -206,7 +206,7 @@ func CancelGreeterCollectNativeClientStream(ctx context.Context, handle int32) i
 		ctx = context.Background()
 	}
 	var err error
-	err = v1.NewGreeterCollectNativeStream(rpcruntime.StreamHandle(handle)).Cancel(ctx)
+	err = v1.CancelGreeterNativeCollect(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -349,7 +349,7 @@ func ReadGreeterBroadcastNativeServerStream(ctx context.Context, handle int32, o
 	}
 	var err error
 	var messageResult string
-	messageResult, err = v1.NewGreeterBroadcastNativeStream(rpcruntime.StreamHandle(handle)).Recv(ctx)
+	messageResult, err = v1.RecvGreeterNativeBroadcast(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -364,7 +364,7 @@ func FinishGreeterBroadcastNativeServerStream(ctx context.Context, handle int32)
 		ctx = context.Background()
 	}
 	var err error
-	err = v1.NewGreeterBroadcastNativeStream(rpcruntime.StreamHandle(handle)).Finish(ctx)
+	err = v1.FinishGreeterNativeBroadcast(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -376,7 +376,7 @@ func CancelGreeterBroadcastNativeServerStream(ctx context.Context, handle int32)
 		ctx = context.Background()
 	}
 	var err error
-	err = v1.NewGreeterBroadcastNativeStream(rpcruntime.StreamHandle(handle)).Cancel(ctx)
+	err = v1.CancelGreeterNativeBroadcast(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -511,7 +511,7 @@ func SendGreeterChatNativeBidiStream(ctx context.Context, handle int32, NamePtr 
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
-	err = v1.NewGreeterChatNativeStream(rpcruntime.StreamHandle(handle)).Send(ctx, nameValue, cityValue)
+	err = v1.SendGreeterNativeChat(ctx, rpcruntime.StreamHandle(handle), nameValue, cityValue)
 	if cleanupErr := errors.Join(nameValue.Release(), cityValue.Release()); cleanupErr != nil {
 		err = errors.Join(err, cleanupErr)
 	}
@@ -530,7 +530,7 @@ func ReadGreeterChatNativeBidiStream(ctx context.Context, handle int32, outMessa
 	}
 	var err error
 	var messageResult string
-	messageResult, err = v1.NewGreeterChatNativeStream(rpcruntime.StreamHandle(handle)).Recv(ctx)
+	messageResult, err = v1.RecvGreeterNativeChat(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -545,7 +545,7 @@ func CloseSendGreeterChatNativeBidiStream(ctx context.Context, handle int32) int
 		ctx = context.Background()
 	}
 	var err error
-	err = v1.NewGreeterChatNativeStream(rpcruntime.StreamHandle(handle)).CloseSend(ctx)
+	err = v1.CloseSendGreeterNativeChat(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -557,7 +557,7 @@ func FinishGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32 
 		ctx = context.Background()
 	}
 	var err error
-	err = v1.NewGreeterChatNativeStream(rpcruntime.StreamHandle(handle)).Finish(ctx)
+	err = v1.FinishGreeterNativeChat(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}
@@ -569,7 +569,7 @@ func CancelGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32 
 		ctx = context.Background()
 	}
 	var err error
-	err = v1.NewGreeterChatNativeStream(rpcruntime.StreamHandle(handle)).Cancel(ctx)
+	err = v1.CancelGreeterNativeChat(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return int32(rpcruntime.StoreError(err))
 	}

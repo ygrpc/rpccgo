@@ -58,7 +58,7 @@ func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
 	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "cleanupDecoded := func() error", "cleanupDecoded()", "type AllServiceUnaryNativeUnaryInput struct", "type AllServiceUnaryNativeUnaryOutput struct", "PayloadOwnership *int32", "allServiceDispatcher", "loadAllService", "takeAllService", "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf", "rpcruntime.NewRpcString((*byte)(unsafe.Pointer(NamePtr))")
 }
 
-func TestRenderNativeClientCGOStreamsUseRuntimeStreamFacade(t *testing.T) {
+func TestRenderNativeClientCGOStreamsUseRuntimeStreamOperations(t *testing.T) {
 	file := messageCgoTestFile()
 	setSimpleServiceComment(t, file, "@rpccgo: native\n")
 	plugin := newTestPlugin(t, "paths=source_relative", file)
@@ -70,18 +70,21 @@ func TestRenderNativeClientCGOStreamsUseRuntimeStreamFacade(t *testing.T) {
 
 	const nativeClientFile = "test/v1/cgo/message_cgo.greeter.client.native.cgo.rpccgo.go"
 	for _, fragment := range []string{
-		"v1.NewGreeterUploadNativeStream(rpcruntime.StreamHandle(handle)).Send(ctx",
-		"err = v1.NewGreeterUploadNativeStream(rpcruntime.StreamHandle(handle)).Finish(ctx)",
+		"err = v1.SendGreeterNativeUpload(ctx, rpcruntime.StreamHandle(handle)",
+		"v1.FinishGreeterNativeUpload(ctx, rpcruntime.StreamHandle(handle))",
 		"func FinishGreeterListNativeServerStream(ctx context.Context, handle int32) int32 {",
-		"err = v1.NewGreeterListNativeStream(rpcruntime.StreamHandle(handle)).Finish(ctx)",
+		"err = v1.FinishGreeterNativeList(ctx, rpcruntime.StreamHandle(handle))",
 		"CloseSendGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32",
-		"err = v1.NewGreeterChatNativeStream(rpcruntime.StreamHandle(handle)).CloseSend(ctx)",
+		"err = v1.CloseSendGreeterNativeChat(ctx, rpcruntime.StreamHandle(handle))",
 		"func FinishGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32 {",
-		"err = v1.NewGreeterChatNativeStream(rpcruntime.StreamHandle(handle)).Finish(ctx)",
+		"err = v1.FinishGreeterNativeChat(ctx, rpcruntime.StreamHandle(handle))",
 	} {
 		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
 	}
 	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile,
+		"NewGreeterUploadNative"+"Stream",
+		"NewGreeterListNative"+"Stream",
+		"NewGreeterChatNative"+"Stream",
 		"LoadUploadNativeStream",
 		"TakeUploadNativeStream",
 		"LoadListNativeStream",

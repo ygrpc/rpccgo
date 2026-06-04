@@ -33,15 +33,15 @@ generated registration function 接受的具体服务来源；使用 `Origin + C
 _Avoid_: Active record source, RecordRenderer as contract
 
 **Runtime core**:
-手写的 `rpcruntime` 包，承载跨 service 复用的 server registry、server kind、stream registry 和 connect stream unsafe shim 等通用机制。
+手写的 `rpcruntime` 包，承载跨 service 复用的 server registry、server kind、全局 stream session registry 和 connect stream unsafe shim 等通用机制。
 _Avoid_: generated service runtime
 
 **Stream session**:
-一次 streaming call 在 `Start` 后保存的 `{ServerKind, session}` record；后续 stream operation 通过 handle 找回 record，并由 generated code 按 kind 把 session 转回对应 typed session 直接调用。
+一次 streaming call 在 `Start` 后保存到 **Runtime core** 的 `{ServerKind, session}` record；后续 stream operation 通过 handle 找回 record，并由 generated code 按 kind 把 session 转回对应 typed session 直接调用。
 _Avoid_: stream lifecycle state machine, operation closure session
 
 **Stream operation projection**:
-generator 侧的 contract-to-render 投影，把 streaming method 的 operation capability、terminal policy 和 codec requirement 转换为 **Generated service runtime** 可消费的 stream session 计划；不执行 runtime state machine，也不拥有 handle storage。
+generator 侧的 contract-to-render 投影，把 streaming method 的 operation capability、terminal policy 和 codec requirement 转换为 generated package-level stream operation 函数；不执行 runtime state machine，也不拥有 handle storage。
 _Avoid_: runtime stream lifecycle executor, stream registry helper plan
 
 **Generated service runtime**:
@@ -99,13 +99,15 @@ _Avoid_: active server
 - lowered ABI slot 只保留 renderer 实际消费的最小字段：name、C type、cgo Go type、role 和可选 field Go name；不保留只用于解释旧 plan 的 source metadata 或未被 renderer 消费的 cleanup metadata。
 - **Native C ABI lowering** 对未知 streaming kind、非法 operation 和无法组装的 service-level callback 注册 ABI 返回显式 `error`；renderer 逐层传递错误，不使用空 ABI slot 兜底，也不允许 `panic`。
 - C native preamble、callback registration 和 C export renderer 遍历 **Native C ABI lowering** 返回的 operation inventory；renderer 仅在生成文本确实不同的地方按 streaming kind 分支。
-- **Native C ABI lowering** 不表达 callback missing policy、error store lifecycle 语义或 stream handle cleanup；这些分别属于 **Generated service runtime**、error store module 和 stream registry/session glue。
+- **Native C ABI lowering** 不表达 callback missing policy、error store lifecycle 语义或 stream handle cleanup；这些分别属于 **Generated service runtime**、error store module 和 **Runtime core** stream session registry。
 - protobuf schema 中的 unsigned 字段可进入 **Native C ABI lowering** 的 field value slot；proto 无关的 length/count/handle/error id 等辅助 slot 不应使用 unsigned 32/64 类型。
 - 修改 ABI / runtime type mapping 后，必须使用 `docs/release/verification-checklist.md` 验证测试命令和合同扫描。
 - **Registered server** 是新版调用模型的一部分；它不能改变 **Native** 的字段级函数边界语义。
-- **Runtime core** 负责通用 server registry、server kind、stream registry 和 connect stream unsafe shim；**Generated service runtime** 负责 service-specific typed glue、registry lookup、native/message 转换和 flat ABI 编解码。
+- **Runtime core** 负责通用 server registry、server kind、全局 stream session registry 和 connect stream unsafe shim；**Generated service runtime** 负责 service-specific typed glue、registry lookup、native/message 转换和 flat ABI 编解码。
 - Stream 终态操作通过从 stream registry 移除 handle 来表达；移除后的 handle 再操作返回 invalid-handle 错误，不维护额外通用 lifecycle state machine。
-- **Generated service runtime** 可以组合 **Runtime core** 的 stream registry primitive；stream registry 实例保持 service-local，并直接保存 final session。Native/Message source session interface、stream handle facade 和 `{ServerKind, session}` record type 应生成在对应 server contract artifact 中，不应堆在 `*.runtime.rpccgo.go` 中。
+- **Runtime core** 统一持有 stream session registry，并直接保存 `{ServerKind, session}` record。Generated `Start` 负责创建 service-specific typed session 后写入 **Runtime core**；generated stream operation 函数通过 handle 取回 record 后执行 service-specific typed dispatch 与 Native/Message 转换。
+- Generated code 不应生成 service-local stream registry、method-specific final session record、只包一层 handle 的 stream handle facade，或把 `Send`、`Recv`、`Finish`、`CloseSend`、`Cancel` 实现为 handle wrapper 的成员方法。
+- Native/Message source session interface 仍生成在对应 server contract artifact 中，因为它们是 service-specific typed dispatch surface；`{ServerKind, session}` record type 属于 **Runtime core**，不在 generated artifact 中重复生成。
 - Server contract registration helper 应生成在定义该 server contract 的 artifact 中；standard transport registration helper 可以留在 **Generated service runtime** 中。所有 helper 都必须把具体 server 注册到 **Server registry**；用户不直接手写 **Service ID** 或 **Server kind** 调用 runtime primitive。
 - **Generated service runtime** 不应生成 native/message active closure 字段；native/message 差异应由 server contract、registry lookup 和转换逻辑表达。
 - **Registration source** 使用 `Origin + Contract + Transport + Mode` 描述；renderer 选择由这四个维度派生，source plan 不存储 `RecordRenderer`。`Label` 只用于错误文本，不能控制生成逻辑。
@@ -134,7 +136,7 @@ _Avoid_: active server
 - Registration helper 失败时会清空该 **Service ID** 当前 **Registered server** 并返回错误；后续调用应得到 no-active-server 错误，而不是继续使用旧 server。
 - Generated service runtime 暴露 service-specific clear helper 来清空当前 **Registered server**；用户不直接手写 **Service ID** 调用 runtime clear primitive。
 - Unary 调用每次从 **Server registry** 读取 current **Registered server**；重新注册只影响后续 unary 调用和后续 stream `Start`。
-- Streaming `Start` 捕获当前 **Registered server** record 并创建 **Stream session**；后续 stream 操作只通过 stream handle 找回该 session，不重新读取 **Server registry**，也不通过 operation closure 调用。
+- Streaming `Start` 捕获当前 **Registered server** record 并创建 **Stream session**；后续 stream 操作只通过 stream handle 从 **Runtime core** 找回该 session，不重新读取 **Server registry**，也不通过 operation closure 调用。
 - 外部包只能通过 generated package-level entry 函数进入；不应再生成只转发到内部对象的 public client object，也不应保留 runtime forwarding struct。
 - 无 registered server 使用 `rpcruntime.ErrNoActiveServer`。错误必须显式传递。
 - **Remote registered server** 使用标准 transport client 作为注册输入；rpccgo generated code 不应构造 per-method client。

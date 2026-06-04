@@ -1,76 +1,73 @@
 package rpcruntime
 
-// StreamSession is the runtime-visible part of a generated stream session.
-// Generated service runtime owns method-specific dispatch; runtime core only
-// coordinates registry lookup and final removal.
-type StreamSession interface {
-	comparable
+var streamSessions StreamRegistry
+
+// StreamSession is the runtime-visible record for one active stream.
+// Runtime core owns the handle registry and terminal removal; generated service
+// code owns method-specific typed dispatch and Native/Message conversion.
+type StreamSession struct {
+	Kind    ServerKind
+	Session any
 }
 
-func LoadStreamSession[T StreamSession](registry *StreamRegistry, handle StreamHandle) (T, error) {
-	return loadStreamSession[T](registry, handle)
-}
-
-func SendStreamSession[T StreamSession](registry *StreamRegistry, handle StreamHandle) (T, error) {
-	return loadStreamSession[T](registry, handle)
-}
-
-func CloseSendStreamSession[T StreamSession](registry *StreamRegistry, handle StreamHandle) (T, error) {
-	return loadStreamSession[T](registry, handle)
-}
-
-func RecvStreamSession[T StreamSession](registry *StreamRegistry, handle StreamHandle) (T, error) {
-	return loadStreamSession[T](registry, handle)
-}
-
-func FinishStreamSession[T StreamSession](registry *StreamRegistry, handle StreamHandle) (T, error) {
-	session, err := loadStreamSession[T](registry, handle)
-	if err != nil {
-		return session, err
+func CreateStreamSession(kind ServerKind, session any) (StreamHandle, error) {
+	if kind <= ServerKindInvalid || kind > ServerKindGRPCRemote {
+		return 0, ErrInvalidServerKind
 	}
-	taken, ok := registry.Take(handle)
+	if !hasNonZeroSession(session) {
+		return 0, errStreamRegistryZeroSession
+	}
+	return streamSessions.Create(StreamSession{Kind: kind, Session: session})
+}
+
+func LoadStreamSession(handle StreamHandle) (StreamSession, error) {
+	return loadStreamSession(handle)
+}
+
+func SendStreamSession(handle StreamHandle) (StreamSession, error) {
+	return loadStreamSession(handle)
+}
+
+func CloseSendStreamSession(handle StreamHandle) (StreamSession, error) {
+	return loadStreamSession(handle)
+}
+
+func RecvStreamSession(handle StreamHandle) (StreamSession, error) {
+	return loadStreamSession(handle)
+}
+
+func FinishStreamSession(handle StreamHandle) (StreamSession, error) {
+	return takeStreamSession(handle)
+}
+
+func CancelStreamSession(handle StreamHandle) (StreamSession, error) {
+	return takeStreamSession(handle)
+}
+
+func ResetStreamSessionsForTesting() {
+	streamSessions = StreamRegistry{}
+}
+
+func loadStreamSession(handle StreamHandle) (StreamSession, error) {
+	value, ok := streamSessions.Load(handle)
 	if !ok {
-		var zero T
-		return zero, ErrStreamInvalidHandle
+		return StreamSession{}, ErrStreamInvalidHandle
 	}
-	takenSession, ok := taken.(T)
-	if !ok || takenSession != session {
-		var zero T
-		return zero, ErrStreamInvalidHandle
+	session, ok := value.(StreamSession)
+	if !ok {
+		return StreamSession{}, ErrStreamInvalidHandle
 	}
 	return session, nil
 }
 
-func CancelStreamSession[T StreamSession](registry *StreamRegistry, handle StreamHandle) (T, error) {
-	session, err := loadStreamSession[T](registry, handle)
-	if err != nil {
-		return session, err
-	}
-	taken, ok := registry.Take(handle)
+func takeStreamSession(handle StreamHandle) (StreamSession, error) {
+	value, ok := streamSessions.Take(handle)
 	if !ok {
-		var zero T
-		return zero, ErrStreamInvalidHandle
+		return StreamSession{}, ErrStreamInvalidHandle
 	}
-	takenSession, ok := taken.(T)
-	if !ok || takenSession != session {
-		var zero T
-		return zero, ErrStreamInvalidHandle
-	}
-	return session, nil
-}
-
-func loadStreamSession[T StreamSession](registry *StreamRegistry, handle StreamHandle) (T, error) {
-	var zero T
-	if registry == nil {
-		return zero, ErrStreamInvalidHandle
-	}
-	value, ok := registry.Load(handle)
+	session, ok := value.(StreamSession)
 	if !ok {
-		return zero, ErrStreamInvalidHandle
-	}
-	session, ok := value.(T)
-	if !ok {
-		return zero, ErrStreamInvalidHandle
+		return StreamSession{}, ErrStreamInvalidHandle
 	}
 	return session, nil
 }

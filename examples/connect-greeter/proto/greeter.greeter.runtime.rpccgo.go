@@ -21,7 +21,6 @@ import (
 
 const greeterServiceID rpcruntime.ServiceID = "examples.connect.greeter.v1.Greeter"
 
-var greeterStreamRegistry rpcruntime.StreamRegistry
 var GreeterNativeServerUnavailableErr = errors.New("rpccgo: native server is unavailable")
 var GreeterMessageServerUnavailableErr = errors.New("rpccgo: message server is unavailable")
 
@@ -704,7 +703,7 @@ func StartGreeterNativeCollect(ctx context.Context) (rpcruntime.StreamHandle, er
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterCollectNativeStreamSession{kind: rpcruntime.ServerKindGoNative, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindGoNative, source)
 	case rpcruntime.ServerKindCGONative:
 		server, ok := registered.Server.(GreeterNativeServer)
 		if !ok {
@@ -715,7 +714,7 @@ func StartGreeterNativeCollect(ctx context.Context) (rpcruntime.StreamHandle, er
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterCollectNativeStreamSession{kind: rpcruntime.ServerKindCGONative, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindCGONative, source)
 	case rpcruntime.ServerKindCGOMessage:
 		server, ok := registered.Server.(GreeterCGOMessageServer)
 		if !ok {
@@ -726,14 +725,14 @@ func StartGreeterNativeCollect(ctx context.Context) (rpcruntime.StreamHandle, er
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterCollectNativeStreamSession{kind: rpcruntime.ServerKindCGOMessage, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindCGOMessage, source)
 	case rpcruntime.ServerKindConnect:
 		server, ok := registered.Server.(GreeterHandler)
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter connect handler registered server has invalid type")
 		}
 		source := newgreeterCollectConnectDirectMessageStreamSession(ctx, server)
-		return greeterStreamRegistry.Create(&greeterCollectNativeStreamSession{kind: rpcruntime.ServerKindConnect, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindConnect, source)
 	case rpcruntime.ServerKindConnectRemote:
 		server, ok := registered.Server.(GreeterClient)
 		if !ok {
@@ -743,7 +742,7 @@ func StartGreeterNativeCollect(ctx context.Context) (rpcruntime.StreamHandle, er
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterCollectNativeStreamSession{kind: rpcruntime.ServerKindConnectRemote, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindConnectRemote, source)
 	default:
 		return 0, fmt.Errorf("rpccgo: Greeter registered server kind %d is unsupported for native stream starts", registered.Kind)
 	}
@@ -765,7 +764,7 @@ func StartGreeterMessageCollect(ctx context.Context) (rpcruntime.StreamHandle, e
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterCollectMessageStreamSession{kind: rpcruntime.ServerKindGoNative, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindGoNative, source)
 	case rpcruntime.ServerKindCGONative:
 		server, ok := registered.Server.(GreeterNativeServer)
 		if !ok {
@@ -776,7 +775,7 @@ func StartGreeterMessageCollect(ctx context.Context) (rpcruntime.StreamHandle, e
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterCollectMessageStreamSession{kind: rpcruntime.ServerKindCGONative, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindCGONative, source)
 	case rpcruntime.ServerKindCGOMessage:
 		server, ok := registered.Server.(GreeterCGOMessageServer)
 		if !ok {
@@ -787,14 +786,14 @@ func StartGreeterMessageCollect(ctx context.Context) (rpcruntime.StreamHandle, e
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterCollectMessageStreamSession{kind: rpcruntime.ServerKindCGOMessage, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindCGOMessage, source)
 	case rpcruntime.ServerKindConnect:
 		server, ok := registered.Server.(GreeterHandler)
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter connect handler registered server has invalid type")
 		}
 		source := newgreeterCollectConnectDirectMessageStreamSession(ctx, server)
-		return greeterStreamRegistry.Create(&greeterCollectMessageStreamSession{kind: rpcruntime.ServerKindConnect, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindConnect, source)
 	case rpcruntime.ServerKindConnectRemote:
 		server, ok := registered.Server.(GreeterClient)
 		if !ok {
@@ -804,7 +803,7 @@ func StartGreeterMessageCollect(ctx context.Context) (rpcruntime.StreamHandle, e
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterCollectMessageStreamSession{kind: rpcruntime.ServerKindConnectRemote, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindConnectRemote, source)
 	default:
 		return 0, fmt.Errorf("rpccgo: Greeter registered server kind %d is unsupported for message stream starts", registered.Kind)
 	}
@@ -826,7 +825,7 @@ func StartGreeterNativeBroadcast(ctx context.Context, name *rpcruntime.RpcString
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterBroadcastNativeStreamSession{kind: rpcruntime.ServerKindGoNative, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindGoNative, source)
 	case rpcruntime.ServerKindCGONative:
 		server, ok := registered.Server.(GreeterNativeServer)
 		if !ok {
@@ -837,7 +836,7 @@ func StartGreeterNativeBroadcast(ctx context.Context, name *rpcruntime.RpcString
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterBroadcastNativeStreamSession{kind: rpcruntime.ServerKindCGONative, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindCGONative, source)
 	case rpcruntime.ServerKindCGOMessage:
 		server, ok := registered.Server.(GreeterCGOMessageServer)
 		if !ok {
@@ -852,7 +851,7 @@ func StartGreeterNativeBroadcast(ctx context.Context, name *rpcruntime.RpcString
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterBroadcastNativeStreamSession{kind: rpcruntime.ServerKindCGOMessage, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindCGOMessage, source)
 	case rpcruntime.ServerKindConnect:
 		server, ok := registered.Server.(GreeterHandler)
 		if !ok {
@@ -866,7 +865,7 @@ func StartGreeterNativeBroadcast(ctx context.Context, name *rpcruntime.RpcString
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterBroadcastNativeStreamSession{kind: rpcruntime.ServerKindConnect, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindConnect, source)
 	case rpcruntime.ServerKindConnectRemote:
 		server, ok := registered.Server.(GreeterClient)
 		if !ok {
@@ -880,7 +879,7 @@ func StartGreeterNativeBroadcast(ctx context.Context, name *rpcruntime.RpcString
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterBroadcastNativeStreamSession{kind: rpcruntime.ServerKindConnectRemote, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindConnectRemote, source)
 	default:
 		return 0, fmt.Errorf("rpccgo: Greeter registered server kind %d is unsupported for native stream starts", registered.Kind)
 	}
@@ -907,7 +906,7 @@ func StartGreeterMessageBroadcast(ctx context.Context, req []byte) (rpcruntime.S
 			return 0, err
 		}
 		goruntime.KeepAlive(reqOwner)
-		return greeterStreamRegistry.Create(&greeterBroadcastMessageStreamSession{kind: rpcruntime.ServerKindGoNative, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindGoNative, source)
 	case rpcruntime.ServerKindCGONative:
 		server, ok := registered.Server.(GreeterNativeServer)
 		if !ok {
@@ -923,7 +922,7 @@ func StartGreeterMessageBroadcast(ctx context.Context, req []byte) (rpcruntime.S
 			return 0, err
 		}
 		goruntime.KeepAlive(reqOwner)
-		return greeterStreamRegistry.Create(&greeterBroadcastMessageStreamSession{kind: rpcruntime.ServerKindCGONative, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindCGONative, source)
 	case rpcruntime.ServerKindCGOMessage:
 		server, ok := registered.Server.(GreeterCGOMessageServer)
 		if !ok {
@@ -934,7 +933,7 @@ func StartGreeterMessageBroadcast(ctx context.Context, req []byte) (rpcruntime.S
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterBroadcastMessageStreamSession{kind: rpcruntime.ServerKindCGOMessage, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindCGOMessage, source)
 	case rpcruntime.ServerKindConnect:
 		server, ok := registered.Server.(GreeterHandler)
 		if !ok {
@@ -944,7 +943,7 @@ func StartGreeterMessageBroadcast(ctx context.Context, req []byte) (rpcruntime.S
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterBroadcastMessageStreamSession{kind: rpcruntime.ServerKindConnect, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindConnect, source)
 	case rpcruntime.ServerKindConnectRemote:
 		server, ok := registered.Server.(GreeterClient)
 		if !ok {
@@ -954,7 +953,7 @@ func StartGreeterMessageBroadcast(ctx context.Context, req []byte) (rpcruntime.S
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterBroadcastMessageStreamSession{kind: rpcruntime.ServerKindConnectRemote, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindConnectRemote, source)
 	default:
 		return 0, fmt.Errorf("rpccgo: Greeter registered server kind %d is unsupported for message stream starts", registered.Kind)
 	}
@@ -976,7 +975,7 @@ func StartGreeterNativeChat(ctx context.Context) (rpcruntime.StreamHandle, error
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterChatNativeStreamSession{kind: rpcruntime.ServerKindGoNative, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindGoNative, source)
 	case rpcruntime.ServerKindCGONative:
 		server, ok := registered.Server.(GreeterNativeServer)
 		if !ok {
@@ -987,7 +986,7 @@ func StartGreeterNativeChat(ctx context.Context) (rpcruntime.StreamHandle, error
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterChatNativeStreamSession{kind: rpcruntime.ServerKindCGONative, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindCGONative, source)
 	case rpcruntime.ServerKindCGOMessage:
 		server, ok := registered.Server.(GreeterCGOMessageServer)
 		if !ok {
@@ -998,14 +997,14 @@ func StartGreeterNativeChat(ctx context.Context) (rpcruntime.StreamHandle, error
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterChatNativeStreamSession{kind: rpcruntime.ServerKindCGOMessage, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindCGOMessage, source)
 	case rpcruntime.ServerKindConnect:
 		server, ok := registered.Server.(GreeterHandler)
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter connect handler registered server has invalid type")
 		}
 		source := newgreeterChatConnectDirectMessageStreamSession(ctx, server)
-		return greeterStreamRegistry.Create(&greeterChatNativeStreamSession{kind: rpcruntime.ServerKindConnect, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindConnect, source)
 	case rpcruntime.ServerKindConnectRemote:
 		server, ok := registered.Server.(GreeterClient)
 		if !ok {
@@ -1015,7 +1014,7 @@ func StartGreeterNativeChat(ctx context.Context) (rpcruntime.StreamHandle, error
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterChatNativeStreamSession{kind: rpcruntime.ServerKindConnectRemote, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindConnectRemote, source)
 	default:
 		return 0, fmt.Errorf("rpccgo: Greeter registered server kind %d is unsupported for native stream starts", registered.Kind)
 	}
@@ -1037,7 +1036,7 @@ func StartGreeterMessageChat(ctx context.Context) (rpcruntime.StreamHandle, erro
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterChatMessageStreamSession{kind: rpcruntime.ServerKindGoNative, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindGoNative, source)
 	case rpcruntime.ServerKindCGONative:
 		server, ok := registered.Server.(GreeterNativeServer)
 		if !ok {
@@ -1048,7 +1047,7 @@ func StartGreeterMessageChat(ctx context.Context) (rpcruntime.StreamHandle, erro
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterChatMessageStreamSession{kind: rpcruntime.ServerKindCGONative, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindCGONative, source)
 	case rpcruntime.ServerKindCGOMessage:
 		server, ok := registered.Server.(GreeterCGOMessageServer)
 		if !ok {
@@ -1059,14 +1058,14 @@ func StartGreeterMessageChat(ctx context.Context) (rpcruntime.StreamHandle, erro
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterChatMessageStreamSession{kind: rpcruntime.ServerKindCGOMessage, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindCGOMessage, source)
 	case rpcruntime.ServerKindConnect:
 		server, ok := registered.Server.(GreeterHandler)
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter connect handler registered server has invalid type")
 		}
 		source := newgreeterChatConnectDirectMessageStreamSession(ctx, server)
-		return greeterStreamRegistry.Create(&greeterChatMessageStreamSession{kind: rpcruntime.ServerKindConnect, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindConnect, source)
 	case rpcruntime.ServerKindConnectRemote:
 		server, ok := registered.Server.(GreeterClient)
 		if !ok {
@@ -1076,7 +1075,7 @@ func StartGreeterMessageChat(ctx context.Context) (rpcruntime.StreamHandle, erro
 		if err != nil {
 			return 0, err
 		}
-		return greeterStreamRegistry.Create(&greeterChatMessageStreamSession{kind: rpcruntime.ServerKindConnectRemote, session: source})
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindConnectRemote, source)
 	default:
 		return 0, fmt.Errorf("rpccgo: Greeter registered server kind %d is unsupported for message stream starts", registered.Kind)
 	}

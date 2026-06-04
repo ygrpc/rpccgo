@@ -110,7 +110,7 @@ import rpcruntime "rpccgo/rpcruntime"
 
 func ResetRepeatedGreeterServerForIntegrationTest() {
 	_ = ClearRepeatedGreeterServer()
-	repeatedGreeterStreamRegistry = rpcruntime.StreamRegistry{}
+	rpcruntime.ResetStreamSessionsForTesting()
 }
 `
 
