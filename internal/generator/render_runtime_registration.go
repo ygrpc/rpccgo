@@ -53,14 +53,14 @@ func renderRuntimeRegistrationForSource(g *protogen.GeneratedFile, ctx runtimeRe
 	case runtimeRegistrationBindingKindNative:
 		g.P("func ", projection.registerName, "(", projection.inputName, " ", projection.inputType, ") error {")
 		g.P("if ", projection.inputName, " == nil { return ", projection.nilErr, " }")
-		g.P("serverBinding := &", ctx.nativeBindingName, "{server: ", projection.sourceExpr, "}")
+		renderRuntimeServerBindingLiteral(g, ctx.nativeBindingName, projection.sourceExpr, ctx.methods, "serverBinding")
 		renderRuntimeNativeBinding(g, ctx.service, ctx.methods, ctx.currentNativeBindingName, ctx.nativeActiveBindingName, "serverBinding")
 		g.P("}")
 		g.P()
 	case runtimeRegistrationBindingKindMessage:
 		g.P("func ", projection.registerName, "(", projection.inputName, " ", projection.inputType, ") error {")
 		g.P("if ", projection.inputName, " == nil { return ", projection.nilErr, " }")
-		g.P("serverBinding := &", ctx.messageBindingName, "{server: ", projection.sourceExpr, "}")
+		renderRuntimeServerBindingLiteral(g, ctx.messageBindingName, projection.sourceExpr, ctx.methods, "serverBinding")
 		renderRuntimeMessageBinding(g, ctx.service, ctx.methods, ctx.currentMessageBindingName, ctx.messageActiveBindingName, "serverBinding")
 		g.P("}")
 		g.P()
@@ -76,4 +76,12 @@ func renderRuntimeRegistrationForSource(g *protogen.GeneratedFile, ctx runtimeRe
 		return fmt.Errorf("unknown runtime registration binding kind %q", projection.bindingKind)
 	}
 	return nil
+}
+
+func renderRuntimeServerBindingLiteral(g *protogen.GeneratedFile, bindingName, sourceExpr string, methods []runtimeMethodProjection, targetName string) {
+	g.P(targetName, " := &", bindingName, "{")
+	for _, method := range methods {
+		g.P(lowerInitial(method.Identity.GoName), ": ", sourceExpr, ".", method.Identity.GoName, ",")
+	}
+	g.P("}")
 }

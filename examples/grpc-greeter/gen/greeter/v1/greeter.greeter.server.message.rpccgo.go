@@ -66,11 +66,18 @@ func RegisterGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
 // greeterMessageBinding exposes a message server implementation through the
 // method shape used while building a greeterMessageActiveBinding.
 type greeterMessageBinding struct {
-	server GreeterCGOMessageServer
+	sayHello  func(ctx context.Context, req []byte) ([]byte, error)
+	collect   func(ctx context.Context, stream GreeterCollectMessageClientStream) ([]byte, error)
+	broadcast func(ctx context.Context, req []byte, stream GreeterBroadcastMessageServerStream) error
+	chat      func(ctx context.Context, stream GreeterChatMessageBidiStream) error
 }
 
 func (a *greeterMessageBinding) SayHello(ctx context.Context, req []byte) ([]byte, error) {
-	return a.server.SayHello(ctx, req)
+	return a.sayHello(ctx, req)
+}
+
+func (a *greeterMessageBinding) Collect(ctx context.Context, stream GreeterCollectMessageClientStream) ([]byte, error) {
+	return a.collect(ctx, stream)
 }
 
 func (a *greeterMessageBinding) StartCollect(ctx context.Context) (GreeterCollectMessageStreamSession, error) {
@@ -78,7 +85,7 @@ func (a *greeterMessageBinding) StartCollect(ctx context.Context) (GreeterCollec
 	session := &greeterCollectMessageServerClientStreamSession{ctx: streamCtx, cancel: cancel, requests: make(chan greeterCollectMessageServerClientStreamSessionRequest, 16), sendDone: make(chan struct{}), done: make(chan struct{})}
 	go func() {
 		defer close(session.done)
-		session.resp, session.err = a.server.Collect(streamCtx, session)
+		session.resp, session.err = a.Collect(streamCtx, session)
 	}()
 	return session, nil
 }
@@ -193,6 +200,10 @@ func (s *greeterCollectMessageServerClientStreamSession) Cancel(ctx context.Cont
 	}
 }
 
+func (a *greeterMessageBinding) Broadcast(ctx context.Context, req []byte, stream GreeterBroadcastMessageServerStream) error {
+	return a.broadcast(ctx, req, stream)
+}
+
 func (a *greeterMessageBinding) StartBroadcast(ctx context.Context, req []byte) (GreeterBroadcastMessageStreamSession, error) {
 	streamCtx, cancel := context.WithCancel(ctx)
 	finishCtx, finishCancel := context.WithCancel(context.Background())
@@ -200,7 +211,7 @@ func (a *greeterMessageBinding) StartBroadcast(ctx context.Context, req []byte) 
 	req = append([]byte(nil), req...)
 	go func() {
 		defer close(session.done)
-		session.err = a.server.Broadcast(streamCtx, req, session)
+		session.err = a.Broadcast(streamCtx, req, session)
 	}()
 	return session, nil
 }
@@ -346,13 +357,17 @@ func (s *greeterBroadcastMessageServerServerStreamSession) Cancel(ctx context.Co
 	}
 }
 
+func (a *greeterMessageBinding) Chat(ctx context.Context, stream GreeterChatMessageBidiStream) error {
+	return a.chat(ctx, stream)
+}
+
 func (a *greeterMessageBinding) StartChat(ctx context.Context) (GreeterChatMessageStreamSession, error) {
 	streamCtx, cancel := context.WithCancel(ctx)
 	finishCtx, finishCancel := context.WithCancel(context.Background())
 	session := &greeterChatMessageServerBidiStreamSession{ctx: streamCtx, cancel: cancel, finishCtx: finishCtx, finishCancel: finishCancel, requests: make(chan greeterChatMessageServerBidiStreamSessionRequest, 16), sendDone: make(chan struct{}), sendDoneReceived: make(chan struct{}), responses: make(chan greeterChatMessageServerBidiStreamSessionResponse, 1), done: make(chan struct{})}
 	go func() {
 		defer close(session.done)
-		session.err = a.server.Chat(streamCtx, &greeterChatMessageServerBidiStreamFacade{session: session})
+		session.err = a.Chat(streamCtx, &greeterChatMessageServerBidiStreamFacade{session: session})
 	}()
 	return session, nil
 }

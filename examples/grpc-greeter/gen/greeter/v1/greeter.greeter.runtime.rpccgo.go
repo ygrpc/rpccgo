@@ -67,12 +67,216 @@ type greeterNativeActiveBinding struct {
 	startChat      func(ctx context.Context) (*greeterChatNativeStreamSession, error)
 }
 
+func (a *greeterNativeActiveBinding) SayHello(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error) {
+	return a.invokeSayHello(ctx, name, city)
+}
+
+func (a *greeterNativeActiveBinding) Collect(ctx context.Context, stream GreeterCollectNativeClientStream) (string, error) {
+	session, err := a.startCollect(ctx)
+	if err != nil {
+		return "", err
+	}
+	for {
+		name, city, err := stream.Recv(ctx)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return session.finish(ctx)
+			}
+			_ = session.cancel(ctx)
+			return "", err
+		}
+		if err := session.send(ctx, name, city); err != nil {
+			_ = session.cancel(ctx)
+			return "", err
+		}
+	}
+}
+
+func (a *greeterNativeActiveBinding) Broadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString, stream GreeterBroadcastNativeServerStream) error {
+	session, err := a.startBroadcast(ctx, name, city)
+	if err != nil {
+		return err
+	}
+	for {
+		messageResult, err := session.recv(ctx)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return session.finish(ctx)
+			}
+			_ = session.cancel(ctx)
+			return err
+		}
+		if err := stream.Send(ctx, messageResult); err != nil {
+			if errors.Is(err, io.EOF) {
+				return session.finish(ctx)
+			}
+			_ = session.cancel(ctx)
+			return err
+		}
+	}
+}
+
+func (a *greeterNativeActiveBinding) Chat(ctx context.Context, stream GreeterChatNativeBidiStream) error {
+	session, err := a.startChat(ctx)
+	if err != nil {
+		return err
+	}
+	errs := make(chan error, 2)
+	go func() {
+		for {
+			name, city, err := stream.Recv(ctx)
+			if errors.Is(err, io.EOF) {
+				errs <- session.closeSend(ctx)
+				return
+			}
+			if err != nil {
+				errs <- err
+				return
+			}
+			if err := session.send(ctx, name, city); err != nil {
+				errs <- err
+				return
+			}
+		}
+	}()
+	go func() {
+		for {
+			messageResult, err := session.recv(ctx)
+			if errors.Is(err, io.EOF) {
+				errs <- session.finish(ctx)
+				return
+			}
+			if err != nil {
+				errs <- err
+				return
+			}
+			if err := stream.Send(ctx, messageResult); err != nil {
+				if errors.Is(err, io.EOF) {
+					errs <- session.finish(ctx)
+					return
+				}
+				errs <- err
+				return
+			}
+		}
+	}()
+	for range 2 {
+		if err := <-errs; err != nil {
+			_ = session.cancel(ctx)
+			return err
+		}
+	}
+	return nil
+}
+
 // greeterMessageActiveBinding is the immutable message active closure set.
 type greeterMessageActiveBinding struct {
 	invokeSayHello func(ctx context.Context, req []byte) ([]byte, error)
 	startCollect   func(ctx context.Context) (*greeterCollectMessageStreamSession, error)
 	startBroadcast func(ctx context.Context, req []byte) (*greeterBroadcastMessageStreamSession, error)
 	startChat      func(ctx context.Context) (*greeterChatMessageStreamSession, error)
+}
+
+func (a *greeterMessageActiveBinding) SayHello(ctx context.Context, req []byte) ([]byte, error) {
+	return a.invokeSayHello(ctx, req)
+}
+
+func (a *greeterMessageActiveBinding) Collect(ctx context.Context, stream GreeterCollectMessageClientStream) ([]byte, error) {
+	session, err := a.startCollect(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for {
+		req, err := stream.Recv(ctx)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return session.finish(ctx)
+			}
+			_ = session.cancel(ctx)
+			return nil, err
+		}
+		if err := session.send(ctx, req); err != nil {
+			_ = session.cancel(ctx)
+			return nil, err
+		}
+	}
+}
+
+func (a *greeterMessageActiveBinding) Broadcast(ctx context.Context, req []byte, stream GreeterBroadcastMessageServerStream) error {
+	session, err := a.startBroadcast(ctx, req)
+	if err != nil {
+		return err
+	}
+	for {
+		resp, err := session.recv(ctx)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return session.finish(ctx)
+			}
+			_ = session.cancel(ctx)
+			return err
+		}
+		if err := stream.Send(ctx, resp); err != nil {
+			if errors.Is(err, io.EOF) {
+				return session.finish(ctx)
+			}
+			_ = session.cancel(ctx)
+			return err
+		}
+	}
+}
+
+func (a *greeterMessageActiveBinding) Chat(ctx context.Context, stream GreeterChatMessageBidiStream) error {
+	session, err := a.startChat(ctx)
+	if err != nil {
+		return err
+	}
+	errs := make(chan error, 2)
+	go func() {
+		for {
+			req, err := stream.Recv(ctx)
+			if errors.Is(err, io.EOF) {
+				errs <- session.closeSend(ctx)
+				return
+			}
+			if err != nil {
+				errs <- err
+				return
+			}
+			if err := session.send(ctx, req); err != nil {
+				errs <- err
+				return
+			}
+		}
+	}()
+	go func() {
+		for {
+			resp, err := session.recv(ctx)
+			if errors.Is(err, io.EOF) {
+				errs <- session.finish(ctx)
+				return
+			}
+			if err != nil {
+				errs <- err
+				return
+			}
+			if err := stream.Send(ctx, resp); err != nil {
+				if errors.Is(err, io.EOF) {
+					errs <- session.finish(ctx)
+					return
+				}
+				errs <- err
+				return
+			}
+		}
+	}()
+	for range 2 {
+		if err := <-errs; err != nil {
+			_ = session.cancel(ctx)
+			return err
+		}
+	}
+	return nil
 }
 
 type greeterCollectNativeStreamSession struct {
@@ -384,7 +588,12 @@ func registerGreeterGoNativeServer(server GreeterNativeServer) error {
 	if server == nil {
 		return GreeterNativeServerUnavailableErr
 	}
-	serverBinding := &greeterNativeBinding{server: server}
+	serverBinding := &greeterNativeBinding{
+		sayHello:  server.SayHello,
+		collect:   server.Collect,
+		broadcast: server.Broadcast,
+		chat:      server.Chat,
+	}
 	nativeBinding := &greeterNativeActiveBinding{}
 	nativeBinding.invokeSayHello = func(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error) {
 		return serverBinding.SayHello(ctx, name, city)
@@ -436,7 +645,12 @@ func registerGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
 	if server == nil {
 		return GreeterMessageServerUnavailableErr
 	}
-	serverBinding := &greeterMessageBinding{server: server}
+	serverBinding := &greeterMessageBinding{
+		sayHello:  server.SayHello,
+		collect:   server.Collect,
+		broadcast: server.Broadcast,
+		chat:      server.Chat,
+	}
 	messageBinding := &greeterMessageActiveBinding{}
 	messageBinding.invokeSayHello = serverBinding.SayHello
 	messageBinding.startCollect = func(ctx context.Context) (*greeterCollectMessageStreamSession, error) {

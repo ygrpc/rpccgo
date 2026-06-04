@@ -31,6 +31,12 @@ func TestRenderMessageServerDefinesUnimplementedHelper(t *testing.T) {
 		"func (UnimplementedAllServiceCGOMessageServer) BidiStream(ctx context.Context, stream AllServiceBidiStreamMessageBidiStream) error {",
 		"func RegisterAllServiceCGOMessageServer(server AllServiceCGOMessageServer) error {",
 		"return registerAllServiceCGOMessageServer(server)",
+		"type allServiceMessageBinding struct {",
+		"unary        func(ctx context.Context, req []byte) ([]byte, error)",
+		"clientStream func(ctx context.Context, stream AllServiceClientStreamMessageClientStream) ([]byte, error)",
+		"func (a *allServiceMessageBinding) ClientStream(ctx context.Context, stream AllServiceClientStreamMessageClientStream) ([]byte, error)",
+		"func (a *allServiceMessageBinding) ServerStream(ctx context.Context, req []byte, stream AllServiceServerStreamMessageServerStream) error",
+		"func (a *allServiceMessageBinding) BidiStream(ctx context.Context, stream AllServiceBidiStreamMessageBidiStream) error",
 		"case <-s.done:",
 	} {
 		assertGeneratedContentContains(t, plugin, messageServerFile, fragment)
@@ -38,6 +44,7 @@ func TestRenderMessageServerDefinesUnimplementedHelper(t *testing.T) {
 	assertGeneratedFileContentDoesNotContain(t, plugin, messageServerFile,
 		"rpcruntime.AdapterSnapshot",
 		`rpcruntime "rpccgo/rpcruntime"`,
+		"\tserver AllServiceCGOMessageServer",
 		"defer close(session.responses)",
 		"closeResponses",
 		"responsesMu",
