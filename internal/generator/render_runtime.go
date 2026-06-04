@@ -58,7 +58,7 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	currentBindingName := lowerInitial(service.GoName) + "CurrentBinding"
 	streamRegistryName := lowerInitial(service.GoName) + "StreamRegistry"
 
-	if !service.HasArtifact(GeneratedArtifactKindNativeServer) {
+	if service.Generation.NativeEnabled && !service.HasArtifact(GeneratedArtifactKindNativeServer) {
 		renderGoNativeServerInterface(g, service, adapterName)
 		renderGoNativeStreamInterfaces(g, service)
 	}
@@ -79,7 +79,9 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P("// Existing stream handles keep using the binding captured by Start.")
 	g.P("var ", currentBindingName, " atomic.Pointer[", activeServerName, "]")
 	g.P("var ", streamRegistryName, " rpcruntime.StreamRegistry")
-	g.P("var ", service.GoName, `NativeServerUnavailableErr = errors.New("rpccgo: native server is unavailable")`)
+	if service.Generation.NativeEnabled {
+		g.P("var ", service.GoName, `NativeServerUnavailableErr = errors.New("rpccgo: native server is unavailable")`)
+	}
 	g.P("var ", service.GoName, `MessageServerUnavailableErr = errors.New("rpccgo: message server is unavailable")`)
 	g.P()
 

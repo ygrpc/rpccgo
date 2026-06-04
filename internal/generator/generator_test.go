@@ -275,6 +275,14 @@ func TestGenerateWithMessageOnlySelectionSkipsNativeArtifacts(t *testing.T) {
 	assertNoGeneratedFilenameContains(t, plugin, ".server.native.", ".client.native.", ".connect.", ".grpc.", ".remote.")
 	assertGeneratedContentDoesNotContain(t, plugin, "go native server", "cgo native server", "cgo native client", "connectrpc.com/connect", "google.golang.org/grpc")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "rpccgo service runtime generated file for Greeter")
+	assertGeneratedFileContentDoesNotContain(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go",
+		"type GreeterNativeServer interface {",
+		"type UnimplementedGreeterNativeServer struct{}",
+		"type greeterNativeBinding struct {",
+		"func RegisterGreeterGoNativeServer(server GreeterNativeServer) error {",
+		"func RegisterGreeterCGONativeServer(server GreeterNativeServer) error {",
+		"GreeterNativeServerUnavailableErr",
+	)
 }
 
 func TestGenerateWithNativeSelectionUsesNonSourceRelativeGeneratedPrefix(t *testing.T) {
