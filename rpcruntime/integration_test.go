@@ -11,7 +11,7 @@ import (
 const rpcInputCleanupDeadline = 2 * time.Second
 
 func TestTakeErrorTextUsesUnifiedReleasePath(t *testing.T) {
-	id := StoreError(errors.New("bridge failure"))
+	id := StoreError(errors.New("stored failure"))
 
 	_, ptr, ok := TakeErrorText(id)
 	if !ok {
@@ -26,7 +26,7 @@ func TestTakeErrorTextUsesUnifiedReleasePath(t *testing.T) {
 }
 
 func TestTakeErrorTextForExportPopulatesInt32LengthSlot(t *testing.T) {
-	id := StoreError(errors.New("bridge failure"))
+	id := StoreError(errors.New("stored failure"))
 
 	var textPtr uintptr
 	var textLen int32 = -1
@@ -37,8 +37,8 @@ func TestTakeErrorTextForExportPopulatesInt32LengthSlot(t *testing.T) {
 	if textPtr == 0 {
 		t.Fatal("expected TakeErrorTextForExport to populate the text pointer")
 	}
-	if textLen != int32(len("bridge failure")) {
-		t.Fatalf("unexpected error text length: got %d want %d", textLen, len("bridge failure"))
+	if textLen != int32(len("stored failure")) {
+		t.Fatalf("unexpected error text length: got %d want %d", textLen, len("stored failure"))
 	}
 	if !Release(textPtr) {
 		t.Fatal("expected exported error text pointer to be releasable")
@@ -48,7 +48,7 @@ func TestTakeErrorTextForExportPopulatesInt32LengthSlot(t *testing.T) {
 func TestTakeErrorTextForExportKeepsRecordAndReleasesPointerWhenLengthConversionFails(t *testing.T) {
 	resetErrorRuntimeStateForTesting(t)
 
-	id := StoreError(errors.New("bridge failure"))
+	id := StoreError(errors.New("stored failure"))
 	errorTextLengthToInt32ForExport = func(int) (int32, error) {
 		return 0, errors.New("length overflow")
 	}
@@ -75,8 +75,8 @@ func TestTakeErrorTextForExportKeepsRecordAndReleasesPointerWhenLengthConversion
 	if textPtr == 0 {
 		t.Fatal("expected retry to populate text pointer")
 	}
-	if textLen != int32(len("bridge failure")) {
-		t.Fatalf("unexpected retry text length: got %d want %d", textLen, len("bridge failure"))
+	if textLen != int32(len("stored failure")) {
+		t.Fatalf("unexpected retry text length: got %d want %d", textLen, len("stored failure"))
 	}
 	if !Release(textPtr) {
 		t.Fatal("expected retry pointer to be releasable")

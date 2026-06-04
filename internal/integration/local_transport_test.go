@@ -183,7 +183,7 @@ func registerTransportGoNativeServer(t *testing.T) {
 
 func startConnectTransport(t *testing.T) (*http.Client, string, func()) {
 	t.Helper()
-	_, handler := v1.NewGreeterHandler(v1.GreeterBridgeForIntegrationTest())
+	_, handler := v1.NewGreeterHandler(v1.GreeterEntryForIntegrationTest())
 	server := httptest.NewUnstartedServer(handler)
 	server.EnableHTTP2 = true
 	server.StartTLS()

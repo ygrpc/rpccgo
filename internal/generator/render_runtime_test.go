@@ -37,8 +37,8 @@ func TestRenderRuntimeGlueDefinesServiceActiveSlotAndRegistration(t *testing.T) 
 
 	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	assertGeneratedFileContentDoesNotContain(t, plugin, runtimeFile,
-		"CGONativeClientBridge",
-		"CGOMessageClientBridge",
+		"CGONativeClientEntryObject",
+		"CGOMessageClientEntryObject",
 		"type AllServiceNativeServer interface {",
 		"type AllServiceClientStreamNativeClientStream interface {",
 		"type AllServiceServerStreamNativeServerStream interface {",

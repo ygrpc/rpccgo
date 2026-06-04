@@ -341,11 +341,11 @@ const GreeterUploadConnectProcedure = "/test.v1.Greeter/Upload"
 const GreeterListConnectProcedure = "/test.v1.Greeter/List"
 const GreeterChatConnectProcedure = "/test.v1.Greeter/Chat"
 
-func GreeterBridgeForIntegrationTest() GreeterHandler { return greeterBridgeHandler{} }
+func GreeterEntryForIntegrationTest() GreeterHandler { return greeterEntryHandler{} }
 
-type greeterBridgeHandler struct{}
+type greeterEntryHandler struct{}
 
-func (greeterBridgeHandler) Unary(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
+func (greeterEntryHandler) Unary(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
 	data, err := InvokeGreeterMessageUnary(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -357,7 +357,7 @@ func (greeterBridgeHandler) Unary(ctx context.Context, req *emptypb.Empty) (*emp
 	return &resp, nil
 }
 
-func (greeterBridgeHandler) Upload(ctx context.Context, stream *connect.ClientStream[emptypb.Empty]) (*emptypb.Empty, error) {
+func (greeterEntryHandler) Upload(ctx context.Context, stream *connect.ClientStream[emptypb.Empty]) (*emptypb.Empty, error) {
 	handle, err := StartGreeterMessageUpload(ctx)
 	if err != nil {
 		return nil, err
@@ -383,7 +383,7 @@ func (greeterBridgeHandler) Upload(ctx context.Context, stream *connect.ClientSt
 	return &resp, nil
 }
 
-func (greeterBridgeHandler) List(ctx context.Context, req *emptypb.Empty, stream *connect.ServerStream[emptypb.Empty]) error {
+func (greeterEntryHandler) List(ctx context.Context, req *emptypb.Empty, stream *connect.ServerStream[emptypb.Empty]) error {
 	handle, err := StartGreeterMessageList(ctx, nil)
 	if err != nil {
 		return err
@@ -409,7 +409,7 @@ func (greeterBridgeHandler) List(ctx context.Context, req *emptypb.Empty, stream
 	}
 }
 
-func (greeterBridgeHandler) Chat(ctx context.Context, stream *connect.BidiStream[emptypb.Empty, emptypb.Empty]) error {
+func (greeterEntryHandler) Chat(ctx context.Context, stream *connect.BidiStream[emptypb.Empty, emptypb.Empty]) error {
 	handle, err := StartGreeterMessageChat(ctx)
 	if err != nil {
 		return err

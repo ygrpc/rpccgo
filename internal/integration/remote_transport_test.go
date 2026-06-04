@@ -230,7 +230,7 @@ func main() {
 
 	switch *transport {
 	case "connect":
-		_, handler := remotev1.NewGreeterHandler(remotev1.GreeterBridgeForIntegrationTest())
+		_, handler := remotev1.NewGreeterHandler(remotev1.GreeterEntryForIntegrationTest())
 		if *cancelObserver {
 			handler = wrapConnectCancelObserver(handler, *cancelSignalFile)
 		}

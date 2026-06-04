@@ -237,7 +237,7 @@ func (s *recordingServer) SayHello(ctx context.Context, name *rpcruntime.RpcStri
 		return false, nil, "", nil, s.err
 	}
 	if !s.allowAnyRequest && (req.Name != "native" || string(req.Payload) != "bytes" || !req.Enabled) {
-		return false, nil, "", nil, errors.New("request did not cross native bridge")
+		return false, nil, "", nil, errors.New("request did not reach native server")
 	}
 	if s.response != nil {
 		return s.response.Accepted, s.response.Payload, s.response.Note, s.response.ExtraPayload, nil

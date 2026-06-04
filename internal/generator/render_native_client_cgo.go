@@ -39,7 +39,7 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 
 	errorName := lowerInitial(service.GoName) + "NativeClientUnsupportedField"
 	streamHandleErrorName := lowerInitial(service.GoName) + "NativeClientStreamHandleInvalid"
-	g.P("var ", errorName, ` = errors.New("rpccgo: native unary client field bridge is not implemented")`)
+	g.P("var ", errorName, ` = errors.New("rpccgo: native unary client field codec is not implemented")`)
 	g.P("var ", streamHandleErrorName, ` = errors.New("rpccgo: native client stream handle is invalid")`)
 	g.P()
 	renderNativeClientDecodedResources(g, service)

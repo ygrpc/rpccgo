@@ -39,8 +39,8 @@ func renderNativeServerFile(plugin *protogen.Plugin, plan FilePlan, service Serv
 	g.P("// ", nativeStageMarker(service, file))
 	g.P()
 	g.P("var (")
-	g.P(errorNames.RequestBridgeNotImplemented, ` = errors.New("rpccgo: native request bridge is not implemented")`)
-	g.P(errorNames.StreamBridgeNotImplemented, ` = errors.New("rpccgo: native stream bridge is not implemented")`)
+	g.P(errorNames.RequestConverterNotImplemented, ` = errors.New("rpccgo: native request converter is not implemented")`)
+	g.P(errorNames.StreamConverterNotImplemented, ` = errors.New("rpccgo: native stream converter is not implemented")`)
 	g.P(errorNames.StreamIsNil, ` = errors.New("rpccgo: native stream is nil")`)
 	g.P(errorNames.StreamClosed, ` = errors.New("rpccgo: native stream is closed")`)
 	g.P(")")
@@ -1066,19 +1066,19 @@ func nativeGoMessagePackagePrefix(g *protogen.GeneratedFile, message MethodIOPla
 }
 
 type nativeServerErrorNames struct {
-	RequestBridgeNotImplemented string
-	StreamBridgeNotImplemented  string
-	StreamIsNil                 string
-	StreamClosed                string
+	RequestConverterNotImplemented string
+	StreamConverterNotImplemented  string
+	StreamIsNil                    string
+	StreamClosed                   string
 }
 
 func nativeServerErrorNamesFor(service ServicePlan) nativeServerErrorNames {
 	prefix := lowerInitial(service.GoName)
 	return nativeServerErrorNames{
-		RequestBridgeNotImplemented: prefix + "NativeRequestBridgeNotImplemented",
-		StreamBridgeNotImplemented:  prefix + "NativeStreamBridgeNotImplemented",
-		StreamIsNil:                 prefix + "NativeStreamIsNil",
-		StreamClosed:                prefix + "NativeStreamClosed",
+		RequestConverterNotImplemented: prefix + "NativeRequestConverterNotImplemented",
+		StreamConverterNotImplemented:  prefix + "NativeStreamConverterNotImplemented",
+		StreamIsNil:                    prefix + "NativeStreamIsNil",
+		StreamClosed:                   prefix + "NativeStreamClosed",
 	}
 }
 
