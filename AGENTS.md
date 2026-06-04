@@ -17,7 +17,7 @@
 
 rpccgo 用于把 C/FFI 调用接入 Go、Connect 或 gRPC 服务，并在 native 字段 ABI 与 protobuf message ABI 之间做转换。
 
-新版架构通过 `rpcruntime` 的统一 server registry 保存每个 service 的 current registered server。Generated service runtime 暴露注册 helper、按 `ServiceID` 读写 runtime registry，并在调用阶段根据 `rpcruntime.ServerKind` 执行 service-specific typed 调用和 native/message 转换。
+新版架构通过 `rpcruntime` 的统一 server registry 保存每个 service 的 current registered server。Generated server contract artifact 暴露对应 contract 的注册 helper 并写入 runtime registry；generated service runtime 按 `ServiceID` 读取 registry，并在调用阶段根据 `rpcruntime.ServerKind` 执行 service-specific typed 调用和 native/message 转换。
 
 核心决策见 `docs/adr/0009-use-runtime-server-registry-for-current-server.md`。
 

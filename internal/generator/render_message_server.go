@@ -29,6 +29,7 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 			g.P(`sync "sync"`)
 		}
 	}
+	g.P(`rpcruntime "rpccgo/rpcruntime"`)
 	g.P(")")
 	g.P()
 	g.P("// ", messageStageMarker(service, file))
@@ -57,7 +58,25 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	g.P("return register", service.GoName, "CGOMessageServer(server)")
 	g.P("}")
 	g.P()
+	if err := renderCGOMessageServerRuntimeRegistration(g, service); err != nil {
+		return err
+	}
 	renderMessageEntry(g, service, runtimeMethods, serverName, lowerInitial(service.GoName)+"CGOMessageEntry")
+	return nil
+}
+
+func renderCGOMessageServerRuntimeRegistration(g *protogen.GeneratedFile, service ServicePlan) error {
+	source := RegistrationSourcePlan{
+		Origin:    RegistrationOriginCGO,
+		Contract:  RegistrationContractMessage,
+		Transport: RegistrationTransportNone,
+		Mode:      RegistrationModeLocal,
+	}
+	projection, err := ProjectRegistrationSource(service, source)
+	if err != nil {
+		return err
+	}
+	renderRuntimeServerRegistration(g, lowerInitial(service.GoName)+"ServiceID", projection)
 	return nil
 }
 

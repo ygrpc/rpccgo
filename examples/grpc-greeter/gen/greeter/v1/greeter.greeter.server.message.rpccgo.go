@@ -9,6 +9,7 @@ import (
 	errors "errors"
 	io "io"
 	sync "sync"
+	rpcruntime "rpccgo/rpcruntime"
 )
 
 // rpccgo message direct generated file for Greeter cgo message server contract
@@ -61,6 +62,22 @@ func RegisterGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
 		return errors.New("rpccgo: Greeter cgo message server is nil")
 	}
 	return registerGreeterCGOMessageServer(server)
+}
+
+func registerGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
+	if server == nil {
+		_ = rpcruntime.ClearServer(greeterServiceID)
+		return GreeterMessageServerUnavailableErr
+	}
+	err := rpcruntime.RegisterServer(greeterServiceID, rpcruntime.RegisteredServer{
+		Kind:   rpcruntime.ServerKindCGOMessage,
+		Server: server,
+	})
+	if err != nil {
+		_ = rpcruntime.ClearServer(greeterServiceID)
+		return err
+	}
+	return nil
 }
 
 // greeterCGOMessageEntry exposes a message server implementation through the

@@ -1461,54 +1461,6 @@ func ClearGreeterServer() error {
 	return rpcruntime.ClearServer(greeterServiceID)
 }
 
-func registerGreeterGoNativeServer(server GreeterNativeServer) error {
-	if server == nil {
-		_ = rpcruntime.ClearServer(greeterServiceID)
-		return GreeterNativeServerUnavailableErr
-	}
-	err := rpcruntime.RegisterServer(greeterServiceID, rpcruntime.RegisteredServer{
-		Kind:   rpcruntime.ServerKindGoNative,
-		Server: server,
-	})
-	if err != nil {
-		_ = rpcruntime.ClearServer(greeterServiceID)
-		return err
-	}
-	return nil
-}
-
-func RegisterGreeterCGONativeServer(server GreeterNativeServer) error {
-	if server == nil {
-		_ = rpcruntime.ClearServer(greeterServiceID)
-		return GreeterNativeServerUnavailableErr
-	}
-	err := rpcruntime.RegisterServer(greeterServiceID, rpcruntime.RegisteredServer{
-		Kind:   rpcruntime.ServerKindCGONative,
-		Server: server,
-	})
-	if err != nil {
-		_ = rpcruntime.ClearServer(greeterServiceID)
-		return err
-	}
-	return nil
-}
-
-func registerGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
-	if server == nil {
-		_ = rpcruntime.ClearServer(greeterServiceID)
-		return GreeterMessageServerUnavailableErr
-	}
-	err := rpcruntime.RegisterServer(greeterServiceID, rpcruntime.RegisteredServer{
-		Kind:   rpcruntime.ServerKindCGOMessage,
-		Server: server,
-	})
-	if err != nil {
-		_ = rpcruntime.ClearServer(greeterServiceID)
-		return err
-	}
-	return nil
-}
-
 func RegisterGreeterGRPCServer(server GreeterServer) error {
 	if server == nil {
 		_ = rpcruntime.ClearServer(greeterServiceID)

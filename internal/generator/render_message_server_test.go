@@ -31,6 +31,9 @@ func TestRenderMessageServerDefinesUnimplementedHelper(t *testing.T) {
 		"func (UnimplementedAllServiceCGOMessageServer) BidiStream(ctx context.Context, stream AllServiceBidiStreamMessageBidiStream) error {",
 		"func RegisterAllServiceCGOMessageServer(server AllServiceCGOMessageServer) error {",
 		"return registerAllServiceCGOMessageServer(server)",
+		"func registerAllServiceCGOMessageServer(server AllServiceCGOMessageServer) error {",
+		"Kind:   rpcruntime.ServerKindCGOMessage,",
+		"Server: server,",
 		"type allServiceCGOMessageEntry struct {",
 		"server AllServiceCGOMessageServer",
 		"func (a *allServiceCGOMessageEntry) ClientStream(ctx context.Context, stream AllServiceClientStreamMessageClientStream) ([]byte, error)",
@@ -42,7 +45,6 @@ func TestRenderMessageServerDefinesUnimplementedHelper(t *testing.T) {
 	}
 	assertGeneratedFileContentDoesNotContain(t, plugin, messageServerFile,
 		"rpcruntime.AdapterSnapshot",
-		`rpcruntime "rpccgo/rpcruntime"`,
 		"type allServiceMessageBinding struct {",
 		"defer close(session.responses)",
 		"closeResponses",
@@ -146,9 +148,15 @@ func writeMessageServerRuntimeStub(t *testing.T, root string) {
 
 	const content = `package testv1
 
-func registerGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
-	return nil
-}
+import (
+	errors "errors"
+
+	rpcruntime "rpccgo/rpcruntime"
+)
+
+const greeterServiceID rpcruntime.ServiceID = "test.v1.Greeter"
+
+var GreeterMessageServerUnavailableErr = errors.New("rpccgo: message server is unavailable")
 `
 	target := filepath.Join(root, "test/v1/message_server_runtime_stub.go")
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {

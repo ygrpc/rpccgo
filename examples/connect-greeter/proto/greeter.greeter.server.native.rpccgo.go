@@ -71,6 +71,38 @@ func RegisterGreeterGoNativeServer(server GreeterNativeServer) error {
 	return registerGreeterGoNativeServer(server)
 }
 
+func registerGreeterGoNativeServer(server GreeterNativeServer) error {
+	if server == nil {
+		_ = rpcruntime.ClearServer(greeterServiceID)
+		return GreeterNativeServerUnavailableErr
+	}
+	err := rpcruntime.RegisterServer(greeterServiceID, rpcruntime.RegisteredServer{
+		Kind:   rpcruntime.ServerKindGoNative,
+		Server: server,
+	})
+	if err != nil {
+		_ = rpcruntime.ClearServer(greeterServiceID)
+		return err
+	}
+	return nil
+}
+
+func RegisterGreeterCGONativeServer(server GreeterNativeServer) error {
+	if server == nil {
+		_ = rpcruntime.ClearServer(greeterServiceID)
+		return GreeterNativeServerUnavailableErr
+	}
+	err := rpcruntime.RegisterServer(greeterServiceID, rpcruntime.RegisteredServer{
+		Kind:   rpcruntime.ServerKindCGONative,
+		Server: server,
+	})
+	if err != nil {
+		_ = rpcruntime.ClearServer(greeterServiceID)
+		return err
+	}
+	return nil
+}
+
 // greeterGoNativeEntry exposes a native server implementation through the
 // generated runtime entry method shape.
 type greeterGoNativeEntry struct {

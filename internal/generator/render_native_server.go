@@ -50,11 +50,17 @@ func renderNativeServerFile(plugin *protogen.Plugin, plan FilePlan, service Serv
 	renderGoNativeStreamInterfaces(g, service)
 	renderUnimplementedGoNativeServer(g, service)
 	renderGoNativeRegistration(g, service, service.GoName+"NativeServer", "")
+	if err := renderGoNativeServerRegistrations(g, service); err != nil {
+		return err
+	}
 	renderGoNativeAdapter(g, service, runtimeMethods, service.GoName+"NativeServer", lowerInitial(service.GoName)+"GoNativeEntry", errorNames)
 	return nil
 }
 
 func nativeServerNeedsRPCRuntime(service ServicePlan) bool {
+	if service.Generation.NativeEnabled {
+		return true
+	}
 	for _, method := range service.Methods {
 		for _, field := range method.Contract.Native.RequestFields {
 			if field.Repeated {
@@ -854,6 +860,31 @@ func renderGoNativeRegistration(g *protogen.GeneratedFile, service ServicePlan, 
 	g.P("}")
 	g.P()
 	_ = adapterName
+}
+
+func renderGoNativeServerRegistrations(g *protogen.GeneratedFile, service ServicePlan) error {
+	serviceIDName := lowerInitial(service.GoName) + "ServiceID"
+	for _, source := range []RegistrationSourcePlan{
+		{
+			Origin:    RegistrationOriginGo,
+			Contract:  RegistrationContractNative,
+			Transport: RegistrationTransportNone,
+			Mode:      RegistrationModeLocal,
+		},
+		{
+			Origin:    RegistrationOriginCGO,
+			Contract:  RegistrationContractNative,
+			Transport: RegistrationTransportNone,
+			Mode:      RegistrationModeLocal,
+		},
+	} {
+		projection, err := ProjectRegistrationSource(service, source)
+		if err != nil {
+			return err
+		}
+		renderRuntimeServerRegistration(g, serviceIDName, projection)
+	}
+	return nil
 }
 
 func nativeGoMessageType(g *protogen.GeneratedFile, message MethodIOPlan) string {

@@ -28,6 +28,11 @@ func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) 
 		"func RegisterAllServiceGoNativeServer(server AllServiceNativeServer) error {",
 		`errors.New("rpccgo: AllService go native server is nil")`,
 		"return registerAllServiceGoNativeServer(server)",
+		"func registerAllServiceGoNativeServer(server AllServiceNativeServer) error {",
+		"Kind:   rpcruntime.ServerKindGoNative,",
+		"func RegisterAllServiceCGONativeServer(server AllServiceNativeServer) error {",
+		"Kind:   rpcruntime.ServerKindCGONative,",
+		"Server: server,",
 	} {
 		assertGeneratedContentContains(t, plugin, nativeServerFile, fragment)
 	}
@@ -43,7 +48,7 @@ func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) 
 		"connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf",
 		"type allServiceGoNativeAdapter struct {", "type allServiceNativeServerAdapter struct {",
 		"type allServiceNativeBinding struct {",
-		"rpcruntime.AdapterSnapshot", "rpcruntime.ServerKindGoNative", "registerAllServiceActiveServer",
+		"rpcruntime.AdapterSnapshot", "registerAllServiceActiveServer",
 	)
 }
 

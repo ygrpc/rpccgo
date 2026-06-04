@@ -1,6 +1,6 @@
 # rpccgo Runtime Server Registry Architecture
 
-新版 rpccgo 使用 `rpcruntime` 的统一 server registry 保存每个 service 的 current registered server。Generated service runtime 负责 service-specific 注册 helper、registry lookup、typed dispatch、native/message 转换、cgo ABI glue 和 stream session glue；`rpcruntime` 只提供通用 registry、`ServerKind`、stream registry 和 transport/runtime primitive。
+新版 rpccgo 使用 `rpcruntime` 的统一 server registry 保存每个 service 的 current registered server。Generated server contract artifact 负责对应 contract 的注册 helper；generated service runtime 负责 registry lookup、typed dispatch、native/message 转换、cgo ABI glue、transport registration glue 和 stream session glue；`rpcruntime` 只提供通用 registry、`ServerKind`、stream registry 和 transport/runtime primitive。
 
 ## 核心规则
 

@@ -30,14 +30,11 @@ func renderRuntimeRegistrationForSource(g *protogen.GeneratedFile, ctx runtimeRe
 	if err != nil {
 		return err
 	}
+	if projection.registrationKind != runtimeRegistrationKindTransportMessage {
+		return nil
+	}
 
 	switch projection.registrationKind {
-	case runtimeRegistrationKindCGONativeForward:
-		renderRuntimeServerRegistration(g, ctx.serviceIDName, projection)
-	case runtimeRegistrationKindNative:
-		renderRuntimeServerRegistration(g, ctx.serviceIDName, projection)
-	case runtimeRegistrationKindMessage:
-		renderRuntimeServerRegistration(g, ctx.serviceIDName, projection)
 	case runtimeRegistrationKindTransportMessage:
 		renderRuntimeServerRegistration(g, ctx.serviceIDName, projection)
 	default:

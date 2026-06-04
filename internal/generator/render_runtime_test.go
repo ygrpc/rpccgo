@@ -27,7 +27,7 @@ func TestRenderRuntimeGlueImportsRPCRuntimeOnly(t *testing.T) {
 	assertGeneratedContentDoesNotContain(t, plugin, "connectrpc.com/connect", "google.golang.org/grpc")
 }
 
-func TestRenderRuntimeGlueDefinesServerRegistryAndRegistration(t *testing.T) {
+func TestRenderRuntimeGlueDefinesServerRegistryAndTransportRegistration(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/complete_service_plan.proto", file)
 
@@ -69,9 +69,6 @@ func TestRenderRuntimeGlueDefinesServerRegistryAndRegistration(t *testing.T) {
 		"case rpcruntime.ServerKindGoNative:",
 		"server, ok := registered.Server.(AllServiceNativeServer)",
 		"return server.Unary(ctx, name, enabled, child)",
-		"func RegisterAllServiceCGONativeServer(server AllServiceNativeServer) error {",
-		"Kind:   rpcruntime.ServerKindCGONative,",
-		"Server: server,",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
@@ -79,6 +76,9 @@ func TestRenderRuntimeGlueDefinesServerRegistryAndRegistration(t *testing.T) {
 		"type allServiceBinding struct {",
 		"invokeNativeUnary",
 		"invokeMessageUnary",
+		"func registerAllServiceGoNativeServer(server AllServiceNativeServer) error {",
+		"func RegisterAllServiceCGONativeServer(server AllServiceNativeServer) error {",
+		"func registerAllServiceCGOMessageServer(server AllServiceCGOMessageServer) error {",
 		"rpcruntime.ActiveServerSlot",
 		"rpcruntime.AdapterSnapshot",
 	)
@@ -105,10 +105,6 @@ func TestRenderRuntimeGlueDefinesMessageContractRegistryRegistration(t *testing.
 		"type AllServiceBidiStreamMessageStreamSession interface {",
 		"CloseSend(ctx context.Context) error",
 		"Finish(ctx context.Context) error",
-		"func registerAllServiceCGOMessageServer(server AllServiceCGOMessageServer) error {",
-		"rpcruntime.RegisterServer(allServiceServiceID, rpcruntime.RegisteredServer{",
-		"Kind:   rpcruntime.ServerKindCGOMessage,",
-		"Server: server,",
 		"func InvokeAllServiceMessageUnary(ctx context.Context, req []byte) ([]byte, error) {",
 		"registered, err := rpcruntime.LoadServer(allServiceServiceID)",
 		"case rpcruntime.ServerKindCGOMessage:",
