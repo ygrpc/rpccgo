@@ -201,9 +201,8 @@ const nativeIntegrationResetSource = `package testv1
 
 import rpcruntime "rpccgo/rpcruntime"
 
-func ResetGreeterDispatcherForIntegrationTest() {
-	greeterCurrentNativeBinding.Store(nil)
-	greeterCurrentMessageBinding.Store(nil)
+func ResetGreeterServerForIntegrationTest() {
+	_ = ClearGreeterServer()
 	greeterStreamRegistry = rpcruntime.StreamRegistry{}
 }
 `
@@ -242,7 +241,7 @@ func (s *recordingServer) SayHello(ctx context.Context, name *rpcruntime.RpcStri
 	if s.response != nil {
 		return s.response.Accepted, s.response.Payload, s.response.Note, s.response.ExtraPayload, nil
 	}
-	return true, []byte("dispatcher:"+req.Name), "ok", nil, nil
+	return true, []byte("entry:"+req.Name), "ok", nil, nil
 }
 
 func (s *recordingServer) SayUnsupported(ctx context.Context, name *rpcruntime.RpcString, payload *rpcruntime.RpcBytes, enabled bool) ([]byte, string, []byte, error) {
@@ -314,7 +313,7 @@ func callSayUnsupported(ctx context.Context, input *sayHelloInput, output *unsup
 }
 
 func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	server := &recordingServer{}
 	if err := v1.RegisterGreeterGoNativeServer(server); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
@@ -334,13 +333,13 @@ func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 		t.Fatalf("CallGreeterSayHelloNativeUnary() errID = %d", errID)
 	}
 	if !server.called {
-		t.Fatal("server was not called through dispatcher")
+		t.Fatal("server was not called through runtime entry")
 	}
 	if output.Accepted != 1 {
 		t.Fatalf("Accepted = %d, want 1", output.Accepted)
 	}
 	got := unsafe.Slice((*byte)(unsafe.Pointer(output.PayloadPtr)), output.PayloadLen)
-	if string(got) != "dispatcher:native" {
+	if string(got) != "entry:native" {
 		t.Fatalf("Payload = %q", got)
 	}
 	rpcruntime.Release(output.PayloadPtr)
@@ -349,7 +348,7 @@ func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 }
 
 func TestNativeUnaryTreatsNilPointerAsEmptyRequestInput(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	server := &recordingServer{allowAnyRequest: true}
 	if err := v1.RegisterGreeterGoNativeServer(server); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
@@ -377,7 +376,7 @@ func TestNativeUnaryTreatsNilPointerAsEmptyRequestInput(t *testing.T) {
 }
 
 func TestNativeUnaryRejectsNegativeRequestLength(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	if err := v1.RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
@@ -399,7 +398,7 @@ func TestNativeUnaryRejectsNegativeRequestLength(t *testing.T) {
 }
 
 func TestNativeUnaryInputOwnershipRelease(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	if err := v1.RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
@@ -456,7 +455,7 @@ func TestNativeUnaryInputOwnershipRelease(t *testing.T) {
 }
 
 func TestNativeUnaryOutputReleaseCanBeCalledOnce(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	if err := v1.RegisterGreeterGoNativeServer(&recordingServer{}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
@@ -494,7 +493,7 @@ func TestNativeUnaryOutputReleaseCanBeCalledOnce(t *testing.T) {
 }
 
 func TestNativeUnaryPinFailureReleasesStagedOutput(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	shared := []byte("shared")
 	server := &recordingServer{response: &v1.HelloReply{Accepted: true, Payload: shared, ExtraPayload: shared}}
 	if err := v1.RegisterGreeterGoNativeServer(server); err != nil {
@@ -530,7 +529,7 @@ func TestNativeUnaryPinFailureReleasesStagedOutput(t *testing.T) {
 }
 
 func TestNativeUnaryOwnedReleaseErrorStoresError(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	if err := v1.RegisterGreeterGoNativeServer(&recordingServer{allowAnyRequest: true}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
@@ -554,18 +553,18 @@ func TestNativeUnaryOwnedReleaseErrorStoresError(t *testing.T) {
 }
 
 func TestNativeUnaryMissingActiveServerStoresError(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	input := &sayHelloInput{}
 	output := &sayHelloOutput{}
 	errID := callSayHello(context.Background(), input, output)
 	if errID == 0 {
-		t.Fatal("missing active server returned errID 0")
+		t.Fatal("missing registered server returned errID 0")
 	}
-	assertNativeErrContains(t, errID, "active server")
+	assertNativeErrContains(t, errID, "registered server")
 }
 
 func TestNativeUnaryServerErrorStoresError(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	if err := v1.RegisterGreeterGoNativeServer(&recordingServer{err: errors.New("server exploded")}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
@@ -582,7 +581,7 @@ func TestNativeUnaryServerErrorStoresError(t *testing.T) {
 }
 
 func TestNativeUnaryMessageResponseFieldUsesBytesBoundary(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	if err := v1.RegisterGreeterGoNativeServer(&recordingServer{allowAnyRequest: true}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}

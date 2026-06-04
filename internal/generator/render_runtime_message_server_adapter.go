@@ -2,44 +2,31 @@ package generator
 
 import "google.golang.org/protobuf/compiler/protogen"
 
-func renderMessageBinding(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeMethodProjection, serverName, adapterName, bindingName string) {
+func renderMessageEntry(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeMethodProjection, serverName, entryName string) {
 	if len(methods) == 0 {
 		return
 	}
-	_ = serverName
-	g.P("// ", adapterName, " exposes a message server implementation through the")
-	g.P("// method shape used while building a ", bindingName, ".")
-	g.P("type ", adapterName, " struct {")
-	for _, method := range methods {
-		fieldName := lowerInitial(method.Identity.GoName)
-		switch method.Stream.Shape {
-		case runtimeStreamUnary:
-			g.P(fieldName, " func(ctx context.Context, req []byte) ([]byte, error)")
-		case runtimeStreamClient:
-			g.P(fieldName, " func(ctx context.Context, stream ", service.GoName, method.Identity.GoName, "MessageClientStream) ([]byte, error)")
-		case runtimeStreamServer:
-			g.P(fieldName, " func(ctx context.Context, req []byte, stream ", service.GoName, method.Identity.GoName, "MessageServerStream) error")
-		case runtimeStreamBidi:
-			g.P(fieldName, " func(ctx context.Context, stream ", service.GoName, method.Identity.GoName, "MessageBidiStream) error")
-		}
-	}
+	g.P("// ", entryName, " exposes a message server implementation through the")
+	g.P("// generated runtime entry method shape.")
+	g.P("type ", entryName, " struct {")
+	g.P("server ", serverName)
 	g.P("}")
 	g.P()
 	for _, method := range methods {
 		if !method.Stream.Streaming {
-			g.P("func (a *", adapterName, ") ", method.Identity.GoName, "(ctx context.Context, req []byte) ([]byte, error) {")
-			g.P("return a.", lowerInitial(method.Identity.GoName), "(ctx, req)")
+			g.P("func (a *", entryName, ") ", method.Identity.GoName, "(ctx context.Context, req []byte) ([]byte, error) {")
+			g.P("return a.server.", method.Identity.GoName, "(ctx, req)")
 			g.P("}")
 			g.P()
 			continue
 		}
 		switch method.Stream.Shape {
 		case runtimeStreamClient:
-			renderMessageServerClientStreamAdapter(g, service.GoName, adapterName, method)
+			renderMessageServerClientStreamAdapter(g, service.GoName, entryName, method)
 		case runtimeStreamServer:
-			renderMessageServerServerStreamAdapter(g, service.GoName, adapterName, method)
+			renderMessageServerServerStreamAdapter(g, service.GoName, entryName, method)
 		case runtimeStreamBidi:
-			renderMessageServerBidiStreamAdapter(g, service.GoName, adapterName, method)
+			renderMessageServerBidiStreamAdapter(g, service.GoName, entryName, method)
 		}
 	}
 }
@@ -48,7 +35,7 @@ func renderMessageServerClientStreamAdapter(g *protogen.GeneratedFile, serviceNa
 	sessionName := method.Symbols.MessageSourceSessionType
 	receiver := lowerInitial(serviceName) + method.Identity.GoName + "MessageServerClientStreamSession"
 	g.P("func (a *", adapterName, ") ", method.Identity.GoName, "(ctx context.Context, stream ", serviceName, method.Identity.GoName, "MessageClientStream) ([]byte, error) {")
-	g.P("return a.", lowerInitial(method.Identity.GoName), "(ctx, stream)")
+	g.P("return a.server.", method.Identity.GoName, "(ctx, stream)")
 	g.P("}")
 	g.P()
 	g.P("func (a *", adapterName, ") Start", method.Identity.GoName, "(ctx context.Context) (", sessionName, ", error) {")
@@ -160,7 +147,7 @@ func renderMessageServerServerStreamAdapter(g *protogen.GeneratedFile, serviceNa
 	sessionName := method.Symbols.MessageSourceSessionType
 	receiver := lowerInitial(serviceName) + method.Identity.GoName + "MessageServerServerStreamSession"
 	g.P("func (a *", adapterName, ") ", method.Identity.GoName, "(ctx context.Context, req []byte, stream ", serviceName, method.Identity.GoName, "MessageServerStream) error {")
-	g.P("return a.", lowerInitial(method.Identity.GoName), "(ctx, req, stream)")
+	g.P("return a.server.", method.Identity.GoName, "(ctx, req, stream)")
 	g.P("}")
 	g.P()
 	g.P("func (a *", adapterName, ") Start", method.Identity.GoName, "(ctx context.Context, req []byte) (", sessionName, ", error) {")
@@ -202,7 +189,7 @@ func renderMessageServerBidiStreamAdapter(g *protogen.GeneratedFile, serviceName
 	receiver := lowerInitial(serviceName) + method.Identity.GoName + "MessageServerBidiStreamSession"
 	facadeName := lowerInitial(serviceName) + method.Identity.GoName + "MessageServerBidiStreamFacade"
 	g.P("func (a *", adapterName, ") ", method.Identity.GoName, "(ctx context.Context, stream ", serviceName, method.Identity.GoName, "MessageBidiStream) error {")
-	g.P("return a.", lowerInitial(method.Identity.GoName), "(ctx, stream)")
+	g.P("return a.server.", method.Identity.GoName, "(ctx, stream)")
 	g.P("}")
 	g.P()
 	g.P("func (a *", adapterName, ") Start", method.Identity.GoName, "(ctx context.Context) (", sessionName, ", error) {")

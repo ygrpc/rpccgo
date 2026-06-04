@@ -9,7 +9,7 @@ import (
 func renderMessageClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedArtifactPlan) error {
 	cgoImportPath := protogen.GoImportPath(cgoGoImportPath(plan))
 	g := newGeneratedFile(plugin, plan, file, cgoImportPath)
-	servicePackage := cgoServicePackageQualifier(g, plan.GoImportPath, service.GoName+"DispatcherForRuntime")
+	servicePackage := cgoServicePackageQualifier(g, plan.GoImportPath, lowerInitial(service.GoName)+"ServiceID")
 
 	g.P("package main")
 	g.P()

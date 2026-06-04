@@ -1,6 +1,10 @@
 package generator
 
-import "google.golang.org/protobuf/compiler/protogen"
+import (
+	"strconv"
+
+	"google.golang.org/protobuf/compiler/protogen"
+)
 
 func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedArtifactPlan) error {
 	g := newGeneratedFile(plugin, plan, file, protogen.GoImportPath(plan.GoImportPath))
@@ -21,7 +25,9 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P("import (")
 	g.P(`context "context"`)
 	g.P(`errors "errors"`)
-	g.P(`atomic "sync/atomic"`)
+	if service.Generation.NativeEnabled || serviceHasStreamingMethod(service) {
+		g.P(`goruntime "runtime"`)
+	}
 	if directFmt {
 		g.P(`fmt "fmt"`)
 	}
@@ -51,33 +57,22 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P()
 
 	adapterName := service.GoName + "NativeServer"
-	currentNativeBindingName := lowerInitial(service.GoName) + "CurrentNativeBinding"
-	currentMessageBindingName := lowerInitial(service.GoName) + "CurrentMessageBinding"
+	serviceIDName := lowerInitial(service.GoName) + "ServiceID"
 	streamRegistryName := lowerInitial(service.GoName) + "StreamRegistry"
 
 	if service.Generation.NativeEnabled && !service.HasArtifact(GeneratedArtifactKindNativeServer) {
 		renderGoNativeServerInterface(g, service, adapterName)
 		renderGoNativeStreamInterfaces(g, service)
 	}
-	nativeBindingName := lowerInitial(service.GoName) + "NativeBinding"
-	messageBindingName := lowerInitial(service.GoName) + "MessageBinding"
-	nativeActiveBindingName := lowerInitial(service.GoName) + "NativeActiveBinding"
-	messageActiveBindingName := lowerInitial(service.GoName) + "MessageActiveBinding"
 	renderRuntimeSourceSessionInterfaces(g, service.GoName, streamingMethods)
 
-	renderRuntimeBindingTypes(g, service, runtimeMethods)
 	for _, method := range streamingMethods {
 		renderRuntimeStreamSessions(g, service.GoName, method)
 		renderRuntimeNativeStreamFacade(g, service.GoName, streamRegistryName, method)
 		renderRuntimeMessageStreamFacade(g, service.GoName, streamRegistryName, method)
 	}
 
-	g.P("// ", currentNativeBindingName, " stores the native binding used by new native calls and stream starts.")
-	g.P("// Existing stream handles keep using the binding captured by Start.")
-	g.P("var ", currentNativeBindingName, " atomic.Pointer[", nativeActiveBindingName, "]")
-	g.P("// ", currentMessageBindingName, " stores the message binding used by new message calls and stream starts.")
-	g.P("// Existing stream handles keep using the binding captured by Start.")
-	g.P("var ", currentMessageBindingName, " atomic.Pointer[", messageActiveBindingName, "]")
+	g.P("const ", serviceIDName, " rpcruntime.ServiceID = ", strconv.Quote(service.FullName))
 	g.P("var ", streamRegistryName, " rpcruntime.StreamRegistry")
 	if service.Generation.NativeEnabled {
 		g.P("var ", service.GoName, `NativeServerUnavailableErr = errors.New("rpccgo: native server is unavailable")`)
@@ -85,11 +80,18 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P("var ", service.GoName, `MessageServerUnavailableErr = errors.New("rpccgo: message server is unavailable")`)
 	g.P()
 
-	if err := renderRuntimeRegistrations(g, service, runtimeMethods, currentNativeBindingName, currentMessageBindingName, nativeBindingName, messageBindingName, nativeActiveBindingName, messageActiveBindingName); err != nil {
+	g.P("func Clear", service.GoName, "Server() error {")
+	g.P("return rpcruntime.ClearServer(", serviceIDName, ")")
+	g.P("}")
+	g.P()
+
+	if err := renderRuntimeRegistrations(g, service, serviceIDName); err != nil {
 		return err
 	}
 	renderRuntimeTransportMessageSessions(g, service, streamingMethods)
-	renderRuntimeEntrypoints(g, service.GoName, adapterName, currentNativeBindingName, currentMessageBindingName, streamRegistryName, runtimeMethods)
+	if err := renderRuntimeEntrypoints(g, service, serviceIDName, streamRegistryName, runtimeMethods); err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -42,6 +42,10 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"type UnimplementedGreeterNativeServer struct{}",
 		"type greeterNativeBinding struct {",
 		"type greeterMessageBinding struct {",
+		"type greeterNativeActiveBinding struct {",
+		"type greeterMessageActiveBinding struct {",
+		"greeterCurrentNativeBinding",
+		"greeterCurrentMessageBinding",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go",
 		"type GreeterNativeServer interface {",
@@ -50,7 +54,10 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"type UnimplementedGreeterNativeServer struct{}",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go",
-		"type greeterNativeBinding struct {",
+		"type greeterGoNativeEntry struct {",
+	)
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go",
+		"server GreeterNativeServer",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go",
 		"type GreeterCGOMessageServer interface {",
@@ -68,7 +75,10 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"func RegisterGreeterCGOMessageServer(server GreeterCGOMessageServer) error {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go",
-		"type greeterMessageBinding struct {",
+		"type greeterCGOMessageEntry struct {",
+	)
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go",
+		"server GreeterCGOMessageServer",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go",
 		"func RegisterGreeterGoNativeServer(server GreeterNativeServer) error {",
@@ -81,6 +91,15 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go",
 		"func RegisterGreeterConnectRemoteServer(client GreeterClient) error {",
+	)
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go",
+		`const greeterServiceID rpcruntime.ServiceID = "test.v1.Greeter"`,
+	)
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go",
+		"rpcruntime.RegisterServer(greeterServiceID, rpcruntime.RegisteredServer{",
+	)
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go",
+		"Kind:   rpcruntime.ServerKindConnectRemote",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.server.native.cgo.rpccgo.go",
 		"//export rpccgo_native_testv1_Greeter_register",

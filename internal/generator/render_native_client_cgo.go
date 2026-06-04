@@ -14,7 +14,7 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	}
 	cgoImportPath := protogen.GoImportPath(cgoGoImportPath(plan))
 	g := newGeneratedFile(plugin, plan, file, cgoImportPath)
-	servicePackage := cgoServicePackageQualifier(g, plan.GoImportPath, service.GoName+"DispatcherForRuntime")
+	servicePackage := cgoServicePackageQualifier(g, plan.GoImportPath, lowerInitial(service.GoName)+"ServiceID")
 	g.P("package main")
 	g.P()
 	g.P("/*")

@@ -3,7 +3,7 @@ package generator
 import "fmt"
 
 func BuildStreamingPlan(method MethodPlan, serviceName string) (MethodPlan, error) {
-	method, err := AttachMethodLifecyclePlan(method)
+	method, err := AttachMethodStreamCapabilityPlan(method)
 	if err != nil {
 		return MethodPlan{}, err
 	}
@@ -21,36 +21,36 @@ func BuildStreamingPlan(method MethodPlan, serviceName string) (MethodPlan, erro
 	return method, nil
 }
 
-func AttachMethodLifecyclePlan(method MethodPlan) (MethodPlan, error) {
-	lifecycle, err := expectedLifecyclePlan(method.Streaming)
+func AttachMethodStreamCapabilityPlan(method MethodPlan) (MethodPlan, error) {
+	capability, err := expectedStreamCapabilityPlan(method.Streaming)
 	if err != nil {
 		return MethodPlan{}, err
 	}
-	method.Contract.Lifecycle = lifecycle
+	method.Contract.Stream = capability
 	return method, nil
 }
 
-func expectedLifecyclePlan(streaming StreamingKind) (StreamLifecycleContractPlan, error) {
+func expectedStreamCapabilityPlan(streaming StreamingKind) (StreamCapabilityContractPlan, error) {
 	switch streaming {
 	case StreamingKindUnary:
-		return StreamLifecycleContractPlan{}, nil
+		return StreamCapabilityContractPlan{}, nil
 	case StreamingKindClientStreaming:
-		return StreamLifecycleContractPlan{
+		return StreamCapabilityContractPlan{
 			CanSend:               true,
 			FinishReturnsResponse: true,
 		}, nil
 	case StreamingKindServerStreaming:
-		return StreamLifecycleContractPlan{
+		return StreamCapabilityContractPlan{
 			CanRecv: true,
 		}, nil
 	case StreamingKindBidiStreaming:
-		return StreamLifecycleContractPlan{
+		return StreamCapabilityContractPlan{
 			CanSend:      true,
 			CanRecv:      true,
 			CanCloseSend: true,
 		}, nil
 	default:
-		return StreamLifecycleContractPlan{}, fmt.Errorf("unknown streaming kind %d", streaming)
+		return StreamCapabilityContractPlan{}, fmt.Errorf("unknown streaming kind %d", streaming)
 	}
 }
 

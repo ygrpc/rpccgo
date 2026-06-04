@@ -95,22 +95,22 @@ func TestPlanZeroValueHasNoIdentity(t *testing.T) {
 	}
 }
 
-func TestPlanLifecycleUsesCapabilities(t *testing.T) {
-	var zero StreamLifecycleContractPlan
+func TestPlanStreamCapabilityUsesCapabilities(t *testing.T) {
+	var zero StreamCapabilityContractPlan
 	if !zero.IsZero() {
-		t.Fatalf("zero lifecycle contract must be zero: %+v", zero)
+		t.Fatalf("zero capability contract must be zero: %+v", zero)
 	}
 
-	plan := StreamLifecycleContractPlan{
+	plan := StreamCapabilityContractPlan{
 		CanSend:               true,
 		FinishReturnsResponse: true,
 	}
 
 	if !plan.CanSend || plan.CanRecv || plan.CanCloseSend || !plan.FinishReturnsResponse {
-		t.Fatalf("expected lifecycle capabilities to be preserved: %+v", plan)
+		t.Fatalf("expected capability capabilities to be preserved: %+v", plan)
 	}
 	if plan.IsZero() {
-		t.Fatalf("non-empty lifecycle contract must not be zero: %+v", plan)
+		t.Fatalf("non-empty capability contract must not be zero: %+v", plan)
 	}
 }
 

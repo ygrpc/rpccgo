@@ -422,13 +422,9 @@ type greeterChatCGOMessageBidiStreamSession struct {
 	finish    C.GreeterChatCGOMessageBidiStreamFinishCallback
 	cancel    C.GreeterChatCGOMessageBidiStreamCancelCallback
 	stream    int32
-	lifecycle rpcruntime.StreamLifecycle
 }
 
 func (s *greeterChatCGOMessageBidiStreamSession) Send(ctx context.Context, req []byte) error {
-	if err := s.lifecycle.EnsureCanSend(); err != nil {
-		return err
-	}
 	if err := protobuf.Unmarshal(req, &proto.SayHelloRequest{}); err != nil {
 		return fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)
 	}
@@ -465,15 +461,9 @@ func (s *greeterChatCGOMessageBidiStreamSession) Recv(ctx context.Context) ([]by
 }
 
 func (s *greeterChatCGOMessageBidiStreamSession) CloseSend(ctx context.Context) error {
-	if err := s.lifecycle.EnsureCanSend(); err != nil {
-		return err
-	}
 	errID := int32(C.callGreeterChatCGOMessageBidiStreamCloseSend(s.closeSend, C.int32_t(s.stream)))
 	if errID != 0 {
 		return greeterCGOMessageServerError(errID)
-	}
-	if err := s.lifecycle.MarkSendClosed(); err != nil {
-		return err
 	}
 	return nil
 }

@@ -23,7 +23,7 @@ func (c *ConnectStreamingHandlerConn) Peer() connect.Peer { return c.PeerValue }
 
 func (c *ConnectStreamingHandlerConn) Receive(msg any) error {
 	if c.ReceiveFunc == nil {
-		return ErrStreamFinalized
+		return ErrStreamInvalidHandle
 	}
 	return c.ReceiveFunc(msg)
 }
@@ -37,7 +37,7 @@ func (c *ConnectStreamingHandlerConn) RequestHeader() http.Header {
 
 func (c *ConnectStreamingHandlerConn) Send(msg any) error {
 	if c.SendFunc == nil {
-		return ErrStreamFinalized
+		return ErrStreamInvalidHandle
 	}
 	return c.SendFunc(msg)
 }

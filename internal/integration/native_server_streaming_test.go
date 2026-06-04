@@ -254,7 +254,7 @@ func readList(ctx context.Context, handle int32, output *listOutput) int32 {
 }
 
 func TestNativeServerStreamingGoServerFinishFinalizesHandle(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	server := &listGoServer{}
 	if err := v1.RegisterGreeterGoNativeServer(server); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
@@ -276,7 +276,7 @@ func TestNativeServerStreamingGoServerFinishFinalizesHandle(t *testing.T) {
 }
 
 func TestNativeServerStreamingGoServerStartCapturesActiveServerSnapshot(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	serverA := &listGoServer{label: "A:"}
 	if err := v1.RegisterGreeterGoNativeServer(serverA); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer(A) error = %v", err)
@@ -296,7 +296,7 @@ func TestNativeServerStreamingGoServerStartCapturesActiveServerSnapshot(t *testi
 }
 
 func TestNativeServerStreamingGoServerCancelFinalizesHandle(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	server := &listGoServer{}
 	if err := v1.RegisterGreeterGoNativeServer(server); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
@@ -317,12 +317,12 @@ func TestNativeServerStreamingGoServerCancelFinalizesHandle(t *testing.T) {
 }
 
 func TestNativeServerStreamingGoServerMissingActiveServer(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	handle, errID := startList(context.Background(), listInput("none", 1))
 	if handle != 0 {
 		t.Fatalf("handle = %d, want 0", handle)
 	}
-	assertErrorTextContainsServerStream(t, errID, "active server")
+	assertErrorTextContainsServerStream(t, errID, "registered server")
 }
 
 func listInput(prefix string, limit int32) *listInputABI {
@@ -403,7 +403,7 @@ func readList(ctx context.Context, handle int32, output *listOutput) int32 {
 }
 
 func TestNativeServerStreamingCGOServerFinishFinalizesHandle(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	rpcruntime.ResetFreeCallbackForTesting()
 	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
 	frees := registerServerStreamCFreeCallback()
@@ -433,7 +433,7 @@ func TestNativeServerStreamingCGOServerFinishFinalizesHandle(t *testing.T) {
 }
 
 func TestNativeServerStreamingCGOServerCancelFinalizesHandle(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	if err := registerGreeterServerStreamCGONativeServerCallbacks(); err != nil {
 		t.Fatalf("registerGreeterServerStreamCGONativeServerCallbacks() error = %v", err)
 	}

@@ -42,8 +42,8 @@ func TestRenderNativeServerDefinesInterfaceAdapterAndRegistration(t *testing.T) 
 	assertGeneratedFileContentDoesNotContain(t, plugin, nativeServerFile,
 		"connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf",
 		"type allServiceGoNativeAdapter struct {", "type allServiceNativeServerAdapter struct {",
+		"type allServiceNativeBinding struct {",
 		"rpcruntime.AdapterSnapshot", "rpcruntime.ServerKindGoNative", "registerAllServiceActiveServer",
-		"\tserver AllServiceNativeServer",
 	)
 }
 
@@ -69,14 +69,13 @@ func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
 	}
 
 	for _, fragment := range []string{
-		"// allServiceNativeBinding exposes a native server implementation through the",
-		"type allServiceNativeBinding struct {",
-		"unary        func(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (bool, []byte, error)",
-		"clientStream func(ctx context.Context, stream AllServiceClientStreamNativeClientStream) (bool, []byte, error)",
-		"func (a *allServiceNativeBinding) ClientStream(ctx context.Context, stream AllServiceClientStreamNativeClientStream) (bool, []byte, error)",
-		"func (a *allServiceNativeBinding) ServerStream(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes, stream AllServiceServerStreamNativeServerStream) error",
-		"func (a *allServiceNativeBinding) BidiStream(ctx context.Context, stream AllServiceBidiStreamNativeBidiStream) error",
-		"func (a *allServiceNativeBinding) StartClientStream(ctx context.Context) (AllServiceClientStreamNativeStreamSession, error)",
+		"// allServiceGoNativeEntry exposes a native server implementation through the",
+		"type allServiceGoNativeEntry struct {",
+		"server AllServiceNativeServer",
+		"func (a *allServiceGoNativeEntry) ClientStream(ctx context.Context, stream AllServiceClientStreamNativeClientStream) (bool, []byte, error)",
+		"func (a *allServiceGoNativeEntry) ServerStream(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes, stream AllServiceServerStreamNativeServerStream) error",
+		"func (a *allServiceGoNativeEntry) BidiStream(ctx context.Context, stream AllServiceBidiStreamNativeBidiStream) error",
+		"func (a *allServiceGoNativeEntry) StartClientStream(ctx context.Context) (AllServiceClientStreamNativeStreamSession, error)",
 		"type allServiceClientStreamGoNativeClientStreamSessionRequest struct {",
 		"type allServiceClientStreamGoNativeClientStreamSessionResult struct {",
 		"func (s *allServiceClientStreamGoNativeClientStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) error",

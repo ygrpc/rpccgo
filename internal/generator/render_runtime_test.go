@@ -27,7 +27,7 @@ func TestRenderRuntimeGlueImportsRPCRuntimeOnly(t *testing.T) {
 	assertGeneratedContentDoesNotContain(t, plugin, "connectrpc.com/connect", "google.golang.org/grpc")
 }
 
-func TestRenderRuntimeGlueDefinesServiceActiveSlotAndRegistration(t *testing.T) {
+func TestRenderRuntimeGlueDefinesServerRegistryAndRegistration(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/complete_service_plan.proto", file)
 
@@ -44,6 +44,10 @@ func TestRenderRuntimeGlueDefinesServiceActiveSlotAndRegistration(t *testing.T) 
 		"type AllServiceServerStreamNativeServerStream interface {",
 		"type AllServiceBidiStreamNativeBidiStream interface {",
 		"type allServiceNativeBinding struct {",
+		"type allServiceNativeActiveBinding struct {",
+		"type allServiceMessageActiveBinding struct {",
+		"allServiceCurrentNativeBinding",
+		"allServiceCurrentMessageBinding",
 	)
 	for _, fragment := range []string{
 		"type AllServiceClientStreamNativeStreamSession interface {",
@@ -56,22 +60,18 @@ func TestRenderRuntimeGlueDefinesServiceActiveSlotAndRegistration(t *testing.T) 
 		"type AllServiceBidiStreamNativeStreamSession interface {",
 		"CloseSend(ctx context.Context) error",
 		"Finish(ctx context.Context) error",
+		`const allServiceServiceID rpcruntime.ServiceID = "test.v1.AllService"`,
 		"var allServiceStreamRegistry rpcruntime.StreamRegistry",
-		"type allServiceNativeActiveBinding struct {",
-		"invokeUnary",
-		"func (a *allServiceNativeActiveBinding) Unary(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (bool, []byte, error) {",
-		"func (a *allServiceNativeActiveBinding) ClientStream(ctx context.Context, stream AllServiceClientStreamNativeClientStream) (bool, []byte, error) {",
-		"func (a *allServiceNativeActiveBinding) ServerStream(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes, stream AllServiceServerStreamNativeServerStream) error {",
-		"func (a *allServiceNativeActiveBinding) BidiStream(ctx context.Context, stream AllServiceBidiStreamNativeBidiStream) error {",
-		"type allServiceMessageActiveBinding struct {",
-		"// allServiceCurrentNativeBinding stores the native binding used by new native calls and stream starts.",
-		"var allServiceCurrentNativeBinding atomic.Pointer[allServiceNativeActiveBinding]",
-		"// allServiceCurrentMessageBinding stores the message binding used by new message calls and stream starts.",
-		"var allServiceCurrentMessageBinding atomic.Pointer[allServiceMessageActiveBinding]",
+		"func ClearAllServiceServer() error {",
+		"return rpcruntime.ClearServer(allServiceServiceID)",
 		"func InvokeAllServiceNativeUnary(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (bool, []byte, error) {",
-		"return native.invokeUnary(ctx, name, enabled, child)",
-		"return serverBinding.Unary(ctx, name, enabled, child)",
+		"registered, err := rpcruntime.LoadServer(allServiceServiceID)",
+		"case rpcruntime.ServerKindGoNative:",
+		"server, ok := registered.Server.(AllServiceNativeServer)",
+		"return server.Unary(ctx, name, enabled, child)",
 		"func RegisterAllServiceCGONativeServer(server AllServiceNativeServer) error {",
+		"Kind:   rpcruntime.ServerKindCGONative,",
+		"Server: server,",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
@@ -79,10 +79,12 @@ func TestRenderRuntimeGlueDefinesServiceActiveSlotAndRegistration(t *testing.T) 
 		"type allServiceBinding struct {",
 		"invokeNativeUnary",
 		"invokeMessageUnary",
+		"rpcruntime.ActiveServerSlot",
+		"rpcruntime.AdapterSnapshot",
 	)
 }
 
-func TestRenderRuntimeGlueDefinesMessageContractActiveSlotAndRegistration(t *testing.T) {
+func TestRenderRuntimeGlueDefinesMessageContractRegistryRegistration(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
@@ -104,16 +106,13 @@ func TestRenderRuntimeGlueDefinesMessageContractActiveSlotAndRegistration(t *tes
 		"CloseSend(ctx context.Context) error",
 		"Finish(ctx context.Context) error",
 		"func registerAllServiceCGOMessageServer(server AllServiceCGOMessageServer) error {",
-		"messageBinding := &allServiceMessageActiveBinding{}",
-		"messageBinding.invokeUnary = serverBinding.Unary",
-		"func (a *allServiceMessageActiveBinding) Unary(ctx context.Context, req []byte) ([]byte, error) {",
-		"func (a *allServiceMessageActiveBinding) ClientStream(ctx context.Context, stream AllServiceClientStreamMessageClientStream) ([]byte, error) {",
-		"func (a *allServiceMessageActiveBinding) ServerStream(ctx context.Context, req []byte, stream AllServiceServerStreamMessageServerStream) error {",
-		"func (a *allServiceMessageActiveBinding) BidiStream(ctx context.Context, stream AllServiceBidiStreamMessageBidiStream) error {",
-		"allServiceCurrentMessageBinding.Store(messageBinding)",
+		"rpcruntime.RegisterServer(allServiceServiceID, rpcruntime.RegisteredServer{",
+		"Kind:   rpcruntime.ServerKindCGOMessage,",
+		"Server: server,",
 		"func InvokeAllServiceMessageUnary(ctx context.Context, req []byte) ([]byte, error) {",
-		"return message.invokeUnary(ctx, req)",
-		"return AllServiceMessageServerUnavailableErr",
+		"registered, err := rpcruntime.LoadServer(allServiceServiceID)",
+		"case rpcruntime.ServerKindCGOMessage:",
+		"return server.Unary(ctx, req)",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
@@ -123,6 +122,8 @@ func TestRenderRuntimeGlueDefinesMessageContractActiveSlotAndRegistration(t *tes
 		"rpcruntime.Dispatcher[AllServiceMessageAdapter]",
 		"type AllServiceMessageAdapter interface {",
 		"if _, nativeErr :=",
+		"messageBinding := &allServiceMessageActiveBinding{}",
+		"allServiceCurrentMessageBinding.Store(messageBinding)",
 	)
 }
 
@@ -138,9 +139,10 @@ func TestRenderRuntimeGlueDefinesConnectDirectRegistration(t *testing.T) {
 	const runtimeFile = "test/v1/complete_service_plan.default_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"func RegisterDefaultServiceConnectHandler(handler DefaultServiceHandler) error {",
-		"messageBinding := &defaultServiceMessageActiveBinding{}",
-		"defaultServiceCurrentMessageBinding.Store(messageBinding)",
-		"messageResp, err := handler.DefaultUnary(ctx, messageReq)",
+		"rpcruntime.RegisterServer(defaultServiceServiceID, rpcruntime.RegisteredServer{",
+		"Kind:   rpcruntime.ServerKindConnect,",
+		"Server: handler,",
+		"messageResp, err := server.DefaultUnary(ctx, messageReq)",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
@@ -158,9 +160,10 @@ func TestRenderRuntimeGlueRoutesNativeUnaryToConnectHandler(t *testing.T) {
 	const runtimeFile = "test/v1/complete_service_plan.connect_native_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"func RegisterConnectNativeServiceConnectHandler(handler ConnectNativeServiceHandler) error {",
-		"messageBinding := &connectNativeServiceMessageActiveBinding{}",
+		"Kind:   rpcruntime.ServerKindConnect,",
+		"Server: handler,",
 		"new(ConnectNativeRequest)",
-		"handler.ConnectNativeUnary(ctx",
+		"server.ConnectNativeUnary(ctx",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
@@ -178,8 +181,8 @@ func TestRenderRuntimeGlueDefinesGRPCDirectRegistration(t *testing.T) {
 	const runtimeFile = "test/v1/complete_service_plan.grpc_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"func RegisterGrpcServiceGRPCServer(server GrpcServiceServer) error {",
-		"messageBinding := &grpcServiceMessageActiveBinding{}",
-		"grpcServiceCurrentMessageBinding.Store(messageBinding)",
+		"Kind:   rpcruntime.ServerKindGRPC,",
+		"Server: server,",
 		"messageResp, err := server.GrpcUnary(ctx, messageReq)",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
@@ -198,7 +201,7 @@ func TestRenderRuntimeGlueDefinesGRPCDirectStreamingSessions(t *testing.T) {
 	const runtimeFile = "test/v1/grpc_streaming_runtime.grpc_streaming_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
 		"func RegisterGrpcStreamingServiceGRPCServer(server GrpcStreamingServiceServer) error {",
-		"messageBinding := &grpcStreamingServiceMessageActiveBinding{}",
+		"Kind:   rpcruntime.ServerKindGRPC,",
 		"source := newgrpcStreamingServiceClientStreamGRPCDirectMessageStreamSession(ctx, server)",
 		"source, err := newgrpcStreamingServiceServerStreamGRPCDirectMessageStreamSession(ctx, server, req)",
 		"source := newgrpcStreamingServiceBidiStreamGRPCDirectMessageStreamSession(ctx, server)",
@@ -226,36 +229,37 @@ func TestRenderRuntimeGlueDefinesMethodSpecificStreamFacades(t *testing.T) {
 		"handle rpcruntime.StreamHandle",
 		"func NewAllServiceClientStreamNativeStream(handle rpcruntime.StreamHandle) AllServiceClientStreamNativeStream {",
 		"func (s AllServiceClientStreamNativeStream) Send(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) error {",
-		"session, err := rpcruntime.SendStreamSession[*allServiceClientStreamNativeStreamSession](&allServiceStreamRegistry, s.handle)",
+		"entry, err := rpcruntime.SendStreamSession[*allServiceClientStreamNativeStreamSession](&allServiceStreamRegistry, s.handle)",
+		"source, ok := entry.session.(AllServiceClientStreamNativeStreamSession)",
 		"func (s AllServiceClientStreamNativeStream) Finish(ctx context.Context) (bool, []byte, error) {",
-		"session, err := rpcruntime.FinishStreamSession[*allServiceClientStreamNativeStreamSession](&allServiceStreamRegistry, s.handle)",
+		"entry, err := rpcruntime.FinishStreamSession[*allServiceClientStreamNativeStreamSession](&allServiceStreamRegistry, s.handle)",
 		"func (s AllServiceServerStreamNativeStream) Recv(ctx context.Context) (bool, []byte, error) {",
-		"session, err := rpcruntime.RecvStreamSession[*allServiceServerStreamNativeStreamSession](&allServiceStreamRegistry, s.handle)",
+		"entry, err := rpcruntime.RecvStreamSession[*allServiceServerStreamNativeStreamSession](&allServiceStreamRegistry, s.handle)",
 		"func (s AllServiceServerStreamNativeStream) Finish(ctx context.Context) error {",
 		"func (s AllServiceBidiStreamNativeStream) CloseSend(ctx context.Context) error {",
-		"session, err := rpcruntime.CloseSendStreamSession[*allServiceBidiStreamNativeStreamSession](&allServiceStreamRegistry, s.handle)",
-		"session, err := rpcruntime.CancelStreamSession[*allServiceBidiStreamNativeStreamSession](&allServiceStreamRegistry, s.handle)",
-		"return session.cancel(ctx)",
+		"entry, err := rpcruntime.CloseSendStreamSession[*allServiceBidiStreamNativeStreamSession](&allServiceStreamRegistry, s.handle)",
+		"entry, err := rpcruntime.CancelStreamSession[*allServiceBidiStreamNativeStreamSession](&allServiceStreamRegistry, s.handle)",
+		"return source.Cancel(ctx)",
 		"type AllServiceClientStreamMessageStream struct {",
 		"func NewAllServiceClientStreamMessageStream(handle rpcruntime.StreamHandle) AllServiceClientStreamMessageStream {",
 		"func (s AllServiceClientStreamMessageStream) Send(ctx context.Context, req []byte) error {",
-		"session, err := rpcruntime.SendStreamSession[*allServiceClientStreamMessageStreamSession](&allServiceStreamRegistry, s.handle)",
+		"entry, err := rpcruntime.SendStreamSession[*allServiceClientStreamMessageStreamSession](&allServiceStreamRegistry, s.handle)",
 		"func (s AllServiceClientStreamMessageStream) Finish(ctx context.Context) ([]byte, error) {",
-		"session, err := rpcruntime.FinishStreamSession[*allServiceClientStreamMessageStreamSession](&allServiceStreamRegistry, s.handle)",
+		"entry, err := rpcruntime.FinishStreamSession[*allServiceClientStreamMessageStreamSession](&allServiceStreamRegistry, s.handle)",
 		"func (s AllServiceServerStreamMessageStream) Recv(ctx context.Context) ([]byte, error) {",
-		"session, err := rpcruntime.RecvStreamSession[*allServiceServerStreamMessageStreamSession](&allServiceStreamRegistry, s.handle)",
+		"entry, err := rpcruntime.RecvStreamSession[*allServiceServerStreamMessageStreamSession](&allServiceStreamRegistry, s.handle)",
 		"func (s AllServiceBidiStreamMessageStream) CloseSend(ctx context.Context) error {",
-		"session, err := rpcruntime.CloseSendStreamSession[*allServiceBidiStreamMessageStreamSession](&allServiceStreamRegistry, s.handle)",
-		"session, err := rpcruntime.CancelStreamSession[*allServiceBidiStreamMessageStreamSession](&allServiceStreamRegistry, s.handle)",
+		"entry, err := rpcruntime.CloseSendStreamSession[*allServiceBidiStreamMessageStreamSession](&allServiceStreamRegistry, s.handle)",
+		"entry, err := rpcruntime.CancelStreamSession[*allServiceBidiStreamMessageStreamSession](&allServiceStreamRegistry, s.handle)",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
 	assertGeneratedFileContentDoesNotContain(t, plugin, runtimeFile,
 		"allServiceStreamRegistry.Load(s.handle)",
 		"allServiceStreamRegistry.Take(s.handle)",
-		"session.lifecycle.EnsureCanSend()",
-		"session.lifecycle.MarkSendClosed()",
-		"session.lifecycle.MarkCanceled()",
+		"session.capability.EnsureCanSend()",
+		"session.capability.MarkSendClosed()",
+		"session.capability.MarkCanceled()",
 		"type AllServiceUnaryNativeStream",
 		"type AllServiceUnaryMessageStream",
 	)
@@ -315,34 +319,7 @@ func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleForMessageHelpers(t *testing
 	)
 }
 
-func TestRenderRuntimeGlueDoesNotWrapNativeStreamsForMessageClientCodec(t *testing.T) {
-	file := completeServicePlanTestFile()
-	plugin := newTestPlugin(t, "paths=source_relative", file)
-
-	_, err := GenerateWithOptions(plugin)
-	if err != nil {
-		t.Fatalf("GenerateWithOptions() error = %v", err)
-	}
-
-	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
-	assertGeneratedContentContains(t, plugin, runtimeFile,
-		"startClientStream func(ctx context.Context) (*allServiceClientStreamMessageStreamSession, error)",
-	)
-	assertGeneratedFileContentDoesNotContain(t, plugin, runtimeFile,
-		"name, enabled, child, reqOwner, err := convertAllServiceClientStreamMessageToNativeRequest(req)",
-		"err = source.Send(ctx, name, enabled, child)",
-		"goruntime.KeepAlive(reqOwner)",
-		"acceptedResult, payloadResult, err := source.Finish(ctx)",
-		"return convertAllServiceClientStreamNativeToMessageResponse(acceptedResult, payloadResult)",
-		"name, enabled, child, reqOwner, err := convertAllServiceServerStreamMessageToNativeRequest(req)",
-		"goruntime.KeepAlive(reqOwner)",
-		"acceptedResult, payloadResult, err := source.Recv(ctx)",
-		"return convertAllServiceServerStreamNativeToMessageResponse(acceptedResult, payloadResult)",
-		"return convertAllServiceBidiStreamNativeToMessageResponse(acceptedResult, payloadResult)",
-	)
-}
-
-func TestRenderRuntimeGlueDoesNotWrapMessageStreamsForNativeClientCodec(t *testing.T) {
+func TestRenderRuntimeGlueRoutesMessageStreamsToNativeSessionsWithConverter(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
 
@@ -353,9 +330,42 @@ func TestRenderRuntimeGlueDoesNotWrapMessageStreamsForNativeClientCodec(t *testi
 
 	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
-		"source := newallServiceClientStreamConnectDirectMessageStreamSession(ctx, handler)",
-		"source, err := newallServiceServerStreamConnectDirectMessageStreamSession(ctx, handler, req)",
-		"source := newallServiceBidiStreamConnectDirectMessageStreamSession(ctx, handler)",
+		"func StartAllServiceMessageClientStream(ctx context.Context) (rpcruntime.StreamHandle, error) {",
+		"case rpcruntime.ServerKindGoNative:",
+		"name, enabled, child, reqOwner, err := convertAllServiceClientStreamMessageToNativeRequest(req)",
+		"goruntime.KeepAlive(reqOwner)",
+		"return allServiceStreamRegistry.Create(&allServiceClientStreamMessageStreamSession{kind: rpcruntime.ServerKindGoNative, session: source})",
+		"err = source.Send(ctx, name, enabled, child)",
+		"acceptedResult, payloadResult, err := source.Finish(ctx)",
+		"return convertAllServiceClientStreamNativeToMessageResponse(acceptedResult, payloadResult)",
+	} {
+		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
+	}
+	assertGeneratedFileContentDoesNotContain(t, plugin, runtimeFile,
+		"startClientStream func(ctx context.Context) (*allServiceClientStreamMessageStreamSession, error)",
+		"messageBinding := &allServiceMessageActiveBinding{}",
+		"allServiceCurrentMessageBinding.Store(messageBinding)",
+	)
+}
+
+func TestRenderRuntimeGlueRoutesNativeStreamsToMessageSessionsWithConverter(t *testing.T) {
+	file := completeServicePlanTestFile()
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	_, err := GenerateWithOptions(plugin)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
+	for _, fragment := range []string{
+		"source := newallServiceClientStreamConnectDirectMessageStreamSession(ctx, server)",
+		"source, err := newallServiceServerStreamConnectDirectMessageStreamSession(ctx, server, req)",
+		"source := newallServiceBidiStreamConnectDirectMessageStreamSession(ctx, server)",
+		"messageReq, err := convertAllServiceClientStreamNativeToMessageRequest(name, enabled, child)",
+		"return source.Send(ctx, messageReq)",
+		"messageResp, err := source.Finish(ctx)",
+		"return convertAllServiceClientStreamMessageToNativeResponse(messageResp)",
 		"rpcruntime.NewConnectClientStream[AllRequest](conn)",
 		"rpcruntime.NewConnectServerStream[AllReply](conn)",
 		"rpcruntime.NewConnectBidiStream[AllRequest, AllReply](conn)",
@@ -363,18 +373,30 @@ func TestRenderRuntimeGlueDoesNotWrapMessageStreamsForNativeClientCodec(t *testi
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
 	assertGeneratedFileContentDoesNotContain(t, plugin, runtimeFile,
-		"messageReq, err := convertAllServiceClientStreamNativeToMessageRequest(name, enabled, child)",
-		"return source.Send(ctx, messageReq)",
-		"messageResp, err := source.Finish(ctx)",
-		"return convertAllServiceClientStreamMessageToNativeResponse(messageResp)",
-		"messageReq, err := convertAllServiceServerStreamNativeToMessageRequest(name, enabled, child)",
 		"source, err := serverBinding.StartServerStream(ctx, messageReq)",
-		"messageResp, err := source.Recv(ctx)",
-		"return convertAllServiceServerStreamMessageToNativeResponse(messageResp)",
-		"messageReq, err := convertAllServiceBidiStreamNativeToMessageRequest(name, enabled, child)",
-		"return convertAllServiceBidiStreamMessageToNativeResponse(messageResp)",
-		"source := newallServiceClientStreamConnectDirectMessageStreamSession(ctx, handler)\n\t\tvar err error\n\t\tif err != nil",
-		"source := newallServiceBidiStreamConnectDirectMessageStreamSession(ctx, handler)\n\t\tvar err error\n\t\tif err != nil",
+		"source := newallServiceClientStreamConnectDirectMessageStreamSession(ctx, server)\n\t\tvar err error\n\t\tif err != nil",
+		"source := newallServiceBidiStreamConnectDirectMessageStreamSession(ctx, server)\n\t\tvar err error\n\t\tif err != nil",
+	)
+}
+
+func TestRenderRuntimeGlueDoesNotGenerateActiveStreamClosures(t *testing.T) {
+	file := completeServicePlanTestFile()
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	_, err := GenerateWithOptions(plugin)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
+	assertGeneratedFileContentDoesNotContain(t, plugin, runtimeFile,
+		"startClientStream func(ctx context.Context) (*allServiceClientStreamMessageStreamSession, error)",
+		"send func(ctx context.Context",
+		"recv func(ctx context.Context",
+		"finish func(ctx context.Context",
+		"cancel func(ctx context.Context",
+		"allServiceCurrentNativeBinding",
+		"allServiceCurrentMessageBinding",
 	)
 }
 
@@ -402,12 +424,12 @@ func TestRenderRuntimeRejectsUnknownStreamingKind(t *testing.T) {
 	if err == nil {
 		t.Fatal("renderRuntimeFile() error = nil, want unknown streaming kind error")
 	}
-	if got := err.Error(); !strings.Contains(got, "Mystery") || !strings.Contains(got, "render lifecycle does not match contract capabilities") {
+	if got := err.Error(); !strings.Contains(got, "Mystery") || !strings.Contains(got, "render capability does not match contract capabilities") {
 		t.Fatalf("renderRuntimeFile() error = %q, want method name and render-shape validation error", got)
 	}
 }
 
-func TestRenderRuntimeRejectsAdapterMethodSymbolCollision(t *testing.T) {
+func TestRenderRuntimeRejectsEntryMethodSymbolCollision(t *testing.T) {
 	plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())
 	plan := FilePlan{
 		GoPackageName: "testv1",
@@ -427,18 +449,23 @@ func TestRenderRuntimeRejectsAdapterMethodSymbolCollision(t *testing.T) {
 
 	err := renderRuntimeFile(plugin, plan, plan.Services[0], plan.Services[0].Artifacts[0])
 	if err == nil {
-		t.Fatal("renderRuntimeFile() error = nil, want adapter method collision error")
+		t.Fatal("renderRuntimeFile() error = nil, want entry method collision error")
 	}
 	if got := err.Error(); !strings.Contains(got, "StartFoo") || !strings.Contains(got, "collides") {
-		t.Fatalf("renderRuntimeFile() error = %q, want colliding adapter method name", got)
+		t.Fatalf("renderRuntimeFile() error = %q, want colliding entry method name", got)
 	}
 }
 
-func runtimeTestMethod(name string, streaming StreamingKind, nativeAdapterMethod string, messageAdapterMethod string, streamShape runtimeStreamShape) MethodPlan {
+func runtimeTestMethod(name string, streaming StreamingKind, nativeEntryMethod string, messageEntryMethod string, streamShape runtimeStreamShape) MethodPlan {
 	method := MethodPlan{Name: name, GoName: name, FullName: "test.v1.Greeter." + name, Streaming: streaming}
 	method.RenderPlan = MethodRenderPlan{
-		Lifecycle: runtimeTestLifecycleProjection(streamShape),
-		Symbols:   RenderSymbolsPlan{NativeAdapterMethod: nativeAdapterMethod, MessageAdapterMethod: messageAdapterMethod},
+		Stream: runtimeTestStreamCapabilityProjection(streamShape),
+		Symbols: RenderSymbolsPlan{
+			NativeEntryMethod:    nativeEntryMethod,
+			MessageEntryMethod:   messageEntryMethod,
+			NativeAdapterMethod:  nativeEntryMethod,
+			MessageAdapterMethod: messageEntryMethod,
+		},
 		Errors: RenderErrorsPlan{
 			NativeServerUnavailableErr:  "GreeterNativeServerUnavailableErr",
 			MessageServerUnavailableErr: "GreeterMessageServerUnavailableErr",
@@ -446,36 +473,36 @@ func runtimeTestMethod(name string, streaming StreamingKind, nativeAdapterMethod
 		},
 	}
 	if streamShape != runtimeStreamUnary {
-		method.Contract.Lifecycle = runtimeTestLifecycle(streamShape)
+		method.Contract.Stream = runtimeTestStreamCapability(streamShape)
 		method.RenderPlan.Symbols.NativeSessionType = "Greeter" + name + "NativeStreamSession"
 		method.RenderPlan.Symbols.MessageSessionType = "Greeter" + name + "MessageStreamSession"
 	}
 	return method
 }
 
-func runtimeTestLifecycleProjection(streamShape runtimeStreamShape) StreamLifecycleProjectionPlan {
+func runtimeTestStreamCapabilityProjection(streamShape runtimeStreamShape) StreamCapabilityProjectionPlan {
 	switch streamShape {
 	case runtimeStreamClient:
-		return StreamLifecycleProjectionPlan{Streaming: true, CanSend: true, FinishReturnsResponse: true, RequiresCodec: true}
+		return StreamCapabilityProjectionPlan{Streaming: true, CanSend: true, FinishReturnsResponse: true, RequiresCodec: true}
 	case runtimeStreamServer:
-		return StreamLifecycleProjectionPlan{Streaming: true, CanRecv: true, RequiresCodec: true}
+		return StreamCapabilityProjectionPlan{Streaming: true, CanRecv: true, RequiresCodec: true}
 	case runtimeStreamBidi:
-		return StreamLifecycleProjectionPlan{Streaming: true, CanSend: true, CanRecv: true, CanCloseSend: true, RequiresCodec: true}
+		return StreamCapabilityProjectionPlan{Streaming: true, CanSend: true, CanRecv: true, CanCloseSend: true, RequiresCodec: true}
 	default:
-		return StreamLifecycleProjectionPlan{RequiresCodec: true}
+		return StreamCapabilityProjectionPlan{RequiresCodec: true}
 	}
 }
 
-func runtimeTestLifecycle(streamShape runtimeStreamShape) StreamLifecycleContractPlan {
+func runtimeTestStreamCapability(streamShape runtimeStreamShape) StreamCapabilityContractPlan {
 	switch streamShape {
 	case runtimeStreamClient:
-		return StreamLifecycleContractPlan{CanSend: true, FinishReturnsResponse: true}
+		return StreamCapabilityContractPlan{CanSend: true, FinishReturnsResponse: true}
 	case runtimeStreamServer:
-		return StreamLifecycleContractPlan{CanRecv: true}
+		return StreamCapabilityContractPlan{CanRecv: true}
 	case runtimeStreamBidi:
-		return StreamLifecycleContractPlan{CanSend: true, CanRecv: true, CanCloseSend: true}
+		return StreamCapabilityContractPlan{CanSend: true, CanRecv: true, CanCloseSend: true}
 	default:
-		return StreamLifecycleContractPlan{}
+		return StreamCapabilityContractPlan{}
 	}
 }
 

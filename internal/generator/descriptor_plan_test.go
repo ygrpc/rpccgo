@@ -227,7 +227,7 @@ func assertCompleteMethodContracts(t *testing.T, method MethodPlan) {
 	if len(method.Contract.Native.RequestFields) == 0 || len(method.Contract.Native.ResponseFields) == 0 {
 		t.Fatalf("%s NativeContract missing request or response fields", method.FullName)
 	}
-	if method.RenderPlan.Symbols.NativeAdapterMethod == "" || method.RenderPlan.Errors.NativeServerUnavailableErr == "" {
+	if method.RenderPlan.Symbols.NativeEntryMethod == "" || method.RenderPlan.Errors.NativeServerUnavailableErr == "" {
 		t.Fatalf("%s render symbols/errors are incomplete", method.FullName)
 	}
 }

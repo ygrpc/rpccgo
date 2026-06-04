@@ -3,10 +3,10 @@ package generator
 import "fmt"
 
 type MethodRenderPlan struct {
-	CallPath  CallPathPlan
-	Lifecycle StreamLifecycleProjectionPlan
-	Symbols   RenderSymbolsPlan
-	Errors    RenderErrorsPlan
+	CallPath CallPathPlan
+	Stream   StreamCapabilityProjectionPlan
+	Symbols  RenderSymbolsPlan
+	Errors   RenderErrorsPlan
 }
 
 type CallPathPlan struct {
@@ -20,10 +20,10 @@ type CallPathRoutePlan struct {
 	RouteKind                 CallPathRouteKind
 	NeedsNativeConversion     bool
 	NeedsMessageConversion    bool
-	NeedsMissingAdapterGuard  bool
+	NeedsMissingEntryGuard    bool
 	NeedsUnknownContractGuard bool
-	NativeAdapterMethod       string
-	MessageAdapterMethod      string
+	NativeEntryMethod         string
+	MessageEntryMethod        string
 	NativeSessionMethod       string
 	MessageSessionMethod      string
 	NativeWrapperType         string
@@ -39,6 +39,8 @@ const (
 )
 
 type RenderSymbolsPlan struct {
+	NativeEntryMethod    string
+	MessageEntryMethod   string
 	NativeAdapterMethod  string
 	MessageAdapterMethod string
 	NativeSessionType    string
@@ -57,29 +59,31 @@ type RenderErrorsPlan struct {
 }
 
 func BuildMethodRenderPlan(method MethodPlan, serviceName string) (MethodRenderPlan, error) {
-	lifecycle, err := ProjectStreamLifecycle(method.Contract.Lifecycle, true)
+	capability, err := ProjectStreamCapability(method.Contract.Stream, true)
 	if err != nil {
 		return MethodRenderPlan{}, err
 	}
 
-	nativeAdapterMethod := method.GoName
+	nativeEntryMethod := method.GoName
 	if method.Streaming != StreamingKindUnary {
-		nativeAdapterMethod = "Start" + method.GoName
+		nativeEntryMethod = "Start" + method.GoName
 	}
-	messageAdapterMethod := nativeAdapterMethod
+	messageEntryMethod := nativeEntryMethod
 	nativeSessionType := ""
 	messageSessionType := ""
-	if lifecycle.Streaming {
+	if capability.Streaming {
 		nativeSessionType = serviceName + method.GoName + "NativeStreamSession"
 		messageSessionType = serviceName + method.GoName + "MessageStreamSession"
 	}
 	nativeWrapperType := lowerInitial(serviceName) + method.GoName + "NativeToMessageStreamSession"
 	messageWrapperType := lowerInitial(serviceName) + method.GoName + "MessageToNativeStreamSession"
 	shape := MethodRenderPlan{
-		Lifecycle: lifecycle,
+		Stream: capability,
 		Symbols: RenderSymbolsPlan{
-			NativeAdapterMethod:  nativeAdapterMethod,
-			MessageAdapterMethod: messageAdapterMethod,
+			NativeEntryMethod:    nativeEntryMethod,
+			MessageEntryMethod:   messageEntryMethod,
+			NativeAdapterMethod:  nativeEntryMethod,
+			MessageAdapterMethod: messageEntryMethod,
 			NativeSessionType:    nativeSessionType,
 			MessageSessionType:   messageSessionType,
 			ActiveRouterMethod:   method.GoName,
@@ -90,7 +94,7 @@ func BuildMethodRenderPlan(method MethodPlan, serviceName string) (MethodRenderP
 			NativeServerUnavailableErr:  serviceName + "NativeServerUnavailableErr",
 			MessageServerUnavailableErr: serviceName + "MessageServerUnavailableErr",
 			UnknownActiveContractErr:    serviceName + "UnknownActiveContractErr",
-			Role:                        "active_router",
+			Role:                        "entry",
 			Category:                    "routing",
 		},
 	}
@@ -103,7 +107,7 @@ func BuildMethodRenderPlan(method MethodPlan, serviceName string) (MethodRenderP
 }
 
 func renderCallPath(method MethodPlan, symbols RenderSymbolsPlan) CallPathPlan {
-	native := CallPathRoutePlan{RouteKind: CallPathRouteKindNative, NeedsNativeConversion: true, NeedsMessageConversion: true, NeedsMissingAdapterGuard: true, NeedsUnknownContractGuard: true, NativeAdapterMethod: symbols.NativeAdapterMethod, MessageAdapterMethod: symbols.MessageAdapterMethod, NativeSessionMethod: symbols.NativeAdapterMethod, MessageSessionMethod: symbols.MessageAdapterMethod, NativeWrapperType: symbols.NativeWrapperType, MessageWrapperType: symbols.MessageWrapperType}
+	native := CallPathRoutePlan{RouteKind: CallPathRouteKindNative, NeedsNativeConversion: true, NeedsMessageConversion: true, NeedsMissingEntryGuard: true, NeedsUnknownContractGuard: true, NativeEntryMethod: symbols.NativeEntryMethod, MessageEntryMethod: symbols.MessageEntryMethod, NativeSessionMethod: symbols.NativeEntryMethod, MessageSessionMethod: symbols.MessageEntryMethod, NativeWrapperType: symbols.NativeWrapperType, MessageWrapperType: symbols.MessageWrapperType}
 	message := native
 	message.RouteKind = CallPathRouteKindMessage
 	if method.Streaming == StreamingKindUnary {
@@ -116,19 +120,19 @@ func ValidateMethodContractPlan(method MethodPlan) error {
 	if !method.Contract.Message.RequestType.HasIdentity() || !method.Contract.Message.ResponseType.HasIdentity() {
 		return fmt.Errorf("method %s message contract is incomplete", methodPlanName(method))
 	}
-	lifecycle := method.Contract.Lifecycle
+	capability := method.Contract.Stream
 	if method.Streaming == StreamingKindUnary {
-		if !lifecycle.IsZero() {
-			return fmt.Errorf("method %s unary lifecycle must be empty", methodPlanName(method))
+		if !capability.IsZero() {
+			return fmt.Errorf("method %s unary capability must be empty", methodPlanName(method))
 		}
 		return nil
 	}
-	expected, err := expectedLifecyclePlan(method.Streaming)
+	expected, err := expectedStreamCapabilityPlan(method.Streaming)
 	if err != nil {
 		return fmt.Errorf("method %s has unknown streaming kind %d", methodPlanName(method), method.Streaming)
 	}
-	if lifecycle != expected {
-		return fmt.Errorf("method %s streaming lifecycle capabilities do not match descriptor", methodPlanName(method))
+	if capability != expected {
+		return fmt.Errorf("method %s streaming capabilities do not match descriptor", methodPlanName(method))
 	}
 	return nil
 }
@@ -139,23 +143,23 @@ func ValidateMethodRenderPlan(method MethodPlan) error {
 
 func validateMethodRenderPlan(method MethodPlan) error {
 	shape := method.RenderPlan
-	expectedLifecycle, err := ProjectStreamLifecycle(method.Contract.Lifecycle, true)
+	expectedStreamCapability, err := ProjectStreamCapability(method.Contract.Stream, true)
 	if err != nil {
-		return fmt.Errorf("method %s render lifecycle is invalid: %w", methodPlanName(method), err)
+		return fmt.Errorf("method %s render capability is invalid: %w", methodPlanName(method), err)
 	}
-	if shape.Lifecycle != expectedLifecycle {
-		return fmt.Errorf("method %s render lifecycle does not match contract capabilities", methodPlanName(method))
+	if shape.Stream != expectedStreamCapability {
+		return fmt.Errorf("method %s render capability does not match contract capabilities", methodPlanName(method))
 	}
 	if method.Streaming == StreamingKindUnary {
-		if shape.Lifecycle.Streaming {
-			return fmt.Errorf("method %s unary render lifecycle must not stream", methodPlanName(method))
+		if shape.Stream.Streaming {
+			return fmt.Errorf("method %s unary render capability must not stream", methodPlanName(method))
 		}
 	} else {
-		if !shape.Lifecycle.Streaming {
-			return fmt.Errorf("method %s streaming render lifecycle is missing", methodPlanName(method))
+		if !shape.Stream.Streaming {
+			return fmt.Errorf("method %s streaming render capability is missing", methodPlanName(method))
 		}
 	}
-	if shape.Symbols.NativeAdapterMethod == "" || shape.Symbols.MessageAdapterMethod == "" {
+	if shape.Symbols.NativeEntryMethod == "" || shape.Symbols.MessageEntryMethod == "" {
 		return fmt.Errorf("method %s render symbols are incomplete", methodPlanName(method))
 	}
 	if method.Streaming != StreamingKindUnary && (shape.Symbols.NativeSessionType == "" || shape.Symbols.MessageSessionType == "") {

@@ -180,9 +180,9 @@ type NativeFieldPlan struct {
 }
 
 type MethodContractPlan struct {
-	Native    NativeContractPlan
-	Message   MessageContractPlan
-	Lifecycle StreamLifecycleContractPlan
+	Native  NativeContractPlan
+	Message MessageContractPlan
+	Stream  StreamCapabilityContractPlan
 }
 
 type NativeContractPlan struct {
@@ -195,14 +195,14 @@ type MessageContractPlan struct {
 	ResponseType MethodIOPlan
 }
 
-type StreamLifecycleContractPlan struct {
+type StreamCapabilityContractPlan struct {
 	CanSend               bool
 	CanRecv               bool
 	CanCloseSend          bool
 	FinishReturnsResponse bool
 }
 
-func (p StreamLifecycleContractPlan) IsZero() bool {
+func (p StreamCapabilityContractPlan) IsZero() bool {
 	return !p.CanSend && !p.CanRecv && !p.CanCloseSend && !p.FinishReturnsResponse
 }
 

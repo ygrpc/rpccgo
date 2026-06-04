@@ -585,7 +585,7 @@ func waitForRemoteTransportPort(t *testing.T, addr string) {
 
 func registerConnectRemote(t *testing.T, remote remoteTransportProcess) {
 	t.Helper()
-	localv1.ResetGreeterDispatcherForIntegrationTest()
+	localv1.ResetGreeterServerForIntegrationTest()
 	client := localv1.NewGreeterClient(http.DefaultClient, "http://"+remote.addr)
 	if err := localv1.RegisterGreeterConnectRemoteServer(client); err != nil {
 		t.Fatalf("RegisterGreeterConnectRemoteServer() error = %v", err)

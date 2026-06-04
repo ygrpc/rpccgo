@@ -70,7 +70,7 @@ func qualifyRuntimeMethodProjections(methods []runtimeMethodProjection, serviceP
 		}
 		rawSessionName := qualified[i].Symbols.NativeSourceSessionType
 		qualified[i].Symbols.NativeSourceSessionType = servicePackage + rawSessionName
-		qualified[i].Native.AdapterResult = strings.ReplaceAll(qualified[i].Native.AdapterResult, rawSessionName, qualified[i].Symbols.NativeSourceSessionType)
+		qualified[i].Native.EntryResult = strings.ReplaceAll(qualified[i].Native.EntryResult, rawSessionName, qualified[i].Symbols.NativeSourceSessionType)
 	}
 	return qualified
 }
@@ -1179,10 +1179,10 @@ func renderNativeStreamRecvAssign(g *protogen.GeneratedFile, fields []FieldPlan,
 }
 
 func renderCGONativeServerStreamingFallback(g *protogen.GeneratedFile, adapterName string, method runtimeMethodProjection, errorNames nativeServerCGOErrorNames) {
-	g.P("func (a *", adapterName, ") ", method.Symbols.NativeAdapterMethod, "(ctx context.Context", method.Native.AdapterArgs, ")", method.Native.AdapterResult, " {")
+	g.P("func (a *", adapterName, ") ", method.Symbols.NativeEntryMethod, "(ctx context.Context", method.Native.EntryArgs, ")", method.Native.EntryResult, " {")
 	if method.Stream.Streaming {
 		g.P("return nil, ", errorNames.StreamNotImplemented)
-	} else if method.Native.AdapterResult == " error" {
+	} else if method.Native.EntryResult == " error" {
 		g.P("return ", errorNames.StreamNotImplemented)
 	} else {
 		g.P("return nil, ", errorNames.UnaryCallbackMissing)
@@ -1932,7 +1932,7 @@ func validateNativeServerCGOSymbols(plan FilePlan, service ServicePlan) error {
 
 	errorNames := nativeServerCGOErrorNamesFor(service)
 	for symbol, source := range map[string]string{
-		lowerInitial(service.GoName) + "CGONativeAdapter":              service.FullName + " adapter",
+		lowerInitial(service.GoName) + "CGONativeAdapter":              service.FullName + " entry",
 		"Register" + service.GoName + "CGONativeServer":                service.FullName + " registration",
 		"Store" + service.GoName + "CGONativeServerErrorTextForExport": service.FullName + " error text export",
 		nativeCGOServerErrorIDHelperName(service):                      service.FullName + " error id helper",
@@ -2078,7 +2078,7 @@ func addNativeServerCGOGeneratedSymbols(seen map[string]string, service ServiceP
 	}
 	errorNames := nativeServerCGOErrorNamesFor(service)
 	for symbol, source := range map[string]string{
-		lowerInitial(service.GoName) + "CGONativeAdapter":              service.FullName + " adapter",
+		lowerInitial(service.GoName) + "CGONativeAdapter":              service.FullName + " entry",
 		"Register" + service.GoName + "CGONativeServer":                service.FullName + " registration",
 		"Store" + service.GoName + "CGONativeServerErrorTextForExport": service.FullName + " error text export",
 		nativeCGOServerErrorIDHelperName(service):                      service.FullName + " error id helper",

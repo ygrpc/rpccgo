@@ -174,7 +174,7 @@ func registerTransportMessageServer(t *testing.T) {
 
 func registerTransportGoNativeServer(t *testing.T) {
 	t.Helper()
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	resetTransportGoNativeCounters()
 	if err := v1.RegisterGreeterGoNativeServer(transportNativeServer{}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)

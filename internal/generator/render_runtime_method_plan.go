@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
 )
@@ -23,19 +24,19 @@ type runtimeMethodIdentityProjection struct {
 }
 
 type runtimeNativeProjection struct {
-	AdapterArgs   string
-	AdapterResult string
+	EntryArgs   string
+	EntryResult string
 
-	Args           string
-	Returns        string
-	Zero           string
-	ErrZero        string
-	NoActiveZero   string
-	ConverterZero  string
-	InvalidZero    string
-	ArgNames       string
-	ResultNames    string
-	ResultVarDecls []string
+	Args             string
+	Returns          string
+	Zero             string
+	ErrZero          string
+	NoRegisteredZero string
+	ConverterZero    string
+	InvalidZero      string
+	ArgNames         string
+	ResultNames      string
+	ResultVarDecls   []string
 }
 
 type runtimeMessageProjection struct {
@@ -54,6 +55,8 @@ type runtimeStreamProjection struct {
 }
 
 type runtimeMethodSymbolsProjection struct {
+	NativeEntryMethod        string
+	MessageEntryMethod       string
 	NativeAdapterMethod      string
 	MessageAdapterMethod     string
 	NativeSourceSessionType  string
@@ -89,10 +92,10 @@ func buildRuntimeMethodProjectionsWithMessageTypes(g *protogen.GeneratedFile, se
 		if err != nil {
 			return nil, err
 		}
-		if previous, exists := seen[projected.Symbols.NativeAdapterMethod]; exists {
-			return nil, fmt.Errorf("runtime adapter method %s for %s collides with %s", projected.Symbols.NativeAdapterMethod, method.FullName, previous)
+		if previous, exists := seen[projected.Symbols.NativeEntryMethod]; exists {
+			return nil, fmt.Errorf("runtime entry method %s for %s collides with %s", projected.Symbols.NativeEntryMethod, method.FullName, previous)
 		}
-		seen[projected.Symbols.NativeAdapterMethod] = method.FullName
+		seen[projected.Symbols.NativeEntryMethod] = method.FullName
 		methods = append(methods, projected)
 	}
 	return methods, nil
@@ -108,6 +111,8 @@ func runtimePlaceholderMethodProjection(serviceName, methodName string, shape ru
 			Shape: shape,
 		},
 		Symbols: runtimeMethodSymbolsProjection{
+			NativeEntryMethod:        methodName,
+			MessageEntryMethod:       methodName,
 			NativeAdapterMethod:      methodName,
 			MessageAdapterMethod:     methodName,
 			NativeSourceSessionType:  serviceName + methodName + "NativeStreamSession",
@@ -116,24 +121,24 @@ func runtimePlaceholderMethodProjection(serviceName, methodName string, shape ru
 	}
 	switch shape {
 	case runtimeStreamUnary:
-		projected.Native.AdapterResult = " error"
+		projected.Native.EntryResult = " error"
 	case runtimeStreamClient:
 		projected.Stream.Streaming = true
 		projected.Stream.CanSend = true
 		projected.Stream.FinishReturnsResponse = true
-		projected.Native.AdapterResult = " (" + projected.Symbols.NativeSourceSessionType + ", error)"
+		projected.Native.EntryResult = " (" + projected.Symbols.NativeSourceSessionType + ", error)"
 	case runtimeStreamServer:
 		projected.Stream.Streaming = true
 		projected.Stream.Shape = runtimeStreamServer
 		projected.Stream.CanRecv = true
 		projected.Stream.StartAcceptsRequest = true
-		projected.Native.AdapterResult = " (" + projected.Symbols.NativeSourceSessionType + ", error)"
+		projected.Native.EntryResult = " (" + projected.Symbols.NativeSourceSessionType + ", error)"
 	case runtimeStreamBidi:
 		projected.Stream.Streaming = true
 		projected.Stream.CanSend = true
 		projected.Stream.CanRecv = true
 		projected.Stream.CanCloseSend = true
-		projected.Native.AdapterResult = " (" + projected.Symbols.NativeSourceSessionType + ", error)"
+		projected.Native.EntryResult = " (" + projected.Symbols.NativeSourceSessionType + ", error)"
 	}
 	return projected
 }
@@ -153,6 +158,8 @@ func projectRuntimeMethod(g *protogen.GeneratedFile, service ServicePlan, method
 	nativeArgs := nativeGoRequestParams(g, nativeFields)
 	nativeReturns := nativeGoResponseReturns(g, responseFields)
 	symbols := runtimeMethodSymbolsProjection{
+		NativeEntryMethod:        method.RenderPlan.Symbols.NativeEntryMethod,
+		MessageEntryMethod:       method.RenderPlan.Symbols.MessageEntryMethod,
 		NativeAdapterMethod:      method.RenderPlan.Symbols.NativeAdapterMethod,
 		MessageAdapterMethod:     method.RenderPlan.Symbols.MessageAdapterMethod,
 		NativeSourceSessionType:  method.RenderPlan.Symbols.NativeSessionType,
@@ -172,16 +179,16 @@ func projectRuntimeMethod(g *protogen.GeneratedFile, service ServicePlan, method
 			MessageMethodRef: method.GoName,
 		},
 		Native: runtimeNativeProjection{
-			Args:           nativeArgs,
-			Returns:        nativeReturns,
-			Zero:           nativeGoZeroReturns(responseFields, `errors.New("rpccgo native server method is not implemented")`),
-			ErrZero:        nativeGoZeroReturns(responseFields, "err"),
-			NoActiveZero:   nativeGoZeroReturns(responseFields, "rpcruntime.ErrNoActiveServer"),
-			ConverterZero:  nativeGoZeroReturns(responseFields, "err"),
-			InvalidZero:    nativeGoZeroReturns(responseFields, "rpcruntime.ErrStreamInvalidHandle"),
-			ArgNames:       nativeGoRequestArgNames(nativeFields),
-			ResultNames:    nativeGoResponseResultNames(responseFields),
-			ResultVarDecls: nativeGoResponseResultVarDecls(g, responseFields),
+			Args:             nativeArgs,
+			Returns:          nativeReturns,
+			Zero:             nativeGoZeroReturns(responseFields, `errors.New("rpccgo native server method is not implemented")`),
+			ErrZero:          nativeGoZeroReturns(responseFields, "err"),
+			NoRegisteredZero: nativeGoZeroReturns(responseFields, "rpcruntime.ErrNoRegisteredServer"),
+			ConverterZero:    nativeGoZeroReturns(responseFields, "err"),
+			InvalidZero:      nativeGoZeroReturns(responseFields, "rpcruntime.ErrStreamInvalidHandle"),
+			ArgNames:         nativeGoRequestArgNames(nativeFields),
+			ResultNames:      nativeGoResponseResultNames(responseFields),
+			ResultVarDecls:   nativeGoResponseResultVarDecls(g, responseFields),
 		},
 		Message: runtimeMessageProjection{
 			RequestType:  requestType,
@@ -198,13 +205,13 @@ func projectRuntimeMethod(g *protogen.GeneratedFile, service ServicePlan, method
 		},
 	}
 	if !stream.Streaming {
-		projected.Native.AdapterArgs = nativeArgs
-		projected.Native.AdapterResult = " (" + nativeReturns + ")"
+		projected.Native.EntryArgs = nativeArgs
+		projected.Native.EntryResult = " (" + nativeReturns + ")"
 		return projected, nil
 	}
-	projected.Native.AdapterResult = " (" + projected.Symbols.NativeSourceSessionType + ", error)"
+	projected.Native.EntryResult = " (" + projected.Symbols.NativeSourceSessionType + ", error)"
 	if stream.StartAcceptsRequest {
-		projected.Native.AdapterArgs = nativeArgs
+		projected.Native.EntryArgs = nativeArgs
 	}
 	return projected, nil
 }
@@ -220,13 +227,13 @@ const (
 )
 
 func projectRuntimeStream(method MethodPlan) (runtimeStreamProjection, error) {
-	lifecycle := method.RenderPlan.Lifecycle
+	capability := method.RenderPlan.Stream
 	projected := runtimeStreamProjection{
-		Streaming:             lifecycle.Streaming,
-		CanSend:               lifecycle.CanSend,
-		CanRecv:               lifecycle.CanRecv,
-		CanCloseSend:          lifecycle.CanCloseSend,
-		FinishReturnsResponse: lifecycle.FinishReturnsResponse,
+		Streaming:             capability.Streaming,
+		CanSend:               capability.CanSend,
+		CanRecv:               capability.CanRecv,
+		CanCloseSend:          capability.CanCloseSend,
+		FinishReturnsResponse: capability.FinishReturnsResponse,
 	}
 
 	switch {
@@ -250,6 +257,15 @@ func nativeRuntimeMessageType(g *protogen.GeneratedFile, message MethodIOPlan) s
 		GoName:       message.GoName,
 		GoImportPath: protogen.GoImportPath(message.GoImportPath),
 	})
+}
+
+func codecMessageToNativeRequestAssignNames(fields []FieldPlan, ownerName, errName string) string {
+	names := make([]string, 0, len(fields)+2)
+	for _, field := range fields {
+		names = append(names, lowerInitial(field.GoName))
+	}
+	names = append(names, ownerName, errName)
+	return strings.Join(names, ", ")
 }
 
 func runtimeStreamingMethodProjections(methods []runtimeMethodProjection) []runtimeMethodProjection {

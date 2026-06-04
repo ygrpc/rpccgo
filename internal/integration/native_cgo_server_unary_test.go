@@ -10,7 +10,7 @@ import (
 	"rpccgo/internal/generator"
 )
 
-func TestNativeCGOServerUnaryRoutesThroughDispatcher(t *testing.T) {
+func TestNativeCGOServerUnaryRoutesThroughRuntimeEntry(t *testing.T) {
 	tmp := t.TempDir()
 	plugin := newNativeUnaryTestPluginForPackage(t, "example.com/nativecgoserver/test/v1;testv1")
 	if _, err := generator.GenerateWithOptions(plugin); err != nil {
@@ -115,8 +115,8 @@ func (cgoOverrideGoServer) SayUnsupported(context.Context, *rpcruntime.RpcString
 	return nil, "", nil, nil
 }
 
-func TestNativeCGOServerUnaryRoutesThroughDispatcher(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+func TestNativeCGOServerUnaryRoutesThroughRuntimeEntry(t *testing.T) {
+	v1.ResetGreeterServerForIntegrationTest()
 	rpcruntime.ResetFreeCallbackForTesting()
 	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
 	frees := registerCFreeCallback()
@@ -151,7 +151,7 @@ func TestNativeCGOServerUnaryRoutesThroughDispatcher(t *testing.T) {
 }
 
 func TestNativeCGOServerUnaryRegistrationValidation(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	if err := registerGreeterCGONativeServerNilCallback(); err == nil || !strings.Contains(err.Error(), "unary callback is missing") {
 		t.Fatalf("registerGreeterCGONativeServerNilCallback() error = %v", err)
 	}
@@ -162,7 +162,7 @@ func TestNativeCGOServerUnaryRegistrationValidation(t *testing.T) {
 }
 
 func TestNativeCGOServerUnaryCallbackErrorPropagates(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	if err := registerGreeterCGONativeServerErrorCallback(); err != nil {
 		t.Fatalf("registerGreeterCGONativeServerErrorCallback() error = %v", err)
 	}
@@ -181,7 +181,7 @@ func TestNativeCGOServerUnaryCallbackErrorPropagates(t *testing.T) {
 }
 
 func TestNativeCGOServerUnaryUnknownCallbackErrorIDIsExplicit(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	if err := registerGreeterCGONativeServerUnknownErrorCallback(); err != nil {
 		t.Fatalf("registerGreeterCGONativeServerUnknownErrorCallback() error = %v", err)
 	}
@@ -196,7 +196,7 @@ func TestNativeCGOServerUnaryUnknownCallbackErrorIDIsExplicit(t *testing.T) {
 }
 
 func TestNativeCGOServerUnaryOwnedOutputCleanupOnDecodeError(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	rpcruntime.ResetFreeCallbackForTesting()
 	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
 	frees := registerCFreeCallback()
@@ -220,7 +220,7 @@ func TestNativeCGOServerUnaryOwnedOutputCleanupOnDecodeError(t *testing.T) {
 }
 
 func TestNativeCGOServerUnaryOwnedOutputCleanupOnCallbackError(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	rpcruntime.ResetFreeCallbackForTesting()
 	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
 	frees := registerCFreeCallback()
@@ -244,7 +244,7 @@ func TestNativeCGOServerUnaryOwnedOutputCleanupOnCallbackError(t *testing.T) {
 }
 
 func TestNativeCGOServerUnaryOwnedOutputCleanupErrorPropagates(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	rpcruntime.ResetFreeCallbackForTesting()
 	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
 	if err := registerGreeterCGONativeServerCallbacks(); err != nil {
@@ -270,7 +270,7 @@ func TestNativeCGOServerUnaryOwnedOutputCleanupErrorPropagates(t *testing.T) {
 }
 
 func TestNativeCGOServerUnaryCallbackTableIsCopiedAtRegistration(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	rpcruntime.ResetFreeCallbackForTesting()
 	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
 	registerCFreeCallback()
@@ -281,7 +281,7 @@ func TestNativeCGOServerUnaryCallbackTableIsCopiedAtRegistration(t *testing.T) {
 }
 
 func TestNativeCGOServerUnaryRegistrationOverridesGoServer(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	rpcruntime.ResetFreeCallbackForTesting()
 	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
 	registerCFreeCallback()

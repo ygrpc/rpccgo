@@ -108,7 +108,7 @@ import (
 var (
 	greeterCGONativeServerCallbacksNil         = errors.New("rpccgo: Greeter cgo native server callbacks are nil")
 	greeterCGONativeServerUnaryCallbackMissing = errors.New("rpccgo: Greeter cgo native server unary callback is missing")
-	greeterCGONativeServerUnsupportedField     = errors.New("rpccgo: cgo native server field bridge is not implemented")
+	greeterCGONativeServerUnsupportedField     = errors.New("rpccgo: cgo native server field codec is not implemented")
 	greeterCGONativeServerStreamNotImplemented = errors.New("rpccgo: cgo native server streaming is not implemented")
 	greeterCGONativeServerAdapterMu            sync.Mutex
 	greeterCGONativeServerAdapter              = &greeterCGONativeAdapter{}

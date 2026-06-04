@@ -57,7 +57,7 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	g.P("return register", service.GoName, "CGOMessageServer(server)")
 	g.P("}")
 	g.P()
-	renderMessageBinding(g, service, runtimeMethods, serverName, lowerInitial(service.GoName)+"MessageBinding", lowerInitial(service.GoName)+"MessageActiveBinding")
+	renderMessageEntry(g, service, runtimeMethods, serverName, lowerInitial(service.GoName)+"CGOMessageEntry")
 	return nil
 }
 

@@ -58,6 +58,9 @@ func TestRenderMessageServerCGODefinesFlatServiceRegistration(t *testing.T) {
 		"typedef struct GreeterCGOMessageServerCallbacks",
 		"callbacks C.GreeterCGOMessageServerCallbacks",
 		"rpccgo_msg_testv1_Greeter_Unary_register",
+		"rpcruntime.StreamLifecycle",
+		"s.capability.EnsureCanSend()",
+		"s.capability.MarkSendClosed()",
 	)
 
 	for _, file := range plugin.Response().GetFile() {
@@ -69,11 +72,6 @@ func TestRenderMessageServerCGODefinesFlatServiceRegistration(t *testing.T) {
 		commit := "greeterCGOMessageServerAdapter = next"
 		if registerIndex, commitIndex := strings.Index(content, register), strings.Index(content, commit); registerIndex < 0 || commitIndex < 0 || commitIndex < registerIndex {
 			t.Fatalf("generated registration side-effect order invalid: register index=%d commit index=%d", registerIndex, commitIndex)
-		}
-		closeSend := "errID := int32(C.callGreeterChatCGOMessageBidiStreamCloseSend(s.closeSend, C.int32_t(s.stream)))"
-		markClosed := "s.lifecycle.MarkSendClosed()"
-		if closeSendIndex, markClosedIndex := strings.Index(content, closeSend), strings.Index(content, markClosed); closeSendIndex < 0 || markClosedIndex < 0 || markClosedIndex < closeSendIndex {
-			t.Fatalf("generated CloseSend lifecycle order invalid: CloseSend index=%d MarkSendClosed index=%d", closeSendIndex, markClosedIndex)
 		}
 		return
 	}

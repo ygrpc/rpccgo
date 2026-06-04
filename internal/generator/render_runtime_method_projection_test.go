@@ -38,8 +38,8 @@ func TestBuildRuntimeMethodProjectionsProjectUnaryMethod(t *testing.T) {
 	if got.Native.Returns != "string, error" {
 		t.Fatalf("projection native returns = %q, want response returns", got.Native.Returns)
 	}
-	if got.Native.NoActiveZero != "\"\", rpcruntime.ErrNoActiveServer" {
-		t.Fatalf("projection no-active zero = %q, want rpcruntime no active zero", got.Native.NoActiveZero)
+	if got.Native.NoRegisteredZero != "\"\", rpcruntime.ErrNoRegisteredServer" {
+		t.Fatalf("projection no-registered zero = %q, want rpcruntime no registered zero", got.Native.NoRegisteredZero)
 	}
 	if got.Codec.NativeRequestToMessage != "convertGreeterUnaryNativeToMessageRequest" {
 		t.Fatalf("projection native request codec = %q", got.Codec.NativeRequestToMessage)

@@ -58,7 +58,7 @@ func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
 	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "cleanupDecoded := func() error", "cleanupDecoded()", "type AllServiceUnaryNativeUnaryInput struct", "type AllServiceUnaryNativeUnaryOutput struct", "PayloadOwnership *int32", "allServiceDispatcher", "loadAllService", "takeAllService", "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf", "rpcruntime.NewRpcString((*byte)(unsafe.Pointer(NamePtr))")
 }
 
-func TestRenderNativeClientCGOStreamsUseDispatcherAccessor(t *testing.T) {
+func TestRenderNativeClientCGOStreamsUseRuntimeStreamFacade(t *testing.T) {
 	file := messageCgoTestFile()
 	setSimpleServiceComment(t, file, "@rpccgo: native\n")
 	plugin := newTestPlugin(t, "paths=source_relative", file)

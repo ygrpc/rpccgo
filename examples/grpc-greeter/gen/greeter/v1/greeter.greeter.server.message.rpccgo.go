@@ -63,24 +63,21 @@ func RegisterGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
 	return registerGreeterCGOMessageServer(server)
 }
 
-// greeterMessageBinding exposes a message server implementation through the
-// method shape used while building a greeterMessageActiveBinding.
-type greeterMessageBinding struct {
-	sayHello  func(ctx context.Context, req []byte) ([]byte, error)
-	collect   func(ctx context.Context, stream GreeterCollectMessageClientStream) ([]byte, error)
-	broadcast func(ctx context.Context, req []byte, stream GreeterBroadcastMessageServerStream) error
-	chat      func(ctx context.Context, stream GreeterChatMessageBidiStream) error
+// greeterCGOMessageEntry exposes a message server implementation through the
+// generated runtime entry method shape.
+type greeterCGOMessageEntry struct {
+	server GreeterCGOMessageServer
 }
 
-func (a *greeterMessageBinding) SayHello(ctx context.Context, req []byte) ([]byte, error) {
-	return a.sayHello(ctx, req)
+func (a *greeterCGOMessageEntry) SayHello(ctx context.Context, req []byte) ([]byte, error) {
+	return a.server.SayHello(ctx, req)
 }
 
-func (a *greeterMessageBinding) Collect(ctx context.Context, stream GreeterCollectMessageClientStream) ([]byte, error) {
-	return a.collect(ctx, stream)
+func (a *greeterCGOMessageEntry) Collect(ctx context.Context, stream GreeterCollectMessageClientStream) ([]byte, error) {
+	return a.server.Collect(ctx, stream)
 }
 
-func (a *greeterMessageBinding) StartCollect(ctx context.Context) (GreeterCollectMessageStreamSession, error) {
+func (a *greeterCGOMessageEntry) StartCollect(ctx context.Context) (GreeterCollectMessageStreamSession, error) {
 	streamCtx, cancel := context.WithCancel(ctx)
 	session := &greeterCollectMessageServerClientStreamSession{ctx: streamCtx, cancel: cancel, requests: make(chan greeterCollectMessageServerClientStreamSessionRequest, 16), sendDone: make(chan struct{}), done: make(chan struct{})}
 	go func() {
@@ -200,11 +197,11 @@ func (s *greeterCollectMessageServerClientStreamSession) Cancel(ctx context.Cont
 	}
 }
 
-func (a *greeterMessageBinding) Broadcast(ctx context.Context, req []byte, stream GreeterBroadcastMessageServerStream) error {
-	return a.broadcast(ctx, req, stream)
+func (a *greeterCGOMessageEntry) Broadcast(ctx context.Context, req []byte, stream GreeterBroadcastMessageServerStream) error {
+	return a.server.Broadcast(ctx, req, stream)
 }
 
-func (a *greeterMessageBinding) StartBroadcast(ctx context.Context, req []byte) (GreeterBroadcastMessageStreamSession, error) {
+func (a *greeterCGOMessageEntry) StartBroadcast(ctx context.Context, req []byte) (GreeterBroadcastMessageStreamSession, error) {
 	streamCtx, cancel := context.WithCancel(ctx)
 	finishCtx, finishCancel := context.WithCancel(context.Background())
 	session := &greeterBroadcastMessageServerServerStreamSession{ctx: streamCtx, cancel: cancel, finishCtx: finishCtx, finishCancel: finishCancel, responses: make(chan greeterBroadcastMessageServerServerStreamSessionResponse, 1), done: make(chan struct{})}
@@ -357,11 +354,11 @@ func (s *greeterBroadcastMessageServerServerStreamSession) Cancel(ctx context.Co
 	}
 }
 
-func (a *greeterMessageBinding) Chat(ctx context.Context, stream GreeterChatMessageBidiStream) error {
-	return a.chat(ctx, stream)
+func (a *greeterCGOMessageEntry) Chat(ctx context.Context, stream GreeterChatMessageBidiStream) error {
+	return a.server.Chat(ctx, stream)
 }
 
-func (a *greeterMessageBinding) StartChat(ctx context.Context) (GreeterChatMessageStreamSession, error) {
+func (a *greeterCGOMessageEntry) StartChat(ctx context.Context) (GreeterChatMessageStreamSession, error) {
 	streamCtx, cancel := context.WithCancel(ctx)
 	finishCtx, finishCancel := context.WithCancel(context.Background())
 	session := &greeterChatMessageServerBidiStreamSession{ctx: streamCtx, cancel: cancel, finishCtx: finishCtx, finishCancel: finishCancel, requests: make(chan greeterChatMessageServerBidiStreamSessionRequest, 16), sendDone: make(chan struct{}), sendDoneReceived: make(chan struct{}), responses: make(chan greeterChatMessageServerBidiStreamSessionResponse, 1), done: make(chan struct{})}

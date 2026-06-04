@@ -537,7 +537,7 @@ func (directConnectGreeter) List(context.Context, *emptypb.Empty, *connect.Serve
 func (directConnectGreeter) Chat(context.Context, *connect.BidiStream[emptypb.Empty, emptypb.Empty]) error { return nil }
 
 func TestDirectConnectHandlerRegistration(t *testing.T) {
-	ResetGreeterDispatcherForIntegrationTest()
+	ResetGreeterServerForIntegrationTest()
 	if err := RegisterGreeterConnectHandler(directConnectGreeter{}); err != nil {
 		t.Fatalf("RegisterGreeterConnectHandler() error = %v", err)
 	}
@@ -608,7 +608,7 @@ func (directGRPCGreeter) List(*emptypb.Empty, Greeter_ListServer) error { return
 func (directGRPCGreeter) Chat(Greeter_ChatServer) error { return nil }
 
 func TestDirectGRPCServerRegistration(t *testing.T) {
-	ResetGreeterDispatcherForIntegrationTest()
+	ResetGreeterServerForIntegrationTest()
 	if err := RegisterGreeterGRPCServer(directGRPCGreeter{}); err != nil {
 		t.Fatalf("RegisterGreeterGRPCServer() error = %v", err)
 	}
@@ -655,9 +655,8 @@ const messageDirectPathResetSource = `package testv1
 
 import rpcruntime "rpccgo/rpcruntime"
 
-func ResetGreeterDispatcherForIntegrationTest() {
-	greeterCurrentNativeBinding.Store(nil)
-	greeterCurrentMessageBinding.Store(nil)
+func ResetGreeterServerForIntegrationTest() {
+	_ = ClearGreeterServer()
 	greeterStreamRegistry = rpcruntime.StreamRegistry{}
 }
 `
@@ -666,8 +665,8 @@ const messageDirectPathMessageOnlyResetSource = `package testv1
 
 import rpcruntime "rpccgo/rpcruntime"
 
-func ResetGreeterDispatcherForIntegrationTest() {
-	greeterCurrentMessageBinding.Store(nil)
+func ResetGreeterServerForIntegrationTest() {
+	_ = ClearGreeterServer()
 	greeterStreamRegistry = rpcruntime.StreamRegistry{}
 }
 `
@@ -1111,7 +1110,7 @@ func greeterMessageStoredErrorIDForIntegration() C.int32_t {
 }
 
 func registerGreeterMessageCallbacksForIntegration() error {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	C.resetMessageCounters()
 	C.setUnaryError(0)
 	C.setUnaryStoredError(0)
@@ -1131,7 +1130,7 @@ func registerGreeterMessageCallbacksWithoutResetForIntegration() error {
 }
 
 func registerGreeterNativeCallbacksForIntegration() error {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	C.resetMessageCounters()
 	C.setNativeUnaryError(0)
 	callbacks := C.greeterNativeCallbacks()
@@ -1428,7 +1427,7 @@ func TestMessageBidiRejectsSendAfterCloseSendAndReadAfterCancel(t *testing.T) {
 	assertMessageNoErr(t, errID)
 	assertMessageNoErr(t, CloseSendGreeterChatMessageBidiStream(context.Background(), handle))
 	errID = SendGreeterChatMessageBidiStream(context.Background(), handle, 0, 0)
-	assertMessageErrContains(t, errID, "stream send side is closed")
+	assertMessageErrContains(t, errID, "message stream is closed")
 	assertMessageNoErr(t, CancelGreeterChatMessageBidiStream(context.Background(), handle))
 	errID = ReadGreeterChatMessageBidiStream(context.Background(), handle, &GreeterMessageOutput{})
 	assertMessageErrContains(t, errID, "stream handle is invalid")
@@ -1449,9 +1448,9 @@ func TestMessageBidiCloseSendErrorClosesSendSide(t *testing.T) {
 	errID = CloseSendGreeterChatMessageBidiStream(context.Background(), handle)
 	assertMessageErrContains(t, errID, "unknown error id 99996")
 	errID = SendGreeterChatMessageBidiStream(context.Background(), handle, 0, 0)
-	assertMessageErrContains(t, errID, "stream send side is closed")
+	assertMessageErrContains(t, errID, "message stream is closed")
 	errID = CloseSendGreeterChatMessageBidiStream(context.Background(), handle)
-	assertMessageErrContains(t, errID, "stream send side is closed")
+	assertMessageErrContains(t, errID, "message stream is closed")
 
 	if got := greeterMessageChatCloseSendsForIntegration(); got != 1 {
 		t.Fatalf("chat close sends = %d, want 1 after failed close send", got)

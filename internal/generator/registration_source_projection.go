@@ -2,13 +2,13 @@ package generator
 
 import "fmt"
 
-type runtimeRegistrationBindingKind string
+type runtimeRegistrationKind string
 
 const (
-	runtimeRegistrationBindingKindNative           runtimeRegistrationBindingKind = "native"
-	runtimeRegistrationBindingKindCGONativeForward runtimeRegistrationBindingKind = "cgo_native_forward"
-	runtimeRegistrationBindingKindMessage          runtimeRegistrationBindingKind = "message"
-	runtimeRegistrationBindingKindTransportMessage runtimeRegistrationBindingKind = "transport_message"
+	runtimeRegistrationKindNative           runtimeRegistrationKind = "native"
+	runtimeRegistrationKindCGONativeForward runtimeRegistrationKind = "cgo_native_forward"
+	runtimeRegistrationKindMessage          runtimeRegistrationKind = "message"
+	runtimeRegistrationKindTransportMessage runtimeRegistrationKind = "transport_message"
 )
 
 type transportMessageStreamConstructorShape string
@@ -22,12 +22,13 @@ const (
 )
 
 type registrationSourceProjection struct {
-	bindingKind                          runtimeRegistrationBindingKind
+	registrationKind                     runtimeRegistrationKind
 	registerName                         string
 	inputName                            string
 	inputType                            string
 	nilErr                               string
 	sourceExpr                           string
+	serverKind                           string
 	label                                string
 	transportStreamConstructorShape      transportMessageStreamConstructorShape
 	transportStreamConstructorReturnsErr bool
@@ -42,76 +43,83 @@ func ProjectRegistrationSource(service ServicePlan, source RegistrationSourcePla
 	switch source {
 	case RegistrationSourcePlan{Origin: RegistrationOriginGo, Contract: RegistrationContractNative, Transport: RegistrationTransportNone, Mode: RegistrationModeLocal}:
 		return registrationSourceProjection{
-			bindingKind:  runtimeRegistrationBindingKindNative,
-			registerName: "register" + serviceName + "GoNativeServer",
-			inputName:    "server",
-			inputType:    serviceName + "NativeServer",
-			nilErr:       serviceName + "NativeServerUnavailableErr",
-			sourceExpr:   "server",
-			label:        "go native",
+			registrationKind: runtimeRegistrationKindNative,
+			registerName:     "register" + serviceName + "GoNativeServer",
+			inputName:        "server",
+			inputType:        serviceName + "NativeServer",
+			nilErr:           serviceName + "NativeServerUnavailableErr",
+			sourceExpr:       "server",
+			serverKind:       "rpcruntime.ServerKindGoNative",
+			label:            "go native",
 		}, nil
 	case RegistrationSourcePlan{Origin: RegistrationOriginCGO, Contract: RegistrationContractNative, Transport: RegistrationTransportNone, Mode: RegistrationModeLocal}:
 		return registrationSourceProjection{
-			bindingKind:  runtimeRegistrationBindingKindCGONativeForward,
-			registerName: "Register" + serviceName + "CGONativeServer",
-			inputName:    "server",
-			inputType:    serviceName + "NativeServer",
-			nilErr:       serviceName + "NativeServerUnavailableErr",
-			sourceExpr:   "server",
-			label:        "cgo native",
+			registrationKind: runtimeRegistrationKindCGONativeForward,
+			registerName:     "Register" + serviceName + "CGONativeServer",
+			inputName:        "server",
+			inputType:        serviceName + "NativeServer",
+			nilErr:           serviceName + "NativeServerUnavailableErr",
+			sourceExpr:       "server",
+			serverKind:       "rpcruntime.ServerKindCGONative",
+			label:            "cgo native",
 		}, nil
 	case RegistrationSourcePlan{Origin: RegistrationOriginCGO, Contract: RegistrationContractMessage, Transport: RegistrationTransportNone, Mode: RegistrationModeLocal}:
 		return registrationSourceProjection{
-			bindingKind:  runtimeRegistrationBindingKindMessage,
-			registerName: "register" + serviceName + "CGOMessageServer",
-			inputName:    "server",
-			inputType:    serviceName + "CGOMessageServer",
-			nilErr:       serviceName + "MessageServerUnavailableErr",
-			sourceExpr:   "server",
-			label:        "cgo message",
+			registrationKind: runtimeRegistrationKindMessage,
+			registerName:     "register" + serviceName + "CGOMessageServer",
+			inputName:        "server",
+			inputType:        serviceName + "CGOMessageServer",
+			nilErr:           serviceName + "MessageServerUnavailableErr",
+			sourceExpr:       "server",
+			serverKind:       "rpcruntime.ServerKindCGOMessage",
+			label:            "cgo message",
 		}, nil
 	case RegistrationSourcePlan{Origin: RegistrationOriginGo, Contract: RegistrationContractMessage, Transport: RegistrationTransportConnect, Mode: RegistrationModeLocal}:
 		return registrationSourceProjection{
-			bindingKind:                     runtimeRegistrationBindingKindTransportMessage,
+			registrationKind:                runtimeRegistrationKindTransportMessage,
 			registerName:                    "Register" + serviceName + "ConnectHandler",
 			inputName:                       "handler",
 			inputType:                       serviceName + "Handler",
 			nilErr:                          serviceName + "MessageServerUnavailableErr",
 			sourceExpr:                      "handler",
+			serverKind:                      "rpcruntime.ServerKindConnect",
 			label:                           "connect handler",
 			transportStreamConstructorShape: transportMessageStreamConstructorShapeConnectLocal,
 		}, nil
 	case RegistrationSourcePlan{Origin: RegistrationOriginGo, Contract: RegistrationContractMessage, Transport: RegistrationTransportConnect, Mode: RegistrationModeRemote}:
 		return registrationSourceProjection{
-			bindingKind:                          runtimeRegistrationBindingKindTransportMessage,
+			registrationKind:                     runtimeRegistrationKindTransportMessage,
 			registerName:                         "Register" + serviceName + "ConnectRemoteServer",
 			inputName:                            "client",
 			inputType:                            serviceName + "Client",
 			nilErr:                               serviceName + "MessageServerUnavailableErr",
 			sourceExpr:                           "client",
+			serverKind:                           "rpcruntime.ServerKindConnectRemote",
 			label:                                "connect remote",
 			transportStreamConstructorShape:      transportMessageStreamConstructorShapeConnectRemote,
 			transportStreamConstructorReturnsErr: true,
 		}, nil
 	case RegistrationSourcePlan{Origin: RegistrationOriginGo, Contract: RegistrationContractMessage, Transport: RegistrationTransportGRPC, Mode: RegistrationModeLocal}:
 		return registrationSourceProjection{
-			bindingKind:                     runtimeRegistrationBindingKindTransportMessage,
+			registrationKind:                runtimeRegistrationKindTransportMessage,
 			registerName:                    "Register" + serviceName + "GRPCServer",
 			inputName:                       "server",
 			inputType:                       serviceName + "Server",
 			nilErr:                          serviceName + "MessageServerUnavailableErr",
 			sourceExpr:                      "server",
+			serverKind:                      "rpcruntime.ServerKindGRPC",
 			label:                           "grpc server",
 			transportStreamConstructorShape: transportMessageStreamConstructorShapeGRPCLocal,
 		}, nil
 	case RegistrationSourcePlan{Origin: RegistrationOriginGo, Contract: RegistrationContractMessage, Transport: RegistrationTransportGRPC, Mode: RegistrationModeRemote}:
 		return registrationSourceProjection{
-			bindingKind:                          runtimeRegistrationBindingKindTransportMessage,
+			registrationKind:                     runtimeRegistrationKindTransportMessage,
 			registerName:                         "Register" + serviceName + "GRPCRemoteServer",
 			inputName:                            "client",
 			inputType:                            serviceName + "Client",
 			nilErr:                               serviceName + "MessageServerUnavailableErr",
 			sourceExpr:                           "client",
+			serverKind:                           "rpcruntime.ServerKindGRPCRemote",
 			label:                                "grpc remote",
 			transportStreamConstructorShape:      transportMessageStreamConstructorShapeGRPCRemote,
 			transportStreamConstructorReturnsErr: true,
@@ -122,8 +130,8 @@ func ProjectRegistrationSource(service ServicePlan, source RegistrationSourcePla
 }
 
 func registrationTransportMessageStreamConstructor(service ServicePlan, method runtimeMethodProjection, projection registrationSourceProjection) (string, bool, error) {
-	if projection.bindingKind != runtimeRegistrationBindingKindTransportMessage {
-		return "", false, fmt.Errorf("registration source %q is not a transport message binding", projection.label)
+	if projection.registrationKind != runtimeRegistrationKindTransportMessage {
+		return "", false, fmt.Errorf("registration source %q is not a transport message registration", projection.label)
 	}
 
 	var constructor string

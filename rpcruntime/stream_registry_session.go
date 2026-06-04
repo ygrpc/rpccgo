@@ -1,11 +1,10 @@
 package rpcruntime
 
 // StreamSession is the runtime-visible part of a generated stream session.
-// Generated service runtime owns the method-specific send/recv/finish/cancel
-// closures; runtime core only coordinates registry lookup and lifecycle state.
+// Generated service runtime owns method-specific dispatch; runtime core only
+// coordinates registry lookup and final removal.
 type StreamSession interface {
 	comparable
-	StreamLifecycle() *StreamLifecycle
 }
 
 func LoadStreamSession[T StreamSession](registry *StreamRegistry, handle StreamHandle) (T, error) {
@@ -13,27 +12,11 @@ func LoadStreamSession[T StreamSession](registry *StreamRegistry, handle StreamH
 }
 
 func SendStreamSession[T StreamSession](registry *StreamRegistry, handle StreamHandle) (T, error) {
-	session, err := loadStreamSession[T](registry, handle)
-	if err != nil {
-		return session, err
-	}
-	if err := session.StreamLifecycle().EnsureCanSend(); err != nil {
-		var zero T
-		return zero, err
-	}
-	return session, nil
+	return loadStreamSession[T](registry, handle)
 }
 
 func CloseSendStreamSession[T StreamSession](registry *StreamRegistry, handle StreamHandle) (T, error) {
-	session, err := loadStreamSession[T](registry, handle)
-	if err != nil {
-		return session, err
-	}
-	if err := session.StreamLifecycle().MarkSendClosed(); err != nil {
-		var zero T
-		return zero, err
-	}
-	return session, nil
+	return loadStreamSession[T](registry, handle)
 }
 
 func RecvStreamSession[T StreamSession](registry *StreamRegistry, handle StreamHandle) (T, error) {
@@ -55,10 +38,6 @@ func FinishStreamSession[T StreamSession](registry *StreamRegistry, handle Strea
 		var zero T
 		return zero, ErrStreamInvalidHandle
 	}
-	if !session.StreamLifecycle().Finalize() {
-		var zero T
-		return zero, ErrStreamInvalidHandle
-	}
 	return session, nil
 }
 
@@ -77,10 +56,6 @@ func CancelStreamSession[T StreamSession](registry *StreamRegistry, handle Strea
 		var zero T
 		return zero, ErrStreamInvalidHandle
 	}
-	if err := session.StreamLifecycle().MarkCanceled(); err != nil {
-		var zero T
-		return zero, err
-	}
 	return session, nil
 }
 
@@ -95,9 +70,6 @@ func loadStreamSession[T StreamSession](registry *StreamRegistry, handle StreamH
 	}
 	session, ok := value.(T)
 	if !ok {
-		return zero, ErrStreamInvalidHandle
-	}
-	if session.StreamLifecycle() == nil {
 		return zero, ErrStreamInvalidHandle
 	}
 	return session, nil

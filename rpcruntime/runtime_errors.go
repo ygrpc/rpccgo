@@ -2,4 +2,4 @@ package rpcruntime
 
 import "errors"
 
-var ErrNoActiveServer = errors.New("no active server")
+var ErrNoRegisteredServer = errors.New("no registered server")

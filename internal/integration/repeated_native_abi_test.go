@@ -108,9 +108,8 @@ const repeatedNativeABIResetSource = `package repeatedv1
 
 import rpcruntime "rpccgo/rpcruntime"
 
-func ResetRepeatedGreeterDispatcherForIntegrationTest() {
-	repeatedGreeterCurrentNativeBinding.Store(nil)
-	repeatedGreeterCurrentMessageBinding.Store(nil)
+func ResetRepeatedGreeterServerForIntegrationTest() {
+	_ = ClearRepeatedGreeterServer()
 	repeatedGreeterStreamRegistry = rpcruntime.StreamRegistry{}
 }
 `
@@ -154,7 +153,7 @@ import (
 )
 
 func registerRepeatedGreeterMessageCallbacksForIntegration() error {
-	repeatedv1.ResetRepeatedGreeterDispatcherForIntegrationTest()
+	repeatedv1.ResetRepeatedGreeterServerForIntegrationTest()
 	callbacks := C.repeatedGreeterMessageCallbacks()
 	errID := rpccgo_msg_repeatedv1_RepeatedGreeter_register(callbacks.Echo)
 	if errID == 0 {
@@ -236,7 +235,7 @@ func callRepeatedEcho(ctx context.Context, input *repeatedInput, output *repeate
 
 func TestRepeatedNativeABI(t *testing.T) {
 	t.Run("native client routes to go native server with repeated fields", func(t *testing.T) {
-		repeatedv1.ResetRepeatedGreeterDispatcherForIntegrationTest()
+		repeatedv1.ResetRepeatedGreeterServerForIntegrationTest()
 		if err := repeatedv1.RegisterRepeatedGreeterGoNativeServer(repeatedGoNativeServer{}); err != nil {
 			t.Fatalf("RegisterRepeatedGreeterGoNativeServer() error = %v", err)
 		}
@@ -267,7 +266,7 @@ func TestRepeatedNativeABI(t *testing.T) {
 	})
 
 	t.Run("negative repeated length returns error id instead of panic", func(t *testing.T) {
-		repeatedv1.ResetRepeatedGreeterDispatcherForIntegrationTest()
+		repeatedv1.ResetRepeatedGreeterServerForIntegrationTest()
 		if err := repeatedv1.RegisterRepeatedGreeterGoNativeServer(repeatedGoNativeServer{}); err != nil {
 			t.Fatalf("RegisterRepeatedGreeterGoNativeServer() error = %v", err)
 		}

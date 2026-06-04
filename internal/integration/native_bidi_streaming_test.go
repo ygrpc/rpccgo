@@ -279,8 +279,8 @@ func readChat(ctx context.Context, handle int32, output *chatOutput) int32 {
 	return ReadGreeterChatNativeBidiStream(ctx, handle, &output.Ack, &output.MessagePtr, &output.MessageLen)
 }
 
-func TestNativeBidiStreamingGoServerLifecycle(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+func TestNativeBidiStreamingGoServerCloseSendSemantics(t *testing.T) {
+	v1.ResetGreeterServerForIntegrationTest()
 	server := &chatGoServer{}
 	if err := v1.RegisterGreeterGoNativeServer(server); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
@@ -296,7 +296,7 @@ func TestNativeBidiStreamingGoServerLifecycle(t *testing.T) {
 	if errID := CloseSendGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
 		t.Fatalf("CloseSendGreeterChatNativeBidiStream() errID = %d", errID)
 	}
-	assertErrorTextContainsBidi(t, sendChatErr(context.Background(), handle, chatInput("third", 3)), "stream send side is closed")
+	assertErrorTextContainsBidi(t, sendChatErr(context.Background(), handle, chatInput("third", 3)), "native stream is closed")
 	assertChatRead(t, handle, 2, "second")
 	if errID := FinishGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
 		text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
@@ -308,7 +308,7 @@ func TestNativeBidiStreamingGoServerLifecycle(t *testing.T) {
 }
 
 func TestNativeBidiStreamingGoServerCancelFinalizesOnce(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	server := &chatGoServer{}
 	if err := v1.RegisterGreeterGoNativeServer(server); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
@@ -412,8 +412,8 @@ func readChat(ctx context.Context, handle int32, output *chatOutput) int32 {
 	return ReadGreeterChatNativeBidiStream(ctx, handle, &output.Ack, &output.MessagePtr, &output.MessageLen)
 }
 
-func TestNativeBidiStreamingCGOServerLifecycle(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+func TestNativeBidiStreamingCGOServerCloseSendSemantics(t *testing.T) {
+	v1.ResetGreeterServerForIntegrationTest()
 	rpcruntime.ResetFreeCallbackForTesting()
 	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
 	frees := registerBidiCFreeCallback()
@@ -434,7 +434,7 @@ func TestNativeBidiStreamingCGOServerLifecycle(t *testing.T) {
 	if errID := CloseSendGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
 		t.Fatalf("CloseSendGreeterChatNativeBidiStream() errID = %d", errID)
 	}
-	assertErrorTextContainsBidiCGO(t, sendChatErr(context.Background(), handle, chatInputCGO("three", 3)), "stream send side is closed")
+	assertErrorTextContainsBidiCGO(t, sendChatErr(context.Background(), handle, chatInputCGO("three", 3)), "native stream is closed")
 	assertChatReadCGO(t, handle, 2, "two")
 	if errID := FinishGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
 		text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
@@ -449,7 +449,7 @@ func TestNativeBidiStreamingCGOServerLifecycle(t *testing.T) {
 }
 
 func TestNativeBidiStreamingCGOServerCancelFinalizesOnce(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
+	v1.ResetGreeterServerForIntegrationTest()
 	if err := registerGreeterBidiCGONativeServerCallbacks(); err != nil {
 		t.Fatalf("registerGreeterBidiCGONativeServerCallbacks() error = %v", err)
 	}
@@ -586,7 +586,7 @@ static int32_t greeterChatSend(int32_t stream, uintptr_t NamePtr, int32_t NameLe
 		return greeterBidiError("bidi send did not reach cgo callback");
 	}
 	if (greeterBidiClosed) {
-		return greeterBidiError("stream send side is closed");
+		return greeterBidiError("native stream is closed");
 	}
 	if (greeterBidiCount >= 8 || NameLen < 0 || NameLen >= 60) {
 		return greeterBidiError("bidi bad input");

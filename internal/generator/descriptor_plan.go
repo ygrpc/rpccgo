@@ -14,7 +14,7 @@ func BuildDescriptorPlan(file *protogen.File) (FilePlan, error) {
 	if err := AttachMethodContractPlans(&plan, file); err != nil {
 		return FilePlan{}, err
 	}
-	if err := AttachMethodLifecyclePlans(&plan); err != nil {
+	if err := AttachMethodStreamCapabilityPlans(&plan); err != nil {
 		return FilePlan{}, err
 	}
 	if err := AttachMethodRenderPlans(&plan); err != nil {
@@ -73,13 +73,13 @@ func AttachMethodContractPlans(plan *FilePlan, file *protogen.File) error {
 	return nil
 }
 
-func AttachMethodLifecyclePlans(plan *FilePlan) error {
+func AttachMethodStreamCapabilityPlans(plan *FilePlan) error {
 	if plan == nil {
 		return fmt.Errorf("file plan is nil")
 	}
 	for si := range plan.Services {
 		for mi := range plan.Services[si].Methods {
-			method, err := AttachMethodLifecyclePlan(plan.Services[si].Methods[mi])
+			method, err := AttachMethodStreamCapabilityPlan(plan.Services[si].Methods[mi])
 			if err != nil {
 				return err
 			}

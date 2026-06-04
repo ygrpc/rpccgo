@@ -35,13 +35,13 @@ func TestValidateGenerationPlanRejectsMethodRenderPlanMismatch(t *testing.T) {
 		t.Fatalf("Generate() error = %v", err)
 	}
 
-	plan.Packages[0].Files[0].Services[0].Methods[0].RenderPlan.Lifecycle.RequiresCodec = false
+	plan.Packages[0].Files[0].Services[0].Methods[0].RenderPlan.Stream.RequiresCodec = false
 
 	err = ValidateGenerationPlan(plan)
 	if err == nil {
 		t.Fatal("ValidateGenerationPlan() error = nil, want method render plan mismatch")
 	}
-	if got := err.Error(); !strings.Contains(got, "render lifecycle does not match contract capabilities") {
+	if got := err.Error(); !strings.Contains(got, "render capability does not match contract capabilities") {
 		t.Fatalf("ValidateGenerationPlan() error = %q, want method render mismatch", got)
 	}
 }

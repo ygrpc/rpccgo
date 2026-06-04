@@ -8,7 +8,7 @@ func TestProjectRegistrationSourceCoversValidSources(t *testing.T) {
 	tests := []struct {
 		name                               string
 		source                             RegistrationSourcePlan
-		wantBindingKind                    runtimeRegistrationBindingKind
+		wantRegistrationKind               runtimeRegistrationKind
 		wantRegisterName                   string
 		wantInputName                      string
 		wantInputType                      string
@@ -19,42 +19,42 @@ func TestProjectRegistrationSourceCoversValidSources(t *testing.T) {
 		wantTransportConstructorReturnsErr bool
 	}{
 		{
-			name:             "go native",
-			source:           registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractNative, RegistrationTransportNone, RegistrationModeLocal),
-			wantBindingKind:  runtimeRegistrationBindingKindNative,
-			wantRegisterName: "registerGreeterGoNativeServer",
-			wantInputName:    "server",
-			wantInputType:    "GreeterNativeServer",
-			wantNilErr:       "GreeterNativeServerUnavailableErr",
-			wantSourceExpr:   "server",
-			wantLabel:        "go native",
+			name:                 "go native",
+			source:               registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractNative, RegistrationTransportNone, RegistrationModeLocal),
+			wantRegistrationKind: runtimeRegistrationKindNative,
+			wantRegisterName:     "registerGreeterGoNativeServer",
+			wantInputName:        "server",
+			wantInputType:        "GreeterNativeServer",
+			wantNilErr:           "GreeterNativeServerUnavailableErr",
+			wantSourceExpr:       "server",
+			wantLabel:            "go native",
 		},
 		{
-			name:             "cgo native",
-			source:           registrationSourceTestPlan(RegistrationOriginCGO, RegistrationContractNative, RegistrationTransportNone, RegistrationModeLocal),
-			wantBindingKind:  runtimeRegistrationBindingKindCGONativeForward,
-			wantRegisterName: "RegisterGreeterCGONativeServer",
-			wantInputName:    "server",
-			wantInputType:    "GreeterNativeServer",
-			wantNilErr:       "GreeterNativeServerUnavailableErr",
-			wantSourceExpr:   "server",
-			wantLabel:        "cgo native",
+			name:                 "cgo native",
+			source:               registrationSourceTestPlan(RegistrationOriginCGO, RegistrationContractNative, RegistrationTransportNone, RegistrationModeLocal),
+			wantRegistrationKind: runtimeRegistrationKindCGONativeForward,
+			wantRegisterName:     "RegisterGreeterCGONativeServer",
+			wantInputName:        "server",
+			wantInputType:        "GreeterNativeServer",
+			wantNilErr:           "GreeterNativeServerUnavailableErr",
+			wantSourceExpr:       "server",
+			wantLabel:            "cgo native",
 		},
 		{
-			name:             "cgo message",
-			source:           registrationSourceTestPlan(RegistrationOriginCGO, RegistrationContractMessage, RegistrationTransportNone, RegistrationModeLocal),
-			wantBindingKind:  runtimeRegistrationBindingKindMessage,
-			wantRegisterName: "registerGreeterCGOMessageServer",
-			wantInputName:    "server",
-			wantInputType:    "GreeterCGOMessageServer",
-			wantNilErr:       "GreeterMessageServerUnavailableErr",
-			wantSourceExpr:   "server",
-			wantLabel:        "cgo message",
+			name:                 "cgo message",
+			source:               registrationSourceTestPlan(RegistrationOriginCGO, RegistrationContractMessage, RegistrationTransportNone, RegistrationModeLocal),
+			wantRegistrationKind: runtimeRegistrationKindMessage,
+			wantRegisterName:     "registerGreeterCGOMessageServer",
+			wantInputName:        "server",
+			wantInputType:        "GreeterCGOMessageServer",
+			wantNilErr:           "GreeterMessageServerUnavailableErr",
+			wantSourceExpr:       "server",
+			wantLabel:            "cgo message",
 		},
 		{
 			name:                          "connect local",
 			source:                        registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportConnect, RegistrationModeLocal),
-			wantBindingKind:               runtimeRegistrationBindingKindTransportMessage,
+			wantRegistrationKind:          runtimeRegistrationKindTransportMessage,
 			wantRegisterName:              "RegisterGreeterConnectHandler",
 			wantInputName:                 "handler",
 			wantInputType:                 "GreeterHandler",
@@ -66,7 +66,7 @@ func TestProjectRegistrationSourceCoversValidSources(t *testing.T) {
 		{
 			name:                               "connect remote",
 			source:                             registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportConnect, RegistrationModeRemote),
-			wantBindingKind:                    runtimeRegistrationBindingKindTransportMessage,
+			wantRegistrationKind:               runtimeRegistrationKindTransportMessage,
 			wantRegisterName:                   "RegisterGreeterConnectRemoteServer",
 			wantInputName:                      "client",
 			wantInputType:                      "GreeterClient",
@@ -79,7 +79,7 @@ func TestProjectRegistrationSourceCoversValidSources(t *testing.T) {
 		{
 			name:                          "grpc local",
 			source:                        registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportGRPC, RegistrationModeLocal),
-			wantBindingKind:               runtimeRegistrationBindingKindTransportMessage,
+			wantRegistrationKind:          runtimeRegistrationKindTransportMessage,
 			wantRegisterName:              "RegisterGreeterGRPCServer",
 			wantInputName:                 "server",
 			wantInputType:                 "GreeterServer",
@@ -91,7 +91,7 @@ func TestProjectRegistrationSourceCoversValidSources(t *testing.T) {
 		{
 			name:                               "grpc remote",
 			source:                             registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportGRPC, RegistrationModeRemote),
-			wantBindingKind:                    runtimeRegistrationBindingKindTransportMessage,
+			wantRegistrationKind:               runtimeRegistrationKindTransportMessage,
 			wantRegisterName:                   "RegisterGreeterGRPCRemoteServer",
 			wantInputName:                      "client",
 			wantInputType:                      "GreeterClient",
@@ -109,8 +109,8 @@ func TestProjectRegistrationSourceCoversValidSources(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ProjectRegistrationSource() error = %v", err)
 			}
-			if got.bindingKind != tt.wantBindingKind {
-				t.Fatalf("bindingKind = %q, want %q", got.bindingKind, tt.wantBindingKind)
+			if got.registrationKind != tt.wantRegistrationKind {
+				t.Fatalf("registrationKind = %q, want %q", got.registrationKind, tt.wantRegistrationKind)
 			}
 			if got.registerName != tt.wantRegisterName {
 				t.Fatalf("registerName = %q, want %q", got.registerName, tt.wantRegisterName)
