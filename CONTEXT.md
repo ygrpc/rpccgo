@@ -13,19 +13,19 @@ _Avoid_: struct native ABI, message-shaped native adapter
 _Avoid_: native
 
 **Active server**:
-新版架构中由 generated service runtime 的 typed atomic active slot 捕获并调用的唯一服务实现；slot 保存不可变 active server record，该 record 同时持有 native caller binding 与 message caller binding。
+新版架构中由 generated service runtime 的 contract-specific active binding slot 捕获并调用的服务实现；native 与 message contract 各自拥有独立 active binding snapshot，二者不互相持有，也不自动跨 contract 路由。
 _Avoid_: provider bootstrap
 
-**Binding**:
-Generated service runtime 内部的 package-private service-local contract-specific 调用闭包集合；在注册阶段由完整且校验通过的具体 server 归一化而来。native caller binding 只持有 native caller-facing invoke/start closure，message caller binding 只持有 message caller-facing invoke/start closure。binding 发布后不可变。
-_Avoid_: provider bootstrap, remote adapter file, active server record
+**Active binding**:
+Generated service runtime 内部的 package-private service-local contract-specific 调用闭包集合；在注册阶段由完整且校验通过的具体 server 归一化而来。native active binding 只持有 native invoke/start closure，message active binding 只持有 message invoke/start closure。binding 发布后不可变。
+_Avoid_: caller binding, current binding, provider bootstrap, remote adapter file, active server record
 
-**Current binding**:
-Generated service runtime 内部保存当前 **Active server** record 的 package-private typed atomic slot；新调用和新 stream start 从这里读取 record，再选择 native caller binding 或 message caller binding。已开始的 stream session 固定使用 Start 时捕获的 binding closure。
+**Active binding slot**:
+Generated service runtime 内部保存当前 **Active binding** snapshot 的 package-private typed atomic slot；每个 service 分别拥有 native active binding slot 与 message active binding slot。新调用和新 stream start 只从对应 contract 的 slot 读取 binding；已开始的 stream session 固定使用 Start 时捕获的 binding closure。
 _Avoid_: active record slot, adapter snapshot
 
 **Registration source**:
-generated registration function 接受的具体服务来源；使用 `Origin + Contract + Transport + Mode` 四个正交维度描述。source 被接受后归一化为 **Active server** record，record 内分别保存 native caller binding 与 message caller binding。renderer 是由 source 推导出的生成策略，不是 source contract。
+generated registration function 接受的具体服务来源；使用 `Origin + Contract + Transport + Mode` 四个正交维度描述。source 被接受后归一化为当前 **Binding** snapshot。renderer 是由 source 推导出的生成策略，不是 source contract。
 _Avoid_: Active record source, RecordRenderer as contract
 
 **Runtime core**:
@@ -41,11 +41,11 @@ generator 侧的 contract-to-render 投影，把 **Stream lifecycle** 的 capabi
 _Avoid_: runtime stream lifecycle executor, stream registry helper plan
 
 **Generated service runtime**:
-每个 service 生成的 `*.runtime.rpccgo.go`，只应承载 proto/service/method-specific 的 active server record、package-level invoke/start facade、final session 和 converter glue。
+每个 service 生成的 `*.runtime.rpccgo.go`，只应承载 proto/service/method-specific 的 active binding slot、package-level invoke/start facade、final session 和 converter glue。
 _Avoid_: runtime core
 
 **Remote client active server**:
-以标准 connect/gRPC client 注册，并在 generated runtime 内归一化为 **Binding** 的 message-contract active server，真实执行目标位于远端进程。
+以标准 connect/gRPC client 注册，并在 generated runtime 内归一化为 message **Active binding** 的 message-contract active server，真实执行目标位于远端进程。
 _Avoid_: remote adapter, remote server adapter
 
 **Call-scoped borrowed view**:
@@ -99,11 +99,11 @@ _Avoid_: active server
 - protobuf schema 中的 unsigned 字段可进入 **Native C ABI lowering** 的 field value slot；proto 无关的 length/count/handle/error id 等辅助 slot 不应使用 unsigned 32/64 类型。
 - 修改 ABI / runtime type mapping 后，必须使用 `docs/release/verification-checklist.md` 验证测试命令和合同扫描。
 - **Active server** 是新版调用模型的一部分；它不能改变 **Native** 的字段级函数边界语义。
-- **Runtime core** 负责通用 stream registry、stream lifecycle state 和 connect stream unsafe shim；**Generated service runtime** 负责 typed atomic active slot、service-specific typed glue 和 active record closure。
+- **Runtime core** 负责通用 stream registry、stream lifecycle state 和 connect stream unsafe shim；**Generated service runtime** 负责 typed atomic active binding slot、service-specific typed glue 和 active binding closure。
 - **Stream lifecycle** 的 ownership、terminal-once 和 invalid-handle 通用状态语义属于 **Runtime core**；method-specific session 操作、native/message 转换和 flat ABI 编解码属于 **Generated service runtime**。
 - **Generated service runtime** 可以组合 **Runtime core** 的 stream registry 与 lifecycle primitive，但 registry 应直接保存 final session，不应生成无语义的 per-method `load/take/delete` 薄包装。
-- Register helper 留在 **Generated service runtime** 中，因为它们校验并原子发布 service-specific **Binding**；成功时只需返回 `nil`，不返回 adapter snapshot。
-- **Generated service runtime** 不应把 **Native** 与 **Message contract** 的 caller-facing closure 混放在同一个 **Binding**；单个 active server record 可以同时持有 native caller binding 与 message caller binding，以保持每个 service 一个 typed atomic active slot。
+- Register helper 留在 **Generated service runtime** 中，因为它们校验并原子发布 service-specific **Active binding**；成功时只需返回 `nil`，不返回 adapter snapshot。
+- **Generated service runtime** 不应把 **Native** 与 **Message contract** 的 active closure 混放在同一组 closure 字段；native active binding 与 message active binding 必须独立保存、独立发布，且互不引用。
 - **Registration source** 使用 `Origin + Contract + Transport + Mode` 描述；renderer 选择由这四个维度派生，source plan 不存储 `RecordRenderer`。`Label` 只用于错误文本，不能控制生成逻辑。
 - **Registration source** planner 只枚举 7 类合法 server source，不接受四个维度的任意组合再做宽泛校验；未列出的组合没有生成语义。
 - 单个 service 的 **Registration source** 由 `ServiceGenerationSelection` 派生：未启用 `native` 时只包含 cgo message、本地 message transport 和 remote message transport 三类 source；启用 `native` 时再追加 Go native 与 cgo native source。
@@ -124,15 +124,15 @@ _Avoid_: active server
 - `@rpccgo` token 表达 service generation selection，不是 adapter selection 或纯 server registration selection。generator 使用 `ServiceGenerationToken`、`ServiceGenerationSelection` 和 `ServicePlan.Generation` 命名，不保留 `AdapterToken`、`AdapterSelection` 或 `ServicePlan.Adapters`。
 - `@rpccgo` token 只停留在 parser 层；planner 中的 `ServiceGenerationSelection` 收敛为结构化能力：一个 message transport 与 `NativeEnabled`。后续 planner 和 renderer 不重复扫描 token 列表。
 - `ServiceGenerationSelection.MessageTransport` 必须是 `connect` 或 `grpc`；zero value 只表示未初始化并由 validation 拒绝，不引入具有业务含义的 `none`，因为当前没有 native-only generation 模式。
-- **Binding** 在注册阶段组装 caller-facing method closure；closure 内直接绑定具体 server 调用与必要的 native/message 转换。调用阶段不再按 server kind 或 contract 路由。
+- **Active binding** 在注册阶段组装 method closure；closure 内直接绑定具体 server 调用与该 contract 所需转换。调用阶段不再按 server kind 或 contract 路由。
 - 外部包只能通过 generated package-level invoke/start 函数进入；不应再生成只转发到内部对象的 public client object，也不应保留 runtime bridge struct。
 - 无 active server 使用 `rpcruntime.ErrNoActiveServer`。错误必须显式传递，但不为注册阶段已经排除的不可能状态保留调用阶段 routing sentinel。
-- **Remote client active server** 使用标准 transport client 作为注册输入，由 generated runtime 归一化为 **Binding**；rpccgo generated code 不应构造 per-method client。
+- **Remote client active server** 使用标准 transport client 作为注册输入，由 generated runtime 归一化为 message **Active binding**；rpccgo generated code 不应构造 per-method client。
 - **Remote client active server** 只转发 protobuf message payload 和 error；metadata/header/trailer 不属于当前 contract。
 - `Register<Service>ConnectRemoteServer` 与 `Register<Service>GRPCRemoteServer` 命名可以保留，但它们应直接接收标准 transport client 并返回 `error`，不应构造 service-specific wrapper adapter。
 - **Remote client active server** 的 direct invocation 与 final session closure 属于 **Generated service runtime**；不应再生成独立 `remote.connect.rpccgo.go` 或 `remote.grpc.rpccgo.go` adapter 文件。
 - 一个 service 的 generated output 只能选择一个 message transport（connect 或 gRPC），避免标准 transport client API 在同包内重名。
-- 每个 service 的 active slot 应保留为 generated package-level typed atomic pointer；不要引入 `rpcruntime.ActiveServerSlot` 或 runtime core 全局 service registry，以避免无价值包装和旧 **Provider bootstrap** 模型。
+- 每个 service 的 native/message active binding slot 应保留为 generated package-level typed atomic pointer；不要引入 `rpcruntime.ActiveServerSlot` 或 runtime core 全局 service registry，以避免无价值包装和旧 **Provider bootstrap** 模型。
 - 新版架构保留 service-local active server；只恢复旧项目的 **Native** flat function boundary，不回迁旧 **Provider bootstrap**。
 - `@rpccgo:native` 的新版 service generation selection 规则保留；它可以同时启用默认 message generation，但 **Native** 侧仍必须是 flat function boundary。
 - 旧 `go_role=go_client` / C provider 注册 Go client 能力不恢复；它属于旧 **Provider bootstrap** 架构，不是新版 **Native** 修复范围。

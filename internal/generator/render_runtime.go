@@ -28,9 +28,6 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	if directProto {
 		g.P(`proto "google.golang.org/protobuf/proto"`)
 	}
-	if service.Generation.NativeEnabled {
-		g.P(`goruntime "runtime"`)
-	}
 	if directConnectStreaming || directGRPCStreaming || nativeServerHasStreamingMethod(service) || serviceHasStreamingMethod(service) {
 		g.P(`io "io"`)
 		if serviceHasClientStreamingMethod(service) || serviceHasBidiStreamingMethod(service) {
@@ -54,8 +51,8 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P()
 
 	adapterName := service.GoName + "NativeServer"
-	activeServerName := lowerInitial(service.GoName) + "ActiveServer"
-	currentBindingName := lowerInitial(service.GoName) + "CurrentBinding"
+	currentNativeBindingName := lowerInitial(service.GoName) + "CurrentNativeBinding"
+	currentMessageBindingName := lowerInitial(service.GoName) + "CurrentMessageBinding"
 	streamRegistryName := lowerInitial(service.GoName) + "StreamRegistry"
 
 	if service.Generation.NativeEnabled && !service.HasArtifact(GeneratedArtifactKindNativeServer) {
@@ -64,20 +61,23 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	}
 	nativeBindingName := lowerInitial(service.GoName) + "NativeBinding"
 	messageBindingName := lowerInitial(service.GoName) + "MessageBinding"
-	nativeCallerBindingName := lowerInitial(service.GoName) + "NativeCallerBinding"
-	messageCallerBindingName := lowerInitial(service.GoName) + "MessageCallerBinding"
+	nativeActiveBindingName := lowerInitial(service.GoName) + "NativeActiveBinding"
+	messageActiveBindingName := lowerInitial(service.GoName) + "MessageActiveBinding"
 	renderRuntimeSourceSessionInterfaces(g, service.GoName, streamingMethods)
 
-	renderRuntimeActiveServerType(g, service, runtimeMethods)
+	renderRuntimeBindingTypes(g, service, runtimeMethods)
 	for _, method := range streamingMethods {
 		renderRuntimeStreamSessions(g, service.GoName, method)
 		renderRuntimeNativeStreamFacade(g, service.GoName, streamRegistryName, method)
 		renderRuntimeMessageStreamFacade(g, service.GoName, streamRegistryName, method)
 	}
 
-	g.P("// ", currentBindingName, " stores the binding used by new calls and stream starts.")
+	g.P("// ", currentNativeBindingName, " stores the native binding used by new native calls and stream starts.")
 	g.P("// Existing stream handles keep using the binding captured by Start.")
-	g.P("var ", currentBindingName, " atomic.Pointer[", activeServerName, "]")
+	g.P("var ", currentNativeBindingName, " atomic.Pointer[", nativeActiveBindingName, "]")
+	g.P("// ", currentMessageBindingName, " stores the message binding used by new message calls and stream starts.")
+	g.P("// Existing stream handles keep using the binding captured by Start.")
+	g.P("var ", currentMessageBindingName, " atomic.Pointer[", messageActiveBindingName, "]")
 	g.P("var ", streamRegistryName, " rpcruntime.StreamRegistry")
 	if service.Generation.NativeEnabled {
 		g.P("var ", service.GoName, `NativeServerUnavailableErr = errors.New("rpccgo: native server is unavailable")`)
@@ -85,11 +85,11 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P("var ", service.GoName, `MessageServerUnavailableErr = errors.New("rpccgo: message server is unavailable")`)
 	g.P()
 
-	if err := renderRuntimeRegistrations(g, service, runtimeMethods, currentBindingName, activeServerName, nativeBindingName, messageBindingName, nativeCallerBindingName, messageCallerBindingName); err != nil {
+	if err := renderRuntimeRegistrations(g, service, runtimeMethods, currentNativeBindingName, currentMessageBindingName, nativeBindingName, messageBindingName, nativeActiveBindingName, messageActiveBindingName); err != nil {
 		return err
 	}
 	renderRuntimeTransportMessageSessions(g, service, streamingMethods)
-	renderRuntimeEntrypoints(g, service.GoName, adapterName, currentBindingName, streamRegistryName, runtimeMethods)
+	renderRuntimeEntrypoints(g, service.GoName, adapterName, currentNativeBindingName, currentMessageBindingName, streamRegistryName, runtimeMethods)
 
 	return nil
 }

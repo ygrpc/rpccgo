@@ -150,50 +150,6 @@ func TestLocalTransportAcceptance(t *testing.T) {
 		}
 	})
 
-
-	t.Run("connect bidi supports independent response pump", func(t *testing.T) {
-		resetTransportGoNativeCounters()
-		setTransportGoNativeChatResponses(2)
-		if err := v1.RegisterGreeterGoNativeServer(transportNativeServer{}); err != nil {
-			t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
-		}
-		httpClient, baseURL, closeServer := startConnectTransport(t)
-		defer closeServer()
-
-		if got := connectBidiOneRequestTwoResponsesCall(t, httpClient, baseURL); got != 2 {
-			t.Fatalf("connect bidi responses = %d, want 2", got)
-		}
-
-		if got := transportGoNativeChatStarts; got != 1 {
-			t.Fatalf("transport native chat starts = %d, want 1", got)
-		}
-		if got := transportGoNativeChatSends; got != 1 {
-			t.Fatalf("transport native chat sends = %d, want 1", got)
-		}
-		if got := transportGoNativeChatRecvs; got != 3 {
-			t.Fatalf("transport native chat recvs = %d, want 3 including EOF", got)
-		}
-	})
-
-
-	t.Run("connect converts into go native server", func(t *testing.T) {
-		registerTransportGoNativeServer(t)
-		httpClient, baseURL, closeServer := startConnectTransport(t)
-		defer closeServer()
-
-		connectUnaryCall(t, httpClient, baseURL)
-		connectClientStreamCall(t, httpClient, baseURL)
-		if got := connectServerStreamCall(t, httpClient, baseURL); got != 1 {
-			t.Fatalf("connect server stream messages = %d, want 1", got)
-		}
-		if got := connectBidiStreamCall(t, httpClient, baseURL); got != 1 {
-			t.Fatalf("connect bidi responses = %d, want 1", got)
-		}
-
-		assertGoNativeTransportCounters(t)
-	})
-
-
 	t.Run("connect surfaces downstream errors", func(t *testing.T) {
 		registerTransportMessageServer(t)
 		httpClient, baseURL, closeServer := startConnectTransport(t)
@@ -207,37 +163,6 @@ func TestLocalTransportAcceptance(t *testing.T) {
 		}
 	})
 
-
-	t.Run("connect stream snapshot stays on original server", func(t *testing.T) {
-		registerTransportGoNativeServer(t)
-		httpClient, baseURL, closeServer := startConnectTransport(t)
-		defer closeServer()
-
-		client := connect.NewClient[emptypb.Empty, emptypb.Empty](httpClient, baseURL+v1.GreeterListConnectProcedure)
-		stream, err := client.CallServerStream(context.Background(), connect.NewRequest(&emptypb.Empty{}))
-		if err != nil {
-			t.Fatalf("connect server stream CallServerStream() error = %v", err)
-		}
-		if err := registerGreeterMessageCallbacksWithoutResetForIntegration(); err != nil {
-			t.Fatalf("registerGreeterMessageCallbacksWithoutResetForIntegration() error = %v", err)
-		}
-		count := 0
-		for stream.Receive() {
-			count++
-		}
-		if err := stream.Err(); err != nil {
-			t.Fatalf("connect server stream Err() = %v", err)
-		}
-		if count != 1 {
-			t.Fatalf("connect server stream messages = %d, want 1", count)
-		}
-		if got := transportGoNativeListRecvs; got != 2 {
-			t.Fatalf("transport native list recvs = %d, want 2 including EOF", got)
-		}
-		if got := greeterMessageListRecvsForIntegration(); got != 0 {
-			t.Fatalf("message list recvs = %d, want 0 for native snapshot", got)
-		}
-	})
 }
 
 func registerTransportMessageServer(t *testing.T) {

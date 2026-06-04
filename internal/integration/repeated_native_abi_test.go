@@ -109,7 +109,8 @@ const repeatedNativeABIResetSource = `package repeatedv1
 import rpcruntime "rpccgo/rpcruntime"
 
 func ResetRepeatedGreeterDispatcherForIntegrationTest() {
-	repeatedGreeterCurrentBinding.Store(nil)
+	repeatedGreeterCurrentNativeBinding.Store(nil)
+	repeatedGreeterCurrentMessageBinding.Store(nil)
 	repeatedGreeterStreamRegistry = rpcruntime.StreamRegistry{}
 }
 `
@@ -184,7 +185,6 @@ import (
 	unsafe "unsafe"
 
 	repeatedv1 "example.com/repeatednativeabi/repeated/v1"
-	proto "google.golang.org/protobuf/proto"
 	rpcruntime "rpccgo/rpcruntime"
 )
 
@@ -262,72 +262,6 @@ func TestRepeatedNativeABI(t *testing.T) {
 			t.Fatalf("scores = %v, want %v", got, want)
 		}
 		if got, want := boolSliceFromOutput(output.FlagsPtr, output.FlagsLen), []bool{false, true, false}; !slices.Equal(got, want) {
-			t.Fatalf("flags = %v, want %v", got, want)
-		}
-	})
-
-	t.Run("native client to cgo message server uses native to message converter", func(t *testing.T) {
-		if err := registerRepeatedGreeterMessageCallbacksForIntegration(); err != nil {
-			t.Fatalf("registerRepeatedGreeterMessageCallbacksForIntegration() error = %v", err)
-		}
-
-		scores := []int32{9, 8}
-		flags := []byte{0, 1}
-		input := &repeatedInput{
-			ScoresPtr:       uintptr(unsafe.Pointer(&scores[0])),
-			ScoresLen:       int32(len(scores)),
-			ScoresOwnership: 0,
-			FlagsPtr:        uintptr(unsafe.Pointer(&flags[0])),
-			FlagsLen:        int32(len(flags)),
-			FlagsOwnership:  0,
-		}
-		output := &repeatedOutput{}
-		if errID := callRepeatedEcho(context.Background(), input, output); errID != 0 {
-			text, _, _ := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
-			t.Fatalf("CallRepeatedGreeterEchoNativeUnary() errID = %d: %s", errID, text)
-		}
-		t.Cleanup(func() { releaseRepeatedOutput(output) })
-
-		if got := repeatedMessageUnaryCallsForIntegration(); got == 0 {
-			t.Fatal("expected cgo message unary callback to be called")
-		}
-		if got, want := int32SliceFromOutput(output.ScoresPtr, output.ScoresLen), []int32{1, 2}; !slices.Equal(got, want) {
-			t.Fatalf("scores = %v, want %v", got, want)
-		}
-		if got, want := boolSliceFromOutput(output.FlagsPtr, output.FlagsLen), []bool{true, false}; !slices.Equal(got, want) {
-			t.Fatalf("flags = %v, want %v", got, want)
-		}
-	})
-
-	t.Run("message client to go native server uses message to native converter", func(t *testing.T) {
-		repeatedv1.ResetRepeatedGreeterDispatcherForIntegrationTest()
-		if err := repeatedv1.RegisterRepeatedGreeterGoNativeServer(repeatedGoNativeServer{}); err != nil {
-			t.Fatalf("RegisterRepeatedGreeterGoNativeServer() error = %v", err)
-		}
-
-		req := &repeatedv1.RepeatedRequest{
-			Scores: []int32{4, 5},
-			Flags:  []bool{true, false, true},
-		}
-		reqData, err := proto.Marshal(req)
-		if err != nil {
-			t.Fatalf("proto.Marshal(req) error = %v", err)
-		}
-
-		output := &RepeatedGreeterMessageOutput{}
-		if errID := CallRepeatedGreeterEchoMessageUnary(context.Background(), requestPtr(reqData), int32(len(reqData)), output); errID != 0 {
-			t.Fatalf("CallRepeatedGreeterEchoMessageUnary() errID = %d", errID)
-		}
-		t.Cleanup(func() { rpcruntime.Release(output.DataPtr) })
-
-		var resp repeatedv1.RepeatedReply
-		if err := proto.Unmarshal(bytesFromOutput(output.DataPtr, output.DataLen), &resp); err != nil {
-			t.Fatalf("proto.Unmarshal(resp) error = %v", err)
-		}
-		if got, want := resp.Scores, []int32{14, 15}; !slices.Equal(got, want) {
-			t.Fatalf("scores = %v, want %v", got, want)
-		}
-		if got, want := resp.Flags, []bool{false, true, false}; !slices.Equal(got, want) {
 			t.Fatalf("flags = %v, want %v", got, want)
 		}
 	})

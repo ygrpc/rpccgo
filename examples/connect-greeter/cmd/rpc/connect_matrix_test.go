@@ -3,12 +3,15 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 	"unsafe"
@@ -32,6 +35,7 @@ func TestConnectGreeterTransportAndStreamingMatrix(t *testing.T) {
 	})
 
 	t.Run("message_cgo", func(t *testing.T) {
+		registerMessageServer(t)
 		assertMessageUnary(t, ctx, "message", "local", "hello message from local")
 		assertMessageCollect(t, ctx, []string{"client", "stream"}, "collect:client,stream")
 		assertMessageBroadcast(t, ctx, "server", []string{"broadcast[0]:server", "broadcast[1]:server"})
@@ -56,6 +60,81 @@ func registerNativeServer(t *testing.T) {
 	t.Helper()
 	if err := greeterv1.RegisterGreeterGoNativeServer(backend.Greeter{}); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
+	}
+}
+
+func registerMessageServer(t *testing.T) {
+	t.Helper()
+	if err := greeterv1.RegisterGreeterCGOMessageServer(localMessageServer{}); err != nil {
+		t.Fatalf("RegisterGreeterCGOMessageServer() error = %v", err)
+	}
+}
+
+type localMessageServer struct{}
+
+func (localMessageServer) SayHello(_ context.Context, data []byte) ([]byte, error) {
+	var req greeterv1.SayHelloRequest
+	if err := proto.Unmarshal(data, &req); err != nil {
+		return nil, err
+	}
+	return proto.Marshal(&greeterv1.SayHelloResponse{Message: fmt.Sprintf("hello %s from %s", req.GetName(), req.GetCity())})
+}
+
+func (localMessageServer) Collect(ctx context.Context, stream greeterv1.GreeterCollectMessageClientStream) ([]byte, error) {
+	var names []string
+	for {
+		data, err := stream.Recv(ctx)
+		if err == io.EOF {
+			return proto.Marshal(&greeterv1.SayHelloResponse{Message: "collect:" + strings.Join(names, ",")})
+		}
+		if err != nil {
+			return nil, err
+		}
+		var req greeterv1.SayHelloRequest
+		if err := proto.Unmarshal(data, &req); err != nil {
+			return nil, err
+		}
+		names = append(names, req.GetName())
+	}
+}
+
+func (localMessageServer) Broadcast(ctx context.Context, data []byte, stream greeterv1.GreeterBroadcastMessageServerStream) error {
+	var req greeterv1.SayHelloRequest
+	if err := proto.Unmarshal(data, &req); err != nil {
+		return err
+	}
+	for index := 0; index < 2; index++ {
+		data, err := proto.Marshal(&greeterv1.SayHelloResponse{Message: fmt.Sprintf("broadcast[%d]:%s", index, req.GetName())})
+		if err != nil {
+			return err
+		}
+		if err := stream.Send(ctx, data); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (localMessageServer) Chat(ctx context.Context, stream greeterv1.GreeterChatMessageBidiStream) error {
+	for {
+		data, err := stream.Recv(ctx)
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		var req greeterv1.SayHelloRequest
+		if err := proto.Unmarshal(data, &req); err != nil {
+			return err
+		}
+		data, err = proto.Marshal(&greeterv1.SayHelloResponse{Message: "chat:" + req.GetName()})
+		if err != nil {
+			return err
+		}
+		if err := stream.Send(ctx, data); err != nil {
+			return err
+		}
 	}
 }
 
@@ -301,9 +380,6 @@ func assertMessageChat(t *testing.T, ctx context.Context, name, want string) {
 		t.Fatalf("ReadGreeterChatMessageBidiStream() error id = %d: %s", errID, cgoErrorText(errID))
 	}
 	assertMessageOutput(t, output, want)
-	if errID := CloseSendGreeterChatMessageBidiStream(ctx, handle); errID != 0 {
-		t.Fatalf("CloseSendGreeterChatMessageBidiStream() error id = %d", errID)
-	}
 	if errID := FinishGreeterChatMessageBidiStream(ctx, handle); errID != 0 {
 		t.Fatalf("FinishGreeterChatMessageBidiStream() error id = %d", errID)
 	}

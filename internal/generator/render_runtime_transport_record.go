@@ -2,34 +2,12 @@ package generator
 
 import "google.golang.org/protobuf/compiler/protogen"
 
-func renderRuntimeTransportMessageBinding(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeMethodProjection, currentBindingName, activeServerName, nativeCallerBindingName, messageCallerBindingName, transportExpr string, projection registrationSourceProjection) error {
-	g.P("nativeBinding := &", nativeCallerBindingName, "{}")
-	g.P("messageBinding := &", messageCallerBindingName, "{}")
+func renderRuntimeTransportMessageBinding(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeMethodProjection, activeBindingSlotName, messageActiveBindingName, transportExpr string, projection registrationSourceProjection) error {
+	g.P("messageBinding := &", messageActiveBindingName, "{}")
 	for _, method := range methods {
 		if !method.Stream.Streaming {
 			g.P("messageBinding.invoke", method.Identity.GoName, " = func(ctx context.Context, req []byte) ([]byte, error) {")
 			renderRuntimeTransportUnaryMessageCall(g, service, method, transportExpr, projection.label, "req")
-			g.P("}")
-			g.P("nativeBinding.invoke", method.Identity.GoName, " = func(ctx context.Context", method.Native.Args, ") (", method.Native.Returns, ") {")
-			g.P("messageReq, err := ", method.Codec.NativeRequestToMessage, "(", method.Native.ArgNames, ")")
-			g.P("if err != nil { return ", method.Native.ErrZero, " }")
-			g.P("var messageResp []byte")
-			renderRuntimeTransportUnaryNativeMessageCall(g, service, method, transportExpr, projection.label, "messageReq")
-			g.P("if err != nil { return ", method.Native.ErrZero, " }")
-			for _, decl := range method.Native.ResultVarDecls {
-				g.P(decl)
-			}
-			if method.Native.ResultNames == "" {
-				g.P("err = ", method.Codec.MessageToNativeResponse, "(messageResp)")
-			} else {
-				g.P(method.Native.ResultNames, ", err = ", method.Codec.MessageToNativeResponse, "(messageResp)")
-			}
-			g.P("if err != nil { return ", method.Native.ErrZero, " }")
-			if method.Native.ResultNames == "" {
-				g.P("return nil")
-			} else {
-				g.P("return ", method.Native.ResultNames, ", nil")
-			}
 			g.P("}")
 			continue
 		}
@@ -37,7 +15,7 @@ func renderRuntimeTransportMessageBinding(g *protogen.GeneratedFile, service Ser
 			return err
 		}
 	}
-	g.P(currentBindingName, ".Store(&", activeServerName, "{native: nativeBinding, message: messageBinding})")
+	g.P(activeBindingSlotName, ".Store(messageBinding)")
 	g.P("return nil")
 	return nil
 }
@@ -88,26 +66,7 @@ func renderRuntimeTransportMessageStreamBinding(g *protogen.GeneratedFile, servi
 	}
 	renderRuntimeMessageFinalSessionFromSource(g, messageSession, method, "source")
 	g.P("}")
-	if method.Stream.StartAcceptsRequest {
-		g.P("nativeBinding.start", method.Identity.GoName, " = func(ctx context.Context", method.Native.Args, ") (*", nativeSession, ", error) {")
-		g.P("messageReq, err := ", method.Codec.NativeRequestToMessage, "(", method.Native.ArgNames, ")")
-		g.P("if err != nil { return nil, err }")
-		hasErr, err := renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, projection, "ctx", "messageReq")
-		if err != nil {
-			return err
-		}
-		renderRuntimeTransportMessageStreamSourceErrCheck(g, hasErr)
-		renderRuntimeNativeFinalSessionFromMessageSource(g, service, nativeSession, method, "source")
-	} else {
-		g.P("nativeBinding.start", method.Identity.GoName, " = func(ctx context.Context) (*", nativeSession, ", error) {")
-		hasErr, err := renderRuntimeTransportMessageStreamSource(g, service, method, transportExpr, projection, "ctx", "")
-		if err != nil {
-			return err
-		}
-		renderRuntimeTransportMessageStreamSourceErrCheck(g, hasErr)
-		renderRuntimeNativeFinalSessionFromMessageSource(g, service, nativeSession, method, "source")
-	}
-	g.P("}")
+	_ = nativeSession
 	return nil
 }
 

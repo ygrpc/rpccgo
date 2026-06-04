@@ -202,7 +202,8 @@ const nativeIntegrationResetSource = `package testv1
 import rpcruntime "rpccgo/rpcruntime"
 
 func ResetGreeterDispatcherForIntegrationTest() {
-	greeterCurrentBinding.Store(nil)
+	greeterCurrentNativeBinding.Store(nil)
+	greeterCurrentMessageBinding.Store(nil)
 	greeterStreamRegistry = rpcruntime.StreamRegistry{}
 }
 `

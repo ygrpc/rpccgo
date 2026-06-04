@@ -33,18 +33,6 @@ func TestMessageBidiStreamingDirectPathRoutesToCGOMessageServer(t *testing.T) {
 	runMessageDirectPathFixture(t, "TestMessageBidiStreamingDirectPath")
 }
 
-func TestMessageContractMismatchRoutesThroughConverter(t *testing.T) {
-	runMessageDirectPathFixture(t, "TestMessageContractMismatch")
-}
-
-func TestMessageClientToCGONativeRoutesThroughConverter(t *testing.T) {
-	runMessageDirectPathFixture(t, "TestMessageClientToCGONative")
-}
-
-func TestNativeContractMismatchRoutesThroughConverter(t *testing.T) {
-	runMessageDirectPathFixture(t, "TestNativeContractMismatch")
-}
-
 func TestMessageKnownErrorTextIsConsumedOnce(t *testing.T) {
 	runMessageDirectPathFixture(t, "TestMessageKnownErrorTextIsConsumedOnce")
 }
@@ -120,7 +108,7 @@ func runMessageDirectRegistrationFixture(t *testing.T, serviceComment, testName 
 	} else {
 		writeFile(t, filepath.Join(tmp, "test/v1/message_integration_client_stubs.go"), messageDirectPathClientStubSource)
 	}
-	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_reset.go"), messageDirectPathResetSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/message_integration_reset.go"), messageDirectPathMessageOnlyResetSource)
 	if strings.Contains(serviceComment, "msg-connect") {
 		writeFile(t, filepath.Join(tmp, "test/v1/message_direct_registration_test.go"), messageDirectConnectRegistrationTestSource)
 	} else {
@@ -134,10 +122,6 @@ func runMessageDirectRegistrationFixture(t *testing.T, serviceComment, testName 
 	if err != nil {
 		t.Fatalf("message direct registration fixture %s failed: %v\n%s", testName, err, out)
 	}
-}
-
-func TestMessageStreamStartCapturesActiveServerSnapshot(t *testing.T) {
-	runMessageDirectPathFixture(t, "TestMessageStreamStartCapturesActiveServerSnapshot")
 }
 
 func runMessageDirectPathFixture(t *testing.T, testName string) {
@@ -672,7 +656,18 @@ const messageDirectPathResetSource = `package testv1
 import rpcruntime "rpccgo/rpcruntime"
 
 func ResetGreeterDispatcherForIntegrationTest() {
-	greeterCurrentBinding.Store(nil)
+	greeterCurrentNativeBinding.Store(nil)
+	greeterCurrentMessageBinding.Store(nil)
+	greeterStreamRegistry = rpcruntime.StreamRegistry{}
+}
+`
+
+const messageDirectPathMessageOnlyResetSource = `package testv1
+
+import rpcruntime "rpccgo/rpcruntime"
+
+func ResetGreeterDispatcherForIntegrationTest() {
+	greeterCurrentMessageBinding.Store(nil)
 	greeterStreamRegistry = rpcruntime.StreamRegistry{}
 }
 `
@@ -1250,12 +1245,10 @@ const messageDirectPathFixtureTestSource = `package main
 
 import (
 	context "context"
-	io "io"
 	strings "strings"
 	"testing"
 	"unsafe"
 
-	v1 "example.com/messagedirect/test/v1"
 	rpcruntime "rpccgo/rpcruntime"
 )
 
@@ -1616,234 +1609,6 @@ func TestMessageBidiStreamingDirectPath(t *testing.T) {
 	}
 	errID = ReadGreeterChatMessageBidiStream(context.Background(), handle, &GreeterMessageOutput{})
 	assertMessageErrContains(t, errID, "stream handle is invalid")
-}
-
-func TestMessageContractMismatch(t *testing.T) {
-	v1.ResetGreeterDispatcherForIntegrationTest()
-	if err := v1.RegisterGreeterGoNativeServer(mismatchNativeServer{}); err != nil {
-		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
-	}
-
-	errID := CallGreeterUnaryMessageUnary(context.Background(), 0, 0, &GreeterMessageOutput{})
-	assertMessageNoErr(t, errID)
-
-	_, errID = StartGreeterUploadMessageClientStream(context.Background())
-	assertMessageNoErr(t, errID)
-	uploadHandle, _ := StartGreeterUploadMessageClientStream(context.Background())
-	assertMessageNoErr(t, SendGreeterUploadMessageClientStream(context.Background(), uploadHandle, 0, 0))
-	assertMessageNoErr(t, FinishGreeterUploadMessageClientStream(context.Background(), uploadHandle, &GreeterMessageOutput{}))
-
-	listHandle, errID := StartGreeterListMessageServerStream(context.Background(), 0, 0)
-	assertMessageNoErr(t, errID)
-	assertMessageNoErr(t, ReadGreeterListMessageServerStream(context.Background(), listHandle, &GreeterMessageOutput{}))
-	assertMessageNoErr(t, FinishGreeterListMessageServerStream(context.Background(), listHandle))
-
-	chatHandle, errID := StartGreeterChatMessageBidiStream(context.Background())
-	assertMessageNoErr(t, errID)
-	assertMessageNoErr(t, SendGreeterChatMessageBidiStream(context.Background(), chatHandle, 0, 0))
-	assertMessageNoErr(t, ReadGreeterChatMessageBidiStream(context.Background(), chatHandle, &GreeterMessageOutput{}))
-	assertMessageNoErr(t, CloseSendGreeterChatMessageBidiStream(context.Background(), chatHandle))
-	assertMessageNoErr(t, FinishGreeterChatMessageBidiStream(context.Background(), chatHandle))
-}
-
-func TestMessageClientToCGONative(t *testing.T) {
-	if err := registerGreeterNativeCallbacksForIntegration(); err != nil {
-		t.Fatalf("registerGreeterNativeCallbacksForIntegration() error = %v", err)
-	}
-
-	errID := CallGreeterUnaryMessageUnary(context.Background(), 0, 0, &GreeterMessageOutput{})
-	assertMessageNoErr(t, errID)
-
-	uploadHandle, errID := StartGreeterUploadMessageClientStream(context.Background())
-	assertMessageNoErr(t, errID)
-	assertMessageNoErr(t, SendGreeterUploadMessageClientStream(context.Background(), uploadHandle, 0, 0))
-	assertMessageNoErr(t, FinishGreeterUploadMessageClientStream(context.Background(), uploadHandle, &GreeterMessageOutput{}))
-
-	listHandle, errID := StartGreeterListMessageServerStream(context.Background(), 0, 0)
-	assertMessageNoErr(t, errID)
-	assertMessageNoErr(t, ReadGreeterListMessageServerStream(context.Background(), listHandle, &GreeterMessageOutput{}))
-	assertMessageNoErr(t, FinishGreeterListMessageServerStream(context.Background(), listHandle))
-
-	chatHandle, errID := StartGreeterChatMessageBidiStream(context.Background())
-	assertMessageNoErr(t, errID)
-	assertMessageNoErr(t, SendGreeterChatMessageBidiStream(context.Background(), chatHandle, 0, 0))
-	assertMessageNoErr(t, ReadGreeterChatMessageBidiStream(context.Background(), chatHandle, &GreeterMessageOutput{}))
-	assertMessageNoErr(t, CloseSendGreeterChatMessageBidiStream(context.Background(), chatHandle))
-	assertMessageNoErr(t, FinishGreeterChatMessageBidiStream(context.Background(), chatHandle))
-
-	if got := greeterNativeUnaryCallsForIntegration(); got != 1 {
-		t.Fatalf("native unary calls = %d, want 1", got)
-	}
-	if got := greeterNativeUploadStartsForIntegration(); got != 1 {
-		t.Fatalf("native upload starts = %d, want 1", got)
-	}
-	if got := greeterNativeUploadSendsForIntegration(); got != 1 {
-		t.Fatalf("native upload sends = %d, want 1", got)
-	}
-	if got := greeterNativeUploadFinishesForIntegration(); got != 1 {
-		t.Fatalf("native upload finishes = %d, want 1", got)
-	}
-	if got := greeterNativeListStartsForIntegration(); got != 1 {
-		t.Fatalf("native list starts = %d, want 1", got)
-	}
-	if got := greeterNativeListRecvsForIntegration(); got != 1 {
-		t.Fatalf("native list recvs = %d, want 1", got)
-	}
-	if got := greeterNativeListFinishsForIntegration(); got != 1 {
-		t.Fatalf("native list finishes = %d, want 1", got)
-	}
-	if got := greeterNativeChatStartsForIntegration(); got != 1 {
-		t.Fatalf("native chat starts = %d, want 1", got)
-	}
-	if got := greeterNativeChatSendsForIntegration(); got != 1 {
-		t.Fatalf("native chat sends = %d, want 1", got)
-	}
-	if got := greeterNativeChatRecvsForIntegration(); got != 1 {
-		t.Fatalf("native chat recvs = %d, want 1", got)
-	}
-	if got := greeterNativeChatCloseSendsForIntegration(); got != 1 {
-		t.Fatalf("native chat close sends = %d, want 1", got)
-	}
-	if got := greeterNativeChatFinishsForIntegration(); got != 1 {
-		t.Fatalf("native chat finishes = %d, want 1", got)
-	}
-}
-
-func TestConverterErrorDoesNotCallCGONativeServer(t *testing.T) {
-	if err := registerGreeterNativeCallbacksForIntegration(); err != nil {
-		t.Fatalf("registerGreeterNativeCallbacksForIntegration() error = %v", err)
-	}
-
-	badRequest := []byte{0xff}
-	errID := CallGreeterUnaryMessageUnary(context.Background(), uintptr(unsafe.Pointer(&badRequest[0])), int32(len(badRequest)), &GreeterMessageOutput{})
-	assertMessageErrContains(t, errID, "protobuf unmarshal failed")
-	if got := greeterNativeUnaryCallsForIntegration(); got != 0 {
-		t.Fatalf("native unary calls = %d, want 0 after converter error", got)
-	}
-}
-
-func TestDownstreamCGONativeErrorIsNotCoveredByConverter(t *testing.T) {
-	if err := registerGreeterNativeCallbacksForIntegration(); err != nil {
-		t.Fatalf("registerGreeterNativeCallbacksForIntegration() error = %v", err)
-	}
-	setGreeterNativeUnaryErrorForIntegration(true)
-
-	errID := CallGreeterUnaryMessageUnary(context.Background(), 0, 0, &GreeterMessageOutput{})
-	assertMessageErrContains(t, errID, "unknown error id 99997")
-	if got := greeterNativeUnaryCallsForIntegration(); got != 1 {
-		t.Fatalf("native unary calls = %d, want 1", got)
-	}
-}
-
-func TestConverterStreamStartCapturesCGONativeSnapshot(t *testing.T) {
-	if err := registerGreeterNativeCallbacksForIntegration(); err != nil {
-		t.Fatalf("registerGreeterNativeCallbacksForIntegration() error = %v", err)
-	}
-	handle, errID := StartGreeterUploadMessageClientStream(context.Background())
-	assertMessageNoErr(t, errID)
-
-	if err := registerGreeterMessageCallbacksWithoutResetForIntegration(); err != nil {
-		t.Fatalf("registerGreeterMessageCallbacksWithoutResetForIntegration() error = %v", err)
-	}
-	assertMessageNoErr(t, SendGreeterUploadMessageClientStream(context.Background(), handle, 0, 0))
-	assertMessageNoErr(t, FinishGreeterUploadMessageClientStream(context.Background(), handle, &GreeterMessageOutput{}))
-	if got := greeterNativeUploadSendsForIntegration(); got != 1 {
-		t.Fatalf("native upload sends = %d, want 1", got)
-	}
-	if got := greeterMessageUploadSendsForIntegration(); got != 0 {
-		t.Fatalf("message upload sends = %d, want 0 for existing native snapshot", got)
-	}
-}
-
-func TestConverterCancelPropagatesToCGONativeAndFinalizesHandle(t *testing.T) {
-	if err := registerGreeterNativeCallbacksForIntegration(); err != nil {
-		t.Fatalf("registerGreeterNativeCallbacksForIntegration() error = %v", err)
-	}
-	handle, errID := StartGreeterUploadMessageClientStream(context.Background())
-	assertMessageNoErr(t, errID)
-	assertMessageNoErr(t, CancelGreeterUploadMessageClientStream(context.Background(), handle))
-	if got := greeterNativeUploadCancelsForIntegration(); got != 1 {
-		t.Fatalf("native upload cancels = %d, want 1", got)
-	}
-	errID = SendGreeterUploadMessageClientStream(context.Background(), handle, 0, 0)
-	assertMessageErrContains(t, errID, "stream handle is invalid")
-
-	listHandle, errID := StartGreeterListMessageServerStream(context.Background(), 0, 0)
-	assertMessageNoErr(t, errID)
-	assertMessageNoErr(t, CancelGreeterListMessageServerStream(context.Background(), listHandle))
-	if got := greeterNativeListCancelsForIntegration(); got != 1 {
-		t.Fatalf("native list cancels = %d, want 1", got)
-	}
-
-	chatHandle, errID := StartGreeterChatMessageBidiStream(context.Background())
-	assertMessageNoErr(t, errID)
-	assertMessageNoErr(t, CancelGreeterChatMessageBidiStream(context.Background(), chatHandle))
-	if got := greeterNativeChatCancelsForIntegration(); got != 1 {
-		t.Fatalf("native chat cancels = %d, want 1", got)
-	}
-}
-
-func TestNativeContractMismatch(t *testing.T) {
-	registerMessageServer(t)
-	errID := CallGreeterUnaryNativeUnary(context.Background())
-	assertMessageNoErr(t, errID)
-
-	uploadHandle, errID := StartGreeterUploadNativeClientStream(context.Background())
-	assertMessageNoErr(t, errID)
-	assertMessageNoErr(t, SendGreeterUploadNativeClientStream(context.Background(), uploadHandle))
-	assertMessageNoErr(t, FinishGreeterUploadNativeClientStream(context.Background(), uploadHandle))
-
-	listHandle, errID := StartGreeterListNativeServerStream(context.Background())
-	assertMessageNoErr(t, errID)
-	assertMessageNoErr(t, ReadGreeterListNativeServerStream(context.Background(), listHandle))
-	assertMessageNoErr(t, FinishGreeterListNativeServerStream(context.Background(), listHandle))
-
-	chatHandle, errID := StartGreeterChatNativeBidiStream(context.Background())
-	assertMessageNoErr(t, errID)
-	assertMessageNoErr(t, SendGreeterChatNativeBidiStream(context.Background(), chatHandle))
-	assertMessageNoErr(t, ReadGreeterChatNativeBidiStream(context.Background(), chatHandle))
-	assertMessageNoErr(t, CloseSendGreeterChatNativeBidiStream(context.Background(), chatHandle))
-	assertMessageNoErr(t, FinishGreeterChatNativeBidiStream(context.Background(), chatHandle))
-}
-
-type mismatchNativeServer struct{}
-
-func (mismatchNativeServer) Unary(context.Context) error {
-	return nil
-}
-
-func (mismatchNativeServer) Upload(ctx context.Context, stream v1.GreeterUploadNativeClientStream) error {
-	for {
-		err := stream.Recv(ctx)
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-	}
-}
-
-func (mismatchNativeServer) List(ctx context.Context, stream v1.GreeterListNativeServerStream) error {
-	if err := stream.Send(ctx); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (mismatchNativeServer) Chat(ctx context.Context, stream v1.GreeterChatNativeBidiStream) error {
-	for {
-		err := stream.Recv(ctx)
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		if err := stream.Send(ctx); err != nil {
-			return err
-		}
-	}
 }
 
 func assertMessageErrContains(t *testing.T, errID int32, wants ...string) {

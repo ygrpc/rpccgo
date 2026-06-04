@@ -6,33 +6,18 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-func renderRuntimeNativeBinding(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeMethodProjection, currentBindingName, activeServerName, nativeCallerBindingName, messageCallerBindingName, adapterExpr string) {
-	g.P("nativeBinding := &", nativeCallerBindingName, "{}")
-	g.P("messageBinding := &", messageCallerBindingName, "{}")
+func renderRuntimeNativeBinding(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeMethodProjection, activeBindingSlotName, nativeActiveBindingName, adapterExpr string) {
+	g.P("nativeBinding := &", nativeActiveBindingName, "{}")
 	for _, method := range methods {
 		if !method.Stream.Streaming {
 			g.P("nativeBinding.invoke", method.Identity.GoName, " = func(ctx context.Context", method.Native.Args, ") (", method.Native.Returns, ") {")
 			g.P("return ", adapterExpr, ".", method.Symbols.NativeAdapterMethod, "(ctx", nativeGoCallSuffix(method.Native.ArgNames), ")")
 			g.P("}")
-			g.P("messageBinding.invoke", method.Identity.GoName, " = func(ctx context.Context, req []byte) ([]byte, error) {")
-			g.P(method.Codec.MessageToNativeRequestAssignNames, " := ", method.Codec.MessageToNativeRequest, "(req)")
-			g.P("if err != nil { return nil, err }")
-			if method.Native.ResultNames == "" {
-				g.P("callErr := ", adapterExpr, ".", method.Symbols.NativeAdapterMethod, "(ctx", nativeGoCallSuffix(method.Native.ArgNames), ")")
-			} else {
-				g.P(method.Native.ResultNames, ", callErr := ", adapterExpr, ".", method.Symbols.NativeAdapterMethod, "(ctx", nativeGoCallSuffix(method.Native.ArgNames), ")")
-			}
-			g.P("goruntime.KeepAlive(reqOwner)")
-			g.P("if callErr != nil { return nil, callErr }")
-			g.P("messageResp, err := ", method.Codec.NativeResponseToMessage, "(", method.Native.ResultNames, ")")
-			g.P("if err != nil { return nil, err }")
-			g.P("return messageResp, nil")
-			g.P("}")
 			continue
 		}
 		renderRuntimeNativeStreamBinding(g, service, method, adapterExpr)
 	}
-	g.P(currentBindingName, ".Store(&", activeServerName, "{native: nativeBinding, message: messageBinding})")
+	g.P(activeBindingSlotName, ".Store(nativeBinding)")
 	g.P("return nil")
 }
 
@@ -49,21 +34,7 @@ func renderRuntimeNativeStreamBinding(g *protogen.GeneratedFile, service Service
 	g.P("if err != nil { return nil, err }")
 	renderRuntimeNativeFinalSessionFromSource(g, nativeSession, method, "source")
 	g.P("}")
-	if method.Stream.StartAcceptsRequest {
-		g.P("messageBinding.start", method.Identity.GoName, " = func(ctx context.Context, req []byte) (*", messageSession, ", error) {")
-		g.P(method.Codec.MessageToNativeRequestAssignNames, " := ", method.Codec.MessageToNativeRequest, "(req)")
-		g.P("if err != nil { return nil, err }")
-		g.P("source, err := ", adapterExpr, ".", method.Symbols.NativeAdapterMethod, "(ctx", nativeGoCallSuffix(method.Native.ArgNames), ")")
-		g.P("goruntime.KeepAlive(reqOwner)")
-		g.P("if err != nil { return nil, err }")
-		renderRuntimeMessageFinalSessionFromNativeSource(g, service, messageSession, method, "source", false)
-	} else {
-		g.P("messageBinding.start", method.Identity.GoName, " = func(ctx context.Context) (*", messageSession, ", error) {")
-		g.P("source, err := ", adapterExpr, ".", method.Symbols.NativeAdapterMethod, "(ctx)")
-		g.P("if err != nil { return nil, err }")
-		renderRuntimeMessageFinalSessionFromNativeSource(g, service, messageSession, method, "source", false)
-	}
-	g.P("}")
+	_ = messageSession
 }
 
 func renderRuntimeNativeFinalSessionFromSource(g *protogen.GeneratedFile, sessionName string, method runtimeMethodProjection, sourceExpr string) {

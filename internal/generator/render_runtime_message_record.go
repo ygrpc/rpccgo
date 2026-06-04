@@ -2,37 +2,16 @@ package generator
 
 import "google.golang.org/protobuf/compiler/protogen"
 
-func renderRuntimeMessageBinding(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeMethodProjection, currentBindingName, activeServerName, nativeCallerBindingName, messageCallerBindingName, adapterExpr string) {
-	g.P("nativeBinding := &", nativeCallerBindingName, "{}")
-	g.P("messageBinding := &", messageCallerBindingName, "{}")
+func renderRuntimeMessageBinding(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeMethodProjection, activeBindingSlotName, messageActiveBindingName, adapterExpr string) {
+	g.P("messageBinding := &", messageActiveBindingName, "{}")
 	for _, method := range methods {
 		if !method.Stream.Streaming {
 			g.P("messageBinding.invoke", method.Identity.GoName, " = ", adapterExpr, ".", method.Identity.MessageMethodRef)
-			g.P("nativeBinding.invoke", method.Identity.GoName, " = func(ctx context.Context", method.Native.Args, ") (", method.Native.Returns, ") {")
-			g.P("messageReq, err := ", method.Codec.NativeRequestToMessage, "(", method.Native.ArgNames, ")")
-			g.P("if err != nil { return ", method.Native.ErrZero, " }")
-			g.P("messageResp, err := ", adapterExpr, ".", method.Identity.MessageMethodRef, "(ctx, messageReq)")
-			g.P("if err != nil { return ", method.Native.ErrZero, " }")
-			for _, decl := range method.Native.ResultVarDecls {
-				g.P(decl)
-			}
-			if method.Native.ResultNames == "" {
-				g.P("err = ", method.Codec.MessageToNativeResponse, "(messageResp)")
-			} else {
-				g.P(method.Native.ResultNames, ", err = ", method.Codec.MessageToNativeResponse, "(messageResp)")
-			}
-			g.P("if err != nil { return ", method.Native.ErrZero, " }")
-			if method.Native.ResultNames == "" {
-				g.P("return nil")
-			} else {
-				g.P("return ", method.Native.ResultNames, ", nil")
-			}
-			g.P("}")
 			continue
 		}
 		renderRuntimeMessageStreamBinding(g, service, method, adapterExpr)
 	}
-	g.P(currentBindingName, ".Store(&", activeServerName, "{native: nativeBinding, message: messageBinding})")
+	g.P(activeBindingSlotName, ".Store(messageBinding)")
 	g.P("return nil")
 }
 
@@ -49,20 +28,7 @@ func renderRuntimeMessageStreamBinding(g *protogen.GeneratedFile, service Servic
 	g.P("if err != nil { return nil, err }")
 	renderRuntimeMessageFinalSessionFromSource(g, messageSession, method, "source")
 	g.P("}")
-	if method.Stream.StartAcceptsRequest {
-		g.P("nativeBinding.start", method.Identity.GoName, " = func(ctx context.Context", method.Native.Args, ") (*", nativeSession, ", error) {")
-		g.P("messageReq, err := ", method.Codec.NativeRequestToMessage, "(", method.Native.ArgNames, ")")
-		g.P("if err != nil { return nil, err }")
-		g.P("source, err := ", adapterExpr, ".Start", method.Identity.MessageMethodRef, "(ctx, messageReq)")
-		g.P("if err != nil { return nil, err }")
-		renderRuntimeNativeFinalSessionFromMessageSource(g, service, nativeSession, method, "source")
-	} else {
-		g.P("nativeBinding.start", method.Identity.GoName, " = func(ctx context.Context) (*", nativeSession, ", error) {")
-		g.P("source, err := ", adapterExpr, ".Start", method.Identity.MessageMethodRef, "(ctx)")
-		g.P("if err != nil { return nil, err }")
-		renderRuntimeNativeFinalSessionFromMessageSource(g, service, nativeSession, method, "source")
-	}
-	g.P("}")
+	_ = nativeSession
 }
 
 func renderRuntimeMessageFinalSessionFromSource(g *protogen.GeneratedFile, sessionName string, method runtimeMethodProjection, sourceExpr string) {

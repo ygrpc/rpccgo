@@ -50,7 +50,7 @@ func renderNativeServerFile(plugin *protogen.Plugin, plan FilePlan, service Serv
 	renderGoNativeStreamInterfaces(g, service)
 	renderUnimplementedGoNativeServer(g, service)
 	renderGoNativeRegistration(g, service, service.GoName+"NativeServer", "")
-	renderGoNativeAdapter(g, service, runtimeMethods, service.GoName+"NativeServer", lowerInitial(service.GoName)+"NativeBinding", lowerInitial(service.GoName)+"NativeCallerBinding", errorNames)
+	renderGoNativeAdapter(g, service, runtimeMethods, service.GoName+"NativeServer", lowerInitial(service.GoName)+"NativeBinding", lowerInitial(service.GoName)+"NativeActiveBinding", errorNames)
 	return nil
 }
 

@@ -64,7 +64,7 @@ func RegisterGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
 }
 
 // greeterMessageBinding exposes a message server implementation through the
-// method shape used while building a greeterMessageCallerBinding.
+// method shape used while building a greeterMessageActiveBinding.
 type greeterMessageBinding struct {
 	server GreeterCGOMessageServer
 }

@@ -336,16 +336,6 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 		assertMessageNoErr(t, CallGreeterUnaryMessageUnary(ctx, 0, 0, &GreeterMessageOutput{}))
 	})
 
-	t.Run("connect remote reuses converter for native client", func(t *testing.T) {
-		remote := startRemoteTransportServer(t, "connect", false)
-		defer remote.close()
-		registerConnectRemote(t, remote)
-
-		ctx, cancel := remoteTransportCallContext(t)
-		defer cancel()
-		assertNativeUnaryNoErr(t, CallGreeterUnaryNativeUnary(ctx))
-	})
-
 	t.Run("connect remote client stream captures adapter snapshot", func(t *testing.T) {
 		remote := startRemoteTransportServer(t, "connect", false)
 		defer remote.close()

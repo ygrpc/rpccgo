@@ -10,7 +10,6 @@ import (
 	atomic "sync/atomic"
 	fmt "fmt"
 	proto "google.golang.org/protobuf/proto"
-	goruntime "runtime"
 	io "io"
 	sync "sync"
 	grpc "google.golang.org/grpc"
@@ -60,23 +59,16 @@ type GreeterChatMessageStreamSession interface {
 	Cancel(ctx context.Context) error
 }
 
-// greeterActiveServer is the immutable active server record
-// built after a registration source is accepted.
-type greeterActiveServer struct {
-	native  *greeterNativeCallerBinding
-	message *greeterMessageCallerBinding
-}
-
-// greeterNativeCallerBinding is the immutable native caller-facing closure set.
-type greeterNativeCallerBinding struct {
+// greeterNativeActiveBinding is the immutable native active closure set.
+type greeterNativeActiveBinding struct {
 	invokeSayHello func(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error)
 	startCollect   func(ctx context.Context) (*greeterCollectNativeStreamSession, error)
 	startBroadcast func(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (*greeterBroadcastNativeStreamSession, error)
 	startChat      func(ctx context.Context) (*greeterChatNativeStreamSession, error)
 }
 
-// greeterMessageCallerBinding is the immutable message caller-facing closure set.
-type greeterMessageCallerBinding struct {
+// greeterMessageActiveBinding is the immutable message active closure set.
+type greeterMessageActiveBinding struct {
 	invokeSayHello func(ctx context.Context, req []byte) ([]byte, error)
 	startCollect   func(ctx context.Context) (*greeterCollectMessageStreamSession, error)
 	startBroadcast func(ctx context.Context, req []byte) (*greeterBroadcastMessageStreamSession, error)
@@ -377,9 +369,13 @@ func (s GreeterChatMessageStream) Cancel(ctx context.Context) error {
 	return session.cancel(ctx)
 }
 
-// greeterCurrentBinding stores the binding used by new calls and stream starts.
+// greeterCurrentNativeBinding stores the native binding used by new native calls and stream starts.
 // Existing stream handles keep using the binding captured by Start.
-var greeterCurrentBinding atomic.Pointer[greeterActiveServer]
+var greeterCurrentNativeBinding atomic.Pointer[greeterNativeActiveBinding]
+
+// greeterCurrentMessageBinding stores the message binding used by new message calls and stream starts.
+// Existing stream handles keep using the binding captured by Start.
+var greeterCurrentMessageBinding atomic.Pointer[greeterMessageActiveBinding]
 var greeterStreamRegistry rpcruntime.StreamRegistry
 var GreeterNativeServerUnavailableErr = errors.New("rpccgo: native server is unavailable")
 var GreeterMessageServerUnavailableErr = errors.New("rpccgo: message server is unavailable")
@@ -389,26 +385,9 @@ func registerGreeterGoNativeServer(server GreeterNativeServer) error {
 		return GreeterNativeServerUnavailableErr
 	}
 	serverBinding := &greeterNativeBinding{server: server}
-	nativeBinding := &greeterNativeCallerBinding{}
-	messageBinding := &greeterMessageCallerBinding{}
+	nativeBinding := &greeterNativeActiveBinding{}
 	nativeBinding.invokeSayHello = func(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error) {
 		return serverBinding.SayHello(ctx, name, city)
-	}
-	messageBinding.invokeSayHello = func(ctx context.Context, req []byte) ([]byte, error) {
-		name, city, reqOwner, err := convertGreeterSayHelloMessageToNativeRequest(req)
-		if err != nil {
-			return nil, err
-		}
-		messageResult, callErr := serverBinding.SayHello(ctx, name, city)
-		goruntime.KeepAlive(reqOwner)
-		if callErr != nil {
-			return nil, callErr
-		}
-		messageResp, err := convertGreeterSayHelloNativeToMessageResponse(messageResult)
-		if err != nil {
-			return nil, err
-		}
-		return messageResp, nil
 	}
 	nativeBinding.startCollect = func(ctx context.Context) (*greeterCollectNativeStreamSession, error) {
 		source, err := serverBinding.StartCollect(ctx)
@@ -421,31 +400,6 @@ func registerGreeterGoNativeServer(server GreeterNativeServer) error {
 			cancel: source.Cancel,
 		}, nil
 	}
-	messageBinding.startCollect = func(ctx context.Context) (*greeterCollectMessageStreamSession, error) {
-		source, err := serverBinding.StartCollect(ctx)
-		if err != nil {
-			return nil, err
-		}
-		return &greeterCollectMessageStreamSession{
-			send: func(ctx context.Context, req []byte) error {
-				name, city, reqOwner, err := convertGreeterCollectMessageToNativeRequest(req)
-				if err != nil {
-					return err
-				}
-				err = source.Send(ctx, name, city)
-				goruntime.KeepAlive(reqOwner)
-				return err
-			},
-			finish: func(ctx context.Context) ([]byte, error) {
-				messageResult, err := source.Finish(ctx)
-				if err != nil {
-					return nil, err
-				}
-				return convertGreeterCollectNativeToMessageResponse(messageResult)
-			},
-			cancel: source.Cancel,
-		}, nil
-	}
 	nativeBinding.startBroadcast = func(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (*greeterBroadcastNativeStreamSession, error) {
 		source, err := serverBinding.StartBroadcast(ctx, name, city)
 		if err != nil {
@@ -453,28 +407,6 @@ func registerGreeterGoNativeServer(server GreeterNativeServer) error {
 		}
 		return &greeterBroadcastNativeStreamSession{
 			recv:   source.Recv,
-			finish: source.Finish,
-			cancel: source.Cancel,
-		}, nil
-	}
-	messageBinding.startBroadcast = func(ctx context.Context, req []byte) (*greeterBroadcastMessageStreamSession, error) {
-		name, city, reqOwner, err := convertGreeterBroadcastMessageToNativeRequest(req)
-		if err != nil {
-			return nil, err
-		}
-		source, err := serverBinding.StartBroadcast(ctx, name, city)
-		goruntime.KeepAlive(reqOwner)
-		if err != nil {
-			return nil, err
-		}
-		return &greeterBroadcastMessageStreamSession{
-			recv: func(ctx context.Context) ([]byte, error) {
-				messageResult, err := source.Recv(ctx)
-				if err != nil {
-					return nil, err
-				}
-				return convertGreeterBroadcastNativeToMessageResponse(messageResult)
-			},
 			finish: source.Finish,
 			cancel: source.Cancel,
 		}, nil
@@ -492,34 +424,7 @@ func registerGreeterGoNativeServer(server GreeterNativeServer) error {
 			cancel:    source.Cancel,
 		}, nil
 	}
-	messageBinding.startChat = func(ctx context.Context) (*greeterChatMessageStreamSession, error) {
-		source, err := serverBinding.StartChat(ctx)
-		if err != nil {
-			return nil, err
-		}
-		return &greeterChatMessageStreamSession{
-			send: func(ctx context.Context, req []byte) error {
-				name, city, reqOwner, err := convertGreeterChatMessageToNativeRequest(req)
-				if err != nil {
-					return err
-				}
-				err = source.Send(ctx, name, city)
-				goruntime.KeepAlive(reqOwner)
-				return err
-			},
-			recv: func(ctx context.Context) ([]byte, error) {
-				messageResult, err := source.Recv(ctx)
-				if err != nil {
-					return nil, err
-				}
-				return convertGreeterChatNativeToMessageResponse(messageResult)
-			},
-			closeSend: source.CloseSend,
-			finish:    source.Finish,
-			cancel:    source.Cancel,
-		}, nil
-	}
-	greeterCurrentBinding.Store(&greeterActiveServer{native: nativeBinding, message: messageBinding})
+	greeterCurrentNativeBinding.Store(nativeBinding)
 	return nil
 }
 
@@ -532,25 +437,8 @@ func registerGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
 		return GreeterMessageServerUnavailableErr
 	}
 	serverBinding := &greeterMessageBinding{server: server}
-	nativeBinding := &greeterNativeCallerBinding{}
-	messageBinding := &greeterMessageCallerBinding{}
+	messageBinding := &greeterMessageActiveBinding{}
 	messageBinding.invokeSayHello = serverBinding.SayHello
-	nativeBinding.invokeSayHello = func(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error) {
-		messageReq, err := convertGreeterSayHelloNativeToMessageRequest(name, city)
-		if err != nil {
-			return "", err
-		}
-		messageResp, err := serverBinding.SayHello(ctx, messageReq)
-		if err != nil {
-			return "", err
-		}
-		var messageResult string
-		messageResult, err = convertGreeterSayHelloMessageToNativeResponse(messageResp)
-		if err != nil {
-			return "", err
-		}
-		return messageResult, nil
-	}
 	messageBinding.startCollect = func(ctx context.Context) (*greeterCollectMessageStreamSession, error) {
 		source, err := serverBinding.StartCollect(ctx)
 		if err != nil {
@@ -559,29 +447,6 @@ func registerGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
 		return &greeterCollectMessageStreamSession{
 			send:   source.Send,
 			finish: source.Finish,
-			cancel: source.Cancel,
-		}, nil
-	}
-	nativeBinding.startCollect = func(ctx context.Context) (*greeterCollectNativeStreamSession, error) {
-		source, err := serverBinding.StartCollect(ctx)
-		if err != nil {
-			return nil, err
-		}
-		return &greeterCollectNativeStreamSession{
-			send: func(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
-				messageReq, err := convertGreeterCollectNativeToMessageRequest(name, city)
-				if err != nil {
-					return err
-				}
-				return source.Send(ctx, messageReq)
-			},
-			finish: func(ctx context.Context) (string, error) {
-				messageResp, err := source.Finish(ctx)
-				if err != nil {
-					return "", err
-				}
-				return convertGreeterCollectMessageToNativeResponse(messageResp)
-			},
 			cancel: source.Cancel,
 		}, nil
 	}
@@ -596,27 +461,6 @@ func registerGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
 			cancel: source.Cancel,
 		}, nil
 	}
-	nativeBinding.startBroadcast = func(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (*greeterBroadcastNativeStreamSession, error) {
-		messageReq, err := convertGreeterBroadcastNativeToMessageRequest(name, city)
-		if err != nil {
-			return nil, err
-		}
-		source, err := serverBinding.StartBroadcast(ctx, messageReq)
-		if err != nil {
-			return nil, err
-		}
-		return &greeterBroadcastNativeStreamSession{
-			recv: func(ctx context.Context) (string, error) {
-				messageResp, err := source.Recv(ctx)
-				if err != nil {
-					return "", err
-				}
-				return convertGreeterBroadcastMessageToNativeResponse(messageResp)
-			},
-			finish: source.Finish,
-			cancel: source.Cancel,
-		}, nil
-	}
 	messageBinding.startChat = func(ctx context.Context) (*greeterChatMessageStreamSession, error) {
 		source, err := serverBinding.StartChat(ctx)
 		if err != nil {
@@ -630,32 +474,7 @@ func registerGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
 			cancel:    source.Cancel,
 		}, nil
 	}
-	nativeBinding.startChat = func(ctx context.Context) (*greeterChatNativeStreamSession, error) {
-		source, err := serverBinding.StartChat(ctx)
-		if err != nil {
-			return nil, err
-		}
-		return &greeterChatNativeStreamSession{
-			send: func(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
-				messageReq, err := convertGreeterChatNativeToMessageRequest(name, city)
-				if err != nil {
-					return err
-				}
-				return source.Send(ctx, messageReq)
-			},
-			recv: func(ctx context.Context) (string, error) {
-				messageResp, err := source.Recv(ctx)
-				if err != nil {
-					return "", err
-				}
-				return convertGreeterChatMessageToNativeResponse(messageResp)
-			},
-			closeSend: source.CloseSend,
-			finish:    source.Finish,
-			cancel:    source.Cancel,
-		}, nil
-	}
-	greeterCurrentBinding.Store(&greeterActiveServer{native: nativeBinding, message: messageBinding})
+	greeterCurrentMessageBinding.Store(messageBinding)
 	return nil
 }
 
@@ -663,8 +482,7 @@ func RegisterGreeterGRPCServer(server GreeterServer) error {
 	if server == nil {
 		return GreeterMessageServerUnavailableErr
 	}
-	nativeBinding := &greeterNativeCallerBinding{}
-	messageBinding := &greeterMessageCallerBinding{}
+	messageBinding := &greeterMessageActiveBinding{}
 	messageBinding.invokeSayHello = func(ctx context.Context, req []byte) ([]byte, error) {
 		messageReq := new(SayHelloRequest)
 		if err := proto.Unmarshal(req, messageReq); err != nil {
@@ -680,56 +498,11 @@ func RegisterGreeterGRPCServer(server GreeterServer) error {
 		}
 		return resp, nil
 	}
-	nativeBinding.invokeSayHello = func(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error) {
-		messageReq, err := convertGreeterSayHelloNativeToMessageRequest(name, city)
-		if err != nil {
-			return "", err
-		}
-		var messageResp []byte
-		directReq := new(SayHelloRequest)
-		if err = proto.Unmarshal(messageReq, directReq); err != nil {
-			return "", err
-		}
-		directResp, err := server.SayHello(ctx, directReq)
-		if err != nil {
-			return "", err
-		}
-		messageResp, err = proto.Marshal(directResp)
-		if err != nil {
-			return "", err
-		}
-		var messageResult string
-		messageResult, err = convertGreeterSayHelloMessageToNativeResponse(messageResp)
-		if err != nil {
-			return "", err
-		}
-		return messageResult, nil
-	}
 	messageBinding.startCollect = func(ctx context.Context) (*greeterCollectMessageStreamSession, error) {
 		source := newgreeterCollectGRPCDirectMessageStreamSession(ctx, server)
 		return &greeterCollectMessageStreamSession{
 			send:   source.Send,
 			finish: source.Finish,
-			cancel: source.Cancel,
-		}, nil
-	}
-	nativeBinding.startCollect = func(ctx context.Context) (*greeterCollectNativeStreamSession, error) {
-		source := newgreeterCollectGRPCDirectMessageStreamSession(ctx, server)
-		return &greeterCollectNativeStreamSession{
-			send: func(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
-				messageReq, err := convertGreeterCollectNativeToMessageRequest(name, city)
-				if err != nil {
-					return err
-				}
-				return source.Send(ctx, messageReq)
-			},
-			finish: func(ctx context.Context) (string, error) {
-				messageResp, err := source.Finish(ctx)
-				if err != nil {
-					return "", err
-				}
-				return convertGreeterCollectMessageToNativeResponse(messageResp)
-			},
 			cancel: source.Cancel,
 		}, nil
 	}
@@ -744,27 +517,6 @@ func RegisterGreeterGRPCServer(server GreeterServer) error {
 			cancel: source.Cancel,
 		}, nil
 	}
-	nativeBinding.startBroadcast = func(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (*greeterBroadcastNativeStreamSession, error) {
-		messageReq, err := convertGreeterBroadcastNativeToMessageRequest(name, city)
-		if err != nil {
-			return nil, err
-		}
-		source, err := newgreeterBroadcastGRPCDirectMessageStreamSession(ctx, server, messageReq)
-		if err != nil {
-			return nil, err
-		}
-		return &greeterBroadcastNativeStreamSession{
-			recv: func(ctx context.Context) (string, error) {
-				messageResp, err := source.Recv(ctx)
-				if err != nil {
-					return "", err
-				}
-				return convertGreeterBroadcastMessageToNativeResponse(messageResp)
-			},
-			finish: source.Finish,
-			cancel: source.Cancel,
-		}, nil
-	}
 	messageBinding.startChat = func(ctx context.Context) (*greeterChatMessageStreamSession, error) {
 		source := newgreeterChatGRPCDirectMessageStreamSession(ctx, server)
 		return &greeterChatMessageStreamSession{
@@ -775,29 +527,7 @@ func RegisterGreeterGRPCServer(server GreeterServer) error {
 			cancel:    source.Cancel,
 		}, nil
 	}
-	nativeBinding.startChat = func(ctx context.Context) (*greeterChatNativeStreamSession, error) {
-		source := newgreeterChatGRPCDirectMessageStreamSession(ctx, server)
-		return &greeterChatNativeStreamSession{
-			send: func(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
-				messageReq, err := convertGreeterChatNativeToMessageRequest(name, city)
-				if err != nil {
-					return err
-				}
-				return source.Send(ctx, messageReq)
-			},
-			recv: func(ctx context.Context) (string, error) {
-				messageResp, err := source.Recv(ctx)
-				if err != nil {
-					return "", err
-				}
-				return convertGreeterChatMessageToNativeResponse(messageResp)
-			},
-			closeSend: source.CloseSend,
-			finish:    source.Finish,
-			cancel:    source.Cancel,
-		}, nil
-	}
-	greeterCurrentBinding.Store(&greeterActiveServer{native: nativeBinding, message: messageBinding})
+	greeterCurrentMessageBinding.Store(messageBinding)
 	return nil
 }
 
@@ -805,8 +535,7 @@ func RegisterGreeterGRPCRemoteServer(client GreeterClient) error {
 	if client == nil {
 		return GreeterMessageServerUnavailableErr
 	}
-	nativeBinding := &greeterNativeCallerBinding{}
-	messageBinding := &greeterMessageCallerBinding{}
+	messageBinding := &greeterMessageActiveBinding{}
 	messageBinding.invokeSayHello = func(ctx context.Context, req []byte) ([]byte, error) {
 		messageReq := new(SayHelloRequest)
 		if err := proto.Unmarshal(req, messageReq); err != nil {
@@ -822,31 +551,6 @@ func RegisterGreeterGRPCRemoteServer(client GreeterClient) error {
 		}
 		return resp, nil
 	}
-	nativeBinding.invokeSayHello = func(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error) {
-		messageReq, err := convertGreeterSayHelloNativeToMessageRequest(name, city)
-		if err != nil {
-			return "", err
-		}
-		var messageResp []byte
-		directReq := new(SayHelloRequest)
-		if err = proto.Unmarshal(messageReq, directReq); err != nil {
-			return "", err
-		}
-		directResp, err := client.SayHello(ctx, directReq)
-		if err != nil {
-			return "", err
-		}
-		messageResp, err = proto.Marshal(directResp)
-		if err != nil {
-			return "", err
-		}
-		var messageResult string
-		messageResult, err = convertGreeterSayHelloMessageToNativeResponse(messageResp)
-		if err != nil {
-			return "", err
-		}
-		return messageResult, nil
-	}
 	messageBinding.startCollect = func(ctx context.Context) (*greeterCollectMessageStreamSession, error) {
 		source, err := newgreeterCollectGRPCRemoteMessageStreamSession(ctx, client)
 		if err != nil {
@@ -858,29 +562,6 @@ func RegisterGreeterGRPCRemoteServer(client GreeterClient) error {
 			cancel: source.Cancel,
 		}, nil
 	}
-	nativeBinding.startCollect = func(ctx context.Context) (*greeterCollectNativeStreamSession, error) {
-		source, err := newgreeterCollectGRPCRemoteMessageStreamSession(ctx, client)
-		if err != nil {
-			return nil, err
-		}
-		return &greeterCollectNativeStreamSession{
-			send: func(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
-				messageReq, err := convertGreeterCollectNativeToMessageRequest(name, city)
-				if err != nil {
-					return err
-				}
-				return source.Send(ctx, messageReq)
-			},
-			finish: func(ctx context.Context) (string, error) {
-				messageResp, err := source.Finish(ctx)
-				if err != nil {
-					return "", err
-				}
-				return convertGreeterCollectMessageToNativeResponse(messageResp)
-			},
-			cancel: source.Cancel,
-		}, nil
-	}
 	messageBinding.startBroadcast = func(ctx context.Context, req []byte) (*greeterBroadcastMessageStreamSession, error) {
 		source, err := newgreeterBroadcastGRPCRemoteMessageStreamSession(ctx, client, req)
 		if err != nil {
@@ -888,27 +569,6 @@ func RegisterGreeterGRPCRemoteServer(client GreeterClient) error {
 		}
 		return &greeterBroadcastMessageStreamSession{
 			recv:   source.Recv,
-			finish: source.Finish,
-			cancel: source.Cancel,
-		}, nil
-	}
-	nativeBinding.startBroadcast = func(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (*greeterBroadcastNativeStreamSession, error) {
-		messageReq, err := convertGreeterBroadcastNativeToMessageRequest(name, city)
-		if err != nil {
-			return nil, err
-		}
-		source, err := newgreeterBroadcastGRPCRemoteMessageStreamSession(ctx, client, messageReq)
-		if err != nil {
-			return nil, err
-		}
-		return &greeterBroadcastNativeStreamSession{
-			recv: func(ctx context.Context) (string, error) {
-				messageResp, err := source.Recv(ctx)
-				if err != nil {
-					return "", err
-				}
-				return convertGreeterBroadcastMessageToNativeResponse(messageResp)
-			},
 			finish: source.Finish,
 			cancel: source.Cancel,
 		}, nil
@@ -926,32 +586,7 @@ func RegisterGreeterGRPCRemoteServer(client GreeterClient) error {
 			cancel:    source.Cancel,
 		}, nil
 	}
-	nativeBinding.startChat = func(ctx context.Context) (*greeterChatNativeStreamSession, error) {
-		source, err := newgreeterChatGRPCRemoteMessageStreamSession(ctx, client)
-		if err != nil {
-			return nil, err
-		}
-		return &greeterChatNativeStreamSession{
-			send: func(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
-				messageReq, err := convertGreeterChatNativeToMessageRequest(name, city)
-				if err != nil {
-					return err
-				}
-				return source.Send(ctx, messageReq)
-			},
-			recv: func(ctx context.Context) (string, error) {
-				messageResp, err := source.Recv(ctx)
-				if err != nil {
-					return "", err
-				}
-				return convertGreeterChatMessageToNativeResponse(messageResp)
-			},
-			closeSend: source.CloseSend,
-			finish:    source.Finish,
-			cancel:    source.Cancel,
-		}, nil
-	}
-	greeterCurrentBinding.Store(&greeterActiveServer{native: nativeBinding, message: messageBinding})
+	greeterCurrentMessageBinding.Store(messageBinding)
 	return nil
 }
 
@@ -1567,11 +1202,7 @@ func (s *greeterChatGRPCRemoteMessageStreamSession) CloseSend(ctx context.Contex
 }
 
 func InvokeGreeterNativeSayHello(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error) {
-	active := greeterCurrentBinding.Load()
-	if active == nil {
-		return "", rpcruntime.ErrNoActiveServer
-	}
-	native := active.native
+	native := greeterCurrentNativeBinding.Load()
 	if native == nil {
 		return "", rpcruntime.ErrNoActiveServer
 	}
@@ -1579,11 +1210,7 @@ func InvokeGreeterNativeSayHello(ctx context.Context, name *rpcruntime.RpcString
 }
 
 func InvokeGreeterMessageSayHello(ctx context.Context, req []byte) ([]byte, error) {
-	active := greeterCurrentBinding.Load()
-	if active == nil {
-		return nil, rpcruntime.ErrNoActiveServer
-	}
-	message := active.message
+	message := greeterCurrentMessageBinding.Load()
 	if message == nil {
 		return nil, rpcruntime.ErrNoActiveServer
 	}
@@ -1591,11 +1218,7 @@ func InvokeGreeterMessageSayHello(ctx context.Context, req []byte) ([]byte, erro
 }
 
 func StartGreeterNativeCollect(ctx context.Context) (rpcruntime.StreamHandle, error) {
-	active := greeterCurrentBinding.Load()
-	if active == nil {
-		return 0, rpcruntime.ErrNoActiveServer
-	}
-	native := active.native
+	native := greeterCurrentNativeBinding.Load()
 	if native == nil {
 		return 0, rpcruntime.ErrNoActiveServer
 	}
@@ -1612,11 +1235,7 @@ func StartGreeterNativeCollect(ctx context.Context) (rpcruntime.StreamHandle, er
 }
 
 func StartGreeterMessageCollect(ctx context.Context) (rpcruntime.StreamHandle, error) {
-	active := greeterCurrentBinding.Load()
-	if active == nil {
-		return 0, rpcruntime.ErrNoActiveServer
-	}
-	message := active.message
+	message := greeterCurrentMessageBinding.Load()
 	if message == nil {
 		return 0, rpcruntime.ErrNoActiveServer
 	}
@@ -1633,11 +1252,7 @@ func StartGreeterMessageCollect(ctx context.Context) (rpcruntime.StreamHandle, e
 }
 
 func StartGreeterNativeBroadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (rpcruntime.StreamHandle, error) {
-	active := greeterCurrentBinding.Load()
-	if active == nil {
-		return 0, rpcruntime.ErrNoActiveServer
-	}
-	native := active.native
+	native := greeterCurrentNativeBinding.Load()
 	if native == nil {
 		return 0, rpcruntime.ErrNoActiveServer
 	}
@@ -1654,11 +1269,7 @@ func StartGreeterNativeBroadcast(ctx context.Context, name *rpcruntime.RpcString
 }
 
 func StartGreeterMessageBroadcast(ctx context.Context, req []byte) (rpcruntime.StreamHandle, error) {
-	active := greeterCurrentBinding.Load()
-	if active == nil {
-		return 0, rpcruntime.ErrNoActiveServer
-	}
-	message := active.message
+	message := greeterCurrentMessageBinding.Load()
 	if message == nil {
 		return 0, rpcruntime.ErrNoActiveServer
 	}
@@ -1675,11 +1286,7 @@ func StartGreeterMessageBroadcast(ctx context.Context, req []byte) (rpcruntime.S
 }
 
 func StartGreeterNativeChat(ctx context.Context) (rpcruntime.StreamHandle, error) {
-	active := greeterCurrentBinding.Load()
-	if active == nil {
-		return 0, rpcruntime.ErrNoActiveServer
-	}
-	native := active.native
+	native := greeterCurrentNativeBinding.Load()
 	if native == nil {
 		return 0, rpcruntime.ErrNoActiveServer
 	}
@@ -1696,11 +1303,7 @@ func StartGreeterNativeChat(ctx context.Context) (rpcruntime.StreamHandle, error
 }
 
 func StartGreeterMessageChat(ctx context.Context) (rpcruntime.StreamHandle, error) {
-	active := greeterCurrentBinding.Load()
-	if active == nil {
-		return 0, rpcruntime.ErrNoActiveServer
-	}
-	message := active.message
+	message := greeterCurrentMessageBinding.Load()
 	if message == nil {
 		return 0, rpcruntime.ErrNoActiveServer
 	}

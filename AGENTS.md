@@ -17,7 +17,7 @@
 
 rpccgo 用于把 C/FFI 调用接入 Go、Connect 或 gRPC 服务，并在 native 字段 ABI 与 protobuf message ABI 之间做转换。
 
-新版架构以 generated service 为边界组织运行时。每个 service 拥有 typed atomic active server slot、不可变 active server record、stream registry 和 native/message converter。注册阶段把具体 server 归一化为 caller-facing method closure；调用阶段只捕获 record snapshot 并调用 closure。
+新版架构以 generated service 为边界组织运行时。每个 service 拥有独立的 typed atomic native/message active binding slot、不可变 active binding、stream registry 和 native/message converter。注册阶段把具体 server 归一化为对应 contract 的 method closure；调用阶段只捕获 binding snapshot 并调用 closure。
 
 完整设计见 `docs/specs/2026-04-27-rpccgo-service-local-active-server-architecture.md`。
 
@@ -25,13 +25,13 @@ rpccgo 用于把 C/FFI 调用接入 Go、Connect 或 gRPC 服务，并在 native
 
 - 项目未发布前，不为兼容性保留重复概念、重复 API 或仅用于平滑迁移的中间结构；优先直接删除多余层次并收敛术语。
 - 每次运行只有一个 server 在监听。
-- 每个 generated service 同一时刻只有一个 active server。
-- stream session 在 `Start` 时捕获 active server snapshot，后续 `Send`、`Finish`、`CloseSend`、`Cancel` 固定路由到该 snapshot。
+- 每个 generated service 的每个 contract 同一时刻只有一个 active binding；native active binding 与 message active binding 可独立注册。
+- stream session 在 `Start` 时捕获对应 contract 的 active binding snapshot，后续 `Send`、`Finish`、`CloseSend`、`Cancel` 固定路由到该 snapshot。
 - native 和 message 都必须支持 unary、client streaming、server streaming、bidi streaming。
 - `rpcruntime` 只放通用 runtime primitive，不依赖 service-specific protobuf 类型，不执行 native/message 转换。
-- service-specific active server record、converter、method metadata、cgo ABI 留在 generated service runtime。
-- active server slot 直接使用 generated service-local typed atomic pointer；不要保留 `rpcruntime.ActiveServerSlot`、`ServerKind`、`ServerContract`、`AdapterSnapshot` 或 version metadata。
-- active server record 必须在完整校验后原子发布；调用阶段不按 server kind 或 contract 分支。
+- service-specific active binding、converter、method metadata、cgo ABI 留在 generated service runtime。
+- native/message active binding slot 直接使用 generated service-local typed atomic pointer；不要保留 `rpcruntime.ActiveServerSlot`、`ServerKind`、`ServerContract`、`AdapterSnapshot` 或 version metadata。
+- active binding 必须在完整校验后原子发布；native/message active binding 独立保存、独立发布，互不引用；调用阶段不按 server kind 或 contract 分支。
 - C native/message callback 必须按完整 service callback set 注册，不允许按 method 增量激活。
 - stream registry 直接保存最终 session；不要保留 `StreamEntry`、dispatcher、executor 或 registry lifecycle helper 层。
 - connect 和 grpc 保持标准 RPC transport 语义；不要重新设计 connect client 或 grpc client。
@@ -110,7 +110,7 @@ connect client 和 grpc client 属于标准 RPC client，不进入 rpccgo client
 - 旧代码迁移应从 service 无关的 `rpcruntime` primitive 这类低耦合能力开始。
 - 不要提前迁移旧 `active_slot.go`、旧 generator、旧 integration 或旧 bootstrap 模型。
 - 不要把旧项目的多 registry、多 provider bootstrap、framework selector 带进新版架构。
-- 如果旧代码与新版 signed ABI、单 active server、不可变 active server record 约束冲突，必须按新版约束调整。
+- 如果旧代码与新版 signed ABI、contract-specific 单 active binding、不可变 active binding 约束冲突，必须按新版约束调整。
 
 ## 验证
 

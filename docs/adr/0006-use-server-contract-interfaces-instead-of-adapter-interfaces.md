@@ -1,6 +1,6 @@
 # Use server contract interfaces instead of adapter interfaces
 
-rpccgo generated service runtime does not expose service-level `NativeAdapter` or `MessageAdapter` interfaces. Generated registration accepts concrete server contract types: `GreeterNativeServer` represents the native server contract implemented by both Go native and C native servers, `GreeterCGOMessageServer` represents the C callback-backed message server contract, and standard connect/gRPC servers or clients are registered as their standard transport types. Registration validates the complete service and builds an immutable service-local active server record whose caller-facing closures bind concrete calls and required conversion. Invocation does not dispatch by `ServerKind`.
+rpccgo generated service runtime does not expose service-level `NativeAdapter` or `MessageAdapter` interfaces. Generated registration accepts concrete server contract types: `GreeterNativeServer` represents the native server contract implemented by both Go native and C native servers, `GreeterCGOMessageServer` represents the C callback-backed message server contract, and standard connect/gRPC servers or clients are registered as their standard transport types. Registration validates the complete service and builds immutable service-local active bindings whose method closures bind concrete calls and required conversion. Native active bindings and message active bindings are stored and published independently. Invocation does not dispatch by `ServerKind`.
 
 ## Consequences
 
