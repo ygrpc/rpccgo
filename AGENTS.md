@@ -30,6 +30,7 @@ rpccgo 用于把 C/FFI 调用接入 Go、Connect 或 gRPC 服务，并在 native
 - native 和 message 都必须支持 unary、client streaming、server streaming、bidi streaming。
 - `rpcruntime` 放通用 server registry、`ServerKind`、stream registry 和 transport/runtime primitive；不依赖 service-specific protobuf 类型，不执行 native/message 转换。
 - service-specific registry lookup、typed dispatch、converter、method metadata、cgo ABI 留在 generated service runtime。
+- Native/Message source session interface、stream handle facade 和 `{ServerKind, session}` record type 生成在对应 server contract artifact 中，不放在 `*.runtime.rpccgo.go`。
 - 不要生成 native/message active binding slot、service-wide binding closure table、`rpcruntime.ActiveServerSlot`、`ServerContract`、`AdapterSnapshot` 或 version metadata。
 - 注册 helper 完整校验后写入 `{ServerKind, Server}` record；注册失败必须清空该 `ServiceID` current server 并返回错误。
 - C native/message callback 必须按完整 service callback set 注册，不允许按 method 增量激活。

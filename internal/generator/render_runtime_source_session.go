@@ -2,10 +2,9 @@ package generator
 
 import "google.golang.org/protobuf/compiler/protogen"
 
-func renderRuntimeSourceSessionInterfaces(g *protogen.GeneratedFile, serviceName string, methods []runtimeMethodProjection) {
+func renderNativeSourceSessionInterfaces(g *protogen.GeneratedFile, methods []runtimeMethodProjection) {
 	for _, method := range methods {
 		nativeName := method.Symbols.NativeSourceSessionType
-		messageName := method.Symbols.MessageSourceSessionType
 		g.P("type ", nativeName, " interface {")
 		if method.Stream.CanSend {
 			g.P("Send(ctx context.Context", method.Native.Args, ") error")
@@ -24,6 +23,12 @@ func renderRuntimeSourceSessionInterfaces(g *protogen.GeneratedFile, serviceName
 		g.P("Cancel(ctx context.Context) error")
 		g.P("}")
 		g.P()
+	}
+}
+
+func renderMessageSourceSessionInterfaces(g *protogen.GeneratedFile, methods []runtimeMethodProjection) {
+	for _, method := range methods {
+		messageName := method.Symbols.MessageSourceSessionType
 		g.P("type ", messageName, " interface {")
 		if method.Stream.CanSend {
 			g.P("Send(ctx context.Context, req []byte) error")
@@ -43,5 +48,4 @@ func renderRuntimeSourceSessionInterfaces(g *protogen.GeneratedFile, serviceName
 		g.P("}")
 		g.P()
 	}
-	_ = serviceName
 }

@@ -45,7 +45,7 @@ generator 侧的 contract-to-render 投影，把 streaming method 的 operation 
 _Avoid_: runtime stream lifecycle executor, stream registry helper plan
 
 **Generated service runtime**:
-每个 service 生成的 `*.runtime.rpccgo.go`，只应承载 proto/service/method-specific 的 package-level invoke/start facade、registry lookup glue、transport registration glue、final session 和 converter glue。
+每个 service 生成的 `*.runtime.rpccgo.go`，只应承载 proto/service/method-specific 的 package-level invoke/start facade、registry lookup glue、transport registration glue、stream `Start` glue 和 converter glue。
 _Avoid_: runtime core
 
 **Remote registered server**:
@@ -79,7 +79,7 @@ _Avoid_: active server
 - Go native 与 C native 是同一个 **Native** contract 的不同 **Native projection**；它们不应被建模为两套独立 native contract。
 - Go native server 与 C native server 都实现同一个 **Native** server contract；C message server 属于 **Message contract**，不应被混入 native server 命名。
 - C message server 应有独立的 generated server contract，例如 `GreeterCGOMessageServer`；其方法名使用 service method Go name，不额外追加 `Message` 或 `Start` 前缀，message contract 由 server contract 名称表达。
-- C message server streaming 方法属于 handler-style server contract：stream 对象作为方法参数传入；`Start` 返回 final session 只属于 generated runtime 与 C callback ABI 的内部投影。
+- C message server streaming 方法属于 handler-style server contract：stream 对象作为方法参数传入；`Start` 返回 final session 只属于 generated server contract artifact 与 C callback ABI 的内部投影。
 - **Native C ABI lowering** 必须从 **Native** / `NativeContractPlan` 派生，不能重新解释 proto descriptor 或形成独立 contract。
 - C 侧 **Native** callback 必须使用字段级参数列表，例如 `field_ptr/field_len/ownership` 和输出字段指针参数；不能接收 generated `Request*` / `Response*` struct。
 - 跨 runtime 的 C **Native** ABI 不能以 `struct` 或 `struct*` 作为调用边界参数；service-level callback 注册也必须使用 flat callback 参数。
@@ -105,7 +105,7 @@ _Avoid_: active server
 - **Registered server** 是新版调用模型的一部分；它不能改变 **Native** 的字段级函数边界语义。
 - **Runtime core** 负责通用 server registry、server kind、stream registry 和 connect stream unsafe shim；**Generated service runtime** 负责 service-specific typed glue、registry lookup、native/message 转换和 flat ABI 编解码。
 - Stream 终态操作通过从 stream registry 移除 handle 来表达；移除后的 handle 再操作返回 invalid-handle 错误，不维护额外通用 lifecycle state machine。
-- **Generated service runtime** 可以组合 **Runtime core** 的 stream registry primitive；stream registry 实例保持 service-local，并直接保存 final session，不应生成无语义的 per-method `load/take/delete` 薄包装。
+- **Generated service runtime** 可以组合 **Runtime core** 的 stream registry primitive；stream registry 实例保持 service-local，并直接保存 final session。Native/Message source session interface、stream handle facade 和 `{ServerKind, session}` record type 应生成在对应 server contract artifact 中，不应堆在 `*.runtime.rpccgo.go` 中。
 - Server contract registration helper 应生成在定义该 server contract 的 artifact 中；standard transport registration helper 可以留在 **Generated service runtime** 中。所有 helper 都必须把具体 server 注册到 **Server registry**；用户不直接手写 **Service ID** 或 **Server kind** 调用 runtime primitive。
 - **Generated service runtime** 不应生成 native/message active closure 字段；native/message 差异应由 server contract、registry lookup 和转换逻辑表达。
 - **Registration source** 使用 `Origin + Contract + Transport + Mode` 描述；renderer 选择由这四个维度派生，source plan 不存储 `RecordRenderer`。`Label` 只用于错误文本，不能控制生成逻辑。

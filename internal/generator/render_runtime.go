@@ -25,7 +25,7 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P("import (")
 	g.P(`context "context"`)
 	g.P(`errors "errors"`)
-	if service.Generation.NativeEnabled || serviceHasStreamingMethod(service) {
+	if runtimeNeedsGoRuntime(service) {
 		g.P(`goruntime "runtime"`)
 	}
 	if directFmt {
@@ -64,12 +64,10 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 		renderGoNativeServerInterface(g, service, adapterName)
 		renderGoNativeStreamInterfaces(g, service)
 	}
-	renderRuntimeSourceSessionInterfaces(g, service.GoName, streamingMethods)
-
 	for _, method := range streamingMethods {
-		renderRuntimeStreamSessions(g, service.GoName, method)
-		renderRuntimeNativeStreamFacade(g, service.GoName, streamRegistryName, method)
-		renderRuntimeMessageStreamFacade(g, service.GoName, streamRegistryName, method)
+		if !service.HasArtifact(GeneratedArtifactKindNativeServer) {
+			renderRuntimeNativeStreamSession(g, service.GoName, method)
+		}
 	}
 
 	g.P("const ", serviceIDName, " rpcruntime.ServiceID = ", strconv.Quote(service.FullName))
@@ -94,4 +92,16 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	}
 
 	return nil
+}
+
+func runtimeNeedsGoRuntime(service ServicePlan) bool {
+	if !service.Generation.NativeEnabled {
+		return false
+	}
+	for _, method := range service.Methods {
+		if method.Streaming == StreamingKindUnary || method.Streaming == StreamingKindServerStreaming {
+			return true
+		}
+	}
+	return false
 }

@@ -7,7 +7,9 @@ package greeterv1
 import (
 	context "context"
 	errors "errors"
+	fmt "fmt"
 	io "io"
+	goruntime "runtime"
 	sync "sync"
 	rpcruntime "rpccgo/rpcruntime"
 )
@@ -37,6 +39,696 @@ type GreeterBroadcastMessageServerStream interface {
 type GreeterChatMessageBidiStream interface {
 	Recv(ctx context.Context) ([]byte, error)
 	Send(ctx context.Context, resp []byte) error
+}
+
+type GreeterCollectMessageStreamSession interface {
+	Send(ctx context.Context, req []byte) error
+	Finish(ctx context.Context) ([]byte, error)
+	Cancel(ctx context.Context) error
+}
+
+type GreeterBroadcastMessageStreamSession interface {
+	Recv(ctx context.Context) ([]byte, error)
+	Finish(ctx context.Context) error
+	Cancel(ctx context.Context) error
+}
+
+type GreeterChatMessageStreamSession interface {
+	Send(ctx context.Context, req []byte) error
+	Recv(ctx context.Context) ([]byte, error)
+	CloseSend(ctx context.Context) error
+	Finish(ctx context.Context) error
+	Cancel(ctx context.Context) error
+}
+
+type greeterCollectMessageStreamSession struct {
+	kind    rpcruntime.ServerKind
+	session any
+}
+
+type GreeterCollectMessageStream struct {
+	handle rpcruntime.StreamHandle
+}
+
+func NewGreeterCollectMessageStream(handle rpcruntime.StreamHandle) GreeterCollectMessageStream {
+	return GreeterCollectMessageStream{handle: handle}
+}
+
+func (s GreeterCollectMessageStream) Send(ctx context.Context, req []byte) error {
+	entry, err := rpcruntime.SendStreamSession[*greeterCollectMessageStreamSession](&greeterStreamRegistry, s.handle)
+	if err != nil {
+		return err
+	}
+	switch entry.kind {
+	case rpcruntime.ServerKindGoNative:
+		source, ok := entry.session.(GreeterCollectNativeStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		name, city, reqOwner, err := convertGreeterCollectMessageToNativeRequest(req)
+		if err != nil {
+			return err
+		}
+		err = source.Send(ctx, name, city)
+		goruntime.KeepAlive(reqOwner)
+		return err
+	case rpcruntime.ServerKindCGONative:
+		source, ok := entry.session.(GreeterCollectNativeStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		name, city, reqOwner, err := convertGreeterCollectMessageToNativeRequest(req)
+		if err != nil {
+			return err
+		}
+		err = source.Send(ctx, name, city)
+		goruntime.KeepAlive(reqOwner)
+		return err
+	case rpcruntime.ServerKindCGOMessage:
+		source, ok := entry.session.(GreeterCollectMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Send(ctx, req)
+	case rpcruntime.ServerKindConnect:
+		source, ok := entry.session.(GreeterCollectMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Send(ctx, req)
+	case rpcruntime.ServerKindConnectRemote:
+		source, ok := entry.session.(GreeterCollectMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Send(ctx, req)
+	case rpcruntime.ServerKindGRPC:
+		source, ok := entry.session.(GreeterCollectMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Send(ctx, req)
+	case rpcruntime.ServerKindGRPCRemote:
+		source, ok := entry.session.(GreeterCollectMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Send(ctx, req)
+	default:
+		return fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.kind)
+	}
+}
+
+func (s GreeterCollectMessageStream) Finish(ctx context.Context) ([]byte, error) {
+	entry, err := rpcruntime.FinishStreamSession[*greeterCollectMessageStreamSession](&greeterStreamRegistry, s.handle)
+	if err != nil {
+		return nil, err
+	}
+	switch entry.kind {
+	case rpcruntime.ServerKindGoNative:
+		source, ok := entry.session.(GreeterCollectNativeStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		messageResult, err := source.Finish(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return convertGreeterCollectNativeToMessageResponse(messageResult)
+	case rpcruntime.ServerKindCGONative:
+		source, ok := entry.session.(GreeterCollectNativeStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		messageResult, err := source.Finish(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return convertGreeterCollectNativeToMessageResponse(messageResult)
+	case rpcruntime.ServerKindCGOMessage:
+		source, ok := entry.session.(GreeterCollectMessageStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Finish(ctx)
+	case rpcruntime.ServerKindConnect:
+		source, ok := entry.session.(GreeterCollectMessageStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Finish(ctx)
+	case rpcruntime.ServerKindConnectRemote:
+		source, ok := entry.session.(GreeterCollectMessageStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Finish(ctx)
+	case rpcruntime.ServerKindGRPC:
+		source, ok := entry.session.(GreeterCollectMessageStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Finish(ctx)
+	case rpcruntime.ServerKindGRPCRemote:
+		source, ok := entry.session.(GreeterCollectMessageStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Finish(ctx)
+	default:
+		return nil, fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.kind)
+	}
+}
+
+func (s GreeterCollectMessageStream) Cancel(ctx context.Context) error {
+	entry, err := rpcruntime.CancelStreamSession[*greeterCollectMessageStreamSession](&greeterStreamRegistry, s.handle)
+	if err != nil {
+		return err
+	}
+	switch entry.kind {
+	case rpcruntime.ServerKindGoNative:
+		source, ok := entry.session.(GreeterCollectNativeStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	case rpcruntime.ServerKindCGONative:
+		source, ok := entry.session.(GreeterCollectNativeStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	case rpcruntime.ServerKindCGOMessage:
+		source, ok := entry.session.(GreeterCollectMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	case rpcruntime.ServerKindConnect:
+		source, ok := entry.session.(GreeterCollectMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	case rpcruntime.ServerKindConnectRemote:
+		source, ok := entry.session.(GreeterCollectMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	case rpcruntime.ServerKindGRPC:
+		source, ok := entry.session.(GreeterCollectMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	case rpcruntime.ServerKindGRPCRemote:
+		source, ok := entry.session.(GreeterCollectMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	default:
+		return fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.kind)
+	}
+}
+
+type greeterBroadcastMessageStreamSession struct {
+	kind    rpcruntime.ServerKind
+	session any
+}
+
+type GreeterBroadcastMessageStream struct {
+	handle rpcruntime.StreamHandle
+}
+
+func NewGreeterBroadcastMessageStream(handle rpcruntime.StreamHandle) GreeterBroadcastMessageStream {
+	return GreeterBroadcastMessageStream{handle: handle}
+}
+
+func (s GreeterBroadcastMessageStream) Recv(ctx context.Context) ([]byte, error) {
+	entry, err := rpcruntime.RecvStreamSession[*greeterBroadcastMessageStreamSession](&greeterStreamRegistry, s.handle)
+	if err != nil {
+		return nil, err
+	}
+	switch entry.kind {
+	case rpcruntime.ServerKindGoNative:
+		source, ok := entry.session.(GreeterBroadcastNativeStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		messageResult, err := source.Recv(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return convertGreeterBroadcastNativeToMessageResponse(messageResult)
+	case rpcruntime.ServerKindCGONative:
+		source, ok := entry.session.(GreeterBroadcastNativeStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		messageResult, err := source.Recv(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return convertGreeterBroadcastNativeToMessageResponse(messageResult)
+	case rpcruntime.ServerKindCGOMessage:
+		source, ok := entry.session.(GreeterBroadcastMessageStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Recv(ctx)
+	case rpcruntime.ServerKindConnect:
+		source, ok := entry.session.(GreeterBroadcastMessageStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Recv(ctx)
+	case rpcruntime.ServerKindConnectRemote:
+		source, ok := entry.session.(GreeterBroadcastMessageStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Recv(ctx)
+	case rpcruntime.ServerKindGRPC:
+		source, ok := entry.session.(GreeterBroadcastMessageStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Recv(ctx)
+	case rpcruntime.ServerKindGRPCRemote:
+		source, ok := entry.session.(GreeterBroadcastMessageStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Recv(ctx)
+	default:
+		return nil, fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.kind)
+	}
+}
+
+func (s GreeterBroadcastMessageStream) Finish(ctx context.Context) error {
+	entry, err := rpcruntime.FinishStreamSession[*greeterBroadcastMessageStreamSession](&greeterStreamRegistry, s.handle)
+	if err != nil {
+		return err
+	}
+	switch entry.kind {
+	case rpcruntime.ServerKindGoNative:
+		source, ok := entry.session.(GreeterBroadcastNativeStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Finish(ctx)
+	case rpcruntime.ServerKindCGONative:
+		source, ok := entry.session.(GreeterBroadcastNativeStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Finish(ctx)
+	case rpcruntime.ServerKindCGOMessage:
+		source, ok := entry.session.(GreeterBroadcastMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Finish(ctx)
+	case rpcruntime.ServerKindConnect:
+		source, ok := entry.session.(GreeterBroadcastMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Finish(ctx)
+	case rpcruntime.ServerKindConnectRemote:
+		source, ok := entry.session.(GreeterBroadcastMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Finish(ctx)
+	case rpcruntime.ServerKindGRPC:
+		source, ok := entry.session.(GreeterBroadcastMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Finish(ctx)
+	case rpcruntime.ServerKindGRPCRemote:
+		source, ok := entry.session.(GreeterBroadcastMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Finish(ctx)
+	default:
+		return fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.kind)
+	}
+}
+
+func (s GreeterBroadcastMessageStream) Cancel(ctx context.Context) error {
+	entry, err := rpcruntime.CancelStreamSession[*greeterBroadcastMessageStreamSession](&greeterStreamRegistry, s.handle)
+	if err != nil {
+		return err
+	}
+	switch entry.kind {
+	case rpcruntime.ServerKindGoNative:
+		source, ok := entry.session.(GreeterBroadcastNativeStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	case rpcruntime.ServerKindCGONative:
+		source, ok := entry.session.(GreeterBroadcastNativeStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	case rpcruntime.ServerKindCGOMessage:
+		source, ok := entry.session.(GreeterBroadcastMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	case rpcruntime.ServerKindConnect:
+		source, ok := entry.session.(GreeterBroadcastMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	case rpcruntime.ServerKindConnectRemote:
+		source, ok := entry.session.(GreeterBroadcastMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	case rpcruntime.ServerKindGRPC:
+		source, ok := entry.session.(GreeterBroadcastMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	case rpcruntime.ServerKindGRPCRemote:
+		source, ok := entry.session.(GreeterBroadcastMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	default:
+		return fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.kind)
+	}
+}
+
+type greeterChatMessageStreamSession struct {
+	kind    rpcruntime.ServerKind
+	session any
+}
+
+type GreeterChatMessageStream struct {
+	handle rpcruntime.StreamHandle
+}
+
+func NewGreeterChatMessageStream(handle rpcruntime.StreamHandle) GreeterChatMessageStream {
+	return GreeterChatMessageStream{handle: handle}
+}
+
+func (s GreeterChatMessageStream) Send(ctx context.Context, req []byte) error {
+	entry, err := rpcruntime.SendStreamSession[*greeterChatMessageStreamSession](&greeterStreamRegistry, s.handle)
+	if err != nil {
+		return err
+	}
+	switch entry.kind {
+	case rpcruntime.ServerKindGoNative:
+		source, ok := entry.session.(GreeterChatNativeStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		name, city, reqOwner, err := convertGreeterChatMessageToNativeRequest(req)
+		if err != nil {
+			return err
+		}
+		err = source.Send(ctx, name, city)
+		goruntime.KeepAlive(reqOwner)
+		return err
+	case rpcruntime.ServerKindCGONative:
+		source, ok := entry.session.(GreeterChatNativeStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		name, city, reqOwner, err := convertGreeterChatMessageToNativeRequest(req)
+		if err != nil {
+			return err
+		}
+		err = source.Send(ctx, name, city)
+		goruntime.KeepAlive(reqOwner)
+		return err
+	case rpcruntime.ServerKindCGOMessage:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Send(ctx, req)
+	case rpcruntime.ServerKindConnect:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Send(ctx, req)
+	case rpcruntime.ServerKindConnectRemote:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Send(ctx, req)
+	case rpcruntime.ServerKindGRPC:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Send(ctx, req)
+	case rpcruntime.ServerKindGRPCRemote:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Send(ctx, req)
+	default:
+		return fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.kind)
+	}
+}
+
+func (s GreeterChatMessageStream) Recv(ctx context.Context) ([]byte, error) {
+	entry, err := rpcruntime.RecvStreamSession[*greeterChatMessageStreamSession](&greeterStreamRegistry, s.handle)
+	if err != nil {
+		return nil, err
+	}
+	switch entry.kind {
+	case rpcruntime.ServerKindGoNative:
+		source, ok := entry.session.(GreeterChatNativeStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		messageResult, err := source.Recv(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return convertGreeterChatNativeToMessageResponse(messageResult)
+	case rpcruntime.ServerKindCGONative:
+		source, ok := entry.session.(GreeterChatNativeStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		messageResult, err := source.Recv(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return convertGreeterChatNativeToMessageResponse(messageResult)
+	case rpcruntime.ServerKindCGOMessage:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Recv(ctx)
+	case rpcruntime.ServerKindConnect:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Recv(ctx)
+	case rpcruntime.ServerKindConnectRemote:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Recv(ctx)
+	case rpcruntime.ServerKindGRPC:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Recv(ctx)
+	case rpcruntime.ServerKindGRPCRemote:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return nil, rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Recv(ctx)
+	default:
+		return nil, fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.kind)
+	}
+}
+
+func (s GreeterChatMessageStream) CloseSend(ctx context.Context) error {
+	entry, err := rpcruntime.CloseSendStreamSession[*greeterChatMessageStreamSession](&greeterStreamRegistry, s.handle)
+	if err != nil {
+		return err
+	}
+	switch entry.kind {
+	case rpcruntime.ServerKindGoNative:
+		source, ok := entry.session.(GreeterChatNativeStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.CloseSend(ctx)
+	case rpcruntime.ServerKindCGONative:
+		source, ok := entry.session.(GreeterChatNativeStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.CloseSend(ctx)
+	case rpcruntime.ServerKindCGOMessage:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.CloseSend(ctx)
+	case rpcruntime.ServerKindConnect:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.CloseSend(ctx)
+	case rpcruntime.ServerKindConnectRemote:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.CloseSend(ctx)
+	case rpcruntime.ServerKindGRPC:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.CloseSend(ctx)
+	case rpcruntime.ServerKindGRPCRemote:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.CloseSend(ctx)
+	default:
+		return fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.kind)
+	}
+}
+
+func (s GreeterChatMessageStream) Finish(ctx context.Context) error {
+	entry, err := rpcruntime.FinishStreamSession[*greeterChatMessageStreamSession](&greeterStreamRegistry, s.handle)
+	if err != nil {
+		return err
+	}
+	switch entry.kind {
+	case rpcruntime.ServerKindGoNative:
+		source, ok := entry.session.(GreeterChatNativeStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Finish(ctx)
+	case rpcruntime.ServerKindCGONative:
+		source, ok := entry.session.(GreeterChatNativeStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Finish(ctx)
+	case rpcruntime.ServerKindCGOMessage:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Finish(ctx)
+	case rpcruntime.ServerKindConnect:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Finish(ctx)
+	case rpcruntime.ServerKindConnectRemote:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Finish(ctx)
+	case rpcruntime.ServerKindGRPC:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Finish(ctx)
+	case rpcruntime.ServerKindGRPCRemote:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Finish(ctx)
+	default:
+		return fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.kind)
+	}
+}
+
+func (s GreeterChatMessageStream) Cancel(ctx context.Context) error {
+	entry, err := rpcruntime.CancelStreamSession[*greeterChatMessageStreamSession](&greeterStreamRegistry, s.handle)
+	if err != nil {
+		return err
+	}
+	switch entry.kind {
+	case rpcruntime.ServerKindGoNative:
+		source, ok := entry.session.(GreeterChatNativeStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	case rpcruntime.ServerKindCGONative:
+		source, ok := entry.session.(GreeterChatNativeStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	case rpcruntime.ServerKindCGOMessage:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	case rpcruntime.ServerKindConnect:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	case rpcruntime.ServerKindConnectRemote:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	case rpcruntime.ServerKindGRPC:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	case rpcruntime.ServerKindGRPCRemote:
+		source, ok := entry.session.(GreeterChatMessageStreamSession)
+		if !ok {
+			return rpcruntime.ErrStreamInvalidHandle
+		}
+		return source.Cancel(ctx)
+	default:
+		return fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.kind)
+	}
 }
 
 type UnimplementedGreeterCGOMessageServer struct{}

@@ -17,6 +17,7 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	}
 
 	serverName := service.GoName + "CGOMessageServer"
+	streamingMethods := runtimeStreamingMethodProjections(runtimeMethods)
 
 	g.P("package ", plan.GoPackageName)
 	g.P()
@@ -24,7 +25,11 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	g.P(`context "context"`)
 	g.P(`errors "errors"`)
 	if serviceHasStreamingMethod(service) {
+		g.P(`fmt "fmt"`)
 		g.P(`io "io"`)
+		if messageServerNeedsGoRuntime(service) {
+			g.P(`goruntime "runtime"`)
+		}
 		if serviceHasClientStreamingMethod(service) || serviceHasBidiStreamingMethod(service) {
 			g.P(`sync "sync"`)
 		}
@@ -50,6 +55,11 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	g.P("}")
 	g.P()
 	renderCGOMessageServerStreamInterfaces(g, service, runtimeMethods)
+	renderMessageSourceSessionInterfaces(g, streamingMethods)
+	for _, method := range streamingMethods {
+		renderRuntimeMessageStreamSession(g, service.GoName, method)
+		renderRuntimeMessageStreamFacade(g, service.GoName, lowerInitial(service.GoName)+"StreamRegistry", method, service.Generation.NativeEnabled)
+	}
 	renderUnimplementedCGOMessageServer(g, service, runtimeMethods)
 	g.P("func Register", service.GoName, "CGOMessageServer(server ", serverName, ") error {")
 	g.P("if server == nil {")
@@ -63,6 +73,18 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	}
 	renderMessageEntry(g, service, runtimeMethods, serverName, lowerInitial(service.GoName)+"CGOMessageEntry")
 	return nil
+}
+
+func messageServerNeedsGoRuntime(service ServicePlan) bool {
+	if !service.Generation.NativeEnabled {
+		return false
+	}
+	for _, method := range service.Methods {
+		if method.Streaming == StreamingKindClientStreaming || method.Streaming == StreamingKindBidiStreaming {
+			return true
+		}
+	}
+	return false
 }
 
 func renderCGOMessageServerRuntimeRegistration(g *protogen.GeneratedFile, service ServicePlan) error {

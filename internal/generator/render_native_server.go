@@ -26,6 +26,7 @@ func renderNativeServerFile(plugin *protogen.Plugin, plan FilePlan, service Serv
 	}
 	g.P(`errors "errors"`)
 	if nativeServerHasStreamingMethod(service) {
+		g.P(`fmt "fmt"`)
 		g.P(`io "io"`)
 		if nativeServerHasClientInputStreamingMethod(service) {
 			g.P(`sync "sync"`)
@@ -48,6 +49,12 @@ func renderNativeServerFile(plugin *protogen.Plugin, plan FilePlan, service Serv
 
 	renderGoNativeServerInterface(g, service, service.GoName+"NativeServer")
 	renderGoNativeStreamInterfaces(g, service)
+	streamingMethods := runtimeStreamingMethodProjections(runtimeMethods)
+	renderNativeSourceSessionInterfaces(g, streamingMethods)
+	for _, method := range streamingMethods {
+		renderRuntimeNativeStreamSession(g, service.GoName, method)
+		renderRuntimeNativeStreamFacade(g, service.GoName, lowerInitial(service.GoName)+"StreamRegistry", method)
+	}
 	renderUnimplementedGoNativeServer(g, service)
 	renderGoNativeRegistration(g, service, service.GoName+"NativeServer", "")
 	if err := renderGoNativeServerRegistrations(g, service); err != nil {

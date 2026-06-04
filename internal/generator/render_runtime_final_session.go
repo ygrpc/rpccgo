@@ -3,7 +3,15 @@ package generator
 import "google.golang.org/protobuf/compiler/protogen"
 
 func renderRuntimeStreamSessions(g *protogen.GeneratedFile, serviceName string, method runtimeMethodProjection) {
+	renderRuntimeNativeStreamSession(g, serviceName, method)
+	renderRuntimeMessageStreamSession(g, serviceName, method)
+}
+
+func renderRuntimeNativeStreamSession(g *protogen.GeneratedFile, serviceName string, method runtimeMethodProjection) {
 	renderRuntimeEntrySession(g, runtimeStreamNativeSessionName(serviceName, method))
+}
+
+func renderRuntimeMessageStreamSession(g *protogen.GeneratedFile, serviceName string, method runtimeMethodProjection) {
 	renderRuntimeEntrySession(g, runtimeStreamMessageSessionName(serviceName, method))
 }
 
