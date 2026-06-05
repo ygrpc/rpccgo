@@ -31,6 +31,7 @@ func TestGRPCGreeterTransportAndStreamingMatrix(t *testing.T) {
 		assertNativeCollect(t, ctx, []string{"ada", "grace"}, "collect:ada,grace")
 		assertNativeBroadcast(t, ctx, "stream", []string{"broadcast[0]:stream", "broadcast[1]:stream"})
 		assertNativeChat(t, ctx, "bidi", "chat:bidi")
+		assertNativeChatConversation(t, ctx, []string{"ada", "grace"}, []string{"chat:ada", "chat:grace"})
 	})
 
 	t.Run("message_cgo", func(t *testing.T) {
@@ -276,6 +277,44 @@ func assertNativeChat(t *testing.T, ctx context.Context, name, want string) {
 		t.Fatalf("CloseSendGreeterChatNativeBidiStream() error id = %d", errID)
 	}
 	if errID := FinishGreeterChatNativeBidiStream(ctx, handle); errID != 0 {
+		t.Fatalf("FinishGreeterChatNativeBidiStream() error id = %d", errID)
+	}
+}
+
+func assertNativeChatConversation(t *testing.T, ctx context.Context, names []string, wants []string) {
+	t.Helper()
+	if len(names) != len(wants) {
+		t.Fatalf("native chat conversation names=%d wants=%d", len(names), len(wants))
+	}
+
+	streamCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	handle, errID := StartGreeterChatNativeBidiStream(streamCtx)
+	if errID != 0 {
+		t.Fatalf("StartGreeterChatNativeBidiStream() error id = %d", errID)
+	}
+	for index, name := range names {
+		input := nativeInput(name, "local")
+		if errID := SendGreeterChatNativeBidiStream(
+			streamCtx,
+			handle,
+			input.namePtr(), input.nameLen(), 0,
+			input.cityPtr(), input.cityLen(), 0,
+		); errID != 0 {
+			t.Fatalf("SendGreeterChatNativeBidiStream(%q) error id = %d: %s", name, errID, cgoErrorText(errID))
+		}
+		var messagePtr uintptr
+		var messageLen int32
+		if errID := ReadGreeterChatNativeBidiStream(streamCtx, handle, &messagePtr, &messageLen); errID != 0 {
+			t.Fatalf("ReadGreeterChatNativeBidiStream(%q) error id = %d: %s", name, errID, cgoErrorText(errID))
+		}
+		assertNativeOutput(t, messagePtr, messageLen, wants[index])
+	}
+	if errID := CloseSendGreeterChatNativeBidiStream(streamCtx, handle); errID != 0 {
+		t.Fatalf("CloseSendGreeterChatNativeBidiStream() error id = %d", errID)
+	}
+	if errID := FinishGreeterChatNativeBidiStream(streamCtx, handle); errID != 0 {
 		t.Fatalf("FinishGreeterChatNativeBidiStream() error id = %d", errID)
 	}
 }

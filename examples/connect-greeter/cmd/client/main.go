@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -22,25 +23,23 @@ func main() {
 }
 
 func run(ctx context.Context) error {
-	connectBaseURL := strings.TrimRight(envOrDefault("RPCCGO_CONNECT_CONNECT_URL", "http://127.0.0.1:8081"), "/")
+	connectBaseURL := strings.TrimRight(envOrDefault("RPCCGO_CONNECT_URL", "http://127.0.0.1:8081"), "/")
 	return runConnectDemo(ctx, connectBaseURL)
 }
 
 func runConnectDemo(ctx context.Context, baseURL string) error {
-	client := connect.NewClient[greeterv1.SayHelloRequest, greeterv1.SayHelloResponse](
-		h2cClient(),
-		baseURL+greeterv1.GreeterSayHelloProcedure,
-	)
-	response, err := client.CallUnary(ctx, connect.NewRequest(&greeterv1.SayHelloRequest{Name: "connect-demo", City: "local"}))
+	client := greeterv1.NewGreeterClient(h2cClient(), baseURL)
+
+	response, err := client.SayHello(ctx, &greeterv1.SayHelloRequest{Name: "connect-demo", City: "local"})
 	if err != nil {
 		return err
 	}
-	fmt.Println("connect unary:", response.Msg.GetMessage())
+	fmt.Println("connect unary:", response.GetMessage())
 
-	collect := connect.NewClient[greeterv1.SayHelloRequest, greeterv1.SayHelloResponse](
-		h2cClient(),
-		baseURL+greeterv1.GreeterCollectProcedure,
-	).CallClientStream(ctx)
+	collect, err := client.Collect(ctx)
+	if err != nil {
+		return err
+	}
 	for _, name := range []string{"connect", "stream"} {
 		if err := collect.Send(&greeterv1.SayHelloRequest{Name: name}); err != nil {
 			return err
@@ -50,7 +49,42 @@ func runConnectDemo(ctx context.Context, baseURL string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("connect client-stream:", collectResp.Msg.GetMessage())
+	fmt.Println("connect client-stream:", collectResp.GetMessage())
+
+	broadcast, err := client.Broadcast(ctx, &greeterv1.SayHelloRequest{Name: "connect-broadcast", City: "local"})
+	if err != nil {
+		return err
+	}
+	for broadcast.Receive() {
+		fmt.Println("connect server-stream:", broadcast.Msg().GetMessage())
+	}
+	if err := broadcast.Err(); err != nil {
+		return err
+	}
+
+	chat, err := client.Chat(ctx)
+	if err != nil {
+		return err
+	}
+	for _, name := range []string{"connect-chat-1", "connect-chat-2"} {
+		if err := chat.Send(&greeterv1.SayHelloRequest{Name: name, City: "local"}); err != nil {
+			return err
+		}
+		chatResp, err := chat.Receive()
+		if err != nil {
+			return err
+		}
+		fmt.Println("connect bidi:", chatResp.GetMessage())
+	}
+	if err := chat.CloseRequest(); err != nil {
+		return err
+	}
+	if _, err := chat.Receive(); err != io.EOF {
+		if err == nil {
+			return fmt.Errorf("connect bidi final receive succeeded, want EOF")
+		}
+		return err
+	}
 	return nil
 }
 

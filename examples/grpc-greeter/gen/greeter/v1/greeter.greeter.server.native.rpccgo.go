@@ -866,6 +866,10 @@ func (s *greeterCollectGoNativeClientStreamSession) Recv(ctx context.Context) (*
 }
 
 func (s *greeterCollectGoNativeClientStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
+	if s.received != nil {
+		close(s.received)
+		s.received = nil
+	}
 	select {
 	case <-s.sendDone:
 		return greeterNativeStreamClosed
@@ -1191,6 +1195,10 @@ func (s *greeterChatGoNativeBidiStreamFacade) Send(ctx context.Context, message 
 }
 
 func (s *greeterChatGoNativeBidiStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
+	if s.received != nil {
+		close(s.received)
+		s.received = nil
+	}
 	select {
 	case <-s.sendDone:
 		return greeterNativeStreamClosed

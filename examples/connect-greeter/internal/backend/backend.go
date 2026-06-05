@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 
+	connect "connectrpc.com/connect"
 	greeterv1 "example.com/rpccgo-connect/proto"
 	rpcruntime "rpccgo/rpcruntime"
 )
@@ -51,6 +52,47 @@ func (Greeter) Chat(ctx context.Context, stream greeterv1.GreeterChatNativeBidiS
 			return err
 		}
 		if err := stream.Send(ctx, "chat:"+name.SafeString()); err != nil {
+			return err
+		}
+	}
+}
+
+type ConnectGreeter struct{}
+
+func (ConnectGreeter) SayHello(_ context.Context, req *greeterv1.SayHelloRequest) (*greeterv1.SayHelloResponse, error) {
+	return &greeterv1.SayHelloResponse{Message: format(req.GetName(), req.GetCity())}, nil
+}
+
+func (ConnectGreeter) Collect(_ context.Context, stream *connect.ClientStream[greeterv1.SayHelloRequest]) (*greeterv1.SayHelloResponse, error) {
+	var names []string
+	for stream.Receive() {
+		names = append(names, stream.Msg().GetName())
+	}
+	if err := stream.Err(); err != nil {
+		return nil, err
+	}
+	return &greeterv1.SayHelloResponse{Message: "collect:" + strings.Join(names, ",")}, nil
+}
+
+func (ConnectGreeter) Broadcast(_ context.Context, req *greeterv1.SayHelloRequest, stream *connect.ServerStream[greeterv1.SayHelloResponse]) error {
+	for index := 0; index < 2; index++ {
+		if err := stream.Send(&greeterv1.SayHelloResponse{Message: fmt.Sprintf("broadcast[%d]:%s", index, req.GetName())}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (ConnectGreeter) Chat(_ context.Context, stream *connect.BidiStream[greeterv1.SayHelloRequest, greeterv1.SayHelloResponse]) error {
+	for {
+		req, err := stream.Receive()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if err := stream.Send(&greeterv1.SayHelloResponse{Message: "chat:" + req.GetName()}); err != nil {
 			return err
 		}
 	}

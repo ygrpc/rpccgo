@@ -44,7 +44,7 @@ func Test() error {
 	return buildAndRunCClient()
 }
 
-// Run regenerates the example, runs the real C client demo, then starts the remote server and Go client.
+// Run regenerates the example, then demonstrates local and remote registered servers through the same C client.
 func Run() error {
 	binDir, cleanup, err := installProtocPlugins()
 	if err != nil {
@@ -54,9 +54,19 @@ func Run() error {
 	if err := runWithBinDir(binDir, "go", "generate", "./..."); err != nil {
 		return err
 	}
-	if err := buildAndRunCClient(); err != nil {
+	artifactDir, callerPath, cleanupArtifacts, err := buildCSharedArtifacts()
+	if err != nil {
 		return err
 	}
+	defer cleanupArtifacts()
+
+	fmt.Println("== local go native registered server ==")
+	if err := runCClient(artifactDir, callerPath, map[string]string{
+		"RPCCGO_DEMO_ROUTE": "local go native registered server",
+	}); err != nil {
+		return err
+	}
+
 	connectAddr, err := reserveTCPAddr()
 	if err != nil {
 		return err
@@ -72,7 +82,7 @@ func Run() error {
 	server.Stderr = os.Stderr
 	server.Env = append(os.Environ(),
 		"GOFLAGS=-mod=mod",
-		"RPCCGO_CONNECT_CONNECT_ADDR="+connectAddr,
+		"RPCCGO_CONNECT_ADDR="+connectAddr,
 	)
 	if err := server.Start(); err != nil {
 		return err
@@ -86,10 +96,12 @@ func Run() error {
 	if err := waitForTCP(connectAddr); err != nil {
 		return err
 	}
-	return runWithEnv(map[string]string{
-		"GOFLAGS":                    "-mod=mod",
-		"RPCCGO_CONNECT_CONNECT_URL": "http://" + connectAddr,
-	}, "go", "run", "./cmd/client")
+
+	fmt.Println("== connect remote registered server ==")
+	return runCClient(artifactDir, callerPath, map[string]string{
+		"RPCCGO_CONNECT_URL": "http://" + connectAddr,
+		"RPCCGO_DEMO_ROUTE":  "connect remote registered server",
+	})
 }
 
 // Server starts the connect example Connect h2c server.
@@ -113,21 +125,33 @@ func installProtocPlugins() (string, func(), error) {
 }
 
 func buildAndRunCClient() error {
-	artifactDir, err := os.MkdirTemp("", "rpccgo-connect-c-shared-*")
+	artifactDir, callerPath, cleanup, err := buildCSharedArtifacts()
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(artifactDir)
+	defer cleanup()
+
+	return runCClient(artifactDir, callerPath, nil)
+}
+
+func buildCSharedArtifacts() (string, string, func(), error) {
+	artifactDir, err := os.MkdirTemp("", "rpccgo-connect-c-shared-*")
+	if err != nil {
+		return "", "", nil, err
+	}
+	cleanup := func() { _ = os.RemoveAll(artifactDir) }
 
 	libPath := filepath.Join(artifactDir, "librpccgo_connect_greeter.so")
 	headerPath := filepath.Join(artifactDir, "librpccgo_connect_greeter.h")
 	callerPath := filepath.Join(artifactDir, "connect-greeter-caller")
 
 	if err := runWithEnv(map[string]string{"GOFLAGS": "-mod=mod"}, "go", "build", "-buildmode=c-shared", "-o", libPath, "./cmd/rpc"); err != nil {
-		return err
+		cleanup()
+		return "", "", nil, err
 	}
 	if _, err := os.Stat(headerPath); err != nil {
-		return fmt.Errorf("c-shared header missing: %w", err)
+		cleanup()
+		return "", "", nil, fmt.Errorf("c-shared header missing: %w", err)
 	}
 	if err := runWithEnv(nil,
 		"cc",
@@ -141,11 +165,20 @@ func buildAndRunCClient() error {
 		"-lrpccgo_connect_greeter",
 		"-Wl,-rpath,$ORIGIN",
 	); err != nil {
-		return err
+		cleanup()
+		return "", "", nil, err
 	}
-	return runWithEnv(map[string]string{
+	return artifactDir, callerPath, cleanup, nil
+}
+
+func runCClient(artifactDir, callerPath string, extra map[string]string) error {
+	env := map[string]string{
 		"LD_LIBRARY_PATH": artifactDir + string(os.PathListSeparator) + os.Getenv("LD_LIBRARY_PATH"),
-	}, callerPath)
+	}
+	for key, value := range extra {
+		env[key] = value
+	}
+	return runWithEnv(env, callerPath)
 }
 
 func runWithBinDir(binDir string, name string, args ...string) error {

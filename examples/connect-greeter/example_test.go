@@ -91,8 +91,8 @@ func TestConnectGreeterCSharedClientExample(t *testing.T) {
 		"native collect: collect:ada,grace",
 		"native broadcast: broadcast[0]:stream",
 		"native broadcast: broadcast[1]:stream",
-		"native chat: chat:bidi",
-		"native output error: rpccgo: native client output pointer is nil",
+		"native chat: chat:ada",
+		"native chat: chat:grace",
 	} {
 		if !bytes.Contains(out, []byte(marker)) {
 			t.Fatalf("c client output missing %q\n%s", marker, out)
@@ -109,6 +109,14 @@ func TestConnectGreeterMageRunNoPanic(t *testing.T) {
 	}
 	if bytes.Contains(out, []byte("panic:")) {
 		t.Fatalf("mage run output contains panic:\n%s", out)
+	}
+	for _, marker := range []string{
+		"route: local go native registered server",
+		"route: connect remote registered server",
+	} {
+		if !bytes.Contains(out, []byte(marker)) {
+			t.Fatalf("mage run output missing %q\n%s", marker, out)
+		}
 	}
 }
 

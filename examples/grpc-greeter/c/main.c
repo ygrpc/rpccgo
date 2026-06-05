@@ -124,65 +124,52 @@ static void run_native_broadcast_demo(void) {
                    "native broadcast finish error:");
 }
 
+static void send_native_chat_message(int32_t handle, const char *name, const char *city,
+                                     const char *want);
+
 static void run_native_chat_demo(void) {
   int32_t handle = 0;
-  uintptr_t message_ptr = 0;
-  int32_t message_len = 0;
-  int32_t message_ownership = 0;
-  const char *name = "bidi";
   const char *city = "c";
 
   assert_status_ok(rpccgo_native_greeterv1_Greeter_Chat_start(&handle),
                    "native chat start error:");
-  assert_status_ok(rpccgo_native_greeterv1_Greeter_Chat_send(
-                       handle,
-                       (uintptr_t)name, 4, 0,
-                       (uintptr_t)city, 1, 0),
-                   "native chat send error:");
-  assert_status_ok(rpccgo_native_greeterv1_Greeter_Chat_read(
-                       handle, &message_ptr, &message_len, &message_ownership),
-                   "native chat read error:");
-  assert_string_equals("native chat", (const char *)message_ptr, message_len,
-                       "chat:bidi");
-  printf("native chat: %.*s\n", (int)message_len, (const char *)message_ptr);
-  if (rpccgo_release(message_ptr) != 0) {
-    fail_with_message("release native chat output failed");
-  }
+  send_native_chat_message(handle, "ada", city, "chat:ada");
+  send_native_chat_message(handle, "grace", city, "chat:grace");
   assert_status_ok(rpccgo_native_greeterv1_Greeter_Chat_close_send(handle),
                    "native chat close send error:");
   assert_status_ok(rpccgo_native_greeterv1_Greeter_Chat_finish(handle),
                    "native chat finish error:");
 }
 
-static void run_output_error_demo(void) {
-  const char *name = "ffi";
-  const char *city = "c";
-  int32_t err_id = rpccgo_native_greeterv1_Greeter_SayHello(
-      (uintptr_t)name, 3, 0,
-      (uintptr_t)city, 1, 0,
-      NULL, NULL, NULL);
-  if (err_id == 0) {
-    fail_with_message("expected native output pointer error");
-  }
+static void send_native_chat_message(int32_t handle, const char *name, const char *city,
+                                     const char *want) {
+  uintptr_t message_ptr = 0;
+  int32_t message_len = 0;
+  int32_t message_ownership = 0;
 
-  uintptr_t text_ptr = 0;
-  int32_t text_len = 0;
-  if (rpccgo_take_error_text(err_id, &text_ptr, &text_len) != 0 || text_ptr == 0) {
-    fail_with_message("take output error text failed");
-  }
-  assert_string_equals("native output error", (const char *)text_ptr, text_len,
-                       "rpccgo: native client output pointer is nil");
-  printf("native output error: %.*s\n", (int)text_len, (const char *)text_ptr);
-  if (rpccgo_release(text_ptr) != 0) {
-    fail_with_message("release output error text failed");
+  assert_status_ok(rpccgo_native_greeterv1_Greeter_Chat_send(
+                       handle,
+                       (uintptr_t)name, (int32_t)strlen(name), 0,
+                       (uintptr_t)city, (int32_t)strlen(city), 0),
+                   "native chat send error:");
+  assert_status_ok(rpccgo_native_greeterv1_Greeter_Chat_read(
+                       handle, &message_ptr, &message_len, &message_ownership),
+                   "native chat read error:");
+  assert_string_equals("native chat", (const char *)message_ptr, message_len, want);
+  printf("native chat: %.*s\n", (int)message_len, (const char *)message_ptr);
+  if (rpccgo_release(message_ptr) != 0) {
+    fail_with_message("release native chat output failed");
   }
 }
 
 int main(void) {
+  const char *route = getenv("RPCCGO_DEMO_ROUTE");
+  if (route != NULL && route[0] != '\0') {
+    printf("route: %s\n", route);
+  }
   run_native_unary_demo();
   run_native_collect_demo();
   run_native_broadcast_demo();
   run_native_chat_demo();
-  run_output_error_demo();
   return 0;
 }

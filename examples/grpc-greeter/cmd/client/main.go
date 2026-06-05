@@ -66,14 +66,16 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err := chat.Send(&greeterv1.SayHelloRequest{Name: "grpc-chat", City: "local"}); err != nil {
-		return err
+	for _, name := range []string{"grpc-chat-1", "grpc-chat-2"} {
+		if err := chat.Send(&greeterv1.SayHelloRequest{Name: name, City: "local"}); err != nil {
+			return err
+		}
+		chatResp, err := chat.Recv()
+		if err != nil {
+			return err
+		}
+		fmt.Println("grpc bidi:", chatResp.GetMessage())
 	}
-	chatResp, err := chat.Recv()
-	if err != nil {
-		return err
-	}
-	fmt.Println("grpc bidi:", chatResp.GetMessage())
 	if err := chat.CloseSend(); err != nil {
 		return err
 	}

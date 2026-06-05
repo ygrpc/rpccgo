@@ -44,7 +44,7 @@ func Test() error {
 	return buildAndRunCClient()
 }
 
-// Run regenerates the example, runs the real C client demo, then starts the server and Go client.
+// Run regenerates the example, then demonstrates local and remote registered servers through the same C client.
 func Run() error {
 	binDir, cleanup, err := installProtocPlugins()
 	if err != nil {
@@ -54,9 +54,19 @@ func Run() error {
 	if err := runWithBinDir(binDir, "go", "generate", "./..."); err != nil {
 		return err
 	}
-	if err := buildAndRunCClient(); err != nil {
+	artifactDir, callerPath, cleanupArtifacts, err := buildCSharedArtifacts()
+	if err != nil {
 		return err
 	}
+	defer cleanupArtifacts()
+
+	fmt.Println("== local go native registered server ==")
+	if err := runCClient(artifactDir, callerPath, map[string]string{
+		"RPCCGO_DEMO_ROUTE": "local go native registered server",
+	}); err != nil {
+		return err
+	}
+
 	addr, err := reserveTCPAddr()
 	if err != nil {
 		return err
@@ -83,10 +93,12 @@ func Run() error {
 	if err := waitForTCP(addr); err != nil {
 		return err
 	}
-	return runWithEnv(map[string]string{
-		"GOFLAGS":            "-mod=mod",
+
+	fmt.Println("== grpc remote registered server ==")
+	return runCClient(artifactDir, callerPath, map[string]string{
+		"RPCCGO_DEMO_ROUTE":  "grpc remote registered server",
 		"RPCCGO_GRPC_TARGET": addr,
-	}, "go", "run", "./cmd/client")
+	})
 }
 
 // Server starts the gRPC greeter example server.
@@ -110,21 +122,33 @@ func installProtocPlugins() (string, func(), error) {
 }
 
 func buildAndRunCClient() error {
-	artifactDir, err := os.MkdirTemp("", "rpccgo-grpc-c-shared-*")
+	artifactDir, callerPath, cleanup, err := buildCSharedArtifacts()
 	if err != nil {
 		return err
 	}
-	defer os.RemoveAll(artifactDir)
+	defer cleanup()
+
+	return runCClient(artifactDir, callerPath, nil)
+}
+
+func buildCSharedArtifacts() (string, string, func(), error) {
+	artifactDir, err := os.MkdirTemp("", "rpccgo-grpc-c-shared-*")
+	if err != nil {
+		return "", "", nil, err
+	}
+	cleanup := func() { _ = os.RemoveAll(artifactDir) }
 
 	libPath := filepath.Join(artifactDir, "librpccgo_grpc_greeter.so")
 	headerPath := filepath.Join(artifactDir, "librpccgo_grpc_greeter.h")
 	callerPath := filepath.Join(artifactDir, "grpc-greeter-caller")
 
 	if err := runWithEnv(map[string]string{"GOFLAGS": "-mod=mod"}, "go", "build", "-buildmode=c-shared", "-o", libPath, "./cmd/rpc"); err != nil {
-		return err
+		cleanup()
+		return "", "", nil, err
 	}
 	if _, err := os.Stat(headerPath); err != nil {
-		return fmt.Errorf("c-shared header missing: %w", err)
+		cleanup()
+		return "", "", nil, fmt.Errorf("c-shared header missing: %w", err)
 	}
 	if err := runWithEnv(nil,
 		"cc",
@@ -138,11 +162,20 @@ func buildAndRunCClient() error {
 		"-lrpccgo_grpc_greeter",
 		"-Wl,-rpath,$ORIGIN",
 	); err != nil {
-		return err
+		cleanup()
+		return "", "", nil, err
 	}
-	return runWithEnv(map[string]string{
+	return artifactDir, callerPath, cleanup, nil
+}
+
+func runCClient(artifactDir, callerPath string, extra map[string]string) error {
+	env := map[string]string{
 		"LD_LIBRARY_PATH": artifactDir + string(os.PathListSeparator) + os.Getenv("LD_LIBRARY_PATH"),
-	}, callerPath)
+	}
+	for key, value := range extra {
+		env[key] = value
+	}
+	return runWithEnv(env, callerPath)
 }
 
 func runWithBinDir(binDir string, name string, args ...string) error {
