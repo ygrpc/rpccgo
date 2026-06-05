@@ -30,9 +30,10 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	if directFmt {
 		g.P(`fmt "fmt"`)
 	}
+	runtimeRendersNativeServer := service.Generation.NativeEnabled && !service.HasArtifact(GeneratedArtifactKindNativeServer)
 	if directConnectStreaming || directGRPCStreaming || nativeServerHasStreamingMethod(service) || serviceHasStreamingMethod(service) {
 		g.P(`io "io"`)
-		if serviceHasClientStreamingMethod(service) || serviceHasBidiStreamingMethod(service) {
+		if serviceHasClientStreamingMethod(service) || serviceHasBidiStreamingMethod(service) || runtimeRendersNativeServer && nativeServerHasStreamingMethod(service) {
 			g.P(`sync "sync"`)
 		}
 	}

@@ -1578,8 +1578,8 @@ func TestMessageBidiStreamingDirectPath(t *testing.T) {
 	if got := greeterMessageChatSendsForIntegration(); got != 1 {
 		t.Fatalf("chat sends = %d, want 1", got)
 	}
-	if got := greeterMessageChatRecvsForIntegration(); got != 1 {
-		t.Fatalf("chat recvs = %d, want 1", got)
+	if got := greeterMessageChatRecvsForIntegration(); got != 2 {
+		t.Fatalf("chat recvs = %d, want 2 including EOF probe", got)
 	}
 	if got := greeterMessageChatCloseSendsForIntegration(); got != 1 {
 		t.Fatalf("chat close sends = %d, want 1", got)

@@ -832,10 +832,26 @@ type greeterCollectMessageServerClientStreamSession struct {
 	requests      chan greeterCollectMessageServerClientStreamSessionRequest
 	sendDone      chan struct{}
 	closeSendOnce sync.Once
+	receivedMu    sync.Mutex
 	received      chan struct{}
 	done          chan struct{}
 	resp          *SayHelloResponse
 	err           error
+}
+
+func (s *greeterCollectMessageServerClientStreamSession) acknowledgeReceived() {
+	s.receivedMu.Lock()
+	defer s.receivedMu.Unlock()
+	if s.received != nil {
+		close(s.received)
+		s.received = nil
+	}
+}
+
+func (s *greeterCollectMessageServerClientStreamSession) storeReceived(received chan struct{}) {
+	s.receivedMu.Lock()
+	defer s.receivedMu.Unlock()
+	s.received = received
 }
 
 func (s *greeterCollectMessageServerClientStreamSession) Recv(ctx context.Context) (*SayHelloRequest, error) {
@@ -862,6 +878,7 @@ func (s *greeterCollectMessageServerClientStreamSession) Send(ctx context.Contex
 	if req == nil {
 		return errors.New("rpccgo: message request is nil")
 	}
+	s.acknowledgeReceived()
 	select {
 	case <-s.sendDone:
 		return errors.New("rpccgo: message stream is closed")
@@ -922,10 +939,7 @@ func (s *greeterCollectMessageServerClientStreamSession) Finish(ctx context.Cont
 
 func (s *greeterCollectMessageServerClientStreamSession) Cancel(ctx context.Context) error {
 	s.cancel()
-	if s.received != nil {
-		close(s.received)
-		s.received = nil
-	}
+	s.acknowledgeReceived()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -959,9 +973,25 @@ type greeterBroadcastMessageServerServerStreamSession struct {
 	finishCtx    context.Context
 	finishCancel context.CancelFunc
 	responses    chan greeterBroadcastMessageServerServerStreamSessionResponse
+	receivedMu   sync.Mutex
 	received     chan struct{}
 	done         chan struct{}
 	err          error
+}
+
+func (s *greeterBroadcastMessageServerServerStreamSession) acknowledgeReceived() {
+	s.receivedMu.Lock()
+	defer s.receivedMu.Unlock()
+	if s.received != nil {
+		close(s.received)
+		s.received = nil
+	}
+}
+
+func (s *greeterBroadcastMessageServerServerStreamSession) storeReceived(received chan struct{}) {
+	s.receivedMu.Lock()
+	defer s.receivedMu.Unlock()
+	s.received = received
 }
 
 func (s *greeterBroadcastMessageServerServerStreamSession) Send(ctx context.Context, resp *SayHelloResponse) error {
@@ -1039,23 +1069,17 @@ func (s *greeterBroadcastMessageServerServerStreamSession) Send(ctx context.Cont
 }
 
 func (s *greeterBroadcastMessageServerServerStreamSession) Recv(ctx context.Context) (*SayHelloResponse, error) {
-	if s.received != nil {
-		close(s.received)
-		s.received = nil
-	}
+	s.acknowledgeReceived()
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case <-s.ctx.Done():
 		return nil, s.ctx.Err()
 	case resp := <-s.responses:
-		s.received = resp.received
+		s.storeReceived(resp.received)
 		return resp.data, nil
 	case <-s.done:
-		if s.received != nil {
-			close(s.received)
-			s.received = nil
-		}
+		s.acknowledgeReceived()
 		if s.err != nil {
 			return nil, s.err
 		}
@@ -1066,10 +1090,7 @@ func (s *greeterBroadcastMessageServerServerStreamSession) Recv(ctx context.Cont
 func (s *greeterBroadcastMessageServerServerStreamSession) Finish(ctx context.Context) error {
 	s.finishCancel()
 	s.cancel()
-	if s.received != nil {
-		close(s.received)
-		s.received = nil
-	}
+	s.acknowledgeReceived()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -1080,10 +1101,7 @@ func (s *greeterBroadcastMessageServerServerStreamSession) Finish(ctx context.Co
 
 func (s *greeterBroadcastMessageServerServerStreamSession) Cancel(ctx context.Context) error {
 	s.cancel()
-	if s.received != nil {
-		close(s.received)
-		s.received = nil
-	}
+	s.acknowledgeReceived()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -1124,9 +1142,25 @@ type greeterChatMessageServerBidiStreamSession struct {
 	sendDoneReceivedOnce sync.Once
 	closeSendOnce        sync.Once
 	responses            chan greeterChatMessageServerBidiStreamSessionResponse
+	receivedMu           sync.Mutex
 	received             chan struct{}
 	done                 chan struct{}
 	err                  error
+}
+
+func (s *greeterChatMessageServerBidiStreamSession) acknowledgeReceived() {
+	s.receivedMu.Lock()
+	defer s.receivedMu.Unlock()
+	if s.received != nil {
+		close(s.received)
+		s.received = nil
+	}
+}
+
+func (s *greeterChatMessageServerBidiStreamSession) storeReceived(received chan struct{}) {
+	s.receivedMu.Lock()
+	defer s.receivedMu.Unlock()
+	s.received = received
 }
 
 type greeterChatMessageServerBidiStreamFacade struct {
@@ -1240,6 +1274,7 @@ func (s *greeterChatMessageServerBidiStreamSession) Send(ctx context.Context, re
 	if req == nil {
 		return errors.New("rpccgo: message request is nil")
 	}
+	s.acknowledgeReceived()
 	select {
 	case <-s.sendDone:
 		return errors.New("rpccgo: message stream is closed")
@@ -1282,23 +1317,17 @@ func (s *greeterChatMessageServerBidiStreamSession) Send(ctx context.Context, re
 }
 
 func (s *greeterChatMessageServerBidiStreamSession) Recv(ctx context.Context) (*SayHelloResponse, error) {
-	if s.received != nil {
-		close(s.received)
-		s.received = nil
-	}
+	s.acknowledgeReceived()
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	case <-s.ctx.Done():
 		return nil, s.ctx.Err()
 	case resp := <-s.responses:
-		s.received = resp.received
+		s.storeReceived(resp.received)
 		return resp.data, nil
 	case <-s.done:
-		if s.received != nil {
-			close(s.received)
-			s.received = nil
-		}
+		s.acknowledgeReceived()
 		if s.err != nil {
 			return nil, s.err
 		}
@@ -1307,6 +1336,7 @@ func (s *greeterChatMessageServerBidiStreamSession) Recv(ctx context.Context) (*
 }
 
 func (s *greeterChatMessageServerBidiStreamSession) CloseSend(ctx context.Context) error {
+	s.acknowledgeReceived()
 	s.closeSendOnce.Do(func() { close(s.sendDone) })
 	select {
 	case <-ctx.Done():
@@ -1326,10 +1356,7 @@ func (s *greeterChatMessageServerBidiStreamSession) CloseSend(ctx context.Contex
 func (s *greeterChatMessageServerBidiStreamSession) Finish(ctx context.Context) error {
 	s.finishCancel()
 	s.cancel()
-	if s.received != nil {
-		close(s.received)
-		s.received = nil
-	}
+	s.acknowledgeReceived()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -1340,10 +1367,7 @@ func (s *greeterChatMessageServerBidiStreamSession) Finish(ctx context.Context) 
 
 func (s *greeterChatMessageServerBidiStreamSession) Cancel(ctx context.Context) error {
 	s.cancel()
-	if s.received != nil {
-		close(s.received)
-		s.received = nil
-	}
+	s.acknowledgeReceived()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()

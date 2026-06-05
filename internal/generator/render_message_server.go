@@ -30,9 +30,7 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 		if messageServerNeedsGoRuntime(service) {
 			g.P(`goruntime "runtime"`)
 		}
-		if serviceHasClientStreamingMethod(service) || serviceHasBidiStreamingMethod(service) {
-			g.P(`sync "sync"`)
-		}
+		g.P(`sync "sync"`)
 	}
 	g.P(`rpcruntime "rpccgo/rpcruntime"`)
 	g.P(")")

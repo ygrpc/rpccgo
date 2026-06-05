@@ -40,6 +40,7 @@ func TestGRPCGreeterTransportAndStreamingMatrix(t *testing.T) {
 		assertMessageCollect(t, ctx, []string{"client", "stream"}, "collect:client,stream")
 		assertMessageBroadcast(t, ctx, "server", []string{"broadcast[0]:server", "broadcast[1]:server"})
 		assertMessageChat(t, ctx, "bidi-message", "chat:bidi-message")
+		assertMessageChatConversation(t, ctx, []string{"ada-message", "grace-message"}, []string{"chat:ada-message", "chat:grace-message"})
 	})
 
 	t.Run("grpc_remote", func(t *testing.T) {
@@ -58,6 +59,7 @@ func TestGRPCGreeterTransportAndStreamingMatrix(t *testing.T) {
 		assertMessageCollect(t, ctx, []string{"grpc", "collect"}, "collect:grpc,collect")
 		assertMessageBroadcast(t, ctx, "grpc-broadcast", []string{"broadcast[0]:grpc-broadcast", "broadcast[1]:grpc-broadcast"})
 		assertMessageChat(t, ctx, "grpc-chat", "chat:grpc-chat")
+		assertMessageChatConversation(t, ctx, []string{"grpc-chat-1", "grpc-chat-2"}, []string{"chat:grpc-chat-1", "chat:grpc-chat-2"})
 	})
 }
 
@@ -387,6 +389,38 @@ func assertMessageChat(t *testing.T, ctx context.Context, name, want string) {
 	}
 	assertMessageOutput(t, output, want)
 	if errID := FinishGreeterChatMessageBidiStream(ctx, handle); errID != 0 {
+		t.Fatalf("FinishGreeterChatMessageBidiStream() error id = %d", errID)
+	}
+}
+
+func assertMessageChatConversation(t *testing.T, ctx context.Context, names []string, wants []string) {
+	t.Helper()
+	if len(names) != len(wants) {
+		t.Fatalf("message chat conversation names=%d wants=%d", len(names), len(wants))
+	}
+
+	streamCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
+	handle, errID := StartGreeterChatMessageBidiStream(streamCtx)
+	if errID != 0 {
+		t.Fatalf("StartGreeterChatMessageBidiStream() error id = %d", errID)
+	}
+	for index, name := range names {
+		request := messageRequestBytes(t, name, "remote")
+		if errID := SendGreeterChatMessageBidiStream(streamCtx, handle, bytesPtr(request), int32(len(request))); errID != 0 {
+			t.Fatalf("SendGreeterChatMessageBidiStream(%q) error id = %d: %s", name, errID, cgoErrorText(errID))
+		}
+		output := &GreeterMessageOutput{}
+		if errID := ReadGreeterChatMessageBidiStream(streamCtx, handle, output); errID != 0 {
+			t.Fatalf("ReadGreeterChatMessageBidiStream(%q) error id = %d: %s", name, errID, cgoErrorText(errID))
+		}
+		assertMessageOutput(t, output, wants[index])
+	}
+	if errID := CloseSendGreeterChatMessageBidiStream(streamCtx, handle); errID != 0 {
+		t.Fatalf("CloseSendGreeterChatMessageBidiStream() error id = %d", errID)
+	}
+	if errID := FinishGreeterChatMessageBidiStream(streamCtx, handle); errID != 0 {
 		t.Fatalf("FinishGreeterChatMessageBidiStream() error id = %d", errID)
 	}
 }
