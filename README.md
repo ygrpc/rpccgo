@@ -59,7 +59,7 @@ go install ./cmd/protoc-gen-rpc-cgo
 
 ```bash
 go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
+go install connectrpc.com/connect/cmd/protoc-gen-connect-go@v1.19.1
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 ```
 
@@ -68,6 +68,7 @@ go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 ```bash
 which protoc-gen-go
 which protoc-gen-rpc-cgo
+which protoc-gen-connect-go
 ```
 
 ## 选择生成能力
@@ -103,11 +104,20 @@ Connect service 示例：
 protoc \
   -I proto \
   --go_out=gen --go_opt=paths=source_relative \
-  --connect-go_out=gen --connect-go_opt=paths=source_relative \
+  --connect-go_out=gen \
+  --connect-go_opt=paths=source_relative \
+  --connect-go_opt=package_suffix= \
+  --connect-go_opt=simple=true \
   --rpc-cgo_out=gen --rpc-cgo_opt=paths=source_relative \
   --rpc-cgo_opt=cgo_dir=../cmd/rpc \
   proto/greeter.proto
 ```
+
+Connect 生成要求：
+
+- 使用 `protoc-gen-connect-go` `v1.19.1`，这是当前验证版本。
+- 必须设置 `--connect-go_opt=package_suffix=`，让 Connect generated code 与 protobuf Go package 保持同一个 package。rpccgo 生成的 `Register<Service>ConnectHandler` 会直接引用该 package 内的 `<Service>Handler` 和 `<Service>Client`。
+- 必须设置 `--connect-go_opt=simple=true`，让 Connect generated code 使用 simple handler/client stream API。rpccgo 的 Connect direct path 按这个签名生成 typed dispatch。
 
 gRPC service 示例：
 
