@@ -811,26 +811,12 @@ func registerGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
 	return nil
 }
 
-// greeterCGOMessageEntry exposes a message server implementation through the
-// generated runtime entry method shape.
-type greeterCGOMessageEntry struct {
-	server GreeterCGOMessageServer
-}
-
-func (a *greeterCGOMessageEntry) SayHello(ctx context.Context, req *SayHelloRequest) (*SayHelloResponse, error) {
-	return a.server.SayHello(ctx, req)
-}
-
-func (a *greeterCGOMessageEntry) Collect(ctx context.Context, stream rpcruntime.CGOMessageClientStream[*SayHelloRequest]) (*SayHelloResponse, error) {
-	return a.server.Collect(ctx, stream)
-}
-
-func (a *greeterCGOMessageEntry) StartCollect(ctx context.Context) (rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse], error) {
+func startGreeterCGOMessageCollect(ctx context.Context, server GreeterCGOMessageServer) (rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse], error) {
 	streamCtx, cancel := context.WithCancel(ctx)
 	session := &greeterCollectMessageServerClientStreamSession{ctx: streamCtx, cancel: cancel, requests: make(chan greeterCollectMessageServerClientStreamSessionRequest, 16), sendDone: make(chan struct{}), done: make(chan struct{})}
 	go func() {
 		defer close(session.done)
-		session.resp, session.err = a.Collect(streamCtx, session)
+		session.resp, session.err = server.Collect(streamCtx, session)
 	}()
 	return session, nil
 }
@@ -948,11 +934,7 @@ func (s *greeterCollectMessageServerClientStreamSession) Cancel(ctx context.Cont
 	}
 }
 
-func (a *greeterCGOMessageEntry) Broadcast(ctx context.Context, req *SayHelloRequest, stream rpcruntime.CGOMessageServerStream[*SayHelloResponse]) error {
-	return a.server.Broadcast(ctx, req, stream)
-}
-
-func (a *greeterCGOMessageEntry) StartBroadcast(ctx context.Context, req *SayHelloRequest) (rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse], error) {
+func startGreeterCGOMessageBroadcast(ctx context.Context, server GreeterCGOMessageServer, req *SayHelloRequest) (rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse], error) {
 	if req == nil {
 		return nil, errors.New("rpccgo: message request is nil")
 	}
@@ -961,7 +943,7 @@ func (a *greeterCGOMessageEntry) StartBroadcast(ctx context.Context, req *SayHel
 	session := &greeterBroadcastMessageServerServerStreamSession{ctx: streamCtx, cancel: cancel, finishCtx: finishCtx, finishCancel: finishCancel, responses: make(chan greeterBroadcastMessageServerServerStreamSessionResponse, 1), done: make(chan struct{})}
 	go func() {
 		defer close(session.done)
-		session.err = a.Broadcast(streamCtx, req, session)
+		session.err = server.Broadcast(streamCtx, req, session)
 	}()
 	return session, nil
 }
@@ -1110,17 +1092,13 @@ func (s *greeterBroadcastMessageServerServerStreamSession) Cancel(ctx context.Co
 	}
 }
 
-func (a *greeterCGOMessageEntry) Chat(ctx context.Context, stream rpcruntime.CGOMessageBidiStream[*SayHelloRequest, *SayHelloResponse]) error {
-	return a.server.Chat(ctx, stream)
-}
-
-func (a *greeterCGOMessageEntry) StartChat(ctx context.Context) (rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse], error) {
+func startGreeterCGOMessageChat(ctx context.Context, server GreeterCGOMessageServer) (rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse], error) {
 	streamCtx, cancel := context.WithCancel(ctx)
 	finishCtx, finishCancel := context.WithCancel(context.Background())
 	session := &greeterChatMessageServerBidiStreamSession{ctx: streamCtx, cancel: cancel, finishCtx: finishCtx, finishCancel: finishCancel, requests: make(chan greeterChatMessageServerBidiStreamSessionRequest, 16), sendDone: make(chan struct{}), sendDoneReceived: make(chan struct{}), responses: make(chan greeterChatMessageServerBidiStreamSessionResponse, 1), done: make(chan struct{})}
 	go func() {
 		defer close(session.done)
-		session.err = a.Chat(streamCtx, &greeterChatMessageServerBidiStreamFacade{source: session})
+		session.err = server.Chat(streamCtx, &greeterChatMessageServerBidiStreamFacade{source: session})
 	}()
 	return session, nil
 }

@@ -59,7 +59,7 @@ func renderNativeServerFile(plugin *protogen.Plugin, plan FilePlan, service Serv
 	if err := renderGoNativeServerRegistrations(g, service); err != nil {
 		return err
 	}
-	renderGoNativeAdapter(g, service, runtimeMethods, service.GoName+"NativeServer", lowerInitial(service.GoName)+"GoNativeEntry", errorNames)
+	renderGoNativeStartHelpers(g, service, runtimeMethods, service.GoName+"NativeServer", errorNames)
 	return nil
 }
 
@@ -160,62 +160,40 @@ func renderUnimplementedGoNativeServer(g *protogen.GeneratedFile, service Servic
 	}
 }
 
-func renderGoNativeAdapter(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeMethodProjection, serverName, adapterName string, errorNames nativeServerErrorNames) {
+func renderGoNativeStartHelpers(g *protogen.GeneratedFile, service ServicePlan, methods []runtimeMethodProjection, serverName string, errorNames nativeServerErrorNames) {
 	byName := make(map[string]MethodPlan, len(service.Methods))
 	for _, method := range service.Methods {
 		byName[method.GoName] = method
 	}
 
-	g.P("// ", adapterName, " exposes a native server implementation through the")
-	g.P("// generated runtime entry method shape.")
-	g.P("type ", adapterName, " struct {")
-	g.P("server ", serverName)
-	g.P("}")
-	g.P()
-
 	for _, runtimeMethod := range methods {
+		if !runtimeMethod.Stream.Streaming {
+			continue
+		}
 		method, ok := byName[runtimeMethod.Identity.GoName]
 		if !ok {
-			renderGoNativeFallbackAdapterMethod(g, adapterName, runtimeMethod)
 			continue
 		}
 		switch method.Streaming {
-		case StreamingKindUnary:
-			renderGoNativeUnaryAdapterMethod(g, adapterName, method, errorNames)
 		case StreamingKindClientStreaming:
-			renderGoNativeClientStreamAdapterMethod(g, service, adapterName, method, errorNames)
+			renderGoNativeClientStreamStartHelper(g, service, serverName, method, errorNames)
 		case StreamingKindServerStreaming:
-			renderGoNativeServerStreamAdapterMethod(g, service, adapterName, method, errorNames)
+			renderGoNativeServerStreamStartHelper(g, service, serverName, method, errorNames)
 		case StreamingKindBidiStreaming:
-			renderGoNativeBidiStreamAdapterMethod(g, service, adapterName, method, errorNames)
+			renderGoNativeBidiStreamStartHelper(g, service, serverName, method, errorNames)
 		}
 	}
 	_ = serverName
 }
 
-func renderGoNativeUnaryAdapterMethod(g *protogen.GeneratedFile, adapterName string, method MethodPlan, errorNames nativeServerErrorNames) {
-	requestParams := nativeGoRequestParams(g, method.Contract.Native.RequestFields)
-	responseReturns := nativeGoResponseReturns(g, method.Contract.Native.ResponseFields)
-	requestArgs := nativeGoRequestArgNames(method.Contract.Native.RequestFields)
-	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context", requestParams, ") (", responseReturns, ") {")
-	if len(method.Contract.Native.RequestFields) == 0 {
-		g.P("return a.server.", method.GoName, "(ctx)")
-	} else {
-		g.P("return a.server.", method.GoName, "(ctx, ", requestArgs, ")")
-	}
-	g.P("}")
-	g.P()
-	_ = errorNames
+func goNativeStartHelperName(serviceName, methodName string) string {
+	return "start" + serviceName + "GoNative" + methodName
 }
 
-func renderGoNativeClientStreamAdapterMethod(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, errorNames nativeServerErrorNames) {
+func renderGoNativeClientStreamStartHelper(g *protogen.GeneratedFile, service ServicePlan, serverName string, method MethodPlan, errorNames nativeServerErrorNames) {
 	sessionName := service.GoName + method.GoName + "NativeStreamSession"
 	receiver := lowerInitial(service.GoName) + method.GoName + "GoNativeClientStreamSession"
-	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context, stream ", service.GoName, method.GoName, "NativeClientStream) (", nativeGoResponseReturns(g, method.Contract.Native.ResponseFields), ") {")
-	g.P("return a.server.", method.GoName, "(ctx, stream)")
-	g.P("}")
-	g.P()
-	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context) (", sessionName, ", error) {")
+	g.P("func ", goNativeStartHelperName(service.GoName, method.GoName), "(ctx context.Context, server ", serverName, ") (", sessionName, ", error) {")
 	g.P("streamCtx, cancel := context.WithCancel(ctx)")
 	g.P("session := &", receiver, "{")
 	g.P("ctx: streamCtx,")
@@ -226,7 +204,7 @@ func renderGoNativeClientStreamAdapterMethod(g *protogen.GeneratedFile, service 
 	g.P("}")
 	g.P("go func() {")
 	g.P("defer close(session.done)")
-	g.P(renderNativeClientStreamResultAssignment(method), "a.", method.GoName, "(streamCtx, session)")
+	g.P(renderNativeClientStreamResultAssignment(method), "server.", method.GoName, "(streamCtx, session)")
 	g.P("}()")
 	g.P("return session, nil")
 	g.P("}")
@@ -251,20 +229,12 @@ func renderGoNativeClientStreamAdapterMethod(g *protogen.GeneratedFile, service 
 	renderGeneratedStreamCancel(g, receiver)
 }
 
-func renderGoNativeServerStreamAdapterMethod(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, errorNames nativeServerErrorNames) {
+func renderGoNativeServerStreamStartHelper(g *protogen.GeneratedFile, service ServicePlan, serverName string, method MethodPlan, errorNames nativeServerErrorNames) {
 	sessionName := service.GoName + method.GoName + "NativeStreamSession"
 	receiver := lowerInitial(service.GoName) + method.GoName + "GoNativeServerStreamSession"
 	requestParams := nativeGoRequestParams(g, method.Contract.Native.RequestFields)
 	requestArgs := nativeGoRequestArgNames(method.Contract.Native.RequestFields)
-	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context", requestParams, ", stream ", service.GoName, method.GoName, "NativeServerStream) error {")
-	if len(method.Contract.Native.RequestFields) == 0 {
-		g.P("return a.server.", method.GoName, "(ctx, stream)")
-	} else {
-		g.P("return a.server.", method.GoName, "(ctx, ", requestArgs, ", stream)")
-	}
-	g.P("}")
-	g.P()
-	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context", requestParams, ") (", sessionName, ", error) {")
+	g.P("func ", goNativeStartHelperName(service.GoName, method.GoName), "(ctx context.Context, server ", serverName, requestParams, ") (", sessionName, ", error) {")
 	g.P("streamCtx, cancel := context.WithCancel(ctx)")
 	g.P("session := &", receiver, "{")
 	g.P("ctx: streamCtx,")
@@ -276,9 +246,9 @@ func renderGoNativeServerStreamAdapterMethod(g *protogen.GeneratedFile, service 
 	g.P("defer close(session.done)")
 	g.P("defer close(session.responses)")
 	if len(method.Contract.Native.RequestFields) == 0 {
-		g.P("session.err = a.", method.GoName, "(streamCtx, session)")
+		g.P("session.err = server.", method.GoName, "(streamCtx, session)")
 	} else {
-		g.P("session.err = a.", method.GoName, "(streamCtx, ", requestArgs, ", session)")
+		g.P("session.err = server.", method.GoName, "(streamCtx, ", requestArgs, ", session)")
 	}
 	g.P("}()")
 	g.P("return session, nil")
@@ -302,15 +272,11 @@ func renderGoNativeServerStreamAdapterMethod(g *protogen.GeneratedFile, service 
 	renderGeneratedStreamCancel(g, receiver)
 }
 
-func renderGoNativeBidiStreamAdapterMethod(g *protogen.GeneratedFile, service ServicePlan, adapterName string, method MethodPlan, errorNames nativeServerErrorNames) {
+func renderGoNativeBidiStreamStartHelper(g *protogen.GeneratedFile, service ServicePlan, serverName string, method MethodPlan, errorNames nativeServerErrorNames) {
 	sessionName := service.GoName + method.GoName + "NativeStreamSession"
 	receiver := lowerInitial(service.GoName) + method.GoName + "GoNativeBidiStreamSession"
 	facadeName := lowerInitial(service.GoName) + method.GoName + "GoNativeBidiStreamFacade"
-	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context, stream ", service.GoName, method.GoName, "NativeBidiStream) error {")
-	g.P("return a.server.", method.GoName, "(ctx, stream)")
-	g.P("}")
-	g.P()
-	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context) (", sessionName, ", error) {")
+	g.P("func ", goNativeStartHelperName(service.GoName, method.GoName), "(ctx context.Context, server ", serverName, ") (", sessionName, ", error) {")
 	g.P("streamCtx, cancel := context.WithCancel(ctx)")
 	g.P("session := &", receiver, "{")
 	g.P("ctx: streamCtx,")
@@ -326,7 +292,7 @@ func renderGoNativeBidiStreamAdapterMethod(g *protogen.GeneratedFile, service Se
 	g.P("go func() {")
 	g.P("defer close(session.done)")
 	g.P("defer close(session.responses)")
-	g.P("session.err = a.", method.GoName, "(streamCtx, &", facadeName, "{source: session})")
+	g.P("session.err = server.", method.GoName, "(streamCtx, &", facadeName, "{source: session})")
 	g.P("}()")
 	g.P("return session, nil")
 	g.P("}")
@@ -364,17 +330,6 @@ func renderGoNativeBidiStreamAdapterMethod(g *protogen.GeneratedFile, service Se
 	renderGoNativeBidiStreamCloseSend(g, receiver, errorNames)
 	renderGeneratedStreamFinish(g, receiver)
 	renderGeneratedStreamCancel(g, receiver)
-}
-
-func renderGoNativeFallbackAdapterMethod(g *protogen.GeneratedFile, adapterName string, method runtimeMethodProjection) {
-	g.P("func (a *", adapterName, ") ", method.Symbols.NativeEntryMethod, "(ctx context.Context)", method.Native.EntryResult, " {")
-	if method.Stream.Streaming {
-		g.P(`return nil, errors.New("rpccgo native server method is not implemented")`)
-	} else {
-		g.P(`return errors.New("rpccgo native server method is not implemented")`)
-	}
-	g.P("}")
-	g.P()
 }
 
 func renderGoNativeClientStreamFacadeRecv(g *protogen.GeneratedFile, receiver string, method MethodPlan) {

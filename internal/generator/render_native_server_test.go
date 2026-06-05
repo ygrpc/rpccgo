@@ -74,13 +74,9 @@ func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
 	}
 
 	for _, fragment := range []string{
-		"// allServiceGoNativeEntry exposes a native server implementation through the",
-		"type allServiceGoNativeEntry struct {",
-		"server AllServiceNativeServer",
-		"func (a *allServiceGoNativeEntry) ClientStream(ctx context.Context, stream AllServiceClientStreamNativeClientStream) (bool, []byte, error)",
-		"func (a *allServiceGoNativeEntry) ServerStream(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes, stream AllServiceServerStreamNativeServerStream) error",
-		"func (a *allServiceGoNativeEntry) BidiStream(ctx context.Context, stream AllServiceBidiStreamNativeBidiStream) error",
-		"func (a *allServiceGoNativeEntry) StartClientStream(ctx context.Context) (AllServiceClientStreamNativeStreamSession, error)",
+		"func startAllServiceGoNativeClientStream(ctx context.Context, server AllServiceNativeServer) (AllServiceClientStreamNativeStreamSession, error)",
+		"func startAllServiceGoNativeServerStream(ctx context.Context, server AllServiceNativeServer, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (AllServiceServerStreamNativeStreamSession, error)",
+		"func startAllServiceGoNativeBidiStream(ctx context.Context, server AllServiceNativeServer) (AllServiceBidiStreamNativeStreamSession, error)",
 		"type allServiceClientStreamGoNativeClientStreamSessionRequest struct {",
 		"type allServiceClientStreamGoNativeClientStreamSessionResult struct {",
 		"func (s *allServiceClientStreamGoNativeClientStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) error",
@@ -105,6 +101,10 @@ func TestRenderNativeServerDefinesStreamingMethodSignatures(t *testing.T) {
 	} {
 		assertGeneratedContentContains(t, plugin, nativeServerFile, fragment)
 	}
+	assertGeneratedFileContentDoesNotContain(t, plugin, nativeServerFile,
+		"type allServiceGoNativeEntry struct {",
+		"func (a *allServiceGoNativeEntry)",
+	)
 }
 
 func TestRenderNativeServerRejectsUnknownStreamingKind(t *testing.T) {

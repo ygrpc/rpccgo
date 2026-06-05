@@ -807,21 +807,7 @@ func RegisterGreeterCGONativeServer(server GreeterNativeServer) error {
 	return nil
 }
 
-// greeterGoNativeEntry exposes a native server implementation through the
-// generated runtime entry method shape.
-type greeterGoNativeEntry struct {
-	server GreeterNativeServer
-}
-
-func (a *greeterGoNativeEntry) SayHello(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error) {
-	return a.server.SayHello(ctx, name, city)
-}
-
-func (a *greeterGoNativeEntry) Collect(ctx context.Context, stream GreeterCollectNativeClientStream) (string, error) {
-	return a.server.Collect(ctx, stream)
-}
-
-func (a *greeterGoNativeEntry) StartCollect(ctx context.Context) (GreeterCollectNativeStreamSession, error) {
+func startGreeterGoNativeCollect(ctx context.Context, server GreeterNativeServer) (GreeterCollectNativeStreamSession, error) {
 	streamCtx, cancel := context.WithCancel(ctx)
 	session := &greeterCollectGoNativeClientStreamSession{
 		ctx:      streamCtx,
@@ -832,7 +818,7 @@ func (a *greeterGoNativeEntry) StartCollect(ctx context.Context) (GreeterCollect
 	}
 	go func() {
 		defer close(session.done)
-		session.result.message, session.result.err = a.Collect(streamCtx, session)
+		session.result.message, session.result.err = server.Collect(streamCtx, session)
 	}()
 	return session, nil
 }
@@ -941,11 +927,7 @@ func (s *greeterCollectGoNativeClientStreamSession) Cancel(ctx context.Context) 
 	}
 }
 
-func (a *greeterGoNativeEntry) Broadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString, stream GreeterBroadcastNativeServerStream) error {
-	return a.server.Broadcast(ctx, name, city, stream)
-}
-
-func (a *greeterGoNativeEntry) StartBroadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (GreeterBroadcastNativeStreamSession, error) {
+func startGreeterGoNativeBroadcast(ctx context.Context, server GreeterNativeServer, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (GreeterBroadcastNativeStreamSession, error) {
 	streamCtx, cancel := context.WithCancel(ctx)
 	session := &greeterBroadcastGoNativeServerStreamSession{
 		ctx:       streamCtx,
@@ -956,7 +938,7 @@ func (a *greeterGoNativeEntry) StartBroadcast(ctx context.Context, name *rpcrunt
 	go func() {
 		defer close(session.done)
 		defer close(session.responses)
-		session.err = a.Broadcast(streamCtx, name, city, session)
+		session.err = server.Broadcast(streamCtx, name, city, session)
 	}()
 	return session, nil
 }
@@ -1082,11 +1064,7 @@ func (s *greeterBroadcastGoNativeServerStreamSession) Cancel(ctx context.Context
 	}
 }
 
-func (a *greeterGoNativeEntry) Chat(ctx context.Context, stream GreeterChatNativeBidiStream) error {
-	return a.server.Chat(ctx, stream)
-}
-
-func (a *greeterGoNativeEntry) StartChat(ctx context.Context) (GreeterChatNativeStreamSession, error) {
+func startGreeterGoNativeChat(ctx context.Context, server GreeterNativeServer) (GreeterChatNativeStreamSession, error) {
 	streamCtx, cancel := context.WithCancel(ctx)
 	session := &greeterChatGoNativeBidiStreamSession{
 		ctx:              streamCtx,
@@ -1102,7 +1080,7 @@ func (a *greeterGoNativeEntry) StartChat(ctx context.Context) (GreeterChatNative
 	go func() {
 		defer close(session.done)
 		defer close(session.responses)
-		session.err = a.Chat(streamCtx, &greeterChatGoNativeBidiStreamFacade{source: session})
+		session.err = server.Chat(streamCtx, &greeterChatGoNativeBidiStreamFacade{source: session})
 	}()
 	return session, nil
 }

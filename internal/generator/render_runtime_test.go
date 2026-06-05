@@ -448,7 +448,7 @@ func TestRenderRuntimeRejectsUnknownStreamingKind(t *testing.T) {
 	}
 }
 
-func TestRenderRuntimeRejectsEntryMethodSymbolCollision(t *testing.T) {
+func TestRenderRuntimeRejectsAdapterMethodSymbolCollision(t *testing.T) {
 	plugin := newTestPlugin(t, "paths=source_relative", simpleTestFile())
 	plan := FilePlan{
 		GoPackageName: "testv1",
@@ -468,10 +468,10 @@ func TestRenderRuntimeRejectsEntryMethodSymbolCollision(t *testing.T) {
 
 	err := renderRuntimeFile(plugin, plan, plan.Services[0], plan.Services[0].Artifacts[0])
 	if err == nil {
-		t.Fatal("renderRuntimeFile() error = nil, want entry method collision error")
+		t.Fatal("renderRuntimeFile() error = nil, want adapter method symbol collision error")
 	}
 	if got := err.Error(); !strings.Contains(got, "StartFoo") || !strings.Contains(got, "collides") {
-		t.Fatalf("renderRuntimeFile() error = %q, want colliding entry method name", got)
+		t.Fatalf("renderRuntimeFile() error = %q, want colliding adapter method symbol", got)
 	}
 }
 

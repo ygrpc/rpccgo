@@ -68,7 +68,7 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	if err := renderCGOMessageServerRuntimeRegistration(g, service); err != nil {
 		return err
 	}
-	renderMessageEntry(g, service, runtimeMethods, serverName, lowerInitial(service.GoName)+"CGOMessageEntry")
+	renderMessageStartHelpers(g, service, runtimeMethods, serverName)
 	return nil
 }
 

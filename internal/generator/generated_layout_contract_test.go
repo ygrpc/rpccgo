@@ -53,12 +53,6 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go",
 		"type UnimplementedGreeterNativeServer struct{}",
 	)
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go",
-		"type greeterGoNativeEntry struct {",
-	)
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go",
-		"server GreeterNativeServer",
-	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go",
 		"type GreeterCGOMessageServer interface {",
 	)
@@ -74,11 +68,13 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go",
 		"func RegisterGreeterCGOMessageServer(server GreeterCGOMessageServer) error {",
 	)
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go",
-		"type greeterCGOMessageEntry struct {",
+	assertGeneratedFileContentDoesNotContain(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go",
+		"type greeterGoNativeEntry struct {",
+		"func (a *greeterGoNativeEntry)",
 	)
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go",
-		"server GreeterCGOMessageServer",
+	assertGeneratedFileContentDoesNotContain(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go",
+		"type greeterCGOMessageEntry struct {",
+		"func (a *greeterCGOMessageEntry)",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.native.rpccgo.go",
 		"func RegisterGreeterGoNativeServer(server GreeterNativeServer) error {",

@@ -185,8 +185,11 @@ func renderRuntimeNativeStartNativeCase(g *protogen.GeneratedFile, service Servi
 	g.P("case ", kind, ":")
 	g.P("server, ok := registered.Server.(", service.GoName, "NativeServer)")
 	g.P(`if !ok { return 0, fmt.Errorf("rpccgo: `, service.GoName, " ", label, ` registered server has invalid type") }`)
-	g.P("entry := &", lowerInitial(service.GoName), "GoNativeEntry{server: server}")
-	renderRuntimeStartSource(g, method, "entry.Start"+method.Identity.GoName, true)
+	if method.Stream.StartAcceptsRequest {
+		renderRuntimeStartSourceWithArgs(g, goNativeStartHelperName(service.GoName, method.Identity.GoName), runtimeStartArgs("ctx, server", method.Native.ArgNames), true)
+	} else {
+		renderRuntimeStartSourceWithArgs(g, goNativeStartHelperName(service.GoName, method.Identity.GoName), "ctx, server", true)
+	}
 	renderRuntimeCreateNativeStreamHandle(g, service, streamRegistryName, method, kind, "source")
 }
 
@@ -194,13 +197,12 @@ func renderRuntimeNativeStartMessageCase(g *protogen.GeneratedFile, service Serv
 	g.P("case rpcruntime.ServerKindCGOMessage:")
 	g.P("server, ok := registered.Server.(", service.GoName, "CGOMessageServer)")
 	g.P(`if !ok { return 0, fmt.Errorf("rpccgo: `, service.GoName, ` cgo message registered server has invalid type") }`)
-	g.P("entry := &", lowerInitial(service.GoName), "CGOMessageEntry{server: server}")
 	if method.Stream.StartAcceptsRequest {
 		g.P("messageReq, err := ", method.Codec.NativeRequestToMessage, "(", method.Native.ArgNames, ")")
 		g.P("if err != nil { return 0, err }")
-		renderRuntimeStartSourceWithArgs(g, "entry.Start"+method.Identity.GoName, "ctx, messageReq", true)
+		renderRuntimeStartSourceWithArgs(g, cgoMessageStartHelperName(service.GoName, method.Identity.GoName), "ctx, server, messageReq", true)
 	} else {
-		renderRuntimeStartSourceWithArgs(g, "entry.Start"+method.Identity.GoName, "ctx", true)
+		renderRuntimeStartSourceWithArgs(g, cgoMessageStartHelperName(service.GoName, method.Identity.GoName), "ctx, server", true)
 	}
 	renderRuntimeCreateNativeStreamHandle(g, service, streamRegistryName, method, "rpcruntime.ServerKindCGOMessage", "source")
 }
@@ -266,14 +268,13 @@ func renderRuntimeMessageStartNativeCase(g *protogen.GeneratedFile, service Serv
 	g.P("case ", kind, ":")
 	g.P("server, ok := registered.Server.(", service.GoName, "NativeServer)")
 	g.P(`if !ok { return 0, fmt.Errorf("rpccgo: `, service.GoName, " ", label, ` registered server has invalid type") }`)
-	g.P("entry := &", lowerInitial(service.GoName), "GoNativeEntry{server: server}")
 	if method.Stream.StartAcceptsRequest {
 		g.P(method.Codec.MessageToNativeRequestAssignNames, " := ", method.Codec.MessageToNativeRequest, "(req)")
 		g.P("if err != nil { return 0, err }")
-		renderRuntimeStartSource(g, method, "entry.Start"+method.Identity.GoName, true)
+		renderRuntimeStartSourceWithArgs(g, goNativeStartHelperName(service.GoName, method.Identity.GoName), runtimeStartArgs("ctx, server", method.Native.ArgNames), true)
 		g.P("goruntime.KeepAlive(reqOwner)")
 	} else {
-		renderRuntimeStartSource(g, method, "entry.Start"+method.Identity.GoName, true)
+		renderRuntimeStartSourceWithArgs(g, goNativeStartHelperName(service.GoName, method.Identity.GoName), "ctx, server", true)
 	}
 	renderRuntimeCreateMessageStreamHandle(g, service, streamRegistryName, method, kind, "source")
 }
@@ -282,11 +283,10 @@ func renderRuntimeMessageStartMessageCase(g *protogen.GeneratedFile, service Ser
 	g.P("case rpcruntime.ServerKindCGOMessage:")
 	g.P("server, ok := registered.Server.(", service.GoName, "CGOMessageServer)")
 	g.P(`if !ok { return 0, fmt.Errorf("rpccgo: `, service.GoName, ` cgo message registered server has invalid type") }`)
-	g.P("entry := &", lowerInitial(service.GoName), "CGOMessageEntry{server: server}")
 	if method.Stream.StartAcceptsRequest {
-		renderRuntimeStartSourceWithArgs(g, "entry.Start"+method.Identity.GoName, "ctx, req", true)
+		renderRuntimeStartSourceWithArgs(g, cgoMessageStartHelperName(service.GoName, method.Identity.GoName), "ctx, server, req", true)
 	} else {
-		renderRuntimeStartSourceWithArgs(g, "entry.Start"+method.Identity.GoName, "ctx", true)
+		renderRuntimeStartSourceWithArgs(g, cgoMessageStartHelperName(service.GoName, method.Identity.GoName), "ctx, server", true)
 	}
 	renderRuntimeCreateMessageStreamHandle(g, service, streamRegistryName, method, "rpcruntime.ServerKindCGOMessage", "source")
 }
@@ -320,12 +320,11 @@ func renderRuntimeMessageStartTransportCase(g *protogen.GeneratedFile, service S
 	renderRuntimeCreateMessageStreamHandle(g, service, streamRegistryName, method, kind, "source")
 }
 
-func renderRuntimeStartSource(g *protogen.GeneratedFile, method runtimeMethodProjection, startExpr string, withErr bool) {
-	args := "ctx"
-	if method.Stream.StartAcceptsRequest {
-		args += nativeGoCallSuffix(method.Native.ArgNames)
+func runtimeStartArgs(prefix, nativeArgNames string) string {
+	if nativeArgNames == "" {
+		return prefix
 	}
-	renderRuntimeStartSourceWithArgs(g, startExpr, args, withErr)
+	return prefix + ", " + nativeArgNames
 }
 
 func renderRuntimeStartSourceWithArgs(g *protogen.GeneratedFile, startExpr, args string, withErr bool) {

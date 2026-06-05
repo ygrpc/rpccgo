@@ -828,8 +828,7 @@ func StartGreeterNativeCollect(ctx context.Context) (rpcruntime.StreamHandle, er
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter go native registered server has invalid type")
 		}
-		entry := &greeterGoNativeEntry{server: server}
-		source, err := entry.StartCollect(ctx)
+		source, err := startGreeterGoNativeCollect(ctx, server)
 		if err != nil {
 			return 0, err
 		}
@@ -839,8 +838,7 @@ func StartGreeterNativeCollect(ctx context.Context) (rpcruntime.StreamHandle, er
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter cgo native registered server has invalid type")
 		}
-		entry := &greeterGoNativeEntry{server: server}
-		source, err := entry.StartCollect(ctx)
+		source, err := startGreeterGoNativeCollect(ctx, server)
 		if err != nil {
 			return 0, err
 		}
@@ -850,8 +848,7 @@ func StartGreeterNativeCollect(ctx context.Context) (rpcruntime.StreamHandle, er
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter cgo message registered server has invalid type")
 		}
-		entry := &greeterCGOMessageEntry{server: server}
-		source, err := entry.StartCollect(ctx)
+		source, err := startGreeterCGOMessageCollect(ctx, server)
 		if err != nil {
 			return 0, err
 		}
@@ -889,8 +886,7 @@ func StartGreeterMessageCollect(ctx context.Context) (rpcruntime.StreamHandle, e
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter go native registered server has invalid type")
 		}
-		entry := &greeterGoNativeEntry{server: server}
-		source, err := entry.StartCollect(ctx)
+		source, err := startGreeterGoNativeCollect(ctx, server)
 		if err != nil {
 			return 0, err
 		}
@@ -900,8 +896,7 @@ func StartGreeterMessageCollect(ctx context.Context) (rpcruntime.StreamHandle, e
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter cgo native registered server has invalid type")
 		}
-		entry := &greeterGoNativeEntry{server: server}
-		source, err := entry.StartCollect(ctx)
+		source, err := startGreeterGoNativeCollect(ctx, server)
 		if err != nil {
 			return 0, err
 		}
@@ -911,8 +906,7 @@ func StartGreeterMessageCollect(ctx context.Context) (rpcruntime.StreamHandle, e
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter cgo message registered server has invalid type")
 		}
-		entry := &greeterCGOMessageEntry{server: server}
-		source, err := entry.StartCollect(ctx)
+		source, err := startGreeterCGOMessageCollect(ctx, server)
 		if err != nil {
 			return 0, err
 		}
@@ -950,8 +944,7 @@ func StartGreeterNativeBroadcast(ctx context.Context, name *rpcruntime.RpcString
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter go native registered server has invalid type")
 		}
-		entry := &greeterGoNativeEntry{server: server}
-		source, err := entry.StartBroadcast(ctx, name, city)
+		source, err := startGreeterGoNativeBroadcast(ctx, server, name, city)
 		if err != nil {
 			return 0, err
 		}
@@ -961,8 +954,7 @@ func StartGreeterNativeBroadcast(ctx context.Context, name *rpcruntime.RpcString
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter cgo native registered server has invalid type")
 		}
-		entry := &greeterGoNativeEntry{server: server}
-		source, err := entry.StartBroadcast(ctx, name, city)
+		source, err := startGreeterGoNativeBroadcast(ctx, server, name, city)
 		if err != nil {
 			return 0, err
 		}
@@ -972,12 +964,11 @@ func StartGreeterNativeBroadcast(ctx context.Context, name *rpcruntime.RpcString
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter cgo message registered server has invalid type")
 		}
-		entry := &greeterCGOMessageEntry{server: server}
 		messageReq, err := convertGreeterBroadcastNativeToMessageRequest(name, city)
 		if err != nil {
 			return 0, err
 		}
-		source, err := entry.StartBroadcast(ctx, messageReq)
+		source, err := startGreeterCGOMessageBroadcast(ctx, server, messageReq)
 		if err != nil {
 			return 0, err
 		}
@@ -1029,12 +1020,11 @@ func StartGreeterMessageBroadcast(ctx context.Context, req *SayHelloRequest) (rp
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter go native registered server has invalid type")
 		}
-		entry := &greeterGoNativeEntry{server: server}
 		name, city, reqOwner, err := convertGreeterBroadcastMessageToNativeRequest(req)
 		if err != nil {
 			return 0, err
 		}
-		source, err := entry.StartBroadcast(ctx, name, city)
+		source, err := startGreeterGoNativeBroadcast(ctx, server, name, city)
 		if err != nil {
 			return 0, err
 		}
@@ -1045,12 +1035,11 @@ func StartGreeterMessageBroadcast(ctx context.Context, req *SayHelloRequest) (rp
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter cgo native registered server has invalid type")
 		}
-		entry := &greeterGoNativeEntry{server: server}
 		name, city, reqOwner, err := convertGreeterBroadcastMessageToNativeRequest(req)
 		if err != nil {
 			return 0, err
 		}
-		source, err := entry.StartBroadcast(ctx, name, city)
+		source, err := startGreeterGoNativeBroadcast(ctx, server, name, city)
 		if err != nil {
 			return 0, err
 		}
@@ -1061,8 +1050,7 @@ func StartGreeterMessageBroadcast(ctx context.Context, req *SayHelloRequest) (rp
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter cgo message registered server has invalid type")
 		}
-		entry := &greeterCGOMessageEntry{server: server}
-		source, err := entry.StartBroadcast(ctx, req)
+		source, err := startGreeterCGOMessageBroadcast(ctx, server, req)
 		if err != nil {
 			return 0, err
 		}
@@ -1103,8 +1091,7 @@ func StartGreeterNativeChat(ctx context.Context) (rpcruntime.StreamHandle, error
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter go native registered server has invalid type")
 		}
-		entry := &greeterGoNativeEntry{server: server}
-		source, err := entry.StartChat(ctx)
+		source, err := startGreeterGoNativeChat(ctx, server)
 		if err != nil {
 			return 0, err
 		}
@@ -1114,8 +1101,7 @@ func StartGreeterNativeChat(ctx context.Context) (rpcruntime.StreamHandle, error
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter cgo native registered server has invalid type")
 		}
-		entry := &greeterGoNativeEntry{server: server}
-		source, err := entry.StartChat(ctx)
+		source, err := startGreeterGoNativeChat(ctx, server)
 		if err != nil {
 			return 0, err
 		}
@@ -1125,8 +1111,7 @@ func StartGreeterNativeChat(ctx context.Context) (rpcruntime.StreamHandle, error
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter cgo message registered server has invalid type")
 		}
-		entry := &greeterCGOMessageEntry{server: server}
-		source, err := entry.StartChat(ctx)
+		source, err := startGreeterCGOMessageChat(ctx, server)
 		if err != nil {
 			return 0, err
 		}
@@ -1164,8 +1149,7 @@ func StartGreeterMessageChat(ctx context.Context) (rpcruntime.StreamHandle, erro
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter go native registered server has invalid type")
 		}
-		entry := &greeterGoNativeEntry{server: server}
-		source, err := entry.StartChat(ctx)
+		source, err := startGreeterGoNativeChat(ctx, server)
 		if err != nil {
 			return 0, err
 		}
@@ -1175,8 +1159,7 @@ func StartGreeterMessageChat(ctx context.Context) (rpcruntime.StreamHandle, erro
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter cgo native registered server has invalid type")
 		}
-		entry := &greeterGoNativeEntry{server: server}
-		source, err := entry.StartChat(ctx)
+		source, err := startGreeterGoNativeChat(ctx, server)
 		if err != nil {
 			return 0, err
 		}
@@ -1186,8 +1169,7 @@ func StartGreeterMessageChat(ctx context.Context) (rpcruntime.StreamHandle, erro
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: Greeter cgo message registered server has invalid type")
 		}
-		entry := &greeterCGOMessageEntry{server: server}
-		source, err := entry.StartChat(ctx)
+		source, err := startGreeterCGOMessageChat(ctx, server)
 		if err != nil {
 			return 0, err
 		}

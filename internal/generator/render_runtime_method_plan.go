@@ -93,7 +93,7 @@ func buildRuntimeMethodProjectionsWithMessageTypes(g *protogen.GeneratedFile, se
 			return nil, err
 		}
 		if previous, exists := seen[projected.Symbols.NativeEntryMethod]; exists {
-			return nil, fmt.Errorf("runtime entry method %s for %s collides with %s", projected.Symbols.NativeEntryMethod, method.FullName, previous)
+			return nil, fmt.Errorf("runtime adapter method symbol %s for %s collides with %s", projected.Symbols.NativeEntryMethod, method.FullName, previous)
 		}
 		seen[projected.Symbols.NativeEntryMethod] = method.FullName
 		methods = append(methods, projected)
