@@ -91,8 +91,10 @@ func TestConnectGreeterCSharedClientExample(t *testing.T) {
 		"native collect: collect:ada,grace",
 		"native broadcast: broadcast[0]:stream",
 		"native broadcast: broadcast[1]:stream",
-		"native chat: chat:ada",
-		"native chat: chat:grace",
+		"native chat c->server: ada",
+		"native chat server->c: chat:ada",
+		"native chat c->server: grace",
+		"native chat server->c: chat:grace",
 	} {
 		if !bytes.Contains(out, []byte(marker)) {
 			t.Fatalf("c client output missing %q\n%s", marker, out)

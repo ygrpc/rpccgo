@@ -152,11 +152,12 @@ static void send_native_chat_message(int32_t handle, const char *name, const cha
                        (uintptr_t)name, (int32_t)strlen(name), 0,
                        (uintptr_t)city, (int32_t)strlen(city), 0),
                    "native chat send error:");
+  printf("native chat c->server: %s\n", name);
   assert_status_ok(rpccgo_native_greeterv1_Greeter_Chat_read(
                        handle, &message_ptr, &message_len, &message_ownership),
                    "native chat read error:");
   assert_string_equals("native chat", (const char *)message_ptr, message_len, want);
-  printf("native chat: %.*s\n", (int)message_len, (const char *)message_ptr);
+  printf("native chat server->c: %.*s\n", (int)message_len, (const char *)message_ptr);
   if (rpccgo_release(message_ptr) != 0) {
     fail_with_message("release native chat output failed");
   }
