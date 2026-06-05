@@ -70,13 +70,6 @@ func NewRpcBytesChecked(ptr *byte, length int32, ownership bool) (*RpcBytes, err
 	return newRpcBytesUnchecked(ptr, length, ownership), nil
 }
 
-// NewRpcBytesView returns a borrowed RpcBytes view tied to owner reachability.
-func NewRpcBytesView(ptr *byte, length int32, owner any) *RpcBytes {
-	rpc := NewRpcBytes(ptr, length, false)
-	runtime.KeepAlive(owner)
-	return rpc
-}
-
 func newRpcBytesUnchecked(ptr *byte, length int32, ownership bool) *RpcBytes {
 	rpc := &RpcBytes{
 		ptr:       ptr,
@@ -102,13 +95,6 @@ func NewRpcStringChecked(ptr *byte, length int32, ownership bool) (*RpcString, e
 		return nil, fmt.Errorf("NewRpcString: %w", err)
 	}
 	return newRpcStringUnchecked(ptr, length, ownership), nil
-}
-
-// NewRpcStringView returns a borrowed RpcString view tied to owner reachability.
-func NewRpcStringView(ptr *byte, length int32, owner any) *RpcString {
-	rpc := NewRpcString(ptr, length, false)
-	runtime.KeepAlive(owner)
-	return rpc
 }
 
 func newRpcStringUnchecked(ptr *byte, length int32, ownership bool) *RpcString {

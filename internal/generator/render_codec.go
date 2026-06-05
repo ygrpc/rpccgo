@@ -105,6 +105,8 @@ func renderCodecMessageToNativeRequestFunction(g *protogen.GeneratedFile, servic
 	g.P("if err := proto.Unmarshal(data, &msg); err != nil {")
 	g.P("return ", codecMessageToNativeRequestZeroReturns(fields, "nil", "err"))
 	g.P("}")
+	g.P("// Returned native wrappers borrow from msg and reqOwner-owned buffers.")
+	g.P("// Callers must keep the returned owner alive until the synchronous native call returns.")
 	g.P("reqOwner := []any{&msg}")
 	renderCodecMessageToNativeRequestValues(g, fields)
 	g.P("return ", codecMessageToNativeRequestValueNames(fields, "reqOwner", "nil"))
@@ -148,13 +150,13 @@ func renderCodecMessageToNativeRequestValues(g *protogen.GeneratedFile, fields [
 		switch field.Kind {
 		case FieldKindString:
 			g.P("if ", msgField, " != \"\" {")
-			g.P(name, " = rpcruntime.NewRpcStringView(unsafe.StringData(", msgField, "), int32(len(", msgField, ")), reqOwner)")
+			g.P(name, " = rpcruntime.NewRpcString(unsafe.StringData(", msgField, "), int32(len(", msgField, ")), false)")
 			g.P("} else {")
 			g.P(name, " = rpcruntime.EmptyRpcString()")
 			g.P("}")
 		case FieldKindBytes, FieldKindMessage:
 			g.P("if len(", msgField, ") > 0 {")
-			g.P(name, " = rpcruntime.NewRpcBytesView(unsafe.SliceData(", msgField, "), int32(len(", msgField, ")), reqOwner)")
+			g.P(name, " = rpcruntime.NewRpcBytes(unsafe.SliceData(", msgField, "), int32(len(", msgField, ")), false)")
 			g.P("} else {")
 			g.P(name, " = rpcruntime.EmptyRpcBytes()")
 			g.P("}")
@@ -168,7 +170,7 @@ func renderCodecMessageToNativeRequestValues(g *protogen.GeneratedFile, fields [
 				g.P("}")
 				g.P("}")
 				g.P("if len(", rawName, ") > 0 {")
-				g.P(name, " = rpcruntime.NewRpcBoolRepeatView(unsafe.SliceData(", rawName, "), int32(len(", rawName, ")), reqOwner)")
+				g.P(name, " = rpcruntime.NewRpcBoolRepeat(unsafe.SliceData(", rawName, "), int32(len(", rawName, ")), false)")
 				g.P("} else {")
 				g.P(name, " = rpcruntime.EmptyRpcBoolRepeat()")
 				g.P("}")
@@ -183,7 +185,7 @@ func renderCodecMessageToNativeRequestValues(g *protogen.GeneratedFile, fields [
 				g.P(rawName, "[i] = int32(", msgField, "[i])")
 				g.P("}")
 				g.P("if len(", rawName, ") > 0 {")
-				g.P(name, " = rpcruntime.NewRpcRepeatView[int32](unsafe.SliceData(", rawName, "), int32(len(", rawName, ")), reqOwner)")
+				g.P(name, " = rpcruntime.NewRpcRepeat[int32](unsafe.SliceData(", rawName, "), int32(len(", rawName, ")), false)")
 				g.P("} else {")
 				g.P(name, " = rpcruntime.EmptyRpcRepeat[int32]()")
 				g.P("}")
@@ -193,7 +195,7 @@ func renderCodecMessageToNativeRequestValues(g *protogen.GeneratedFile, fields [
 		default:
 			if field.Repeated {
 				g.P("if len(", msgField, ") > 0 {")
-				g.P(name, " = rpcruntime.NewRpcRepeatView[", nativeGoRequestRepeatElemType(g, field), "](unsafe.SliceData(", msgField, "), int32(len(", msgField, ")), reqOwner)")
+				g.P(name, " = rpcruntime.NewRpcRepeat[", nativeGoRequestRepeatElemType(g, field), "](unsafe.SliceData(", msgField, "), int32(len(", msgField, ")), false)")
 				g.P("} else {")
 				g.P(name, " = rpcruntime.EmptyRpcRepeat[", nativeGoRequestRepeatElemType(g, field), "]()")
 				g.P("}")

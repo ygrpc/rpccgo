@@ -21,16 +21,18 @@ func convertGreeterSayHelloMessageToNativeRequest(data []byte) (*rpcruntime.RpcS
 	if err := proto.Unmarshal(data, &msg); err != nil {
 		return nil, nil, nil, err
 	}
+	// Returned native wrappers borrow from msg and reqOwner-owned buffers.
+	// Callers must keep the returned owner alive until the synchronous native call returns.
 	reqOwner := []any{&msg}
 	var name *rpcruntime.RpcString
 	if msg.Name != "" {
-		name = rpcruntime.NewRpcStringView(unsafe.StringData(msg.Name), int32(len(msg.Name)), reqOwner)
+		name = rpcruntime.NewRpcString(unsafe.StringData(msg.Name), int32(len(msg.Name)), false)
 	} else {
 		name = rpcruntime.EmptyRpcString()
 	}
 	var city *rpcruntime.RpcString
 	if msg.City != "" {
-		city = rpcruntime.NewRpcStringView(unsafe.StringData(msg.City), int32(len(msg.City)), reqOwner)
+		city = rpcruntime.NewRpcString(unsafe.StringData(msg.City), int32(len(msg.City)), false)
 	} else {
 		city = rpcruntime.EmptyRpcString()
 	}
@@ -72,16 +74,18 @@ func convertGreeterCollectMessageToNativeRequest(data []byte) (*rpcruntime.RpcSt
 	if err := proto.Unmarshal(data, &msg); err != nil {
 		return nil, nil, nil, err
 	}
+	// Returned native wrappers borrow from msg and reqOwner-owned buffers.
+	// Callers must keep the returned owner alive until the synchronous native call returns.
 	reqOwner := []any{&msg}
 	var name *rpcruntime.RpcString
 	if msg.Name != "" {
-		name = rpcruntime.NewRpcStringView(unsafe.StringData(msg.Name), int32(len(msg.Name)), reqOwner)
+		name = rpcruntime.NewRpcString(unsafe.StringData(msg.Name), int32(len(msg.Name)), false)
 	} else {
 		name = rpcruntime.EmptyRpcString()
 	}
 	var city *rpcruntime.RpcString
 	if msg.City != "" {
-		city = rpcruntime.NewRpcStringView(unsafe.StringData(msg.City), int32(len(msg.City)), reqOwner)
+		city = rpcruntime.NewRpcString(unsafe.StringData(msg.City), int32(len(msg.City)), false)
 	} else {
 		city = rpcruntime.EmptyRpcString()
 	}
@@ -123,16 +127,18 @@ func convertGreeterBroadcastMessageToNativeRequest(data []byte) (*rpcruntime.Rpc
 	if err := proto.Unmarshal(data, &msg); err != nil {
 		return nil, nil, nil, err
 	}
+	// Returned native wrappers borrow from msg and reqOwner-owned buffers.
+	// Callers must keep the returned owner alive until the synchronous native call returns.
 	reqOwner := []any{&msg}
 	var name *rpcruntime.RpcString
 	if msg.Name != "" {
-		name = rpcruntime.NewRpcStringView(unsafe.StringData(msg.Name), int32(len(msg.Name)), reqOwner)
+		name = rpcruntime.NewRpcString(unsafe.StringData(msg.Name), int32(len(msg.Name)), false)
 	} else {
 		name = rpcruntime.EmptyRpcString()
 	}
 	var city *rpcruntime.RpcString
 	if msg.City != "" {
-		city = rpcruntime.NewRpcStringView(unsafe.StringData(msg.City), int32(len(msg.City)), reqOwner)
+		city = rpcruntime.NewRpcString(unsafe.StringData(msg.City), int32(len(msg.City)), false)
 	} else {
 		city = rpcruntime.EmptyRpcString()
 	}
@@ -174,16 +180,18 @@ func convertGreeterChatMessageToNativeRequest(data []byte) (*rpcruntime.RpcStrin
 	if err := proto.Unmarshal(data, &msg); err != nil {
 		return nil, nil, nil, err
 	}
+	// Returned native wrappers borrow from msg and reqOwner-owned buffers.
+	// Callers must keep the returned owner alive until the synchronous native call returns.
 	reqOwner := []any{&msg}
 	var name *rpcruntime.RpcString
 	if msg.Name != "" {
-		name = rpcruntime.NewRpcStringView(unsafe.StringData(msg.Name), int32(len(msg.Name)), reqOwner)
+		name = rpcruntime.NewRpcString(unsafe.StringData(msg.Name), int32(len(msg.Name)), false)
 	} else {
 		name = rpcruntime.EmptyRpcString()
 	}
 	var city *rpcruntime.RpcString
 	if msg.City != "" {
-		city = rpcruntime.NewRpcStringView(unsafe.StringData(msg.City), int32(len(msg.City)), reqOwner)
+		city = rpcruntime.NewRpcString(unsafe.StringData(msg.City), int32(len(msg.City)), false)
 	} else {
 		city = rpcruntime.EmptyRpcString()
 	}
