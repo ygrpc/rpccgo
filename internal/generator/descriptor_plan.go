@@ -6,6 +6,7 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
+// BuildDescriptorPlan builds a complete file plan from a protogen file descriptor.
 func BuildDescriptorPlan(file *protogen.File) (FilePlan, error) {
 	plan, err := BuildFileDescriptorPlan(file)
 	if err != nil {
@@ -23,6 +24,7 @@ func BuildDescriptorPlan(file *protogen.File) (FilePlan, error) {
 	return plan, nil
 }
 
+// BuildFileDescriptorPlan extracts descriptor identity, service, method, and package symbol plans.
 func BuildFileDescriptorPlan(file *protogen.File) (FilePlan, error) {
 	if file == nil {
 		return FilePlan{}, fmt.Errorf("protogen file is nil")
@@ -46,6 +48,7 @@ func BuildFileDescriptorPlan(file *protogen.File) (FilePlan, error) {
 	return plan, nil
 }
 
+// AttachMethodContractPlans fills native and message contract plans for every method in a file plan.
 func AttachMethodContractPlans(plan *FilePlan, file *protogen.File) error {
 	if plan == nil {
 		return fmt.Errorf("file plan is nil")
@@ -73,6 +76,7 @@ func AttachMethodContractPlans(plan *FilePlan, file *protogen.File) error {
 	return nil
 }
 
+// AttachMethodStreamCapabilityPlans fills stream capability plans for every method in a file plan.
 func AttachMethodStreamCapabilityPlans(plan *FilePlan) error {
 	if plan == nil {
 		return fmt.Errorf("file plan is nil")
@@ -89,6 +93,7 @@ func AttachMethodStreamCapabilityPlans(plan *FilePlan) error {
 	return nil
 }
 
+// AttachMethodRenderPlans fills renderer-facing method plans and validates them.
 func AttachMethodRenderPlans(plan *FilePlan) error {
 	if plan == nil {
 		return fmt.Errorf("file plan is nil")

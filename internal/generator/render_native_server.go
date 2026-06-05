@@ -80,7 +80,12 @@ func nativeServerNeedsRPCRuntime(service ServicePlan) bool {
 }
 
 func renderGoNativeServerInterface(g *protogen.GeneratedFile, service ServicePlan, serverName string) {
-	renderDocLine(g, service.DocComment, "type ", serverName, " interface {")
+	if service.DocComment == "" {
+		renderDoc(g, serverName, "defines the native Go server contract for "+service.GoName+".")
+		g.P("type ", serverName, " interface {")
+	} else {
+		renderDocLine(g, service.DocComment, "type ", serverName, " interface {")
+	}
 	for _, method := range service.Methods {
 		requestParams := nativeGoRequestParams(g, method.Contract.Native.RequestFields)
 		responseReturns := nativeGoResponseReturns(g, method.Contract.Native.ResponseFields)
@@ -107,16 +112,22 @@ func renderGoNativeStreamInterfaces(g *protogen.GeneratedFile, service ServicePl
 		responseParams := nativeGoResponseParams(g, method.Contract.Native.ResponseFields)
 		switch method.Streaming {
 		case StreamingKindClientStreaming:
+			name := service.GoName + method.GoName + "NativeClientStream"
+			renderDoc(g, name, "receives native request values for the "+method.GoName+" client-streaming method.")
 			g.P("type ", service.GoName, method.GoName, "NativeClientStream interface {")
 			g.P("Recv(ctx context.Context) (", requestReturns, ")")
 			g.P("}")
 			g.P()
 		case StreamingKindServerStreaming:
+			name := service.GoName + method.GoName + "NativeServerStream"
+			renderDoc(g, name, "sends native response values for the "+method.GoName+" server-streaming method.")
 			g.P("type ", service.GoName, method.GoName, "NativeServerStream interface {")
 			g.P("Send(ctx context.Context", responseParams, ") error")
 			g.P("}")
 			g.P()
 		case StreamingKindBidiStreaming:
+			name := service.GoName + method.GoName + "NativeBidiStream"
+			renderDoc(g, name, "sends and receives native values for the "+method.GoName+" bidi-streaming method.")
 			g.P("type ", service.GoName, method.GoName, "NativeBidiStream interface {")
 			g.P("Recv(ctx context.Context) (", requestReturns, ")")
 			g.P("Send(ctx context.Context", responseParams, ") error")
@@ -130,12 +141,14 @@ func renderGoNativeStreamInterfaces(g *protogen.GeneratedFile, service ServicePl
 
 func renderUnimplementedGoNativeServer(g *protogen.GeneratedFile, service ServicePlan) {
 	serverName := "Unimplemented" + service.GoName + "NativeServer"
+	renderDoc(g, serverName, "provides default unimplemented native server methods for "+service.GoName+".")
 	g.P("type ", serverName, " struct{}")
 	g.P()
 	for _, method := range service.Methods {
 		requestParams := nativeGoRequestParams(g, method.Contract.Native.RequestFields)
 		responseReturns := nativeGoResponseReturns(g, method.Contract.Native.ResponseFields)
 		errExpr := `errors.New("rpccgo: ` + service.GoName + "." + method.GoName + ` native server method is not implemented")`
+		renderDoc(g, method.GoName, "returns an unimplemented error for the "+service.GoName+" native "+method.GoName+" method.")
 		switch method.Streaming {
 		case StreamingKindUnary:
 			g.P("func (", serverName, ") ", method.GoName, "(ctx context.Context", requestParams, ") (", responseReturns, ") {")
@@ -819,6 +832,7 @@ func nativeEnvelopeFieldNames(fields []FieldPlan) string {
 }
 
 func renderGoNativeRegistration(g *protogen.GeneratedFile, service ServicePlan, serverName, adapterName string) {
+	renderDoc(g, "Register"+service.GoName+"GoNativeServer", "registers a Go native server as the current server for "+service.GoName+".")
 	g.P("func Register", service.GoName, "GoNativeServer(server ", serverName, ") error {")
 	g.P("if server == nil {")
 	g.P(`return errors.New("rpccgo: `, service.GoName, ` go native server is nil")`)

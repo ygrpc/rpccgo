@@ -44,6 +44,7 @@ func renderRuntimeRegistrationForSource(g *protogen.GeneratedFile, ctx runtimeRe
 }
 
 func renderRuntimeServerRegistration(g *protogen.GeneratedFile, serviceIDName string, projection registrationSourceProjection) {
+	renderDoc(g, projection.registerName, "registers the supplied "+projection.label+" server as the current server for this service.")
 	g.P("func ", projection.registerName, "(", projection.inputName, " ", projection.inputType, ") error {")
 	g.P("if ", projection.inputName, " == nil {")
 	g.P("_ = rpcruntime.ClearServer(", serviceIDName, ")")

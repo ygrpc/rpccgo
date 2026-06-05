@@ -2,6 +2,7 @@ package generator
 
 import "fmt"
 
+// StreamCapabilityProjectionPlan records renderer-facing stream operations and codec requirements.
 type StreamCapabilityProjectionPlan struct {
 	Streaming             bool
 	CanSend               bool
@@ -11,6 +12,7 @@ type StreamCapabilityProjectionPlan struct {
 	RequiresCodec         bool
 }
 
+// ProjectStreamCapability validates contract stream capabilities and projects them for renderers.
 func ProjectStreamCapability(capability StreamCapabilityContractPlan, needsCodec bool) (StreamCapabilityProjectionPlan, error) {
 	plan := StreamCapabilityProjectionPlan{
 		Streaming:             !capability.IsZero(),

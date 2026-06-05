@@ -2,6 +2,7 @@ package generator
 
 import "fmt"
 
+// MethodRenderPlan records renderer-facing call paths, stream operations, symbols, and errors for one method.
 type MethodRenderPlan struct {
 	CallPath CallPathPlan
 	Stream   StreamCapabilityProjectionPlan
@@ -9,6 +10,7 @@ type MethodRenderPlan struct {
 	Errors   RenderErrorsPlan
 }
 
+// CallPathPlan records native and message routing paths for unary and streaming calls.
 type CallPathPlan struct {
 	NativeUnary   CallPathRoutePlan
 	MessageUnary  CallPathRoutePlan
@@ -16,6 +18,7 @@ type CallPathPlan struct {
 	MessageStream CallPathRoutePlan
 }
 
+// CallPathRoutePlan describes one generated dispatch route and any conversion or guard it needs.
 type CallPathRoutePlan struct {
 	RouteKind                 CallPathRouteKind
 	NeedsNativeConversion     bool
@@ -30,14 +33,17 @@ type CallPathRoutePlan struct {
 	MessageWrapperType        string
 }
 
+// CallPathRouteKind identifies whether a generated dispatch route targets native or message code.
 type CallPathRouteKind string
 
+// Call path route kinds used by runtime renderer projections.
 const (
 	CallPathRouteKindUnset   CallPathRouteKind = "unset"
 	CallPathRouteKindNative  CallPathRouteKind = "native"
 	CallPathRouteKindMessage CallPathRouteKind = "message"
 )
 
+// RenderSymbolsPlan records generated symbol names derived for one method.
 type RenderSymbolsPlan struct {
 	NativeEntryMethod    string
 	MessageEntryMethod   string
@@ -50,6 +56,7 @@ type RenderSymbolsPlan struct {
 	MessageWrapperType   string
 }
 
+// RenderErrorsPlan records generated error symbol names and error context labels.
 type RenderErrorsPlan struct {
 	NativeServerUnavailableErr  string
 	MessageServerUnavailableErr string
@@ -58,6 +65,7 @@ type RenderErrorsPlan struct {
 	Category                    string
 }
 
+// BuildMethodRenderPlan projects a method contract plan into renderer-facing symbols and call paths.
 func BuildMethodRenderPlan(method MethodPlan, serviceName string) (MethodRenderPlan, error) {
 	capability, err := ProjectStreamCapability(method.Contract.Stream, true)
 	if err != nil {
@@ -116,6 +124,7 @@ func renderCallPath(method MethodPlan, symbols RenderSymbolsPlan) CallPathPlan {
 	return CallPathPlan{NativeStream: native, MessageStream: message}
 }
 
+// ValidateMethodContractPlan checks that a method contract matches its descriptor-derived streaming shape.
 func ValidateMethodContractPlan(method MethodPlan) error {
 	if !method.Contract.Message.RequestType.HasIdentity() || !method.Contract.Message.ResponseType.HasIdentity() {
 		return fmt.Errorf("method %s message contract is incomplete", methodPlanName(method))
@@ -137,6 +146,7 @@ func ValidateMethodContractPlan(method MethodPlan) error {
 	return nil
 }
 
+// ValidateMethodRenderPlan checks that a method render plan is complete and matches its contract plan.
 func ValidateMethodRenderPlan(method MethodPlan) error {
 	return validateMethodRenderPlan(method)
 }

@@ -70,15 +70,19 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 
 	g.P("const ", serviceIDName, " rpcruntime.ServiceID = ", strconv.Quote(service.FullName))
 	if service.Generation.NativeEnabled {
+		renderDoc(g, service.GoName+"NativeServerUnavailableErr", "is returned when a native server registration is missing or invalid.")
 		g.P("var ", service.GoName, `NativeServerUnavailableErr = errors.New("rpccgo: native server is unavailable")`)
 	}
+	renderDoc(g, service.GoName+"MessageServerUnavailableErr", "is returned when a message server registration is missing or invalid.")
 	g.P("var ", service.GoName, `MessageServerUnavailableErr = errors.New("rpccgo: message server is unavailable")`)
 	g.P()
 
+	renderDoc(g, "Clear"+service.GoName+"Server", "clears the current registered server for this service.")
 	g.P("func Clear", service.GoName, "Server() error {")
 	g.P("return rpcruntime.ClearServer(", serviceIDName, ")")
 	g.P("}")
 	g.P()
+	renderDoc(g, "Load"+service.GoName+"RegisteredServer", "loads the current registered server record for this service.")
 	g.P("func Load", service.GoName, "RegisteredServer() (rpcruntime.RegisteredServer, error) {")
 	g.P("return rpcruntime.LoadServer(", serviceIDName, ")")
 	g.P("}")

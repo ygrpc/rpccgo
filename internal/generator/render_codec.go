@@ -7,6 +7,7 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
+// RenderCodecFiles renders codec artifacts for the services in one file plan.
 func RenderCodecFiles(plugin *protogen.Plugin, plan FilePlan) error {
 	if plugin == nil {
 		return fmt.Errorf("generator plugin is nil")

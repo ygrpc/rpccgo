@@ -8,6 +8,7 @@
 - 简单任务先复述需求和假设，最多提出 3 个关键问题，等用户确认后再动手；如果用户已经明确批准执行，可以直接进入实现。
 - 复杂任务先用设计/计划流程拆清楚边界；已有计划时按计划执行，不重复讨论。
 - 遇到 bug 先写能复现的测试，再修复到测试通过。
+- 生成代码和 `internal/generator` 的 exported declarations 必须有说明功能和作用的注释；cgo `//export` wrapper 不能只依赖 `//export` directive 作为注释。
 - shell 命令默认加 `rtk` 前缀。
 - 文件编辑必须使用 `apply_patch`，不要用 shell 重定向或脚本直接写文件。
 

@@ -20,17 +20,23 @@ import (
 
 const greeterServiceID rpcruntime.ServiceID = "examples.grpc.greeter.v1.Greeter"
 
+// GreeterNativeServerUnavailableErr is returned when a native server registration is missing or invalid.
 var GreeterNativeServerUnavailableErr = errors.New("rpccgo: native server is unavailable")
+
+// GreeterMessageServerUnavailableErr is returned when a message server registration is missing or invalid.
 var GreeterMessageServerUnavailableErr = errors.New("rpccgo: message server is unavailable")
 
+// ClearGreeterServer clears the current registered server for this service.
 func ClearGreeterServer() error {
 	return rpcruntime.ClearServer(greeterServiceID)
 }
 
+// LoadGreeterRegisteredServer loads the current registered server record for this service.
 func LoadGreeterRegisteredServer() (rpcruntime.RegisteredServer, error) {
 	return rpcruntime.LoadServer(greeterServiceID)
 }
 
+// RegisterGreeterGRPCServer registers the supplied grpc server server as the current server for this service.
 func RegisterGreeterGRPCServer(server GreeterServer) error {
 	if server == nil {
 		_ = rpcruntime.ClearServer(greeterServiceID)
@@ -47,6 +53,7 @@ func RegisterGreeterGRPCServer(server GreeterServer) error {
 	return nil
 }
 
+// RegisterGreeterGRPCRemoteServer registers the supplied grpc remote server as the current server for this service.
 func RegisterGreeterGRPCRemoteServer(client GreeterClient) error {
 	if client == nil {
 		_ = rpcruntime.ClearServer(greeterServiceID)
@@ -653,6 +660,7 @@ func (s *greeterChatGRPCRemoteMessageStreamSession) CloseSend(ctx context.Contex
 	return s.stream.CloseSend()
 }
 
+// InvokeGreeterNativeSayHello invokes the current registered server using the native contract for SayHello.
 func InvokeGreeterNativeSayHello(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error) {
 	registered, err := rpcruntime.LoadServer(greeterServiceID)
 	if err != nil {
@@ -734,6 +742,7 @@ func InvokeGreeterNativeSayHello(ctx context.Context, name *rpcruntime.RpcString
 	}
 }
 
+// InvokeGreeterMessageSayHello invokes the current registered server using the message contract for SayHello.
 func InvokeGreeterMessageSayHello(ctx context.Context, req *SayHelloRequest) (*SayHelloResponse, error) {
 	if req == nil {
 		return nil, errors.New("rpccgo: message request is nil")
@@ -817,6 +826,7 @@ func InvokeGreeterMessageSayHello(ctx context.Context, req *SayHelloRequest) (*S
 	}
 }
 
+// StartGreeterNativeCollect starts a native contract stream for Collect on the current registered server.
 func StartGreeterNativeCollect(ctx context.Context) (rpcruntime.StreamHandle, error) {
 	registered, err := rpcruntime.LoadServer(greeterServiceID)
 	if err != nil {
@@ -875,6 +885,7 @@ func StartGreeterNativeCollect(ctx context.Context) (rpcruntime.StreamHandle, er
 	}
 }
 
+// StartGreeterMessageCollect starts a message contract stream for Collect on the current registered server.
 func StartGreeterMessageCollect(ctx context.Context) (rpcruntime.StreamHandle, error) {
 	registered, err := rpcruntime.LoadServer(greeterServiceID)
 	if err != nil {
@@ -933,6 +944,7 @@ func StartGreeterMessageCollect(ctx context.Context) (rpcruntime.StreamHandle, e
 	}
 }
 
+// StartGreeterNativeBroadcast starts a native contract stream for Broadcast on the current registered server.
 func StartGreeterNativeBroadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (rpcruntime.StreamHandle, error) {
 	registered, err := rpcruntime.LoadServer(greeterServiceID)
 	if err != nil {
@@ -1006,6 +1018,7 @@ func StartGreeterNativeBroadcast(ctx context.Context, name *rpcruntime.RpcString
 	}
 }
 
+// StartGreeterMessageBroadcast starts a message contract stream for Broadcast on the current registered server.
 func StartGreeterMessageBroadcast(ctx context.Context, req *SayHelloRequest) (rpcruntime.StreamHandle, error) {
 	if req == nil {
 		return 0, errors.New("rpccgo: message request is nil")
@@ -1080,6 +1093,7 @@ func StartGreeterMessageBroadcast(ctx context.Context, req *SayHelloRequest) (rp
 	}
 }
 
+// StartGreeterNativeChat starts a native contract stream for Chat on the current registered server.
 func StartGreeterNativeChat(ctx context.Context) (rpcruntime.StreamHandle, error) {
 	registered, err := rpcruntime.LoadServer(greeterServiceID)
 	if err != nil {
@@ -1138,6 +1152,7 @@ func StartGreeterNativeChat(ctx context.Context) (rpcruntime.StreamHandle, error
 	}
 }
 
+// StartGreeterMessageChat starts a message contract stream for Chat on the current registered server.
 func StartGreeterMessageChat(ctx context.Context) (rpcruntime.StreamHandle, error) {
 	registered, err := rpcruntime.LoadServer(greeterServiceID)
 	if err != nil {

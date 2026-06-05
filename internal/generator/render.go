@@ -6,6 +6,7 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
+// RenderGeneratedFiles writes every artifact in a validated generation plan into the plugin response.
 func RenderGeneratedFiles(plugin *protogen.Plugin, plan GenerationPlan) error {
 	if plugin == nil {
 		return fmt.Errorf("generator plugin is nil")

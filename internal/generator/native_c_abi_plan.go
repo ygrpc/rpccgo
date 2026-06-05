@@ -5,8 +5,10 @@ import (
 	"strings"
 )
 
+// NativeCOperation identifies one C ABI operation generated for a native method.
 type NativeCOperation string
 
+// Native C operations supported by cgo native client and server artifacts.
 const (
 	NativeCOperationUnary     NativeCOperation = "unary"
 	NativeCOperationStart     NativeCOperation = "start"
@@ -18,6 +20,7 @@ const (
 	NativeCOperationRegister  NativeCOperation = "register"
 )
 
+// COperationABI describes the C symbol, callback type, parameters, and return slot for one operation.
 type COperationABI struct {
 	Operation NativeCOperation
 	Symbol    string
@@ -31,6 +34,7 @@ type nativeCServiceABI struct {
 	Register COperationABI
 }
 
+// CABISlot describes one lowered C ABI parameter or return slot.
 type CABISlot struct {
 	Name        string
 	CType       string
@@ -39,8 +43,10 @@ type CABISlot struct {
 	FieldGoName string
 }
 
+// CABISlotRole identifies how a lowered C ABI slot participates in an operation.
 type CABISlotRole string
 
+// C ABI slot roles used by native C lowering.
 const (
 	CABISlotRoleValue      CABISlotRole = "value"
 	CABISlotRolePointer    CABISlotRole = "pointer"
@@ -55,6 +61,7 @@ const (
 	CABISlotRoleCallback   CABISlotRole = "callback"
 )
 
+// NativeCRegisterABI builds the service-level C callback registration ABI for a native server.
 func NativeCRegisterABI(plan FilePlan, service ServicePlan) (COperationABI, error) {
 	var registerParams []CABISlot
 	for _, method := range service.Methods {
@@ -100,6 +107,7 @@ func nativeCServiceABIs(plan FilePlan, service ServicePlan) (nativeCServiceABI, 
 	return nativeCServiceABI{Methods: methods, Register: registerABI}, nil
 }
 
+// NativeCOperationsForMethod returns the native C operations required by a method's streaming kind.
 func NativeCOperationsForMethod(method MethodPlan) ([]NativeCOperation, error) {
 	switch method.Streaming {
 	case StreamingKindUnary:
@@ -115,6 +123,7 @@ func NativeCOperationsForMethod(method MethodPlan) ([]NativeCOperation, error) {
 	}
 }
 
+// NativeCOperationABI lowers one method operation into its C ABI shape.
 func NativeCOperationABI(plan FilePlan, service ServicePlan, method MethodPlan, operation NativeCOperation) (COperationABI, error) {
 	operations, err := NativeCOperationsForMethod(method)
 	if err != nil {

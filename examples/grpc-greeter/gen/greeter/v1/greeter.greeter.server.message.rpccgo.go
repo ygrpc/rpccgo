@@ -28,6 +28,7 @@ type GreeterCGOMessageServer interface {
 	Chat(ctx context.Context, stream rpcruntime.CGOMessageBidiStream[*SayHelloRequest, *SayHelloResponse]) error
 }
 
+// SendGreeterMessageCollect sends a message request on an active Collect stream.
 func SendGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHandle, req *SayHelloRequest) error {
 	if req == nil {
 		return errors.New("rpccgo: message request is nil")
@@ -96,6 +97,7 @@ func SendGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHand
 	}
 }
 
+// FinishGreeterMessageCollect finishes an active message Collect stream and releases its handle.
 func FinishGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHandle) (*SayHelloResponse, error) {
 	entry, err := rpcruntime.FinishStreamSession(handle)
 	if err != nil {
@@ -192,6 +194,7 @@ func FinishGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHa
 	}
 }
 
+// CancelGreeterMessageCollect cancels an active message Collect stream and releases its handle.
 func CancelGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.CancelStreamSession(handle)
 	if err != nil {
@@ -245,6 +248,7 @@ func CancelGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHa
 	}
 }
 
+// RecvGreeterMessageBroadcast receives a message response from an active Broadcast stream.
 func RecvGreeterMessageBroadcast(ctx context.Context, handle rpcruntime.StreamHandle) (*SayHelloResponse, error) {
 	entry, err := rpcruntime.RecvStreamSession(handle)
 	if err != nil {
@@ -341,6 +345,7 @@ func RecvGreeterMessageBroadcast(ctx context.Context, handle rpcruntime.StreamHa
 	}
 }
 
+// FinishGreeterMessageBroadcast finishes an active message Broadcast stream and releases its handle.
 func FinishGreeterMessageBroadcast(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.FinishStreamSession(handle)
 	if err != nil {
@@ -394,6 +399,7 @@ func FinishGreeterMessageBroadcast(ctx context.Context, handle rpcruntime.Stream
 	}
 }
 
+// CancelGreeterMessageBroadcast cancels an active message Broadcast stream and releases its handle.
 func CancelGreeterMessageBroadcast(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.CancelStreamSession(handle)
 	if err != nil {
@@ -447,6 +453,7 @@ func CancelGreeterMessageBroadcast(ctx context.Context, handle rpcruntime.Stream
 	}
 }
 
+// SendGreeterMessageChat sends a message request on an active Chat stream.
 func SendGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle, req *SayHelloRequest) error {
 	if req == nil {
 		return errors.New("rpccgo: message request is nil")
@@ -515,6 +522,7 @@ func SendGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle,
 	}
 }
 
+// RecvGreeterMessageChat receives a message response from an active Chat stream.
 func RecvGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle) (*SayHelloResponse, error) {
 	entry, err := rpcruntime.RecvStreamSession(handle)
 	if err != nil {
@@ -611,6 +619,7 @@ func RecvGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle)
 	}
 }
 
+// CloseSendGreeterMessageChat closes the message send side of an active Chat stream.
 func CloseSendGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.CloseSendStreamSession(handle)
 	if err != nil {
@@ -664,6 +673,7 @@ func CloseSendGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHa
 	}
 }
 
+// FinishGreeterMessageChat finishes an active message Chat stream and releases its handle.
 func FinishGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.FinishStreamSession(handle)
 	if err != nil {
@@ -717,6 +727,7 @@ func FinishGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandl
 	}
 }
 
+// CancelGreeterMessageChat cancels an active message Chat stream and releases its handle.
 func CancelGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.CancelStreamSession(handle)
 	if err != nil {
@@ -770,24 +781,30 @@ func CancelGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandl
 	}
 }
 
+// UnimplementedGreeterCGOMessageServer provides default unimplemented cgo message server methods for Greeter.
 type UnimplementedGreeterCGOMessageServer struct{}
 
+// SayHello returns an unimplemented error for the Greeter cgo message SayHello method.
 func (UnimplementedGreeterCGOMessageServer) SayHello(ctx context.Context, req *SayHelloRequest) (*SayHelloResponse, error) {
 	return nil, errors.New("rpccgo: Greeter.SayHello cgo message server method is not implemented")
 }
 
+// Collect returns an unimplemented error for the Greeter cgo message Collect method.
 func (UnimplementedGreeterCGOMessageServer) Collect(ctx context.Context, stream rpcruntime.CGOMessageClientStream[*SayHelloRequest]) (*SayHelloResponse, error) {
 	return nil, errors.New("rpccgo: Greeter.Collect cgo message server method is not implemented")
 }
 
+// Broadcast returns an unimplemented error for the Greeter cgo message Broadcast method.
 func (UnimplementedGreeterCGOMessageServer) Broadcast(ctx context.Context, req *SayHelloRequest, stream rpcruntime.CGOMessageServerStream[*SayHelloResponse]) error {
 	return errors.New("rpccgo: Greeter.Broadcast cgo message server method is not implemented")
 }
 
+// Chat returns an unimplemented error for the Greeter cgo message Chat method.
 func (UnimplementedGreeterCGOMessageServer) Chat(ctx context.Context, stream rpcruntime.CGOMessageBidiStream[*SayHelloRequest, *SayHelloResponse]) error {
 	return errors.New("rpccgo: Greeter.Chat cgo message server method is not implemented")
 }
 
+// RegisterGreeterCGOMessageServer registers a cgo message server as the current server for Greeter.
 func RegisterGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
 	if server == nil {
 		return errors.New("rpccgo: Greeter cgo message server is nil")
@@ -795,6 +812,7 @@ func RegisterGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
 	return registerGreeterCGOMessageServer(server)
 }
 
+// registerGreeterCGOMessageServer registers the supplied cgo message server as the current server for this service.
 func registerGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
 	if server == nil {
 		_ = rpcruntime.ClearServer(greeterServiceID)

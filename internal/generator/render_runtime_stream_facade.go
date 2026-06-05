@@ -33,6 +33,8 @@ func renderRuntimeMessageStreamFacade(g *protogen.GeneratedFile, serviceName, st
 }
 
 func renderRuntimeNativeStreamSend(g *protogen.GeneratedFile, serviceName string, method runtimeMethodProjection) {
+	name := "Send" + serviceName + "Native" + method.Identity.GoName
+	renderDoc(g, name, "sends native request values on an active "+method.Identity.GoName+" stream.")
 	g.P("func Send", serviceName, "Native", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle", method.Native.Args, ") error {")
 	g.P("entry, err := rpcruntime.SendStreamSession(handle)")
 	g.P("if err != nil { return err }")
@@ -56,6 +58,8 @@ func renderRuntimeNativeStreamSend(g *protogen.GeneratedFile, serviceName string
 }
 
 func renderRuntimeNativeStreamRecv(g *protogen.GeneratedFile, serviceName string, method runtimeMethodProjection) {
+	name := "Recv" + serviceName + "Native" + method.Identity.GoName
+	renderDoc(g, name, "receives native response values from an active "+method.Identity.GoName+" stream.")
 	g.P("func Recv", serviceName, "Native", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle) (", method.Native.Returns, ") {")
 	g.P("entry, err := rpcruntime.RecvStreamSession(handle)")
 	g.P("if err != nil { return ", method.Native.InvalidZero, " }")
@@ -79,6 +83,8 @@ func renderRuntimeNativeStreamRecv(g *protogen.GeneratedFile, serviceName string
 }
 
 func renderRuntimeNativeStreamCloseSend(g *protogen.GeneratedFile, serviceName string, method runtimeMethodProjection) {
+	name := "CloseSend" + serviceName + "Native" + method.Identity.GoName
+	renderDoc(g, name, "closes the native send side of an active "+method.Identity.GoName+" stream.")
 	g.P("func CloseSend", serviceName, "Native", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle) error {")
 	g.P("entry, err := rpcruntime.CloseSendStreamSession(handle)")
 	g.P("if err != nil { return err }")
@@ -100,6 +106,8 @@ func renderRuntimeNativeStreamCloseSend(g *protogen.GeneratedFile, serviceName s
 }
 
 func renderRuntimeNativeStreamFinish(g *protogen.GeneratedFile, serviceName string, method runtimeMethodProjection) {
+	name := "Finish" + serviceName + "Native" + method.Identity.GoName
+	renderDoc(g, name, "finishes an active native "+method.Identity.GoName+" stream and releases its handle.")
 	if method.Stream.FinishReturnsResponse {
 		g.P("func Finish", serviceName, "Native", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle) (", method.Native.Returns, ") {")
 	} else {
@@ -143,6 +151,8 @@ func renderRuntimeNativeStreamFinish(g *protogen.GeneratedFile, serviceName stri
 }
 
 func renderRuntimeNativeStreamCancel(g *protogen.GeneratedFile, serviceName string, method runtimeMethodProjection) {
+	name := "Cancel" + serviceName + "Native" + method.Identity.GoName
+	renderDoc(g, name, "cancels an active native "+method.Identity.GoName+" stream and releases its handle.")
 	g.P("func Cancel", serviceName, "Native", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle) error {")
 	g.P("entry, err := rpcruntime.CancelStreamSession(handle)")
 	g.P("if err != nil { return err }")
@@ -164,6 +174,8 @@ func renderRuntimeNativeStreamCancel(g *protogen.GeneratedFile, serviceName stri
 }
 
 func renderRuntimeMessageStreamSend(g *protogen.GeneratedFile, serviceName string, method runtimeMethodProjection, nativeEnabled bool) {
+	name := "Send" + serviceName + "Message" + method.Identity.GoName
+	renderDoc(g, name, "sends a message request on an active "+method.Identity.GoName+" stream.")
 	g.P("func Send", serviceName, "Message", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle, req ", runtimeMessageRequestType(method), ") error {")
 	g.P("if req == nil {")
 	g.P(`return errors.New("rpccgo: message request is nil")`)
@@ -191,6 +203,8 @@ func renderRuntimeMessageStreamSend(g *protogen.GeneratedFile, serviceName strin
 }
 
 func renderRuntimeMessageStreamRecv(g *protogen.GeneratedFile, serviceName string, method runtimeMethodProjection, nativeEnabled bool) {
+	name := "Recv" + serviceName + "Message" + method.Identity.GoName
+	renderDoc(g, name, "receives a message response from an active "+method.Identity.GoName+" stream.")
 	g.P("func Recv", serviceName, "Message", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle) (", runtimeMessageResponseType(method), ", error) {")
 	g.P("entry, err := rpcruntime.RecvStreamSession(handle)")
 	g.P("if err != nil { return nil, err }")
@@ -222,6 +236,8 @@ func renderRuntimeMessageStreamRecv(g *protogen.GeneratedFile, serviceName strin
 }
 
 func renderRuntimeMessageStreamCloseSend(g *protogen.GeneratedFile, serviceName string, method runtimeMethodProjection, nativeEnabled bool) {
+	name := "CloseSend" + serviceName + "Message" + method.Identity.GoName
+	renderDoc(g, name, "closes the message send side of an active "+method.Identity.GoName+" stream.")
 	g.P("func CloseSend", serviceName, "Message", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle) error {")
 	g.P("entry, err := rpcruntime.CloseSendStreamSession(handle)")
 	g.P("if err != nil { return err }")
@@ -242,6 +258,8 @@ func renderRuntimeMessageStreamCloseSend(g *protogen.GeneratedFile, serviceName 
 }
 
 func renderRuntimeMessageStreamFinish(g *protogen.GeneratedFile, serviceName string, method runtimeMethodProjection, nativeEnabled bool) {
+	name := "Finish" + serviceName + "Message" + method.Identity.GoName
+	renderDoc(g, name, "finishes an active message "+method.Identity.GoName+" stream and releases its handle.")
 	if method.Stream.FinishReturnsResponse {
 		g.P("func Finish", serviceName, "Message", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle) (", runtimeMessageResponseType(method), ", error) {")
 	} else {
@@ -297,6 +315,8 @@ func renderRuntimeMessageStreamFinish(g *protogen.GeneratedFile, serviceName str
 }
 
 func renderRuntimeMessageStreamCancel(g *protogen.GeneratedFile, serviceName string, method runtimeMethodProjection, nativeEnabled bool) {
+	name := "Cancel" + serviceName + "Message" + method.Identity.GoName
+	renderDoc(g, name, "cancels an active message "+method.Identity.GoName+" stream and releases its handle.")
 	g.P("func Cancel", serviceName, "Message", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle) error {")
 	g.P("entry, err := rpcruntime.CancelStreamSession(handle)")
 	g.P("if err != nil { return err }")

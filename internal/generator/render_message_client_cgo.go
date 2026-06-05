@@ -31,6 +31,7 @@ func renderMessageClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service 
 	g.P("// ", messageStageMarker(service, file))
 	g.P()
 
+	renderDoc(g, service.GoName+"MessageOutput", "receives message response bytes returned across the cgo client ABI.")
 	g.P("type ", service.GoName, "MessageOutput struct {")
 	g.P("DataPtr uintptr")
 	g.P("DataLen int32")
@@ -56,6 +57,7 @@ func renderMessageUnaryClient(g *protogen.GeneratedFile, plan FilePlan, service 
 	funcName := messageUnaryClientFuncName(service, method)
 	outputName := service.GoName + "MessageOutput"
 
+	renderDoc(g, funcName, "invokes "+service.GoName+"."+method.GoName+" through the cgo message unary client ABI.")
 	g.P("func ", funcName, "(ctx context.Context, requestPtr uintptr, requestLen int32, output *", outputName, ") int32 {")
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
@@ -98,7 +100,9 @@ func messageUnaryClientFuncName(service ServicePlan, method MethodPlan) string {
 }
 
 func renderMessageClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, servicePackage string) {
-	g.P("func ", messageClientStreamingStartFuncName(service, method), "(ctx context.Context) (int32, int32) {")
+	startName := messageClientStreamingStartFuncName(service, method)
+	renderDoc(g, startName, "starts a cgo message client-streaming call for "+service.GoName+"."+method.GoName+".")
+	g.P("func ", startName, "(ctx context.Context) (int32, int32) {")
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
@@ -110,7 +114,9 @@ func renderMessageClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan
 	g.P("}")
 	g.P()
 
-	g.P("func ", messageClientStreamingSendFuncName(service, method), "(ctx context.Context, handle int32, requestPtr uintptr, requestLen int32) int32 {")
+	sendName := messageClientStreamingSendFuncName(service, method)
+	renderDoc(g, sendName, "sends one message request on a cgo message client-streaming call for "+service.GoName+"."+method.GoName+".")
+	g.P("func ", sendName, "(ctx context.Context, handle int32, requestPtr uintptr, requestLen int32) int32 {")
 	renderMessageClientContextPrefix(g)
 	g.P("req, err := ", messageFromABIName(service, method, "Request"), "(requestPtr, requestLen)")
 	g.P("if err != nil {")
@@ -124,7 +130,9 @@ func renderMessageClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan
 	g.P("}")
 	g.P()
 
-	g.P("func ", messageClientStreamingFinishFuncName(service, method), "(ctx context.Context, handle int32, output *", service.GoName, "MessageOutput) int32 {")
+	finishName := messageClientStreamingFinishFuncName(service, method)
+	renderDoc(g, finishName, "finishes a cgo message client-streaming call for "+service.GoName+"."+method.GoName+" and writes the response.")
+	g.P("func ", finishName, "(ctx context.Context, handle int32, output *", service.GoName, "MessageOutput) int32 {")
 	renderMessageClientContextPrefix(g)
 	g.P("if output == nil {")
 	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: message stream output is nil")))`)
@@ -140,7 +148,9 @@ func renderMessageClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan
 	g.P("}")
 	g.P()
 
-	g.P("func ", messageClientStreamingCancelFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
+	cancelName := messageClientStreamingCancelFuncName(service, method)
+	renderDoc(g, cancelName, "cancels a cgo message client-streaming call for "+service.GoName+"."+method.GoName+".")
+	g.P("func ", cancelName, "(ctx context.Context, handle int32) int32 {")
 	renderMessageClientContextPrefix(g)
 	g.P("var err error")
 	renderMessageClientStreamFacadeCall(g, service, method, servicePackage, "Cancel", "ctx")
@@ -154,7 +164,9 @@ func renderMessageClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan
 }
 
 func renderMessageServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, servicePackage string) {
-	g.P("func ", messageServerStreamingStartFuncName(service, method), "(ctx context.Context, requestPtr uintptr, requestLen int32) (int32, int32) {")
+	startName := messageServerStreamingStartFuncName(service, method)
+	renderDoc(g, startName, "starts a cgo message server-streaming call for "+service.GoName+"."+method.GoName+".")
+	g.P("func ", startName, "(ctx context.Context, requestPtr uintptr, requestLen int32) (int32, int32) {")
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
@@ -170,7 +182,9 @@ func renderMessageServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan
 	g.P("}")
 	g.P()
 
-	g.P("func ", messageServerStreamingReadFuncName(service, method), "(ctx context.Context, handle int32, output *", service.GoName, "MessageOutput) int32 {")
+	readName := messageServerStreamingReadFuncName(service, method)
+	renderDoc(g, readName, "reads one message response from a cgo message server-streaming call for "+service.GoName+"."+method.GoName+".")
+	g.P("func ", readName, "(ctx context.Context, handle int32, output *", service.GoName, "MessageOutput) int32 {")
 	renderMessageClientContextPrefix(g)
 	g.P("if output == nil {")
 	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: message stream output is nil")))`)
@@ -186,7 +200,9 @@ func renderMessageServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan
 	g.P("}")
 	g.P()
 
-	g.P("func ", messageServerStreamingFinishFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
+	finishName := messageServerStreamingFinishFuncName(service, method)
+	renderDoc(g, finishName, "finishes a cgo message server-streaming call for "+service.GoName+"."+method.GoName+".")
+	g.P("func ", finishName, "(ctx context.Context, handle int32) int32 {")
 	renderMessageClientContextPrefix(g)
 	g.P("var err error")
 	renderMessageClientStreamFacadeCall(g, service, method, servicePackage, "Finish", "ctx")
@@ -197,7 +213,9 @@ func renderMessageServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan
 	g.P("}")
 	g.P()
 
-	g.P("func ", messageServerStreamingCancelFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
+	cancelName := messageServerStreamingCancelFuncName(service, method)
+	renderDoc(g, cancelName, "cancels a cgo message server-streaming call for "+service.GoName+"."+method.GoName+".")
+	g.P("func ", cancelName, "(ctx context.Context, handle int32) int32 {")
 	renderMessageClientContextPrefix(g)
 	g.P("var err error")
 	renderMessageClientStreamFacadeCall(g, service, method, servicePackage, "Cancel", "ctx")
@@ -211,7 +229,9 @@ func renderMessageServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan
 }
 
 func renderMessageBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, servicePackage string) {
-	g.P("func ", messageBidiStreamingStartFuncName(service, method), "(ctx context.Context) (int32, int32) {")
+	startName := messageBidiStreamingStartFuncName(service, method)
+	renderDoc(g, startName, "starts a cgo message bidi-streaming call for "+service.GoName+"."+method.GoName+".")
+	g.P("func ", startName, "(ctx context.Context) (int32, int32) {")
 	g.P("if ctx == nil {")
 	g.P("ctx = context.Background()")
 	g.P("}")
@@ -223,7 +243,9 @@ func renderMessageBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, 
 	g.P("}")
 	g.P()
 
-	g.P("func ", messageBidiStreamingSendFuncName(service, method), "(ctx context.Context, handle int32, requestPtr uintptr, requestLen int32) int32 {")
+	sendName := messageBidiStreamingSendFuncName(service, method)
+	renderDoc(g, sendName, "sends one message request on a cgo message bidi-streaming call for "+service.GoName+"."+method.GoName+".")
+	g.P("func ", sendName, "(ctx context.Context, handle int32, requestPtr uintptr, requestLen int32) int32 {")
 	renderMessageClientContextPrefix(g)
 	g.P("req, err := ", messageFromABIName(service, method, "Request"), "(requestPtr, requestLen)")
 	g.P("if err != nil {")
@@ -237,7 +259,9 @@ func renderMessageBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, 
 	g.P("}")
 	g.P()
 
-	g.P("func ", messageBidiStreamingReadFuncName(service, method), "(ctx context.Context, handle int32, output *", service.GoName, "MessageOutput) int32 {")
+	readName := messageBidiStreamingReadFuncName(service, method)
+	renderDoc(g, readName, "reads one message response from a cgo message bidi-streaming call for "+service.GoName+"."+method.GoName+".")
+	g.P("func ", readName, "(ctx context.Context, handle int32, output *", service.GoName, "MessageOutput) int32 {")
 	renderMessageClientContextPrefix(g)
 	g.P("if output == nil {")
 	g.P(`return int32(rpcruntime.StoreError(errors.New("rpccgo: message stream output is nil")))`)
@@ -253,7 +277,9 @@ func renderMessageBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, 
 	g.P("}")
 	g.P()
 
-	g.P("func ", messageBidiStreamingCloseSendFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
+	closeSendName := messageBidiStreamingCloseSendFuncName(service, method)
+	renderDoc(g, closeSendName, "closes the send side of a cgo message bidi-streaming call for "+service.GoName+"."+method.GoName+".")
+	g.P("func ", closeSendName, "(ctx context.Context, handle int32) int32 {")
 	renderMessageClientContextPrefix(g)
 	g.P("var err error")
 	renderMessageClientStreamFacadeCall(g, service, method, servicePackage, "CloseSend", "ctx")
@@ -264,7 +290,9 @@ func renderMessageBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, 
 	g.P("}")
 	g.P()
 
-	g.P("func ", messageBidiStreamingFinishFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
+	finishName := messageBidiStreamingFinishFuncName(service, method)
+	renderDoc(g, finishName, "finishes a cgo message bidi-streaming call for "+service.GoName+"."+method.GoName+".")
+	g.P("func ", finishName, "(ctx context.Context, handle int32) int32 {")
 	renderMessageClientContextPrefix(g)
 	g.P("var err error")
 	renderMessageClientStreamFacadeCall(g, service, method, servicePackage, "Finish", "ctx")
@@ -275,7 +303,9 @@ func renderMessageBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, 
 	g.P("}")
 	g.P()
 
-	g.P("func ", messageBidiStreamingCancelFuncName(service, method), "(ctx context.Context, handle int32) int32 {")
+	cancelName := messageBidiStreamingCancelFuncName(service, method)
+	renderDoc(g, cancelName, "cancels a cgo message bidi-streaming call for "+service.GoName+"."+method.GoName+".")
+	g.P("func ", cancelName, "(ctx context.Context, handle int32) int32 {")
 	renderMessageClientContextPrefix(g)
 	g.P("var err error")
 	renderMessageClientStreamFacadeCall(g, service, method, servicePackage, "Cancel", "ctx")

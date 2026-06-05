@@ -31,6 +31,8 @@ func renderRuntimeEntrypoints(g *protogen.GeneratedFile, service ServicePlan, se
 }
 
 func renderRuntimeUnaryNativeEntrypoint(g *protogen.GeneratedFile, service ServicePlan, serviceIDName string, method runtimeMethodProjection) {
+	name := "Invoke" + service.GoName + "Native" + method.Identity.GoName
+	renderDoc(g, name, "invokes the current registered server using the native contract for "+method.Identity.GoName+".")
 	g.P("func Invoke", service.GoName, "Native", method.Identity.GoName, "(ctx context.Context", method.Native.Args, ") (", method.Native.Returns, ") {")
 	g.P("registered, err := rpcruntime.LoadServer(", serviceIDName, ")")
 	g.P("if err != nil { return ", method.Native.ErrZero, " }")
@@ -90,6 +92,8 @@ func renderRuntimeUnaryNativeToTransportCase(g *protogen.GeneratedFile, service 
 }
 
 func renderRuntimeUnaryMessageEntrypoint(g *protogen.GeneratedFile, service ServicePlan, serviceIDName string, method runtimeMethodProjection) {
+	name := "Invoke" + service.GoName + "Message" + method.Identity.GoName
+	renderDoc(g, name, "invokes the current registered server using the message contract for "+method.Identity.GoName+".")
 	g.P("func Invoke", service.GoName, "Message", method.Identity.GoName, "(ctx context.Context, req ", runtimeMessageRequestType(method), ") (", runtimeMessageResponseType(method), ", error) {")
 	g.P("if req == nil {")
 	g.P(`return nil, errors.New("rpccgo: message request is nil")`)
@@ -160,6 +164,8 @@ func renderRuntimeUnaryMessageToTransportCase(g *protogen.GeneratedFile, service
 }
 
 func renderRuntimeNativeStartEntrypoint(g *protogen.GeneratedFile, service ServicePlan, serviceIDName, streamRegistryName string, method runtimeMethodProjection) {
+	name := "Start" + service.GoName + "Native" + method.Identity.GoName
+	renderDoc(g, name, "starts a native contract stream for "+method.Identity.GoName+" on the current registered server.")
 	if method.Stream.StartAcceptsRequest {
 		g.P("func Start", service.GoName, "Native", method.Identity.GoName, "(ctx context.Context", method.Native.Args, ") (rpcruntime.StreamHandle, error) {")
 	} else {
@@ -239,6 +245,8 @@ func renderRuntimeNativeStartTransportCase(g *protogen.GeneratedFile, service Se
 }
 
 func renderRuntimeMessageStartEntrypoint(g *protogen.GeneratedFile, service ServicePlan, serviceIDName, streamRegistryName string, method runtimeMethodProjection) error {
+	name := "Start" + service.GoName + "Message" + method.Identity.GoName
+	renderDoc(g, name, "starts a message contract stream for "+method.Identity.GoName+" on the current registered server.")
 	if method.Stream.StartAcceptsRequest {
 		g.P("func Start", service.GoName, "Message", method.Identity.GoName, "(ctx context.Context, req ", runtimeMessageRequestType(method), ") (rpcruntime.StreamHandle, error) {")
 		g.P("if req == nil {")

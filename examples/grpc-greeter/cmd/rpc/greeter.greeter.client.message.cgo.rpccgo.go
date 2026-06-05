@@ -24,11 +24,13 @@ import (
 
 // rpccgo message direct generated file for Greeter cgo message client
 
+// GreeterMessageOutput receives message response bytes returned across the cgo client ABI.
 type GreeterMessageOutput struct {
 	DataPtr uintptr
 	DataLen int32
 }
 
+// CallGreeterSayHelloMessageUnary invokes Greeter.SayHello through the cgo message unary client ABI.
 func CallGreeterSayHelloMessageUnary(ctx context.Context, requestPtr uintptr, requestLen int32, output *GreeterMessageOutput) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -114,6 +116,7 @@ func encodeGreeterSayHelloMessageResponse(message *v1.SayHelloResponse) (uintptr
 	return ptr, length, nil
 }
 
+// StartGreeterCollectMessageClientStream starts a cgo message client-streaming call for Greeter.Collect.
 func StartGreeterCollectMessageClientStream(ctx context.Context) (int32, int32) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -125,6 +128,7 @@ func StartGreeterCollectMessageClientStream(ctx context.Context) (int32, int32) 
 	return int32(handle), 0
 }
 
+// SendGreeterCollectMessageClientStream sends one message request on a cgo message client-streaming call for Greeter.Collect.
 func SendGreeterCollectMessageClientStream(ctx context.Context, handle int32, requestPtr uintptr, requestLen int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -140,6 +144,7 @@ func SendGreeterCollectMessageClientStream(ctx context.Context, handle int32, re
 	return 0
 }
 
+// FinishGreeterCollectMessageClientStream finishes a cgo message client-streaming call for Greeter.Collect and writes the response.
 func FinishGreeterCollectMessageClientStream(ctx context.Context, handle int32, output *GreeterMessageOutput) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -162,6 +167,7 @@ func FinishGreeterCollectMessageClientStream(ctx context.Context, handle int32, 
 	return 0
 }
 
+// CancelGreeterCollectMessageClientStream cancels a cgo message client-streaming call for Greeter.Collect.
 func CancelGreeterCollectMessageClientStream(ctx context.Context, handle int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -261,6 +267,7 @@ func rpccgo_msg_greeterv1_Greeter_Collect_cancel(handle C.int32_t) C.int32_t {
 	return C.int32_t(CancelGreeterCollectMessageClientStream(context.Background(), int32(handle)))
 }
 
+// StartGreeterBroadcastMessageServerStream starts a cgo message server-streaming call for Greeter.Broadcast.
 func StartGreeterBroadcastMessageServerStream(ctx context.Context, requestPtr uintptr, requestLen int32) (int32, int32) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -276,6 +283,7 @@ func StartGreeterBroadcastMessageServerStream(ctx context.Context, requestPtr ui
 	return int32(handle), 0
 }
 
+// ReadGreeterBroadcastMessageServerStream reads one message response from a cgo message server-streaming call for Greeter.Broadcast.
 func ReadGreeterBroadcastMessageServerStream(ctx context.Context, handle int32, output *GreeterMessageOutput) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -298,6 +306,7 @@ func ReadGreeterBroadcastMessageServerStream(ctx context.Context, handle int32, 
 	return 0
 }
 
+// FinishGreeterBroadcastMessageServerStream finishes a cgo message server-streaming call for Greeter.Broadcast.
 func FinishGreeterBroadcastMessageServerStream(ctx context.Context, handle int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -310,6 +319,7 @@ func FinishGreeterBroadcastMessageServerStream(ctx context.Context, handle int32
 	return 0
 }
 
+// CancelGreeterBroadcastMessageServerStream cancels a cgo message server-streaming call for Greeter.Broadcast.
 func CancelGreeterBroadcastMessageServerStream(ctx context.Context, handle int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -409,6 +419,7 @@ func rpccgo_msg_greeterv1_Greeter_Broadcast_cancel(handle C.int32_t) C.int32_t {
 	return C.int32_t(CancelGreeterBroadcastMessageServerStream(context.Background(), int32(handle)))
 }
 
+// StartGreeterChatMessageBidiStream starts a cgo message bidi-streaming call for Greeter.Chat.
 func StartGreeterChatMessageBidiStream(ctx context.Context) (int32, int32) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -420,6 +431,7 @@ func StartGreeterChatMessageBidiStream(ctx context.Context) (int32, int32) {
 	return int32(handle), 0
 }
 
+// SendGreeterChatMessageBidiStream sends one message request on a cgo message bidi-streaming call for Greeter.Chat.
 func SendGreeterChatMessageBidiStream(ctx context.Context, handle int32, requestPtr uintptr, requestLen int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -435,6 +447,7 @@ func SendGreeterChatMessageBidiStream(ctx context.Context, handle int32, request
 	return 0
 }
 
+// ReadGreeterChatMessageBidiStream reads one message response from a cgo message bidi-streaming call for Greeter.Chat.
 func ReadGreeterChatMessageBidiStream(ctx context.Context, handle int32, output *GreeterMessageOutput) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -457,6 +470,7 @@ func ReadGreeterChatMessageBidiStream(ctx context.Context, handle int32, output 
 	return 0
 }
 
+// CloseSendGreeterChatMessageBidiStream closes the send side of a cgo message bidi-streaming call for Greeter.Chat.
 func CloseSendGreeterChatMessageBidiStream(ctx context.Context, handle int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -469,6 +483,7 @@ func CloseSendGreeterChatMessageBidiStream(ctx context.Context, handle int32) in
 	return 0
 }
 
+// FinishGreeterChatMessageBidiStream finishes a cgo message bidi-streaming call for Greeter.Chat.
 func FinishGreeterChatMessageBidiStream(ctx context.Context, handle int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -481,6 +496,7 @@ func FinishGreeterChatMessageBidiStream(ctx context.Context, handle int32) int32
 	return 0
 }
 
+// CancelGreeterChatMessageBidiStream cancels a cgo message bidi-streaming call for Greeter.Chat.
 func CancelGreeterChatMessageBidiStream(ctx context.Context, handle int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()

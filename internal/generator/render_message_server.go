@@ -37,7 +37,12 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	g.P()
 	g.P("// ", messageStageMarker(service, file))
 	g.P()
-	renderDocLine(g, service.DocComment, "type ", serverName, " interface {")
+	if service.DocComment == "" {
+		renderDoc(g, serverName, "defines the cgo message server contract for "+service.GoName+".")
+		g.P("type ", serverName, " interface {")
+	} else {
+		renderDocLine(g, service.DocComment, "type ", serverName, " interface {")
+	}
 	for _, method := range runtimeMethods {
 		switch {
 		case !method.Stream.Streaming:
@@ -56,6 +61,7 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 		renderRuntimeMessageStreamFacade(g, service.GoName, lowerInitial(service.GoName)+"StreamRegistry", method, service.Generation.NativeEnabled)
 	}
 	renderUnimplementedCGOMessageServer(g, service, runtimeMethods)
+	renderDoc(g, "Register"+service.GoName+"CGOMessageServer", "registers a cgo message server as the current server for "+service.GoName+".")
 	g.P("func Register", service.GoName, "CGOMessageServer(server ", serverName, ") error {")
 	g.P("if server == nil {")
 	g.P(`return errors.New("rpccgo: `, service.GoName, ` cgo message server is nil")`)
@@ -99,10 +105,12 @@ func renderCGOMessageServerRuntimeRegistration(g *protogen.GeneratedFile, servic
 
 func renderUnimplementedCGOMessageServer(g *protogen.GeneratedFile, service ServicePlan, runtimeMethods []runtimeMethodProjection) {
 	serverName := "Unimplemented" + service.GoName + "CGOMessageServer"
+	renderDoc(g, serverName, "provides default unimplemented cgo message server methods for "+service.GoName+".")
 	g.P("type ", serverName, " struct{}")
 	g.P()
 	for _, method := range runtimeMethods {
 		errExpr := `errors.New("rpccgo: ` + service.GoName + "." + method.Identity.GoName + ` cgo message server method is not implemented")`
+		renderDoc(g, method.Identity.GoName, "returns an unimplemented error for the "+service.GoName+" cgo message "+method.Identity.GoName+" method.")
 		switch {
 		case !method.Stream.Streaming:
 			g.P("func (", serverName, ") ", method.Identity.GoName, "(ctx context.Context, req *", method.Message.RequestType, ") (*", method.Message.ResponseType, ", error) {")

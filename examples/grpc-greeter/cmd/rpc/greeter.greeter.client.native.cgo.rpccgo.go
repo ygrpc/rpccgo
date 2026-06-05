@@ -26,6 +26,7 @@ import (
 var greeterNativeClientUnsupportedField = errors.New("rpccgo: native unary client field codec is not implemented")
 var greeterNativeClientStreamHandleInvalid = errors.New("rpccgo: native client stream handle is invalid")
 
+// CallGreeterSayHelloNativeUnary invokes Greeter.SayHello through the cgo native unary client ABI.
 func CallGreeterSayHelloNativeUnary(ctx context.Context, NamePtr uintptr, NameLen int32, NameOwnership int32, CityPtr uintptr, CityLen int32, CityOwnership int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -132,6 +133,7 @@ func rpccgo_native_greeterv1_Greeter_SayHello(NamePtr C.uintptr_t, NameLen C.int
 	return C.int32_t(CallGreeterSayHelloNativeUnary(context.Background(), uintptr(NamePtr), int32(NameLen), int32(NameOwnership), uintptr(CityPtr), int32(CityLen), int32(CityOwnership), (*uintptr)(unsafe.Pointer(outMessagePtr)), (*int32)(unsafe.Pointer(outMessageLen))))
 }
 
+// StartGreeterCollectNativeClientStream starts a cgo native client-streaming call for Greeter.Collect.
 func StartGreeterCollectNativeClientStream(ctx context.Context) (int32, int32) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -143,6 +145,7 @@ func StartGreeterCollectNativeClientStream(ctx context.Context) (int32, int32) {
 	return int32(handle), 0
 }
 
+// SendGreeterCollectNativeClientStream sends one native request on a cgo native client-streaming call for Greeter.Collect.
 func SendGreeterCollectNativeClientStream(ctx context.Context, handle int32, NamePtr uintptr, NameLen int32, NameOwnership int32, CityPtr uintptr, CityLen int32, CityOwnership int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -162,6 +165,7 @@ func SendGreeterCollectNativeClientStream(ctx context.Context, handle int32, Nam
 	return 0
 }
 
+// FinishGreeterCollectNativeClientStream finishes a cgo native client-streaming call for Greeter.Collect and writes response values.
 func FinishGreeterCollectNativeClientStream(ctx context.Context, handle int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -181,6 +185,7 @@ func FinishGreeterCollectNativeClientStream(ctx context.Context, handle int32, o
 	return 0
 }
 
+// CancelGreeterCollectNativeClientStream cancels a cgo native client-streaming call for Greeter.Collect.
 func CancelGreeterCollectNativeClientStream(ctx context.Context, handle int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -301,6 +306,7 @@ func rpccgo_native_greeterv1_Greeter_Collect_cancel(stream C.int32_t) C.int32_t 
 	return C.int32_t(CancelGreeterCollectNativeClientStream(context.Background(), int32(stream)))
 }
 
+// StartGreeterBroadcastNativeServerStream starts a cgo native server-streaming call for Greeter.Broadcast.
 func StartGreeterBroadcastNativeServerStream(ctx context.Context, NamePtr uintptr, NameLen int32, NameOwnership int32, CityPtr uintptr, CityLen int32, CityOwnership int32) (int32, int32) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -320,6 +326,7 @@ func StartGreeterBroadcastNativeServerStream(ctx context.Context, NamePtr uintpt
 	return int32(handle), 0
 }
 
+// ReadGreeterBroadcastNativeServerStream reads one native response from a cgo native server-streaming call for Greeter.Broadcast.
 func ReadGreeterBroadcastNativeServerStream(ctx context.Context, handle int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -339,6 +346,7 @@ func ReadGreeterBroadcastNativeServerStream(ctx context.Context, handle int32, o
 	return 0
 }
 
+// FinishGreeterBroadcastNativeServerStream finishes a cgo native server-streaming call for Greeter.Broadcast.
 func FinishGreeterBroadcastNativeServerStream(ctx context.Context, handle int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -351,6 +359,7 @@ func FinishGreeterBroadcastNativeServerStream(ctx context.Context, handle int32)
 	return 0
 }
 
+// CancelGreeterBroadcastNativeServerStream cancels a cgo native server-streaming call for Greeter.Broadcast.
 func CancelGreeterBroadcastNativeServerStream(ctx context.Context, handle int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -471,6 +480,7 @@ func rpccgo_native_greeterv1_Greeter_Broadcast_cancel(stream C.int32_t) C.int32_
 	return C.int32_t(CancelGreeterBroadcastNativeServerStream(context.Background(), int32(stream)))
 }
 
+// StartGreeterChatNativeBidiStream starts a cgo native bidi-streaming call for Greeter.Chat.
 func StartGreeterChatNativeBidiStream(ctx context.Context) (int32, int32) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -482,6 +492,7 @@ func StartGreeterChatNativeBidiStream(ctx context.Context) (int32, int32) {
 	return int32(handle), 0
 }
 
+// SendGreeterChatNativeBidiStream sends one native request on a cgo native bidi-streaming call for Greeter.Chat.
 func SendGreeterChatNativeBidiStream(ctx context.Context, handle int32, NamePtr uintptr, NameLen int32, NameOwnership int32, CityPtr uintptr, CityLen int32, CityOwnership int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -501,6 +512,7 @@ func SendGreeterChatNativeBidiStream(ctx context.Context, handle int32, NamePtr 
 	return 0
 }
 
+// ReadGreeterChatNativeBidiStream reads one native response from a cgo native bidi-streaming call for Greeter.Chat.
 func ReadGreeterChatNativeBidiStream(ctx context.Context, handle int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -520,6 +532,7 @@ func ReadGreeterChatNativeBidiStream(ctx context.Context, handle int32, outMessa
 	return 0
 }
 
+// CloseSendGreeterChatNativeBidiStream closes the send side of a cgo native bidi-streaming call for Greeter.Chat.
 func CloseSendGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -532,6 +545,7 @@ func CloseSendGreeterChatNativeBidiStream(ctx context.Context, handle int32) int
 	return 0
 }
 
+// FinishGreeterChatNativeBidiStream finishes a cgo native bidi-streaming call for Greeter.Chat.
 func FinishGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()
@@ -544,6 +558,7 @@ func FinishGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32 
 	return 0
 }
 
+// CancelGreeterChatNativeBidiStream cancels a cgo native bidi-streaming call for Greeter.Chat.
 func CancelGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32 {
 	if ctx == nil {
 		ctx = context.Background()

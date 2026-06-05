@@ -2,6 +2,7 @@ package generator
 
 import "fmt"
 
+// ValidateGenerationPlan checks package uniqueness and validates every package in a generation plan.
 func ValidateGenerationPlan(plan GenerationPlan) error {
 	packageKeys := make(map[string]bool)
 	for pi, pkg := range plan.Packages {
@@ -17,6 +18,7 @@ func ValidateGenerationPlan(plan GenerationPlan) error {
 	return nil
 }
 
+// ValidatePackagePlan checks package identity, shared artifacts, files, and output filename uniqueness.
 func ValidatePackagePlan(pkg PackagePlan) error {
 	if pkg.GoPackageName == "" {
 		return fmt.Errorf("go package name is empty")
@@ -56,6 +58,7 @@ func ValidatePackagePlan(pkg PackagePlan) error {
 	return nil
 }
 
+// ValidateFilePlan checks file identity, services, artifact sets, and service artifact uniqueness.
 func ValidateFilePlan(file FilePlan) error {
 	if file.GoPackageName == "" {
 		return fmt.Errorf("go package name is empty")
@@ -93,6 +96,7 @@ func ValidateFilePlan(file FilePlan) error {
 	return nil
 }
 
+// ValidateServicePlan checks service identity, selected generation mode, registration sources, and methods.
 func ValidateServicePlan(service ServicePlan) error {
 	if !service.HasIdentity() {
 		return fmt.Errorf("service identity is incomplete")

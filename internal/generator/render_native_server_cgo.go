@@ -1653,6 +1653,7 @@ func renderCGONativeServerFlatResponseCleanup(g *protogen.GeneratedFile, name st
 
 func renderCGONativeServerErrorStoreExport(g *protogen.GeneratedFile, service ServicePlan) {
 	exportName := "Store" + service.GoName + "CGONativeServerErrorTextForExport"
+	renderDoc(g, exportName, "stores cgo native server error text and returns its error id for C callbacks.")
 	g.P("//export ", exportName)
 	g.P("func ", exportName, "(text *C.char, textLen C.int32_t) C.int32_t {")
 	g.P("length, err := rpcruntime.LengthFromInt32(int32(textLen))")

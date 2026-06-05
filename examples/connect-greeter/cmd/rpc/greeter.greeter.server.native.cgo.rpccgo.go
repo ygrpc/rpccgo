@@ -1082,6 +1082,8 @@ func greeterCGONativeServerAdapterForRegister() *greeterCGONativeAdapter {
 	return &greeterCGONativeAdapter{}
 }
 
+// StoreGreeterCGONativeServerErrorTextForExport stores cgo native server error text and returns its error id for C callbacks.
+//
 //export StoreGreeterCGONativeServerErrorTextForExport
 func StoreGreeterCGONativeServerErrorTextForExport(text *C.char, textLen C.int32_t) C.int32_t {
 	length, err := rpcruntime.LengthFromInt32(int32(textLen))

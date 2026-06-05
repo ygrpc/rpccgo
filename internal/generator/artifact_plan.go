@@ -5,6 +5,7 @@ import (
 	"path"
 )
 
+// AttachServiceArtifactPlans fills each service with the generated artifact list derived from file options.
 func AttachServiceArtifactPlans(file *FilePlan) {
 	if file == nil {
 		return
@@ -14,6 +15,7 @@ func AttachServiceArtifactPlans(file *FilePlan) {
 	}
 }
 
+// BuildServiceArtifactPlans returns the service-specific artifacts generated for one service.
 func BuildServiceArtifactPlans(file FilePlan, service ServicePlan) []GeneratedArtifactPlan {
 	serviceName := lowerSnakeCase(service.GoName)
 	prefix := file.GeneratedFilenamePrefix
@@ -36,6 +38,7 @@ func BuildServiceArtifactPlans(file FilePlan, service ServicePlan) []GeneratedAr
 	return artifacts
 }
 
+// BuildSharedArtifactPlans returns package-level shared cgo artifacts required by the package.
 func BuildSharedArtifactPlans(pkg PackagePlan) []GeneratedArtifactPlan {
 	if !packageHasCGOArtifacts(pkg) || len(pkg.Files) == 0 {
 		return nil
@@ -49,6 +52,7 @@ func BuildSharedArtifactPlans(pkg PackagePlan) []GeneratedArtifactPlan {
 	}
 }
 
+// BuildCodecFilePlan returns the codec artifact for a service, deriving the default filename if needed.
 func BuildCodecFilePlan(file FilePlan, service ServicePlan) GeneratedArtifactPlan {
 	if artifact, ok := service.Artifact(GeneratedArtifactKindCodec); ok {
 		return artifact

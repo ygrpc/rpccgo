@@ -293,6 +293,8 @@ func messageCServiceMethodRegisterExportFuncName(plan FilePlan, service ServiceP
 }
 
 func renderCGOMessageStreamEOFHelper(g *protogen.GeneratedFile, service ServicePlan) {
+	name := service.GoName + "CGOMessageStreamEOFErrorID"
+	renderDoc(g, name, "stores io.EOF and returns its error id for cgo message stream callbacks.")
 	g.P("func ", service.GoName, "CGOMessageStreamEOFErrorID() int32 {")
 	g.P("return int32(rpcruntime.StoreError(io.EOF))")
 	g.P("}")

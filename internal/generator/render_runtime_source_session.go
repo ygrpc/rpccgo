@@ -5,6 +5,7 @@ import "google.golang.org/protobuf/compiler/protogen"
 func renderNativeSourceSessionInterfaces(g *protogen.GeneratedFile, methods []runtimeMethodProjection) {
 	for _, method := range methods {
 		nativeName := method.Symbols.NativeSourceSessionType
+		renderDoc(g, nativeName, "is the native stream session contract captured for "+method.Identity.GoName+".")
 		g.P("type ", nativeName, " interface {")
 		if method.Stream.CanSend {
 			g.P("Send(ctx context.Context", method.Native.Args, ") error")

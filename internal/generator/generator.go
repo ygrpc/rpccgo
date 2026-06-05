@@ -12,6 +12,7 @@ import (
 
 const defaultCGODir = "cgo"
 
+// GeneratorConfig stores protoc-gen-rpc-cgo options after parameter parsing.
 type GeneratorConfig struct {
 	CGODir string
 }
@@ -37,6 +38,7 @@ func Generate(plugin *protogen.Plugin) (GenerationPlan, error) {
 	return plan, nil
 }
 
+// GenerateWithOptions builds a generation plan and renders all generated files into the plugin response.
 func GenerateWithOptions(plugin *protogen.Plugin) (GenerationPlan, error) {
 	plan, err := Generate(plugin)
 	if err != nil {
@@ -105,6 +107,7 @@ func packagePlansFromFiles(files []FilePlan, descriptors []*protogen.File, confi
 	return packages
 }
 
+// ProtogenOptions returns protogen options configured with rpccgo parameter parsing.
 func ProtogenOptions() protogen.Options {
 	return protogen.Options{
 		ParamFunc: parseRPCCGOParameter,

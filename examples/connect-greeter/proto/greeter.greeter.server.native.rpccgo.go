@@ -34,31 +34,37 @@ type GreeterNativeServer interface {
 	Chat(ctx context.Context, stream GreeterChatNativeBidiStream) error
 }
 
+// GreeterCollectNativeClientStream receives native request values for the Collect client-streaming method.
 type GreeterCollectNativeClientStream interface {
 	Recv(ctx context.Context) (*rpcruntime.RpcString, *rpcruntime.RpcString, error)
 }
 
+// GreeterBroadcastNativeServerStream sends native response values for the Broadcast server-streaming method.
 type GreeterBroadcastNativeServerStream interface {
 	Send(ctx context.Context, message string) error
 }
 
+// GreeterChatNativeBidiStream sends and receives native values for the Chat bidi-streaming method.
 type GreeterChatNativeBidiStream interface {
 	Recv(ctx context.Context) (*rpcruntime.RpcString, *rpcruntime.RpcString, error)
 	Send(ctx context.Context, message string) error
 }
 
+// GreeterCollectNativeStreamSession is the native stream session contract captured for Collect.
 type GreeterCollectNativeStreamSession interface {
 	Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error
 	Finish(ctx context.Context) (string, error)
 	Cancel(ctx context.Context) error
 }
 
+// GreeterBroadcastNativeStreamSession is the native stream session contract captured for Broadcast.
 type GreeterBroadcastNativeStreamSession interface {
 	Recv(ctx context.Context) (string, error)
 	Finish(ctx context.Context) error
 	Cancel(ctx context.Context) error
 }
 
+// GreeterChatNativeStreamSession is the native stream session contract captured for Chat.
 type GreeterChatNativeStreamSession interface {
 	Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error
 	Recv(ctx context.Context) (string, error)
@@ -67,6 +73,7 @@ type GreeterChatNativeStreamSession interface {
 	Cancel(ctx context.Context) error
 }
 
+// SendGreeterNativeCollect sends native request values on an active Collect stream.
 func SendGreeterNativeCollect(ctx context.Context, handle rpcruntime.StreamHandle, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
 	entry, err := rpcruntime.SendStreamSession(handle)
 	if err != nil {
@@ -140,6 +147,7 @@ func SendGreeterNativeCollect(ctx context.Context, handle rpcruntime.StreamHandl
 	}
 }
 
+// FinishGreeterNativeCollect finishes an active native Collect stream and releases its handle.
 func FinishGreeterNativeCollect(ctx context.Context, handle rpcruntime.StreamHandle) (string, error) {
 	entry, err := rpcruntime.FinishStreamSession(handle)
 	if err != nil {
@@ -213,6 +221,7 @@ func FinishGreeterNativeCollect(ctx context.Context, handle rpcruntime.StreamHan
 	}
 }
 
+// CancelGreeterNativeCollect cancels an active native Collect stream and releases its handle.
 func CancelGreeterNativeCollect(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.CancelStreamSession(handle)
 	if err != nil {
@@ -266,6 +275,7 @@ func CancelGreeterNativeCollect(ctx context.Context, handle rpcruntime.StreamHan
 	}
 }
 
+// RecvGreeterNativeBroadcast receives native response values from an active Broadcast stream.
 func RecvGreeterNativeBroadcast(ctx context.Context, handle rpcruntime.StreamHandle) (string, error) {
 	entry, err := rpcruntime.RecvStreamSession(handle)
 	if err != nil {
@@ -339,6 +349,7 @@ func RecvGreeterNativeBroadcast(ctx context.Context, handle rpcruntime.StreamHan
 	}
 }
 
+// FinishGreeterNativeBroadcast finishes an active native Broadcast stream and releases its handle.
 func FinishGreeterNativeBroadcast(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.FinishStreamSession(handle)
 	if err != nil {
@@ -392,6 +403,7 @@ func FinishGreeterNativeBroadcast(ctx context.Context, handle rpcruntime.StreamH
 	}
 }
 
+// CancelGreeterNativeBroadcast cancels an active native Broadcast stream and releases its handle.
 func CancelGreeterNativeBroadcast(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.CancelStreamSession(handle)
 	if err != nil {
@@ -445,6 +457,7 @@ func CancelGreeterNativeBroadcast(ctx context.Context, handle rpcruntime.StreamH
 	}
 }
 
+// SendGreeterNativeChat sends native request values on an active Chat stream.
 func SendGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
 	entry, err := rpcruntime.SendStreamSession(handle)
 	if err != nil {
@@ -518,6 +531,7 @@ func SendGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle, 
 	}
 }
 
+// RecvGreeterNativeChat receives native response values from an active Chat stream.
 func RecvGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle) (string, error) {
 	entry, err := rpcruntime.RecvStreamSession(handle)
 	if err != nil {
@@ -591,6 +605,7 @@ func RecvGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle) 
 	}
 }
 
+// CloseSendGreeterNativeChat closes the native send side of an active Chat stream.
 func CloseSendGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.CloseSendStreamSession(handle)
 	if err != nil {
@@ -644,6 +659,7 @@ func CloseSendGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHan
 	}
 }
 
+// FinishGreeterNativeChat finishes an active native Chat stream and releases its handle.
 func FinishGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.FinishStreamSession(handle)
 	if err != nil {
@@ -697,6 +713,7 @@ func FinishGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle
 	}
 }
 
+// CancelGreeterNativeChat cancels an active native Chat stream and releases its handle.
 func CancelGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.CancelStreamSession(handle)
 	if err != nil {
@@ -750,24 +767,30 @@ func CancelGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle
 	}
 }
 
+// UnimplementedGreeterNativeServer provides default unimplemented native server methods for Greeter.
 type UnimplementedGreeterNativeServer struct{}
 
+// SayHello returns an unimplemented error for the Greeter native SayHello method.
 func (UnimplementedGreeterNativeServer) SayHello(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error) {
 	return "", errors.New("rpccgo: Greeter.SayHello native server method is not implemented")
 }
 
+// Collect returns an unimplemented error for the Greeter native Collect method.
 func (UnimplementedGreeterNativeServer) Collect(ctx context.Context, stream GreeterCollectNativeClientStream) (string, error) {
 	return "", errors.New("rpccgo: Greeter.Collect native server method is not implemented")
 }
 
+// Broadcast returns an unimplemented error for the Greeter native Broadcast method.
 func (UnimplementedGreeterNativeServer) Broadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString, stream GreeterBroadcastNativeServerStream) error {
 	return errors.New("rpccgo: Greeter.Broadcast native server method is not implemented")
 }
 
+// Chat returns an unimplemented error for the Greeter native Chat method.
 func (UnimplementedGreeterNativeServer) Chat(ctx context.Context, stream GreeterChatNativeBidiStream) error {
 	return errors.New("rpccgo: Greeter.Chat native server method is not implemented")
 }
 
+// RegisterGreeterGoNativeServer registers a Go native server as the current server for Greeter.
 func RegisterGreeterGoNativeServer(server GreeterNativeServer) error {
 	if server == nil {
 		return errors.New("rpccgo: Greeter go native server is nil")
@@ -775,6 +798,7 @@ func RegisterGreeterGoNativeServer(server GreeterNativeServer) error {
 	return registerGreeterGoNativeServer(server)
 }
 
+// registerGreeterGoNativeServer registers the supplied go native server as the current server for this service.
 func registerGreeterGoNativeServer(server GreeterNativeServer) error {
 	if server == nil {
 		_ = rpcruntime.ClearServer(greeterServiceID)
@@ -791,6 +815,7 @@ func registerGreeterGoNativeServer(server GreeterNativeServer) error {
 	return nil
 }
 
+// RegisterGreeterCGONativeServer registers the supplied cgo native server as the current server for this service.
 func RegisterGreeterCGONativeServer(server GreeterNativeServer) error {
 	if server == nil {
 		_ = rpcruntime.ClearServer(greeterServiceID)

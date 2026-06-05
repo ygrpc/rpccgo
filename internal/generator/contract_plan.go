@@ -7,6 +7,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
+// BuildContractPlan derives native and message method contracts from protobuf descriptors.
 func BuildContractPlan(service *protogen.Service, method *protogen.Method, methodPlan MethodPlan) (MethodContractPlan, error) {
 	if service == nil {
 		return MethodContractPlan{}, fmt.Errorf("protogen service is nil")

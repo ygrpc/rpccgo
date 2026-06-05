@@ -34,6 +34,7 @@ type registrationSourceProjection struct {
 	transportStreamConstructorReturnsErr bool
 }
 
+// ProjectRegistrationSource derives renderer names, input types, and server kind for a registration source.
 func ProjectRegistrationSource(service ServicePlan, source RegistrationSourcePlan) (registrationSourceProjection, error) {
 	if err := ValidateRegistrationSourcePlan(source); err != nil {
 		return registrationSourceProjection{}, err
