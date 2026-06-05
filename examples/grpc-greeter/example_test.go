@@ -103,8 +103,9 @@ func TestGRPCGreeterMageRunNoPanic(t *testing.T) {
 		t.Fatalf("mage run output contains panic:\n%s", out)
 	}
 	for _, marker := range []string{
-		"route: local go native registered server",
+		"route: grpc server registered server",
 		"route: grpc remote registered server",
+		"route: go native registered server",
 	} {
 		if !bytes.Contains(out, []byte(marker)) {
 			t.Fatalf("mage run output missing %q\n%s", marker, out)

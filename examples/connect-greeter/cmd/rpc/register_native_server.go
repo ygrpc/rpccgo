@@ -25,6 +25,12 @@ func init() {
 		}
 		return
 	}
+	if os.Getenv("RPCCGO_DEMO_SERVER_KIND") == "connect_handler" {
+		if err := greeterv1.RegisterGreeterConnectHandler(backend.ConnectGreeter{}); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	if err := greeterv1.RegisterGreeterGoNativeServer(backend.Greeter{}); err != nil {
 		log.Fatal(err)
 	}

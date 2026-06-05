@@ -44,7 +44,7 @@ func Test() error {
 	return buildAndRunCClient()
 }
 
-// Run regenerates the example, then demonstrates local and remote registered servers through the same C client.
+// Run regenerates the example, then demonstrates switching among supported Connect example servers.
 func Run() error {
 	binDir, cleanup, err := installProtocPlugins()
 	if err != nil {
@@ -59,13 +59,6 @@ func Run() error {
 		return err
 	}
 	defer cleanupArtifacts()
-
-	fmt.Println("== local go native registered server ==")
-	if err := runCClient(artifactDir, callerPath, map[string]string{
-		"RPCCGO_DEMO_ROUTE": "local go native registered server",
-	}); err != nil {
-		return err
-	}
 
 	connectAddr, err := reserveTCPAddr()
 	if err != nil {
@@ -97,11 +90,46 @@ func Run() error {
 		return err
 	}
 
-	fmt.Println("== connect remote registered server ==")
-	return runCClient(artifactDir, callerPath, map[string]string{
-		"RPCCGO_CONNECT_URL": "http://" + connectAddr,
-		"RPCCGO_DEMO_ROUTE":  "connect remote registered server",
-	})
+	for _, step := range []struct {
+		title string
+		env   map[string]string
+	}{
+		{
+			title: "connect handler registered server",
+			env: map[string]string{
+				"RPCCGO_DEMO_ROUTE":       "connect handler registered server",
+				"RPCCGO_DEMO_SERVER_KIND": "connect_handler",
+			},
+		},
+		{
+			title: "connect remote registered server",
+			env: map[string]string{
+				"RPCCGO_CONNECT_URL":      "http://" + connectAddr,
+				"RPCCGO_DEMO_ROUTE":       "connect remote registered server",
+				"RPCCGO_DEMO_SERVER_KIND": "connect_remote",
+			},
+		},
+		{
+			title: "cgo message registered server",
+			env: map[string]string{
+				"RPCCGO_DEMO_ROUTE":       "cgo message registered server",
+				"RPCCGO_DEMO_SERVER_KIND": "cgo_message",
+			},
+		},
+		{
+			title: "cgo native registered server",
+			env: map[string]string{
+				"RPCCGO_DEMO_ROUTE":       "cgo native registered server",
+				"RPCCGO_DEMO_SERVER_KIND": "cgo_native",
+			},
+		},
+	} {
+		fmt.Println("== switch to " + step.title + " ==")
+		if err := runCClient(artifactDir, callerPath, step.env); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Server starts the connect example Connect h2c server.

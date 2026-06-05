@@ -113,8 +113,10 @@ func TestConnectGreeterMageRunNoPanic(t *testing.T) {
 		t.Fatalf("mage run output contains panic:\n%s", out)
 	}
 	for _, marker := range []string{
-		"route: local go native registered server",
+		"route: connect handler registered server",
 		"route: connect remote registered server",
+		"route: cgo message registered server",
+		"route: cgo native registered server",
 	} {
 		if !bytes.Contains(out, []byte(marker)) {
 			t.Fatalf("mage run output missing %q\n%s", marker, out)

@@ -44,7 +44,7 @@ func Test() error {
 	return buildAndRunCClient()
 }
 
-// Run regenerates the example, then demonstrates local and remote registered servers through the same C client.
+// Run regenerates the example, then demonstrates switching among supported gRPC example servers.
 func Run() error {
 	binDir, cleanup, err := installProtocPlugins()
 	if err != nil {
@@ -59,13 +59,6 @@ func Run() error {
 		return err
 	}
 	defer cleanupArtifacts()
-
-	fmt.Println("== local go native registered server ==")
-	if err := runCClient(artifactDir, callerPath, map[string]string{
-		"RPCCGO_DEMO_ROUTE": "local go native registered server",
-	}); err != nil {
-		return err
-	}
 
 	addr, err := reserveTCPAddr()
 	if err != nil {
@@ -94,11 +87,39 @@ func Run() error {
 		return err
 	}
 
-	fmt.Println("== grpc remote registered server ==")
-	return runCClient(artifactDir, callerPath, map[string]string{
-		"RPCCGO_DEMO_ROUTE":  "grpc remote registered server",
-		"RPCCGO_GRPC_TARGET": addr,
-	})
+	for _, step := range []struct {
+		title string
+		env   map[string]string
+	}{
+		{
+			title: "grpc server registered server",
+			env: map[string]string{
+				"RPCCGO_DEMO_ROUTE":       "grpc server registered server",
+				"RPCCGO_DEMO_SERVER_KIND": "grpc_server",
+			},
+		},
+		{
+			title: "grpc remote registered server",
+			env: map[string]string{
+				"RPCCGO_GRPC_TARGET":      addr,
+				"RPCCGO_DEMO_ROUTE":       "grpc remote registered server",
+				"RPCCGO_DEMO_SERVER_KIND": "grpc_remote",
+			},
+		},
+		{
+			title: "go native registered server",
+			env: map[string]string{
+				"RPCCGO_DEMO_ROUTE":       "go native registered server",
+				"RPCCGO_DEMO_SERVER_KIND": "go_native",
+			},
+		},
+	} {
+		fmt.Println("== switch to " + step.title + " ==")
+		if err := runCClient(artifactDir, callerPath, step.env); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Server starts the gRPC greeter example server.

@@ -26,6 +26,12 @@ func init() {
 		}
 		return
 	}
+	if os.Getenv("RPCCGO_DEMO_SERVER_KIND") == "grpc_server" {
+		if err := greeterv1.RegisterGreeterGRPCServer(backend.GRPCGreeter{}); err != nil {
+			log.Fatal(err)
+		}
+		return
+	}
 	if err := greeterv1.RegisterGreeterGoNativeServer(backend.Greeter{}); err != nil {
 		log.Fatal(err)
 	}
