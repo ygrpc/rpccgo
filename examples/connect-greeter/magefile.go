@@ -70,13 +70,10 @@ func Run() error {
 	}
 	defer func() { _ = os.Remove(serverBin) }()
 
-	server := exec.Command(serverBin)
+	server := exec.Command(serverBin, "--addr", connectAddr)
 	server.Stdout = os.Stdout
 	server.Stderr = os.Stderr
-	server.Env = append(os.Environ(),
-		"GOFLAGS=-mod=mod",
-		"RPCCGO_CONNECT_ADDR="+connectAddr,
-	)
+	server.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
 	if err := server.Start(); err != nil {
 		return err
 	}
@@ -92,40 +89,27 @@ func Run() error {
 
 	for _, step := range []struct {
 		title string
-		env   map[string]string
+		args  []string
 	}{
 		{
 			title: "connect handler registered server",
-			env: map[string]string{
-				"RPCCGO_DEMO_ROUTE":       "connect handler registered server",
-				"RPCCGO_DEMO_SERVER_KIND": "connect_handler",
-			},
+			args:  []string{"--server=connect_handler", "--route=connect handler registered server"},
 		},
 		{
 			title: "connect remote registered server",
-			env: map[string]string{
-				"RPCCGO_CONNECT_URL":      "http://" + connectAddr,
-				"RPCCGO_DEMO_ROUTE":       "connect remote registered server",
-				"RPCCGO_DEMO_SERVER_KIND": "connect_remote",
-			},
+			args:  []string{"--server=connect_remote", "--connect-url=http://" + connectAddr, "--route=connect remote registered server"},
 		},
 		{
 			title: "cgo message registered server",
-			env: map[string]string{
-				"RPCCGO_DEMO_ROUTE":       "cgo message registered server",
-				"RPCCGO_DEMO_SERVER_KIND": "cgo_message",
-			},
+			args:  []string{"--server=cgo_message", "--route=cgo message registered server"},
 		},
 		{
 			title: "cgo native registered server",
-			env: map[string]string{
-				"RPCCGO_DEMO_ROUTE":       "cgo native registered server",
-				"RPCCGO_DEMO_SERVER_KIND": "cgo_native",
-			},
+			args:  []string{"--server=cgo_native", "--route=cgo native registered server"},
 		},
 	} {
 		fmt.Println("== switch to " + step.title + " ==")
-		if err := runCClient(artifactDir, callerPath, step.env); err != nil {
+		if err := runCClient(artifactDir, callerPath, step.args...); err != nil {
 			return err
 		}
 	}
@@ -159,7 +143,7 @@ func buildAndRunCClient() error {
 	}
 	defer cleanup()
 
-	return runCClient(artifactDir, callerPath, nil)
+	return runCClient(artifactDir, callerPath)
 }
 
 func buildCSharedArtifacts() (string, string, func(), error) {
@@ -199,14 +183,11 @@ func buildCSharedArtifacts() (string, string, func(), error) {
 	return artifactDir, callerPath, cleanup, nil
 }
 
-func runCClient(artifactDir, callerPath string, extra map[string]string) error {
+func runCClient(artifactDir, callerPath string, args ...string) error {
 	env := map[string]string{
 		"LD_LIBRARY_PATH": artifactDir + string(os.PathListSeparator) + os.Getenv("LD_LIBRARY_PATH"),
 	}
-	for key, value := range extra {
-		env[key] = value
-	}
-	return runWithEnv(env, callerPath)
+	return runWithEnv(env, callerPath, args...)
 }
 
 func runWithBinDir(binDir string, name string, args ...string) error {

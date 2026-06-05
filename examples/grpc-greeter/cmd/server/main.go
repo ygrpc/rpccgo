@@ -1,9 +1,9 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net"
-	"os"
 
 	greeterv1 "example.com/rpccgo-grpc/gen/greeter/v1"
 	"example.com/rpccgo-grpc/internal/backend"
@@ -11,7 +11,10 @@ import (
 )
 
 func main() {
-	listener, err := net.Listen("tcp", envOrDefault("RPCCGO_GRPC_ADDR", "127.0.0.1:8080"))
+	addr := flag.String("addr", "127.0.0.1:8080", "grpc server listen address")
+	flag.Parse()
+
+	listener, err := net.Listen("tcp", *addr)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -19,12 +22,4 @@ func main() {
 	server := grpc.NewServer()
 	greeterv1.RegisterGreeterServer(server, backend.GRPCGreeter{})
 	log.Fatal(server.Serve(listener))
-}
-
-func envOrDefault(name, fallback string) string {
-	value := os.Getenv(name)
-	if value == "" {
-		return fallback
-	}
-	return value
 }

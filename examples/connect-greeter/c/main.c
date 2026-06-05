@@ -42,6 +42,19 @@ static void assert_string_equals(const char *label, const char *got, int32_t got
   }
 }
 
+static const char *arg_value(int argc, char **argv, const char *name) {
+  size_t name_len = strlen(name);
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], name) == 0 && i + 1 < argc) {
+      return argv[i + 1];
+    }
+    if (strncmp(argv[i], name, name_len) == 0 && argv[i][name_len] == '=') {
+      return argv[i] + name_len + 1;
+    }
+  }
+  return NULL;
+}
+
 static char demo_output[256];
 static unsigned char proto_output[256];
 static char collect_names[128];
@@ -522,8 +535,7 @@ static void send_native_chat_message(int32_t handle, const char *name, const cha
   }
 }
 
-static void run_registered_server_demo(void) {
-  const char *route = getenv("RPCCGO_DEMO_ROUTE");
+static void run_registered_server_demo(const char *route) {
   if (route != NULL && route[0] != '\0') {
     printf("route: %s\n", route);
     fflush(stdout);
@@ -534,13 +546,13 @@ static void run_registered_server_demo(void) {
   run_native_chat_demo();
 }
 
-int main(void) {
-  const char *kind = getenv("RPCCGO_DEMO_SERVER_KIND");
+int main(int argc, char **argv) {
+  const char *kind = arg_value(argc, argv, "--server");
   if (kind != NULL && strcmp(kind, "cgo_message") == 0) {
     register_cgo_message_server();
   } else if (kind != NULL && strcmp(kind, "cgo_native") == 0) {
     register_cgo_native_server();
   }
-  run_registered_server_demo();
+  run_registered_server_demo(arg_value(argc, argv, "--route"));
   return 0;
 }

@@ -41,6 +41,19 @@ static void assert_string_equals(const char *label, const char *got, int32_t got
   }
 }
 
+static const char *arg_value(int argc, char **argv, const char *name) {
+  size_t name_len = strlen(name);
+  for (int i = 1; i < argc; i++) {
+    if (strcmp(argv[i], name) == 0 && i + 1 < argc) {
+      return argv[i + 1];
+    }
+    if (strncmp(argv[i], name, name_len) == 0 && argv[i][name_len] == '=') {
+      return argv[i] + name_len + 1;
+    }
+  }
+  return NULL;
+}
+
 static void run_native_unary_demo(void) {
   uintptr_t message_ptr = 0;
   int32_t message_len = 0;
@@ -163,8 +176,8 @@ static void send_native_chat_message(int32_t handle, const char *name, const cha
   }
 }
 
-int main(void) {
-  const char *route = getenv("RPCCGO_DEMO_ROUTE");
+int main(int argc, char **argv) {
+  const char *route = arg_value(argc, argv, "--route");
   if (route != NULL && route[0] != '\0') {
     printf("route: %s\n", route);
   }

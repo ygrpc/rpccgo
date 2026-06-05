@@ -138,12 +138,9 @@ func startExampleServer(t *testing.T) exampleServer {
 		t.Fatalf("build grpc example server error = %v\n%s", err, out)
 	}
 
-	cmd := exec.Command(serverBin)
+	cmd := exec.Command(serverBin, "--addr", grpcAddr)
 	cmd.Dir = "../.."
-	cmd.Env = append(os.Environ(),
-		"GOFLAGS=-mod=mod",
-		"RPCCGO_GRPC_ADDR="+grpcAddr,
-	)
+	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("start grpc example server error = %v", err)
 	}

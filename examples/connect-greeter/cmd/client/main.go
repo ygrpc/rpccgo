@@ -3,12 +3,12 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 
 	connect "connectrpc.com/connect"
@@ -23,7 +23,9 @@ func main() {
 }
 
 func run(ctx context.Context) error {
-	connectBaseURL := strings.TrimRight(envOrDefault("RPCCGO_CONNECT_URL", "http://127.0.0.1:8081"), "/")
+	connectURL := flag.String("url", "http://127.0.0.1:8081", "connect server base URL")
+	flag.Parse()
+	connectBaseURL := strings.TrimRight(*connectURL, "/")
 	return runConnectDemo(ctx, connectBaseURL)
 }
 
@@ -98,12 +100,4 @@ func h2cClient() connect.HTTPClient {
 			},
 		},
 	}
-}
-
-func envOrDefault(name, fallback string) string {
-	value := os.Getenv(name)
-	if value == "" {
-		return fallback
-	}
-	return value
 }

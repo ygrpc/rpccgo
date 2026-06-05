@@ -134,12 +134,9 @@ func startExampleServer(t *testing.T) exampleServer {
 		t.Fatalf("build connect example server error = %v\n%s", err, out)
 	}
 
-	cmd := exec.Command(serverBin)
+	cmd := exec.Command(serverBin, "--addr", connectAddr)
 	cmd.Dir = "../.."
-	cmd.Env = append(os.Environ(),
-		"GOFLAGS=-mod=mod",
-		"RPCCGO_CONNECT_ADDR="+connectAddr,
-	)
+	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("start connect example server error = %v", err)
 	}

@@ -18,14 +18,14 @@ import (
 )
 
 func init() {
-	if baseURL := strings.TrimRight(os.Getenv("RPCCGO_CONNECT_URL"), "/"); baseURL != "" {
+	if baseURL := strings.TrimRight(argValue("--connect-url"), "/"); baseURL != "" {
 		client := greeterv1.NewGreeterClient(h2cClient(), baseURL)
 		if err := greeterv1.RegisterGreeterConnectRemoteServer(client); err != nil {
 			log.Fatal(err)
 		}
 		return
 	}
-	if os.Getenv("RPCCGO_DEMO_SERVER_KIND") == "connect_handler" {
+	if argValue("--server") == "connect_handler" {
 		if err := greeterv1.RegisterGreeterConnectHandler(backend.ConnectGreeter{}); err != nil {
 			log.Fatal(err)
 		}
@@ -34,6 +34,19 @@ func init() {
 	if err := greeterv1.RegisterGreeterGoNativeServer(backend.Greeter{}); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func argValue(name string) string {
+	prefix := name + "="
+	for index, arg := range os.Args[1:] {
+		if arg == name && index+2 <= len(os.Args[1:]) {
+			return os.Args[index+2]
+		}
+		if strings.HasPrefix(arg, prefix) {
+			return strings.TrimPrefix(arg, prefix)
+		}
+	}
+	return ""
 }
 
 func h2cClient() connect.HTTPClient {

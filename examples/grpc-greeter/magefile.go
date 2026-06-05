@@ -70,10 +70,10 @@ func Run() error {
 	}
 	defer func() { _ = os.Remove(serverBin) }()
 
-	server := exec.Command(serverBin)
+	server := exec.Command(serverBin, "--addr", addr)
 	server.Stdout = os.Stdout
 	server.Stderr = os.Stderr
-	server.Env = append(os.Environ(), "GOFLAGS=-mod=mod", "RPCCGO_GRPC_ADDR="+addr)
+	server.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
 	if err := server.Start(); err != nil {
 		return err
 	}
@@ -89,33 +89,23 @@ func Run() error {
 
 	for _, step := range []struct {
 		title string
-		env   map[string]string
+		args  []string
 	}{
 		{
 			title: "grpc server registered server",
-			env: map[string]string{
-				"RPCCGO_DEMO_ROUTE":       "grpc server registered server",
-				"RPCCGO_DEMO_SERVER_KIND": "grpc_server",
-			},
+			args:  []string{"--server=grpc_server", "--route=grpc server registered server"},
 		},
 		{
 			title: "grpc remote registered server",
-			env: map[string]string{
-				"RPCCGO_GRPC_TARGET":      addr,
-				"RPCCGO_DEMO_ROUTE":       "grpc remote registered server",
-				"RPCCGO_DEMO_SERVER_KIND": "grpc_remote",
-			},
+			args:  []string{"--server=grpc_remote", "--grpc-target=" + addr, "--route=grpc remote registered server"},
 		},
 		{
 			title: "go native registered server",
-			env: map[string]string{
-				"RPCCGO_DEMO_ROUTE":       "go native registered server",
-				"RPCCGO_DEMO_SERVER_KIND": "go_native",
-			},
+			args:  []string{"--server=go_native", "--route=go native registered server"},
 		},
 	} {
 		fmt.Println("== switch to " + step.title + " ==")
-		if err := runCClient(artifactDir, callerPath, step.env); err != nil {
+		if err := runCClient(artifactDir, callerPath, step.args...); err != nil {
 			return err
 		}
 	}
@@ -149,7 +139,7 @@ func buildAndRunCClient() error {
 	}
 	defer cleanup()
 
-	return runCClient(artifactDir, callerPath, nil)
+	return runCClient(artifactDir, callerPath)
 }
 
 func buildCSharedArtifacts() (string, string, func(), error) {
@@ -189,14 +179,11 @@ func buildCSharedArtifacts() (string, string, func(), error) {
 	return artifactDir, callerPath, cleanup, nil
 }
 
-func runCClient(artifactDir, callerPath string, extra map[string]string) error {
+func runCClient(artifactDir, callerPath string, args ...string) error {
 	env := map[string]string{
 		"LD_LIBRARY_PATH": artifactDir + string(os.PathListSeparator) + os.Getenv("LD_LIBRARY_PATH"),
 	}
-	for key, value := range extra {
-		env[key] = value
-	}
-	return runWithEnv(env, callerPath)
+	return runWithEnv(env, callerPath, args...)
 }
 
 func runWithBinDir(binDir string, name string, args ...string) error {

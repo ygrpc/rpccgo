@@ -5,6 +5,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 
 	greeterv1 "example.com/rpccgo-grpc/gen/greeter/v1"
 	"example.com/rpccgo-grpc/internal/backend"
@@ -15,7 +16,7 @@ import (
 var remoteConn *grpc.ClientConn
 
 func init() {
-	if target := os.Getenv("RPCCGO_GRPC_TARGET"); target != "" {
+	if target := argValue("--grpc-target"); target != "" {
 		conn, err := grpc.NewClient(target, grpc.WithTransportCredentials(insecure.NewCredentials()))
 		if err != nil {
 			log.Fatal(err)
@@ -26,7 +27,7 @@ func init() {
 		}
 		return
 	}
-	if os.Getenv("RPCCGO_DEMO_SERVER_KIND") == "grpc_server" {
+	if argValue("--server") == "grpc_server" {
 		if err := greeterv1.RegisterGreeterGRPCServer(backend.GRPCGreeter{}); err != nil {
 			log.Fatal(err)
 		}
@@ -35,4 +36,17 @@ func init() {
 	if err := greeterv1.RegisterGreeterGoNativeServer(backend.Greeter{}); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func argValue(name string) string {
+	prefix := name + "="
+	for index, arg := range os.Args[1:] {
+		if arg == name && index+2 <= len(os.Args[1:]) {
+			return os.Args[index+2]
+		}
+		if strings.HasPrefix(arg, prefix) {
+			return strings.TrimPrefix(arg, prefix)
+		}
+	}
+	return ""
 }
