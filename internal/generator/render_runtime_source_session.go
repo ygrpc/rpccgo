@@ -27,25 +27,4 @@ func renderNativeSourceSessionInterfaces(g *protogen.GeneratedFile, methods []ru
 }
 
 func renderMessageSourceSessionInterfaces(g *protogen.GeneratedFile, methods []runtimeMethodProjection) {
-	for _, method := range methods {
-		messageName := method.Symbols.MessageSourceSessionType
-		g.P("type ", messageName, " interface {")
-		if method.Stream.CanSend {
-			g.P("Send(ctx context.Context, req []byte) error")
-		}
-		if method.Stream.CanRecv {
-			g.P("Recv(ctx context.Context) ([]byte, error)")
-		}
-		if method.Stream.CanCloseSend {
-			g.P("CloseSend(ctx context.Context) error")
-		}
-		if method.Stream.FinishReturnsResponse {
-			g.P("Finish(ctx context.Context) ([]byte, error)")
-		} else {
-			g.P("Finish(ctx context.Context) error")
-		}
-		g.P("Cancel(ctx context.Context) error")
-		g.P("}")
-		g.P()
-	}
 }

@@ -18,7 +18,6 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	directGRPCStreaming := service.Generation.MessageTransport == MessageTransportGRPC && serviceHasStreamingMethod(service)
 	directUnary := serviceHasUnaryMethod(service)
 	directFmt := directUnary || directConnectStreaming || directGRPCStreaming
-	directProto := directUnary || directConnectStreaming || directGRPCStreaming
 
 	g.P("package ", plan.GoPackageName)
 	g.P()
@@ -30,9 +29,6 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	}
 	if directFmt {
 		g.P(`fmt "fmt"`)
-	}
-	if directProto {
-		g.P(`proto "google.golang.org/protobuf/proto"`)
 	}
 	if directConnectStreaming || directGRPCStreaming || nativeServerHasStreamingMethod(service) || serviceHasStreamingMethod(service) {
 		g.P(`io "io"`)

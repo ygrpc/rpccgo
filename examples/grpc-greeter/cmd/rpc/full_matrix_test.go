@@ -76,67 +76,44 @@ func registerMessageServer(t *testing.T) {
 
 type localMessageServer struct{}
 
-func (localMessageServer) SayHello(_ context.Context, data []byte) ([]byte, error) {
-	var req greeterv1.SayHelloRequest
-	if err := proto.Unmarshal(data, &req); err != nil {
-		return nil, err
-	}
-	return proto.Marshal(&greeterv1.SayHelloResponse{Message: fmt.Sprintf("hello %s from %s", req.GetName(), req.GetCity())})
+func (localMessageServer) SayHello(_ context.Context, req *greeterv1.SayHelloRequest) (*greeterv1.SayHelloResponse, error) {
+	return &greeterv1.SayHelloResponse{Message: fmt.Sprintf("hello %s from %s", req.GetName(), req.GetCity())}, nil
 }
 
-func (localMessageServer) Collect(ctx context.Context, stream greeterv1.GreeterCollectMessageClientStream) ([]byte, error) {
+func (localMessageServer) Collect(ctx context.Context, stream rpcruntime.CGOMessageClientStream[*greeterv1.SayHelloRequest]) (*greeterv1.SayHelloResponse, error) {
 	var names []string
 	for {
-		data, err := stream.Recv(ctx)
+		req, err := stream.Recv(ctx)
 		if err == io.EOF {
-			return proto.Marshal(&greeterv1.SayHelloResponse{Message: "collect:" + strings.Join(names, ",")})
+			return &greeterv1.SayHelloResponse{Message: "collect:" + strings.Join(names, ",")}, nil
 		}
 		if err != nil {
-			return nil, err
-		}
-		var req greeterv1.SayHelloRequest
-		if err := proto.Unmarshal(data, &req); err != nil {
 			return nil, err
 		}
 		names = append(names, req.GetName())
 	}
 }
 
-func (localMessageServer) Broadcast(ctx context.Context, data []byte, stream greeterv1.GreeterBroadcastMessageServerStream) error {
-	var req greeterv1.SayHelloRequest
-	if err := proto.Unmarshal(data, &req); err != nil {
-		return err
-	}
+func (localMessageServer) Broadcast(ctx context.Context, req *greeterv1.SayHelloRequest, stream rpcruntime.CGOMessageServerStream[*greeterv1.SayHelloResponse]) error {
 	for index := 0; index < 2; index++ {
-		data, err := proto.Marshal(&greeterv1.SayHelloResponse{Message: fmt.Sprintf("broadcast[%d]:%s", index, req.GetName())})
-		if err != nil {
-			return err
-		}
-		if err := stream.Send(ctx, data); err != nil {
+		resp := &greeterv1.SayHelloResponse{Message: fmt.Sprintf("broadcast[%d]:%s", index, req.GetName())}
+		if err := stream.Send(ctx, resp); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (localMessageServer) Chat(ctx context.Context, stream greeterv1.GreeterChatMessageBidiStream) error {
+func (localMessageServer) Chat(ctx context.Context, stream rpcruntime.CGOMessageBidiStream[*greeterv1.SayHelloRequest, *greeterv1.SayHelloResponse]) error {
 	for {
-		data, err := stream.Recv(ctx)
+		req, err := stream.Recv(ctx)
 		if err == io.EOF {
 			return nil
 		}
 		if err != nil {
 			return err
 		}
-		var req greeterv1.SayHelloRequest
-		if err := proto.Unmarshal(data, &req); err != nil {
-			return err
-		}
-		data, err = proto.Marshal(&greeterv1.SayHelloResponse{Message: "chat:" + req.GetName()})
-		if err != nil {
-			return err
-		}
-		if err := stream.Send(ctx, data); err != nil {
+		if err := stream.Send(ctx, &greeterv1.SayHelloResponse{Message: "chat:" + req.GetName()}); err != nil {
 			return err
 		}
 	}

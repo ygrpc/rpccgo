@@ -12,7 +12,7 @@ func renderNativeServerFile(plugin *protogen.Plugin, plan FilePlan, service Serv
 		return err
 	}
 	g := newGeneratedFile(plugin, plan, file, protogen.GoImportPath(plan.GoImportPath))
-	runtimeMethods, err := buildRuntimeMethodProjectionsWithMessageTypes(g, service, false)
+	runtimeMethods, err := buildRuntimeMethodProjectionsWithMessageTypes(g, service, serviceHasStreamingMethod(service))
 	if err != nil {
 		return err
 	}

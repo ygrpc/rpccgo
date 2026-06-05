@@ -158,10 +158,10 @@ func TestRenderMessageArtifactsEmitsDirectTransportArtifacts(t *testing.T) {
 		}
 		for _, fragment := range []string{
 			"type GreeterCGOMessageServer interface {",
-			"Unary(ctx context.Context, req []byte) ([]byte, error)",
-			"Upload(ctx context.Context, stream GreeterUploadMessageClientStream) ([]byte, error)",
-			"List(ctx context.Context, req []byte, stream GreeterListMessageServerStream) error",
-			"Chat(ctx context.Context, stream GreeterChatMessageBidiStream) error",
+			"Unary(ctx context.Context, req *MessageRequest) (*MessageReply, error)",
+			"Upload(ctx context.Context, stream rpcruntime.CGOMessageClientStream[*MessageRequest]) (*MessageReply, error)",
+			"List(ctx context.Context, req *MessageRequest, stream rpcruntime.CGOMessageServerStream[*MessageReply]) error",
+			"Chat(ctx context.Context, stream rpcruntime.CGOMessageBidiStream[*MessageRequest, *MessageReply]) error",
 		} {
 			assertGeneratedContentContains(t, plugin, messageContractFile, fragment)
 		}

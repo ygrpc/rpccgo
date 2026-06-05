@@ -164,7 +164,10 @@ func renderRuntimeNativeStreamCancel(g *protogen.GeneratedFile, serviceName stri
 }
 
 func renderRuntimeMessageStreamSend(g *protogen.GeneratedFile, serviceName string, method runtimeMethodProjection, nativeEnabled bool) {
-	g.P("func Send", serviceName, "Message", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle, req []byte) error {")
+	g.P("func Send", serviceName, "Message", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle, req ", runtimeMessageRequestType(method), ") error {")
+	g.P("if req == nil {")
+	g.P(`return errors.New("rpccgo: message request is nil")`)
+	g.P("}")
 	g.P("entry, err := rpcruntime.SendStreamSession(handle)")
 	g.P("if err != nil { return err }")
 	g.P("switch entry.Kind {")
@@ -188,7 +191,7 @@ func renderRuntimeMessageStreamSend(g *protogen.GeneratedFile, serviceName strin
 }
 
 func renderRuntimeMessageStreamRecv(g *protogen.GeneratedFile, serviceName string, method runtimeMethodProjection, nativeEnabled bool) {
-	g.P("func Recv", serviceName, "Message", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle) ([]byte, error) {")
+	g.P("func Recv", serviceName, "Message", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle) (", runtimeMessageResponseType(method), ", error) {")
 	g.P("entry, err := rpcruntime.RecvStreamSession(handle)")
 	g.P("if err != nil { return nil, err }")
 	g.P("switch entry.Kind {")
@@ -204,7 +207,12 @@ func renderRuntimeMessageStreamRecv(g *protogen.GeneratedFile, serviceName strin
 		})
 	}
 	renderRuntimeMessageStreamMessageSessionCases(g, serviceName, method, "source", "nil, rpcruntime.ErrStreamInvalidHandle", func() {
-		g.P("return source.Recv(ctx)")
+		g.P("resp, err := source.Recv(ctx)")
+		g.P("if err != nil { return nil, err }")
+		g.P("if resp == nil {")
+		g.P(`return nil, errors.New("rpccgo: message response is nil")`)
+		g.P("}")
+		g.P("return resp, nil")
 	})
 	g.P("default:")
 	g.P(`return nil, fmt.Errorf("rpccgo: `, serviceName, ` message stream session kind %d is unsupported", entry.Kind)`)
@@ -235,7 +243,7 @@ func renderRuntimeMessageStreamCloseSend(g *protogen.GeneratedFile, serviceName 
 
 func renderRuntimeMessageStreamFinish(g *protogen.GeneratedFile, serviceName string, method runtimeMethodProjection, nativeEnabled bool) {
 	if method.Stream.FinishReturnsResponse {
-		g.P("func Finish", serviceName, "Message", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle) ([]byte, error) {")
+		g.P("func Finish", serviceName, "Message", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle) (", runtimeMessageResponseType(method), ", error) {")
 	} else {
 		g.P("func Finish", serviceName, "Message", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle) error {")
 	}
@@ -266,7 +274,16 @@ func renderRuntimeMessageStreamFinish(g *protogen.GeneratedFile, serviceName str
 		})
 	}
 	renderRuntimeMessageStreamMessageSessionCases(g, serviceName, method, "source", invalidReturn, func() {
-		g.P("return source.Finish(ctx)")
+		if method.Stream.FinishReturnsResponse {
+			g.P("resp, err := source.Finish(ctx)")
+			g.P("if err != nil { return nil, err }")
+			g.P("if resp == nil {")
+			g.P(`return nil, errors.New("rpccgo: message response is nil")`)
+			g.P("}")
+			g.P("return resp, nil")
+		} else {
+			g.P("return source.Finish(ctx)")
+		}
 	})
 	g.P("default:")
 	if method.Stream.FinishReturnsResponse {
@@ -309,7 +326,7 @@ func renderRuntimeNativeStreamNativeSessionCase(g *protogen.GeneratedFile, metho
 func renderRuntimeNativeStreamMessageSessionCases(g *protogen.GeneratedFile, serviceName string, method runtimeMethodProjection, sourceName, invalidReturn string, body func()) {
 	for _, kind := range messageServerKindsForService(serviceName) {
 		g.P("case ", kind, ":")
-		g.P(sourceName, ", ok := entry.Session.(", method.Symbols.MessageSourceSessionType, ")")
+		g.P(sourceName, ", ok := entry.Session.(", runtimeCGOMessageSessionInterface(method), ")")
 		g.P(`if !ok { return `, invalidReturn, ` }`)
 		body()
 	}
@@ -327,10 +344,31 @@ func renderRuntimeMessageStreamNativeSessionCases(g *protogen.GeneratedFile, met
 func renderRuntimeMessageStreamMessageSessionCases(g *protogen.GeneratedFile, serviceName string, method runtimeMethodProjection, sourceName, invalidReturn string, body func()) {
 	for _, kind := range messageServerKindsForService(serviceName) {
 		g.P("case ", kind, ":")
-		g.P(sourceName, ", ok := entry.Session.(", method.Symbols.MessageSourceSessionType, ")")
+		g.P(sourceName, ", ok := entry.Session.(", runtimeCGOMessageSessionInterface(method), ")")
 		g.P(`if !ok { return `, invalidReturn, ` }`)
 		body()
 	}
+}
+
+func runtimeCGOMessageSessionInterface(method runtimeMethodProjection) string {
+	switch method.Stream.Shape {
+	case runtimeStreamClient:
+		return "rpcruntime.CGOMessageClientStreamSession[" + runtimeMessageRequestType(method) + ", " + runtimeMessageResponseType(method) + "]"
+	case runtimeStreamServer:
+		return "rpcruntime.CGOMessageServerStreamSession[" + runtimeMessageResponseType(method) + "]"
+	case runtimeStreamBidi:
+		return "rpcruntime.CGOMessageBidiStreamSession[" + runtimeMessageRequestType(method) + ", " + runtimeMessageResponseType(method) + "]"
+	default:
+		return "any"
+	}
+}
+
+func runtimeMessageRequestType(method runtimeMethodProjection) string {
+	return "*" + method.Message.RequestType
+}
+
+func runtimeMessageResponseType(method runtimeMethodProjection) string {
+	return "*" + method.Message.ResponseType
 }
 
 func messageServerKindsForService(serviceName string) []string {

@@ -9,7 +9,6 @@ import (
 	errors "errors"
 	goruntime "runtime"
 	fmt "fmt"
-	proto "google.golang.org/protobuf/proto"
 	io "io"
 	sync "sync"
 	connect "connectrpc.com/connect"
@@ -65,7 +64,7 @@ func RegisterGreeterConnectRemoteServer(client GreeterClient) error {
 }
 
 type greeterCollectConnectDirectMessageStreamSessionResult struct {
-	data     []byte
+	data     *SayHelloResponse
 	err      error
 	terminal bool
 }
@@ -73,34 +72,41 @@ type greeterCollectConnectDirectMessageStreamSessionResult struct {
 type greeterCollectConnectDirectMessageStreamSession struct {
 	ctx           context.Context
 	cancel        context.CancelFunc
-	requests      chan []byte
+	requests      chan *SayHelloRequest
 	closeRequests sync.Once
 	result        chan greeterCollectConnectDirectMessageStreamSessionResult
 }
 
 func newgreeterCollectConnectDirectMessageStreamSession(ctx context.Context, handler GreeterHandler) *greeterCollectConnectDirectMessageStreamSession {
 	streamCtx, cancel := context.WithCancel(ctx)
-	session := &greeterCollectConnectDirectMessageStreamSession{ctx: streamCtx, cancel: cancel, requests: make(chan []byte), result: make(chan greeterCollectConnectDirectMessageStreamSessionResult, 1)}
+	session := &greeterCollectConnectDirectMessageStreamSession{ctx: streamCtx, cancel: cancel, requests: make(chan *SayHelloRequest), result: make(chan greeterCollectConnectDirectMessageStreamSessionResult, 1)}
 	go func() {
 		conn := &rpcruntime.ConnectStreamingHandlerConn{ReceiveFunc: func(msg any) error {
-			data, ok := <-session.requests
+			req, ok := <-session.requests
 			if !ok {
 				return io.EOF
 			}
-			return proto.Unmarshal(data, msg.(proto.Message))
+			target, ok := msg.(*SayHelloRequest)
+			if !ok {
+				return fmt.Errorf("rpccgo: connect handler stream request type mismatch")
+			}
+			*target = *req
+			return nil
 		}}
 		resp, err := handler.Collect(streamCtx, rpcruntime.NewConnectClientStream[SayHelloRequest](conn))
 		if err != nil {
 			session.result <- greeterCollectConnectDirectMessageStreamSessionResult{err: err, terminal: true}
 			return
 		}
-		data, err := proto.Marshal(resp)
-		session.result <- greeterCollectConnectDirectMessageStreamSessionResult{data: data, err: err, terminal: true}
+		session.result <- greeterCollectConnectDirectMessageStreamSessionResult{data: resp, terminal: true}
 	}()
 	return session
 }
 
-func (s *greeterCollectConnectDirectMessageStreamSession) Send(ctx context.Context, req []byte) error {
+func (s *greeterCollectConnectDirectMessageStreamSession) Send(ctx context.Context, req *SayHelloRequest) error {
+	if req == nil {
+		return errors.New("rpccgo: message request is nil")
+	}
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -111,7 +117,7 @@ func (s *greeterCollectConnectDirectMessageStreamSession) Send(ctx context.Conte
 	}
 }
 
-func (s *greeterCollectConnectDirectMessageStreamSession) Finish(ctx context.Context) ([]byte, error) {
+func (s *greeterCollectConnectDirectMessageStreamSession) Finish(ctx context.Context) (*SayHelloResponse, error) {
 	s.closeRequests.Do(func() { close(s.requests) })
 	select {
 	case <-ctx.Done():
@@ -145,22 +151,21 @@ type greeterCollectConnectRemoteMessageStreamSession struct {
 	cancel context.CancelFunc
 }
 
-func (s *greeterCollectConnectRemoteMessageStreamSession) Send(ctx context.Context, req []byte) error {
+func (s *greeterCollectConnectRemoteMessageStreamSession) Send(ctx context.Context, req *SayHelloRequest) error {
 	_ = ctx
+	if req == nil {
+		return errors.New("rpccgo: message request is nil")
+	}
 	if s == nil {
 		return errors.New("rpccgo: connect remote client stream is nil")
 	}
 	if s.stream == nil {
 		return errors.New("rpccgo: connect remote client stream is nil")
 	}
-	request := new(SayHelloRequest)
-	if err := proto.Unmarshal(req, request); err != nil {
-		return fmt.Errorf("rpccgo: connect remote stream request protobuf unmarshal failed: %w", err)
-	}
-	return s.stream.Send(request)
+	return s.stream.Send(req)
 }
 
-func (s *greeterCollectConnectRemoteMessageStreamSession) Finish(ctx context.Context) ([]byte, error) {
+func (s *greeterCollectConnectRemoteMessageStreamSession) Finish(ctx context.Context) (*SayHelloResponse, error) {
 	_ = ctx
 	if s == nil {
 		return nil, errors.New("rpccgo: connect remote client stream is nil")
@@ -178,13 +183,9 @@ func (s *greeterCollectConnectRemoteMessageStreamSession) Finish(ctx context.Con
 		return nil, err
 	}
 	if resp == nil {
-		return nil, nil
+		return nil, errors.New("rpccgo: message response is nil")
 	}
-	data, err := proto.Marshal(resp)
-	if err != nil {
-		return nil, fmt.Errorf("rpccgo: connect remote stream response protobuf marshal failed: %w", err)
-	}
-	return data, nil
+	return resp, nil
 }
 
 func (s *greeterCollectConnectRemoteMessageStreamSession) Cancel(ctx context.Context) error {
@@ -218,7 +219,7 @@ func (s *greeterCollectConnectRemoteMessageStreamSession) Cancel(ctx context.Con
 }
 
 type greeterBroadcastConnectDirectMessageStreamSessionResult struct {
-	data     []byte
+	data     *SayHelloResponse
 	err      error
 	terminal bool
 }
@@ -229,10 +230,9 @@ type greeterBroadcastConnectDirectMessageStreamSession struct {
 	responses chan greeterBroadcastConnectDirectMessageStreamSessionResult
 }
 
-func newgreeterBroadcastConnectDirectMessageStreamSession(ctx context.Context, handler GreeterHandler, req []byte) (*greeterBroadcastConnectDirectMessageStreamSession, error) {
-	messageReq := new(SayHelloRequest)
-	if err := proto.Unmarshal(req, messageReq); err != nil {
-		return nil, fmt.Errorf("rpccgo: connect handler stream request protobuf unmarshal failed: %w", err)
+func newgreeterBroadcastConnectDirectMessageStreamSession(ctx context.Context, handler GreeterHandler, req *SayHelloRequest) (*greeterBroadcastConnectDirectMessageStreamSession, error) {
+	if req == nil {
+		return nil, errors.New("rpccgo: message request is nil")
 	}
 	streamCtx, cancel := context.WithCancel(ctx)
 	session := &greeterBroadcastConnectDirectMessageStreamSession{ctx: streamCtx, cancel: cancel, responses: make(chan greeterBroadcastConnectDirectMessageStreamSessionResult, 1)}
@@ -242,24 +242,23 @@ func newgreeterBroadcastConnectDirectMessageStreamSession(ctx context.Context, h
 			if !ok {
 				return fmt.Errorf("rpccgo: connect handler stream response type mismatch")
 			}
-			data, err := proto.Marshal(resp)
-			if err != nil {
-				return err
+			if resp == nil {
+				return errors.New("rpccgo: message response is nil")
 			}
 			select {
 			case <-streamCtx.Done():
 				return streamCtx.Err()
-			case session.responses <- greeterBroadcastConnectDirectMessageStreamSessionResult{data: data}:
+			case session.responses <- greeterBroadcastConnectDirectMessageStreamSessionResult{data: resp}:
 				return nil
 			}
 		}}
-		err := handler.Broadcast(streamCtx, messageReq, rpcruntime.NewConnectServerStream[SayHelloResponse](conn))
+		err := handler.Broadcast(streamCtx, req, rpcruntime.NewConnectServerStream[SayHelloResponse](conn))
 		session.responses <- greeterBroadcastConnectDirectMessageStreamSessionResult{err: err, terminal: true}
 	}()
 	return session, nil
 }
 
-func (s *greeterBroadcastConnectDirectMessageStreamSession) Recv(ctx context.Context) ([]byte, error) {
+func (s *greeterBroadcastConnectDirectMessageStreamSession) Recv(ctx context.Context) (*SayHelloResponse, error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -287,13 +286,12 @@ func (s *greeterBroadcastConnectDirectMessageStreamSession) Cancel(ctx context.C
 
 func newgreeterBroadcastConnectRemoteMessageStreamSession(ctx context.Context, client interface {
 	Broadcast(context.Context, *SayHelloRequest) (*connect.ServerStreamForClient[SayHelloResponse], error)
-}, req []byte) (*greeterBroadcastConnectRemoteMessageStreamSession, error) {
-	request := new(SayHelloRequest)
-	if err := proto.Unmarshal(req, request); err != nil {
-		return nil, fmt.Errorf("rpccgo: connect remote request protobuf unmarshal failed: %w", err)
+}, req *SayHelloRequest) (*greeterBroadcastConnectRemoteMessageStreamSession, error) {
+	if req == nil {
+		return nil, errors.New("rpccgo: message request is nil")
 	}
 	streamCtx, cancel := context.WithCancel(ctx)
-	stream, err := client.Broadcast(streamCtx, request)
+	stream, err := client.Broadcast(streamCtx, req)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -306,7 +304,7 @@ type greeterBroadcastConnectRemoteMessageStreamSession struct {
 	cancel context.CancelFunc
 }
 
-func (s *greeterBroadcastConnectRemoteMessageStreamSession) Recv(ctx context.Context) ([]byte, error) {
+func (s *greeterBroadcastConnectRemoteMessageStreamSession) Recv(ctx context.Context) (*SayHelloResponse, error) {
 	_ = ctx
 	if s == nil {
 		return nil, errors.New("rpccgo: connect remote server stream is nil")
@@ -322,13 +320,9 @@ func (s *greeterBroadcastConnectRemoteMessageStreamSession) Recv(ctx context.Con
 	}
 	msg := s.stream.Msg()
 	if msg == nil {
-		return nil, nil
+		return nil, errors.New("rpccgo: message response is nil")
 	}
-	data, err := proto.Marshal(msg)
-	if err != nil {
-		return nil, fmt.Errorf("rpccgo: connect remote stream response protobuf marshal failed: %w", err)
-	}
-	return data, nil
+	return msg, nil
 }
 
 func (s *greeterBroadcastConnectRemoteMessageStreamSession) Finish(ctx context.Context) error {
@@ -354,7 +348,7 @@ func (s *greeterBroadcastConnectRemoteMessageStreamSession) Cancel(ctx context.C
 }
 
 type greeterChatConnectDirectMessageStreamSessionResult struct {
-	data     []byte
+	data     *SayHelloResponse
 	err      error
 	terminal bool
 }
@@ -362,36 +356,40 @@ type greeterChatConnectDirectMessageStreamSessionResult struct {
 type greeterChatConnectDirectMessageStreamSession struct {
 	ctx           context.Context
 	cancel        context.CancelFunc
-	requests      chan []byte
+	requests      chan *SayHelloRequest
 	closeRequests sync.Once
 	responses     chan greeterChatConnectDirectMessageStreamSessionResult
 }
 
 func newgreeterChatConnectDirectMessageStreamSession(ctx context.Context, handler GreeterHandler) *greeterChatConnectDirectMessageStreamSession {
 	streamCtx, cancel := context.WithCancel(ctx)
-	session := &greeterChatConnectDirectMessageStreamSession{ctx: streamCtx, cancel: cancel, requests: make(chan []byte), responses: make(chan greeterChatConnectDirectMessageStreamSessionResult, 1)}
+	session := &greeterChatConnectDirectMessageStreamSession{ctx: streamCtx, cancel: cancel, requests: make(chan *SayHelloRequest), responses: make(chan greeterChatConnectDirectMessageStreamSessionResult, 1)}
 	go func() {
 		conn := &rpcruntime.ConnectStreamingHandlerConn{
 			ReceiveFunc: func(msg any) error {
-				data, ok := <-session.requests
+				req, ok := <-session.requests
 				if !ok {
 					return io.EOF
 				}
-				return proto.Unmarshal(data, msg.(proto.Message))
+				target, ok := msg.(*SayHelloRequest)
+				if !ok {
+					return fmt.Errorf("rpccgo: connect handler bidi request type mismatch")
+				}
+				*target = *req
+				return nil
 			},
 			SendFunc: func(msg any) error {
 				resp, ok := msg.(*SayHelloResponse)
 				if !ok {
 					return fmt.Errorf("rpccgo: connect handler bidi response type mismatch")
 				}
-				data, err := proto.Marshal(resp)
-				if err != nil {
-					return err
+				if resp == nil {
+					return errors.New("rpccgo: message response is nil")
 				}
 				select {
 				case <-streamCtx.Done():
 					return streamCtx.Err()
-				case session.responses <- greeterChatConnectDirectMessageStreamSessionResult{data: data}:
+				case session.responses <- greeterChatConnectDirectMessageStreamSessionResult{data: resp}:
 					return nil
 				}
 			},
@@ -402,7 +400,10 @@ func newgreeterChatConnectDirectMessageStreamSession(ctx context.Context, handle
 	return session
 }
 
-func (s *greeterChatConnectDirectMessageStreamSession) Send(ctx context.Context, req []byte) error {
+func (s *greeterChatConnectDirectMessageStreamSession) Send(ctx context.Context, req *SayHelloRequest) error {
+	if req == nil {
+		return errors.New("rpccgo: message request is nil")
+	}
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -418,7 +419,7 @@ func (s *greeterChatConnectDirectMessageStreamSession) CloseSend(ctx context.Con
 	return nil
 }
 
-func (s *greeterChatConnectDirectMessageStreamSession) Recv(ctx context.Context) ([]byte, error) {
+func (s *greeterChatConnectDirectMessageStreamSession) Recv(ctx context.Context) (*SayHelloResponse, error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -461,22 +462,21 @@ type greeterChatConnectRemoteMessageStreamSession struct {
 	cancel context.CancelFunc
 }
 
-func (s *greeterChatConnectRemoteMessageStreamSession) Send(ctx context.Context, req []byte) error {
+func (s *greeterChatConnectRemoteMessageStreamSession) Send(ctx context.Context, req *SayHelloRequest) error {
 	_ = ctx
+	if req == nil {
+		return errors.New("rpccgo: message request is nil")
+	}
 	if s == nil {
 		return errors.New("rpccgo: connect remote bidi stream is nil")
 	}
 	if s.stream == nil {
 		return errors.New("rpccgo: connect remote bidi stream is nil")
 	}
-	request := new(SayHelloRequest)
-	if err := proto.Unmarshal(req, request); err != nil {
-		return fmt.Errorf("rpccgo: connect remote bidi request protobuf unmarshal failed: %w", err)
-	}
-	return s.stream.Send(request)
+	return s.stream.Send(req)
 }
 
-func (s *greeterChatConnectRemoteMessageStreamSession) Recv(ctx context.Context) ([]byte, error) {
+func (s *greeterChatConnectRemoteMessageStreamSession) Recv(ctx context.Context) (*SayHelloResponse, error) {
 	_ = ctx
 	if s == nil || s.stream == nil {
 		return nil, errors.New("rpccgo: connect remote bidi stream is nil")
@@ -486,13 +486,9 @@ func (s *greeterChatConnectRemoteMessageStreamSession) Recv(ctx context.Context)
 		return nil, err
 	}
 	if resp == nil {
-		return nil, nil
+		return nil, errors.New("rpccgo: message response is nil")
 	}
-	data, err := proto.Marshal(resp)
-	if err != nil {
-		return nil, fmt.Errorf("rpccgo: connect remote bidi response protobuf marshal failed: %w", err)
-	}
-	return data, nil
+	return resp, nil
 }
 
 func (s *greeterChatConnectRemoteMessageStreamSession) Finish(ctx context.Context) error {
@@ -566,16 +562,15 @@ func InvokeGreeterNativeSayHello(ctx context.Context, name *rpcruntime.RpcString
 		if err != nil {
 			return "", err
 		}
-		var messageResp []byte
-		directReq := new(SayHelloRequest)
-		if err = proto.Unmarshal(messageReq, directReq); err != nil {
-			return "", err
-		}
-		directResp, err := server.SayHello(ctx, directReq)
+		var messageResp *SayHelloResponse
+		messageResp, err = server.SayHello(ctx, messageReq)
 		if err != nil {
 			return "", err
 		}
-		messageResp, err = proto.Marshal(directResp)
+		if messageResp == nil {
+			err = errors.New("rpccgo: message response is nil")
+			return "", err
+		}
 		if err != nil {
 			return "", err
 		}
@@ -589,16 +584,15 @@ func InvokeGreeterNativeSayHello(ctx context.Context, name *rpcruntime.RpcString
 		if err != nil {
 			return "", err
 		}
-		var messageResp []byte
-		directReq := new(SayHelloRequest)
-		if err = proto.Unmarshal(messageReq, directReq); err != nil {
-			return "", err
-		}
-		directResp, err := server.SayHello(ctx, directReq)
+		var messageResp *SayHelloResponse
+		messageResp, err = server.SayHello(ctx, messageReq)
 		if err != nil {
 			return "", err
 		}
-		messageResp, err = proto.Marshal(directResp)
+		if messageResp == nil {
+			err = errors.New("rpccgo: message response is nil")
+			return "", err
+		}
 		if err != nil {
 			return "", err
 		}
@@ -608,7 +602,10 @@ func InvokeGreeterNativeSayHello(ctx context.Context, name *rpcruntime.RpcString
 	}
 }
 
-func InvokeGreeterMessageSayHello(ctx context.Context, req []byte) ([]byte, error) {
+func InvokeGreeterMessageSayHello(ctx context.Context, req *SayHelloRequest) (*SayHelloResponse, error) {
+	if req == nil {
+		return nil, errors.New("rpccgo: message request is nil")
+	}
 	registered, err := rpcruntime.LoadServer(greeterServiceID)
 	if err != nil {
 		return nil, err
@@ -649,43 +646,40 @@ func InvokeGreeterMessageSayHello(ctx context.Context, req []byte) ([]byte, erro
 		if !ok {
 			return nil, fmt.Errorf("rpccgo: Greeter cgo message registered server has invalid type")
 		}
-		return server.SayHello(ctx, req)
+		resp, err := server.SayHello(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
+		}
+		return resp, nil
 	case rpcruntime.ServerKindConnect:
 		server, ok := registered.Server.(GreeterHandler)
 		if !ok {
 			return nil, fmt.Errorf("rpccgo: Greeter connect handler registered server has invalid type")
 		}
-		messageReq := new(SayHelloRequest)
-		if err := proto.Unmarshal(req, messageReq); err != nil {
-			return nil, fmt.Errorf("rpccgo: connect handler request protobuf unmarshal failed: %w", err)
-		}
-		messageResp, err := server.SayHello(ctx, messageReq)
+		messageResp, err := server.SayHello(ctx, req)
 		if err != nil {
 			return nil, err
 		}
-		resp, err := proto.Marshal(messageResp)
-		if err != nil {
-			return nil, fmt.Errorf("rpccgo: connect handler response protobuf marshal failed: %w", err)
+		if messageResp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
 		}
-		return resp, nil
+		return messageResp, nil
 	case rpcruntime.ServerKindConnectRemote:
 		server, ok := registered.Server.(GreeterClient)
 		if !ok {
 			return nil, fmt.Errorf("rpccgo: Greeter connect remote registered server has invalid type")
 		}
-		messageReq := new(SayHelloRequest)
-		if err := proto.Unmarshal(req, messageReq); err != nil {
-			return nil, fmt.Errorf("rpccgo: connect remote request protobuf unmarshal failed: %w", err)
-		}
-		messageResp, err := server.SayHello(ctx, messageReq)
+		messageResp, err := server.SayHello(ctx, req)
 		if err != nil {
 			return nil, err
 		}
-		resp, err := proto.Marshal(messageResp)
-		if err != nil {
-			return nil, fmt.Errorf("rpccgo: connect remote response protobuf marshal failed: %w", err)
+		if messageResp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
 		}
-		return resp, nil
+		return messageResp, nil
 	default:
 		return nil, fmt.Errorf("rpccgo: Greeter registered server kind %d is unsupported for message calls", registered.Kind)
 	}
@@ -889,7 +883,10 @@ func StartGreeterNativeBroadcast(ctx context.Context, name *rpcruntime.RpcString
 	}
 }
 
-func StartGreeterMessageBroadcast(ctx context.Context, req []byte) (rpcruntime.StreamHandle, error) {
+func StartGreeterMessageBroadcast(ctx context.Context, req *SayHelloRequest) (rpcruntime.StreamHandle, error) {
+	if req == nil {
+		return 0, errors.New("rpccgo: message request is nil")
+	}
 	registered, err := rpcruntime.LoadServer(greeterServiceID)
 	if err != nil {
 		return 0, err

@@ -288,7 +288,6 @@ import (
 
 	connect "connectrpc.com/connect"
 	metadata "google.golang.org/grpc/metadata"
-	proto "google.golang.org/protobuf/proto"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -346,15 +345,11 @@ func GreeterEntryForIntegrationTest() GreeterHandler { return greeterEntryHandle
 type greeterEntryHandler struct{}
 
 func (greeterEntryHandler) Unary(ctx context.Context, req *emptypb.Empty) (*emptypb.Empty, error) {
-	data, err := InvokeGreeterMessageUnary(ctx, nil)
+	resp, err := InvokeGreeterMessageUnary(ctx, req)
 	if err != nil {
 		return nil, err
 	}
-	var resp emptypb.Empty
-	if err := proto.Unmarshal(data, &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
+	return resp, nil
 }
 
 func (greeterEntryHandler) Upload(ctx context.Context, stream *connect.ClientStream[emptypb.Empty]) (*emptypb.Empty, error) {
@@ -363,7 +358,7 @@ func (greeterEntryHandler) Upload(ctx context.Context, stream *connect.ClientStr
 		return nil, err
 	}
 	for stream.Receive() {
-		if err := SendGreeterMessageUpload(ctx, handle, nil); err != nil {
+		if err := SendGreeterMessageUpload(ctx, handle, &emptypb.Empty{}); err != nil {
 			_ = CancelGreeterMessageUpload(ctx, handle)
 			return nil, err
 		}
@@ -372,24 +367,20 @@ func (greeterEntryHandler) Upload(ctx context.Context, stream *connect.ClientStr
 		_ = CancelGreeterMessageUpload(ctx, handle)
 		return nil, err
 	}
-	data, err := FinishGreeterMessageUpload(ctx, handle)
+	resp, err := FinishGreeterMessageUpload(ctx, handle)
 	if err != nil {
 		return nil, err
 	}
-	var resp emptypb.Empty
-	if err := proto.Unmarshal(data, &resp); err != nil {
-		return nil, err
-	}
-	return &resp, nil
+	return resp, nil
 }
 
 func (greeterEntryHandler) List(ctx context.Context, req *emptypb.Empty, stream *connect.ServerStream[emptypb.Empty]) error {
-	handle, err := StartGreeterMessageList(ctx, nil)
+	handle, err := StartGreeterMessageList(ctx, req)
 	if err != nil {
 		return err
 	}
 	for {
-		data, err := RecvGreeterMessageList(ctx, handle)
+		resp, err := RecvGreeterMessageList(ctx, handle)
 		if err == io.EOF {
 			return FinishGreeterMessageList(ctx, handle)
 		}
@@ -397,12 +388,7 @@ func (greeterEntryHandler) List(ctx context.Context, req *emptypb.Empty, stream 
 			_ = CancelGreeterMessageList(ctx, handle)
 			return err
 		}
-		var resp emptypb.Empty
-		if err := proto.Unmarshal(data, &resp); err != nil {
-			_ = CancelGreeterMessageList(ctx, handle)
-			return err
-		}
-		if err := stream.Send(&resp); err != nil {
+		if err := stream.Send(resp); err != nil {
 			_ = CancelGreeterMessageList(ctx, handle)
 			return err
 		}
@@ -431,7 +417,7 @@ func (greeterEntryHandler) Chat(ctx context.Context, stream *connect.BidiStream[
 				requestErr <- err
 				return
 			}
-			if err := SendGreeterMessageChat(ctx, handle, nil); err != nil {
+			if err := SendGreeterMessageChat(ctx, handle, &emptypb.Empty{}); err != nil {
 				requestErr <- err
 				return
 			}
@@ -439,17 +425,12 @@ func (greeterEntryHandler) Chat(ctx context.Context, stream *connect.BidiStream[
 	}()
 	go func() {
 		for {
-			data, err := RecvGreeterMessageChat(ctx, handle)
+			resp, err := RecvGreeterMessageChat(ctx, handle)
 			if err != nil {
 				response <- chatResponse{err: err}
 				return
 			}
-			var resp emptypb.Empty
-			if err := proto.Unmarshal(data, &resp); err != nil {
-				response <- chatResponse{err: err}
-				return
-			}
-			response <- chatResponse{msg: &resp}
+			response <- chatResponse{msg: resp}
 		}
 	}()
 	for {
@@ -541,20 +522,20 @@ func TestDirectConnectHandlerRegistration(t *testing.T) {
 	if err := RegisterGreeterConnectHandler(directConnectGreeter{}); err != nil {
 		t.Fatalf("RegisterGreeterConnectHandler() error = %v", err)
 	}
-	if _, err := InvokeGreeterMessageUnary(context.Background(), nil); err != nil {
+	if _, err := InvokeGreeterMessageUnary(context.Background(), &emptypb.Empty{}); err != nil {
 		t.Fatalf("InvokeGreeterMessageUnary() error = %v", err)
 	}
 	uploadHandle, err := StartGreeterMessageUpload(context.Background())
 	if err != nil {
 		t.Fatalf("StartGreeterMessageUpload() error = %v", err)
 	}
-	if err := SendGreeterMessageUpload(context.Background(), uploadHandle, nil); err != nil {
+	if err := SendGreeterMessageUpload(context.Background(), uploadHandle, &emptypb.Empty{}); err != nil {
 		t.Fatalf("upload Send() error = %v", err)
 	}
 	if _, err := FinishGreeterMessageUpload(context.Background(), uploadHandle); err != nil {
 		t.Fatalf("upload Finish() error = %v", err)
 	}
-	listHandle, err := StartGreeterMessageList(context.Background(), nil)
+	listHandle, err := StartGreeterMessageList(context.Background(), &emptypb.Empty{})
 	if err != nil {
 		t.Fatalf("StartGreeterMessageList() error = %v", err)
 	}
@@ -612,20 +593,20 @@ func TestDirectGRPCServerRegistration(t *testing.T) {
 	if err := RegisterGreeterGRPCServer(directGRPCGreeter{}); err != nil {
 		t.Fatalf("RegisterGreeterGRPCServer() error = %v", err)
 	}
-	if _, err := InvokeGreeterMessageUnary(context.Background(), nil); err != nil {
+	if _, err := InvokeGreeterMessageUnary(context.Background(), &emptypb.Empty{}); err != nil {
 		t.Fatalf("InvokeGreeterMessageUnary() error = %v", err)
 	}
 	uploadHandle, err := StartGreeterMessageUpload(context.Background())
 	if err != nil {
 		t.Fatalf("StartGreeterMessageUpload() error = %v", err)
 	}
-	if err := SendGreeterMessageUpload(context.Background(), uploadHandle, nil); err != nil {
+	if err := SendGreeterMessageUpload(context.Background(), uploadHandle, &emptypb.Empty{}); err != nil {
 		t.Fatalf("upload Send() error = %v", err)
 	}
 	if _, err := FinishGreeterMessageUpload(context.Background(), uploadHandle); err != nil {
 		t.Fatalf("upload Finish() error = %v", err)
 	}
-	listHandle, err := StartGreeterMessageList(context.Background(), nil)
+	listHandle, err := StartGreeterMessageList(context.Background(), &emptypb.Empty{})
 	if err != nil {
 		t.Fatalf("StartGreeterMessageList() error = %v", err)
 	}

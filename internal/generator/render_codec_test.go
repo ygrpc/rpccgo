@@ -21,22 +21,21 @@ func TestRenderCodecFilesEmitsServiceCodecFile(t *testing.T) {
 	for _, fragment := range []string{
 		"package testv1",
 		`errors "errors"`,
-		`fmt "fmt"`,
-		`proto "google.golang.org/protobuf/proto"`,
 		"rpccgo native message codec generated file for Greeter",
 		`var greeterNativeMessageCodecNotReadyErr = errors.New("rpccgo: native message codec is not implemented in this build")`,
-		"func convertGreeterSayHelloMessageToNativeRequest(data []byte) (any, error) {",
-		"if err := proto.Unmarshal(data, &msg); err != nil {",
-		"return nil, err",
-		"func convertGreeterSayHelloNativeToMessageRequest() ([]byte, error) {",
+		"func convertGreeterSayHelloMessageToNativeRequest(msg *HelloRequest) (any, error) {",
+		`return nil, errors.New("rpccgo: message request is nil")`,
+		"reqOwner := []any{msg}",
+		"func convertGreeterSayHelloNativeToMessageRequest() (*HelloRequest, error) {",
 		"msg := &HelloRequest{}",
-		"data, err := proto.Marshal(msg)",
-		"func convertGreeterSayHelloMessageToNativeResponse(data []byte) error {",
-		"func convertGreeterSayHelloNativeToMessageResponse() ([]byte, error) {",
+		"return msg, nil",
+		"func convertGreeterSayHelloMessageToNativeResponse(msg *HelloReply) error {",
+		`errors.New("rpccgo: message response is nil")`,
+		"func convertGreeterSayHelloNativeToMessageResponse() (*HelloReply, error) {",
 	} {
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "NativeRequestView", "connectrpc.com/connect", "google.golang.org/grpc", ".remote.", "panic(", "TODO")
+	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "NativeRequestView", "connectrpc.com/connect", "google.golang.org/grpc", ".remote.", "panic(", "TODO", "proto.Marshal", "proto.Unmarshal", "[]byte, error")
 }
 
 func TestRenderCodecFilesSkipsServiceWithoutCodecArtifact(t *testing.T) {
@@ -59,7 +58,7 @@ func TestRenderCodecFilesSkipsServiceWithoutCodecArtifact(t *testing.T) {
 	assertGeneratedFilenames(t, plugin, nil)
 }
 
-func TestCodecMessageToNativeRendersProtobufUnmarshalAndErrors(t *testing.T) {
+func TestCodecMessageToNativeRendersTypedMessagesAndErrors(t *testing.T) {
 	file := simpleTestFile()
 	setSimpleServiceComment(t, file, "@rpccgo: native\n")
 	plugin := newTestPlugin(t, "paths=source_relative", file)
@@ -74,17 +73,18 @@ func TestCodecMessageToNativeRendersProtobufUnmarshalAndErrors(t *testing.T) {
 
 	const codecFile = "test/v1/greeter.greeter.codec.rpccgo.go"
 	for _, fragment := range []string{
-		"func convertGreeterSayHelloMessageToNativeRequest(data []byte) (any, error) {",
-		"var msg HelloRequest",
-		"if err := proto.Unmarshal(data, &msg); err != nil {",
-		"return nil, err",
-		"func convertGreeterSayHelloMessageToNativeResponse(data []byte) error {",
+		"func convertGreeterSayHelloMessageToNativeRequest(msg *HelloRequest) (any, error) {",
+		`return nil, errors.New("rpccgo: message request is nil")`,
+		"reqOwner := []any{msg}",
+		"return reqOwner, nil",
+		"func convertGreeterSayHelloMessageToNativeResponse(msg *HelloReply) error {",
+		`err := errors.New("rpccgo: message response is nil")`,
 	} {
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)
 	}
 }
 
-func TestCodecNativeToMessageRendersProtobufMarshalAndErrors(t *testing.T) {
+func TestCodecNativeToMessageRendersTypedMessages(t *testing.T) {
 	file := simpleTestFile()
 	setSimpleServiceComment(t, file, "@rpccgo: native\n")
 	plugin := newTestPlugin(t, "paths=source_relative", file)
@@ -99,16 +99,15 @@ func TestCodecNativeToMessageRendersProtobufMarshalAndErrors(t *testing.T) {
 
 	const codecFile = "test/v1/greeter.greeter.codec.rpccgo.go"
 	for _, fragment := range []string{
-		"func convertGreeterSayHelloNativeToMessageRequest() ([]byte, error) {",
+		"func convertGreeterSayHelloNativeToMessageRequest() (*HelloRequest, error) {",
 		"msg := &HelloRequest{}",
-		"data, err := proto.Marshal(msg)",
-		`return nil, fmt.Errorf("rpccgo: native request protobuf marshal failed: %w", err)`,
-		"func convertGreeterSayHelloNativeToMessageResponse() ([]byte, error) {",
+		"return msg, nil",
+		"func convertGreeterSayHelloNativeToMessageResponse() (*HelloReply, error) {",
 		"msg := &HelloReply{}",
-		`return nil, fmt.Errorf("rpccgo: native response protobuf marshal failed: %w", err)`,
 	} {
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)
 	}
+	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "proto.Marshal", "protobuf marshal failed")
 }
 
 func TestCodecNativeToMessageRequestUsesUnsafeWrappersAndKeepAlive(t *testing.T) {
@@ -126,17 +125,16 @@ func TestCodecNativeToMessageRequestUsesUnsafeWrappersAndKeepAlive(t *testing.T)
 	const codecFile = "test/v1/complete_service_plan.all_service.codec.rpccgo.go"
 	for _, fragment := range []string{
 		`goruntime "runtime"`,
-		"func convertAllServiceUnaryNativeToMessageRequest(name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) ([]byte, error) {",
+		"func convertAllServiceUnaryNativeToMessageRequest(name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (*AllRequest, error) {",
 		"msg.Name = name.UnsafeString()",
 		"msg.Child = child.UnsafeBytes()",
-		"data, err := proto.Marshal(msg)",
 		"goruntime.KeepAlive(name)",
 		"goruntime.KeepAlive(child)",
-		`return nil, fmt.Errorf("rpccgo: native request protobuf marshal failed: %w", err)`,
+		"return msg, nil",
 	} {
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "msg.Name = name.SafeString()", "msg.Child = child.SafeBytes()")
+	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "msg.Name = name.SafeString()", "msg.Child = child.SafeBytes()", "proto.Marshal")
 }
 
 func TestCodecMessageToNativeRequestUsesBorrowedWrappersAndReturnedOwner(t *testing.T) {
@@ -153,10 +151,11 @@ func TestCodecMessageToNativeRequestUsesBorrowedWrappersAndReturnedOwner(t *test
 
 	const codecFile = "test/v1/complete_service_plan.all_service.codec.rpccgo.go"
 	for _, fragment := range []string{
-		"func convertAllServiceUnaryMessageToNativeRequest(data []byte) (*rpcruntime.RpcString, bool, *rpcruntime.RpcBytes, any, error) {",
+		"func convertAllServiceUnaryMessageToNativeRequest(msg *AllRequest) (*rpcruntime.RpcString, bool, *rpcruntime.RpcBytes, any, error) {",
+		`return nil, false, nil, nil, errors.New("rpccgo: message request is nil")`,
 		"// Returned native wrappers borrow from msg and reqOwner-owned buffers.",
 		"// Callers must keep the returned owner alive until the synchronous native call returns.",
-		"reqOwner := []any{&msg}",
+		"reqOwner := []any{msg}",
 		"name = rpcruntime.EmptyRpcString()",
 		"child = rpcruntime.EmptyRpcBytes()",
 		"name = rpcruntime.NewRpcString(unsafe.StringData(msg.Name), int32(len(msg.Name)), false)",
@@ -165,7 +164,7 @@ func TestCodecMessageToNativeRequestUsesBorrowedWrappersAndReturnedOwner(t *test
 	} {
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "NativeRequestView", "NewRpcStringView", "NewRpcBytesView", "fn func(", "goruntime.KeepAlive(&msg)", "PinString(", "PinBytes(", "PinSlice(", "defer rpcruntime.Release(ptr)", "cleanup := func()", "rpcruntime.NewRpcString(nil, 0, false)", "rpcruntime.NewRpcBytes(nil, 0, false)")
+	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "NativeRequestView", "NewRpcStringView", "NewRpcBytesView", "fn func(", "goruntime.KeepAlive(&msg)", "proto.Unmarshal", "PinString(", "PinBytes(", "PinSlice(", "defer rpcruntime.Release(ptr)", "cleanup := func()", "rpcruntime.NewRpcString(nil, 0, false)", "rpcruntime.NewRpcBytes(nil, 0, false)")
 }
 
 func TestCodecMessageToNativeRequestKeepsRepeatedBoolAndEnumRawOwnersAlive(t *testing.T) {
@@ -192,7 +191,7 @@ func TestCodecMessageToNativeRequestKeepsRepeatedBoolAndEnumRawOwnersAlive(t *te
 	} {
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "NativeRequestView", "NewRpcBoolRepeatView", "NewRpcRepeatView", "fn func(", "goruntime.KeepAlive(&msg)", "goruntime.KeepAlive(flagsRaw)", "goruntime.KeepAlive(moodsRaw)")
+	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "NativeRequestView", "NewRpcBoolRepeatView", "NewRpcRepeatView", "fn func(", "goruntime.KeepAlive(&msg)", "proto.Unmarshal", "goruntime.KeepAlive(flagsRaw)", "goruntime.KeepAlive(moodsRaw)")
 }
 
 func TestCodecNativeToMessageRequestUsesUnsafeRepeatedWrappersAndKeepAlive(t *testing.T) {
@@ -210,7 +209,7 @@ func TestCodecNativeToMessageRequestUsesUnsafeRepeatedWrappersAndKeepAlive(t *te
 	const codecFile = "test/v1/native_repeated.repeated_service.codec.rpccgo.go"
 	for _, fragment := range []string{
 		`goruntime "runtime"`,
-		"func convertRepeatedServiceCheckNativeToMessageRequest(scores *rpcruntime.RpcRepeat[int32], flags *rpcruntime.RpcBoolRepeat, counts *rpcruntime.RpcRepeat[int64], ratios *rpcruntime.RpcRepeat[float64], moods *rpcruntime.RpcRepeat[int32]) ([]byte, error) {",
+		"func convertRepeatedServiceCheckNativeToMessageRequest(scores *rpcruntime.RpcRepeat[int32], flags *rpcruntime.RpcBoolRepeat, counts *rpcruntime.RpcRepeat[int64], ratios *rpcruntime.RpcRepeat[float64], moods *rpcruntime.RpcRepeat[int32]) (*RepeatedRequest, error) {",
 		"msg.Scores = scores.UnsafeSlice()",
 		"msg.Flags = flags.SafeSlice()",
 		"msg.Counts = counts.UnsafeSlice()",
@@ -221,10 +220,11 @@ func TestCodecNativeToMessageRequestUsesUnsafeRepeatedWrappersAndKeepAlive(t *te
 		"goruntime.KeepAlive(counts)",
 		"goruntime.KeepAlive(ratios)",
 		"goruntime.KeepAlive(moods)",
+		"return msg, nil",
 	} {
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "msg.Scores = scores.SafeSlice()", "moodsRaw := moods.SafeSlice()")
+	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "msg.Scores = scores.SafeSlice()", "moodsRaw := moods.SafeSlice()", "proto.Marshal")
 }
 
 func TestGenerateWithOptionsEmitsCodecWithoutRemoteAdapterFiles(t *testing.T) {

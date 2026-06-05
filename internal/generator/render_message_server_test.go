@@ -22,13 +22,10 @@ func TestRenderMessageServerDefinesUnimplementedHelper(t *testing.T) {
 		"type AllServiceCGOMessageServer interface {",
 		"type UnimplementedAllServiceCGOMessageServer struct{}",
 		`errors.New("rpccgo: AllService.Unary cgo message server method is not implemented")`,
-		"func (UnimplementedAllServiceCGOMessageServer) Unary(ctx context.Context, req []byte) ([]byte, error) {",
-		"type AllServiceClientStreamMessageClientStream interface {",
-		"type AllServiceServerStreamMessageServerStream interface {",
-		"type AllServiceBidiStreamMessageBidiStream interface {",
-		"func (UnimplementedAllServiceCGOMessageServer) ClientStream(ctx context.Context, stream AllServiceClientStreamMessageClientStream) ([]byte, error) {",
-		"func (UnimplementedAllServiceCGOMessageServer) ServerStream(ctx context.Context, req []byte, stream AllServiceServerStreamMessageServerStream) error {",
-		"func (UnimplementedAllServiceCGOMessageServer) BidiStream(ctx context.Context, stream AllServiceBidiStreamMessageBidiStream) error {",
+		"func (UnimplementedAllServiceCGOMessageServer) Unary(ctx context.Context, req *AllRequest) (*AllReply, error) {",
+		"func (UnimplementedAllServiceCGOMessageServer) ClientStream(ctx context.Context, stream rpcruntime.CGOMessageClientStream[*AllRequest]) (*AllReply, error) {",
+		"func (UnimplementedAllServiceCGOMessageServer) ServerStream(ctx context.Context, req *AllRequest, stream rpcruntime.CGOMessageServerStream[*AllReply]) error {",
+		"func (UnimplementedAllServiceCGOMessageServer) BidiStream(ctx context.Context, stream rpcruntime.CGOMessageBidiStream[*AllRequest, *AllReply]) error {",
 		"func RegisterAllServiceCGOMessageServer(server AllServiceCGOMessageServer) error {",
 		"return registerAllServiceCGOMessageServer(server)",
 		"func registerAllServiceCGOMessageServer(server AllServiceCGOMessageServer) error {",
@@ -36,9 +33,12 @@ func TestRenderMessageServerDefinesUnimplementedHelper(t *testing.T) {
 		"Server: server,",
 		"type allServiceCGOMessageEntry struct {",
 		"server AllServiceCGOMessageServer",
-		"func (a *allServiceCGOMessageEntry) ClientStream(ctx context.Context, stream AllServiceClientStreamMessageClientStream) ([]byte, error)",
-		"func (a *allServiceCGOMessageEntry) ServerStream(ctx context.Context, req []byte, stream AllServiceServerStreamMessageServerStream) error",
-		"func (a *allServiceCGOMessageEntry) BidiStream(ctx context.Context, stream AllServiceBidiStreamMessageBidiStream) error",
+		"func (a *allServiceCGOMessageEntry) ClientStream(ctx context.Context, stream rpcruntime.CGOMessageClientStream[*AllRequest]) (*AllReply, error)",
+		"func (a *allServiceCGOMessageEntry) StartClientStream(ctx context.Context) (rpcruntime.CGOMessageClientStreamSession[*AllRequest, *AllReply], error)",
+		"func (a *allServiceCGOMessageEntry) ServerStream(ctx context.Context, req *AllRequest, stream rpcruntime.CGOMessageServerStream[*AllReply]) error",
+		"func (a *allServiceCGOMessageEntry) StartServerStream(ctx context.Context, req *AllRequest) (rpcruntime.CGOMessageServerStreamSession[*AllReply], error)",
+		"func (a *allServiceCGOMessageEntry) BidiStream(ctx context.Context, stream rpcruntime.CGOMessageBidiStream[*AllRequest, *AllReply]) error",
+		"func (a *allServiceCGOMessageEntry) StartBidiStream(ctx context.Context) (rpcruntime.CGOMessageBidiStreamSession[*AllRequest, *AllReply], error)",
 		"case <-s.done:",
 	} {
 		assertGeneratedContentContains(t, plugin, messageServerFile, fragment)
@@ -125,7 +125,7 @@ type partialGreeterMessageServer struct {
 
 func TestPartialMessageServerUsesUnimplementedFallback(t *testing.T) {
 	var server testv1.GreeterCGOMessageServer = partialGreeterMessageServer{}
-	resp, err := server.SayHello(context.Background(), []byte("request"))
+	resp, err := server.SayHello(context.Background(), &testv1.HelloRequest{})
 	if err == nil {
 		t.Fatal("SayHello() error = nil, want unimplemented error")
 	}
@@ -157,6 +157,10 @@ import (
 const greeterServiceID rpcruntime.ServiceID = "test.v1.Greeter"
 
 var GreeterMessageServerUnavailableErr = errors.New("rpccgo: message server is unavailable")
+
+type HelloRequest struct{}
+
+type HelloReply struct{}
 `
 	target := filepath.Join(root, "test/v1/message_server_runtime_stub.go")
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {

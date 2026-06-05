@@ -50,11 +50,11 @@ func renderMessageServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service 
 		case StreamingKindUnary:
 			renderCGOMessageServerUnaryAdapter(g, service, method, adapterName)
 		case StreamingKindClientStreaming:
-			renderCGOMessageServerClientStreamAdapter(g, service, method, adapterName, servicePackage)
+			renderCGOMessageServerClientStreamAdapter(g, service, method, adapterName)
 		case StreamingKindServerStreaming:
-			renderCGOMessageServerServerStreamAdapter(g, service, method, adapterName, servicePackage)
+			renderCGOMessageServerServerStreamAdapter(g, service, method, adapterName)
 		case StreamingKindBidiStreaming:
-			renderCGOMessageServerBidiStreamAdapter(g, service, method, adapterName, servicePackage)
+			renderCGOMessageServerBidiStreamAdapter(g, service, method, adapterName)
 		}
 		renderCGOMessageResponseBytesHelper(g, service, method)
 	}
@@ -127,7 +127,7 @@ func renderCGOMessageServerAdapterFields(g *protogen.GeneratedFile, service Serv
 }
 
 func renderCGOMessageServerUnaryAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, adapterName string) {
-	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context, req []byte) ([]byte, error) {")
+	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context, req ", messageGoPointerType(g, method.Request), ") (", messageGoPointerType(g, method.Response), ", error) {")
 	g.P("if a == nil {")
 	g.P("return nil, ", lowerInitial(service.GoName), "CGOMessageServerCallbacksNil")
 	g.P("}")
@@ -135,27 +135,15 @@ func renderCGOMessageServerUnaryAdapter(g *protogen.GeneratedFile, service Servi
 	g.P("if callback == nil {")
 	g.P("return nil, ", cgoMessageServerMethodUnimplementedError(service, method))
 	g.P("}")
-	renderCGOMessageProtoUnmarshalCheck(g, method.Request, "req", "request", "return nil, fmt.Errorf")
-	g.P("var requestPtr uintptr")
-	g.P("if len(req) != 0 {")
-	g.P("requestPtr = uintptr(unsafe.Pointer(&req[0]))")
-	g.P("}")
-	g.P("requestLen, err := rpcruntime.LengthToInt32(len(req))")
-	g.P("if err != nil {")
-	g.P("return nil, err")
-	g.P("}")
+	renderCGOMessageMarshalRequest(g, "req", "reqBytes", "return nil, err")
+	renderCGOMessageRequestPtrLen(g, "reqBytes", "return nil, err")
 	g.P("var responsePtr C.uintptr_t")
 	g.P("var responseLen C.int32_t")
 	g.P("errID := int32(C.", messageCGOServerUnaryTrampolineName(service, method), "(callback, C.uintptr_t(requestPtr), C.int32_t(requestLen), &responsePtr, &responseLen))")
 	g.P("if errID != 0 {")
 	g.P("return nil, ", messageCGOServerErrorIDHelperName(service), "(errID)")
 	g.P("}")
-	g.P("resp, err := ", messageCGOServerResponseBytesName(service, method), "(responsePtr, responseLen)")
-	g.P("if err != nil {")
-	g.P("return nil, err")
-	g.P("}")
-	renderCGOMessageProtoUnmarshalCheck(g, method.Response, "resp", "response", "return nil, fmt.Errorf")
-	g.P("return resp, nil")
+	g.P("return ", messageCGOServerResponseName(service, method), "(responsePtr, responseLen)")
 	g.P("}")
 	g.P()
 }
@@ -358,9 +346,9 @@ func renderCGOMessageServerTrampolines(g *protogen.GeneratedFile, service Servic
 	g.P()
 }
 
-func renderCGOMessageServerClientStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, adapterName, servicePackage string) {
+func renderCGOMessageServerClientStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, adapterName string) {
 	sessionName := lowerInitial(service.GoName) + method.GoName + "CGOMessageClientStreamSession"
-	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context) (", servicePackage, service.GoName, method.GoName, "MessageStreamSession, error) {")
+	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context) (", cgoMessageClientStreamSessionType(g, method), ", error) {")
 	g.P("if a == nil {")
 	g.P("return nil, ", lowerInitial(service.GoName), "CGOMessageServerCallbacksNil")
 	g.P("}")
@@ -375,7 +363,7 @@ func renderCGOMessageServerClientStreamAdapter(g *protogen.GeneratedFile, servic
 	g.P("return &", sessionName, "{send: a.", method.GoName, "Send, finish: a.", method.GoName, "Finish, cancel: a.", method.GoName, "Cancel, stream: int32(stream)}, nil")
 	g.P("}")
 	g.P()
-	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context, stream ", servicePackage, service.GoName, method.GoName, "MessageClientStream) ([]byte, error) {")
+	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context, stream ", cgoMessageClientStreamType(g, method), ") (", messageGoPointerType(g, method.Response), ", error) {")
 	g.P("session, err := a.Start", method.GoName, "(ctx)")
 	g.P("if err != nil {")
 	g.P("return nil, err")
@@ -403,15 +391,15 @@ func renderCGOMessageServerClientStreamAdapter(g *protogen.GeneratedFile, servic
 	g.P("stream int32")
 	g.P("}")
 	g.P()
-	g.P("func (s *", sessionName, ") Send(ctx context.Context, req []byte) error {")
-	renderCGOMessageProtoUnmarshalCheck(g, method.Request, "req", "request", "return fmt.Errorf")
-	renderCGOMessageRequestPtrLen(g, "req", "return err")
+	g.P("func (s *", sessionName, ") Send(ctx context.Context, req ", messageGoPointerType(g, method.Request), ") error {")
+	renderCGOMessageMarshalRequest(g, "req", "reqBytes", "return err")
+	renderCGOMessageRequestPtrLen(g, "reqBytes", "return err")
 	g.P("errID := int32(C.", messageCGOServerClientStreamSendTrampolineName(service, method), "(s.send, C.int32_t(s.stream), C.uintptr_t(requestPtr), C.int32_t(requestLen)))")
 	g.P("if errID != 0 { return ", messageCGOServerErrorIDHelperName(service), "(errID) }")
 	g.P("return nil")
 	g.P("}")
 	g.P()
-	g.P("func (s *", sessionName, ") Finish(ctx context.Context) ([]byte, error) {")
+	g.P("func (s *", sessionName, ") Finish(ctx context.Context) (", messageGoPointerType(g, method.Response), ", error) {")
 	renderCGOMessageResponseVars(g)
 	g.P("errID := int32(C.", messageCGOServerClientStreamFinishTrampolineName(service, method), "(s.finish, C.int32_t(s.stream), &responsePtr, &responseLen))")
 	renderCGOMessageResponseReturn(g, service, method, "errID")
@@ -425,19 +413,19 @@ func renderCGOMessageServerClientStreamAdapter(g *protogen.GeneratedFile, servic
 	g.P()
 }
 
-func renderCGOMessageServerServerStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, adapterName, servicePackage string) {
+func renderCGOMessageServerServerStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, adapterName string) {
 	sessionName := lowerInitial(service.GoName) + method.GoName + "CGOMessageServerStreamSession"
-	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context, req []byte) (", servicePackage, service.GoName, method.GoName, "MessageStreamSession, error) {")
+	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context, req ", messageGoPointerType(g, method.Request), ") (", cgoMessageServerStreamSessionType(g, method), ", error) {")
 	renderCGOMessageStartGuard(g, service, method)
-	renderCGOMessageProtoUnmarshalCheck(g, method.Request, "req", "request", "return nil, fmt.Errorf")
-	renderCGOMessageRequestPtrLen(g, "req", "return nil, err")
+	renderCGOMessageMarshalRequest(g, "req", "reqBytes", "return nil, err")
+	renderCGOMessageRequestPtrLen(g, "reqBytes", "return nil, err")
 	g.P("var stream C.int32_t")
 	g.P("errID := int32(C.", messageCGOServerServerStreamStartTrampolineName(service, method), "(a.", method.GoName, "Start, C.uintptr_t(requestPtr), C.int32_t(requestLen), &stream))")
 	g.P("if errID != 0 { return nil, ", messageCGOServerErrorIDHelperName(service), "(errID) }")
 	g.P("return &", sessionName, "{recv: a.", method.GoName, "Recv, finish: a.", method.GoName, "Finish, cancel: a.", method.GoName, "Cancel, stream: int32(stream)}, nil")
 	g.P("}")
 	g.P()
-	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context, req []byte, stream ", servicePackage, service.GoName, method.GoName, "MessageServerStream) error {")
+	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context, req ", messageGoPointerType(g, method.Request), ", stream ", cgoMessageServerStreamType(g, method), ") error {")
 	g.P("session, err := a.Start", method.GoName, "(ctx, req)")
 	g.P("if err != nil {")
 	g.P("return err")
@@ -468,7 +456,7 @@ func renderCGOMessageServerServerStreamAdapter(g *protogen.GeneratedFile, servic
 	g.P("stream int32")
 	g.P("}")
 	g.P()
-	g.P("func (s *", sessionName, ") Recv(ctx context.Context) ([]byte, error) {")
+	g.P("func (s *", sessionName, ") Recv(ctx context.Context) (", messageGoPointerType(g, method.Response), ", error) {")
 	renderCGOMessageResponseVars(g)
 	g.P("errID := int32(C.", messageCGOServerServerStreamRecvTrampolineName(service, method), "(s.recv, C.int32_t(s.stream), &responsePtr, &responseLen))")
 	renderCGOMessageResponseReturn(g, service, method, "errID")
@@ -488,9 +476,9 @@ func renderCGOMessageServerServerStreamAdapter(g *protogen.GeneratedFile, servic
 	g.P()
 }
 
-func renderCGOMessageServerBidiStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, adapterName, servicePackage string) {
+func renderCGOMessageServerBidiStreamAdapter(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, adapterName string) {
 	sessionName := lowerInitial(service.GoName) + method.GoName + "CGOMessageBidiStreamSession"
-	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context) (", servicePackage, service.GoName, method.GoName, "MessageStreamSession, error) {")
+	g.P("func (a *", adapterName, ") Start", method.GoName, "(ctx context.Context) (", cgoMessageBidiStreamSessionType(g, method), ", error) {")
 	renderCGOMessageStartGuard(g, service, method)
 	g.P("var stream C.int32_t")
 	g.P("errID := int32(C.", messageCGOServerBidiStreamStartTrampolineName(service, method), "(a.", method.GoName, "Start, &stream))")
@@ -498,7 +486,7 @@ func renderCGOMessageServerBidiStreamAdapter(g *protogen.GeneratedFile, service 
 	g.P("return &", sessionName, "{send: a.", method.GoName, "Send, recv: a.", method.GoName, "Recv, closeSend: a.", method.GoName, "CloseSend, finish: a.", method.GoName, "Finish, cancel: a.", method.GoName, "Cancel, stream: int32(stream)}, nil")
 	g.P("}")
 	g.P()
-	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context, stream ", servicePackage, service.GoName, method.GoName, "MessageBidiStream) error {")
+	g.P("func (a *", adapterName, ") ", method.GoName, "(ctx context.Context, stream ", cgoMessageBidiStreamType(g, method), ") error {")
 	g.P("session, err := a.Start", method.GoName, "(ctx)")
 	g.P("if err != nil {")
 	g.P("return err")
@@ -564,15 +552,15 @@ func renderCGOMessageServerBidiStreamAdapter(g *protogen.GeneratedFile, service 
 	g.P("stream int32")
 	g.P("}")
 	g.P()
-	g.P("func (s *", sessionName, ") Send(ctx context.Context, req []byte) error {")
-	renderCGOMessageProtoUnmarshalCheck(g, method.Request, "req", "request", "return fmt.Errorf")
-	renderCGOMessageRequestPtrLen(g, "req", "return err")
+	g.P("func (s *", sessionName, ") Send(ctx context.Context, req ", messageGoPointerType(g, method.Request), ") error {")
+	renderCGOMessageMarshalRequest(g, "req", "reqBytes", "return err")
+	renderCGOMessageRequestPtrLen(g, "reqBytes", "return err")
 	g.P("errID := int32(C.", messageCGOServerBidiStreamSendTrampolineName(service, method), "(s.send, C.int32_t(s.stream), C.uintptr_t(requestPtr), C.int32_t(requestLen)))")
 	g.P("if errID != 0 { return ", messageCGOServerErrorIDHelperName(service), "(errID) }")
 	g.P("return nil")
 	g.P("}")
 	g.P()
-	g.P("func (s *", sessionName, ") Recv(ctx context.Context) ([]byte, error) {")
+	g.P("func (s *", sessionName, ") Recv(ctx context.Context) (", messageGoPointerType(g, method.Response), ", error) {")
 	renderCGOMessageResponseVars(g)
 	g.P("errID := int32(C.", messageCGOServerBidiStreamRecvTrampolineName(service, method), "(s.recv, C.int32_t(s.stream), &responsePtr, &responseLen))")
 	renderCGOMessageResponseReturn(g, service, method, "errID")
@@ -619,43 +607,75 @@ func renderCGOMessageRequestPtrLen(g *protogen.GeneratedFile, dataName, errRetur
 	g.P("if err != nil { ", errReturn, " }")
 }
 
+func renderCGOMessageMarshalRequest(g *protogen.GeneratedFile, valueName, dataName, errReturn string) {
+	g.P("if ", valueName, " == nil {")
+	g.P(`err := errors.New("rpccgo: message request is nil")`)
+	g.P(errReturn)
+	g.P("}")
+	g.P(dataName, ", err := protobuf.Marshal(", valueName, ")")
+	g.P("if err != nil {")
+	g.P(`err = fmt.Errorf("rpccgo: message request protobuf marshal failed: %w", err)`)
+	g.P(errReturn)
+	g.P("}")
+}
+
 func renderCGOMessageResponseVars(g *protogen.GeneratedFile) {
 	g.P("var responsePtr C.uintptr_t")
 	g.P("var responseLen C.int32_t")
 }
 
 func renderCGOMessageResponseBytesHelper(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
-	g.P("func ", messageCGOServerResponseBytesName(service, method), "(responsePtr C.uintptr_t, responseLen C.int32_t) ([]byte, error) {")
+	g.P("func ", messageCGOServerResponseName(service, method), "(responsePtr C.uintptr_t, responseLen C.int32_t) (", messageGoPointerType(g, method.Response), ", error) {")
+	g.P("resp := &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Response.GoName, GoImportPath: protogen.GoImportPath(method.Response.GoImportPath)}), "{}")
 	g.P("if responseLen < 0 {")
 	g.P(`return nil, errors.New("rpccgo: message server response length is negative")`)
 	g.P("}")
 	g.P("if responseLen == 0 {")
-	g.P("return nil, nil")
+	g.P("return resp, nil")
 	g.P("}")
 	g.P("if responsePtr == 0 {")
 	g.P(`return nil, errors.New("rpccgo: message server response pointer is nil")`)
 	g.P("}")
-	g.P("return append([]byte(nil), unsafe.Slice((*byte)(unsafe.Pointer(uintptr(responsePtr))), int(responseLen))...), nil")
+	g.P("data := unsafe.Slice((*byte)(unsafe.Pointer(uintptr(responsePtr))), int(responseLen))")
+	g.P("if err := protobuf.Unmarshal(data, resp); err != nil {")
+	g.P(`return nil, fmt.Errorf("rpccgo: message response protobuf unmarshal failed: %w", err)`)
+	g.P("}")
+	g.P("return resp, nil")
 	g.P("}")
 	g.P()
 }
 
 func renderCGOMessageResponseReturn(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errIDName string) {
 	g.P("if ", errIDName, " != 0 { return nil, ", messageCGOServerErrorIDHelperName(service), "(", errIDName, ") }")
-	g.P("resp, err := ", messageCGOServerResponseBytesName(service, method), "(responsePtr, responseLen)")
-	g.P("if err != nil { return nil, err }")
-	renderCGOMessageProtoUnmarshalCheck(g, method.Response, "resp", "response", "return nil, fmt.Errorf")
-	g.P("return resp, nil")
+	g.P("return ", messageCGOServerResponseName(service, method), "(responsePtr, responseLen)")
 }
 
-func renderCGOMessageProtoUnmarshalCheck(g *protogen.GeneratedFile, message MethodIOPlan, dataName, label, retPrefix string) {
-	g.P("if err := protobuf.Unmarshal(", dataName, ", &", g.QualifiedGoIdent(protogen.GoIdent{GoName: message.GoName, GoImportPath: protogen.GoImportPath(message.GoImportPath)}), "{}); err != nil {")
-	g.P(retPrefix, `("rpccgo: message `, label, ` protobuf unmarshal failed: %w", err)`)
-	g.P("}")
+func cgoMessageClientStreamType(g *protogen.GeneratedFile, method MethodPlan) string {
+	return "rpcruntime.CGOMessageClientStream[" + messageGoPointerType(g, method.Request) + "]"
 }
 
-func messageCGOServerResponseBytesName(service ServicePlan, method MethodPlan) string {
-	return "decode" + service.GoName + method.GoName + "CGOMessageResponseBytes"
+func cgoMessageServerStreamType(g *protogen.GeneratedFile, method MethodPlan) string {
+	return "rpcruntime.CGOMessageServerStream[" + messageGoPointerType(g, method.Response) + "]"
+}
+
+func cgoMessageBidiStreamType(g *protogen.GeneratedFile, method MethodPlan) string {
+	return "rpcruntime.CGOMessageBidiStream[" + messageGoPointerType(g, method.Request) + ", " + messageGoPointerType(g, method.Response) + "]"
+}
+
+func cgoMessageClientStreamSessionType(g *protogen.GeneratedFile, method MethodPlan) string {
+	return "rpcruntime.CGOMessageClientStreamSession[" + messageGoPointerType(g, method.Request) + ", " + messageGoPointerType(g, method.Response) + "]"
+}
+
+func cgoMessageServerStreamSessionType(g *protogen.GeneratedFile, method MethodPlan) string {
+	return "rpcruntime.CGOMessageServerStreamSession[" + messageGoPointerType(g, method.Response) + "]"
+}
+
+func cgoMessageBidiStreamSessionType(g *protogen.GeneratedFile, method MethodPlan) string {
+	return "rpcruntime.CGOMessageBidiStreamSession[" + messageGoPointerType(g, method.Request) + ", " + messageGoPointerType(g, method.Response) + "]"
+}
+
+func messageCGOServerResponseName(service ServicePlan, method MethodPlan) string {
+	return "decode" + service.GoName + method.GoName + "CGOMessageResponse"
 }
 
 func messageCGOServerUnaryCallbackName(service ServicePlan, method MethodPlan) string {

@@ -89,10 +89,13 @@ func TestRenderRuntimeGlueDefinesMessageContractRegistryRegistration(t *testing.
 
 	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
-		"func InvokeAllServiceMessageUnary(ctx context.Context, req []byte) ([]byte, error) {",
+		"func InvokeAllServiceMessageUnary(ctx context.Context, req *AllRequest) (*AllReply, error) {",
+		`return nil, errors.New("rpccgo: message request is nil")`,
 		"registered, err := rpcruntime.LoadServer(allServiceServiceID)",
 		"case rpcruntime.ServerKindCGOMessage:",
-		"return server.Unary(ctx, req)",
+		"resp, err := server.Unary(ctx, req)",
+		`return nil, errors.New("rpccgo: message response is nil")`,
+		"return resp, nil",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
@@ -124,7 +127,8 @@ func TestRenderRuntimeGlueDefinesConnectDirectRegistration(t *testing.T) {
 		"rpcruntime.RegisterServer(defaultServiceServiceID, rpcruntime.RegisteredServer{",
 		"Kind:   rpcruntime.ServerKindConnect,",
 		"Server: handler,",
-		"messageResp, err := server.DefaultUnary(ctx, messageReq)",
+		"messageResp, err := server.DefaultUnary(ctx, req)",
+		`return nil, errors.New("rpccgo: message response is nil")`,
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
@@ -144,8 +148,9 @@ func TestRenderRuntimeGlueRoutesNativeUnaryToConnectHandler(t *testing.T) {
 		"func RegisterConnectNativeServiceConnectHandler(handler ConnectNativeServiceHandler) error {",
 		"Kind:   rpcruntime.ServerKindConnect,",
 		"Server: handler,",
-		"new(ConnectNativeRequest)",
-		"server.ConnectNativeUnary(ctx",
+		"messageReq, err := convertConnectNativeServiceConnectNativeUnaryNativeToMessageRequest(name, enabled, child)",
+		"messageResp, err = server.ConnectNativeUnary(ctx, messageReq)",
+		"messageResp, err := server.ConnectNativeUnary(ctx, req)",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
@@ -165,7 +170,8 @@ func TestRenderRuntimeGlueDefinesGRPCDirectRegistration(t *testing.T) {
 		"func RegisterGrpcServiceGRPCServer(server GrpcServiceServer) error {",
 		"Kind:   rpcruntime.ServerKindGRPC,",
 		"Server: server,",
-		"messageResp, err := server.GrpcUnary(ctx, messageReq)",
+		"messageResp, err := server.GrpcUnary(ctx, req)",
+		`return nil, errors.New("rpccgo: message response is nil")`,
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
@@ -224,12 +230,15 @@ func TestRenderRuntimeGlueDefinesPackageLevelStreamOperations(t *testing.T) {
 		assertGeneratedContentContains(t, plugin, nativeServerFile, fragment)
 	}
 	for _, fragment := range []string{
-		"func SendAllServiceMessageClientStream(ctx context.Context, handle rpcruntime.StreamHandle, req []byte) error {",
+		"func SendAllServiceMessageClientStream(ctx context.Context, handle rpcruntime.StreamHandle, req *AllRequest) error {",
+		`return errors.New("rpccgo: message request is nil")`,
 		"entry, err := rpcruntime.SendStreamSession(handle)",
-		"func FinishAllServiceMessageClientStream(ctx context.Context, handle rpcruntime.StreamHandle) ([]byte, error) {",
+		"source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*AllRequest, *AllReply])",
+		"func FinishAllServiceMessageClientStream(ctx context.Context, handle rpcruntime.StreamHandle) (*AllReply, error) {",
 		"entry, err := rpcruntime.FinishStreamSession(handle)",
-		"func RecvAllServiceMessageServerStream(ctx context.Context, handle rpcruntime.StreamHandle) ([]byte, error) {",
+		"func RecvAllServiceMessageServerStream(ctx context.Context, handle rpcruntime.StreamHandle) (*AllReply, error) {",
 		"entry, err := rpcruntime.RecvStreamSession(handle)",
+		`return nil, errors.New("rpccgo: message response is nil")`,
 		"func CloseSendAllServiceMessageBidiStream(ctx context.Context, handle rpcruntime.StreamHandle) error {",
 		"entry, err := rpcruntime.CloseSendStreamSession(handle)",
 		"entry, err := rpcruntime.CancelStreamSession(handle)",
@@ -239,7 +248,6 @@ func TestRenderRuntimeGlueDefinesPackageLevelStreamOperations(t *testing.T) {
 	assertGeneratedFileContentDoesNotContain(t, plugin, nativeServerFile,
 		"type AllServiceClientStream"+"NativeStream struct {",
 		"func NewAllServiceClientStream"+"NativeStream(handle rpcruntime.StreamHandle)",
-		"StreamSession"+"[",
 		"allServiceStreamRegistry",
 		"."+"kind",
 		"."+"session",
@@ -247,7 +255,6 @@ func TestRenderRuntimeGlueDefinesPackageLevelStreamOperations(t *testing.T) {
 	assertGeneratedFileContentDoesNotContain(t, plugin, messageServerFile,
 		"type AllServiceClientStream"+"MessageStream struct {",
 		"func NewAllServiceClientStream"+"MessageStream(handle rpcruntime.StreamHandle)",
-		"StreamSession"+"[",
 		"allServiceStreamRegistry",
 		"."+"kind",
 		"."+"session",

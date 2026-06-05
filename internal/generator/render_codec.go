@@ -27,7 +27,6 @@ func renderCodecFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan
 	g.P()
 	g.P("import (")
 	g.P(`errors "errors"`)
-	g.P(`fmt "fmt"`)
 	if codecNeedsGoRuntime(service) {
 		g.P(`goruntime "runtime"`)
 	}
@@ -37,7 +36,6 @@ func renderCodecFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan
 	if codecNeedsUnsafe(service) {
 		g.P(`unsafe "unsafe"`)
 	}
-	g.P(`proto "google.golang.org/protobuf/proto"`)
 	g.P(")")
 	g.P()
 	g.P("// rpccgo native message codec generated file for ", service.GoName)
@@ -112,14 +110,13 @@ func renderCodecMethodStubs(g *protogen.GeneratedFile, service ServicePlan, meth
 }
 
 func renderCodecMessageToNativeRequestFunction(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, messageType string, fields []FieldPlan) {
-	g.P("func ", codecMessageToNativeRequestName(service, method), "(data []byte) (", codecMessageToNativeRequestReturns(g, fields), ") {")
-	g.P("var msg ", strings.TrimPrefix(messageType, "*"))
-	g.P("if err := proto.Unmarshal(data, &msg); err != nil {")
-	g.P("return ", codecMessageToNativeRequestZeroReturns(fields, "nil", "err"))
+	g.P("func ", codecMessageToNativeRequestName(service, method), "(msg ", messageType, ") (", codecMessageToNativeRequestReturns(g, fields), ") {")
+	g.P("if msg == nil {")
+	g.P(`return `, codecMessageToNativeRequestZeroReturns(fields, "nil", `errors.New("rpccgo: message request is nil")`))
 	g.P("}")
 	g.P("// Returned native wrappers borrow from msg and reqOwner-owned buffers.")
 	g.P("// Callers must keep the returned owner alive until the synchronous native call returns.")
-	g.P("reqOwner := []any{&msg}")
+	g.P("reqOwner := []any{msg}")
 	renderCodecMessageToNativeRequestValues(g, fields)
 	g.P("return ", codecMessageToNativeRequestValueNames(fields, "reqOwner", "nil"))
 	g.P("}")
@@ -322,9 +319,9 @@ func renderCodecNativeRequestKeepAlive(g *protogen.GeneratedFile, fields []Field
 }
 
 func renderCodecMessageToNativeFunction(g *protogen.GeneratedFile, name, messageType, nativeReturns, errZero string, fields []FieldPlan, returnNames string, renderValues func(*protogen.GeneratedFile, []FieldPlan, string, string, string)) {
-	g.P("func ", name, "(data []byte) (", nativeReturns, ") {")
-	g.P("var msg ", strings.TrimPrefix(messageType, "*"))
-	g.P("if err := proto.Unmarshal(data, &msg); err != nil {")
+	g.P("func ", name, "(msg ", messageType, ") (", nativeReturns, ") {")
+	g.P("if msg == nil {")
+	g.P(`err := errors.New("rpccgo: message response is nil")`)
 	g.P("return ", errZero)
 	g.P("}")
 	renderValues(g, fields, "msg", returnNames, errZero)
@@ -333,17 +330,13 @@ func renderCodecMessageToNativeFunction(g *protogen.GeneratedFile, name, message
 }
 
 func renderCodecNativeToMessageFunction(g *protogen.GeneratedFile, name, messageType, nativeArgs string, fields []FieldPlan, label string, renderValues func(*protogen.GeneratedFile, []FieldPlan, string)) {
-	g.P("func ", name, "(", strings.TrimPrefix(nativeArgs, ", "), ") ([]byte, error) {")
+	g.P("func ", name, "(", strings.TrimPrefix(nativeArgs, ", "), ") (", messageType, ", error) {")
 	g.P("msg := &", strings.TrimPrefix(messageType, "*"), "{}")
 	renderValues(g, fields, "msg")
-	g.P("data, err := proto.Marshal(msg)")
 	if label == "request" {
 		renderCodecNativeRequestKeepAlive(g, fields)
 	}
-	g.P("if err != nil {")
-	g.P(`return nil, fmt.Errorf("rpccgo: native `, label, ` protobuf marshal failed: %w", err)`)
-	g.P("}")
-	g.P("return data, nil")
+	g.P("return msg, nil")
 	g.P("}")
 	g.P()
 }

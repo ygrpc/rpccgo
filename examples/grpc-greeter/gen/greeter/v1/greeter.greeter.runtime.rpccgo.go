@@ -9,7 +9,6 @@ import (
 	errors "errors"
 	goruntime "runtime"
 	fmt "fmt"
-	proto "google.golang.org/protobuf/proto"
 	io "io"
 	sync "sync"
 	grpc "google.golang.org/grpc"
@@ -65,7 +64,7 @@ func RegisterGreeterGRPCRemoteServer(client GreeterClient) error {
 }
 
 type greeterCollectGRPCDirectMessageStreamSessionResult struct {
-	data     []byte
+	data     *SayHelloResponse
 	err      error
 	terminal bool
 }
@@ -73,7 +72,7 @@ type greeterCollectGRPCDirectMessageStreamSessionResult struct {
 type greeterCollectGRPCDirectMessageStreamSession struct {
 	ctx           context.Context
 	cancel        context.CancelFunc
-	requests      chan []byte
+	requests      chan *SayHelloRequest
 	closeRequests sync.Once
 	result        chan greeterCollectGRPCDirectMessageStreamSessionResult
 	resultOnce    sync.Once
@@ -83,7 +82,7 @@ type greeterCollectGRPCDirectMessageStreamSession struct {
 
 func newgreeterCollectGRPCDirectMessageStreamSession(ctx context.Context, server GreeterServer) *greeterCollectGRPCDirectMessageStreamSession {
 	streamCtx, cancel := context.WithCancel(ctx)
-	session := &greeterCollectGRPCDirectMessageStreamSession{ctx: streamCtx, cancel: cancel, requests: make(chan []byte), result: make(chan greeterCollectGRPCDirectMessageStreamSessionResult, 1)}
+	session := &greeterCollectGRPCDirectMessageStreamSession{ctx: streamCtx, cancel: cancel, requests: make(chan *SayHelloRequest), result: make(chan greeterCollectGRPCDirectMessageStreamSessionResult, 1)}
 	go func() {
 		err := server.Collect(session)
 		if err != nil {
@@ -105,13 +104,9 @@ func (s *greeterCollectGRPCDirectMessageStreamSession) Recv() (*SayHelloRequest,
 	select {
 	case <-s.ctx.Done():
 		return nil, s.ctx.Err()
-	case data, ok := <-s.requests:
+	case msg, ok := <-s.requests:
 		if !ok {
 			return nil, io.EOF
-		}
-		msg := new(SayHelloRequest)
-		if err := proto.Unmarshal(data, msg); err != nil {
-			return nil, err
 		}
 		return msg, nil
 	}
@@ -134,11 +129,7 @@ func (s *greeterCollectGRPCDirectMessageStreamSession) SendAndClose(resp *SayHel
 	if resp == nil {
 		return fmt.Errorf("rpccgo: grpc direct client stream response is nil")
 	}
-	data, err := proto.Marshal(resp)
-	if err != nil {
-		return err
-	}
-	s.deliver(greeterCollectGRPCDirectMessageStreamSessionResult{data: data, terminal: true})
+	s.deliver(greeterCollectGRPCDirectMessageStreamSessionResult{data: resp, terminal: true})
 	return nil
 }
 
@@ -179,7 +170,10 @@ func (s *greeterCollectGRPCDirectMessageStreamSession) SetTrailer(md metadata.MD
 
 func (s *greeterCollectGRPCDirectMessageStreamSession) Context() context.Context { return s.ctx }
 
-func (s *greeterCollectGRPCDirectMessageStreamSession) Send(ctx context.Context, req []byte) error {
+func (s *greeterCollectGRPCDirectMessageStreamSession) Send(ctx context.Context, req *SayHelloRequest) error {
+	if req == nil {
+		return errors.New("rpccgo: message request is nil")
+	}
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -190,7 +184,7 @@ func (s *greeterCollectGRPCDirectMessageStreamSession) Send(ctx context.Context,
 	}
 }
 
-func (s *greeterCollectGRPCDirectMessageStreamSession) Finish(ctx context.Context) ([]byte, error) {
+func (s *greeterCollectGRPCDirectMessageStreamSession) Finish(ctx context.Context) (*SayHelloResponse, error) {
 	s.closeRequests.Do(func() { close(s.requests) })
 	select {
 	case <-ctx.Done():
@@ -222,19 +216,18 @@ type greeterCollectGRPCRemoteMessageStreamSession struct {
 	cancel context.CancelFunc
 }
 
-func (s *greeterCollectGRPCRemoteMessageStreamSession) Send(ctx context.Context, req []byte) error {
+func (s *greeterCollectGRPCRemoteMessageStreamSession) Send(ctx context.Context, req *SayHelloRequest) error {
 	_ = ctx
+	if req == nil {
+		return errors.New("rpccgo: message request is nil")
+	}
 	if s == nil || s.stream == nil {
 		return errors.New("rpccgo: grpc remote client stream is nil")
 	}
-	request := new(SayHelloRequest)
-	if err := proto.Unmarshal(req, request); err != nil {
-		return fmt.Errorf("rpccgo: grpc remote stream request protobuf unmarshal failed: %w", err)
-	}
-	return s.stream.Send(request)
+	return s.stream.Send(req)
 }
 
-func (s *greeterCollectGRPCRemoteMessageStreamSession) Finish(ctx context.Context) ([]byte, error) {
+func (s *greeterCollectGRPCRemoteMessageStreamSession) Finish(ctx context.Context) (*SayHelloResponse, error) {
 	_ = ctx
 	if s == nil || s.stream == nil {
 		return nil, errors.New("rpccgo: grpc remote client stream is nil")
@@ -248,11 +241,10 @@ func (s *greeterCollectGRPCRemoteMessageStreamSession) Finish(ctx context.Contex
 	if err != nil {
 		return nil, err
 	}
-	respData, err := proto.Marshal(response)
-	if err != nil {
-		return nil, fmt.Errorf("rpccgo: grpc remote stream response protobuf marshal failed: %w", err)
+	if response == nil {
+		return nil, errors.New("rpccgo: message response is nil")
 	}
-	return respData, nil
+	return response, nil
 }
 
 func (s *greeterCollectGRPCRemoteMessageStreamSession) Cancel(ctx context.Context) error {
@@ -267,7 +259,7 @@ func (s *greeterCollectGRPCRemoteMessageStreamSession) Cancel(ctx context.Contex
 }
 
 type greeterBroadcastGRPCDirectMessageStreamSessionResult struct {
-	data     []byte
+	data     *SayHelloResponse
 	err      error
 	terminal bool
 }
@@ -280,15 +272,14 @@ type greeterBroadcastGRPCDirectMessageStreamSession struct {
 	trailer   metadata.MD
 }
 
-func newgreeterBroadcastGRPCDirectMessageStreamSession(ctx context.Context, server GreeterServer, req []byte) (*greeterBroadcastGRPCDirectMessageStreamSession, error) {
-	messageReq := new(SayHelloRequest)
-	if err := proto.Unmarshal(req, messageReq); err != nil {
-		return nil, fmt.Errorf("rpccgo: grpc direct server stream request protobuf unmarshal failed: %w", err)
+func newgreeterBroadcastGRPCDirectMessageStreamSession(ctx context.Context, server GreeterServer, req *SayHelloRequest) (*greeterBroadcastGRPCDirectMessageStreamSession, error) {
+	if req == nil {
+		return nil, errors.New("rpccgo: message request is nil")
 	}
 	streamCtx, cancel := context.WithCancel(ctx)
 	session := &greeterBroadcastGRPCDirectMessageStreamSession{ctx: streamCtx, cancel: cancel, responses: make(chan greeterBroadcastGRPCDirectMessageStreamSessionResult, 1)}
 	go func() {
-		err := server.Broadcast(messageReq, session)
+		err := server.Broadcast(req, session)
 		session.responses <- greeterBroadcastGRPCDirectMessageStreamSessionResult{err: err, terminal: true}
 	}()
 	return session, nil
@@ -298,14 +289,10 @@ func (s *greeterBroadcastGRPCDirectMessageStreamSession) Send(resp *SayHelloResp
 	if resp == nil {
 		return fmt.Errorf("rpccgo: grpc direct server stream response is nil")
 	}
-	data, err := proto.Marshal(resp)
-	if err != nil {
-		return err
-	}
 	select {
 	case <-s.ctx.Done():
 		return s.ctx.Err()
-	case s.responses <- greeterBroadcastGRPCDirectMessageStreamSessionResult{data: data}:
+	case s.responses <- greeterBroadcastGRPCDirectMessageStreamSessionResult{data: resp}:
 		return nil
 	}
 }
@@ -351,7 +338,7 @@ func (s *greeterBroadcastGRPCDirectMessageStreamSession) SetTrailer(md metadata.
 
 func (s *greeterBroadcastGRPCDirectMessageStreamSession) Context() context.Context { return s.ctx }
 
-func (s *greeterBroadcastGRPCDirectMessageStreamSession) Recv(ctx context.Context) ([]byte, error) {
+func (s *greeterBroadcastGRPCDirectMessageStreamSession) Recv(ctx context.Context) (*SayHelloResponse, error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -377,13 +364,12 @@ func (s *greeterBroadcastGRPCDirectMessageStreamSession) Cancel(ctx context.Cont
 	return nil
 }
 
-func newgreeterBroadcastGRPCRemoteMessageStreamSession(ctx context.Context, client GreeterClient, req []byte) (*greeterBroadcastGRPCRemoteMessageStreamSession, error) {
-	request := new(SayHelloRequest)
-	if err := proto.Unmarshal(req, request); err != nil {
-		return nil, fmt.Errorf("rpccgo: grpc remote request protobuf unmarshal failed: %w", err)
+func newgreeterBroadcastGRPCRemoteMessageStreamSession(ctx context.Context, client GreeterClient, req *SayHelloRequest) (*greeterBroadcastGRPCRemoteMessageStreamSession, error) {
+	if req == nil {
+		return nil, errors.New("rpccgo: message request is nil")
 	}
 	streamCtx, cancel := context.WithCancel(ctx)
-	stream, err := client.Broadcast(streamCtx, request)
+	stream, err := client.Broadcast(streamCtx, req)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -396,7 +382,7 @@ type greeterBroadcastGRPCRemoteMessageStreamSession struct {
 	cancel context.CancelFunc
 }
 
-func (s *greeterBroadcastGRPCRemoteMessageStreamSession) Recv(ctx context.Context) ([]byte, error) {
+func (s *greeterBroadcastGRPCRemoteMessageStreamSession) Recv(ctx context.Context) (*SayHelloResponse, error) {
 	_ = ctx
 	if s == nil || s.stream == nil {
 		return nil, errors.New("rpccgo: grpc remote server stream is nil")
@@ -408,11 +394,10 @@ func (s *greeterBroadcastGRPCRemoteMessageStreamSession) Recv(ctx context.Contex
 		}
 		return nil, err
 	}
-	respData, err := proto.Marshal(response)
-	if err != nil {
-		return nil, fmt.Errorf("rpccgo: grpc remote stream response protobuf marshal failed: %w", err)
+	if response == nil {
+		return nil, errors.New("rpccgo: message response is nil")
 	}
-	return respData, nil
+	return response, nil
 }
 
 func (s *greeterBroadcastGRPCRemoteMessageStreamSession) Finish(ctx context.Context) error {
@@ -435,7 +420,7 @@ func (s *greeterBroadcastGRPCRemoteMessageStreamSession) Cancel(ctx context.Cont
 }
 
 type greeterChatGRPCDirectMessageStreamSessionResult struct {
-	data     []byte
+	data     *SayHelloResponse
 	err      error
 	terminal bool
 }
@@ -443,7 +428,7 @@ type greeterChatGRPCDirectMessageStreamSessionResult struct {
 type greeterChatGRPCDirectMessageStreamSession struct {
 	ctx           context.Context
 	cancel        context.CancelFunc
-	requests      chan []byte
+	requests      chan *SayHelloRequest
 	closeRequests sync.Once
 	responses     chan greeterChatGRPCDirectMessageStreamSessionResult
 	header        metadata.MD
@@ -456,7 +441,7 @@ type greeterChatGRPCDirectMessageStreamSessionGRPCStream struct {
 
 func newgreeterChatGRPCDirectMessageStreamSession(ctx context.Context, server GreeterServer) *greeterChatGRPCDirectMessageStreamSession {
 	streamCtx, cancel := context.WithCancel(ctx)
-	session := &greeterChatGRPCDirectMessageStreamSession{ctx: streamCtx, cancel: cancel, requests: make(chan []byte), responses: make(chan greeterChatGRPCDirectMessageStreamSessionResult, 1)}
+	session := &greeterChatGRPCDirectMessageStreamSession{ctx: streamCtx, cancel: cancel, requests: make(chan *SayHelloRequest), responses: make(chan greeterChatGRPCDirectMessageStreamSessionResult, 1)}
 	go func() {
 		err := server.Chat(&greeterChatGRPCDirectMessageStreamSessionGRPCStream{source: session})
 		session.responses <- greeterChatGRPCDirectMessageStreamSessionResult{err: err, terminal: true}
@@ -468,13 +453,9 @@ func (s *greeterChatGRPCDirectMessageStreamSessionGRPCStream) Recv() (*SayHelloR
 	select {
 	case <-s.source.ctx.Done():
 		return nil, s.source.ctx.Err()
-	case data, ok := <-s.source.requests:
+	case msg, ok := <-s.source.requests:
 		if !ok {
 			return nil, io.EOF
-		}
-		msg := new(SayHelloRequest)
-		if err := proto.Unmarshal(data, msg); err != nil {
-			return nil, err
 		}
 		return msg, nil
 	}
@@ -497,14 +478,10 @@ func (s *greeterChatGRPCDirectMessageStreamSessionGRPCStream) Send(resp *SayHell
 	if resp == nil {
 		return fmt.Errorf("rpccgo: grpc direct bidi response is nil")
 	}
-	data, err := proto.Marshal(resp)
-	if err != nil {
-		return err
-	}
 	select {
 	case <-s.source.ctx.Done():
 		return s.source.ctx.Err()
-	case s.source.responses <- greeterChatGRPCDirectMessageStreamSessionResult{data: data}:
+	case s.source.responses <- greeterChatGRPCDirectMessageStreamSessionResult{data: resp}:
 		return nil
 	}
 }
@@ -560,7 +537,10 @@ func (s *greeterChatGRPCDirectMessageStreamSession) SetTrailer(md metadata.MD) {
 	s.trailer = metadata.Join(s.trailer, md)
 }
 
-func (s *greeterChatGRPCDirectMessageStreamSession) Send(ctx context.Context, req []byte) error {
+func (s *greeterChatGRPCDirectMessageStreamSession) Send(ctx context.Context, req *SayHelloRequest) error {
+	if req == nil {
+		return errors.New("rpccgo: message request is nil")
+	}
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -576,7 +556,7 @@ func (s *greeterChatGRPCDirectMessageStreamSession) CloseSend(ctx context.Contex
 	return nil
 }
 
-func (s *greeterChatGRPCDirectMessageStreamSession) Recv(ctx context.Context) ([]byte, error) {
+func (s *greeterChatGRPCDirectMessageStreamSession) Recv(ctx context.Context) (*SayHelloResponse, error) {
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -617,19 +597,18 @@ type greeterChatGRPCRemoteMessageStreamSession struct {
 	cancel context.CancelFunc
 }
 
-func (s *greeterChatGRPCRemoteMessageStreamSession) Send(ctx context.Context, req []byte) error {
+func (s *greeterChatGRPCRemoteMessageStreamSession) Send(ctx context.Context, req *SayHelloRequest) error {
 	_ = ctx
+	if req == nil {
+		return errors.New("rpccgo: message request is nil")
+	}
 	if s == nil || s.stream == nil {
 		return errors.New("rpccgo: grpc remote bidi stream is nil")
 	}
-	request := new(SayHelloRequest)
-	if err := proto.Unmarshal(req, request); err != nil {
-		return fmt.Errorf("rpccgo: grpc remote bidi request protobuf unmarshal failed: %w", err)
-	}
-	return s.stream.Send(request)
+	return s.stream.Send(req)
 }
 
-func (s *greeterChatGRPCRemoteMessageStreamSession) Recv(ctx context.Context) ([]byte, error) {
+func (s *greeterChatGRPCRemoteMessageStreamSession) Recv(ctx context.Context) (*SayHelloResponse, error) {
 	_ = ctx
 	if s == nil || s.stream == nil {
 		return nil, errors.New("rpccgo: grpc remote bidi stream is nil")
@@ -641,11 +620,10 @@ func (s *greeterChatGRPCRemoteMessageStreamSession) Recv(ctx context.Context) ([
 		}
 		return nil, err
 	}
-	respData, err := proto.Marshal(response)
-	if err != nil {
-		return nil, fmt.Errorf("rpccgo: grpc remote stream response protobuf marshal failed: %w", err)
+	if response == nil {
+		return nil, errors.New("rpccgo: message response is nil")
 	}
-	return respData, nil
+	return response, nil
 }
 
 func (s *greeterChatGRPCRemoteMessageStreamSession) Finish(ctx context.Context) error {
@@ -716,16 +694,15 @@ func InvokeGreeterNativeSayHello(ctx context.Context, name *rpcruntime.RpcString
 		if err != nil {
 			return "", err
 		}
-		var messageResp []byte
-		directReq := new(SayHelloRequest)
-		if err = proto.Unmarshal(messageReq, directReq); err != nil {
-			return "", err
-		}
-		directResp, err := server.SayHello(ctx, directReq)
+		var messageResp *SayHelloResponse
+		messageResp, err = server.SayHello(ctx, messageReq)
 		if err != nil {
 			return "", err
 		}
-		messageResp, err = proto.Marshal(directResp)
+		if messageResp == nil {
+			err = errors.New("rpccgo: message response is nil")
+			return "", err
+		}
 		if err != nil {
 			return "", err
 		}
@@ -739,16 +716,15 @@ func InvokeGreeterNativeSayHello(ctx context.Context, name *rpcruntime.RpcString
 		if err != nil {
 			return "", err
 		}
-		var messageResp []byte
-		directReq := new(SayHelloRequest)
-		if err = proto.Unmarshal(messageReq, directReq); err != nil {
-			return "", err
-		}
-		directResp, err := server.SayHello(ctx, directReq)
+		var messageResp *SayHelloResponse
+		messageResp, err = server.SayHello(ctx, messageReq)
 		if err != nil {
 			return "", err
 		}
-		messageResp, err = proto.Marshal(directResp)
+		if messageResp == nil {
+			err = errors.New("rpccgo: message response is nil")
+			return "", err
+		}
 		if err != nil {
 			return "", err
 		}
@@ -758,7 +734,10 @@ func InvokeGreeterNativeSayHello(ctx context.Context, name *rpcruntime.RpcString
 	}
 }
 
-func InvokeGreeterMessageSayHello(ctx context.Context, req []byte) ([]byte, error) {
+func InvokeGreeterMessageSayHello(ctx context.Context, req *SayHelloRequest) (*SayHelloResponse, error) {
+	if req == nil {
+		return nil, errors.New("rpccgo: message request is nil")
+	}
 	registered, err := rpcruntime.LoadServer(greeterServiceID)
 	if err != nil {
 		return nil, err
@@ -799,43 +778,40 @@ func InvokeGreeterMessageSayHello(ctx context.Context, req []byte) ([]byte, erro
 		if !ok {
 			return nil, fmt.Errorf("rpccgo: Greeter cgo message registered server has invalid type")
 		}
-		return server.SayHello(ctx, req)
+		resp, err := server.SayHello(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
+		}
+		return resp, nil
 	case rpcruntime.ServerKindGRPC:
 		server, ok := registered.Server.(GreeterServer)
 		if !ok {
 			return nil, fmt.Errorf("rpccgo: Greeter grpc server registered server has invalid type")
 		}
-		messageReq := new(SayHelloRequest)
-		if err := proto.Unmarshal(req, messageReq); err != nil {
-			return nil, fmt.Errorf("rpccgo: grpc server request protobuf unmarshal failed: %w", err)
-		}
-		messageResp, err := server.SayHello(ctx, messageReq)
+		messageResp, err := server.SayHello(ctx, req)
 		if err != nil {
 			return nil, err
 		}
-		resp, err := proto.Marshal(messageResp)
-		if err != nil {
-			return nil, fmt.Errorf("rpccgo: grpc server response protobuf marshal failed: %w", err)
+		if messageResp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
 		}
-		return resp, nil
+		return messageResp, nil
 	case rpcruntime.ServerKindGRPCRemote:
 		server, ok := registered.Server.(GreeterClient)
 		if !ok {
 			return nil, fmt.Errorf("rpccgo: Greeter grpc remote registered server has invalid type")
 		}
-		messageReq := new(SayHelloRequest)
-		if err := proto.Unmarshal(req, messageReq); err != nil {
-			return nil, fmt.Errorf("rpccgo: grpc remote request protobuf unmarshal failed: %w", err)
-		}
-		messageResp, err := server.SayHello(ctx, messageReq)
+		messageResp, err := server.SayHello(ctx, req)
 		if err != nil {
 			return nil, err
 		}
-		resp, err := proto.Marshal(messageResp)
-		if err != nil {
-			return nil, fmt.Errorf("rpccgo: grpc remote response protobuf marshal failed: %w", err)
+		if messageResp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
 		}
-		return resp, nil
+		return messageResp, nil
 	default:
 		return nil, fmt.Errorf("rpccgo: Greeter registered server kind %d is unsupported for message calls", registered.Kind)
 	}
@@ -1039,7 +1015,10 @@ func StartGreeterNativeBroadcast(ctx context.Context, name *rpcruntime.RpcString
 	}
 }
 
-func StartGreeterMessageBroadcast(ctx context.Context, req []byte) (rpcruntime.StreamHandle, error) {
+func StartGreeterMessageBroadcast(ctx context.Context, req *SayHelloRequest) (rpcruntime.StreamHandle, error) {
+	if req == nil {
+		return 0, errors.New("rpccgo: message request is nil")
+	}
 	registered, err := rpcruntime.LoadServer(greeterServiceID)
 	if err != nil {
 		return 0, err

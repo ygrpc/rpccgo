@@ -19,49 +19,19 @@ import (
 // Greeter serves greeting RPCs for the gRPC example.
 type GreeterCGOMessageServer interface {
 	// SayHello returns a single greeting.
-	SayHello(ctx context.Context, req []byte) ([]byte, error)
+	SayHello(ctx context.Context, req *SayHelloRequest) (*SayHelloResponse, error)
 	// Collect accepts many requests and returns one greeting.
-	Collect(ctx context.Context, stream GreeterCollectMessageClientStream) ([]byte, error)
+	Collect(ctx context.Context, stream rpcruntime.CGOMessageClientStream[*SayHelloRequest]) (*SayHelloResponse, error)
 	// Broadcast accepts one request and streams greetings back.
-	Broadcast(ctx context.Context, req []byte, stream GreeterBroadcastMessageServerStream) error
+	Broadcast(ctx context.Context, req *SayHelloRequest, stream rpcruntime.CGOMessageServerStream[*SayHelloResponse]) error
 	// Chat exchanges greeting requests and responses bidirectionally.
-	Chat(ctx context.Context, stream GreeterChatMessageBidiStream) error
+	Chat(ctx context.Context, stream rpcruntime.CGOMessageBidiStream[*SayHelloRequest, *SayHelloResponse]) error
 }
 
-type GreeterCollectMessageClientStream interface {
-	Recv(ctx context.Context) ([]byte, error)
-}
-
-type GreeterBroadcastMessageServerStream interface {
-	Send(ctx context.Context, resp []byte) error
-}
-
-type GreeterChatMessageBidiStream interface {
-	Recv(ctx context.Context) ([]byte, error)
-	Send(ctx context.Context, resp []byte) error
-}
-
-type GreeterCollectMessageStreamSession interface {
-	Send(ctx context.Context, req []byte) error
-	Finish(ctx context.Context) ([]byte, error)
-	Cancel(ctx context.Context) error
-}
-
-type GreeterBroadcastMessageStreamSession interface {
-	Recv(ctx context.Context) ([]byte, error)
-	Finish(ctx context.Context) error
-	Cancel(ctx context.Context) error
-}
-
-type GreeterChatMessageStreamSession interface {
-	Send(ctx context.Context, req []byte) error
-	Recv(ctx context.Context) ([]byte, error)
-	CloseSend(ctx context.Context) error
-	Finish(ctx context.Context) error
-	Cancel(ctx context.Context) error
-}
-
-func SendGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHandle, req []byte) error {
+func SendGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHandle, req *SayHelloRequest) error {
+	if req == nil {
+		return errors.New("rpccgo: message request is nil")
+	}
 	entry, err := rpcruntime.SendStreamSession(handle)
 	if err != nil {
 		return err
@@ -92,31 +62,31 @@ func SendGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHand
 		goruntime.KeepAlive(reqOwner)
 		return err
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(GreeterCollectMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Send(ctx, req)
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(GreeterCollectMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Send(ctx, req)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(GreeterCollectMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Send(ctx, req)
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(GreeterCollectMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Send(ctx, req)
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(GreeterCollectMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -126,7 +96,7 @@ func SendGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHand
 	}
 }
 
-func FinishGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHandle) ([]byte, error) {
+func FinishGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHandle) (*SayHelloResponse, error) {
 	entry, err := rpcruntime.FinishStreamSession(handle)
 	if err != nil {
 		return nil, err
@@ -153,35 +123,70 @@ func FinishGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHa
 		}
 		return convertGreeterCollectNativeToMessageResponse(messageResult)
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(GreeterCollectMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Finish(ctx)
+		resp, err := source.Finish(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
+		}
+		return resp, nil
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(GreeterCollectMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Finish(ctx)
+		resp, err := source.Finish(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
+		}
+		return resp, nil
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(GreeterCollectMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Finish(ctx)
+		resp, err := source.Finish(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
+		}
+		return resp, nil
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(GreeterCollectMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Finish(ctx)
+		resp, err := source.Finish(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
+		}
+		return resp, nil
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(GreeterCollectMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Finish(ctx)
+		resp, err := source.Finish(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
+		}
+		return resp, nil
 	default:
 		return nil, fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.Kind)
 	}
@@ -206,31 +211,31 @@ func CancelGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHa
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(GreeterCollectMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(GreeterCollectMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(GreeterCollectMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(GreeterCollectMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(GreeterCollectMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -240,7 +245,7 @@ func CancelGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHa
 	}
 }
 
-func RecvGreeterMessageBroadcast(ctx context.Context, handle rpcruntime.StreamHandle) ([]byte, error) {
+func RecvGreeterMessageBroadcast(ctx context.Context, handle rpcruntime.StreamHandle) (*SayHelloResponse, error) {
 	entry, err := rpcruntime.RecvStreamSession(handle)
 	if err != nil {
 		return nil, err
@@ -267,35 +272,70 @@ func RecvGreeterMessageBroadcast(ctx context.Context, handle rpcruntime.StreamHa
 		}
 		return convertGreeterBroadcastNativeToMessageResponse(messageResult)
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(GreeterBroadcastMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
 		if !ok {
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Recv(ctx)
+		resp, err := source.Recv(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
+		}
+		return resp, nil
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(GreeterBroadcastMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
 		if !ok {
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Recv(ctx)
+		resp, err := source.Recv(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
+		}
+		return resp, nil
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(GreeterBroadcastMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
 		if !ok {
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Recv(ctx)
+		resp, err := source.Recv(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
+		}
+		return resp, nil
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(GreeterBroadcastMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
 		if !ok {
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Recv(ctx)
+		resp, err := source.Recv(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
+		}
+		return resp, nil
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(GreeterBroadcastMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
 		if !ok {
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Recv(ctx)
+		resp, err := source.Recv(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
+		}
+		return resp, nil
 	default:
 		return nil, fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.Kind)
 	}
@@ -320,31 +360,31 @@ func FinishGreeterMessageBroadcast(ctx context.Context, handle rpcruntime.Stream
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(GreeterBroadcastMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(GreeterBroadcastMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(GreeterBroadcastMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(GreeterBroadcastMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(GreeterBroadcastMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -373,31 +413,31 @@ func CancelGreeterMessageBroadcast(ctx context.Context, handle rpcruntime.Stream
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(GreeterBroadcastMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(GreeterBroadcastMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(GreeterBroadcastMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(GreeterBroadcastMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(GreeterBroadcastMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -407,7 +447,10 @@ func CancelGreeterMessageBroadcast(ctx context.Context, handle rpcruntime.Stream
 	}
 }
 
-func SendGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle, req []byte) error {
+func SendGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle, req *SayHelloRequest) error {
+	if req == nil {
+		return errors.New("rpccgo: message request is nil")
+	}
 	entry, err := rpcruntime.SendStreamSession(handle)
 	if err != nil {
 		return err
@@ -438,31 +481,31 @@ func SendGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle,
 		goruntime.KeepAlive(reqOwner)
 		return err
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Send(ctx, req)
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Send(ctx, req)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Send(ctx, req)
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Send(ctx, req)
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -472,7 +515,7 @@ func SendGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle,
 	}
 }
 
-func RecvGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle) ([]byte, error) {
+func RecvGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle) (*SayHelloResponse, error) {
 	entry, err := rpcruntime.RecvStreamSession(handle)
 	if err != nil {
 		return nil, err
@@ -499,35 +542,70 @@ func RecvGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle)
 		}
 		return convertGreeterChatNativeToMessageResponse(messageResult)
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Recv(ctx)
+		resp, err := source.Recv(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
+		}
+		return resp, nil
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Recv(ctx)
+		resp, err := source.Recv(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
+		}
+		return resp, nil
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Recv(ctx)
+		resp, err := source.Recv(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
+		}
+		return resp, nil
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Recv(ctx)
+		resp, err := source.Recv(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
+		}
+		return resp, nil
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Recv(ctx)
+		resp, err := source.Recv(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if resp == nil {
+			return nil, errors.New("rpccgo: message response is nil")
+		}
+		return resp, nil
 	default:
 		return nil, fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.Kind)
 	}
@@ -552,31 +630,31 @@ func CloseSendGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHa
 		}
 		return source.CloseSend(ctx)
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.CloseSend(ctx)
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.CloseSend(ctx)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.CloseSend(ctx)
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.CloseSend(ctx)
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -605,31 +683,31 @@ func FinishGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandl
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -658,31 +736,31 @@ func CancelGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandl
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(GreeterChatMessageStreamSession)
+		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -694,19 +772,19 @@ func CancelGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandl
 
 type UnimplementedGreeterCGOMessageServer struct{}
 
-func (UnimplementedGreeterCGOMessageServer) SayHello(ctx context.Context, req []byte) ([]byte, error) {
+func (UnimplementedGreeterCGOMessageServer) SayHello(ctx context.Context, req *SayHelloRequest) (*SayHelloResponse, error) {
 	return nil, errors.New("rpccgo: Greeter.SayHello cgo message server method is not implemented")
 }
 
-func (UnimplementedGreeterCGOMessageServer) Collect(ctx context.Context, stream GreeterCollectMessageClientStream) ([]byte, error) {
+func (UnimplementedGreeterCGOMessageServer) Collect(ctx context.Context, stream rpcruntime.CGOMessageClientStream[*SayHelloRequest]) (*SayHelloResponse, error) {
 	return nil, errors.New("rpccgo: Greeter.Collect cgo message server method is not implemented")
 }
 
-func (UnimplementedGreeterCGOMessageServer) Broadcast(ctx context.Context, req []byte, stream GreeterBroadcastMessageServerStream) error {
+func (UnimplementedGreeterCGOMessageServer) Broadcast(ctx context.Context, req *SayHelloRequest, stream rpcruntime.CGOMessageServerStream[*SayHelloResponse]) error {
 	return errors.New("rpccgo: Greeter.Broadcast cgo message server method is not implemented")
 }
 
-func (UnimplementedGreeterCGOMessageServer) Chat(ctx context.Context, stream GreeterChatMessageBidiStream) error {
+func (UnimplementedGreeterCGOMessageServer) Chat(ctx context.Context, stream rpcruntime.CGOMessageBidiStream[*SayHelloRequest, *SayHelloResponse]) error {
 	return errors.New("rpccgo: Greeter.Chat cgo message server method is not implemented")
 }
 
@@ -739,15 +817,15 @@ type greeterCGOMessageEntry struct {
 	server GreeterCGOMessageServer
 }
 
-func (a *greeterCGOMessageEntry) SayHello(ctx context.Context, req []byte) ([]byte, error) {
+func (a *greeterCGOMessageEntry) SayHello(ctx context.Context, req *SayHelloRequest) (*SayHelloResponse, error) {
 	return a.server.SayHello(ctx, req)
 }
 
-func (a *greeterCGOMessageEntry) Collect(ctx context.Context, stream GreeterCollectMessageClientStream) ([]byte, error) {
+func (a *greeterCGOMessageEntry) Collect(ctx context.Context, stream rpcruntime.CGOMessageClientStream[*SayHelloRequest]) (*SayHelloResponse, error) {
 	return a.server.Collect(ctx, stream)
 }
 
-func (a *greeterCGOMessageEntry) StartCollect(ctx context.Context) (GreeterCollectMessageStreamSession, error) {
+func (a *greeterCGOMessageEntry) StartCollect(ctx context.Context) (rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse], error) {
 	streamCtx, cancel := context.WithCancel(ctx)
 	session := &greeterCollectMessageServerClientStreamSession{ctx: streamCtx, cancel: cancel, requests: make(chan greeterCollectMessageServerClientStreamSessionRequest, 16), sendDone: make(chan struct{}), done: make(chan struct{})}
 	go func() {
@@ -758,7 +836,7 @@ func (a *greeterCGOMessageEntry) StartCollect(ctx context.Context) (GreeterColle
 }
 
 type greeterCollectMessageServerClientStreamSessionRequest struct {
-	data     []byte
+	data     *SayHelloRequest
 	received chan struct{}
 }
 
@@ -770,11 +848,11 @@ type greeterCollectMessageServerClientStreamSession struct {
 	closeSendOnce sync.Once
 	received      chan struct{}
 	done          chan struct{}
-	resp          []byte
+	resp          *SayHelloResponse
 	err           error
 }
 
-func (s *greeterCollectMessageServerClientStreamSession) Recv(ctx context.Context) ([]byte, error) {
+func (s *greeterCollectMessageServerClientStreamSession) Recv(ctx context.Context) (*SayHelloRequest, error) {
 	select {
 	case req := <-s.requests:
 		close(req.received)
@@ -794,13 +872,16 @@ func (s *greeterCollectMessageServerClientStreamSession) Recv(ctx context.Contex
 	}
 }
 
-func (s *greeterCollectMessageServerClientStreamSession) Send(ctx context.Context, req []byte) error {
+func (s *greeterCollectMessageServerClientStreamSession) Send(ctx context.Context, req *SayHelloRequest) error {
+	if req == nil {
+		return errors.New("rpccgo: message request is nil")
+	}
 	select {
 	case <-s.sendDone:
 		return errors.New("rpccgo: message stream is closed")
 	default:
 	}
-	queued := greeterCollectMessageServerClientStreamSessionRequest{data: append([]byte(nil), req...), received: make(chan struct{})}
+	queued := greeterCollectMessageServerClientStreamSessionRequest{data: req, received: make(chan struct{})}
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -842,7 +923,7 @@ func (s *greeterCollectMessageServerClientStreamSession) Send(ctx context.Contex
 	}
 }
 
-func (s *greeterCollectMessageServerClientStreamSession) Finish(ctx context.Context) ([]byte, error) {
+func (s *greeterCollectMessageServerClientStreamSession) Finish(ctx context.Context) (*SayHelloResponse, error) {
 	s.closeSendOnce.Do(func() { close(s.sendDone) })
 	select {
 	case <-ctx.Done():
@@ -867,15 +948,17 @@ func (s *greeterCollectMessageServerClientStreamSession) Cancel(ctx context.Cont
 	}
 }
 
-func (a *greeterCGOMessageEntry) Broadcast(ctx context.Context, req []byte, stream GreeterBroadcastMessageServerStream) error {
+func (a *greeterCGOMessageEntry) Broadcast(ctx context.Context, req *SayHelloRequest, stream rpcruntime.CGOMessageServerStream[*SayHelloResponse]) error {
 	return a.server.Broadcast(ctx, req, stream)
 }
 
-func (a *greeterCGOMessageEntry) StartBroadcast(ctx context.Context, req []byte) (GreeterBroadcastMessageStreamSession, error) {
+func (a *greeterCGOMessageEntry) StartBroadcast(ctx context.Context, req *SayHelloRequest) (rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse], error) {
+	if req == nil {
+		return nil, errors.New("rpccgo: message request is nil")
+	}
 	streamCtx, cancel := context.WithCancel(ctx)
 	finishCtx, finishCancel := context.WithCancel(context.Background())
 	session := &greeterBroadcastMessageServerServerStreamSession{ctx: streamCtx, cancel: cancel, finishCtx: finishCtx, finishCancel: finishCancel, responses: make(chan greeterBroadcastMessageServerServerStreamSessionResponse, 1), done: make(chan struct{})}
-	req = append([]byte(nil), req...)
 	go func() {
 		defer close(session.done)
 		session.err = a.Broadcast(streamCtx, req, session)
@@ -884,7 +967,7 @@ func (a *greeterCGOMessageEntry) StartBroadcast(ctx context.Context, req []byte)
 }
 
 type greeterBroadcastMessageServerServerStreamSessionResponse struct {
-	data     []byte
+	data     *SayHelloResponse
 	received chan struct{}
 }
 
@@ -899,8 +982,11 @@ type greeterBroadcastMessageServerServerStreamSession struct {
 	err          error
 }
 
-func (s *greeterBroadcastMessageServerServerStreamSession) Send(ctx context.Context, resp []byte) error {
-	response := greeterBroadcastMessageServerServerStreamSessionResponse{data: append([]byte(nil), resp...), received: make(chan struct{})}
+func (s *greeterBroadcastMessageServerServerStreamSession) Send(ctx context.Context, resp *SayHelloResponse) error {
+	if resp == nil {
+		return errors.New("rpccgo: message response is nil")
+	}
+	response := greeterBroadcastMessageServerServerStreamSessionResponse{data: resp, received: make(chan struct{})}
 	select {
 	case <-s.done:
 		if s.err != nil {
@@ -970,7 +1056,7 @@ func (s *greeterBroadcastMessageServerServerStreamSession) Send(ctx context.Cont
 	}
 }
 
-func (s *greeterBroadcastMessageServerServerStreamSession) Recv(ctx context.Context) ([]byte, error) {
+func (s *greeterBroadcastMessageServerServerStreamSession) Recv(ctx context.Context) (*SayHelloResponse, error) {
 	if s.received != nil {
 		close(s.received)
 		s.received = nil
@@ -1024,11 +1110,11 @@ func (s *greeterBroadcastMessageServerServerStreamSession) Cancel(ctx context.Co
 	}
 }
 
-func (a *greeterCGOMessageEntry) Chat(ctx context.Context, stream GreeterChatMessageBidiStream) error {
+func (a *greeterCGOMessageEntry) Chat(ctx context.Context, stream rpcruntime.CGOMessageBidiStream[*SayHelloRequest, *SayHelloResponse]) error {
 	return a.server.Chat(ctx, stream)
 }
 
-func (a *greeterCGOMessageEntry) StartChat(ctx context.Context) (GreeterChatMessageStreamSession, error) {
+func (a *greeterCGOMessageEntry) StartChat(ctx context.Context) (rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse], error) {
 	streamCtx, cancel := context.WithCancel(ctx)
 	finishCtx, finishCancel := context.WithCancel(context.Background())
 	session := &greeterChatMessageServerBidiStreamSession{ctx: streamCtx, cancel: cancel, finishCtx: finishCtx, finishCancel: finishCancel, requests: make(chan greeterChatMessageServerBidiStreamSessionRequest, 16), sendDone: make(chan struct{}), sendDoneReceived: make(chan struct{}), responses: make(chan greeterChatMessageServerBidiStreamSessionResponse, 1), done: make(chan struct{})}
@@ -1040,12 +1126,12 @@ func (a *greeterCGOMessageEntry) StartChat(ctx context.Context) (GreeterChatMess
 }
 
 type greeterChatMessageServerBidiStreamSessionRequest struct {
-	data     []byte
+	data     *SayHelloRequest
 	received chan struct{}
 }
 
 type greeterChatMessageServerBidiStreamSessionResponse struct {
-	data     []byte
+	data     *SayHelloResponse
 	received chan struct{}
 }
 
@@ -1069,15 +1155,15 @@ type greeterChatMessageServerBidiStreamFacade struct {
 	source *greeterChatMessageServerBidiStreamSession
 }
 
-func (s *greeterChatMessageServerBidiStreamFacade) Recv(ctx context.Context) ([]byte, error) {
+func (s *greeterChatMessageServerBidiStreamFacade) Recv(ctx context.Context) (*SayHelloRequest, error) {
 	return s.source.recvRequest(ctx)
 }
 
-func (s *greeterChatMessageServerBidiStreamFacade) Send(ctx context.Context, resp []byte) error {
+func (s *greeterChatMessageServerBidiStreamFacade) Send(ctx context.Context, resp *SayHelloResponse) error {
 	return s.source.sendResponse(ctx, resp)
 }
 
-func (s *greeterChatMessageServerBidiStreamSession) recvRequest(ctx context.Context) ([]byte, error) {
+func (s *greeterChatMessageServerBidiStreamSession) recvRequest(ctx context.Context) (*SayHelloRequest, error) {
 	select {
 	case req := <-s.requests:
 		close(req.received)
@@ -1098,8 +1184,11 @@ func (s *greeterChatMessageServerBidiStreamSession) recvRequest(ctx context.Cont
 	}
 }
 
-func (s *greeterChatMessageServerBidiStreamSession) sendResponse(ctx context.Context, resp []byte) error {
-	response := greeterChatMessageServerBidiStreamSessionResponse{data: append([]byte(nil), resp...), received: make(chan struct{})}
+func (s *greeterChatMessageServerBidiStreamSession) sendResponse(ctx context.Context, resp *SayHelloResponse) error {
+	if resp == nil {
+		return errors.New("rpccgo: message response is nil")
+	}
+	response := greeterChatMessageServerBidiStreamSessionResponse{data: resp, received: make(chan struct{})}
 	select {
 	case <-s.done:
 		if s.err != nil {
@@ -1169,13 +1258,16 @@ func (s *greeterChatMessageServerBidiStreamSession) sendResponse(ctx context.Con
 	}
 }
 
-func (s *greeterChatMessageServerBidiStreamSession) Send(ctx context.Context, req []byte) error {
+func (s *greeterChatMessageServerBidiStreamSession) Send(ctx context.Context, req *SayHelloRequest) error {
+	if req == nil {
+		return errors.New("rpccgo: message request is nil")
+	}
 	select {
 	case <-s.sendDone:
 		return errors.New("rpccgo: message stream is closed")
 	default:
 	}
-	queued := greeterChatMessageServerBidiStreamSessionRequest{data: append([]byte(nil), req...), received: make(chan struct{})}
+	queued := greeterChatMessageServerBidiStreamSessionRequest{data: req, received: make(chan struct{})}
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -1211,7 +1303,7 @@ func (s *greeterChatMessageServerBidiStreamSession) Send(ctx context.Context, re
 	}
 }
 
-func (s *greeterChatMessageServerBidiStreamSession) Recv(ctx context.Context) ([]byte, error) {
+func (s *greeterChatMessageServerBidiStreamSession) Recv(ctx context.Context) (*SayHelloResponse, error) {
 	if s.received != nil {
 		close(s.received)
 		s.received = nil

@@ -63,13 +63,13 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"type GreeterCGOMessageServer interface {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go",
-		"SayHello(ctx context.Context, req []byte) ([]byte, error)",
+		"SayHello(ctx context.Context, req *HelloRequest) (*HelloReply, error)",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go",
 		"func InvokeGreeterNativeSayHello(ctx context.Context) error {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go",
-		"func InvokeGreeterMessageSayHello(ctx context.Context, req []byte) ([]byte, error) {",
+		"func InvokeGreeterMessageSayHello(ctx context.Context, req *HelloRequest) (*HelloReply, error) {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go",
 		"func RegisterGreeterCGOMessageServer(server GreeterCGOMessageServer) error {",
@@ -84,7 +84,7 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"func RegisterGreeterGoNativeServer(server GreeterNativeServer) error {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.codec.rpccgo.go",
-		"func convertGreeterSayHelloMessageToNativeRequest(data []byte) (any, error) {",
+		"func convertGreeterSayHelloMessageToNativeRequest(msg *HelloRequest) (any, error) {",
 	)
 	assertGeneratedFileContentDoesNotContain(t, plugin, "test/v1/greeter.greeter.codec.rpccgo.go",
 		"NativeRequestView",

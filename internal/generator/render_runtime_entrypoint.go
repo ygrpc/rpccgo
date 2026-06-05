@@ -83,14 +83,17 @@ func renderRuntimeUnaryNativeToTransportCase(g *protogen.GeneratedFile, service 
 	g.P("if !ok { return ", nativeGoZeroReturnsForError(method, "fmt.Errorf(\"rpccgo: "+service.GoName+" "+label+" registered server has invalid type\")"), " }")
 	g.P("messageReq, err := ", method.Codec.NativeRequestToMessage, "(", method.Native.ArgNames, ")")
 	g.P("if err != nil { return ", method.Native.ErrZero, " }")
-	g.P("var messageResp []byte")
+	g.P("var messageResp ", runtimeMessageResponseType(method))
 	renderRuntimeTransportUnaryNativeMessageCall(g, service, method, "server", label, "messageReq")
 	g.P("if err != nil { return ", method.Native.ErrZero, " }")
 	g.P("return ", method.Codec.MessageToNativeResponse, "(messageResp)")
 }
 
 func renderRuntimeUnaryMessageEntrypoint(g *protogen.GeneratedFile, service ServicePlan, serviceIDName string, method runtimeMethodProjection) {
-	g.P("func Invoke", service.GoName, "Message", method.Identity.GoName, "(ctx context.Context, req []byte) ([]byte, error) {")
+	g.P("func Invoke", service.GoName, "Message", method.Identity.GoName, "(ctx context.Context, req ", runtimeMessageRequestType(method), ") (", runtimeMessageResponseType(method), ", error) {")
+	g.P("if req == nil {")
+	g.P(`return nil, errors.New("rpccgo: message request is nil")`)
+	g.P("}")
 	g.P("registered, err := rpcruntime.LoadServer(", serviceIDName, ")")
 	g.P("if err != nil { return nil, err }")
 	g.P("switch registered.Kind {")
@@ -130,7 +133,12 @@ func renderRuntimeUnaryMessageToCGOMessageCase(g *protogen.GeneratedFile, servic
 	g.P("case rpcruntime.ServerKindCGOMessage:")
 	g.P("server, ok := registered.Server.(", service.GoName, "CGOMessageServer)")
 	g.P(`if !ok { return nil, fmt.Errorf("rpccgo: `, service.GoName, ` cgo message registered server has invalid type") }`)
-	g.P("return server.", method.Identity.MessageMethodRef, "(ctx, req)")
+	g.P("resp, err := server.", method.Identity.MessageMethodRef, "(ctx, req)")
+	g.P("if err != nil { return nil, err }")
+	g.P("if resp == nil {")
+	g.P(`return nil, errors.New("rpccgo: message response is nil")`)
+	g.P("}")
+	g.P("return resp, nil")
 }
 
 func renderRuntimeUnaryMessageToTransportCases(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection) {
@@ -230,7 +238,10 @@ func renderRuntimeNativeStartTransportCase(g *protogen.GeneratedFile, service Se
 
 func renderRuntimeMessageStartEntrypoint(g *protogen.GeneratedFile, service ServicePlan, serviceIDName, streamRegistryName string, method runtimeMethodProjection) error {
 	if method.Stream.StartAcceptsRequest {
-		g.P("func Start", service.GoName, "Message", method.Identity.GoName, "(ctx context.Context, req []byte) (rpcruntime.StreamHandle, error) {")
+		g.P("func Start", service.GoName, "Message", method.Identity.GoName, "(ctx context.Context, req ", runtimeMessageRequestType(method), ") (rpcruntime.StreamHandle, error) {")
+		g.P("if req == nil {")
+		g.P(`return 0, errors.New("rpccgo: message request is nil")`)
+		g.P("}")
 	} else {
 		g.P("func Start", service.GoName, "Message", method.Identity.GoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
 	}
