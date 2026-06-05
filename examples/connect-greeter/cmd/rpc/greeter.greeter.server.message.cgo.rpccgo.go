@@ -68,10 +68,11 @@ import (
 // rpccgo message direct generated file for Greeter cgo message server callbacks
 
 var (
-	greeterCGOMessageServerCallbacksNil         = errors.New("rpccgo: Greeter cgo message server callbacks are nil")
-	greeterCGOMessageServerUnaryCallbackMissing = errors.New("rpccgo: Greeter cgo message server unary callback is missing")
-	greeterCGOMessageServerAdapterMu            sync.Mutex
-	greeterCGOMessageServerAdapter              = &greeterCGOMessageAdapter{}
+	greeterCGOMessageServerCallbacksNil              = errors.New("rpccgo: Greeter cgo message server callbacks are nil")
+	greeterCGOMessageServerUnaryCallbackMissing      = errors.New("rpccgo: Greeter cgo message server unary callback is missing")
+	greeterCGOMessageServerStreamPartiallyRegistered = errors.New("rpccgo: Greeter cgo message server stream callbacks are partially registered")
+	greeterCGOMessageServerAdapterMu                 sync.Mutex
+	greeterCGOMessageServerAdapter                   = &greeterCGOMessageAdapter{}
 )
 
 type greeterCGOMessageAdapter struct {
@@ -98,7 +99,7 @@ func (a *greeterCGOMessageAdapter) SayHello(ctx context.Context, req []byte) ([]
 	}
 	callback := a.SayHelloCallback
 	if callback == nil {
-		return nil, greeterCGOMessageServerUnaryCallbackMissing
+		return nil, errors.New("rpccgo: Greeter.SayHello cgo message server method is not implemented")
 	}
 	if err := protobuf.Unmarshal(req, &proto.SayHelloRequest{}); err != nil {
 		return nil, fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)
@@ -144,8 +145,8 @@ func (a *greeterCGOMessageAdapter) StartCollect(ctx context.Context) (proto.Gree
 	if a == nil {
 		return nil, greeterCGOMessageServerCallbacksNil
 	}
-	if a.CollectStart == nil {
-		return nil, greeterCGOMessageServerUnaryCallbackMissing
+	if a.CollectStart == nil || a.CollectSend == nil || a.CollectFinish == nil || a.CollectCancel == nil {
+		return nil, errors.New("rpccgo: Greeter.Collect cgo message server method is not implemented")
 	}
 	var stream C.int32_t
 	errID := int32(C.callGreeterCollectCGOMessageClientStreamStart(a.CollectStart, &stream))
@@ -244,8 +245,8 @@ func (a *greeterCGOMessageAdapter) StartBroadcast(ctx context.Context, req []byt
 	if a == nil {
 		return nil, greeterCGOMessageServerCallbacksNil
 	}
-	if a.BroadcastStart == nil {
-		return nil, greeterCGOMessageServerUnaryCallbackMissing
+	if a.BroadcastStart == nil || a.BroadcastRecv == nil || a.BroadcastFinish == nil || a.BroadcastCancel == nil {
+		return nil, errors.New("rpccgo: Greeter.Broadcast cgo message server method is not implemented")
 	}
 	if err := protobuf.Unmarshal(req, &proto.SayHelloRequest{}); err != nil {
 		return nil, fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)
@@ -347,8 +348,8 @@ func (a *greeterCGOMessageAdapter) StartChat(ctx context.Context) (proto.Greeter
 	if a == nil {
 		return nil, greeterCGOMessageServerCallbacksNil
 	}
-	if a.ChatStart == nil {
-		return nil, greeterCGOMessageServerUnaryCallbackMissing
+	if a.ChatStart == nil || a.ChatSend == nil || a.ChatRecv == nil || a.ChatCloseSend == nil || a.ChatFinish == nil || a.ChatCancel == nil {
+		return nil, errors.New("rpccgo: Greeter.Chat cgo message server method is not implemented")
 	}
 	var stream C.int32_t
 	errID := int32(C.callGreeterChatCGOMessageBidiStreamStart(a.ChatStart, &stream))
@@ -499,74 +500,221 @@ func decodeGreeterChatCGOMessageResponseBytes(responsePtr C.uintptr_t, responseL
 
 //export rpccgo_msg_greeterv1_Greeter_register
 func rpccgo_msg_greeterv1_Greeter_register(sayHelloCallback C.GreeterSayHelloCGOMessageUnaryCallback, collectStart C.GreeterCollectCGOMessageClientStreamStartCallback, collectSend C.GreeterCollectCGOMessageClientStreamSendCallback, collectFinish C.GreeterCollectCGOMessageClientStreamFinishCallback, collectCancel C.GreeterCollectCGOMessageClientStreamCancelCallback, broadcastStart C.GreeterBroadcastCGOMessageServerStreamStartCallback, broadcastRecv C.GreeterBroadcastCGOMessageServerStreamRecvCallback, broadcastFinish C.GreeterBroadcastCGOMessageServerStreamFinishCallback, broadcastCancel C.GreeterBroadcastCGOMessageServerStreamCancelCallback, chatStart C.GreeterChatCGOMessageBidiStreamStartCallback, chatSend C.GreeterChatCGOMessageBidiStreamSendCallback, chatRecv C.GreeterChatCGOMessageBidiStreamRecvCallback, chatCloseSend C.GreeterChatCGOMessageBidiStreamCloseSendCallback, chatFinish C.GreeterChatCGOMessageBidiStreamFinishCallback, chatCancel C.GreeterChatCGOMessageBidiStreamCancelCallback) C.int32_t {
+	greeterCGOMessageServerAdapterMu.Lock()
+	defer greeterCGOMessageServerAdapterMu.Unlock()
 	next := &greeterCGOMessageAdapter{}
-	if sayHelloCallback == nil {
-		return C.int32_t(rpcruntime.StoreError(greeterCGOMessageServerUnaryCallbackMissing))
-	}
+	var registerErr error
 	next.SayHelloCallback = sayHelloCallback
-	if collectStart == nil {
-		return C.int32_t(rpcruntime.StoreError(greeterCGOMessageServerUnaryCallbackMissing))
+	if collectStart == nil && collectSend == nil && collectFinish == nil && collectCancel == nil {
+		next.CollectStart = nil
+		next.CollectSend = nil
+		next.CollectFinish = nil
+		next.CollectCancel = nil
+	} else if collectStart != nil && collectSend != nil && collectFinish != nil && collectCancel != nil {
+		next.CollectStart = collectStart
+		next.CollectSend = collectSend
+		next.CollectFinish = collectFinish
+		next.CollectCancel = collectCancel
+	} else {
+		next.CollectStart = nil
+		next.CollectSend = nil
+		next.CollectFinish = nil
+		next.CollectCancel = nil
+		if registerErr == nil {
+			registerErr = greeterCGOMessageServerStreamPartiallyRegistered
+		}
 	}
-	next.CollectStart = collectStart
-	if collectSend == nil {
-		return C.int32_t(rpcruntime.StoreError(greeterCGOMessageServerUnaryCallbackMissing))
+	if broadcastStart == nil && broadcastRecv == nil && broadcastFinish == nil && broadcastCancel == nil {
+		next.BroadcastStart = nil
+		next.BroadcastRecv = nil
+		next.BroadcastFinish = nil
+		next.BroadcastCancel = nil
+	} else if broadcastStart != nil && broadcastRecv != nil && broadcastFinish != nil && broadcastCancel != nil {
+		next.BroadcastStart = broadcastStart
+		next.BroadcastRecv = broadcastRecv
+		next.BroadcastFinish = broadcastFinish
+		next.BroadcastCancel = broadcastCancel
+	} else {
+		next.BroadcastStart = nil
+		next.BroadcastRecv = nil
+		next.BroadcastFinish = nil
+		next.BroadcastCancel = nil
+		if registerErr == nil {
+			registerErr = greeterCGOMessageServerStreamPartiallyRegistered
+		}
 	}
-	next.CollectSend = collectSend
-	if collectFinish == nil {
-		return C.int32_t(rpcruntime.StoreError(greeterCGOMessageServerUnaryCallbackMissing))
+	if chatStart == nil && chatSend == nil && chatRecv == nil && chatCloseSend == nil && chatFinish == nil && chatCancel == nil {
+		next.ChatStart = nil
+		next.ChatSend = nil
+		next.ChatRecv = nil
+		next.ChatCloseSend = nil
+		next.ChatFinish = nil
+		next.ChatCancel = nil
+	} else if chatStart != nil && chatSend != nil && chatRecv != nil && chatCloseSend != nil && chatFinish != nil && chatCancel != nil {
+		next.ChatStart = chatStart
+		next.ChatSend = chatSend
+		next.ChatRecv = chatRecv
+		next.ChatCloseSend = chatCloseSend
+		next.ChatFinish = chatFinish
+		next.ChatCancel = chatCancel
+	} else {
+		next.ChatStart = nil
+		next.ChatSend = nil
+		next.ChatRecv = nil
+		next.ChatCloseSend = nil
+		next.ChatFinish = nil
+		next.ChatCancel = nil
+		if registerErr == nil {
+			registerErr = greeterCGOMessageServerStreamPartiallyRegistered
+		}
 	}
-	next.CollectFinish = collectFinish
-	if collectCancel == nil {
-		return C.int32_t(rpcruntime.StoreError(greeterCGOMessageServerUnaryCallbackMissing))
-	}
-	next.CollectCancel = collectCancel
-	if broadcastStart == nil {
-		return C.int32_t(rpcruntime.StoreError(greeterCGOMessageServerUnaryCallbackMissing))
-	}
-	next.BroadcastStart = broadcastStart
-	if broadcastRecv == nil {
-		return C.int32_t(rpcruntime.StoreError(greeterCGOMessageServerUnaryCallbackMissing))
-	}
-	next.BroadcastRecv = broadcastRecv
-	if broadcastFinish == nil {
-		return C.int32_t(rpcruntime.StoreError(greeterCGOMessageServerUnaryCallbackMissing))
-	}
-	next.BroadcastFinish = broadcastFinish
-	if broadcastCancel == nil {
-		return C.int32_t(rpcruntime.StoreError(greeterCGOMessageServerUnaryCallbackMissing))
-	}
-	next.BroadcastCancel = broadcastCancel
-	if chatStart == nil {
-		return C.int32_t(rpcruntime.StoreError(greeterCGOMessageServerUnaryCallbackMissing))
-	}
-	next.ChatStart = chatStart
-	if chatSend == nil {
-		return C.int32_t(rpcruntime.StoreError(greeterCGOMessageServerUnaryCallbackMissing))
-	}
-	next.ChatSend = chatSend
-	if chatRecv == nil {
-		return C.int32_t(rpcruntime.StoreError(greeterCGOMessageServerUnaryCallbackMissing))
-	}
-	next.ChatRecv = chatRecv
-	if chatCloseSend == nil {
-		return C.int32_t(rpcruntime.StoreError(greeterCGOMessageServerUnaryCallbackMissing))
-	}
-	next.ChatCloseSend = chatCloseSend
-	if chatFinish == nil {
-		return C.int32_t(rpcruntime.StoreError(greeterCGOMessageServerUnaryCallbackMissing))
-	}
-	next.ChatFinish = chatFinish
-	if chatCancel == nil {
-		return C.int32_t(rpcruntime.StoreError(greeterCGOMessageServerUnaryCallbackMissing))
-	}
-	next.ChatCancel = chatCancel
 	if err := proto.RegisterGreeterCGOMessageServer(next); err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
-	greeterCGOMessageServerAdapterMu.Lock()
 	greeterCGOMessageServerAdapter = next
-	greeterCGOMessageServerAdapterMu.Unlock()
+	if registerErr != nil {
+		return C.int32_t(rpcruntime.StoreError(registerErr))
+	}
 	return 0
+}
+
+//export rpccgo_msg_greeterv1_Greeter_register_SayHello
+func rpccgo_msg_greeterv1_Greeter_register_SayHello(sayHelloCallback C.GreeterSayHelloCGOMessageUnaryCallback) C.int32_t {
+	greeterCGOMessageServerAdapterMu.Lock()
+	defer greeterCGOMessageServerAdapterMu.Unlock()
+	next := greeterCGOMessageServerAdapterForRegister()
+	var registerErr error
+	next.SayHelloCallback = sayHelloCallback
+	if err := proto.RegisterGreeterCGOMessageServer(next); err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	greeterCGOMessageServerAdapter = next
+	if registerErr != nil {
+		return C.int32_t(rpcruntime.StoreError(registerErr))
+	}
+	return 0
+}
+
+//export rpccgo_msg_greeterv1_Greeter_register_Collect
+func rpccgo_msg_greeterv1_Greeter_register_Collect(collectStart C.GreeterCollectCGOMessageClientStreamStartCallback, collectSend C.GreeterCollectCGOMessageClientStreamSendCallback, collectFinish C.GreeterCollectCGOMessageClientStreamFinishCallback, collectCancel C.GreeterCollectCGOMessageClientStreamCancelCallback) C.int32_t {
+	greeterCGOMessageServerAdapterMu.Lock()
+	defer greeterCGOMessageServerAdapterMu.Unlock()
+	next := greeterCGOMessageServerAdapterForRegister()
+	var registerErr error
+	if collectStart == nil && collectSend == nil && collectFinish == nil && collectCancel == nil {
+		next.CollectStart = nil
+		next.CollectSend = nil
+		next.CollectFinish = nil
+		next.CollectCancel = nil
+	} else if collectStart != nil && collectSend != nil && collectFinish != nil && collectCancel != nil {
+		next.CollectStart = collectStart
+		next.CollectSend = collectSend
+		next.CollectFinish = collectFinish
+		next.CollectCancel = collectCancel
+	} else {
+		next.CollectStart = nil
+		next.CollectSend = nil
+		next.CollectFinish = nil
+		next.CollectCancel = nil
+		if registerErr == nil {
+			registerErr = greeterCGOMessageServerStreamPartiallyRegistered
+		}
+	}
+	if err := proto.RegisterGreeterCGOMessageServer(next); err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	greeterCGOMessageServerAdapter = next
+	if registerErr != nil {
+		return C.int32_t(rpcruntime.StoreError(registerErr))
+	}
+	return 0
+}
+
+//export rpccgo_msg_greeterv1_Greeter_register_Broadcast
+func rpccgo_msg_greeterv1_Greeter_register_Broadcast(broadcastStart C.GreeterBroadcastCGOMessageServerStreamStartCallback, broadcastRecv C.GreeterBroadcastCGOMessageServerStreamRecvCallback, broadcastFinish C.GreeterBroadcastCGOMessageServerStreamFinishCallback, broadcastCancel C.GreeterBroadcastCGOMessageServerStreamCancelCallback) C.int32_t {
+	greeterCGOMessageServerAdapterMu.Lock()
+	defer greeterCGOMessageServerAdapterMu.Unlock()
+	next := greeterCGOMessageServerAdapterForRegister()
+	var registerErr error
+	if broadcastStart == nil && broadcastRecv == nil && broadcastFinish == nil && broadcastCancel == nil {
+		next.BroadcastStart = nil
+		next.BroadcastRecv = nil
+		next.BroadcastFinish = nil
+		next.BroadcastCancel = nil
+	} else if broadcastStart != nil && broadcastRecv != nil && broadcastFinish != nil && broadcastCancel != nil {
+		next.BroadcastStart = broadcastStart
+		next.BroadcastRecv = broadcastRecv
+		next.BroadcastFinish = broadcastFinish
+		next.BroadcastCancel = broadcastCancel
+	} else {
+		next.BroadcastStart = nil
+		next.BroadcastRecv = nil
+		next.BroadcastFinish = nil
+		next.BroadcastCancel = nil
+		if registerErr == nil {
+			registerErr = greeterCGOMessageServerStreamPartiallyRegistered
+		}
+	}
+	if err := proto.RegisterGreeterCGOMessageServer(next); err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	greeterCGOMessageServerAdapter = next
+	if registerErr != nil {
+		return C.int32_t(rpcruntime.StoreError(registerErr))
+	}
+	return 0
+}
+
+//export rpccgo_msg_greeterv1_Greeter_register_Chat
+func rpccgo_msg_greeterv1_Greeter_register_Chat(chatStart C.GreeterChatCGOMessageBidiStreamStartCallback, chatSend C.GreeterChatCGOMessageBidiStreamSendCallback, chatRecv C.GreeterChatCGOMessageBidiStreamRecvCallback, chatCloseSend C.GreeterChatCGOMessageBidiStreamCloseSendCallback, chatFinish C.GreeterChatCGOMessageBidiStreamFinishCallback, chatCancel C.GreeterChatCGOMessageBidiStreamCancelCallback) C.int32_t {
+	greeterCGOMessageServerAdapterMu.Lock()
+	defer greeterCGOMessageServerAdapterMu.Unlock()
+	next := greeterCGOMessageServerAdapterForRegister()
+	var registerErr error
+	if chatStart == nil && chatSend == nil && chatRecv == nil && chatCloseSend == nil && chatFinish == nil && chatCancel == nil {
+		next.ChatStart = nil
+		next.ChatSend = nil
+		next.ChatRecv = nil
+		next.ChatCloseSend = nil
+		next.ChatFinish = nil
+		next.ChatCancel = nil
+	} else if chatStart != nil && chatSend != nil && chatRecv != nil && chatCloseSend != nil && chatFinish != nil && chatCancel != nil {
+		next.ChatStart = chatStart
+		next.ChatSend = chatSend
+		next.ChatRecv = chatRecv
+		next.ChatCloseSend = chatCloseSend
+		next.ChatFinish = chatFinish
+		next.ChatCancel = chatCancel
+	} else {
+		next.ChatStart = nil
+		next.ChatSend = nil
+		next.ChatRecv = nil
+		next.ChatCloseSend = nil
+		next.ChatFinish = nil
+		next.ChatCancel = nil
+		if registerErr == nil {
+			registerErr = greeterCGOMessageServerStreamPartiallyRegistered
+		}
+	}
+	if err := proto.RegisterGreeterCGOMessageServer(next); err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	greeterCGOMessageServerAdapter = next
+	if registerErr != nil {
+		return C.int32_t(rpcruntime.StoreError(registerErr))
+	}
+	return 0
+}
+
+func greeterCGOMessageServerAdapterForRegister() *greeterCGOMessageAdapter {
+	registered, err := proto.LoadGreeterRegisteredServer()
+	if err == nil && registered.Kind == rpcruntime.ServerKindCGOMessage {
+		if current, ok := registered.Server.(*greeterCGOMessageAdapter); ok {
+			next := *current
+			return &next
+		}
+	}
+	return &greeterCGOMessageAdapter{}
 }
 
 func greeterCGOMessageServerError(errID int32) error {

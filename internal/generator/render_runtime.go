@@ -82,6 +82,10 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P("return rpcruntime.ClearServer(", serviceIDName, ")")
 	g.P("}")
 	g.P()
+	g.P("func Load", service.GoName, "RegisteredServer() (rpcruntime.RegisteredServer, error) {")
+	g.P("return rpcruntime.LoadServer(", serviceIDName, ")")
+	g.P("}")
+	g.P()
 
 	if err := renderRuntimeRegistrations(g, service, serviceIDName); err != nil {
 		return err

@@ -152,12 +152,29 @@ func TestNativeCGOServerUnaryRoutesThroughRuntimeEntry(t *testing.T) {
 
 func TestNativeCGOServerUnaryRegistrationValidation(t *testing.T) {
 	v1.ResetGreeterServerForIntegrationTest()
-	if err := registerGreeterCGONativeServerNilCallback(); err == nil || !strings.Contains(err.Error(), "unary callback is missing") {
+	if err := registerGreeterCGONativeServerNilCallback(); err != nil {
 		t.Fatalf("registerGreeterCGONativeServerNilCallback() error = %v", err)
 	}
+	errID := callSayHello(context.Background(), &sayHelloInput{}, &sayHelloOutput{})
+	if errID == 0 {
+		t.Fatal("nil callback registration returned errID 0, want unimplemented method error")
+	}
+	text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+	if !ok || !strings.Contains(string(text), "Greeter.SayHello native server method is not implemented") {
+		t.Fatalf("nil callback error text = %q, ok=%v", text, ok)
+	}
+
 	err := registerGreeterCGONativeServerEmptyCallbacks()
-	if err == nil || !strings.Contains(err.Error(), "unary callback is missing") {
+	if err != nil {
 		t.Fatalf("registerGreeterCGONativeServerEmptyCallbacks() error = %v", err)
+	}
+	errID = callSayHello(context.Background(), &sayHelloInput{}, &sayHelloOutput{})
+	if errID == 0 {
+		t.Fatal("empty callback registration returned errID 0, want unimplemented method error")
+	}
+	text, _, ok = rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
+	if !ok || !strings.Contains(string(text), "Greeter.SayHello native server method is not implemented") {
+		t.Fatalf("empty callback error text = %q, ok=%v", text, ok)
 	}
 }
 

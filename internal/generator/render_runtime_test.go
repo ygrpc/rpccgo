@@ -53,6 +53,8 @@ func TestRenderRuntimeGlueDefinesServerRegistryAndTransportRegistration(t *testi
 		`const allServiceServiceID rpcruntime.ServiceID = "test.v1.AllService"`,
 		"func ClearAllServiceServer() error {",
 		"return rpcruntime.ClearServer(allServiceServiceID)",
+		"func LoadAllServiceRegisteredServer() (rpcruntime.RegisteredServer, error) {",
+		"return rpcruntime.LoadServer(allServiceServiceID)",
 		"func InvokeAllServiceNativeUnary(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (bool, []byte, error) {",
 		"registered, err := rpcruntime.LoadServer(allServiceServiceID)",
 		"case rpcruntime.ServerKindGoNative:",

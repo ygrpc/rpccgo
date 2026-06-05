@@ -28,6 +28,10 @@ func ClearGreeterServer() error {
 	return rpcruntime.ClearServer(greeterServiceID)
 }
 
+func LoadGreeterRegisteredServer() (rpcruntime.RegisteredServer, error) {
+	return rpcruntime.LoadServer(greeterServiceID)
+}
+
 func RegisterGreeterGRPCServer(server GreeterServer) error {
 	if server == nil {
 		_ = rpcruntime.ClearServer(greeterServiceID)

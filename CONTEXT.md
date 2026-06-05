@@ -80,10 +80,12 @@ _Avoid_: active server
 - Go native server 与 C native server 都实现同一个 **Native** server contract；C message server 属于 **Message contract**，不应被混入 native server 命名。
 - C message server 应有独立的 generated server contract，例如 `GreeterCGOMessageServer`；其方法名使用 service method Go name，不额外追加 `Message` 或 `Start` 前缀，message contract 由 server contract 名称表达。
 - C message server streaming 方法属于 handler-style server contract：stream 对象作为方法参数传入；`Start` 返回 final session 只属于 generated server contract artifact 与 C callback ABI 的内部投影。
+- C **Message contract** server callback 与 C **Native** server callback 一样支持按 method 局部注册；未注册 method 调用时返回 generated unimplemented error，streaming method 的 operation callbacks 不允许半注册。
 - **Native C ABI lowering** 必须从 **Native** / `NativeContractPlan` 派生，不能重新解释 proto descriptor 或形成独立 contract。
 - C 侧 **Native** callback 必须使用字段级参数列表，例如 `field_ptr/field_len/ownership` 和输出字段指针参数；不能接收 generated `Request*` / `Response*` struct。
 - 跨 runtime 的 C **Native** ABI 不能以 `struct` 或 `struct*` 作为调用边界参数；service-level callback 注册也必须使用 flat callback 参数。
-- C **Native** server callback 必须作为完整 service callback set 注册；只有完整校验通过后才能注册为 **Registered server**，不能按 method 增量激活。
+- C **Native** server callback 支持按 method 局部注册；未注册的 method 仍属于同一个 **Registered server**，调用时返回 generated unimplemented error。每个 method 内部必须原子校验：unary callback nil 表示该 method 未实现，streaming method 的 operation callbacks 要么全 nil、要么全非 nil，不允许半注册。全部 method 都未注册时仍可注册为全 unimplemented server。
+- C per-method register 在 current server 为同一 **Server kind** 时累积到现有 cgo adapter；current server 为空或不是同一 **Server kind** 时创建新的 cgo adapter 并替换当前 **Registered server**。C message per-method register 只累积到 cgo message adapter，C native per-method register 只累积到 cgo native adapter。
 - C 导出符号命名以 `<contract> + <namespace> + <service> + <method> + <operation>` 组成；`namespace` 默认取 Go package name，冲突时由用户显式覆盖，不使用调用端/实现端语言前缀区分方向。
 - Go **Native** server 输入字段类型沿用旧 wrapper：`string -> *rpcruntime.RpcString`、`bytes/message -> *rpcruntime.RpcBytes`、`repeated scalar -> *rpcruntime.RpcRepeat[T]`、`repeated bool -> *rpcruntime.RpcBoolRepeat`。
 - 由 **Message contract** 适配到 **Native** 时，请求侧 wrapper 只应作为 **Call-scoped borrowed view** 存在；其底层数据只保证在该次 generated 同步 native operation 调用期间有效。

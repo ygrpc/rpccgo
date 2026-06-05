@@ -34,6 +34,7 @@ func renderMessageServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service 
 	g.P("var (")
 	g.P(lowerInitial(service.GoName), `CGOMessageServerCallbacksNil = errors.New("rpccgo: `, service.GoName, ` cgo message server callbacks are nil")`)
 	g.P(lowerInitial(service.GoName), `CGOMessageServerUnaryCallbackMissing = errors.New("rpccgo: `, service.GoName, ` cgo message server unary callback is missing")`)
+	g.P(lowerInitial(service.GoName), `CGOMessageServerStreamPartiallyRegistered = errors.New("rpccgo: `, service.GoName, ` cgo message server stream callbacks are partially registered")`)
 	g.P(lowerInitial(service.GoName), "CGOMessageServerAdapterMu sync.Mutex")
 	g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter = &", adapterName, "{}")
 	g.P(")")
@@ -132,7 +133,7 @@ func renderCGOMessageServerUnaryAdapter(g *protogen.GeneratedFile, service Servi
 	g.P("}")
 	g.P("callback := a.", method.GoName, "Callback")
 	g.P("if callback == nil {")
-	g.P("return nil, ", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing")
+	g.P("return nil, ", cgoMessageServerMethodUnimplementedError(service, method))
 	g.P("}")
 	renderCGOMessageProtoUnmarshalCheck(g, method.Request, "req", "request", "return nil, fmt.Errorf")
 	g.P("var requestPtr uintptr")
@@ -163,72 +164,144 @@ func renderCGOMessageServerRegistration(g *protogen.GeneratedFile, plan FilePlan
 	exportName := messageCServiceRegisterExportFuncName(plan, service)
 	var params []string
 	for _, method := range service.Methods {
-		switch method.Streaming {
-		case StreamingKindUnary:
-			params = append(params, lowerInitial(method.GoName)+"Callback C."+messageCGOServerUnaryCallbackName(service, method))
-		case StreamingKindClientStreaming:
-			params = append(params,
-				lowerInitial(method.GoName)+"Start C."+messageCGOServerClientStreamStartCallbackName(service, method),
-				lowerInitial(method.GoName)+"Send C."+messageCGOServerClientStreamSendCallbackName(service, method),
-				lowerInitial(method.GoName)+"Finish C."+messageCGOServerClientStreamFinishCallbackName(service, method),
-				lowerInitial(method.GoName)+"Cancel C."+messageCGOServerClientStreamCancelCallbackName(service, method),
-			)
-		case StreamingKindServerStreaming:
-			params = append(params,
-				lowerInitial(method.GoName)+"Start C."+messageCGOServerServerStreamStartCallbackName(service, method),
-				lowerInitial(method.GoName)+"Recv C."+messageCGOServerServerStreamRecvCallbackName(service, method),
-				lowerInitial(method.GoName)+"Finish C."+messageCGOServerServerStreamFinishCallbackName(service, method),
-				lowerInitial(method.GoName)+"Cancel C."+messageCGOServerServerStreamCancelCallbackName(service, method),
-			)
-		case StreamingKindBidiStreaming:
-			params = append(params,
-				lowerInitial(method.GoName)+"Start C."+messageCGOServerBidiStreamStartCallbackName(service, method),
-				lowerInitial(method.GoName)+"Send C."+messageCGOServerBidiStreamSendCallbackName(service, method),
-				lowerInitial(method.GoName)+"Recv C."+messageCGOServerBidiStreamRecvCallbackName(service, method),
-				lowerInitial(method.GoName)+"CloseSend C."+messageCGOServerBidiStreamCloseSendCallbackName(service, method),
-				lowerInitial(method.GoName)+"Finish C."+messageCGOServerBidiStreamFinishCallbackName(service, method),
-				lowerInitial(method.GoName)+"Cancel C."+messageCGOServerBidiStreamCancelCallbackName(service, method),
-			)
-		}
+		params = append(params, cgoMessageServerRegisterParams(service, method)...)
 	}
 	g.P("//export ", exportName)
 	g.P("func ", exportName, "(", strings.Join(params, ", "), ") C.int32_t {")
+	g.P(lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Lock()")
+	g.P("defer ", lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Unlock()")
 	g.P("next := &", adapterName, "{}")
+	g.P("var registerErr error")
 	renderCGOMessageServerRegistrationAssignments(g, service)
 	g.P("if err := ", servicePackage, "Register", service.GoName, "CGOMessageServer(next); err != nil { return C.int32_t(rpcruntime.StoreError(err)) }")
-	g.P(lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Lock()")
 	g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter = next")
-	g.P(lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Unlock()")
+	g.P("if registerErr != nil { return C.int32_t(rpcruntime.StoreError(registerErr)) }")
 	g.P("return 0")
+	g.P("}")
+	g.P()
+	for _, method := range service.Methods {
+		renderCGOMessageServerMethodRegistration(g, plan, service, method, adapterName, servicePackage)
+	}
+	g.P("func ", lowerInitial(service.GoName), "CGOMessageServerAdapterForRegister() *", adapterName, " {")
+	g.P("registered, err := ", servicePackage, "Load", service.GoName, "RegisteredServer()")
+	g.P("if err == nil && registered.Kind == rpcruntime.ServerKindCGOMessage {")
+	g.P("if current, ok := registered.Server.(*", adapterName, "); ok {")
+	g.P("next := *current")
+	g.P("return &next")
+	g.P("}")
+	g.P("}")
+	g.P("return &", adapterName, "{}")
 	g.P("}")
 	g.P()
 }
 
 func renderCGOMessageServerRegistrationAssignments(g *protogen.GeneratedFile, service ServicePlan) {
-	errorName := lowerInitial(service.GoName) + "CGOMessageServerUnaryCallbackMissing"
 	for _, method := range service.Methods {
-		prefix := lowerInitial(method.GoName)
-		var suffixes []string
-		switch method.Streaming {
-		case StreamingKindUnary:
-			suffixes = []string{"Callback"}
-		case StreamingKindClientStreaming:
-			suffixes = []string{"Start", "Send", "Finish", "Cancel"}
-		case StreamingKindServerStreaming:
-			suffixes = []string{"Start", "Recv", "Finish", "Cancel"}
-		case StreamingKindBidiStreaming:
-			suffixes = []string{"Start", "Send", "Recv", "CloseSend", "Finish", "Cancel"}
+		renderCGOMessageServerMethodAssignment(g, service, method, "next")
+	}
+}
+
+func renderCGOMessageServerMethodRegistration(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, adapterName, servicePackage string) {
+	exportName := messageCServiceMethodRegisterExportFuncName(plan, service, method)
+	g.P("//export ", exportName)
+	g.P("func ", exportName, "(", strings.Join(cgoMessageServerRegisterParams(service, method), ", "), ") C.int32_t {")
+	g.P(lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Lock()")
+	g.P("defer ", lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Unlock()")
+	g.P("next := ", lowerInitial(service.GoName), "CGOMessageServerAdapterForRegister()")
+	g.P("var registerErr error")
+	renderCGOMessageServerMethodAssignment(g, service, method, "next")
+	g.P("if err := ", servicePackage, "Register", service.GoName, "CGOMessageServer(next); err != nil { return C.int32_t(rpcruntime.StoreError(err)) }")
+	g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter = next")
+	g.P("if registerErr != nil { return C.int32_t(rpcruntime.StoreError(registerErr)) }")
+	g.P("return 0")
+	g.P("}")
+	g.P()
+}
+
+func renderCGOMessageServerMethodAssignment(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, target string) {
+	prefix := lowerInitial(method.GoName)
+	suffixes := cgoMessageServerRegisterSuffixes(method)
+	if method.Streaming == StreamingKindUnary {
+		g.P(target, ".", method.GoName, "Callback = ", prefix, "Callback")
+		return
+	}
+	allNil := make([]string, 0, len(suffixes))
+	allPresent := make([]string, 0, len(suffixes))
+	for _, suffix := range suffixes {
+		param := prefix + suffix
+		allNil = append(allNil, param+" == nil")
+		allPresent = append(allPresent, param+" != nil")
+	}
+	g.P("if ", strings.Join(allNil, " && "), " {")
+	for _, suffix := range suffixes {
+		g.P(target, ".", method.GoName, suffix, " = nil")
+	}
+	g.P("} else if ", strings.Join(allPresent, " && "), " {")
+	for _, suffix := range suffixes {
+		g.P(target, ".", method.GoName, suffix, " = ", prefix, suffix)
+	}
+	g.P("} else {")
+	for _, suffix := range suffixes {
+		g.P(target, ".", method.GoName, suffix, " = nil")
+	}
+	g.P("if registerErr == nil { registerErr = ", lowerInitial(service.GoName), "CGOMessageServerStreamPartiallyRegistered }")
+	g.P("}")
+}
+
+func cgoMessageServerRegisterParams(service ServicePlan, method MethodPlan) []string {
+	prefix := lowerInitial(method.GoName)
+	switch method.Streaming {
+	case StreamingKindUnary:
+		return []string{prefix + "Callback C." + messageCGOServerUnaryCallbackName(service, method)}
+	case StreamingKindClientStreaming:
+		return []string{
+			prefix + "Start C." + messageCGOServerClientStreamStartCallbackName(service, method),
+			prefix + "Send C." + messageCGOServerClientStreamSendCallbackName(service, method),
+			prefix + "Finish C." + messageCGOServerClientStreamFinishCallbackName(service, method),
+			prefix + "Cancel C." + messageCGOServerClientStreamCancelCallbackName(service, method),
 		}
-		for _, suffix := range suffixes {
-			param := prefix + suffix
-			g.P("if ", param, " == nil { return C.int32_t(rpcruntime.StoreError(", errorName, ")) }")
-			g.P("next.", method.GoName, suffix, " = ", param)
+	case StreamingKindServerStreaming:
+		return []string{
+			prefix + "Start C." + messageCGOServerServerStreamStartCallbackName(service, method),
+			prefix + "Recv C." + messageCGOServerServerStreamRecvCallbackName(service, method),
+			prefix + "Finish C." + messageCGOServerServerStreamFinishCallbackName(service, method),
+			prefix + "Cancel C." + messageCGOServerServerStreamCancelCallbackName(service, method),
 		}
+	case StreamingKindBidiStreaming:
+		return []string{
+			prefix + "Start C." + messageCGOServerBidiStreamStartCallbackName(service, method),
+			prefix + "Send C." + messageCGOServerBidiStreamSendCallbackName(service, method),
+			prefix + "Recv C." + messageCGOServerBidiStreamRecvCallbackName(service, method),
+			prefix + "CloseSend C." + messageCGOServerBidiStreamCloseSendCallbackName(service, method),
+			prefix + "Finish C." + messageCGOServerBidiStreamFinishCallbackName(service, method),
+			prefix + "Cancel C." + messageCGOServerBidiStreamCancelCallbackName(service, method),
+		}
+	default:
+		return nil
+	}
+}
+
+func cgoMessageServerRegisterSuffixes(method MethodPlan) []string {
+	switch method.Streaming {
+	case StreamingKindUnary:
+		return []string{"Callback"}
+	case StreamingKindClientStreaming:
+		return []string{"Start", "Send", "Finish", "Cancel"}
+	case StreamingKindServerStreaming:
+		return []string{"Start", "Recv", "Finish", "Cancel"}
+	case StreamingKindBidiStreaming:
+		return []string{"Start", "Send", "Recv", "CloseSend", "Finish", "Cancel"}
+	default:
+		return nil
 	}
 }
 
 func messageCServiceRegisterExportFuncName(plan FilePlan, service ServicePlan) string {
 	return "rpccgo_msg_" + plan.GoPackageName + "_" + service.GoName + "_register"
+}
+
+func messageCServiceMethodRegisterExportFuncName(plan FilePlan, service ServicePlan, method MethodPlan) string {
+	return messageCServiceRegisterExportFuncName(plan, service) + "_" + method.GoName
 }
 
 func renderCGOMessageStreamEOFHelper(g *protogen.GeneratedFile, service ServicePlan) {
@@ -291,8 +364,8 @@ func renderCGOMessageServerClientStreamAdapter(g *protogen.GeneratedFile, servic
 	g.P("if a == nil {")
 	g.P("return nil, ", lowerInitial(service.GoName), "CGOMessageServerCallbacksNil")
 	g.P("}")
-	g.P("if a.", method.GoName, "Start == nil {")
-	g.P("return nil, ", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing")
+	g.P("if a.", method.GoName, "Start == nil || a.", method.GoName, "Send == nil || a.", method.GoName, "Finish == nil || a.", method.GoName, "Cancel == nil {")
+	g.P("return nil, ", cgoMessageServerMethodUnimplementedError(service, method))
 	g.P("}")
 	g.P("var stream C.int32_t")
 	g.P("errID := int32(C.", messageCGOServerClientStreamStartTrampolineName(service, method), "(a.", method.GoName, "Start, &stream))")
@@ -527,7 +600,16 @@ func renderCGOMessageServerBidiStreamAdapter(g *protogen.GeneratedFile, service 
 
 func renderCGOMessageStartGuard(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	g.P("if a == nil { return nil, ", lowerInitial(service.GoName), "CGOMessageServerCallbacksNil }")
-	g.P("if a.", method.GoName, "Start == nil { return nil, ", lowerInitial(service.GoName), "CGOMessageServerUnaryCallbackMissing }")
+	suffixes := cgoMessageServerRegisterSuffixes(method)
+	conditions := make([]string, 0, len(suffixes))
+	for _, suffix := range suffixes {
+		conditions = append(conditions, "a."+method.GoName+suffix+" == nil")
+	}
+	g.P("if ", strings.Join(conditions, " || "), " { return nil, ", cgoMessageServerMethodUnimplementedError(service, method), " }")
+}
+
+func cgoMessageServerMethodUnimplementedError(service ServicePlan, method MethodPlan) string {
+	return `errors.New("rpccgo: ` + service.GoName + `.` + method.GoName + ` cgo message server method is not implemented")`
 }
 
 func renderCGOMessageRequestPtrLen(g *protogen.GeneratedFile, dataName, errReturn string) {

@@ -26,7 +26,7 @@ greeterv1.RegisterGreeterConnectRemoteServer(client)
 greeterv1.RegisterGreeterGRPCRemoteServer(client)
 ```
 
-Generated helper 完成 nil check、service contract validation 和 callback set validation 后，把 `{Kind, Server}` 写入 `rpcruntime` server registry。注册失败时 helper 清空该 `ServiceID` 当前 registered server 并返回错误；后续调用应返回 no-active-server 错误，而不是继续使用旧 server。
+Generated helper 完成 nil check、service contract validation 和 callback validation 后，把 `{Kind, Server}` 写入 `rpcruntime` server registry。C native/message callback 支持按 method 局部注册；未注册 method 调用时返回 generated unimplemented error，全部 method 都未注册时仍可注册为全 unimplemented server，streaming method 的 operation callbacks 必须全 nil 或全非 nil。C per-method register 在 current server 为同一 `ServerKind` 时累积到现有 cgo adapter；current server 为空或不是同一 `ServerKind` 时创建新的 cgo adapter 并替换 current server。Per-method register 校验失败时只清空当前 method callbacks，使该 method 回到 unimplemented 状态，不清空 current server 或其他 method callbacks；如果 current server 不是同一 `ServerKind`，仍创建并注册新的同 kind cgo adapter，再把当前 method 保持为 unimplemented。Service-level registration helper 失败时仍清空该 `ServiceID` 当前 registered server 并返回错误；后续调用应返回 no-active-server 错误，而不是继续使用旧 server。
 
 Generated service runtime 也应暴露 service-specific clear helper，内部调用 runtime clear primitive。clear 只影响后续 unary 调用和后续 stream `Start`，不影响已经开始的 stream session。
 
@@ -54,7 +54,7 @@ cgo message unary call
 
 ## Streaming
 
-Stream `Start` 读取 current registered server 一次，根据 `ServerKind` 创建具体 typed stream session，并把 `{ServerKind, session}` 存入 `rpcruntime` 的全局 stream session registry。后续 `Send`、`Recv`、`Finish`、`CloseSend` 和 `Cancel` 只通过 stream handle 找回该 session，不重新读取 server registry。
+Stream `Start` 读取 current registered server 一次，根据 `ServerKind` 创建具体 typed stream session，并把 `{ServerKind, session}` 存入 `rpcruntime` 的全局 stream session registry。后续 `Send`、`Recv`、`Finish`、`CloseSend` 和 `Cancel` 只通过 stream handle 找回该 session，不重新读取 server registry。C per-method register 更新只影响后续 unary 调用和后续 stream `Start`，不影响已经开始的 stream session。
 
 Stream session 不保存 operation closure，也不维护通用 lifecycle state machine。Generated package-level stream operation 按 session record 的 `ServerKind` 把 `session` 转回对应 typed session 并直接调用。终态操作从 `rpcruntime` stream session registry 移除 handle；移除后的 handle 再操作返回 invalid-handle 错误。
 
@@ -65,7 +65,7 @@ Stream session 不保存 operation closure，也不维护通用 lifecycle state 
 支持注册的 server 类型：
 
 - Go native server：实现 generated `<Service>NativeServer`。
-- cgo native server：由完整 C native callback set 组装成 `<Service>NativeServer`。
+- cgo native server：由 C native callbacks 组装成 `<Service>NativeServer`，支持 method-level partial implementation。
 - cgo message server：实现 generated `<Service>CGOMessageServer`。
 - connect handler：标准 connect-go handler。
 - gRPC server：标准 grpc-go server。
