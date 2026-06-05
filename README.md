@@ -1,136 +1,231 @@
 # rpccgo
 
-write cgo like rpc
-
-## 架构简介
-
 rpccgo 把 C/FFI 调用接入 Go、Connect 或 gRPC 服务，并在 native 字段 ABI 与 protobuf message ABI 之间做转换。
 
-完整设计见 [rpccgo Runtime Server Registry Architecture](docs/specs/2026-06-04-rpccgo-runtime-server-registry-architecture.md)。
+它的目标是让一份 protobuf service 同时暴露：
 
-## 发布前验证
+- Go 侧可实现的 native server contract。
+- C 侧可注册的 native/message server callback。
+- C 侧可调用的 native/message client ABI。
+- Connect 或 gRPC 的标准 server/client transport 接入。
 
-发布前命令清单见 [Release Verification Checklist](docs/release/verification-checklist.md)。
+项目当前尚未发布，API 仍以收敛架构和术语为优先。
 
-## Examples 使用方法
+## 适用场景
 
-examples 里的 greeter 服务覆盖 unary、client streaming、server streaming 和 bidi streaming。两个 example 都会构建 c-shared library，并用同一个 C native client 调用当前 registered server。
+rpccgo 适合这些场景：
 
-- `examples/connect-greeter`：演示 Connect handler、Connect remote server、cgo message server、cgo native server。
-- `examples/grpc-greeter`：演示 gRPC server、gRPC remote server、Go native server。
+- 你有 Go service，希望从 C、C++、Rust、Swift 或其他 FFI 运行时调用它。
+- 你希望 C 侧按 native 字段 ABI 调用，而不是手写 protobuf marshal/unmarshal。
+- 你需要把 C callback 注册成 Go service 的当前实现。
+- 你希望同一套 C client 可以切换调用本地 Go native server、cgo server、Connect/gRPC server 或 remote server。
+- 你需要 unary、client streaming、server streaming 和 bidi streaming 都走同一套生成合同。
 
-### 一键运行
+## 核心模型
 
-`mage run` 会构建需要的 Go/C artifacts，启动 remote server，然后按顺序切换 current registered server 并运行同一套 C client 调用。
+每个 protobuf service 在运行时只有一个 **current registered server**。用户不直接操作 runtime registry，而是调用 generated registration helper。
 
-```bash
-cd examples/connect-greeter
-rtk go run github.com/magefile/mage run
+支持注册的 server 类型：
 
-cd ../grpc-greeter
-rtk go run github.com/magefile/mage run
-```
+- Go native server
+- cgo native server
+- cgo message server
+- Connect handler
+- gRPC server
+- Connect remote server
+- gRPC remote server
 
-connect example 会输出四段：
+Unary 调用每次从 `rpcruntime` server registry 读取当前 registered server。重新注册 server 后，后续 unary 调用会进入新的 server。
 
-```text
-== switch to connect handler registered server ==
-== switch to connect remote registered server ==
-== switch to cgo message registered server ==
-== switch to cgo native registered server ==
-```
+Streaming 在 `Start` 时读取一次 current registered server，并创建 `{ServerKind, session}` stream session。后续 `Send`、`Recv`、`Finish`、`CloseSend` 和 `Cancel` 都固定路由到这个 session，不会因为后续重新注册 server 而改变方向。
 
-gRPC example 会输出三段：
+更完整的架构说明见 [Runtime Server Registry Architecture](docs/specs/2026-06-04-rpccgo-runtime-server-registry-architecture.md)。
 
-```text
-== switch to grpc server registered server ==
-== switch to grpc remote registered server ==
-== switch to go native registered server ==
-```
+## 安装工具
 
-每一段都会运行同一组 native C client 调用：
+前置条件：
 
-```text
-native unary: hello ffi from c
-native collect: collect:ada,grace
-native broadcast: broadcast[0]:stream
-native broadcast: broadcast[1]:stream
-native chat c->server: ada
-native chat server->c: chat:ada
-native chat c->server: grace
-native chat server->c: chat:grace
-```
+- Go 1.24+
+- cgo 可用的 C toolchain
+- `protoc`
 
-### 验收测试
-
-`mage test` 会运行 example 的 transport/streaming matrix，并构建真实 c-shared C client 做端到端验证。
+rpccgo 是一个 protoc 插件。项目尚未发布时，在本仓库内安装：
 
 ```bash
-cd examples/connect-greeter
-rtk go run github.com/magefile/mage test
-
-cd ../grpc-greeter
-rtk go run github.com/magefile/mage test
+go install ./cmd/protoc-gen-rpc-cgo
 ```
 
-也可以直接跑 Go test：
+通常还需要安装 protobuf 的 Go 插件，以及你选择的 transport 插件：
 
 ```bash
-cd examples/connect-greeter
-rtk go test ./...
-
-cd ../grpc-greeter
-rtk go test ./...
+go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 ```
 
-### 手动运行 Connect
-
-启动 Connect server：
+确保这些命令安装出的二进制在 `PATH` 中：
 
 ```bash
-cd examples/connect-greeter
-rtk go run ./cmd/server --addr 127.0.0.1:8081
+which protoc-gen-go
+which protoc-gen-rpc-cgo
 ```
 
-在另一个 shell 运行标准 Connect client：
+## 选择生成能力
+
+rpccgo 通过 service leading comment 中的 `@rpccgo` 指令选择生成能力：
+
+```proto
+// @rpccgo: msg-connect|native
+service Greeter {
+  rpc SayHello(SayHelloRequest) returns (SayHelloResponse);
+}
+```
+
+可用 token：
+
+- `msg-connect`：生成 Connect message transport 接入。
+- `msg-grpc`：生成 gRPC message transport 接入。
+- `native`：生成 native contract、native converter 和 native cgo ABI。
+
+规则：
+
+- 没有 `@rpccgo` 时，默认等价于 `@rpccgo:msg-connect`。
+- `native` 单独出现时，默认等价于 `@rpccgo:msg-connect|native`。
+- `msg-connect` 和 `msg-grpc` 必须二选一，不能同时选择。
+- 未知 token 会报错，例如 `msg-conenct` 不会被静默忽略。
+- 没有 `native` token 时，不生成 native server、cgo native server 或 cgo native client artifact。
+
+## 生成代码
+
+Connect service 示例：
 
 ```bash
-cd examples/connect-greeter
-rtk go run ./cmd/client --url http://127.0.0.1:8081
+protoc \
+  -I proto \
+  --go_out=gen --go_opt=paths=source_relative \
+  --connect-go_out=gen --connect-go_opt=paths=source_relative \
+  --rpc-cgo_out=gen --rpc-cgo_opt=paths=source_relative \
+  --rpc-cgo_opt=cgo_dir=../cmd/rpc \
+  proto/greeter.proto
 ```
 
-`mage run` 中的 Connect remote server 是独立 server 进程，C client 通过 `--connect-url` 参数注册标准 Connect client 后经网络栈调用它。
-
-### 手动运行 gRPC
-
-启动 gRPC server：
+gRPC service 示例：
 
 ```bash
-cd examples/grpc-greeter
-rtk go run ./cmd/server --addr 127.0.0.1:8080
+protoc \
+  -I proto \
+  --go_out=gen --go_opt=paths=source_relative \
+  --go-grpc_out=gen --go-grpc_opt=paths=source_relative \
+  --rpc-cgo_out=gen --rpc-cgo_opt=paths=source_relative \
+  --rpc-cgo_opt=cgo_dir=../cmd/rpc \
+  proto/greeter.proto
 ```
 
-在另一个 shell 运行标准 gRPC client：
+`cgo_dir` 用于设置 cgo 生成文件目录，路径相对 protobuf Go package 的生成目录解析。cgo 文件会生成到 `package main`，通常放在用于构建 `-buildmode=c-shared` 的 Go package 中。
+
+生成文件按 service 和能力拆分，常见文件包括：
+
+- `<proto>.<service>.runtime.rpccgo.go`
+- `<proto>.<service>.server.native.rpccgo.go`
+- `<proto>.<service>.server.message.rpccgo.go`
+- `<proto>.<service>.codec.rpccgo.go`
+- `<proto>.<service>.client.native.cgo.rpccgo.go`
+- `<proto>.<service>.client.message.cgo.rpccgo.go`
+- `<proto>.<service>.server.native.cgo.rpccgo.go`
+- `<proto>.<service>.server.message.cgo.rpccgo.go`
+- `rpccgo.exports.cgo.rpccgo.go`
+
+## 注册 Server
+
+生成代码暴露 service-specific registration helper。以 `Greeter` 为例：
+
+```go
+err := greeterv1.RegisterGreeterGoNativeServer(server)
+err := greeterv1.RegisterGreeterCGONativeServer(server)
+err := greeterv1.RegisterGreeterCGOMessageServer(server)
+err := greeterv1.RegisterGreeterConnectHandler(handler)
+err := greeterv1.RegisterGreeterGRPCServer(server)
+err := greeterv1.RegisterGreeterConnectRemoteServer(client)
+err := greeterv1.RegisterGreeterGRPCRemoteServer(client)
+```
+
+注册成功会替换该 service 的 current registered server。注册失败会清空该 service 的 current registered server 并返回错误。
+
+Connect remote server 和 gRPC remote server 不是特殊 adapter 文件。它们分别是标准 Connect/gRPC client，被注册成 current registered server；调用会经过对应 transport 的网络栈。
+
+## 从 C 调用
+
+生成的 cgo package 需要构建成 shared library：
 
 ```bash
-cd examples/grpc-greeter
-rtk go run ./cmd/client --target 127.0.0.1:8080
+go build -buildmode=c-shared -o librpccgo_service.so ./cmd/rpc
 ```
 
-`mage run` 中的 gRPC remote server 是独立 server 进程，C client 通过 `--grpc-target` 参数注册标准 gRPC client 后经网络栈调用它。
+C 侧 include 生成的 header，然后调用 flat ABI 函数。函数名由 contract、proto Go package namespace、service、method 和 operation 组成。
 
-### 参数约定
+`native` token 会生成 C native client ABI，C 侧按字段传参：
 
-example 不使用环境变量切换 server。`mage run` 内部使用命令行参数传递配置：
+```c
+int32_t err = rpccgo_native_greeterv1_Greeter_SayHello(
+    name_ptr, name_len, name_ownership,
+    city_ptr, city_len, city_ownership,
+    &out_message_ptr, &out_message_len, &out_message_ownership);
+```
 
-- `--server`：选择当前演示的 registered server，例如 `connect_handler`、`connect_remote`、`cgo_message`、`cgo_native`、`grpc_server`、`grpc_remote`、`go_native`。
-- `--route`：打印当前路由标签，方便确认输出属于哪个 registered server。
-- `--connect-url`：Connect remote server 的 base URL。
-- `--grpc-target`：gRPC remote server 的 target。
-- `--addr`：手动启动 example server 时的监听地址。
+message transport 会生成 C message client ABI，C 侧传入 protobuf encoded bytes：
 
-### 关键概念
+```c
+int32_t err = rpccgo_msg_greeterv1_Greeter_SayHello(
+    request_ptr, request_len,
+    &response_ptr, &response_len);
+```
 
-每次注册都会替换同一个 service 的 current registered server。后续 unary 调用会读取最新 registered server；stream 在 `Start` 时捕获当时的 registered server，后续 `Send`、`Read`、`Finish`、`CloseSend` 和 `Cancel` 都固定路由到该 stream session。
+返回值 `0` 表示成功，非 `0` 是 runtime error id。错误文本通过 shared exports 读取：
 
-remote server 不是特殊 adapter 文件，也不依赖 `@remote` 注释。它是一个标准 Connect/gRPC client，被注册为 current registered server；调用仍经过对应 transport 的网络栈。
+```c
+uintptr_t text_ptr = 0;
+int32_t text_len = 0;
+rpccgo_take_error_text(err, &text_ptr, &text_len);
+rpccgo_release(text_ptr);
+```
+
+输出 buffer 使用完成后调用 `rpccgo_release` 释放。stream handle 使用 `int32_t`，后续操作通过 handle 继续调用对应 generated stream operation。
+
+## 从 C 注册 Server
+
+生成的 cgo server ABI 允许 C 侧注册 callback，作为 current registered server。
+
+cgo native server 使用 native 字段 ABI callback；cgo message server 使用 protobuf message bytes callback。callback 支持按 method 局部注册：
+
+- unary callback 为 nil 表示该 method 未实现。
+- streaming method 的 operation callbacks 必须全 nil 或全非 nil。
+- 同一个 kind 的 per-method register 会累积到现有 cgo adapter。
+- 不同 kind 的注册会替换 current registered server。
+
+## Streaming 行为
+
+rpccgo 支持四类 RPC：
+
+- unary
+- client streaming
+- server streaming
+- bidi streaming
+
+Streaming 的关键点是 `Start` 决定方向：`Start` 时捕获当前 registered server，后续同一个 stream handle 的 `Send`、`Recv`、`Finish`、`CloseSend` 和 `Cancel` 都继续进入这个 server。重新注册 server 只影响新的 unary 调用和新的 stream `Start`。
+
+## Examples
+
+可运行示例放在 `examples/`，example 运行步骤和输出说明放在各自目录的 README 中：
+
+- [Connect Greeter](examples/connect-greeter/README.md)
+- [gRPC Greeter](examples/grpc-greeter/README.md)
+
+## 开发与验证
+
+常规验证：
+
+```bash
+go test ./...
+```
+
+发布级验证流程见 [Release Verification Checklist](docs/release/verification-checklist.md)。
