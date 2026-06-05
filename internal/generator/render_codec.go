@@ -28,6 +28,9 @@ func renderCodecFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan
 	g.P("import (")
 	g.P(`errors "errors"`)
 	g.P(`fmt "fmt"`)
+	if codecNeedsGoRuntime(service) {
+		g.P(`goruntime "runtime"`)
+	}
 	if codecNeedsRuntime(service) {
 		g.P(`rpcruntime "rpccgo/rpcruntime"`)
 	}
@@ -53,6 +56,15 @@ func codecNeedsRuntime(service ServicePlan) bool {
 			if field.Kind == FieldKindString || field.Kind == FieldKindBytes || field.Kind == FieldKindMessage || field.Repeated {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+func codecNeedsGoRuntime(service ServicePlan) bool {
+	for _, method := range service.Methods {
+		if codecNativeRequestNeedsKeepAlive(method.Contract.Native.RequestFields) {
+			return true
 		}
 	}
 	return false
@@ -206,7 +218,7 @@ func renderCodecMessageToNativeRequestValues(g *protogen.GeneratedFile, fields [
 	}
 }
 
-func codecRequestNeedsOwner(fields []FieldPlan) bool {
+func codecNativeRequestNeedsKeepAlive(fields []FieldPlan) bool {
 	for _, field := range fields {
 		if field.Kind == FieldKindString || field.Kind == FieldKindBytes || field.Kind == FieldKindMessage || field.Repeated {
 			return true
@@ -272,9 +284,9 @@ func renderCodecNativeRequestValuesToMessage(g *protogen.GeneratedFile, fields [
 		name := lowerInitial(field.GoName)
 		switch field.Kind {
 		case FieldKindString:
-			g.P(msgName, ".", field.GoName, " = ", name, ".SafeString()")
+			g.P(msgName, ".", field.GoName, " = ", name, ".UnsafeString()")
 		case FieldKindBytes, FieldKindMessage:
-			g.P(msgName, ".", field.GoName, " = ", name, ".SafeBytes()")
+			g.P(msgName, ".", field.GoName, " = ", name, ".UnsafeBytes()")
 		case FieldKindBool:
 			if field.Repeated {
 				g.P(msgName, ".", field.GoName, " = ", name, ".SafeSlice()")
@@ -283,7 +295,7 @@ func renderCodecNativeRequestValuesToMessage(g *protogen.GeneratedFile, fields [
 			}
 		case FieldKindEnum:
 			if field.Repeated {
-				g.P(name, "Raw := ", name, ".SafeSlice()")
+				g.P(name, "Raw := ", name, ".UnsafeSlice()")
 				g.P(msgName, ".", field.GoName, " = make([]", nativeGoEnumType(g, field), ", len(", name, "Raw))")
 				g.P("for i := range ", name, "Raw {")
 				g.P(msgName, ".", field.GoName, "[i] = ", nativeGoEnumType(g, field), "(", name, "Raw[i])")
@@ -293,10 +305,18 @@ func renderCodecNativeRequestValuesToMessage(g *protogen.GeneratedFile, fields [
 			}
 		default:
 			if field.Repeated {
-				g.P(msgName, ".", field.GoName, " = ", name, ".SafeSlice()")
+				g.P(msgName, ".", field.GoName, " = ", name, ".UnsafeSlice()")
 			} else {
 				g.P(msgName, ".", field.GoName, " = ", name)
 			}
+		}
+	}
+}
+
+func renderCodecNativeRequestKeepAlive(g *protogen.GeneratedFile, fields []FieldPlan) {
+	for _, field := range fields {
+		if field.Kind == FieldKindString || field.Kind == FieldKindBytes || field.Kind == FieldKindMessage || field.Repeated {
+			g.P("goruntime.KeepAlive(", lowerInitial(field.GoName), ")")
 		}
 	}
 }
@@ -317,6 +337,9 @@ func renderCodecNativeToMessageFunction(g *protogen.GeneratedFile, name, message
 	g.P("msg := &", strings.TrimPrefix(messageType, "*"), "{}")
 	renderValues(g, fields, "msg")
 	g.P("data, err := proto.Marshal(msg)")
+	if label == "request" {
+		renderCodecNativeRequestKeepAlive(g, fields)
+	}
 	g.P("if err != nil {")
 	g.P(`return nil, fmt.Errorf("rpccgo: native `, label, ` protobuf marshal failed: %w", err)`)
 	g.P("}")

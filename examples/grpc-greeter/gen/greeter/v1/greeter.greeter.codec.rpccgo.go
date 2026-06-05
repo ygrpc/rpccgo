@@ -7,6 +7,7 @@ package greeterv1
 import (
 	errors "errors"
 	fmt "fmt"
+	goruntime "runtime"
 	rpcruntime "rpccgo/rpcruntime"
 	unsafe "unsafe"
 	proto "google.golang.org/protobuf/proto"
@@ -41,9 +42,11 @@ func convertGreeterSayHelloMessageToNativeRequest(data []byte) (*rpcruntime.RpcS
 
 func convertGreeterSayHelloNativeToMessageRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) ([]byte, error) {
 	msg := &SayHelloRequest{}
-	msg.Name = name.SafeString()
-	msg.City = city.SafeString()
+	msg.Name = name.UnsafeString()
+	msg.City = city.UnsafeString()
 	data, err := proto.Marshal(msg)
+	goruntime.KeepAlive(name)
+	goruntime.KeepAlive(city)
 	if err != nil {
 		return nil, fmt.Errorf("rpccgo: native request protobuf marshal failed: %w", err)
 	}
@@ -94,9 +97,11 @@ func convertGreeterCollectMessageToNativeRequest(data []byte) (*rpcruntime.RpcSt
 
 func convertGreeterCollectNativeToMessageRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) ([]byte, error) {
 	msg := &SayHelloRequest{}
-	msg.Name = name.SafeString()
-	msg.City = city.SafeString()
+	msg.Name = name.UnsafeString()
+	msg.City = city.UnsafeString()
 	data, err := proto.Marshal(msg)
+	goruntime.KeepAlive(name)
+	goruntime.KeepAlive(city)
 	if err != nil {
 		return nil, fmt.Errorf("rpccgo: native request protobuf marshal failed: %w", err)
 	}
@@ -147,9 +152,11 @@ func convertGreeterBroadcastMessageToNativeRequest(data []byte) (*rpcruntime.Rpc
 
 func convertGreeterBroadcastNativeToMessageRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) ([]byte, error) {
 	msg := &SayHelloRequest{}
-	msg.Name = name.SafeString()
-	msg.City = city.SafeString()
+	msg.Name = name.UnsafeString()
+	msg.City = city.UnsafeString()
 	data, err := proto.Marshal(msg)
+	goruntime.KeepAlive(name)
+	goruntime.KeepAlive(city)
 	if err != nil {
 		return nil, fmt.Errorf("rpccgo: native request protobuf marshal failed: %w", err)
 	}
@@ -200,9 +207,11 @@ func convertGreeterChatMessageToNativeRequest(data []byte) (*rpcruntime.RpcStrin
 
 func convertGreeterChatNativeToMessageRequest(name *rpcruntime.RpcString, city *rpcruntime.RpcString) ([]byte, error) {
 	msg := &SayHelloRequest{}
-	msg.Name = name.SafeString()
-	msg.City = city.SafeString()
+	msg.Name = name.UnsafeString()
+	msg.City = city.UnsafeString()
 	data, err := proto.Marshal(msg)
+	goruntime.KeepAlive(name)
+	goruntime.KeepAlive(city)
 	if err != nil {
 		return nil, fmt.Errorf("rpccgo: native request protobuf marshal failed: %w", err)
 	}

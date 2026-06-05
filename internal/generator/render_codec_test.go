@@ -111,6 +111,34 @@ func TestCodecNativeToMessageRendersProtobufMarshalAndErrors(t *testing.T) {
 	}
 }
 
+func TestCodecNativeToMessageRequestUsesUnsafeWrappersAndKeepAlive(t *testing.T) {
+	file := completeServicePlanTestFile()
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	plans, err := Generate(plugin)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	if err := RenderCodecFiles(plugin, firstFilePlan(t, plans)); err != nil {
+		t.Fatalf("RenderCodecFiles() error = %v", err)
+	}
+
+	const codecFile = "test/v1/complete_service_plan.all_service.codec.rpccgo.go"
+	for _, fragment := range []string{
+		`goruntime "runtime"`,
+		"func convertAllServiceUnaryNativeToMessageRequest(name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) ([]byte, error) {",
+		"msg.Name = name.UnsafeString()",
+		"msg.Child = child.UnsafeBytes()",
+		"data, err := proto.Marshal(msg)",
+		"goruntime.KeepAlive(name)",
+		"goruntime.KeepAlive(child)",
+		`return nil, fmt.Errorf("rpccgo: native request protobuf marshal failed: %w", err)`,
+	} {
+		assertGeneratedContentContains(t, plugin, codecFile, fragment)
+	}
+	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "msg.Name = name.SafeString()", "msg.Child = child.SafeBytes()")
+}
+
 func TestCodecMessageToNativeRequestUsesBorrowedWrappersAndReturnedOwner(t *testing.T) {
 	file := completeServicePlanTestFile()
 	plugin := newTestPlugin(t, "paths=source_relative", file)
@@ -165,6 +193,38 @@ func TestCodecMessageToNativeRequestKeepsRepeatedBoolAndEnumRawOwnersAlive(t *te
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)
 	}
 	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "NativeRequestView", "NewRpcBoolRepeatView", "NewRpcRepeatView", "fn func(", "goruntime.KeepAlive(&msg)", "goruntime.KeepAlive(flagsRaw)", "goruntime.KeepAlive(moodsRaw)")
+}
+
+func TestCodecNativeToMessageRequestUsesUnsafeRepeatedWrappersAndKeepAlive(t *testing.T) {
+	file := nativeServerRepeatedFile()
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	plans, err := Generate(plugin)
+	if err != nil {
+		t.Fatalf("Generate() error = %v", err)
+	}
+	if err := RenderCodecFiles(plugin, firstFilePlan(t, plans)); err != nil {
+		t.Fatalf("RenderCodecFiles() error = %v", err)
+	}
+
+	const codecFile = "test/v1/native_repeated.repeated_service.codec.rpccgo.go"
+	for _, fragment := range []string{
+		`goruntime "runtime"`,
+		"func convertRepeatedServiceCheckNativeToMessageRequest(scores *rpcruntime.RpcRepeat[int32], flags *rpcruntime.RpcBoolRepeat, counts *rpcruntime.RpcRepeat[int64], ratios *rpcruntime.RpcRepeat[float64], moods *rpcruntime.RpcRepeat[int32]) ([]byte, error) {",
+		"msg.Scores = scores.UnsafeSlice()",
+		"msg.Flags = flags.SafeSlice()",
+		"msg.Counts = counts.UnsafeSlice()",
+		"msg.Ratios = ratios.UnsafeSlice()",
+		"moodsRaw := moods.UnsafeSlice()",
+		"goruntime.KeepAlive(scores)",
+		"goruntime.KeepAlive(flags)",
+		"goruntime.KeepAlive(counts)",
+		"goruntime.KeepAlive(ratios)",
+		"goruntime.KeepAlive(moods)",
+	} {
+		assertGeneratedContentContains(t, plugin, codecFile, fragment)
+	}
+	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "msg.Scores = scores.SafeSlice()", "moodsRaw := moods.SafeSlice()")
 }
 
 func TestGenerateWithOptionsEmitsCodecWithoutRemoteAdapterFiles(t *testing.T) {
