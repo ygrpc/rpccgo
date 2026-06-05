@@ -1106,9 +1106,6 @@ func validateNativeServerSymbols(service ServicePlan) error {
 	if err := addGenerated("Unimplemented"+service.GoName+"NativeServer", service.FullName+" unimplemented native server helper"); err != nil {
 		return err
 	}
-	if err := addGenerated(lowerInitial(service.GoName)+"GoNativeAdapter", service.FullName+" go native entry"); err != nil {
-		return err
-	}
 	if err := addGenerated("Register"+service.GoName+"GoNativeServer", service.FullName+" go native registration"); err != nil {
 		return err
 	}

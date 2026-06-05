@@ -586,21 +586,21 @@ func renderCGONativeServerAdapter(g *protogen.GeneratedFile, service ServicePlan
 	for _, method := range service.Methods {
 		switch method.Streaming {
 		case StreamingKindUnary:
-			renderCGONativeServerRequestEncoder(g, service, method, errorNames)
-			renderCGONativeServerResponseDecoder(g, service, method, errorNames)
-			renderCGONativeServerResponseCleanup(g, service, method)
+			renderCGONativeServerFlatRequestEncoder(g, nativeCGOServerRequestEncoderName(service, method), nativeCGOServerRequestName(service, method), method.Contract.Native.RequestFields, errorNames)
+			renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerResponseDecoderName(service, method), method.Contract.Native.ResponseFields, errorNames)
+			renderCGONativeServerFlatResponseCleanup(g, nativeCGOServerResponseCleanupName(service, method), method.Contract.Native.ResponseFields)
 		case StreamingKindClientStreaming:
-			renderCGONativeServerClientStreamRequestEncoder(g, service, method, errorNames)
-			renderCGONativeServerClientStreamResponseDecoder(g, service, method, errorNames)
-			renderCGONativeServerClientStreamResponseCleanup(g, service, method)
+			renderCGONativeServerFlatRequestEncoder(g, nativeCGOServerClientStreamRequestEncoderName(service, method), nativeCGOServerClientStreamRequestName(service, method), method.Contract.Native.RequestFields, errorNames)
+			renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerClientStreamResponseDecoderName(service, method), method.Contract.Native.ResponseFields, errorNames)
+			renderCGONativeServerFlatResponseCleanup(g, nativeCGOServerClientStreamResponseCleanupName(service, method), method.Contract.Native.ResponseFields)
 		case StreamingKindServerStreaming:
-			renderCGONativeServerServerStreamRequestEncoder(g, service, method, errorNames)
-			renderCGONativeServerServerStreamResponseDecoder(g, service, method, errorNames)
-			renderCGONativeServerServerStreamResponseCleanup(g, service, method)
+			renderCGONativeServerFlatRequestEncoder(g, nativeCGOServerServerStreamRequestEncoderName(service, method), nativeCGOServerServerStreamRequestName(service, method), method.Contract.Native.RequestFields, errorNames)
+			renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerServerStreamResponseDecoderName(service, method), method.Contract.Native.ResponseFields, errorNames)
+			renderCGONativeServerFlatResponseCleanup(g, nativeCGOServerServerStreamResponseCleanupName(service, method), method.Contract.Native.ResponseFields)
 		case StreamingKindBidiStreaming:
-			renderCGONativeServerBidiStreamRequestEncoder(g, service, method, errorNames)
-			renderCGONativeServerBidiStreamResponseDecoder(g, service, method, errorNames)
-			renderCGONativeServerBidiStreamResponseCleanup(g, service, method)
+			renderCGONativeServerFlatRequestEncoder(g, nativeCGOServerBidiStreamRequestEncoderName(service, method), nativeCGOServerBidiStreamRequestName(service, method), method.Contract.Native.RequestFields, errorNames)
+			renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerBidiStreamResponseDecoderName(service, method), method.Contract.Native.ResponseFields, errorNames)
+			renderCGONativeServerFlatResponseCleanup(g, nativeCGOServerBidiStreamResponseCleanupName(service, method), method.Contract.Native.ResponseFields)
 		}
 	}
 	renderCGONativeErrorIDHelper(g, service)
@@ -1195,10 +1195,6 @@ func cgoNativeServerMethodUnimplementedError(service ServicePlan, method MethodP
 	return `errors.New("rpccgo: ` + service.GoName + `.` + method.GoName + ` native server method is not implemented")`
 }
 
-func renderCGONativeServerRequestEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	renderCGONativeServerFlatRequestEncoder(g, nativeCGOServerRequestEncoderName(service, method), nativeCGOServerRequestName(service, method), method.Contract.Native.RequestFields, errorNames)
-}
-
 func renderCGONativeServerFlatRequestEncoder(g *protogen.GeneratedFile, name, requestName string, fields []FieldPlan, errorNames nativeServerCGOErrorNames) {
 	renderCGONativeServerRequestType(g, requestName, fields)
 	g.P("func ", name, "(", nativeCGOServerRequestEncoderArgs(g, fields), ") ", nativeCGOServerRequestEncoderReturns(requestName), " {")
@@ -1335,10 +1331,6 @@ func renderCGONativeServerRequestFieldEncode(g *protogen.GeneratedFile, field Fi
 		renderCGONativeServerRequestEncoderReleasePinned(g)
 		g.P("return ", unsupportedReturn)
 	}
-}
-
-func renderCGONativeServerResponseDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerResponseDecoderName(service, method), method.Contract.Native.ResponseFields, errorNames)
 }
 
 func renderCGONativeServerFlatResponseDecoder(g *protogen.GeneratedFile, name string, fields []FieldPlan, errorNames nativeServerCGOErrorNames) {
@@ -1634,10 +1626,6 @@ func nativeCGOServerCallbackTrampolineName(service ServicePlan, method MethodPla
 	return ""
 }
 
-func renderCGONativeServerResponseCleanup(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
-	renderCGONativeServerFlatResponseCleanup(g, nativeCGOServerResponseCleanupName(service, method), method.Contract.Native.ResponseFields)
-}
-
 func renderCGONativeServerFlatResponseCleanup(g *protogen.GeneratedFile, name string, fields []FieldPlan) {
 	g.P("func ", name, "(", nativeCGOServerFlatValueParams(fields), ") error {")
 	g.P("var cleanupErr error")
@@ -1661,42 +1649,6 @@ func renderCGONativeServerFlatResponseCleanup(g *protogen.GeneratedFile, name st
 	g.P("return cleanupErr")
 	g.P("}")
 	g.P()
-}
-
-func renderCGONativeServerClientStreamRequestEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	renderCGONativeServerFlatRequestEncoder(g, nativeCGOServerClientStreamRequestEncoderName(service, method), nativeCGOServerClientStreamRequestName(service, method), method.Contract.Native.RequestFields, errorNames)
-}
-
-func renderCGONativeServerClientStreamResponseDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerClientStreamResponseDecoderName(service, method), method.Contract.Native.ResponseFields, errorNames)
-}
-
-func renderCGONativeServerClientStreamResponseCleanup(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
-	renderCGONativeServerFlatResponseCleanup(g, nativeCGOServerClientStreamResponseCleanupName(service, method), method.Contract.Native.ResponseFields)
-}
-
-func renderCGONativeServerServerStreamRequestEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	renderCGONativeServerFlatRequestEncoder(g, nativeCGOServerServerStreamRequestEncoderName(service, method), nativeCGOServerServerStreamRequestName(service, method), method.Contract.Native.RequestFields, errorNames)
-}
-
-func renderCGONativeServerServerStreamResponseDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerServerStreamResponseDecoderName(service, method), method.Contract.Native.ResponseFields, errorNames)
-}
-
-func renderCGONativeServerServerStreamResponseCleanup(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
-	renderCGONativeServerFlatResponseCleanup(g, nativeCGOServerServerStreamResponseCleanupName(service, method), method.Contract.Native.ResponseFields)
-}
-
-func renderCGONativeServerBidiStreamRequestEncoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	renderCGONativeServerFlatRequestEncoder(g, nativeCGOServerBidiStreamRequestEncoderName(service, method), nativeCGOServerBidiStreamRequestName(service, method), method.Contract.Native.RequestFields, errorNames)
-}
-
-func renderCGONativeServerBidiStreamResponseDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errorNames nativeServerCGOErrorNames) {
-	renderCGONativeServerFlatResponseDecoder(g, nativeCGOServerBidiStreamResponseDecoderName(service, method), method.Contract.Native.ResponseFields, errorNames)
-}
-
-func renderCGONativeServerBidiStreamResponseCleanup(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
-	renderCGONativeServerFlatResponseCleanup(g, nativeCGOServerBidiStreamResponseCleanupName(service, method), method.Contract.Native.ResponseFields)
 }
 
 func renderCGONativeServerErrorStoreExport(g *protogen.GeneratedFile, service ServicePlan) {

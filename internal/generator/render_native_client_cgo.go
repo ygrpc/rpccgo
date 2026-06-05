@@ -110,7 +110,7 @@ func renderNativeUnaryClient(g *protogen.GeneratedFile, plan FilePlan, service S
 	g.P("}")
 	g.P()
 
-	renderNativeUnaryRequestDecoder(g, service, method, unsupportedError)
+	renderNativeClientRequestDecoder(g, nativeUnaryClientDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError)
 	renderNativeUnaryResponseEncoder(g, service, method, unsupportedError)
 	return renderNativeCExportWrappers(g, plan, service, method)
 }
@@ -198,7 +198,7 @@ func renderNativeClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan,
 	g.P("}")
 	g.P()
 
-	renderNativeClientStreamingRequestDecoder(g, service, method, unsupportedError)
+	renderNativeClientRequestDecoder(g, nativeClientStreamingDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError)
 	renderNativeClientStreamingResponseEncoder(g, service, method, unsupportedError)
 	return renderNativeCExportWrappers(g, plan, service, method)
 }
@@ -287,7 +287,7 @@ func renderNativeServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan,
 	g.P("}")
 	g.P()
 
-	renderNativeServerStreamingRequestDecoder(g, service, method, unsupportedError)
+	renderNativeClientRequestDecoder(g, nativeServerStreamingDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError)
 	renderNativeServerStreamingResponseEncoder(g, service, method, unsupportedError)
 	return renderNativeCExportWrappers(g, plan, service, method)
 }
@@ -401,7 +401,7 @@ func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, s
 	g.P("}")
 	g.P()
 
-	renderNativeBidiStreamingRequestDecoder(g, service, method, unsupportedError)
+	renderNativeClientRequestDecoder(g, nativeBidiStreamingDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError)
 	renderNativeBidiStreamingResponseEncoder(g, service, method, unsupportedError)
 	return renderNativeCExportWrappers(g, plan, service, method)
 }
@@ -537,22 +537,6 @@ func renderNativeClientStreamResultCall(g *protogen.GeneratedFile, service Servi
 
 func nativeClientStreamOperationArgs(args string) string {
 	return strings.Replace(args, "ctx", "ctx, rpcruntime.StreamHandle(handle)", 1)
-}
-
-func renderNativeUnaryRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
-	renderNativeClientRequestDecoder(g, nativeUnaryClientDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError)
-}
-
-func renderNativeClientStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
-	renderNativeClientRequestDecoder(g, nativeClientStreamingDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError)
-}
-
-func renderNativeServerStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
-	renderNativeClientRequestDecoder(g, nativeServerStreamingDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError)
-}
-
-func renderNativeBidiStreamingRequestDecoder(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unsupportedError string) {
-	renderNativeClientRequestDecoder(g, nativeBidiStreamingDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError)
 }
 
 func renderNativeClientRequestDecoder(g *protogen.GeneratedFile, name string, fields []FieldPlan, unsupportedError string) {
@@ -940,14 +924,6 @@ func nativeCExportFuncName(plan FilePlan, service ServicePlan, method MethodPlan
 		name += "_" + operation
 	}
 	return name
-}
-
-func nativeGoUnaryOutputTypeName(service ServicePlan, method MethodPlan) string {
-	return nativeUnaryClientOutputName(service, method)
-}
-
-func nativeGoResponseOutputTypeName(service ServicePlan, method MethodPlan) string {
-	return nativeClientStreamingOutputName(service, method)
 }
 
 func nativeCExportParams(slots []CABISlot) string {
