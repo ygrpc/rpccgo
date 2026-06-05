@@ -69,6 +69,7 @@ go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 which protoc-gen-go
 which protoc-gen-rpc-cgo
 which protoc-gen-connect-go
+which protoc-gen-go-grpc
 ```
 
 ## 选择生成能力
