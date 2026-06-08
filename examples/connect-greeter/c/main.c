@@ -42,6 +42,21 @@ static void assert_string_equals(const char *label, const char *got, int32_t got
   }
 }
 
+static void verify_shared_error_exports(void) {
+  const char *want = "shared error";
+  int32_t err_id = rpccgo_store_error_text((char *)want, (int32_t)strlen(want));
+  uintptr_t text_ptr = 0;
+  int32_t text_len = 0;
+  if (err_id == 0 || rpccgo_take_error_text(err_id, &text_ptr, &text_len) != 0 ||
+      text_ptr == 0) {
+    fail_with_message("shared error text roundtrip failed");
+  }
+  assert_string_equals("shared error text", (const char *)text_ptr, text_len, want);
+  if (rpccgo_release(text_ptr) != 0) {
+    fail_with_message("release shared error text failed");
+  }
+}
+
 static const char *arg_value(int argc, char **argv, const char *name) {
   size_t name_len = strlen(name);
   for (int i = 1; i < argc; i++) {
@@ -64,6 +79,7 @@ static volatile int chat_ready = 0;
 static volatile int chat_closed = 0;
 static int32_t broadcast_index = 0;
 static int32_t next_stream = 1000;
+static int32_t native_free_count = 0;
 
 static void sleep_briefly(void) {
   struct timespec ts;
@@ -74,6 +90,11 @@ static void sleep_briefly(void) {
 
 static int32_t demo_eof(void) {
   return rpccgo_store_error_text("EOF", 3);
+}
+
+static void demo_free(void *ptr) {
+  native_free_count++;
+  free(ptr);
 }
 
 static void copy_field(char *dst, size_t dst_len, const char *src, int32_t src_len) {
@@ -93,16 +114,16 @@ static void copy_field(char *dst, size_t dst_len, const char *src, int32_t src_l
 static int32_t store_native_output(const char *text, uintptr_t *out_ptr, int32_t *out_len,
                                    int32_t *out_ownership) {
   size_t len = strlen(text);
-  if (len >= sizeof(demo_output)) {
-    return 99991;
+  char *output = (char *)malloc(len == 0 ? 1 : len);
+  if (output == NULL) {
+    return rpccgo_store_error_text("native output allocation failed", 31);
   }
-  if (text != demo_output) {
-    memcpy(demo_output, text, len);
-    demo_output[len] = '\0';
+  if (len > 0) {
+    memcpy(output, text, len);
   }
-  *out_ptr = (uintptr_t)demo_output;
+  *out_ptr = (uintptr_t)output;
   *out_len = (int32_t)len;
-  *out_ownership = 0;
+  *out_ownership = 1;
   return 0;
 }
 
@@ -396,6 +417,7 @@ static void register_cgo_message_server(void) {
 }
 
 static void register_cgo_native_server(void) {
+  native_free_count = 0;
   assert_status_ok(rpccgo_native_greeterv1_Greeter_register(
                        cgo_native_unary,
                        cgo_native_collect_start, cgo_native_collect_send,
@@ -548,11 +570,16 @@ static void run_registered_server_demo(const char *route) {
 
 int main(int argc, char **argv) {
   const char *kind = arg_value(argc, argv, "--server");
+  assert_status_ok(rpccgo_register_free(demo_free), "register c free callback error:");
+  verify_shared_error_exports();
   if (kind != NULL && strcmp(kind, "cgo_message") == 0) {
     register_cgo_message_server();
   } else if (kind != NULL && strcmp(kind, "cgo_native") == 0) {
     register_cgo_native_server();
   }
   run_registered_server_demo(arg_value(argc, argv, "--route"));
+  if (kind != NULL && strcmp(kind, "cgo_native") == 0 && native_free_count != 6) {
+    fail_with_message("native free callback count mismatch");
+  }
   return 0;
 }

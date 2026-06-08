@@ -26,6 +26,7 @@ func TestGRPCGreeterGenerate(t *testing.T) {
 		}
 	}
 
+	assertFileContains(t, "cmd/rpc/rpccgo.exports.cgo.rpccgo.go", "//export rpccgo_register_free")
 	assertFileContains(t, "cmd/rpc/rpccgo.exports.cgo.rpccgo.go", "//export rpccgo_store_error_text")
 	assertFileContains(t, "cmd/rpc/rpccgo.exports.cgo.rpccgo.go", "//export rpccgo_take_error_text")
 	assertFileContains(t, "cmd/rpc/rpccgo.exports.cgo.rpccgo.go", "//export rpccgo_release")
@@ -63,6 +64,7 @@ func TestGRPCGreeterCSharedClientExample(t *testing.T) {
 		"rpccgo_native_greeterv1_Greeter_Broadcast_start",
 		"rpccgo_native_greeterv1_Greeter_Chat_start",
 		"rpccgo_msg_greeterv1_Greeter_SayHello",
+		"rpccgo_register_free",
 		"rpccgo_store_error_text",
 		"rpccgo_take_error_text",
 		"rpccgo_release",

@@ -213,6 +213,14 @@ cgo native server 使用 native 字段 ABI callback；cgo message server 使用 
 - 同一个 kind 的 per-method register 会累积到现有 cgo adapter。
 - 不同 kind 的注册会替换 current registered server。
 
+C 侧传入或返回 `ownership > 0` 的内存前，必须通过 shared export 注册对应的释放函数。使用标准 `malloc` 分配时可以直接注册 `free`：
+
+```c
+if (rpccgo_register_free(free) != 0) {
+    /* handle registration failure */
+}
+```
+
 C callback 返回 `0` 表示成功。返回错误时，使用 shared export 把错误文本存入 runtime，并返回得到的 error id：
 
 ```c

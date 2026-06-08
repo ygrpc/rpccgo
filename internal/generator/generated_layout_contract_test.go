@@ -106,6 +106,18 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"//export rpccgo_native_testv1_Greeter_SayHello",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
+		"typedef void (*rpccgo_free_callback)(void*);",
+	)
+	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
+		"//export rpccgo_register_free",
+	)
+	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
+		"func rpccgo_register_free(callback C.rpccgo_free_callback) C.int32_t {",
+	)
+	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
+		"rpcruntime.RegisterFreeCallback(func(ptr unsafe.Pointer) {",
+	)
+	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
 		"//export rpccgo_store_error_text",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",

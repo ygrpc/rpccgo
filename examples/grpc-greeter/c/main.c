@@ -41,6 +41,21 @@ static void assert_string_equals(const char *label, const char *got, int32_t got
   }
 }
 
+static void verify_shared_error_exports(void) {
+  const char *want = "shared error";
+  int32_t err_id = rpccgo_store_error_text((char *)want, (int32_t)strlen(want));
+  uintptr_t text_ptr = 0;
+  int32_t text_len = 0;
+  if (err_id == 0 || rpccgo_take_error_text(err_id, &text_ptr, &text_len) != 0 ||
+      text_ptr == 0) {
+    fail_with_message("shared error text roundtrip failed");
+  }
+  assert_string_equals("shared error text", (const char *)text_ptr, text_len, want);
+  if (rpccgo_release(text_ptr) != 0) {
+    fail_with_message("release shared error text failed");
+  }
+}
+
 static const char *arg_value(int argc, char **argv, const char *name) {
   size_t name_len = strlen(name);
   for (int i = 1; i < argc; i++) {
@@ -178,6 +193,8 @@ static void send_native_chat_message(int32_t handle, const char *name, const cha
 
 int main(int argc, char **argv) {
   const char *route = arg_value(argc, argv, "--route");
+  assert_status_ok(rpccgo_register_free(free), "register c free callback error:");
+  verify_shared_error_exports();
   if (route != NULL && route[0] != '\0') {
     printf("route: %s\n", route);
   }

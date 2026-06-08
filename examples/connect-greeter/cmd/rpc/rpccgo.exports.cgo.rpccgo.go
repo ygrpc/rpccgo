@@ -6,6 +6,12 @@ package main
 
 /*
 #include <stdint.h>
+
+typedef void (*rpccgo_free_callback)(void*);
+
+static inline void rpccgo_call_free_callback(rpccgo_free_callback callback, void* ptr) {
+callback(ptr);
+}
 */
 import "C"
 
@@ -17,6 +23,17 @@ import (
 )
 
 // rpccgo cgo support generated file for shared exports
+
+//export rpccgo_register_free
+func rpccgo_register_free(callback C.rpccgo_free_callback) C.int32_t {
+	if callback == nil {
+		return -1
+	}
+	rpcruntime.RegisterFreeCallback(func(ptr unsafe.Pointer) {
+		C.rpccgo_call_free_callback(callback, ptr)
+	})
+	return 0
+}
 
 //export rpccgo_store_error_text
 func rpccgo_store_error_text(text *C.char, textLen C.int32_t) C.int32_t {
