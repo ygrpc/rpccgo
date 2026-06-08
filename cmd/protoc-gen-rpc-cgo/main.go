@@ -1,7 +1,7 @@
 package main
 
 import (
-	"rpccgo/internal/generator"
+	"github.com/ygrpc/rpccgo/internal/generator"
 
 	"google.golang.org/protobuf/compiler/protogen"
 )
