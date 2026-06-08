@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"rpccgo/internal/generator"
+	"github.com/ygrpc/rpccgo/internal/generator"
 
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
@@ -60,7 +60,7 @@ func writeNativeClientStreamingFixture(t *testing.T, tmp string, plugin *protoge
 	if err != nil {
 		t.Fatalf("filepath.Abs() error = %v", err)
 	}
-	writeFile(t, filepath.Join(tmp, "go.mod"), "module "+module+"\n\ngo 1.24.4\n\nrequire (\n\tgoogle.golang.org/protobuf v1.36.11\n\trpccgo v0.0.0\n)\n\nreplace rpccgo => "+repoRoot+"\n")
+	writeFile(t, filepath.Join(tmp, "go.mod"), "module "+module+"\n\ngo 1.24.4\n\nrequire (\n\tgoogle.golang.org/protobuf v1.36.11\n\tgithub.com/ygrpc/rpccgo v0.0.0\n)\n\nreplace github.com/ygrpc/rpccgo => "+repoRoot+"\n")
 	goSum, err := os.ReadFile(filepath.Join(repoRoot, "go.sum"))
 	if err != nil {
 		t.Fatalf("read go.sum: %v", err)
@@ -223,7 +223,7 @@ import (
 	"unsafe"
 
 	v1 "example.com/nativeclientstream/test/v1"
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
 type uploadGoServer struct {
@@ -412,7 +412,7 @@ import (
 	"unsafe"
 
 	v1 "example.com/nativeclientstreamcgo/test/v1"
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
 type uploadOutput struct {
@@ -718,7 +718,7 @@ import (
 	"sync/atomic"
 	"unsafe"
 
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
 func registerGreeterClientStreamCGONativeServerCallbacks() error {

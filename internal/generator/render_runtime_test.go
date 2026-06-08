@@ -22,7 +22,7 @@ func TestRenderRuntimeGlueImportsRPCRuntimeOnly(t *testing.T) {
 	}
 
 	const runtimeFile = "test/v1/greeter.greeter.runtime.rpccgo.go"
-	assertGeneratedContentContains(t, plugin, runtimeFile, `rpcruntime "rpccgo/rpcruntime"`)
+	assertGeneratedContentContains(t, plugin, runtimeFile, `rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"`)
 	assertGeneratedContentContains(t, plugin, runtimeFile, `errors "errors"`)
 	assertGeneratedContentDoesNotContain(t, plugin, "connectrpc.com/connect", "google.golang.org/grpc")
 }
@@ -539,7 +539,7 @@ func TestRenderRuntimeGeneratedSourceCompiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("filepath.Abs() error = %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/generated\n\ngo 1.24.4\n\nrequire (\n\tconnectrpc.com/connect v1.19.1\n\trpccgo v0.0.0\n\tgoogle.golang.org/protobuf v1.36.11\n)\n\nreplace rpccgo => "+repoRoot+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/generated\n\ngo 1.24.4\n\nrequire (\n\tconnectrpc.com/connect v1.19.1\n\tgithub.com/ygrpc/rpccgo v0.0.0\n\tgoogle.golang.org/protobuf v1.36.11\n)\n\nreplace github.com/ygrpc/rpccgo => "+repoRoot+"\n"), 0o644); err != nil {
 		t.Fatalf("write go.mod: %v", err)
 	}
 	goSum, err := os.ReadFile(filepath.Join(repoRoot, "go.sum"))

@@ -16,10 +16,10 @@ import (
 
 	greeterv1 "example.com/rpccgo-grpc/gen/greeter/v1"
 	"example.com/rpccgo-grpc/internal/backend"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
-	rpcruntime "rpccgo/rpcruntime"
 )
 
 func TestGRPCGreeterTransportAndStreamingMatrix(t *testing.T) {

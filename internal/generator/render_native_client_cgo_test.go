@@ -25,7 +25,7 @@ func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
 	for _, fragment := range []string{
 		"package main",
 		`v1 "example.com/test/v1"`,
-		`rpcruntime "rpccgo/rpcruntime"`,
+		`rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"`,
 		`unsafe "unsafe"`,
 		"//export rpccgo_native_testv1_AllService_Unary",
 		"func rpccgo_native_testv1_AllService_Unary(NamePtr C.uintptr_t, NameLen C.int32_t, NameOwnership C.int32_t, Enabled C.int8_t, ChildPtr C.uintptr_t, ChildLen C.int32_t, ChildOwnership C.int32_t, outAccepted *C.int8_t, outPayloadPtr *C.uintptr_t, outPayloadLen *C.int32_t, outPayloadOwnership *C.int32_t) C.int32_t {",
@@ -423,7 +423,7 @@ func writeNativeGeneratedModule(t *testing.T, root string, plugin *protogen.Plug
 		t.Fatalf("filepath.Abs() error = %v", err)
 	}
 	modulePath := nativeGeneratedModulePath(t, plugin)
-	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module "+modulePath+"\n\ngo 1.24.4\n\nrequire (\n\tconnectrpc.com/connect v1.19.1\n\trpccgo v0.0.0\n\tgoogle.golang.org/grpc v1.79.3\n\tgoogle.golang.org/protobuf v1.36.11\n)\n\nreplace rpccgo => "+repoRoot+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module "+modulePath+"\n\ngo 1.24.4\n\nrequire (\n\tconnectrpc.com/connect v1.19.1\n\tgithub.com/ygrpc/rpccgo v0.0.0\n\tgoogle.golang.org/grpc v1.79.3\n\tgoogle.golang.org/protobuf v1.36.11\n)\n\nreplace github.com/ygrpc/rpccgo => "+repoRoot+"\n"), 0o644); err != nil {
 		t.Fatalf("write go.mod: %v", err)
 	}
 	goSum, err := os.ReadFile(filepath.Join(repoRoot, "go.sum"))

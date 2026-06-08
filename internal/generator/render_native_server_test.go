@@ -234,7 +234,7 @@ func TestRenderNativeServerGeneratedSourceCompiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("filepath.Abs() error = %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/generated\n\ngo 1.24.4\n\nrequire (\n\trpccgo v0.0.0\n\tgoogle.golang.org/protobuf v1.36.11\n)\n\nreplace rpccgo => "+repoRoot+"\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module example.com/generated\n\ngo 1.24.4\n\nrequire (\n\tgithub.com/ygrpc/rpccgo v0.0.0\n\tgoogle.golang.org/protobuf v1.36.11\n)\n\nreplace github.com/ygrpc/rpccgo => "+repoRoot+"\n"), 0o644); err != nil {
 		t.Fatalf("write go.mod: %v", err)
 	}
 	goSum, err := os.ReadFile(filepath.Join(repoRoot, "go.sum"))
@@ -306,7 +306,7 @@ import (
 	testing "testing"
 
 	testv1 "example.com/test/v1"
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
 type partialAllServiceNativeServer struct {

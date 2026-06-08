@@ -12,7 +12,7 @@ func renderCGOExportSupportFile(plugin *protogen.Plugin, pkg PackagePlan, file G
 	g.P(`import "C"`)
 	g.P()
 	g.P("import (")
-	g.P(`rpcruntime "rpccgo/rpcruntime"`)
+	g.P(`rpcruntime "`, rpcruntimeImportPath, `"`)
 	g.P(")")
 	g.P()
 	g.P("// rpccgo cgo support generated file for shared exports")

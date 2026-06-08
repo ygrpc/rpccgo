@@ -20,7 +20,7 @@ func TestRenderMessageServerCGODefinesFlatServiceRegistration(t *testing.T) {
 		`errors "errors"`,
 		`fmt "fmt"`,
 		`protobuf "google.golang.org/protobuf/proto"`,
-		`rpcruntime "rpccgo/rpcruntime"`,
+		`rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"`,
 		`rpccgo: message request protobuf marshal failed`,
 		`rpccgo: message response protobuf unmarshal failed`,
 		"rpcruntime.TakeErrorText",

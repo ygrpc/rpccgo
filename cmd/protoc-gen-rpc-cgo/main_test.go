@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"rpccgo/internal/generator"
+	"github.com/ygrpc/rpccgo/internal/generator"
 
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
@@ -19,7 +19,7 @@ func TestRunEmitsRuntimeGlue(t *testing.T) {
 		t.Fatalf("run() error = %v", err)
 	}
 
-	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", `rpcruntime "rpccgo/rpcruntime"`)
+	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", `rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"`)
 	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", `const greeterServiceID rpcruntime.ServiceID = "test.v1.Greeter"`)
 	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "func ClearGreeterServer() error")
 	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.runtime.rpccgo.go", "err := rpcruntime.RegisterServer(greeterServiceID, rpcruntime.RegisteredServer{")

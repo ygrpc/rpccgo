@@ -18,7 +18,7 @@ import (
 	errors "errors"
 	fmt "fmt"
 	protobuf "google.golang.org/protobuf/proto"
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 	unsafe "unsafe"
 )
 

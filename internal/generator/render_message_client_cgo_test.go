@@ -17,7 +17,7 @@ func TestRenderMessageClientCGODefinesUnaryExportSurface(t *testing.T) {
 		`errors "errors"`,
 		`fmt "fmt"`,
 		`protobuf "google.golang.org/protobuf/proto"`,
-		`rpcruntime "rpccgo/rpcruntime"`,
+		`rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"`,
 		`unsafe "unsafe"`,
 		"//export rpccgo_msg_testv1_Greeter_Unary",
 		"func rpccgo_msg_testv1_Greeter_Unary(requestPtr C.uintptr_t, requestLen C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {",

@@ -28,7 +28,7 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	if nativeClientNeedsFmt(service) {
 		g.P(`fmt "fmt"`)
 	}
-	g.P(`rpcruntime "rpccgo/rpcruntime"`)
+	g.P(`rpcruntime "`, rpcruntimeImportPath, `"`)
 	if nativeClientNeedsUnsafe(service) {
 		g.P(`unsafe "unsafe"`)
 	}

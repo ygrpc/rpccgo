@@ -10,7 +10,7 @@ package main
 import "C"
 
 import (
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
 // rpccgo cgo support generated file for shared exports

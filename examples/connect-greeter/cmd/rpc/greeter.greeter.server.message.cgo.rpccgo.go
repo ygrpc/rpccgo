@@ -60,7 +60,7 @@ import (
 	fmt "fmt"
 	io "io"
 	protobuf "google.golang.org/protobuf/proto"
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 	sync "sync"
 	unsafe "unsafe"
 )

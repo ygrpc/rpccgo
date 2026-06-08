@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"rpccgo/internal/generator"
+	"github.com/ygrpc/rpccgo/internal/generator"
 
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
@@ -110,7 +110,7 @@ func writeRemoteTransportGeneratedModule(t *testing.T, root string, plugins ...*
 	if err != nil {
 		t.Fatalf("filepath.Abs() error = %v", err)
 	}
-	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/remotetransport\n\ngo 1.24.4\n\nrequire (\n\tconnectrpc.com/connect v1.19.1\n\tgoogle.golang.org/protobuf v1.36.11\n\trpccgo v0.0.0\n)\n\nreplace rpccgo => "+repoRoot+"\n")
+	writeFile(t, filepath.Join(root, "go.mod"), "module example.com/remotetransport\n\ngo 1.24.4\n\nrequire (\n\tconnectrpc.com/connect v1.19.1\n\tgoogle.golang.org/protobuf v1.36.11\n\tgithub.com/ygrpc/rpccgo v0.0.0\n)\n\nreplace github.com/ygrpc/rpccgo => "+repoRoot+"\n")
 	goSum, err := os.ReadFile(filepath.Join(repoRoot, "go.sum"))
 	if err != nil {
 		t.Fatalf("read go.sum: %v", err)
@@ -323,7 +323,7 @@ import (
 	time "time"
 
 	localv1 "example.com/remotetransport/local/v1"
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
 func TestRemoteTransportAcceptance(t *testing.T) {

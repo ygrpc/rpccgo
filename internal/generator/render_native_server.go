@@ -31,7 +31,7 @@ func renderNativeServerFile(plugin *protogen.Plugin, plan FilePlan, service Serv
 		g.P(`sync "sync"`)
 	}
 	if nativeServerNeedsRPCRuntime(service) {
-		g.P(`rpcruntime "rpccgo/rpcruntime"`)
+		g.P(`rpcruntime "`, rpcruntimeImportPath, `"`)
 	}
 	g.P(")")
 	g.P()

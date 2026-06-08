@@ -28,7 +28,7 @@ func TestRenderNativeServerCGODefinesFlatServiceCallbackRegistration(t *testing.
 		"typedef int32_t (*AllServiceUnaryCGONativeUnaryCallback)(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, int8_t Enabled, uintptr_t ChildPtr, int32_t ChildLen, int32_t ChildOwnership, int8_t *outAccepted, uintptr_t *outPayloadPtr, int32_t *outPayloadLen, int32_t *outPayloadOwnership);",
 		"static inline int32_t callAllServiceUnaryCGONativeUnaryCallback",
 		"return callback(NamePtr, NameLen, NameOwnership, Enabled, ChildPtr, ChildLen, ChildOwnership, outAccepted, outPayloadPtr, outPayloadLen, outPayloadOwnership);",
-		`rpcruntime "rpccgo/rpcruntime"`,
+		`rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"`,
 		`sync "sync"`,
 		`unsafe "unsafe"`,
 		"allServiceCGONativeServerAdapterMu            sync.Mutex",

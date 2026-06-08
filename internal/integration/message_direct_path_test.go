@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"rpccgo/internal/generator"
+	"github.com/ygrpc/rpccgo/internal/generator"
 
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
@@ -219,7 +219,7 @@ func writeMessageDirectPathGeneratedModule(t *testing.T, root string, plugin *pr
 	if err != nil {
 		t.Fatalf("filepath.Abs() error = %v", err)
 	}
-	writeFile(t, filepath.Join(root, "go.mod"), "module "+module+"\n\ngo 1.24.4\n\nrequire (\n\tconnectrpc.com/connect v1.19.1\n\tgoogle.golang.org/grpc v1.79.3\n\tgoogle.golang.org/protobuf v1.36.11\n\trpccgo v0.0.0\n)\n\nreplace rpccgo => "+repoRoot+"\n")
+	writeFile(t, filepath.Join(root, "go.mod"), "module "+module+"\n\ngo 1.24.4\n\nrequire (\n\tconnectrpc.com/connect v1.19.1\n\tgoogle.golang.org/grpc v1.79.3\n\tgoogle.golang.org/protobuf v1.36.11\n\tgithub.com/ygrpc/rpccgo v0.0.0\n)\n\nreplace github.com/ygrpc/rpccgo => "+repoRoot+"\n")
 	goSum, err := os.ReadFile(filepath.Join(repoRoot, "go.sum"))
 	if err != nil {
 		t.Fatalf("read go.sum: %v", err)
@@ -635,7 +635,7 @@ func TestDirectGRPCServerRegistration(t *testing.T) {
 
 const messageDirectPathResetSource = `package testv1
 
-import rpcruntime "rpccgo/rpcruntime"
+import rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 
 func ResetGreeterServerForIntegrationTest() {
 	_ = ClearGreeterServer()
@@ -645,7 +645,7 @@ func ResetGreeterServerForIntegrationTest() {
 
 const messageDirectPathMessageOnlyResetSource = `package testv1
 
-import rpcruntime "rpccgo/rpcruntime"
+import rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 
 func ResetGreeterServerForIntegrationTest() {
 	_ = ClearGreeterServer()
@@ -1078,7 +1078,7 @@ import (
 	errors "errors"
 
 	v1 "example.com/messagedirect/test/v1"
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
 //export greeterMessageStreamEOFErrorIDForIntegration
@@ -1233,7 +1233,7 @@ import (
 	context "context"
 	errors "errors"
 
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
 type greeterMessageOutput struct {
@@ -1363,7 +1363,7 @@ import (
 	"testing"
 	"unsafe"
 
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
 func registerMessageServer(t *testing.T) {

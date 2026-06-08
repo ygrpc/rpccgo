@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"rpccgo/internal/generator"
+	"github.com/ygrpc/rpccgo/internal/generator"
 
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
@@ -107,7 +107,7 @@ type RepeatedGreeterServer interface {
 
 const repeatedNativeABIResetSource = `package repeatedv1
 
-import rpcruntime "rpccgo/rpcruntime"
+import rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 
 func ResetRepeatedGreeterServerForIntegrationTest() {
 	_ = ClearRepeatedGreeterServer()
@@ -150,7 +150,7 @@ import (
 	errors "errors"
 
 	repeatedv1 "example.com/repeatednativeabi/repeated/v1"
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
 func registerRepeatedGreeterMessageCallbacksForIntegration() error {
@@ -210,7 +210,7 @@ import (
 	unsafe "unsafe"
 
 	repeatedv1 "example.com/repeatednativeabi/repeated/v1"
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
 type repeatedGoNativeServer struct{}

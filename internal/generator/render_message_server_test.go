@@ -148,7 +148,7 @@ func writeMessageServerRuntimeStub(t *testing.T, root string) {
 import (
 	errors "errors"
 
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
 const greeterServiceID rpcruntime.ServiceID = "test.v1.Greeter"

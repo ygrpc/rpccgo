@@ -22,7 +22,7 @@ func renderMessageServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service 
 	g.P(`fmt "fmt"`)
 	g.P(`io "io"`)
 	g.P(`protobuf "google.golang.org/protobuf/proto"`)
-	g.P(`rpcruntime "rpccgo/rpcruntime"`)
+	g.P(`rpcruntime "`, rpcruntimeImportPath, `"`)
 	g.P(`sync "sync"`)
 	g.P(`unsafe "unsafe"`)
 	g.P(")")

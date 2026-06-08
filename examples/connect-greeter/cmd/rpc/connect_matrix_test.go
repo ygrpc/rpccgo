@@ -18,9 +18,9 @@ import (
 
 	"example.com/rpccgo-connect/internal/backend"
 	greeterv1 "example.com/rpccgo-connect/proto"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 	"golang.org/x/net/http2"
 	"google.golang.org/protobuf/proto"
-	rpcruntime "rpccgo/rpcruntime"
 )
 
 func TestConnectGreeterTransportAndStreamingMatrix(t *testing.T) {

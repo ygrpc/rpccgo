@@ -32,7 +32,7 @@ func renderCodecFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan
 		g.P(`goruntime "runtime"`)
 	}
 	if codecNeedsRuntime(service) {
-		g.P(`rpcruntime "rpccgo/rpcruntime"`)
+		g.P(`rpcruntime "`, rpcruntimeImportPath, `"`)
 	}
 	if codecNeedsUnsafe(service) {
 		g.P(`unsafe "unsafe"`)

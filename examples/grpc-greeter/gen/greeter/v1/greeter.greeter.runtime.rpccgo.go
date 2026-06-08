@@ -13,7 +13,7 @@ import (
 	sync "sync"
 	grpc "google.golang.org/grpc"
 	metadata "google.golang.org/grpc/metadata"
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
 // rpccgo service runtime generated file for Greeter

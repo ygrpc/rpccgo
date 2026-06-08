@@ -7,7 +7,7 @@ package greeterv1
 import (
 	errors "errors"
 	goruntime "runtime"
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 	unsafe "unsafe"
 )
 

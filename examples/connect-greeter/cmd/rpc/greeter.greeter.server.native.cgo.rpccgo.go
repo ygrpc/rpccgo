@@ -98,7 +98,7 @@ import (
 	errors "errors"
 	fmt "fmt"
 	io "io"
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 	sync "sync"
 	unsafe "unsafe"
 )

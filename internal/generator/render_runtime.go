@@ -47,7 +47,7 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 		g.P(`grpc "google.golang.org/grpc"`)
 		g.P(`metadata "google.golang.org/grpc/metadata"`)
 	}
-	g.P(`rpcruntime "rpccgo/rpcruntime"`)
+	g.P(`rpcruntime "`, rpcruntimeImportPath, `"`)
 	g.P(")")
 	g.P()
 	g.P("// ", nativeStageMarker(service, file))

@@ -35,7 +35,7 @@ func renderNativeServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	g.P(`errors "errors"`)
 	g.P(`fmt "fmt"`)
 	g.P(`io "io"`)
-	g.P(`rpcruntime "rpccgo/rpcruntime"`)
+	g.P(`rpcruntime "`, rpcruntimeImportPath, `"`)
 	g.P(`sync "sync"`)
 	g.P(`unsafe "unsafe"`)
 	g.P(")")

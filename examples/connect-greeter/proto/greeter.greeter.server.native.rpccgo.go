@@ -10,7 +10,7 @@ import (
 	fmt "fmt"
 	io "io"
 	sync "sync"
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
 // rpccgo native generated file for Greeter go native server

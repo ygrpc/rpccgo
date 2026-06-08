@@ -113,10 +113,10 @@ go 1.24.4
 
 require (
 	connectrpc.com/connect v1.19.1
-	rpccgo v0.0.0
+	github.com/ygrpc/rpccgo v0.0.0
 )
 
-replace rpccgo => ` + repoRoot + `
+replace github.com/ygrpc/rpccgo => ` + repoRoot + `
 `
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(goMod), 0o600); err != nil {
 		t.Fatalf("write compile fixture go.mod: %v", err)
@@ -131,7 +131,7 @@ replace rpccgo => ` + repoRoot + `
 
 	source := `package main
 
-import "rpccgo/rpcruntime"
+import "github.com/ygrpc/rpccgo/rpcruntime"
 
 func main() {
 	_, _ = rpcruntime.PinSlice([]bool{true, false})

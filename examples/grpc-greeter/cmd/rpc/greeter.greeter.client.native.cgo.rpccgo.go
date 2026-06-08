@@ -17,7 +17,7 @@ import (
 	context "context"
 	errors "errors"
 	fmt "fmt"
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 	unsafe "unsafe"
 )
 

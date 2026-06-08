@@ -11,7 +11,7 @@ import (
 	io "io"
 	goruntime "runtime"
 	sync "sync"
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
 // rpccgo message direct generated file for Greeter cgo message server contract

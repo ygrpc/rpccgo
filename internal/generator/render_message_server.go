@@ -32,7 +32,7 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 		}
 		g.P(`sync "sync"`)
 	}
-	g.P(`rpcruntime "rpccgo/rpcruntime"`)
+	g.P(`rpcruntime "`, rpcruntimeImportPath, `"`)
 	g.P(")")
 	g.P()
 	g.P("// ", messageStageMarker(service, file))

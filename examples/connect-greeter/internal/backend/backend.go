@@ -8,7 +8,7 @@ import (
 
 	connect "connectrpc.com/connect"
 	greeterv1 "example.com/rpccgo-connect/proto"
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
 type Greeter struct {

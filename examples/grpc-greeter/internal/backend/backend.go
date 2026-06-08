@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	greeterv1 "example.com/rpccgo-grpc/gen/greeter/v1"
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
 type Greeter struct {

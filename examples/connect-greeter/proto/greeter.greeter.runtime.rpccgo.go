@@ -13,7 +13,7 @@ import (
 	sync "sync"
 	connect "connectrpc.com/connect"
 	time "time"
-	rpcruntime "rpccgo/rpcruntime"
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
 // rpccgo service runtime generated file for Greeter
