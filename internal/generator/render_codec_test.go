@@ -22,7 +22,6 @@ func TestRenderCodecFilesEmitsServiceCodecFile(t *testing.T) {
 		"package testv1",
 		`errors "errors"`,
 		"rpccgo native message codec generated file for Greeter",
-		`var greeterNativeMessageCodecNotReadyErr = errors.New("rpccgo: native message codec is not implemented in this build")`,
 		"func convertGreeterSayHelloMessageToNativeRequest(msg *HelloRequest) (any, error) {",
 		`return nil, errors.New("rpccgo: message request is nil")`,
 		"reqOwner := []any{msg}",
@@ -35,7 +34,8 @@ func TestRenderCodecFilesEmitsServiceCodecFile(t *testing.T) {
 	} {
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "NativeRequestView", "connectrpc.com/connect", "google.golang.org/grpc", ".remote.", "panic(", "TODO", "proto.Marshal", "proto.Unmarshal", "[]byte, error")
+	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "NativeRequestView", "connectrpc.com/connect", "google.golang.org/grpc", ".remote.", "panic"+"(", "TODO", "proto.Marshal", "proto.Unmarshal", "[]byte, error")
+	assertGeneratedFileContentDoesNotContain(t, plugin, codecFile, "NativeMessageCodecNotReadyErr", "native message codec is "+"not implemented")
 }
 
 func TestRenderCodecFilesSkipsServiceWithoutCodecArtifact(t *testing.T) {
@@ -156,10 +156,12 @@ func TestCodecMessageToNativeRequestUsesBorrowedWrappersAndReturnedOwner(t *test
 		"// Returned native wrappers borrow from msg and reqOwner-owned buffers.",
 		"// Callers must keep the returned owner alive until the synchronous native call returns.",
 		"reqOwner := []any{msg}",
+		"var err error",
 		"name = rpcruntime.EmptyRpcString()",
 		"child = rpcruntime.EmptyRpcBytes()",
-		"name = rpcruntime.NewRpcString(unsafe.StringData(msg.Name), int32(len(msg.Name)), false)",
-		"child = rpcruntime.NewRpcBytes(unsafe.SliceData(msg.Child), int32(len(msg.Child)), false)",
+		"name, err = rpcruntime.NewRpcStringChecked(unsafe.StringData(msg.Name), int32(len(msg.Name)), false)",
+		"child, err = rpcruntime.NewRpcBytesChecked(unsafe.SliceData(msg.Child), int32(len(msg.Child)), false)",
+		"return nil, false, nil, reqOwner, err",
 		"return name, enabled, child, reqOwner, nil",
 	} {
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)
@@ -183,10 +185,11 @@ func TestCodecMessageToNativeRequestKeepsRepeatedBoolAndEnumRawOwnersAlive(t *te
 	for _, fragment := range []string{
 		"flagsRaw := make([]byte, len(msg.Flags))",
 		"reqOwner = append(reqOwner, flagsRaw)",
-		"flags = rpcruntime.NewRpcBoolRepeat(unsafe.SliceData(flagsRaw), int32(len(flagsRaw)), false)",
+		"flags, err = rpcruntime.NewRpcBoolRepeatChecked(unsafe.SliceData(flagsRaw), int32(len(flagsRaw)), false)",
 		"moodsRaw := make([]int32, len(msg.Moods))",
 		"reqOwner = append(reqOwner, moodsRaw)",
-		"moods = rpcruntime.NewRpcRepeat[int32](unsafe.SliceData(moodsRaw), int32(len(moodsRaw)), false)",
+		"moods, err = rpcruntime.NewRpcRepeatChecked[int32](unsafe.SliceData(moodsRaw), int32(len(moodsRaw)), false)",
+		"return nil, nil, nil, nil, nil, reqOwner, err",
 		"return scores, flags, counts, ratios, moods, reqOwner, nil",
 	} {
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)

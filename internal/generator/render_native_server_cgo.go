@@ -50,7 +50,7 @@ func renderNativeServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	g.P(errorNames.CallbacksNil, ` = errors.New("rpccgo: `, service.GoName, ` cgo native server callbacks are nil")`)
 	g.P(errorNames.UnaryCallbackMissing, ` = errors.New("rpccgo: `, service.GoName, ` cgo native server unary callback is missing")`)
 	g.P(errorNames.UnsupportedField, ` = errors.New("rpccgo: cgo native server field codec is not implemented")`)
-	g.P(errorNames.StreamNotImplemented, ` = errors.New("rpccgo: cgo native server streaming is not implemented")`)
+	g.P(errorNames.StreamPartiallyRegistered, ` = errors.New("rpccgo: cgo native server stream callbacks are partially registered")`)
 	g.P(lowerInitial(service.GoName), "CGONativeServerAdapterMu sync.Mutex")
 	g.P(lowerInitial(service.GoName), "CGONativeServerAdapter = &", lowerInitial(service.GoName), "CGONativeAdapter{}")
 	g.P(")")
@@ -1432,7 +1432,10 @@ func renderCGONativeServerResponseTextDecode(g *protogen.GeneratedFile, fields [
 	g.P("if _, err := rpcruntime.LengthFromInt32(int32(", fieldName, "Len)); err != nil {")
 	g.P(`return `, nativeGoZeroReturns(fields, `fmt.Errorf("`+field.FullName+`: %w", err)`))
 	g.P("}")
-	g.P(fieldName, "Wrapper := rpcruntime.NewRpc", wrapper, "((*byte)(unsafe.Pointer(uintptr(", fieldName, "Ptr))), int32(", fieldName, "Len), false)")
+	g.P(fieldName, "Wrapper, err := rpcruntime.NewRpc", wrapper, "Checked((*byte)(unsafe.Pointer(uintptr(", fieldName, "Ptr))), int32(", fieldName, "Len), false)")
+	g.P("if err != nil {")
+	g.P(`return `, nativeGoZeroReturns(fields, `fmt.Errorf("`+field.FullName+`: %w", err)`))
+	g.P("}")
 	g.P(name, " := ", fieldName, "Wrapper.", safeMethod, "()")
 }
 
@@ -1522,7 +1525,7 @@ func renderCGONativeServerMethodAssignment(g *protogen.GeneratedFile, service Se
 	for _, fieldName := range fieldNames {
 		g.P(target, ".", method.GoName, fieldName, " = nil")
 	}
-	g.P("if registerErr == nil { registerErr = ", errorNames.StreamNotImplemented, " }")
+	g.P("if registerErr == nil { registerErr = ", errorNames.StreamPartiallyRegistered, " }")
 	g.P("}")
 }
 
@@ -1933,19 +1936,19 @@ func nativeServerCGOFieldUsesUnsafe(field FieldPlan) bool {
 }
 
 type nativeServerCGOErrorNames struct {
-	CallbacksNil         string
-	UnaryCallbackMissing string
-	UnsupportedField     string
-	StreamNotImplemented string
+	CallbacksNil              string
+	UnaryCallbackMissing      string
+	UnsupportedField          string
+	StreamPartiallyRegistered string
 }
 
 func nativeServerCGOErrorNamesFor(service ServicePlan) nativeServerCGOErrorNames {
 	prefix := lowerInitial(service.GoName)
 	return nativeServerCGOErrorNames{
-		CallbacksNil:         prefix + "CGONativeServerCallbacksNil",
-		UnaryCallbackMissing: prefix + "CGONativeServerUnaryCallbackMissing",
-		UnsupportedField:     prefix + "CGONativeServerUnsupportedField",
-		StreamNotImplemented: prefix + "CGONativeServerStreamNotImplemented",
+		CallbacksNil:              prefix + "CGONativeServerCallbacksNil",
+		UnaryCallbackMissing:      prefix + "CGONativeServerUnaryCallbackMissing",
+		UnsupportedField:          prefix + "CGONativeServerUnsupportedField",
+		StreamPartiallyRegistered: prefix + "CGONativeServerStreamPartiallyRegistered",
 	}
 }
 
@@ -2004,7 +2007,7 @@ func validateNativeServerCGOSymbols(plan FilePlan, service ServicePlan) error {
 		errorNames.CallbacksNil:                           errorNames.CallbacksNil,
 		errorNames.UnaryCallbackMissing:                   errorNames.UnaryCallbackMissing,
 		errorNames.UnsupportedField:                       errorNames.UnsupportedField,
-		errorNames.StreamNotImplemented:                   errorNames.StreamNotImplemented,
+		errorNames.StreamPartiallyRegistered:              errorNames.StreamPartiallyRegistered,
 	} {
 		if err := addGenerated(symbol, source); err != nil {
 			return err
@@ -2149,7 +2152,7 @@ func addNativeServerCGOGeneratedSymbols(seen map[string]string, service ServiceP
 		errorNames.CallbacksNil:                           errorNames.CallbacksNil,
 		errorNames.UnaryCallbackMissing:                   errorNames.UnaryCallbackMissing,
 		errorNames.UnsupportedField:                       errorNames.UnsupportedField,
-		errorNames.StreamNotImplemented:                   errorNames.StreamNotImplemented,
+		errorNames.StreamPartiallyRegistered:              errorNames.StreamPartiallyRegistered,
 	} {
 		add(symbol, source)
 	}

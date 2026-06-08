@@ -41,8 +41,6 @@ func renderCodecFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan
 	g.P()
 	g.P("// rpccgo native message codec generated file for ", service.GoName)
 	g.P()
-	g.P("var ", lowerInitial(service.GoName), `NativeMessageCodecNotReadyErr = errors.New("rpccgo: native message codec is not implemented in this build")`)
-	g.P()
 
 	for _, method := range service.Methods {
 		renderCodecMethodStubs(g, service, method)
@@ -152,6 +150,9 @@ func codecMessageToNativeRequestValueNames(fields []FieldPlan, ownerExpr, errExp
 }
 
 func renderCodecMessageToNativeRequestValues(g *protogen.GeneratedFile, fields []FieldPlan) {
+	if codecNativeRequestNeedsKeepAlive(fields) {
+		g.P("var err error")
+	}
 	for _, field := range fields {
 		name := lowerInitial(field.GoName)
 		msgField := "msg." + field.GoName
@@ -160,13 +161,19 @@ func renderCodecMessageToNativeRequestValues(g *protogen.GeneratedFile, fields [
 		switch field.Kind {
 		case FieldKindString:
 			g.P("if ", msgField, " != \"\" {")
-			g.P(name, " = rpcruntime.NewRpcString(unsafe.StringData(", msgField, "), int32(len(", msgField, ")), false)")
+			g.P(name, ", err = rpcruntime.NewRpcStringChecked(unsafe.StringData(", msgField, "), int32(len(", msgField, ")), false)")
+			g.P("if err != nil {")
+			g.P("return ", codecMessageToNativeRequestZeroReturns(fields, "reqOwner", "err"))
+			g.P("}")
 			g.P("} else {")
 			g.P(name, " = rpcruntime.EmptyRpcString()")
 			g.P("}")
 		case FieldKindBytes, FieldKindMessage:
 			g.P("if len(", msgField, ") > 0 {")
-			g.P(name, " = rpcruntime.NewRpcBytes(unsafe.SliceData(", msgField, "), int32(len(", msgField, ")), false)")
+			g.P(name, ", err = rpcruntime.NewRpcBytesChecked(unsafe.SliceData(", msgField, "), int32(len(", msgField, ")), false)")
+			g.P("if err != nil {")
+			g.P("return ", codecMessageToNativeRequestZeroReturns(fields, "reqOwner", "err"))
+			g.P("}")
 			g.P("} else {")
 			g.P(name, " = rpcruntime.EmptyRpcBytes()")
 			g.P("}")
@@ -180,7 +187,10 @@ func renderCodecMessageToNativeRequestValues(g *protogen.GeneratedFile, fields [
 				g.P("}")
 				g.P("}")
 				g.P("if len(", rawName, ") > 0 {")
-				g.P(name, " = rpcruntime.NewRpcBoolRepeat(unsafe.SliceData(", rawName, "), int32(len(", rawName, ")), false)")
+				g.P(name, ", err = rpcruntime.NewRpcBoolRepeatChecked(unsafe.SliceData(", rawName, "), int32(len(", rawName, ")), false)")
+				g.P("if err != nil {")
+				g.P("return ", codecMessageToNativeRequestZeroReturns(fields, "reqOwner", "err"))
+				g.P("}")
 				g.P("} else {")
 				g.P(name, " = rpcruntime.EmptyRpcBoolRepeat()")
 				g.P("}")
@@ -195,7 +205,10 @@ func renderCodecMessageToNativeRequestValues(g *protogen.GeneratedFile, fields [
 				g.P(rawName, "[i] = int32(", msgField, "[i])")
 				g.P("}")
 				g.P("if len(", rawName, ") > 0 {")
-				g.P(name, " = rpcruntime.NewRpcRepeat[int32](unsafe.SliceData(", rawName, "), int32(len(", rawName, ")), false)")
+				g.P(name, ", err = rpcruntime.NewRpcRepeatChecked[int32](unsafe.SliceData(", rawName, "), int32(len(", rawName, ")), false)")
+				g.P("if err != nil {")
+				g.P("return ", codecMessageToNativeRequestZeroReturns(fields, "reqOwner", "err"))
+				g.P("}")
 				g.P("} else {")
 				g.P(name, " = rpcruntime.EmptyRpcRepeat[int32]()")
 				g.P("}")
@@ -205,7 +218,10 @@ func renderCodecMessageToNativeRequestValues(g *protogen.GeneratedFile, fields [
 		default:
 			if field.Repeated {
 				g.P("if len(", msgField, ") > 0 {")
-				g.P(name, " = rpcruntime.NewRpcRepeat[", nativeGoRequestRepeatElemType(g, field), "](unsafe.SliceData(", msgField, "), int32(len(", msgField, ")), false)")
+				g.P(name, ", err = rpcruntime.NewRpcRepeatChecked[", nativeGoRequestRepeatElemType(g, field), "](unsafe.SliceData(", msgField, "), int32(len(", msgField, ")), false)")
+				g.P("if err != nil {")
+				g.P("return ", codecMessageToNativeRequestZeroReturns(fields, "reqOwner", "err"))
+				g.P("}")
 				g.P("} else {")
 				g.P(name, " = rpcruntime.EmptyRpcRepeat[", nativeGoRequestRepeatElemType(g, field), "]()")
 				g.P("}")

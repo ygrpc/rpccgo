@@ -16,10 +16,8 @@ import (
 // rpccgo native generated file for Greeter go native server
 
 var (
-	greeterNativeRequestConverterNotImplemented = errors.New("rpccgo: native request converter is not implemented")
-	greeterNativeStreamConverterNotImplemented  = errors.New("rpccgo: native stream converter is not implemented")
-	greeterNativeStreamIsNil                    = errors.New("rpccgo: native stream is nil")
-	greeterNativeStreamClosed                   = errors.New("rpccgo: native stream is closed")
+	greeterNativeStreamIsNil  = errors.New("rpccgo: native stream is nil")
+	greeterNativeStreamClosed = errors.New("rpccgo: native stream is closed")
 )
 
 // Greeter serves greeting RPCs for the gRPC example.

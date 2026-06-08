@@ -169,30 +169,37 @@ func TestRpcRepeatNilAndEmptyInputsAreAllowed(t *testing.T) {
 	}
 }
 
-func TestRpcRepeatMustAtPanicsOnOutOfRange(t *testing.T) {
+func TestRpcRepeatAtCheckedReturnsOutOfRangeError(t *testing.T) {
 	values := []int32{1}
 	rpc := NewRpcRepeat(&values[0], int32(len(values)), false)
 
-	defer func() {
-		if recover() == nil {
-			t.Fatal("expected MustAt to panic on out-of-range index")
-		}
-	}()
-	_ = rpc.MustAt(2)
+	got, err := rpc.AtChecked(2)
+	if err == nil {
+		t.Fatal("AtChecked() error = nil, want out-of-range error")
+	}
+	if got != 0 {
+		t.Fatalf("AtChecked() value = %d, want zero", got)
+	}
+	if !strings.Contains(err.Error(), "RpcRepeat.AtChecked") || !strings.Contains(err.Error(), "out of range") {
+		t.Fatalf("AtChecked() error = %q, want out-of-range detail", err.Error())
+	}
+	if got := rpc.MustAt(2); got != 0 {
+		t.Fatalf("MustAt() = %d, want zero for out-of-range index", got)
+	}
 }
 
 func TestNewRpcRepeatRejectsNegativeLength(t *testing.T) {
 	values := []int32{1}
-	expectPanic(t, "NewRpcRepeat", func() {
-		_ = NewRpcRepeat(&values[0], -1, false)
-	})
+	if got := NewRpcRepeat(&values[0], -1, false); got != nil {
+		t.Fatalf("NewRpcRepeat() = %#v, want nil for negative length", got)
+	}
 }
 
 func TestNewRpcBoolRepeatRejectsNegativeLength(t *testing.T) {
 	values := []byte{1}
-	expectPanic(t, "NewRpcBoolRepeat", func() {
-		_ = NewRpcBoolRepeat(&values[0], -1, false)
-	})
+	if got := NewRpcBoolRepeat(&values[0], -1, false); got != nil {
+		t.Fatalf("NewRpcBoolRepeat() = %#v, want nil for negative length", got)
+	}
 }
 
 func TestNewRpcRepeatCheckedRejectsNegativeLength(t *testing.T) {
@@ -380,16 +387,23 @@ func TestRpcBoolRepeatAtOutOfRangeReturnsFalse(t *testing.T) {
 	}
 }
 
-func TestRpcBoolRepeatMustAtPanicsOnOutOfRange(t *testing.T) {
+func TestRpcBoolRepeatAtCheckedReturnsOutOfRangeError(t *testing.T) {
 	values := []byte{1}
 	rpc := NewRpcBoolRepeat(&values[0], int32(len(values)), false)
 
-	defer func() {
-		if recover() == nil {
-			t.Fatal("expected MustAt to panic on out-of-range index")
-		}
-	}()
-	_ = rpc.MustAt(2)
+	got, err := rpc.AtChecked(2)
+	if err == nil {
+		t.Fatal("AtChecked() error = nil, want out-of-range error")
+	}
+	if got {
+		t.Fatal("AtChecked() value = true, want false")
+	}
+	if !strings.Contains(err.Error(), "RpcBoolRepeat.AtChecked") || !strings.Contains(err.Error(), "out of range") {
+		t.Fatalf("AtChecked() error = %q, want out-of-range detail", err.Error())
+	}
+	if got := rpc.MustAt(2); got {
+		t.Fatal("MustAt() = true, want false for out-of-range index")
+	}
 }
 
 func TestRpcBoolRepeatNilAndEmptyInputsAreAllowed(t *testing.T) {

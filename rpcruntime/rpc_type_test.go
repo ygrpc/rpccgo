@@ -22,17 +22,6 @@ func registerFreeCallbackRecorder() *freeCallbackRecorder {
 	return recorder
 }
 
-func expectPanic(t *testing.T, name string, fn func()) {
-	t.Helper()
-
-	defer func() {
-		if recover() == nil {
-			t.Fatalf("expected %s to panic", name)
-		}
-	}()
-	fn()
-}
-
 func TestEmptyRpcBytesGetterReturnsCanonicalEmptyWrapper(t *testing.T) {
 	got := EmptyRpcBytes()
 	if got == nil {
@@ -109,16 +98,16 @@ func TestRpcBytesUnsafeBytesNilAndEmpty(t *testing.T) {
 
 func TestNewRpcBytesRejectsNegativeLength(t *testing.T) {
 	src := []byte("x")
-	expectPanic(t, "NewRpcBytes", func() {
-		_ = NewRpcBytes(&src[0], -1, false)
-	})
+	if got := NewRpcBytes(&src[0], -1, false); got != nil {
+		t.Fatalf("NewRpcBytes() = %#v, want nil for negative length", got)
+	}
 }
 
 func TestNewRpcStringRejectsNegativeLength(t *testing.T) {
 	src := []byte("x")
-	expectPanic(t, "NewRpcString", func() {
-		_ = NewRpcString(&src[0], -1, false)
-	})
+	if got := NewRpcString(&src[0], -1, false); got != nil {
+		t.Fatalf("NewRpcString() = %#v, want nil for negative length", got)
+	}
 }
 
 func TestNewRpcBytesCheckedRejectsNegativeLength(t *testing.T) {

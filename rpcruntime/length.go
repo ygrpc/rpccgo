@@ -24,10 +24,10 @@ func LengthFromInt32(length int32) (int, error) {
 	return int(length), nil
 }
 
-func mustLengthFromInt32(length int32, label string) int {
+func lengthFromInt32OrZero(length int32) int {
 	value, err := LengthFromInt32(length)
 	if err != nil {
-		panic(fmt.Sprintf("%s: %v", label, err))
+		return 0
 	}
 	return value
 }

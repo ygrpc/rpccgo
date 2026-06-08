@@ -54,10 +54,11 @@ var (
 )
 
 // NewRpcBytes returns an RpcBytes wrapper for ptr and length.
+// Invalid lengths return nil; callers that need error details should use NewRpcBytesChecked.
 func NewRpcBytes(ptr *byte, length int32, ownership bool) *RpcBytes {
 	rpc, err := NewRpcBytesChecked(ptr, length, ownership)
 	if err != nil {
-		panic(err)
+		return nil
 	}
 	return rpc
 }
@@ -81,10 +82,11 @@ func newRpcBytesUnchecked(ptr *byte, length int32, ownership bool) *RpcBytes {
 }
 
 // NewRpcString returns an RpcString wrapper for ptr and length.
+// Invalid lengths return nil; callers that need error details should use NewRpcStringChecked.
 func NewRpcString(ptr *byte, length int32, ownership bool) *RpcString {
 	rpc, err := NewRpcStringChecked(ptr, length, ownership)
 	if err != nil {
-		panic(err)
+		return nil
 	}
 	return rpc
 }
@@ -123,7 +125,7 @@ func (r *RpcBytes) UnsafeBytes() []byte {
 	if r == nil || r.ptr == nil || r.length == 0 {
 		return nil
 	}
-	return unsafe.Slice(r.ptr, mustLengthFromInt32(r.length, "RpcBytes.UnsafeBytes"))
+	return unsafe.Slice(r.ptr, lengthFromInt32OrZero(r.length))
 }
 
 // SafeBytes returns a cached copy that is safe to retain after the wrapper is released.
@@ -158,7 +160,7 @@ func (r *RpcString) UnsafeString() string {
 	if r == nil || r.ptr == nil || r.length == 0 {
 		return ""
 	}
-	return unsafe.String(r.ptr, mustLengthFromInt32(r.length, "RpcString.UnsafeString"))
+	return unsafe.String(r.ptr, lengthFromInt32OrZero(r.length))
 }
 
 // SafeString returns a cached copy that is safe to retain after the wrapper is released.
@@ -168,7 +170,7 @@ func (r *RpcString) SafeString() string {
 	}
 
 	r.safeOnce.Do(func() {
-		cloned := bytes.Clone(unsafe.Slice(r.ptr, mustLengthFromInt32(r.length, "RpcString.SafeString")))
+		cloned := bytes.Clone(unsafe.Slice(r.ptr, lengthFromInt32OrZero(r.length)))
 		r.safeCache = unsafe.String(unsafe.SliceData(cloned), len(cloned))
 	})
 	return r.safeCache

@@ -13,8 +13,6 @@ import (
 
 // rpccgo native message codec generated file for Greeter
 
-var greeterNativeMessageCodecNotReadyErr = errors.New("rpccgo: native message codec is not implemented in this build")
-
 func convertGreeterSayHelloMessageToNativeRequest(msg *SayHelloRequest) (*rpcruntime.RpcString, *rpcruntime.RpcString, any, error) {
 	if msg == nil {
 		return nil, nil, nil, errors.New("rpccgo: message request is nil")
@@ -22,15 +20,22 @@ func convertGreeterSayHelloMessageToNativeRequest(msg *SayHelloRequest) (*rpcrun
 	// Returned native wrappers borrow from msg and reqOwner-owned buffers.
 	// Callers must keep the returned owner alive until the synchronous native call returns.
 	reqOwner := []any{msg}
+	var err error
 	var name *rpcruntime.RpcString
 	if msg.Name != "" {
-		name = rpcruntime.NewRpcString(unsafe.StringData(msg.Name), int32(len(msg.Name)), false)
+		name, err = rpcruntime.NewRpcStringChecked(unsafe.StringData(msg.Name), int32(len(msg.Name)), false)
+		if err != nil {
+			return nil, nil, reqOwner, err
+		}
 	} else {
 		name = rpcruntime.EmptyRpcString()
 	}
 	var city *rpcruntime.RpcString
 	if msg.City != "" {
-		city = rpcruntime.NewRpcString(unsafe.StringData(msg.City), int32(len(msg.City)), false)
+		city, err = rpcruntime.NewRpcStringChecked(unsafe.StringData(msg.City), int32(len(msg.City)), false)
+		if err != nil {
+			return nil, nil, reqOwner, err
+		}
 	} else {
 		city = rpcruntime.EmptyRpcString()
 	}
@@ -68,15 +73,22 @@ func convertGreeterCollectMessageToNativeRequest(msg *SayHelloRequest) (*rpcrunt
 	// Returned native wrappers borrow from msg and reqOwner-owned buffers.
 	// Callers must keep the returned owner alive until the synchronous native call returns.
 	reqOwner := []any{msg}
+	var err error
 	var name *rpcruntime.RpcString
 	if msg.Name != "" {
-		name = rpcruntime.NewRpcString(unsafe.StringData(msg.Name), int32(len(msg.Name)), false)
+		name, err = rpcruntime.NewRpcStringChecked(unsafe.StringData(msg.Name), int32(len(msg.Name)), false)
+		if err != nil {
+			return nil, nil, reqOwner, err
+		}
 	} else {
 		name = rpcruntime.EmptyRpcString()
 	}
 	var city *rpcruntime.RpcString
 	if msg.City != "" {
-		city = rpcruntime.NewRpcString(unsafe.StringData(msg.City), int32(len(msg.City)), false)
+		city, err = rpcruntime.NewRpcStringChecked(unsafe.StringData(msg.City), int32(len(msg.City)), false)
+		if err != nil {
+			return nil, nil, reqOwner, err
+		}
 	} else {
 		city = rpcruntime.EmptyRpcString()
 	}
@@ -114,15 +126,22 @@ func convertGreeterBroadcastMessageToNativeRequest(msg *SayHelloRequest) (*rpcru
 	// Returned native wrappers borrow from msg and reqOwner-owned buffers.
 	// Callers must keep the returned owner alive until the synchronous native call returns.
 	reqOwner := []any{msg}
+	var err error
 	var name *rpcruntime.RpcString
 	if msg.Name != "" {
-		name = rpcruntime.NewRpcString(unsafe.StringData(msg.Name), int32(len(msg.Name)), false)
+		name, err = rpcruntime.NewRpcStringChecked(unsafe.StringData(msg.Name), int32(len(msg.Name)), false)
+		if err != nil {
+			return nil, nil, reqOwner, err
+		}
 	} else {
 		name = rpcruntime.EmptyRpcString()
 	}
 	var city *rpcruntime.RpcString
 	if msg.City != "" {
-		city = rpcruntime.NewRpcString(unsafe.StringData(msg.City), int32(len(msg.City)), false)
+		city, err = rpcruntime.NewRpcStringChecked(unsafe.StringData(msg.City), int32(len(msg.City)), false)
+		if err != nil {
+			return nil, nil, reqOwner, err
+		}
 	} else {
 		city = rpcruntime.EmptyRpcString()
 	}
@@ -160,15 +179,22 @@ func convertGreeterChatMessageToNativeRequest(msg *SayHelloRequest) (*rpcruntime
 	// Returned native wrappers borrow from msg and reqOwner-owned buffers.
 	// Callers must keep the returned owner alive until the synchronous native call returns.
 	reqOwner := []any{msg}
+	var err error
 	var name *rpcruntime.RpcString
 	if msg.Name != "" {
-		name = rpcruntime.NewRpcString(unsafe.StringData(msg.Name), int32(len(msg.Name)), false)
+		name, err = rpcruntime.NewRpcStringChecked(unsafe.StringData(msg.Name), int32(len(msg.Name)), false)
+		if err != nil {
+			return nil, nil, reqOwner, err
+		}
 	} else {
 		name = rpcruntime.EmptyRpcString()
 	}
 	var city *rpcruntime.RpcString
 	if msg.City != "" {
-		city = rpcruntime.NewRpcString(unsafe.StringData(msg.City), int32(len(msg.City)), false)
+		city, err = rpcruntime.NewRpcStringChecked(unsafe.StringData(msg.City), int32(len(msg.City)), false)
+		if err != nil {
+			return nil, nil, reqOwner, err
+		}
 	} else {
 		city = rpcruntime.EmptyRpcString()
 	}

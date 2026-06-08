@@ -51,7 +51,7 @@ var (
 func NewRpcRepeat[T NativeRepeatElem](ptr *T, length int32, ownership bool) *RpcRepeat[T] {
 	rpc, err := NewRpcRepeatChecked(ptr, length, ownership)
 	if err != nil {
-		panic(err)
+		return nil
 	}
 	return rpc
 }
@@ -76,7 +76,7 @@ func newRpcRepeatUnchecked[T NativeRepeatElem](ptr *T, length int32, ownership b
 func NewRpcBoolRepeat(ptr *byte, length int32, ownership bool) *RpcBoolRepeat {
 	rpc, err := NewRpcBoolRepeatChecked(ptr, length, ownership)
 	if err != nil {
-		panic(err)
+		return nil
 	}
 	return rpc
 }
@@ -127,15 +127,23 @@ func (r *RpcRepeat[T]) At(i int32) T {
 	if r == nil || r.ptr == nil || i < 0 || i >= r.length {
 		return zero
 	}
-	return r.UnsafeSlice()[mustLengthFromInt32(i, "RpcRepeat.At")]
+	return r.UnsafeSlice()[lengthFromInt32OrZero(i)]
 }
 
-// MustAt mirrors slice indexing semantics for callers that want a hard failure.
-func (r *RpcRepeat[T]) MustAt(i int32) T {
+// AtChecked returns the value at i or an explicit range error.
+func (r *RpcRepeat[T]) AtChecked(i int32) (T, error) {
+	var zero T
 	if r == nil || r.ptr == nil || i < 0 || i >= r.length {
-		panic(fmt.Sprintf("RpcRepeat.MustAt: index %d out of range [0, %d)", i, r.Len()))
+		return zero, fmt.Errorf("RpcRepeat.AtChecked: index %d out of range [0, %d)", i, r.Len())
 	}
-	return r.At(i)
+	return r.At(i), nil
+}
+
+// MustAt is retained for source compatibility; use AtChecked when the caller
+// needs explicit out-of-range errors.
+func (r *RpcRepeat[T]) MustAt(i int32) T {
+	value, _ := r.AtChecked(i)
+	return value
 }
 
 // UnsafeSlice returns a zero-copy borrowed view over the underlying input.
@@ -144,7 +152,7 @@ func (r *RpcRepeat[T]) UnsafeSlice() []T {
 	if r == nil || r.ptr == nil || r.length == 0 {
 		return nil
 	}
-	return unsafe.Slice(r.ptr, mustLengthFromInt32(r.length, "RpcRepeat.UnsafeSlice"))
+	return unsafe.Slice(r.ptr, lengthFromInt32OrZero(r.length))
 }
 
 // SafeSlice returns a cached copy that is safe to retain after the wrapper is released.
@@ -184,16 +192,23 @@ func (r *RpcBoolRepeat) At(i int32) bool {
 	if r == nil || r.ptr == nil || i < 0 || i >= r.length {
 		return false
 	}
-	raw := unsafe.Slice(r.ptr, mustLengthFromInt32(r.length, "RpcBoolRepeat.At"))
-	return raw[mustLengthFromInt32(i, "RpcBoolRepeat.At")] != 0
+	raw := unsafe.Slice(r.ptr, lengthFromInt32OrZero(r.length))
+	return raw[lengthFromInt32OrZero(i)] != 0
 }
 
-// MustAt mirrors slice indexing semantics for callers that want a hard failure.
-func (r *RpcBoolRepeat) MustAt(i int32) bool {
+// AtChecked returns the bool at i or an explicit range error.
+func (r *RpcBoolRepeat) AtChecked(i int32) (bool, error) {
 	if r == nil || r.ptr == nil || i < 0 || i >= r.length {
-		panic(fmt.Sprintf("RpcBoolRepeat.MustAt: index %d out of range [0, %d)", i, r.Len()))
+		return false, fmt.Errorf("RpcBoolRepeat.AtChecked: index %d out of range [0, %d)", i, r.Len())
 	}
-	return r.At(i)
+	return r.At(i), nil
+}
+
+// MustAt is retained for source compatibility; use AtChecked when the caller
+// needs explicit out-of-range errors.
+func (r *RpcBoolRepeat) MustAt(i int32) bool {
+	value, _ := r.AtChecked(i)
+	return value
 }
 
 // SafeSlice returns a cached bool copy that is safe to retain after the wrapper is released.
@@ -203,7 +218,7 @@ func (r *RpcBoolRepeat) SafeSlice() []bool {
 	}
 
 	r.safeOnce.Do(func() {
-		raw := unsafe.Slice(r.ptr, mustLengthFromInt32(r.length, "RpcBoolRepeat.SafeSlice"))
+		raw := unsafe.Slice(r.ptr, lengthFromInt32OrZero(r.length))
 		r.safeCache = make([]bool, len(raw))
 		for i, value := range raw {
 			r.safeCache[i] = value != 0

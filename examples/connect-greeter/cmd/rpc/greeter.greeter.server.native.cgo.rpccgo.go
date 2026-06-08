@@ -106,12 +106,12 @@ import (
 // rpccgo native generated file for Greeter cgo native server
 
 var (
-	greeterCGONativeServerCallbacksNil         = errors.New("rpccgo: Greeter cgo native server callbacks are nil")
-	greeterCGONativeServerUnaryCallbackMissing = errors.New("rpccgo: Greeter cgo native server unary callback is missing")
-	greeterCGONativeServerUnsupportedField     = errors.New("rpccgo: cgo native server field codec is not implemented")
-	greeterCGONativeServerStreamNotImplemented = errors.New("rpccgo: cgo native server streaming is not implemented")
-	greeterCGONativeServerAdapterMu            sync.Mutex
-	greeterCGONativeServerAdapter              = &greeterCGONativeAdapter{}
+	greeterCGONativeServerCallbacksNil              = errors.New("rpccgo: Greeter cgo native server callbacks are nil")
+	greeterCGONativeServerUnaryCallbackMissing      = errors.New("rpccgo: Greeter cgo native server unary callback is missing")
+	greeterCGONativeServerUnsupportedField          = errors.New("rpccgo: cgo native server field codec is not implemented")
+	greeterCGONativeServerStreamPartiallyRegistered = errors.New("rpccgo: cgo native server stream callbacks are partially registered")
+	greeterCGONativeServerAdapterMu                 sync.Mutex
+	greeterCGONativeServerAdapter                   = &greeterCGONativeAdapter{}
 )
 
 type greeterCGONativeAdapter struct {
@@ -567,7 +567,10 @@ func decodeGreeterSayHelloCGONativeUnaryResponse(messagePtr C.uintptr_t, message
 	if _, err := rpcruntime.LengthFromInt32(int32(messageLen)); err != nil {
 		return "", fmt.Errorf("examples.connect.greeter.v1.SayHelloResponse.message: %w", err)
 	}
-	messageWrapper := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(messagePtr))), int32(messageLen), false)
+	messageWrapper, err := rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(uintptr(messagePtr))), int32(messageLen), false)
+	if err != nil {
+		return "", fmt.Errorf("examples.connect.greeter.v1.SayHelloResponse.message: %w", err)
+	}
 	messageResult := messageWrapper.SafeString()
 	return messageResult, nil
 }
@@ -655,7 +658,10 @@ func decodeGreeterCollectCGONativeClientStreamResponse(messagePtr C.uintptr_t, m
 	if _, err := rpcruntime.LengthFromInt32(int32(messageLen)); err != nil {
 		return "", fmt.Errorf("examples.connect.greeter.v1.SayHelloResponse.message: %w", err)
 	}
-	messageWrapper := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(messagePtr))), int32(messageLen), false)
+	messageWrapper, err := rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(uintptr(messagePtr))), int32(messageLen), false)
+	if err != nil {
+		return "", fmt.Errorf("examples.connect.greeter.v1.SayHelloResponse.message: %w", err)
+	}
 	messageResult := messageWrapper.SafeString()
 	return messageResult, nil
 }
@@ -743,7 +749,10 @@ func decodeGreeterBroadcastCGONativeServerStreamResponse(messagePtr C.uintptr_t,
 	if _, err := rpcruntime.LengthFromInt32(int32(messageLen)); err != nil {
 		return "", fmt.Errorf("examples.connect.greeter.v1.SayHelloResponse.message: %w", err)
 	}
-	messageWrapper := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(messagePtr))), int32(messageLen), false)
+	messageWrapper, err := rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(uintptr(messagePtr))), int32(messageLen), false)
+	if err != nil {
+		return "", fmt.Errorf("examples.connect.greeter.v1.SayHelloResponse.message: %w", err)
+	}
 	messageResult := messageWrapper.SafeString()
 	return messageResult, nil
 }
@@ -831,7 +840,10 @@ func decodeGreeterChatCGONativeBidiStreamResponse(messagePtr C.uintptr_t, messag
 	if _, err := rpcruntime.LengthFromInt32(int32(messageLen)); err != nil {
 		return "", fmt.Errorf("examples.connect.greeter.v1.SayHelloResponse.message: %w", err)
 	}
-	messageWrapper := rpcruntime.NewRpcString((*byte)(unsafe.Pointer(uintptr(messagePtr))), int32(messageLen), false)
+	messageWrapper, err := rpcruntime.NewRpcStringChecked((*byte)(unsafe.Pointer(uintptr(messagePtr))), int32(messageLen), false)
+	if err != nil {
+		return "", fmt.Errorf("examples.connect.greeter.v1.SayHelloResponse.message: %w", err)
+	}
 	messageResult := messageWrapper.SafeString()
 	return messageResult, nil
 }
@@ -886,7 +898,7 @@ func rpccgo_native_greeterv1_Greeter_register(sayHelloCallback C.GreeterSayHello
 		next.CollectFinish = nil
 		next.CollectCancel = nil
 		if registerErr == nil {
-			registerErr = greeterCGONativeServerStreamNotImplemented
+			registerErr = greeterCGONativeServerStreamPartiallyRegistered
 		}
 	}
 	if broadcastStart == nil && broadcastRecv == nil && broadcastFinish == nil && broadcastCancel == nil {
@@ -905,7 +917,7 @@ func rpccgo_native_greeterv1_Greeter_register(sayHelloCallback C.GreeterSayHello
 		next.BroadcastFinish = nil
 		next.BroadcastCancel = nil
 		if registerErr == nil {
-			registerErr = greeterCGONativeServerStreamNotImplemented
+			registerErr = greeterCGONativeServerStreamPartiallyRegistered
 		}
 	}
 	if chatStart == nil && chatSend == nil && chatRecv == nil && chatCloseSend == nil && chatFinish == nil && chatCancel == nil {
@@ -930,7 +942,7 @@ func rpccgo_native_greeterv1_Greeter_register(sayHelloCallback C.GreeterSayHello
 		next.ChatFinish = nil
 		next.ChatCancel = nil
 		if registerErr == nil {
-			registerErr = greeterCGONativeServerStreamNotImplemented
+			registerErr = greeterCGONativeServerStreamPartiallyRegistered
 		}
 	}
 	if err := proto.RegisterGreeterCGONativeServer(next); err != nil {
@@ -982,7 +994,7 @@ func rpccgo_native_greeterv1_Greeter_register_Collect(collectStart C.GreeterColl
 		next.CollectFinish = nil
 		next.CollectCancel = nil
 		if registerErr == nil {
-			registerErr = greeterCGONativeServerStreamNotImplemented
+			registerErr = greeterCGONativeServerStreamPartiallyRegistered
 		}
 	}
 	if err := proto.RegisterGreeterCGONativeServer(next); err != nil {
@@ -1017,7 +1029,7 @@ func rpccgo_native_greeterv1_Greeter_register_Broadcast(broadcastStart C.Greeter
 		next.BroadcastFinish = nil
 		next.BroadcastCancel = nil
 		if registerErr == nil {
-			registerErr = greeterCGONativeServerStreamNotImplemented
+			registerErr = greeterCGONativeServerStreamPartiallyRegistered
 		}
 	}
 	if err := proto.RegisterGreeterCGONativeServer(next); err != nil {
@@ -1058,7 +1070,7 @@ func rpccgo_native_greeterv1_Greeter_register_Chat(chatStart C.GreeterChatCGONat
 		next.ChatFinish = nil
 		next.ChatCancel = nil
 		if registerErr == nil {
-			registerErr = greeterCGONativeServerStreamNotImplemented
+			registerErr = greeterCGONativeServerStreamPartiallyRegistered
 		}
 	}
 	if err := proto.RegisterGreeterCGONativeServer(next); err != nil {
