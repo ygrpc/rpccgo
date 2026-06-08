@@ -34,6 +34,8 @@ func TestRenderMessageServerDefinesUnimplementedHelper(t *testing.T) {
 		"func startAllServiceCGOMessageClientStream(ctx context.Context, server AllServiceCGOMessageServer) (rpcruntime.CGOMessageClientStreamSession[*AllRequest, *AllReply], error)",
 		"func startAllServiceCGOMessageServerStream(ctx context.Context, server AllServiceCGOMessageServer, req *AllRequest) (rpcruntime.CGOMessageServerStreamSession[*AllReply], error)",
 		"func startAllServiceCGOMessageBidiStream(ctx context.Context, server AllServiceCGOMessageServer) (rpcruntime.CGOMessageBidiStreamSession[*AllRequest, *AllReply], error)",
+		"func (s *allServiceServerStreamMessageServerServerStreamSession) Finish(ctx context.Context) error {\n\ts.finishCancel()\n\tdefer s.cancel()\n\ts.acknowledgeReceived()",
+		"func (s *allServiceBidiStreamMessageServerBidiStreamSession) Finish(ctx context.Context) error {\n\ts.closeSendOnce.Do(func() { close(s.sendDone) })\n\ts.finishCancel()\n\tdefer s.cancel()\n\ts.acknowledgeReceived()",
 		"case <-s.done:",
 	} {
 		assertGeneratedContentContains(t, plugin, messageServerFile, fragment)
@@ -49,6 +51,7 @@ func TestRenderMessageServerDefinesUnimplementedHelper(t *testing.T) {
 		"responsesClosed",
 		"doneRequested",
 		"s.err = nil",
+		"s.finishCancel()\n\ts.cancel()\n\ts.acknowledgeReceived()",
 	)
 }
 

@@ -1107,7 +1107,7 @@ func (s *greeterBroadcastMessageServerServerStreamSession) Recv(ctx context.Cont
 
 func (s *greeterBroadcastMessageServerServerStreamSession) Finish(ctx context.Context) error {
 	s.finishCancel()
-	s.cancel()
+	defer s.cancel()
 	s.acknowledgeReceived()
 	select {
 	case <-ctx.Done():
@@ -1372,8 +1372,9 @@ func (s *greeterChatMessageServerBidiStreamSession) CloseSend(ctx context.Contex
 }
 
 func (s *greeterChatMessageServerBidiStreamSession) Finish(ctx context.Context) error {
+	s.closeSendOnce.Do(func() { close(s.sendDone) })
 	s.finishCancel()
-	s.cancel()
+	defer s.cancel()
 	s.acknowledgeReceived()
 	select {
 	case <-ctx.Done():

@@ -177,7 +177,7 @@ func renderMessageServerServerStreamStartHelper(g *protogen.GeneratedFile, servi
 	renderMessageServerReceivedHelpers(g, receiver)
 	renderMessageServerStreamSend(g, receiver, respType)
 	renderMessageServerStreamRecv(g, receiver, respType)
-	renderMessageServerGeneratedFinish(g, receiver)
+	renderMessageServerGeneratedFinish(g, receiver, false)
 	renderMessageServerGeneratedCancel(g, receiver, false)
 }
 
@@ -333,7 +333,7 @@ func renderMessageServerBidiStreamStartHelper(g *protogen.GeneratedFile, service
 	g.P("}")
 	g.P("}")
 	g.P()
-	renderMessageServerGeneratedFinish(g, receiver)
+	renderMessageServerGeneratedFinish(g, receiver, true)
 	renderMessageServerGeneratedCancel(g, receiver, true)
 }
 
@@ -438,10 +438,13 @@ func renderMessageServerStreamRecvBody(g *protogen.GeneratedFile) {
 	g.P("}")
 }
 
-func renderMessageServerGeneratedFinish(g *protogen.GeneratedFile, receiver string) {
+func renderMessageServerGeneratedFinish(g *protogen.GeneratedFile, receiver string, closeSend bool) {
 	g.P("func (s *", receiver, ") Finish(ctx context.Context) error {")
+	if closeSend {
+		g.P("s.closeSendOnce.Do(func() { close(s.sendDone) })")
+	}
 	g.P("s.finishCancel()")
-	g.P("s.cancel()")
+	g.P("defer s.cancel()")
 	g.P("s.acknowledgeReceived()")
 	g.P("select {")
 	g.P("case <-ctx.Done():")
