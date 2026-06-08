@@ -97,6 +97,18 @@ func TestPinSliceAndRelease(t *testing.T) {
 	if !Release(ptr) {
 		t.Fatal("expected slice release to succeed")
 	}
+
+	unsignedData := []uint32{1, 2, 3}
+	unsignedPtr, err := PinSlice(unsignedData)
+	if err != nil {
+		t.Fatalf("unexpected unsigned pin error: %v", err)
+	}
+	if unsignedPtr == 0 {
+		t.Fatal("expected non-zero unsigned pointer")
+	}
+	if !Release(unsignedPtr) {
+		t.Fatal("expected unsigned slice release to succeed")
+	}
 }
 
 func TestPinBoolSliceDoesNotCompile(t *testing.T) {

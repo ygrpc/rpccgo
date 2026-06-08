@@ -209,11 +209,11 @@ func init() {
 
 	if *cancelObserver {
 		if err := remotev1.RegisterGreeterGoNativeServer(cancelObserverGreeter{signalFile: *cancelSignalFile}); err != nil {
-			panic(err)
+			fatal(err)
 		}
 	} else {
 		if err := registerGreeterMessageCallbacksForIntegration(); err != nil {
-			panic(err)
+			fatal(err)
 		}
 		setGreeterMessageStreamEOFModeForIntegration(true)
 		if *unaryError {
@@ -223,7 +223,7 @@ func init() {
 
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		panic(err)
+		fatal(err)
 	}
 
 	stop := make(chan os.Signal, 1)
@@ -243,8 +243,13 @@ func init() {
 		<-stop
 		_ = server.Close()
 	default:
-		panic("unknown transport: " + *transport)
+		fatal(fmt.Errorf("unknown transport: %s", *transport))
 	}
+}
+
+func fatal(err error) {
+	fmt.Fprintln(os.Stderr, err)
+	os.Exit(2)
 }
 
 type cancelObserverGreeter struct {

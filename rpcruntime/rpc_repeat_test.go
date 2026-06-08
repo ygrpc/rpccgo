@@ -84,14 +84,26 @@ func TestRpcRepeatSignedNumericEnumAndFloatValues(t *testing.T) {
 	if got, want := intRepeat.At(1), int32(20); got != want {
 		t.Fatalf("int At mismatch: got %d want %d", got, want)
 	}
-	if got, want := intRepeat.MustAt(2), int32(-30); got != want {
-		t.Fatalf("int MustAt mismatch: got %d want %d", got, want)
+	if got, want := intRepeat.At(2), int32(-30); got != want {
+		t.Fatalf("int At mismatch: got %d want %d", got, want)
+	}
+
+	unsignedInts := []uint32{10, 20, 30}
+	uint32Repeat := NewRpcRepeat(&unsignedInts[0], int32(len(unsignedInts)), false)
+	if got, want := uint32Repeat.SafeSlice(), unsignedInts; !slices.Equal(got, want) {
+		t.Fatalf("uint32 safe slice mismatch: got %v want %v", got, want)
 	}
 
 	largeInts := []int64{-1, 1 << 40}
 	int64Repeat := NewRpcRepeat(&largeInts[0], int32(len(largeInts)), false)
 	if got, want := int64Repeat.SafeSlice(), largeInts; !slices.Equal(got, want) {
 		t.Fatalf("int64 safe slice mismatch: got %v want %v", got, want)
+	}
+
+	wideUnsignedInts := []uint64{1, 1 << 40}
+	uint64Repeat := NewRpcRepeat(&wideUnsignedInts[0], int32(len(wideUnsignedInts)), false)
+	if got, want := uint64Repeat.SafeSlice(), wideUnsignedInts; !slices.Equal(got, want) {
+		t.Fatalf("uint64 safe slice mismatch: got %v want %v", got, want)
 	}
 
 	enums := []testRpcRepeatEnum{1, -2, 3}
@@ -182,9 +194,6 @@ func TestRpcRepeatAtCheckedReturnsOutOfRangeError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "RpcRepeat.AtChecked") || !strings.Contains(err.Error(), "out of range") {
 		t.Fatalf("AtChecked() error = %q, want out-of-range detail", err.Error())
-	}
-	if got := rpc.MustAt(2); got != 0 {
-		t.Fatalf("MustAt() = %d, want zero for out-of-range index", got)
 	}
 }
 
@@ -341,7 +350,7 @@ func TestRpcRepeatReleasePreventsCleanupDoubleFree(t *testing.T) {
 	assertRpcInputCleanupCallCountStays(t, recorder, 1)
 }
 
-func TestRpcBoolRepeatLenAtMustAtAndSafeSlice(t *testing.T) {
+func TestRpcBoolRepeatLenAtAndSafeSlice(t *testing.T) {
 	values := []byte{1, 0, 2}
 
 	rpc := NewRpcBoolRepeat(&values[0], int32(len(values)), false)
@@ -354,7 +363,7 @@ func TestRpcBoolRepeatLenAtMustAtAndSafeSlice(t *testing.T) {
 	if rpc.At(1) {
 		t.Fatal("expected second bool element to be false")
 	}
-	if !rpc.MustAt(2) {
+	if !rpc.At(2) {
 		t.Fatal("expected third bool element to be true")
 	}
 	first := rpc.SafeSlice()
@@ -400,9 +409,6 @@ func TestRpcBoolRepeatAtCheckedReturnsOutOfRangeError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "RpcBoolRepeat.AtChecked") || !strings.Contains(err.Error(), "out of range") {
 		t.Fatalf("AtChecked() error = %q, want out-of-range detail", err.Error())
-	}
-	if got := rpc.MustAt(2); got {
-		t.Fatal("MustAt() = true, want false for out-of-range index")
 	}
 }
 

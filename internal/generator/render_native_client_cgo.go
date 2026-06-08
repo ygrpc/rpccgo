@@ -941,7 +941,7 @@ func renderNativeResponseFieldValidate(g *protogen.GeneratedFile, field FieldPla
 		return
 	case NativeABIShapeRepeated:
 		switch field.Kind {
-		case FieldKindSignedInt32, FieldKindSignedInt64, FieldKindFloat, FieldKindDouble, FieldKindEnum:
+		case FieldKindSignedInt32, FieldKindUnsignedInt32, FieldKindSignedInt64, FieldKindUnsignedInt64, FieldKindFloat, FieldKindDouble, FieldKindEnum:
 			g.P(nativeClientOutputLenLocal(field), ", err := rpcruntime.LengthToInt32(len(", name, "))")
 			g.P("if err != nil {")
 			g.P("return err")

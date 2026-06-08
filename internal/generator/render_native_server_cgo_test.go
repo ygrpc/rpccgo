@@ -228,15 +228,55 @@ func TestRenderNativeServerCGOSupportsRepeatedNativeABI(t *testing.T) {
 		"var outMoodsPtr C.uintptr_t",
 		"var outMoodsLen C.int32_t",
 		"var outMoodsOwnership C.int32_t",
+		"var outUnsignedScoresPtr C.uintptr_t",
+		"var outUnsignedScoresLen C.int32_t",
+		"var outUnsignedScoresOwnership C.int32_t",
+		"var outUnsignedTotalsPtr C.uintptr_t",
+		"var outUnsignedTotalsLen C.int32_t",
+		"var outUnsignedTotalsOwnership C.int32_t",
 		"rpcruntime.NewRpcRepeatChecked((*int32)(unsafe.Pointer(uintptr(scoresPtr))), int32(scoresLen), false)",
 		"rpcruntime.NewRpcRepeatChecked((*int64)(unsafe.Pointer(uintptr(countsPtr))), int32(countsLen), false)",
 		"rpcruntime.NewRpcRepeatChecked((*float64)(unsafe.Pointer(uintptr(ratiosPtr))), int32(ratiosLen), false)",
 		"rpcruntime.NewRpcRepeatChecked((*int32)(unsafe.Pointer(uintptr(moodsPtr))), int32(moodsLen), false)",
+		"rpcruntime.NewRpcRepeatChecked((*uint32)(unsafe.Pointer(uintptr(unsignedScoresPtr))), int32(unsignedScoresLen), false)",
+		"rpcruntime.NewRpcRepeatChecked((*uint64)(unsafe.Pointer(uintptr(unsignedTotalsPtr))), int32(unsignedTotalsLen), false)",
 		"rpcruntime.NewRpcBoolRepeatChecked((*byte)(unsafe.Pointer(uintptr(flagsPtr))), int32(flagsLen), false)",
 		"scoresOwnership > 0",
+		"unsignedScoresOwnership > 0",
+		"unsignedTotalsOwnership > 0",
 		"rpcruntime.ReleaseC(unsafe.Pointer(uintptr(scoresPtr)), true, \"test.v1.RepeatedReply.scores\")",
+		"rpcruntime.ReleaseC(unsafe.Pointer(uintptr(unsignedScoresPtr)), true, \"test.v1.RepeatedReply.unsigned_scores\")",
+		"rpcruntime.ReleaseC(unsafe.Pointer(uintptr(unsignedTotalsPtr)), true, \"test.v1.RepeatedReply.unsigned_totals\")",
 	} {
 		assertGeneratedContentContains(t, plugin, cgoServerFile, fragment)
+	}
+}
+
+func TestRenderNativeCGORepeatedUnsignedGeneratedSourceCompiles(t *testing.T) {
+	file := nativeServerRepeatedFile()
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	_, err := GenerateWithOptions(plugin)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	tmp := t.TempDir()
+	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {
+		return strings.Contains(name, ".runtime.rpccgo.go") ||
+			strings.Contains(name, ".codec.rpccgo.go") ||
+			strings.Contains(name, ".server.message.rpccgo.go") ||
+			strings.Contains(name, ".server.native.rpccgo.go") ||
+			strings.Contains(name, ".server.native.cgo.rpccgo.go") ||
+			strings.Contains(name, ".client.native.cgo.rpccgo.go")
+	})
+	writeNativeRepeatedCompileStubs(t, tmp)
+
+	cmd := exec.Command("go", "test", "-mod=mod", "./...")
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("repeated unsigned generated cgo native source go test failed: %v\n%s", err, out)
 	}
 }
 
@@ -421,6 +461,8 @@ func nativeServerRepeatedFile() *descriptorpb.FileDescriptorProto {
 					fieldDescriptor("counts", 3, descriptorpb.FieldDescriptorProto_TYPE_INT64, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
 					fieldDescriptor("ratios", 4, descriptorpb.FieldDescriptorProto_TYPE_DOUBLE, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
 					fieldDescriptor("moods", 5, descriptorpb.FieldDescriptorProto_TYPE_ENUM, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".test.v1.Mood"),
+					fieldDescriptor("unsigned_scores", 6, descriptorpb.FieldDescriptorProto_TYPE_UINT32, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
+					fieldDescriptor("unsigned_totals", 7, descriptorpb.FieldDescriptorProto_TYPE_UINT64, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
 				},
 			},
 			{
@@ -431,6 +473,8 @@ func nativeServerRepeatedFile() *descriptorpb.FileDescriptorProto {
 					fieldDescriptor("counts", 3, descriptorpb.FieldDescriptorProto_TYPE_INT64, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
 					fieldDescriptor("ratios", 4, descriptorpb.FieldDescriptorProto_TYPE_DOUBLE, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
 					fieldDescriptor("moods", 5, descriptorpb.FieldDescriptorProto_TYPE_ENUM, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ".test.v1.Mood"),
+					fieldDescriptor("unsigned_scores", 6, descriptorpb.FieldDescriptorProto_TYPE_UINT32, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
+					fieldDescriptor("unsigned_totals", 7, descriptorpb.FieldDescriptorProto_TYPE_UINT64, descriptorpb.FieldDescriptorProto_LABEL_REPEATED, ""),
 				},
 			},
 		},
@@ -459,6 +503,65 @@ func writeNativeServerCGOTestFile(t *testing.T, target, content string) {
 	}
 	if err := os.WriteFile(target, []byte(content), 0o644); err != nil {
 		t.Fatalf("write %s: %v", target, err)
+	}
+}
+
+func writeNativeRepeatedCompileStubs(t *testing.T, root string) {
+	t.Helper()
+
+	const content = `package testv1
+
+import (
+	context "context"
+
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+)
+
+type Mood int32
+
+const (
+	Mood_MOOD_UNSPECIFIED Mood = 0
+	Mood_MOOD_OK Mood = 1
+	Mood_MOOD_BUSY Mood = 2
+)
+
+type RepeatedRequest struct {
+	Scores []int32
+	Flags []bool
+	Counts []int64
+	Ratios []float64
+	Moods []Mood
+	UnsignedScores []uint32
+	UnsignedTotals []uint64
+}
+
+type RepeatedReply struct {
+	Scores []int32
+	Flags []bool
+	Counts []int64
+	Ratios []float64
+	Moods []Mood
+	UnsignedScores []uint32
+	UnsignedTotals []uint64
+}
+
+type RepeatedServiceHandler interface {
+	Check(context.Context, *RepeatedRequest) (*RepeatedReply, error)
+}
+
+type RepeatedServiceClient interface {
+	Check(context.Context, *RepeatedRequest) (*RepeatedReply, error)
+}
+
+func (*RepeatedRequest) ProtoReflect() protoreflect.Message { return nil }
+func (*RepeatedReply) ProtoReflect() protoreflect.Message { return nil }
+`
+	target := filepath.Join(root, "test/v1/native_repeated_stubs.go")
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+		t.Fatalf("mkdir repeated stub dir: %v", err)
+	}
+	if err := os.WriteFile(target, []byte(content), 0o644); err != nil {
+		t.Fatalf("write repeated compile stubs: %v", err)
 	}
 }
 

@@ -189,8 +189,10 @@ func TestCodecMessageToNativeRequestKeepsRepeatedBoolAndEnumRawOwnersAlive(t *te
 		"moodsRaw := make([]int32, len(msg.Moods))",
 		"reqOwner = append(reqOwner, moodsRaw)",
 		"moods, err = rpcruntime.NewRpcRepeatChecked[int32](unsafe.SliceData(moodsRaw), int32(len(moodsRaw)), false)",
-		"return nil, nil, nil, nil, nil, reqOwner, err",
-		"return scores, flags, counts, ratios, moods, reqOwner, nil",
+		"unsignedScores, err = rpcruntime.NewRpcRepeatChecked[uint32](unsafe.SliceData(msg.UnsignedScores), int32(len(msg.UnsignedScores)), false)",
+		"unsignedTotals, err = rpcruntime.NewRpcRepeatChecked[uint64](unsafe.SliceData(msg.UnsignedTotals), int32(len(msg.UnsignedTotals)), false)",
+		"return nil, nil, nil, nil, nil, nil, nil, reqOwner, err",
+		"return scores, flags, counts, ratios, moods, unsignedScores, unsignedTotals, reqOwner, nil",
 	} {
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)
 	}
@@ -212,17 +214,21 @@ func TestCodecNativeToMessageRequestUsesUnsafeRepeatedWrappersAndKeepAlive(t *te
 	const codecFile = "test/v1/native_repeated.repeated_service.codec.rpccgo.go"
 	for _, fragment := range []string{
 		`goruntime "runtime"`,
-		"func convertRepeatedServiceCheckNativeToMessageRequest(scores *rpcruntime.RpcRepeat[int32], flags *rpcruntime.RpcBoolRepeat, counts *rpcruntime.RpcRepeat[int64], ratios *rpcruntime.RpcRepeat[float64], moods *rpcruntime.RpcRepeat[int32]) (*RepeatedRequest, error) {",
+		"func convertRepeatedServiceCheckNativeToMessageRequest(scores *rpcruntime.RpcRepeat[int32], flags *rpcruntime.RpcBoolRepeat, counts *rpcruntime.RpcRepeat[int64], ratios *rpcruntime.RpcRepeat[float64], moods *rpcruntime.RpcRepeat[int32], unsignedScores *rpcruntime.RpcRepeat[uint32], unsignedTotals *rpcruntime.RpcRepeat[uint64]) (*RepeatedRequest, error) {",
 		"msg.Scores = scores.UnsafeSlice()",
 		"msg.Flags = flags.SafeSlice()",
 		"msg.Counts = counts.UnsafeSlice()",
 		"msg.Ratios = ratios.UnsafeSlice()",
 		"moodsRaw := moods.UnsafeSlice()",
+		"msg.UnsignedScores = unsignedScores.UnsafeSlice()",
+		"msg.UnsignedTotals = unsignedTotals.UnsafeSlice()",
 		"goruntime.KeepAlive(scores)",
 		"goruntime.KeepAlive(flags)",
 		"goruntime.KeepAlive(counts)",
 		"goruntime.KeepAlive(ratios)",
 		"goruntime.KeepAlive(moods)",
+		"goruntime.KeepAlive(unsignedScores)",
+		"goruntime.KeepAlive(unsignedTotals)",
 		"return msg, nil",
 	} {
 		assertGeneratedContentContains(t, plugin, codecFile, fragment)

@@ -13,8 +13,9 @@ const (
 	rpcBoolRepeatLabel = "RpcBoolRepeat"
 )
 
+// NativeRepeatElem is a protobuf repeated scalar element type supported by RpcRepeat.
 type NativeRepeatElem interface {
-	~int32 | ~int64 | ~float32 | ~float64
+	~int32 | ~uint32 | ~int64 | ~uint64 | ~float32 | ~float64
 }
 
 // RpcRepeat wraps a borrowed or owned fixed-width repeated input from the cgo boundary.
@@ -139,13 +140,6 @@ func (r *RpcRepeat[T]) AtChecked(i int32) (T, error) {
 	return r.At(i), nil
 }
 
-// MustAt is retained for source compatibility; use AtChecked when the caller
-// needs explicit out-of-range errors.
-func (r *RpcRepeat[T]) MustAt(i int32) T {
-	value, _ := r.AtChecked(i)
-	return value
-}
-
 // UnsafeSlice returns a zero-copy borrowed view over the underlying input.
 // Callers must keep the wrapper reachable while using the returned slice.
 func (r *RpcRepeat[T]) UnsafeSlice() []T {
@@ -202,13 +196,6 @@ func (r *RpcBoolRepeat) AtChecked(i int32) (bool, error) {
 		return false, fmt.Errorf("RpcBoolRepeat.AtChecked: index %d out of range [0, %d)", i, r.Len())
 	}
 	return r.At(i), nil
-}
-
-// MustAt is retained for source compatibility; use AtChecked when the caller
-// needs explicit out-of-range errors.
-func (r *RpcBoolRepeat) MustAt(i int32) bool {
-	value, _ := r.AtChecked(i)
-	return value
 }
 
 // SafeSlice returns a cached bool copy that is safe to retain after the wrapper is released.
