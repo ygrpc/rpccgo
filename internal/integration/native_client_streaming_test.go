@@ -81,6 +81,7 @@ func writeNativeClientStreamingFixture(t *testing.T, tmp string, plugin *protoge
 		writeFile(t, filepath.Join(tmp, name), generated.GetContent())
 	}
 	writeFile(t, filepath.Join(tmp, "test/v1/native_client_streaming_stubs.go"), nativeClientStreamingStubSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_client_streaming_cgo_client_bridge.go"), nativeClientStreamingCGOClientBridgeSource)
 }
 
 func newNativeClientStreamingTestPlugin(t *testing.T, goPackage string) *protogen.Plugin {
@@ -173,6 +174,42 @@ type Greeter_UploadServer interface {
 	SendAndClose(*UploadReply) error
 	SendMsg(any) error
 	Context() context.Context
+}
+`
+
+const nativeClientStreamingCGOClientBridgeSource = `package main
+
+/*
+#include <stdint.h>
+*/
+import "C"
+
+import context "context"
+
+func StartGreeterUploadNativeClientStream(ctx context.Context) (int32, int32) {
+	var stream C.int32_t
+	errID := rpccgo_native_testv1_Greeter_Upload_start(&stream)
+	return int32(stream), int32(errID)
+}
+
+func SendGreeterUploadNativeClientStream(ctx context.Context, stream int32, NamePtr uintptr, NameLen int32, NameOwnership int32, PayloadPtr uintptr, PayloadLen int32, PayloadOwnership int32) int32 {
+	return int32(rpccgo_native_testv1_Greeter_Upload_send(C.int32_t(stream), C.uintptr_t(NamePtr), C.int32_t(NameLen), C.int32_t(NameOwnership), C.uintptr_t(PayloadPtr), C.int32_t(PayloadLen), C.int32_t(PayloadOwnership)))
+}
+
+func FinishGreeterUploadNativeClientStream(ctx context.Context, stream int32, outCount *int32, outSummaryPtr *uintptr, outSummaryLen *int32) int32 {
+	var count C.int32_t
+	var summaryPtr C.uintptr_t
+	var summaryLen C.int32_t
+	var summaryOwnership C.int32_t
+	errID := rpccgo_native_testv1_Greeter_Upload_finish(C.int32_t(stream), &count, &summaryPtr, &summaryLen, &summaryOwnership)
+	*outCount = int32(count)
+	*outSummaryPtr = uintptr(summaryPtr)
+	*outSummaryLen = int32(summaryLen)
+	return int32(errID)
+}
+
+func CancelGreeterUploadNativeClientStream(ctx context.Context, stream int32) int32 {
+	return int32(rpccgo_native_testv1_Greeter_Upload_cancel(C.int32_t(stream)))
 }
 `
 

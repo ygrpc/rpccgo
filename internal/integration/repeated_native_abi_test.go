@@ -26,6 +26,7 @@ func TestRepeatedNativeABIAcceptance(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, "repeated/v1/repeated_connect_stubs.go"), repeatedNativeABIConnectStubSource)
 	writeFile(t, filepath.Join(tmp, "repeated/v1/repeated_integration_reset.go"), repeatedNativeABIResetSource)
 	writeFile(t, filepath.Join(tmp, "repeated/v1/cgo/repeated_callbacks.go"), repeatedNativeABICallbackSource)
+	writeFile(t, filepath.Join(tmp, "repeated/v1/cgo/repeated_native_cgo_client_bridge.go"), repeatedNativeABICGOClientBridgeSource)
 	writeFile(t, filepath.Join(tmp, "repeated/v1/cgo/repeated_native_abi_test.go"), repeatedNativeABIFixtureTestSource)
 
 	cmd := exec.Command("go", "test", "./repeated/v1/cgo", "-run", "^TestRepeatedNativeABI$", "-count=1")
@@ -171,6 +172,31 @@ func registerRepeatedGreeterMessageCallbacksForIntegration() error {
 
 func repeatedMessageUnaryCallsForIntegration() int {
 	return int(C.getRepeatedMessageUnaryCalls())
+}
+`
+
+const repeatedNativeABICGOClientBridgeSource = `package main
+
+/*
+#include <stdint.h>
+*/
+import "C"
+
+import context "context"
+
+func CallRepeatedGreeterEchoNativeUnary(ctx context.Context, ScoresPtr uintptr, ScoresLen int32, ScoresOwnership int32, FlagsPtr uintptr, FlagsLen int32, FlagsOwnership int32, outScoresPtr *uintptr, outScoresLen *int32, outFlagsPtr *uintptr, outFlagsLen *int32) int32 {
+	var scoresPtr C.uintptr_t
+	var scoresLen C.int32_t
+	var scoresOwnership C.int32_t
+	var flagsPtr C.uintptr_t
+	var flagsLen C.int32_t
+	var flagsOwnership C.int32_t
+	errID := rpccgo_native_repeatedv1_RepeatedGreeter_Echo(C.uintptr_t(ScoresPtr), C.int32_t(ScoresLen), C.int32_t(ScoresOwnership), C.uintptr_t(FlagsPtr), C.int32_t(FlagsLen), C.int32_t(FlagsOwnership), &scoresPtr, &scoresLen, &scoresOwnership, &flagsPtr, &flagsLen, &flagsOwnership)
+	*outScoresPtr = uintptr(scoresPtr)
+	*outScoresLen = int32(scoresLen)
+	*outFlagsPtr = uintptr(flagsPtr)
+	*outFlagsLen = int32(flagsLen)
+	return int32(errID)
 }
 `
 

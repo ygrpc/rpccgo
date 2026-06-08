@@ -27,11 +27,13 @@ func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
 		`v1 "example.com/test/v1"`,
 		`rpcruntime "rpccgo/rpcruntime"`,
 		`unsafe "unsafe"`,
-		"func CallAllServiceUnaryNativeUnary(ctx context.Context, NamePtr uintptr, NameLen int32, NameOwnership int32, Enabled int8, ChildPtr uintptr, ChildLen int32, ChildOwnership int32, outAccepted *int8, outPayloadPtr *uintptr, outPayloadLen *int32) int32 {",
-		"if err := validateAllServiceUnaryNativeUnaryResponse(outAccepted, outPayloadPtr, outPayloadLen); err != nil {",
-		"nameValue, enabledValue, childValue, err := decodeAllServiceUnaryNativeUnaryRequest(NamePtr, NameLen, NameOwnership, Enabled, ChildPtr, ChildLen, ChildOwnership)",
+		"//export rpccgo_native_testv1_AllService_Unary",
+		"func rpccgo_native_testv1_AllService_Unary(NamePtr C.uintptr_t, NameLen C.int32_t, NameOwnership C.int32_t, Enabled C.int8_t, ChildPtr C.uintptr_t, ChildLen C.int32_t, ChildOwnership C.int32_t, outAccepted *C.int8_t, outPayloadPtr *C.uintptr_t, outPayloadLen *C.int32_t, outPayloadOwnership *C.int32_t) C.int32_t {",
+		"ctx := context.Background()",
+		"if err := validateAllServiceUnaryNativeUnaryResponse((*int8)(unsafe.Pointer(outAccepted)), (*uintptr)(unsafe.Pointer(outPayloadPtr)), (*int32)(unsafe.Pointer(outPayloadLen))); err != nil {",
+		"nameValue, enabledValue, childValue, err := decodeAllServiceUnaryNativeUnaryRequest(uintptr(NamePtr), int32(NameLen), int32(NameOwnership), int8(Enabled), uintptr(ChildPtr), int32(ChildLen), int32(ChildOwnership))",
 		"acceptedResult, payloadResult, err := v1.InvokeAllServiceNativeUnary(ctx, nameValue, enabledValue, childValue)",
-		"return int32(rpcruntime.StoreError(err))",
+		"return C.int32_t(rpcruntime.StoreError(err))",
 		"var decoded rpcruntime.NativeReleaseStack",
 		"if _, err := rpcruntime.LengthFromInt32(NameLen); err != nil {",
 		"if NamePtr == 0 || NameLen == 0 {",
@@ -53,7 +55,7 @@ func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
 	} {
 		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
 	}
-	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "type allServiceNativeClientDecodedResource interface", "type allServiceNativeClientDecodedResources struct", "decoded.Add(", "cleanupDecoded := func() error", "cleanupDecoded()", "type AllServiceUnaryNativeUnaryInput struct", "type AllServiceUnaryNativeUnaryOutput struct", "PayloadOwnership *int32", "allServiceDispatcher", "loadAllService", "takeAllService", "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf", "rpcruntime.NewRpcString((*byte)(unsafe.Pointer(NamePtr))")
+	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile, "func CallAllServiceUnaryNativeUnary(", "type allServiceNativeClientDecodedResource interface", "type allServiceNativeClientDecodedResources struct", "decoded.Add(", "cleanupDecoded := func() error", "cleanupDecoded()", "type AllServiceUnaryNativeUnaryInput struct", "type AllServiceUnaryNativeUnaryOutput struct", "PayloadOwnership *int32", "allServiceDispatcher", "loadAllService", "takeAllService", "connectrpc.com/connect", "google.golang.org/grpc", "google.golang.org/protobuf", "rpcruntime.NewRpcString((*byte)(unsafe.Pointer(NamePtr))")
 }
 
 func TestRenderNativeClientCGOStreamsUseRuntimeStreamOperations(t *testing.T) {
@@ -68,18 +70,24 @@ func TestRenderNativeClientCGOStreamsUseRuntimeStreamOperations(t *testing.T) {
 
 	const nativeClientFile = "test/v1/cgo/message_cgo.greeter.client.native.cgo.rpccgo.go"
 	for _, fragment := range []string{
+		"//export rpccgo_native_testv1_Greeter_Upload_start",
+		"//export rpccgo_native_testv1_Greeter_Upload_send",
+		"//export rpccgo_native_testv1_Greeter_List_read",
+		"//export rpccgo_native_testv1_Greeter_Chat_close_send",
 		"err = v1.SendGreeterNativeUpload(ctx, rpcruntime.StreamHandle(handle)",
 		"v1.FinishGreeterNativeUpload(ctx, rpcruntime.StreamHandle(handle))",
-		"func FinishGreeterListNativeServerStream(ctx context.Context, handle int32) int32 {",
 		"err = v1.FinishGreeterNativeList(ctx, rpcruntime.StreamHandle(handle))",
-		"CloseSendGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32",
 		"err = v1.CloseSendGreeterNativeChat(ctx, rpcruntime.StreamHandle(handle))",
-		"func FinishGreeterChatNativeBidiStream(ctx context.Context, handle int32) int32 {",
 		"err = v1.FinishGreeterNativeChat(ctx, rpcruntime.StreamHandle(handle))",
 	} {
 		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
 	}
 	assertGeneratedFileContentDoesNotContain(t, plugin, nativeClientFile,
+		"func StartGreeterUploadNativeClientStream(",
+		"func SendGreeterUploadNativeClientStream(",
+		"func FinishGreeterListNativeServerStream(",
+		"func CloseSendGreeterChatNativeBidiStream(",
+		"func FinishGreeterChatNativeBidiStream(",
 		"NewGreeterUploadNative"+"Stream",
 		"NewGreeterListNative"+"Stream",
 		"NewGreeterChatNative"+"Stream",
@@ -267,21 +275,6 @@ func TestRenderNativeClientCGORejectsGeneratedHelperCollisions(t *testing.T) {
 			wantError: "PayloadLen",
 		},
 		{
-			name: "unrelated message collides with call func",
-			method: MethodPlan{
-				Name:      "Unary",
-				GoName:    "Unary",
-				FullName:  "test.v1.AllService.Unary",
-				Streaming: StreamingKindUnary,
-				Request:   MethodIOPlan{GoName: "AllRequest", GoImportPath: "example.com/test/v1", FullName: "test.v1.AllRequest"},
-				Response:  MethodIOPlan{GoName: "AllReply", GoImportPath: "example.com/test/v1", FullName: "test.v1.AllReply"},
-			},
-			topLevelSymbols: []TopLevelSymbolPlan{
-				{GoName: "CallAllServiceUnaryNativeUnary", FullName: "test.v1.CallAllServiceUnaryNativeUnary", Kind: TopLevelSymbolKindMessage},
-			},
-			wantError: "CallAllServiceUnaryNativeUnary",
-		},
-		{
 			name: "unrelated enum collides with decoder",
 			method: MethodPlan{
 				Name:      "Decode",
@@ -346,45 +339,8 @@ func TestRenderNativeClientCGORejectsSiblingServiceGeneratedSymbolCollisions(t *
 	if err == nil {
 		t.Fatal("RenderGeneratedFiles() error = nil, want sibling native client cgo symbol collision")
 	}
-	if got := err.Error(); !strings.Contains(got, "CallAllServiceUnaryNativeUnary") || !strings.Contains(got, "collides") {
-		t.Fatalf("RenderGeneratedFiles() error = %q, want sibling collision for CallAllServiceUnaryNativeUnary", got)
-	}
-}
-
-func TestRenderNativeClientCGORejectsPackageLevelMultiFileSymbolCollisions(t *testing.T) {
-	tests := []struct {
-		name      string
-		file      *descriptorpb.FileDescriptorProto
-		otherFile *descriptorpb.FileDescriptorProto
-		wantError string
-	}{
-		{
-			name:      "other file enum collides with native call",
-			file:      simpleTestFile(),
-			otherFile: nativeClientPackageCollisionEnumFile("test/v1/other.proto", "example.com/test/v1;testv1", "CallGreeterSayHelloNativeUnary"),
-			wantError: "CallGreeterSayHelloNativeUnary",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			file := tt.file
-			setSimpleServiceComment(t, file, "@rpccgo: native\n")
-			request := newTestCodeGeneratorRequest("paths=source_relative", file, tt.otherFile)
-			request.FileToGenerate = []string{file.GetName(), tt.otherFile.GetName()}
-			plugin, err := ProtogenOptions().New(request)
-			if err != nil {
-				t.Fatalf("protogen.Options.New() error = %v", err)
-			}
-
-			_, err = GenerateWithOptions(plugin)
-			if err == nil {
-				t.Fatal("GenerateWithOptions() error = nil, want package-level symbol collision")
-			}
-			if got := err.Error(); !strings.Contains(got, tt.wantError) || !strings.Contains(got, "collides") {
-				t.Fatalf("GenerateWithOptions() error = %q, want collision for %q", got, tt.wantError)
-			}
-		})
+	if got := err.Error(); !strings.Contains(got, "decodeAllServiceUnaryNativeUnaryRequest") || !strings.Contains(got, "collides") {
+		t.Fatalf("RenderGeneratedFiles() error = %q, want sibling collision for decodeAllServiceUnaryNativeUnaryRequest", got)
 	}
 }
 
@@ -402,7 +358,7 @@ func TestRenderNativeClientCGORejectsNestedPackageLevelSymbolCollisions(t *testi
 	plan.Services[0].GoName = "Decode"
 	plan.Services[0].FullName = "test.v1.Greeter"
 	plan.TopLevelSymbols = append(plan.TopLevelSymbols, TopLevelSymbolPlan{
-		GoName:   "CallDecodeSayHelloNativeUnaryInputNativeUnary",
+		GoName:   "decodeDecodeSayHelloNativeUnaryInputNativeUnaryRequest",
 		FullName: "test.v1.Parent.Nested",
 		Kind:     TopLevelSymbolKindMessage,
 	})
@@ -411,8 +367,8 @@ func TestRenderNativeClientCGORejectsNestedPackageLevelSymbolCollisions(t *testi
 	if err == nil {
 		t.Fatal("RenderGeneratedFiles() error = nil, want nested protobuf symbol collision")
 	}
-	if got := err.Error(); !strings.Contains(got, "CallDecodeSayHelloNativeUnaryInputNativeUnary") || !strings.Contains(got, "collides") {
-		t.Fatalf("RenderGeneratedFiles() error = %q, want nested collision for CallDecodeSayHelloNativeUnaryInputNativeUnary", got)
+	if got := err.Error(); !strings.Contains(got, "decodeDecodeSayHelloNativeUnaryInputNativeUnaryRequest") || !strings.Contains(got, "collides") {
+		t.Fatalf("RenderGeneratedFiles() error = %q, want nested collision for decodeDecodeSayHelloNativeUnaryInputNativeUnaryRequest", got)
 	}
 }
 

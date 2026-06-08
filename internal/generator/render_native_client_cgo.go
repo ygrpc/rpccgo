@@ -65,374 +65,27 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 }
 
 func renderNativeUnaryClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, unsupportedError, servicePackage string) error {
-	funcName := nativeUnaryClientFuncName(service, method)
-	requestParams := nativeClientRequestParams(method.Contract.Native.RequestFields)
-	requestArgs := nativeClientRequestCallArgs(method.Contract.Native.RequestFields)
-	responseParams := nativeClientResponseOutputParams(method.Contract.Native.ResponseFields)
-	responseArgs := nativeClientResponseOutputCallArgs(method.Contract.Native.ResponseFields)
-
-	renderDoc(g, funcName, "invokes "+service.GoName+"."+method.GoName+" through the cgo native unary client ABI.")
-	g.P("func ", funcName, "(ctx context.Context", nativeClientAppendParams("", requestParams, responseParams), ") int32 {")
-	g.P("if ctx == nil {")
-	g.P("ctx = context.Background()")
-	g.P("}")
-	if responseParams != "" {
-		g.P("if err := ", nativeUnaryClientOutputValidatorName(service, method), "(", responseArgs, "); err != nil {")
-		g.P("return int32(rpcruntime.StoreError(err))")
-		g.P("}")
-	}
-	requestNames := nativeClientRequestValueNames(method.Contract.Native.RequestFields)
-	responseNames := nativeClientResponseValueNames(method.Contract.Native.ResponseFields)
-	if requestNames == "" {
-		g.P("if err := ", nativeUnaryClientDecoderName(service, method), "(", requestArgs, "); err != nil {")
-		g.P("return int32(rpcruntime.StoreError(err))")
-		g.P("}")
-	} else {
-		g.P(requestNames, ", err := ", nativeUnaryClientDecoderName(service, method), "(", requestArgs, ")")
-		g.P("if err != nil {")
-		g.P("return int32(rpcruntime.StoreError(err))")
-		g.P("}")
-	}
-	if responseNames == "" {
-		g.P("err := ", servicePackage, "Invoke", service.GoName, "Native", method.GoName, "(ctx", nativeGoCallSuffix(requestNames), ")")
-	} else {
-		g.P(responseNames, ", err := ", servicePackage, "Invoke", service.GoName, "Native", method.GoName, "(ctx", nativeGoCallSuffix(requestNames), ")")
-	}
-	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.Contract.Native.RequestFields), "); cleanupErr != nil {")
-	g.P("err = errors.Join(err, cleanupErr)")
-	g.P("}")
-	g.P("if err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("if err := ", nativeUnaryClientEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), responseArgs, "); err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("return 0")
-	g.P("}")
-	g.P()
-
 	renderNativeClientRequestDecoder(g, nativeUnaryClientDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError)
 	renderNativeUnaryResponseEncoder(g, service, method, unsupportedError)
-	return renderNativeCExportWrappers(g, plan, service, method)
+	return renderNativeCExportWrappers(g, plan, service, method, servicePackage)
 }
 
 func renderNativeClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, unsupportedError, servicePackage string) error {
-	requestParams := nativeClientRequestParams(method.Contract.Native.RequestFields)
-	requestArgs := nativeClientRequestCallArgs(method.Contract.Native.RequestFields)
-	responseParams := nativeClientResponseOutputParams(method.Contract.Native.ResponseFields)
-	responseArgs := nativeClientResponseOutputCallArgs(method.Contract.Native.ResponseFields)
-
-	startName := nativeClientStreamingStartFuncName(service, method)
-	renderDoc(g, startName, "starts a cgo native client-streaming call for "+service.GoName+"."+method.GoName+".")
-	g.P("func ", startName, "(ctx context.Context) (int32, int32) {")
-	g.P("if ctx == nil {")
-	g.P("ctx = context.Background()")
-	g.P("}")
-	g.P("handle, err := ", servicePackage, "Start", service.GoName, "Native", method.GoName, "(ctx)")
-	g.P("if err != nil {")
-	g.P("return 0, int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("return int32(handle), 0")
-	g.P("}")
-	g.P()
-
-	sendName := nativeClientStreamingSendFuncName(service, method)
-	renderDoc(g, sendName, "sends one native request on a cgo native client-streaming call for "+service.GoName+"."+method.GoName+".")
-	g.P("func ", sendName, "(ctx context.Context, handle int32", nativeClientAppendParams("", requestParams), ") int32 {")
-	g.P("if ctx == nil {")
-	g.P("ctx = context.Background()")
-	g.P("}")
-	requestNames := nativeClientRequestValueNames(method.Contract.Native.RequestFields)
-	responseNames := nativeClientResponseValueNames(method.Contract.Native.ResponseFields)
-	g.P("var err error")
-	if requestNames == "" {
-		g.P("if err := ", nativeClientStreamingDecoderName(service, method), "(", requestArgs, "); err != nil {")
-		g.P("return int32(rpcruntime.StoreError(err))")
-		g.P("}")
-	} else {
-		g.P(requestNames, ", err := ", nativeClientStreamingDecoderName(service, method), "(", requestArgs, ")")
-		g.P("if err != nil {")
-		g.P("return int32(rpcruntime.StoreError(err))")
-		g.P("}")
-	}
-	renderNativeClientStreamFacadeCall(g, service, method, servicePackage, "Send", "ctx"+nativeGoCallSuffix(requestNames))
-	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.Contract.Native.RequestFields), "); cleanupErr != nil {")
-	g.P("err = errors.Join(err, cleanupErr)")
-	g.P("}")
-	g.P("if err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("return 0")
-	g.P("}")
-	g.P()
-
-	finishName := nativeClientStreamingFinishFuncName(service, method)
-	renderDoc(g, finishName, "finishes a cgo native client-streaming call for "+service.GoName+"."+method.GoName+" and writes response values.")
-	g.P("func ", finishName, "(ctx context.Context, handle int32", nativeClientAppendParams("", responseParams), ") int32 {")
-	g.P("if ctx == nil {")
-	g.P("ctx = context.Background()")
-	g.P("}")
-	if responseParams != "" {
-		g.P("if err := ", nativeClientStreamingOutputValidatorName(service, method), "(", responseArgs, "); err != nil {")
-		g.P("return int32(rpcruntime.StoreError(err))")
-		g.P("}")
-	}
-	g.P("var err error")
-	for _, decl := range nativeGoResponseResultVarDecls(g, method.Contract.Native.ResponseFields) {
-		g.P(decl)
-	}
-	renderNativeClientStreamResultCall(g, service, method, servicePackage, responseNames, "Finish")
-	g.P("if err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("if err := ", nativeClientStreamingEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), responseArgs, "); err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("return 0")
-	g.P("}")
-	g.P()
-
-	cancelName := nativeClientStreamingCancelFuncName(service, method)
-	renderDoc(g, cancelName, "cancels a cgo native client-streaming call for "+service.GoName+"."+method.GoName+".")
-	g.P("func ", cancelName, "(ctx context.Context, handle int32) int32 {")
-	g.P("if ctx == nil {")
-	g.P("ctx = context.Background()")
-	g.P("}")
-	g.P("var err error")
-	renderNativeClientStreamFacadeCall(g, service, method, servicePackage, "Cancel", "ctx")
-	g.P("if err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("return 0")
-	g.P("}")
-	g.P()
-
 	renderNativeClientRequestDecoder(g, nativeClientStreamingDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError)
 	renderNativeClientStreamingResponseEncoder(g, service, method, unsupportedError)
-	return renderNativeCExportWrappers(g, plan, service, method)
+	return renderNativeCExportWrappers(g, plan, service, method, servicePackage)
 }
 
 func renderNativeServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, unsupportedError, servicePackage string) error {
-	requestParams := nativeClientRequestParams(method.Contract.Native.RequestFields)
-	requestArgs := nativeClientRequestCallArgs(method.Contract.Native.RequestFields)
-	responseParams := nativeClientResponseOutputParams(method.Contract.Native.ResponseFields)
-	responseArgs := nativeClientResponseOutputCallArgs(method.Contract.Native.ResponseFields)
-
-	startName := nativeServerStreamingStartFuncName(service, method)
-	renderDoc(g, startName, "starts a cgo native server-streaming call for "+service.GoName+"."+method.GoName+".")
-	g.P("func ", startName, "(ctx context.Context", nativeClientAppendParams("", requestParams), ") (int32, int32) {")
-	g.P("if ctx == nil {")
-	g.P("ctx = context.Background()")
-	g.P("}")
-	requestNames := nativeClientRequestValueNames(method.Contract.Native.RequestFields)
-	g.P("var err error")
-	if requestNames == "" {
-		g.P("if err := ", nativeServerStreamingDecoderName(service, method), "(", requestArgs, "); err != nil {")
-		g.P("return 0, int32(rpcruntime.StoreError(err))")
-		g.P("}")
-	} else {
-		g.P(requestNames, ", err := ", nativeServerStreamingDecoderName(service, method), "(", requestArgs, ")")
-		g.P("if err != nil {")
-		g.P("return 0, int32(rpcruntime.StoreError(err))")
-		g.P("}")
-	}
-	g.P("handle, err := ", servicePackage, "Start", service.GoName, "Native", method.GoName, "(ctx", nativeGoCallSuffix(requestNames), ")")
-	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.Contract.Native.RequestFields), "); cleanupErr != nil {")
-	g.P("err = errors.Join(err, cleanupErr)")
-	g.P("}")
-	g.P("if err != nil {")
-	g.P("return 0, int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("return int32(handle), 0")
-	g.P("}")
-	g.P()
-
-	readName := nativeServerStreamingReadFuncName(service, method)
-	renderDoc(g, readName, "reads one native response from a cgo native server-streaming call for "+service.GoName+"."+method.GoName+".")
-	g.P("func ", readName, "(ctx context.Context, handle int32", nativeClientAppendParams("", responseParams), ") int32 {")
-	g.P("if ctx == nil {")
-	g.P("ctx = context.Background()")
-	g.P("}")
-	responseNames := nativeClientResponseValueNames(method.Contract.Native.ResponseFields)
-	if responseParams != "" {
-		g.P("if err := ", nativeServerStreamingOutputValidatorName(service, method), "(", responseArgs, "); err != nil {")
-		g.P("return int32(rpcruntime.StoreError(err))")
-		g.P("}")
-	}
-	g.P("var err error")
-	for _, decl := range nativeGoResponseResultVarDecls(g, method.Contract.Native.ResponseFields) {
-		g.P(decl)
-	}
-	renderNativeClientStreamResultCall(g, service, method, servicePackage, responseNames, "Recv")
-	g.P("if err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("if err := ", nativeServerStreamingEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), responseArgs, "); err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("return 0")
-	g.P("}")
-	g.P()
-
-	finishName := nativeServerStreamingFinishFuncName(service, method)
-	renderDoc(g, finishName, "finishes a cgo native server-streaming call for "+service.GoName+"."+method.GoName+".")
-	g.P("func ", finishName, "(ctx context.Context, handle int32) int32 {")
-	g.P("if ctx == nil {")
-	g.P("ctx = context.Background()")
-	g.P("}")
-	g.P("var err error")
-	renderNativeClientStreamFacadeCall(g, service, method, servicePackage, "Finish", "ctx")
-	g.P("if err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("return 0")
-	g.P("}")
-	g.P()
-
-	cancelName := nativeServerStreamingCancelFuncName(service, method)
-	renderDoc(g, cancelName, "cancels a cgo native server-streaming call for "+service.GoName+"."+method.GoName+".")
-	g.P("func ", cancelName, "(ctx context.Context, handle int32) int32 {")
-	g.P("if ctx == nil {")
-	g.P("ctx = context.Background()")
-	g.P("}")
-	g.P("var err error")
-	renderNativeClientStreamFacadeCall(g, service, method, servicePackage, "Cancel", "ctx")
-	g.P("if err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("return 0")
-	g.P("}")
-	g.P()
-
 	renderNativeClientRequestDecoder(g, nativeServerStreamingDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError)
 	renderNativeServerStreamingResponseEncoder(g, service, method, unsupportedError)
-	return renderNativeCExportWrappers(g, plan, service, method)
+	return renderNativeCExportWrappers(g, plan, service, method, servicePackage)
 }
 
 func renderNativeBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, unsupportedError, servicePackage string) error {
-	requestParams := nativeClientRequestParams(method.Contract.Native.RequestFields)
-	requestArgs := nativeClientRequestCallArgs(method.Contract.Native.RequestFields)
-	responseParams := nativeClientResponseOutputParams(method.Contract.Native.ResponseFields)
-	responseArgs := nativeClientResponseOutputCallArgs(method.Contract.Native.ResponseFields)
-
-	startName := nativeBidiStreamingStartFuncName(service, method)
-	renderDoc(g, startName, "starts a cgo native bidi-streaming call for "+service.GoName+"."+method.GoName+".")
-	g.P("func ", startName, "(ctx context.Context) (int32, int32) {")
-	g.P("if ctx == nil {")
-	g.P("ctx = context.Background()")
-	g.P("}")
-	g.P("handle, err := ", servicePackage, "Start", service.GoName, "Native", method.GoName, "(ctx)")
-	g.P("if err != nil {")
-	g.P("return 0, int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("return int32(handle), 0")
-	g.P("}")
-	g.P()
-
-	sendName := nativeBidiStreamingSendFuncName(service, method)
-	renderDoc(g, sendName, "sends one native request on a cgo native bidi-streaming call for "+service.GoName+"."+method.GoName+".")
-	g.P("func ", sendName, "(ctx context.Context, handle int32", nativeClientAppendParams("", requestParams), ") int32 {")
-	g.P("if ctx == nil {")
-	g.P("ctx = context.Background()")
-	g.P("}")
-	requestNames := nativeClientRequestValueNames(method.Contract.Native.RequestFields)
-	responseNames := nativeClientResponseValueNames(method.Contract.Native.ResponseFields)
-	g.P("var err error")
-	if requestNames == "" {
-		g.P("if err := ", nativeBidiStreamingDecoderName(service, method), "(", requestArgs, "); err != nil {")
-		g.P("return int32(rpcruntime.StoreError(err))")
-		g.P("}")
-	} else {
-		g.P(requestNames, ", err := ", nativeBidiStreamingDecoderName(service, method), "(", requestArgs, ")")
-		g.P("if err != nil {")
-		g.P("return int32(rpcruntime.StoreError(err))")
-		g.P("}")
-	}
-	renderNativeClientStreamFacadeCall(g, service, method, servicePackage, "Send", "ctx"+nativeGoCallSuffix(requestNames))
-	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.Contract.Native.RequestFields), "); cleanupErr != nil {")
-	g.P("err = errors.Join(err, cleanupErr)")
-	g.P("}")
-	g.P("if err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("return 0")
-	g.P("}")
-	g.P()
-
-	readName := nativeBidiStreamingReadFuncName(service, method)
-	renderDoc(g, readName, "reads one native response from a cgo native bidi-streaming call for "+service.GoName+"."+method.GoName+".")
-	g.P("func ", readName, "(ctx context.Context, handle int32", nativeClientAppendParams("", responseParams), ") int32 {")
-	g.P("if ctx == nil {")
-	g.P("ctx = context.Background()")
-	g.P("}")
-	if responseParams != "" {
-		g.P("if err := ", nativeBidiStreamingOutputValidatorName(service, method), "(", responseArgs, "); err != nil {")
-		g.P("return int32(rpcruntime.StoreError(err))")
-		g.P("}")
-	}
-	g.P("var err error")
-	for _, decl := range nativeGoResponseResultVarDecls(g, method.Contract.Native.ResponseFields) {
-		g.P(decl)
-	}
-	renderNativeClientStreamResultCall(g, service, method, servicePackage, responseNames, "Recv")
-	g.P("if err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("if err := ", nativeBidiStreamingEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), responseArgs, "); err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("return 0")
-	g.P("}")
-	g.P()
-
-	closeSendName := nativeBidiStreamingCloseSendFuncName(service, method)
-	renderDoc(g, closeSendName, "closes the send side of a cgo native bidi-streaming call for "+service.GoName+"."+method.GoName+".")
-	g.P("func ", closeSendName, "(ctx context.Context, handle int32) int32 {")
-	g.P("if ctx == nil {")
-	g.P("ctx = context.Background()")
-	g.P("}")
-	g.P("var err error")
-	renderNativeClientStreamFacadeCall(g, service, method, servicePackage, "CloseSend", "ctx")
-	g.P("if err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("return 0")
-	g.P("}")
-	g.P()
-
-	finishName := nativeBidiStreamingFinishFuncName(service, method)
-	renderDoc(g, finishName, "finishes a cgo native bidi-streaming call for "+service.GoName+"."+method.GoName+".")
-	g.P("func ", finishName, "(ctx context.Context, handle int32) int32 {")
-	g.P("if ctx == nil {")
-	g.P("ctx = context.Background()")
-	g.P("}")
-	g.P("var err error")
-	renderNativeClientStreamFacadeCall(g, service, method, servicePackage, "Finish", "ctx")
-	g.P("if err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("return 0")
-	g.P("}")
-	g.P()
-
-	cancelName := nativeBidiStreamingCancelFuncName(service, method)
-	renderDoc(g, cancelName, "cancels a cgo native bidi-streaming call for "+service.GoName+"."+method.GoName+".")
-	g.P("func ", cancelName, "(ctx context.Context, handle int32) int32 {")
-	g.P("if ctx == nil {")
-	g.P("ctx = context.Background()")
-	g.P("}")
-	g.P("var err error")
-	renderNativeClientStreamFacadeCall(g, service, method, servicePackage, "Cancel", "ctx")
-	g.P("if err != nil {")
-	g.P("return int32(rpcruntime.StoreError(err))")
-	g.P("}")
-	g.P("return 0")
-	g.P("}")
-	g.P()
-
 	renderNativeClientRequestDecoder(g, nativeBidiStreamingDecoderName(service, method), method.Contract.Native.RequestFields, unsupportedError)
 	renderNativeBidiStreamingResponseEncoder(g, service, method, unsupportedError)
-	return renderNativeCExportWrappers(g, plan, service, method)
+	return renderNativeCExportWrappers(g, plan, service, method, servicePackage)
 }
 
 func nativeClientRequestParams(fields []FieldPlan) string {
@@ -764,155 +417,356 @@ func renderNativeUnaryResponseEncoder(g *protogen.GeneratedFile, service Service
 	renderNativeClientResponseEncoder(g, nativeUnaryClientEncoderName(service, method), method.Contract.Native.ResponseFields, unsupportedError)
 }
 
-func renderNativeCExportWrappers(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan) error {
+func renderNativeUnaryClientCallBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, requestArgs, responseArgs string) {
+	if responseArgs != "" {
+		g.P("if err := ", nativeUnaryClientOutputValidatorName(service, method), "(", responseArgs, "); err != nil {")
+		g.P("return C.int32_t(rpcruntime.StoreError(err))")
+		g.P("}")
+	}
+	requestNames := nativeClientRequestValueNames(method.Contract.Native.RequestFields)
+	responseNames := nativeClientResponseValueNames(method.Contract.Native.ResponseFields)
+	if requestNames == "" {
+		g.P("if err := ", nativeUnaryClientDecoderName(service, method), "(", requestArgs, "); err != nil {")
+		g.P("return C.int32_t(rpcruntime.StoreError(err))")
+		g.P("}")
+	} else {
+		g.P(requestNames, ", err := ", nativeUnaryClientDecoderName(service, method), "(", requestArgs, ")")
+		g.P("if err != nil {")
+		g.P("return C.int32_t(rpcruntime.StoreError(err))")
+		g.P("}")
+	}
+	if responseNames == "" {
+		g.P("err := ", servicePackage, "Invoke", service.GoName, "Native", method.GoName, "(", ctx, nativeGoCallSuffix(requestNames), ")")
+	} else {
+		g.P(responseNames, ", err := ", servicePackage, "Invoke", service.GoName, "Native", method.GoName, "(", ctx, nativeGoCallSuffix(requestNames), ")")
+	}
+	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.Contract.Native.RequestFields), "); cleanupErr != nil {")
+	g.P("err = errors.Join(err, cleanupErr)")
+	g.P("}")
+	g.P("if err != nil {")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("if err := ", nativeUnaryClientEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), responseArgs, "); err != nil {")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return 0")
+}
+
+func renderNativeClientStreamingStartBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, outHandle string) {
+	g.P("handle, err := ", servicePackage, "Start", service.GoName, "Native", method.GoName, "(", ctx, ")")
+	g.P("if err != nil {")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("*", outHandle, " = C.int32_t(int32(handle))")
+	g.P("return 0")
+}
+
+func renderNativeClientStreamingSendBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, handle, requestArgs string) {
+	requestNames := nativeClientRequestValueNames(method.Contract.Native.RequestFields)
+	g.P("handle := int32(", handle, ")")
+	g.P("var err error")
+	if requestNames == "" {
+		g.P("if err := ", nativeClientStreamingDecoderName(service, method), "(", requestArgs, "); err != nil {")
+		g.P("return C.int32_t(rpcruntime.StoreError(err))")
+		g.P("}")
+	} else {
+		g.P(requestNames, ", err := ", nativeClientStreamingDecoderName(service, method), "(", requestArgs, ")")
+		g.P("if err != nil {")
+		g.P("return C.int32_t(rpcruntime.StoreError(err))")
+		g.P("}")
+	}
+	renderNativeClientStreamFacadeCall(g, service, method, servicePackage, "Send", ctx+nativeGoCallSuffix(requestNames))
+	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.Contract.Native.RequestFields), "); cleanupErr != nil {")
+	g.P("err = errors.Join(err, cleanupErr)")
+	g.P("}")
+	g.P("if err != nil {")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return 0")
+}
+
+func renderNativeClientStreamingFinishBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, handle, responseArgs string) {
+	responseNames := nativeClientResponseValueNames(method.Contract.Native.ResponseFields)
+	g.P("handle := int32(", handle, ")")
+	if responseArgs != "" {
+		g.P("if err := ", nativeClientStreamingOutputValidatorName(service, method), "(", responseArgs, "); err != nil {")
+		g.P("return C.int32_t(rpcruntime.StoreError(err))")
+		g.P("}")
+	}
+	g.P("var err error")
+	for _, decl := range nativeGoResponseResultVarDecls(g, method.Contract.Native.ResponseFields) {
+		g.P(decl)
+	}
+	renderNativeClientStreamResultCall(g, service, method, servicePackage, responseNames, "Finish")
+	g.P("if err != nil {")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("if err := ", nativeClientStreamingEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), responseArgs, "); err != nil {")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return 0")
+}
+
+func renderNativeServerStreamingStartBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, outHandle, requestArgs string) {
+	requestNames := nativeClientRequestValueNames(method.Contract.Native.RequestFields)
+	g.P("var err error")
+	if requestNames == "" {
+		g.P("if err := ", nativeServerStreamingDecoderName(service, method), "(", requestArgs, "); err != nil {")
+		g.P("return C.int32_t(rpcruntime.StoreError(err))")
+		g.P("}")
+	} else {
+		g.P(requestNames, ", err := ", nativeServerStreamingDecoderName(service, method), "(", requestArgs, ")")
+		g.P("if err != nil {")
+		g.P("return C.int32_t(rpcruntime.StoreError(err))")
+		g.P("}")
+	}
+	g.P("handle, err := ", servicePackage, "Start", service.GoName, "Native", method.GoName, "(", ctx, nativeGoCallSuffix(requestNames), ")")
+	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.Contract.Native.RequestFields), "); cleanupErr != nil {")
+	g.P("err = errors.Join(err, cleanupErr)")
+	g.P("}")
+	g.P("if err != nil {")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("*", outHandle, " = C.int32_t(int32(handle))")
+	g.P("return 0")
+}
+
+func renderNativeServerStreamingReadBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, handle, responseArgs string) {
+	responseNames := nativeClientResponseValueNames(method.Contract.Native.ResponseFields)
+	g.P("handle := int32(", handle, ")")
+	if responseArgs != "" {
+		g.P("if err := ", nativeServerStreamingOutputValidatorName(service, method), "(", responseArgs, "); err != nil {")
+		g.P("return C.int32_t(rpcruntime.StoreError(err))")
+		g.P("}")
+	}
+	g.P("var err error")
+	for _, decl := range nativeGoResponseResultVarDecls(g, method.Contract.Native.ResponseFields) {
+		g.P(decl)
+	}
+	renderNativeClientStreamResultCall(g, service, method, servicePackage, responseNames, "Recv")
+	g.P("if err != nil {")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("if err := ", nativeServerStreamingEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), responseArgs, "); err != nil {")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return 0")
+}
+
+func renderNativeStreamNoResultBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, handle, operation string) {
+	g.P("handle := int32(", handle, ")")
+	g.P("var err error")
+	renderNativeClientStreamFacadeCall(g, service, method, servicePackage, operation, ctx)
+	g.P("if err != nil {")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return 0")
+}
+
+func renderNativeBidiStreamingStartBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, outHandle string) {
+	g.P("handle, err := ", servicePackage, "Start", service.GoName, "Native", method.GoName, "(", ctx, ")")
+	g.P("if err != nil {")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("*", outHandle, " = C.int32_t(int32(handle))")
+	g.P("return 0")
+}
+
+func renderNativeBidiStreamingSendBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, handle, requestArgs string) {
+	requestNames := nativeClientRequestValueNames(method.Contract.Native.RequestFields)
+	g.P("handle := int32(", handle, ")")
+	g.P("var err error")
+	if requestNames == "" {
+		g.P("if err := ", nativeBidiStreamingDecoderName(service, method), "(", requestArgs, "); err != nil {")
+		g.P("return C.int32_t(rpcruntime.StoreError(err))")
+		g.P("}")
+	} else {
+		g.P(requestNames, ", err := ", nativeBidiStreamingDecoderName(service, method), "(", requestArgs, ")")
+		g.P("if err != nil {")
+		g.P("return C.int32_t(rpcruntime.StoreError(err))")
+		g.P("}")
+	}
+	renderNativeClientStreamFacadeCall(g, service, method, servicePackage, "Send", ctx+nativeGoCallSuffix(requestNames))
+	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.Contract.Native.RequestFields), "); cleanupErr != nil {")
+	g.P("err = errors.Join(err, cleanupErr)")
+	g.P("}")
+	g.P("if err != nil {")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return 0")
+}
+
+func renderNativeBidiStreamingReadBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, handle, responseArgs string) {
+	responseNames := nativeClientResponseValueNames(method.Contract.Native.ResponseFields)
+	g.P("handle := int32(", handle, ")")
+	if responseArgs != "" {
+		g.P("if err := ", nativeBidiStreamingOutputValidatorName(service, method), "(", responseArgs, "); err != nil {")
+		g.P("return C.int32_t(rpcruntime.StoreError(err))")
+		g.P("}")
+	}
+	g.P("var err error")
+	for _, decl := range nativeGoResponseResultVarDecls(g, method.Contract.Native.ResponseFields) {
+		g.P(decl)
+	}
+	renderNativeClientStreamResultCall(g, service, method, servicePackage, responseNames, "Recv")
+	g.P("if err != nil {")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("if err := ", nativeBidiStreamingEncoderName(service, method), "(", nativeClientEncoderCallArgs(responseNames), responseArgs, "); err != nil {")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return 0")
+}
+
+func renderNativeCExportWrappers(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, servicePackage string) error {
 	methodABI, err := nativeCOperationABIsByOperation(plan, service, method)
 	if err != nil {
 		return err
 	}
 	switch method.Streaming {
 	case StreamingKindUnary:
-		renderNativeUnaryCExportWrapper(g, service, method, methodABI[NativeCOperationUnary])
+		renderNativeUnaryCExportWrapper(g, service, method, servicePackage, methodABI[NativeCOperationUnary])
 	case StreamingKindClientStreaming:
-		renderNativeClientStreamingCExportWrappers(g, service, method, methodABI)
+		renderNativeClientStreamingCExportWrappers(g, service, method, servicePackage, methodABI)
 	case StreamingKindServerStreaming:
-		renderNativeServerStreamingCExportWrappers(g, service, method, methodABI)
+		renderNativeServerStreamingCExportWrappers(g, service, method, servicePackage, methodABI)
 	case StreamingKindBidiStreaming:
-		renderNativeBidiStreamingCExportWrappers(g, service, method, methodABI)
+		renderNativeBidiStreamingCExportWrappers(g, service, method, servicePackage, methodABI)
 	}
 	return nil
 }
 
-func renderNativeUnaryCExportWrapper(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, unaryABI COperationABI) {
+func renderNativeUnaryCExportWrapper(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage string, unaryABI COperationABI) {
 	exportName := unaryABI.Symbol
 	g.P("//export ", exportName)
 	g.P("func ", exportName, "(", nativeCExportParams(unaryABI.Params), ") ", unaryABI.Return.CGoType, " {")
+	g.P("ctx := context.Background()")
 	renderNativeCExportOutputValidation(g, method.Contract.Native.ResponseFields, unaryABI.Params)
-	g.P("return C.int32_t(", nativeUnaryClientFuncName(service, method), "(context.Background()", nativeCExportCallSuffix(nativeCExportGoArgs(service, method), nativeCExportOutputGoArgs(service, method)), "))")
+	renderNativeUnaryClientCallBody(g, service, method, servicePackage, "ctx", nativeCExportGoArgs(service, method), nativeCExportOutputGoArgs(service, method))
 	g.P("}")
 	g.P()
 }
 
-func renderNativeClientStreamingCExportWrappers(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, methodABI map[NativeCOperation]COperationABI) {
+func renderNativeClientStreamingCExportWrappers(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage string, methodABI map[NativeCOperation]COperationABI) {
 	startABI := methodABI[NativeCOperationStart]
 	g.P("//export ", startABI.Symbol)
 	g.P("func ", startABI.Symbol, "(", nativeCExportParams(startABI.Params), ") ", startABI.Return.CGoType, " {")
+	g.P("ctx := context.Background()")
 	renderNativeCExportHandleValidation(g, "stream")
-	g.P("streamValue, errID := ", nativeClientStreamingStartFuncName(service, method), "(context.Background())")
-	g.P("if errID != 0 {")
-	g.P("return C.int32_t(errID)")
-	g.P("}")
-	g.P("*stream = C.int32_t(streamValue)")
-	g.P("return 0")
+	renderNativeClientStreamingStartBody(g, service, method, servicePackage, "ctx", "stream")
 	g.P("}")
 	g.P()
 
 	sendABI := methodABI[NativeCOperationSend]
 	g.P("//export ", sendABI.Symbol)
 	g.P("func ", sendABI.Symbol, "(", nativeCExportParams(sendABI.Params), ") ", sendABI.Return.CGoType, " {")
-	g.P("return C.int32_t(", nativeClientStreamingSendFuncName(service, method), "(context.Background(), int32(stream)", nativeCExportCallSuffix(nativeCExportGoArgs(service, method)), "))")
+	g.P("ctx := context.Background()")
+	renderNativeClientStreamingSendBody(g, service, method, servicePackage, "ctx", "stream", nativeCExportGoArgs(service, method))
 	g.P("}")
 	g.P()
 
 	finishABI := methodABI[NativeCOperationFinish]
 	g.P("//export ", finishABI.Symbol)
 	g.P("func ", finishABI.Symbol, "(", nativeCExportParams(finishABI.Params), ") ", finishABI.Return.CGoType, " {")
+	g.P("ctx := context.Background()")
 	renderNativeCExportOutputValidation(g, method.Contract.Native.ResponseFields, finishABI.Params)
-	g.P("return C.int32_t(", nativeClientStreamingFinishFuncName(service, method), "(context.Background(), int32(stream)", nativeCExportOutputArgs(method.Contract.Native.ResponseFields), "))")
+	renderNativeClientStreamingFinishBody(g, service, method, servicePackage, "ctx", "stream", nativeCExportOutputGoArgs(service, method))
 	g.P("}")
 	g.P()
 
 	cancelABI := methodABI[NativeCOperationCancel]
 	g.P("//export ", cancelABI.Symbol)
 	g.P("func ", cancelABI.Symbol, "(", nativeCExportParams(cancelABI.Params), ") ", cancelABI.Return.CGoType, " {")
-	g.P("return C.int32_t(", nativeClientStreamingCancelFuncName(service, method), "(context.Background(), int32(stream)))")
+	g.P("ctx := context.Background()")
+	renderNativeStreamNoResultBody(g, service, method, servicePackage, "ctx", "stream", "Cancel")
 	g.P("}")
 	g.P()
 }
 
-func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, methodABI map[NativeCOperation]COperationABI) {
+func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage string, methodABI map[NativeCOperation]COperationABI) {
 	startABI := methodABI[NativeCOperationStart]
 	g.P("//export ", startABI.Symbol)
 	g.P("func ", startABI.Symbol, "(", nativeCExportParams(startABI.Params), ") ", startABI.Return.CGoType, " {")
+	g.P("ctx := context.Background()")
 	renderNativeCExportHandleValidation(g, "stream")
-	g.P("streamValue, errID := ", nativeServerStreamingStartFuncName(service, method), "(context.Background()", nativeCExportCallSuffix(nativeCExportGoArgs(service, method)), ")")
-	g.P("if errID != 0 {")
-	g.P("return C.int32_t(errID)")
-	g.P("}")
-	g.P("*stream = C.int32_t(streamValue)")
-	g.P("return 0")
+	renderNativeServerStreamingStartBody(g, service, method, servicePackage, "ctx", "stream", nativeCExportGoArgs(service, method))
 	g.P("}")
 	g.P()
 
 	readABI := methodABI[NativeCOperationRecv]
 	g.P("//export ", readABI.Symbol)
 	g.P("func ", readABI.Symbol, "(", nativeCExportParams(readABI.Params), ") ", readABI.Return.CGoType, " {")
+	g.P("ctx := context.Background()")
 	renderNativeCExportOutputValidation(g, method.Contract.Native.ResponseFields, readABI.Params)
-	g.P("return C.int32_t(", nativeServerStreamingReadFuncName(service, method), "(context.Background(), int32(stream)", nativeCExportOutputArgs(method.Contract.Native.ResponseFields), "))")
+	renderNativeServerStreamingReadBody(g, service, method, servicePackage, "ctx", "stream", nativeCExportOutputGoArgs(service, method))
 	g.P("}")
 	g.P()
 
 	finishABI := methodABI[NativeCOperationFinish]
 	g.P("//export ", finishABI.Symbol)
 	g.P("func ", finishABI.Symbol, "(", nativeCExportParams(finishABI.Params), ") ", finishABI.Return.CGoType, " {")
-	g.P("return C.int32_t(", nativeServerStreamingFinishFuncName(service, method), "(context.Background(), int32(stream)))")
+	g.P("ctx := context.Background()")
+	renderNativeStreamNoResultBody(g, service, method, servicePackage, "ctx", "stream", "Finish")
 	g.P("}")
 	g.P()
 
 	cancelABI := methodABI[NativeCOperationCancel]
 	g.P("//export ", cancelABI.Symbol)
 	g.P("func ", cancelABI.Symbol, "(", nativeCExportParams(cancelABI.Params), ") ", cancelABI.Return.CGoType, " {")
-	g.P("return C.int32_t(", nativeServerStreamingCancelFuncName(service, method), "(context.Background(), int32(stream)))")
+	g.P("ctx := context.Background()")
+	renderNativeStreamNoResultBody(g, service, method, servicePackage, "ctx", "stream", "Cancel")
 	g.P("}")
 	g.P()
 }
 
-func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, methodABI map[NativeCOperation]COperationABI) {
+func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage string, methodABI map[NativeCOperation]COperationABI) {
 	startABI := methodABI[NativeCOperationStart]
 	g.P("//export ", startABI.Symbol)
 	g.P("func ", startABI.Symbol, "(", nativeCExportParams(startABI.Params), ") ", startABI.Return.CGoType, " {")
+	g.P("ctx := context.Background()")
 	renderNativeCExportHandleValidation(g, "stream")
-	g.P("streamValue, errID := ", nativeBidiStreamingStartFuncName(service, method), "(context.Background())")
-	g.P("if errID != 0 {")
-	g.P("return C.int32_t(errID)")
-	g.P("}")
-	g.P("*stream = C.int32_t(streamValue)")
-	g.P("return 0")
+	renderNativeBidiStreamingStartBody(g, service, method, servicePackage, "ctx", "stream")
 	g.P("}")
 	g.P()
 
 	sendABI := methodABI[NativeCOperationSend]
 	g.P("//export ", sendABI.Symbol)
 	g.P("func ", sendABI.Symbol, "(", nativeCExportParams(sendABI.Params), ") ", sendABI.Return.CGoType, " {")
-	g.P("return C.int32_t(", nativeBidiStreamingSendFuncName(service, method), "(context.Background(), int32(stream)", nativeCExportCallSuffix(nativeCExportGoArgs(service, method)), "))")
+	g.P("ctx := context.Background()")
+	renderNativeBidiStreamingSendBody(g, service, method, servicePackage, "ctx", "stream", nativeCExportGoArgs(service, method))
 	g.P("}")
 	g.P()
 
 	readABI := methodABI[NativeCOperationRecv]
 	g.P("//export ", readABI.Symbol)
 	g.P("func ", readABI.Symbol, "(", nativeCExportParams(readABI.Params), ") ", readABI.Return.CGoType, " {")
+	g.P("ctx := context.Background()")
 	renderNativeCExportOutputValidation(g, method.Contract.Native.ResponseFields, readABI.Params)
-	g.P("return C.int32_t(", nativeBidiStreamingReadFuncName(service, method), "(context.Background(), int32(stream)", nativeCExportOutputArgs(method.Contract.Native.ResponseFields), "))")
+	renderNativeBidiStreamingReadBody(g, service, method, servicePackage, "ctx", "stream", nativeCExportOutputGoArgs(service, method))
 	g.P("}")
 	g.P()
 
 	closeSendABI := methodABI[NativeCOperationCloseSend]
 	g.P("//export ", closeSendABI.Symbol)
 	g.P("func ", closeSendABI.Symbol, "(", nativeCExportParams(closeSendABI.Params), ") ", closeSendABI.Return.CGoType, " {")
-	g.P("return C.int32_t(", nativeBidiStreamingCloseSendFuncName(service, method), "(context.Background(), int32(stream)))")
+	g.P("ctx := context.Background()")
+	renderNativeStreamNoResultBody(g, service, method, servicePackage, "ctx", "stream", "CloseSend")
 	g.P("}")
 	g.P()
 
 	finishABI := methodABI[NativeCOperationFinish]
 	g.P("//export ", finishABI.Symbol)
 	g.P("func ", finishABI.Symbol, "(", nativeCExportParams(finishABI.Params), ") ", finishABI.Return.CGoType, " {")
-	g.P("return C.int32_t(", nativeBidiStreamingFinishFuncName(service, method), "(context.Background(), int32(stream)))")
+	g.P("ctx := context.Background()")
+	renderNativeStreamNoResultBody(g, service, method, servicePackage, "ctx", "stream", "Finish")
 	g.P("}")
 	g.P()
 
 	cancelABI := methodABI[NativeCOperationCancel]
 	g.P("//export ", cancelABI.Symbol)
 	g.P("func ", cancelABI.Symbol, "(", nativeCExportParams(cancelABI.Params), ") ", cancelABI.Return.CGoType, " {")
-	g.P("return C.int32_t(", nativeBidiStreamingCancelFuncName(service, method), "(context.Background(), int32(stream)))")
+	g.P("ctx := context.Background()")
+	renderNativeStreamNoResultBody(g, service, method, servicePackage, "ctx", "stream", "Cancel")
 	g.P("}")
 	g.P()
 }
@@ -1538,9 +1392,6 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 	for _, method := range service.Methods {
 		switch method.Streaming {
 		case StreamingKindUnary:
-			if err := addGenerated(nativeUnaryClientFuncName(service, method), method.FullName+" unary client call"); err != nil {
-				return err
-			}
 			if err := addGenerated(nativeUnaryClientDecoderName(service, method), method.FullName+" unary request decoder"); err != nil {
 				return err
 			}
@@ -1561,10 +1412,6 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 				symbol string
 				source string
 			}{
-				{nativeClientStreamingStartFuncName(service, method), method.FullName + " client stream start"},
-				{nativeClientStreamingSendFuncName(service, method), method.FullName + " client stream send"},
-				{nativeClientStreamingFinishFuncName(service, method), method.FullName + " client stream finish"},
-				{nativeClientStreamingCancelFuncName(service, method), method.FullName + " client stream cancel"},
 				{nativeClientStreamingDecoderName(service, method), method.FullName + " client stream request decoder"},
 				{nativeClientStreamingEncoderName(service, method), method.FullName + " client stream response encoder"},
 				{nativeClientStreamingOutputValidatorName(service, method), method.FullName + " client stream output validator"},
@@ -1584,10 +1431,6 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 				symbol string
 				source string
 			}{
-				{nativeServerStreamingStartFuncName(service, method), method.FullName + " server stream start"},
-				{nativeServerStreamingReadFuncName(service, method), method.FullName + " server stream read"},
-				{nativeServerStreamingFinishFuncName(service, method), method.FullName + " server stream finish"},
-				{nativeServerStreamingCancelFuncName(service, method), method.FullName + " server stream cancel"},
 				{nativeServerStreamingDecoderName(service, method), method.FullName + " server stream request decoder"},
 				{nativeServerStreamingEncoderName(service, method), method.FullName + " server stream response encoder"},
 				{nativeServerStreamingOutputValidatorName(service, method), method.FullName + " server stream output validator"},
@@ -1607,12 +1450,6 @@ func validateNativeClientCGOSymbols(plan FilePlan, service ServicePlan) error {
 				symbol string
 				source string
 			}{
-				{nativeBidiStreamingStartFuncName(service, method), method.FullName + " bidi stream start"},
-				{nativeBidiStreamingSendFuncName(service, method), method.FullName + " bidi stream send"},
-				{nativeBidiStreamingReadFuncName(service, method), method.FullName + " bidi stream read"},
-				{nativeBidiStreamingCloseSendFuncName(service, method), method.FullName + " bidi stream close send"},
-				{nativeBidiStreamingFinishFuncName(service, method), method.FullName + " bidi stream finish"},
-				{nativeBidiStreamingCancelFuncName(service, method), method.FullName + " bidi stream cancel"},
 				{nativeBidiStreamingDecoderName(service, method), method.FullName + " bidi stream request decoder"},
 				{nativeBidiStreamingEncoderName(service, method), method.FullName + " bidi stream response encoder"},
 				{nativeBidiStreamingOutputValidatorName(service, method), method.FullName + " bidi stream output validator"},
@@ -1647,33 +1484,18 @@ func addNativeClientGeneratedSymbols(seen map[string]string, service ServicePlan
 	for _, method := range service.Methods {
 		switch method.Streaming {
 		case StreamingKindUnary:
-			add(nativeUnaryClientFuncName(service, method), method.FullName+" unary client call")
 			add(nativeUnaryClientDecoderName(service, method), method.FullName+" unary request decoder")
 			add(nativeUnaryClientEncoderName(service, method), method.FullName+" unary response encoder")
 			add(nativeUnaryClientOutputValidatorName(service, method), method.FullName+" unary output validator")
 		case StreamingKindClientStreaming:
-			add(nativeClientStreamingStartFuncName(service, method), method.FullName+" client stream start")
-			add(nativeClientStreamingSendFuncName(service, method), method.FullName+" client stream send")
-			add(nativeClientStreamingFinishFuncName(service, method), method.FullName+" client stream finish")
-			add(nativeClientStreamingCancelFuncName(service, method), method.FullName+" client stream cancel")
 			add(nativeClientStreamingDecoderName(service, method), method.FullName+" client stream request decoder")
 			add(nativeClientStreamingEncoderName(service, method), method.FullName+" client stream response encoder")
 			add(nativeClientStreamingOutputValidatorName(service, method), method.FullName+" client stream output validator")
 		case StreamingKindServerStreaming:
-			add(nativeServerStreamingStartFuncName(service, method), method.FullName+" server stream start")
-			add(nativeServerStreamingReadFuncName(service, method), method.FullName+" server stream read")
-			add(nativeServerStreamingFinishFuncName(service, method), method.FullName+" server stream finish")
-			add(nativeServerStreamingCancelFuncName(service, method), method.FullName+" server stream cancel")
 			add(nativeServerStreamingDecoderName(service, method), method.FullName+" server stream request decoder")
 			add(nativeServerStreamingEncoderName(service, method), method.FullName+" server stream response encoder")
 			add(nativeServerStreamingOutputValidatorName(service, method), method.FullName+" server stream output validator")
 		case StreamingKindBidiStreaming:
-			add(nativeBidiStreamingStartFuncName(service, method), method.FullName+" bidi stream start")
-			add(nativeBidiStreamingSendFuncName(service, method), method.FullName+" bidi stream send")
-			add(nativeBidiStreamingReadFuncName(service, method), method.FullName+" bidi stream read")
-			add(nativeBidiStreamingCloseSendFuncName(service, method), method.FullName+" bidi stream close send")
-			add(nativeBidiStreamingFinishFuncName(service, method), method.FullName+" bidi stream finish")
-			add(nativeBidiStreamingCancelFuncName(service, method), method.FullName+" bidi stream cancel")
 			add(nativeBidiStreamingDecoderName(service, method), method.FullName+" bidi stream request decoder")
 			add(nativeBidiStreamingEncoderName(service, method), method.FullName+" bidi stream response encoder")
 			add(nativeBidiStreamingOutputValidatorName(service, method), method.FullName+" bidi stream output validator")

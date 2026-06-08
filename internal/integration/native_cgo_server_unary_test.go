@@ -43,6 +43,7 @@ func TestNativeCGOServerUnaryRoutesThroughRuntimeEntry(t *testing.T) {
 	}
 	writeFile(t, filepath.Join(tmp, "test/v1/native_unary_stubs.go"), nativeUnaryStubSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/native_integration_reset.go"), nativeIntegrationResetSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_unary_cgo_client_bridge.go"), nativeUnaryCGOClientBridgeSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_cgo_server_callbacks.go"), nativeCGOServerUnaryFixtureCallbackSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_cgo_server_unary_test.go"), nativeCGOServerUnaryFixtureTestSource)
 

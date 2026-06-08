@@ -81,6 +81,7 @@ func writeNativeServerStreamingFixture(t *testing.T, tmp string, plugin *protoge
 		writeFile(t, filepath.Join(tmp, name), generated.GetContent())
 	}
 	writeFile(t, filepath.Join(tmp, "test/v1/native_server_streaming_stubs.go"), nativeServerStreamingStubSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_server_streaming_cgo_client_bridge.go"), nativeServerStreamingCGOClientBridgeSource)
 }
 
 func newNativeServerStreamingTestPlugin(t *testing.T, goPackage string) *protogen.Plugin {
@@ -172,6 +173,42 @@ type Greeter_ListServer interface {
 	SendMsg(any) error
 	RecvMsg(any) error
 	Context() context.Context
+}
+`
+
+const nativeServerStreamingCGOClientBridgeSource = `package main
+
+/*
+#include <stdint.h>
+*/
+import "C"
+
+import context "context"
+
+func StartGreeterListNativeServerStream(ctx context.Context, PrefixPtr uintptr, PrefixLen int32, PrefixOwnership int32, Limit int32) (int32, int32) {
+	var stream C.int32_t
+	errID := rpccgo_native_testv1_Greeter_List_start(C.uintptr_t(PrefixPtr), C.int32_t(PrefixLen), C.int32_t(PrefixOwnership), C.int32_t(Limit), &stream)
+	return int32(stream), int32(errID)
+}
+
+func ReadGreeterListNativeServerStream(ctx context.Context, stream int32, outIndex *int32, outNamePtr *uintptr, outNameLen *int32) int32 {
+	var index C.int32_t
+	var namePtr C.uintptr_t
+	var nameLen C.int32_t
+	var nameOwnership C.int32_t
+	errID := rpccgo_native_testv1_Greeter_List_read(C.int32_t(stream), &index, &namePtr, &nameLen, &nameOwnership)
+	*outIndex = int32(index)
+	*outNamePtr = uintptr(namePtr)
+	*outNameLen = int32(nameLen)
+	return int32(errID)
+}
+
+func FinishGreeterListNativeServerStream(ctx context.Context, stream int32) int32 {
+	return int32(rpccgo_native_testv1_Greeter_List_finish(C.int32_t(stream)))
+}
+
+func CancelGreeterListNativeServerStream(ctx context.Context, stream int32) int32 {
+	return int32(rpccgo_native_testv1_Greeter_List_cancel(C.int32_t(stream)))
 }
 `
 

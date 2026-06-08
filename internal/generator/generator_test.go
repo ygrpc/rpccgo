@@ -168,6 +168,23 @@ func TestRenderMessageArtifactsEmitsDirectTransportArtifacts(t *testing.T) {
 
 		const messageClientFile = "test/v1/cgo/message_contract.greeter.client.message.cgo.rpccgo.go"
 		for _, fragment := range []string{
+			"//export rpccgo_msg_testv1_Greeter_Unary",
+			"//export rpccgo_msg_testv1_Greeter_Upload_start",
+			"//export rpccgo_msg_testv1_Greeter_Upload_send",
+			"//export rpccgo_msg_testv1_Greeter_Upload_finish",
+			"//export rpccgo_msg_testv1_Greeter_List_start",
+			"//export rpccgo_msg_testv1_Greeter_List_read",
+			"//export rpccgo_msg_testv1_Greeter_List_finish",
+			"//export rpccgo_msg_testv1_Greeter_Chat_start",
+			"//export rpccgo_msg_testv1_Greeter_Chat_send",
+			"//export rpccgo_msg_testv1_Greeter_Chat_close_send",
+			"//export rpccgo_msg_testv1_Greeter_Chat_finish",
+			"protobuf.Unmarshal",
+			"rpcruntime.StoreError",
+		} {
+			assertGeneratedContentContains(t, plugin, messageClientFile, fragment)
+		}
+		assertGeneratedFileContentDoesNotContain(t, plugin, messageClientFile,
 			"func CallGreeterUnaryMessageUnary",
 			"func StartGreeterUploadMessageClientStream",
 			"func SendGreeterUploadMessageClientStream",
@@ -179,11 +196,7 @@ func TestRenderMessageArtifactsEmitsDirectTransportArtifacts(t *testing.T) {
 			"func SendGreeterChatMessageBidiStream",
 			"func CloseSendGreeterChatMessageBidiStream",
 			"func FinishGreeterChatMessageBidiStream",
-			"protobuf.Unmarshal",
-			"rpcruntime.StoreError",
-		} {
-			assertGeneratedContentContains(t, plugin, messageClientFile, fragment)
-		}
+		)
 
 		const messageServerFile = "test/v1/cgo/message_contract.greeter.server.message.cgo.rpccgo.go"
 		for _, fragment := range []string{

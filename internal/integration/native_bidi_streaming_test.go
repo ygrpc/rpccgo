@@ -81,6 +81,7 @@ func writeNativeBidiStreamingFixture(t *testing.T, tmp string, plugin *protogen.
 		writeFile(t, filepath.Join(tmp, name), generated.GetContent())
 	}
 	writeFile(t, filepath.Join(tmp, "test/v1/native_bidi_streaming_stubs.go"), nativeBidiStreamingStubSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_bidi_streaming_cgo_client_bridge.go"), nativeBidiStreamingCGOClientBridgeSource)
 }
 
 func newNativeBidiStreamingTestPlugin(t *testing.T, goPackage string) *protogen.Plugin {
@@ -174,6 +175,50 @@ type Greeter_ChatServer interface {
 	Send(*ChatReply) error
 	SendMsg(any) error
 	Context() context.Context
+}
+`
+
+const nativeBidiStreamingCGOClientBridgeSource = `package main
+
+/*
+#include <stdint.h>
+*/
+import "C"
+
+import context "context"
+
+func StartGreeterChatNativeBidiStream(ctx context.Context) (int32, int32) {
+	var stream C.int32_t
+	errID := rpccgo_native_testv1_Greeter_Chat_start(&stream)
+	return int32(stream), int32(errID)
+}
+
+func SendGreeterChatNativeBidiStream(ctx context.Context, stream int32, NamePtr uintptr, NameLen int32, NameOwnership int32, Seq int32) int32 {
+	return int32(rpccgo_native_testv1_Greeter_Chat_send(C.int32_t(stream), C.uintptr_t(NamePtr), C.int32_t(NameLen), C.int32_t(NameOwnership), C.int32_t(Seq)))
+}
+
+func ReadGreeterChatNativeBidiStream(ctx context.Context, stream int32, outAck *int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
+	var ack C.int32_t
+	var messagePtr C.uintptr_t
+	var messageLen C.int32_t
+	var messageOwnership C.int32_t
+	errID := rpccgo_native_testv1_Greeter_Chat_read(C.int32_t(stream), &ack, &messagePtr, &messageLen, &messageOwnership)
+	*outAck = int32(ack)
+	*outMessagePtr = uintptr(messagePtr)
+	*outMessageLen = int32(messageLen)
+	return int32(errID)
+}
+
+func CloseSendGreeterChatNativeBidiStream(ctx context.Context, stream int32) int32 {
+	return int32(rpccgo_native_testv1_Greeter_Chat_close_send(C.int32_t(stream)))
+}
+
+func FinishGreeterChatNativeBidiStream(ctx context.Context, stream int32) int32 {
+	return int32(rpccgo_native_testv1_Greeter_Chat_finish(C.int32_t(stream)))
+}
+
+func CancelGreeterChatNativeBidiStream(ctx context.Context, stream int32) int32 {
+	return int32(rpccgo_native_testv1_Greeter_Chat_cancel(C.int32_t(stream)))
 }
 `
 

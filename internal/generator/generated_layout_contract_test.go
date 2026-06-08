@@ -121,6 +121,9 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"//export rpccgo_msg_testv1_Greeter_register",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go",
+		"//export rpccgo_msg_testv1_Greeter_SayHello",
+	)
+	assertGeneratedFileContentDoesNotContain(t, plugin, "test/cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go",
 		"func CallGreeterSayHelloMessageUnary",
 	)
 }

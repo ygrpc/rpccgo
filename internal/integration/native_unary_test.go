@@ -46,6 +46,7 @@ func TestNativeUnaryClientRoutesToGoNativeServer(t *testing.T) {
 	}
 	writeFile(t, filepath.Join(tmp, "test/v1/native_unary_stubs.go"), nativeUnaryStubSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/native_integration_reset.go"), nativeIntegrationResetSource)
+	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_unary_cgo_client_bridge.go"), nativeUnaryCGOClientBridgeSource)
 	writeFile(t, filepath.Join(tmp, "test/v1/cgo/native_unary_test.go"), nativeUnaryFixtureTestSource)
 
 	cmd := exec.Command("go", "test", "-mod=mod", "./test/v1/cgo", "-run", "TestNativeUnary", "-count=1")
@@ -204,6 +205,58 @@ import rpcruntime "rpccgo/rpcruntime"
 func ResetGreeterServerForIntegrationTest() {
 	_ = ClearGreeterServer()
 	rpcruntime.ResetStreamSessionsForTesting()
+}
+`
+
+const nativeUnaryCGOClientBridgeSource = `package main
+
+/*
+#include <stdint.h>
+*/
+import "C"
+
+import context "context"
+
+func CallGreeterSayHelloNativeUnary(ctx context.Context, NamePtr uintptr, NameLen int32, NameOwnership int32, PayloadPtr uintptr, PayloadLen int32, PayloadOwnership int32, Enabled int8, outAccepted *int8, outPayloadPtr *uintptr, outPayloadLen *int32, outNotePtr *uintptr, outNoteLen *int32, outExtraPayloadPtr *uintptr, outExtraPayloadLen *int32) int32 {
+	var accepted C.int8_t
+	var payloadPtr C.uintptr_t
+	var payloadLen C.int32_t
+	var payloadOwnership C.int32_t
+	var notePtr C.uintptr_t
+	var noteLen C.int32_t
+	var noteOwnership C.int32_t
+	var extraPayloadPtr C.uintptr_t
+	var extraPayloadLen C.int32_t
+	var extraPayloadOwnership C.int32_t
+	errID := rpccgo_native_testv1_Greeter_SayHello(C.uintptr_t(NamePtr), C.int32_t(NameLen), C.int32_t(NameOwnership), C.uintptr_t(PayloadPtr), C.int32_t(PayloadLen), C.int32_t(PayloadOwnership), C.int8_t(Enabled), &accepted, &payloadPtr, &payloadLen, &payloadOwnership, &notePtr, &noteLen, &noteOwnership, &extraPayloadPtr, &extraPayloadLen, &extraPayloadOwnership)
+	*outAccepted = int8(accepted)
+	*outPayloadPtr = uintptr(payloadPtr)
+	*outPayloadLen = int32(payloadLen)
+	*outNotePtr = uintptr(notePtr)
+	*outNoteLen = int32(noteLen)
+	*outExtraPayloadPtr = uintptr(extraPayloadPtr)
+	*outExtraPayloadLen = int32(extraPayloadLen)
+	return int32(errID)
+}
+
+func CallGreeterSayUnsupportedNativeUnary(ctx context.Context, NamePtr uintptr, NameLen int32, NameOwnership int32, PayloadPtr uintptr, PayloadLen int32, PayloadOwnership int32, Enabled int8, outPayloadPtr *uintptr, outPayloadLen *int32, outNotePtr *uintptr, outNoteLen *int32, outUnsupportedPtr *uintptr, outUnsupportedLen *int32) int32 {
+	var payloadPtr C.uintptr_t
+	var payloadLen C.int32_t
+	var payloadOwnership C.int32_t
+	var notePtr C.uintptr_t
+	var noteLen C.int32_t
+	var noteOwnership C.int32_t
+	var unsupportedPtr C.uintptr_t
+	var unsupportedLen C.int32_t
+	var unsupportedOwnership C.int32_t
+	errID := rpccgo_native_testv1_Greeter_SayUnsupported(C.uintptr_t(NamePtr), C.int32_t(NameLen), C.int32_t(NameOwnership), C.uintptr_t(PayloadPtr), C.int32_t(PayloadLen), C.int32_t(PayloadOwnership), C.int8_t(Enabled), &payloadPtr, &payloadLen, &payloadOwnership, &notePtr, &noteLen, &noteOwnership, &unsupportedPtr, &unsupportedLen, &unsupportedOwnership)
+	*outPayloadPtr = uintptr(payloadPtr)
+	*outPayloadLen = int32(payloadLen)
+	*outNotePtr = uintptr(notePtr)
+	*outNoteLen = int32(noteLen)
+	*outUnsupportedPtr = uintptr(unsupportedPtr)
+	*outUnsupportedLen = int32(unsupportedLen)
+	return int32(errID)
 }
 `
 

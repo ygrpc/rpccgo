@@ -39,6 +39,7 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, "local/v1/remote_transport.connect.go"), strings.ReplaceAll(remoteTransportConnectClientSource, "package testv1", "package localv1"))
 	writeFile(t, filepath.Join(tmp, "remote/v1/cgo/message_direct_path_callbacks.go"), strings.ReplaceAll(strings.ReplaceAll(messageDirectPathFixtureCallbackSource, "example.com/messagedirect/test/v1", "example.com/remotetransport/remote/v1"), "testv1", "remotev1"))
 	writeFile(t, filepath.Join(tmp, "local/v1/cgo/message_direct_path_callbacks.go"), strings.ReplaceAll(strings.ReplaceAll(messageDirectPathFixtureCallbackSource, "example.com/messagedirect/test/v1", "example.com/remotetransport/local/v1"), "testv1", "localv1"))
+	writeFile(t, filepath.Join(tmp, "local/v1/cgo/message_direct_path_cgo_client_bridge.go"), strings.ReplaceAll(strings.ReplaceAll(messageDirectPathCGOClientBridgeSource, "example.com/messagedirect/test/v1", "example.com/remotetransport/local/v1"), "testv1", "localv1"))
 	writeFile(t, filepath.Join(tmp, "remote/v1/cgo/remote_server_main.go"), remoteTransportServerMainSource)
 	writeFile(t, filepath.Join(tmp, "local/v1/cgo/remote_transport_test.go"), remoteTransportLocalFixtureTestSource)
 
@@ -333,7 +334,7 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 
 		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
-		assertMessageNoErr(t, CallGreeterUnaryMessageUnary(ctx, 0, 0, &GreeterMessageOutput{}))
+		assertMessageNoErr(t, callGreeterUnaryMessageUnary(ctx, 0, 0, &greeterMessageOutput{}))
 	})
 
 	t.Run("connect remote client stream captures adapter snapshot", func(t *testing.T) {
@@ -343,14 +344,14 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 
 		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
-		handle, errID := StartGreeterUploadMessageClientStream(ctx)
+		handle, errID := startGreeterUploadMessageClientStream(ctx)
 		assertMessageNoErr(t, errID)
 		if err := registerGreeterMessageCallbacksWithoutResetForIntegration(); err != nil {
 			t.Fatalf("registerGreeterMessageCallbacksWithoutResetForIntegration() error = %v", err)
 		}
 
-		assertMessageNoErr(t, SendGreeterUploadMessageClientStream(ctx, handle, 0, 0))
-		assertMessageNoErr(t, FinishGreeterUploadMessageClientStream(ctx, handle, &GreeterMessageOutput{}))
+		assertMessageNoErr(t, sendGreeterUploadMessageClientStream(ctx, handle, 0, 0))
+		assertMessageNoErr(t, finishGreeterUploadMessageClientStream(ctx, handle, &greeterMessageOutput{}))
 		if got := greeterMessageUploadSendsForIntegration(); got != 0 {
 			t.Fatalf("local message upload sends = %d, want 0 for remote snapshot", got)
 		}
@@ -363,7 +364,7 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 
 		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
-		errID := CallGreeterUnaryMessageUnary(ctx, 0, 0, &GreeterMessageOutput{})
+		errID := callGreeterUnaryMessageUnary(ctx, 0, 0, &greeterMessageOutput{})
 		assertMessageErrContains(t, errID, "unknown error id 99999")
 	})
 
@@ -374,12 +375,12 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 
 		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
-		handle, errID := StartGreeterUploadMessageClientStream(ctx)
+		handle, errID := startGreeterUploadMessageClientStream(ctx)
 		assertMessageNoErr(t, errID)
-		assertMessageNoErr(t, SendGreeterUploadMessageClientStream(ctx, handle, 0, 0))
-		assertMessageNoErr(t, CancelGreeterUploadMessageClientStream(ctx, handle))
-		assertMessageErrContains(t, SendGreeterUploadMessageClientStream(ctx, handle, 0, 0), "stream handle is invalid")
-		assertMessageErrContains(t, CancelGreeterUploadMessageClientStream(ctx, handle), "stream handle is invalid")
+		assertMessageNoErr(t, sendGreeterUploadMessageClientStream(ctx, handle, 0, 0))
+		assertMessageNoErr(t, cancelGreeterUploadMessageClientStream(ctx, handle))
+		assertMessageErrContains(t, sendGreeterUploadMessageClientStream(ctx, handle, 0, 0), "stream handle is invalid")
+		assertMessageErrContains(t, cancelGreeterUploadMessageClientStream(ctx, handle), "stream handle is invalid")
 	})
 
 	t.Run("connect remote bidi cancel notifies remote context", func(t *testing.T) {
@@ -389,10 +390,10 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 
 		ctx, cancel := remoteTransportCallContext(t)
 		defer cancel()
-		handle, errID := StartGreeterChatMessageBidiStream(ctx)
+		handle, errID := startGreeterChatMessageBidiStream(ctx)
 		assertMessageNoErr(t, errID)
-		assertMessageNoErr(t, SendGreeterChatMessageBidiStream(ctx, handle, 0, 0))
-		assertMessageNoErr(t, CancelGreeterChatMessageBidiStream(ctx, handle))
+		assertMessageNoErr(t, sendGreeterChatMessageBidiStream(ctx, handle, 0, 0))
+		assertMessageNoErr(t, cancelGreeterChatMessageBidiStream(ctx, handle))
 		remote.waitForCancelSignal(t, "chat")
 	})
 }
