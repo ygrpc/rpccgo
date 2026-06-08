@@ -106,6 +106,12 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"//export rpccgo_native_testv1_Greeter_SayHello",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
+		"//export rpccgo_store_error_text",
+	)
+	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
+		"func rpccgo_store_error_text(text *C.char, textLen C.int32_t) C.int32_t {",
+	)
+	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
 		"//export rpccgo_take_error_text",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/main.go",
@@ -121,6 +127,9 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"*textPtr = 0",
 		"*textLen = 0",
 		"return 1",
+	)
+	assertGeneratedFileContentDoesNotContain(t, plugin, "test/cmd/rpc/greeter.greeter.server.native.cgo.rpccgo.go",
+		"CGONativeServerErrorTextForExport",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
 		"//export rpccgo_release",

@@ -37,7 +37,9 @@ func renderNativeServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	g.P(`io "io"`)
 	g.P(`rpcruntime "`, rpcruntimeImportPath, `"`)
 	g.P(`sync "sync"`)
-	g.P(`unsafe "unsafe"`)
+	if nativeServerCGONeedsUnsafe(service) {
+		g.P(`unsafe "unsafe"`)
+	}
 	g.P(")")
 	g.P()
 	g.P("// ", nativeStageMarker(service, file))
@@ -57,7 +59,6 @@ func renderNativeServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	adapterName := lowerInitial(service.GoName) + "CGONativeAdapter"
 	renderCGONativeServerAdapter(g, service, nativeABI, runtimeMethods, adapterName, errorNames, servicePackage)
 	renderCGONativeServerRegistration(g, service, nativeABI, errorNames, servicePackage)
-	renderCGONativeServerErrorStoreExport(g, service)
 	return nil
 }
 
@@ -1651,27 +1652,6 @@ func renderCGONativeServerFlatResponseCleanup(g *protogen.GeneratedFile, name st
 	g.P()
 }
 
-func renderCGONativeServerErrorStoreExport(g *protogen.GeneratedFile, service ServicePlan) {
-	exportName := "Store" + service.GoName + "CGONativeServerErrorTextForExport"
-	renderDoc(g, exportName, "stores cgo native server error text and returns its error id for C callbacks.")
-	g.P("//export ", exportName)
-	g.P("func ", exportName, "(text *C.char, textLen C.int32_t) C.int32_t {")
-	g.P("length, err := rpcruntime.LengthFromInt32(int32(textLen))")
-	g.P("if err != nil {")
-	g.P(`return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: cgo native server error text: %w", err)))`)
-	g.P("}")
-	g.P("if text == nil && length != 0 {")
-	g.P(`return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: cgo native server error text pointer is nil")))`)
-	g.P("}")
-	g.P("var data []byte")
-	g.P("if length != 0 {")
-	g.P("data = unsafe.Slice((*byte)(unsafe.Pointer(text)), length)")
-	g.P("}")
-	g.P("return C.int32_t(rpcruntime.StoreError(errors.New(string(data))))")
-	g.P("}")
-	g.P()
-}
-
 func renderCGONativeErrorIDHelper(g *protogen.GeneratedFile, service ServicePlan) {
 	g.P("func ", nativeCGOServerErrorIDHelperName(service), "(errID int32) error {")
 	g.P("if errID == 0 {")
@@ -1928,8 +1908,28 @@ func nativeCGOServerBidiStreamCancelTrampolineName(service ServicePlan, method M
 	return "call" + service.GoName + method.GoName + "CGONativeBidiStreamCancelCallback"
 }
 
-func nativeServerCGONeedsUnsafe() bool {
-	return true
+func nativeServerCGONeedsUnsafe(service ServicePlan) bool {
+	for _, method := range service.Methods {
+		for _, field := range method.Contract.Native.RequestFields {
+			if nativeServerCGOFieldUsesUnsafe(field) {
+				return true
+			}
+		}
+		for _, field := range method.Contract.Native.ResponseFields {
+			if nativeServerCGOFieldUsesUnsafe(field) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func nativeServerCGOFieldUsesUnsafe(field FieldPlan) bool {
+	if field.Native.Shape == NativeABIShapeRepeated || field.Native.Shape == NativeABIShapeBoolByteBufferWrapper {
+		return true
+	}
+	return (field.Native.Shape == NativeABIShapeScalar || field.Native.Shape == NativeABIShapeMessageBytes) &&
+		(field.Kind == FieldKindString || field.Kind == FieldKindBytes || field.Kind == FieldKindMessage)
 }
 
 type nativeServerCGOErrorNames struct {
@@ -1998,14 +1998,13 @@ func validateNativeServerCGOSymbols(plan FilePlan, service ServicePlan) error {
 
 	errorNames := nativeServerCGOErrorNamesFor(service)
 	for symbol, source := range map[string]string{
-		lowerInitial(service.GoName) + "CGONativeAdapter":              service.FullName + " entry",
-		"Register" + service.GoName + "CGONativeServer":                service.FullName + " registration",
-		"Store" + service.GoName + "CGONativeServerErrorTextForExport": service.FullName + " error text export",
-		nativeCGOServerErrorIDHelperName(service):                      service.FullName + " error id helper",
-		errorNames.CallbacksNil:                                        errorNames.CallbacksNil,
-		errorNames.UnaryCallbackMissing:                                errorNames.UnaryCallbackMissing,
-		errorNames.UnsupportedField:                                    errorNames.UnsupportedField,
-		errorNames.StreamNotImplemented:                                errorNames.StreamNotImplemented,
+		lowerInitial(service.GoName) + "CGONativeAdapter": service.FullName + " entry",
+		"Register" + service.GoName + "CGONativeServer":   service.FullName + " registration",
+		nativeCGOServerErrorIDHelperName(service):         service.FullName + " error id helper",
+		errorNames.CallbacksNil:                           errorNames.CallbacksNil,
+		errorNames.UnaryCallbackMissing:                   errorNames.UnaryCallbackMissing,
+		errorNames.UnsupportedField:                       errorNames.UnsupportedField,
+		errorNames.StreamNotImplemented:                   errorNames.StreamNotImplemented,
 	} {
 		if err := addGenerated(symbol, source); err != nil {
 			return err
@@ -2144,14 +2143,13 @@ func addNativeServerCGOGeneratedSymbols(seen map[string]string, service ServiceP
 	}
 	errorNames := nativeServerCGOErrorNamesFor(service)
 	for symbol, source := range map[string]string{
-		lowerInitial(service.GoName) + "CGONativeAdapter":              service.FullName + " entry",
-		"Register" + service.GoName + "CGONativeServer":                service.FullName + " registration",
-		"Store" + service.GoName + "CGONativeServerErrorTextForExport": service.FullName + " error text export",
-		nativeCGOServerErrorIDHelperName(service):                      service.FullName + " error id helper",
-		errorNames.CallbacksNil:                                        errorNames.CallbacksNil,
-		errorNames.UnaryCallbackMissing:                                errorNames.UnaryCallbackMissing,
-		errorNames.UnsupportedField:                                    errorNames.UnsupportedField,
-		errorNames.StreamNotImplemented:                                errorNames.StreamNotImplemented,
+		lowerInitial(service.GoName) + "CGONativeAdapter": service.FullName + " entry",
+		"Register" + service.GoName + "CGONativeServer":   service.FullName + " registration",
+		nativeCGOServerErrorIDHelperName(service):         service.FullName + " error id helper",
+		errorNames.CallbacksNil:                           errorNames.CallbacksNil,
+		errorNames.UnaryCallbackMissing:                   errorNames.UnaryCallbackMissing,
+		errorNames.UnsupportedField:                       errorNames.UnsupportedField,
+		errorNames.StreamNotImplemented:                   errorNames.StreamNotImplemented,
 	} {
 		add(symbol, source)
 	}

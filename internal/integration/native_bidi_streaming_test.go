@@ -570,7 +570,7 @@ const nativeBidiStreamingCGOFixtureCallbackSource = `package main
 #include <string.h>
 #include <unistd.h>
 
-extern int32_t StoreGreeterCGONativeServerErrorTextForExport(char* text, int32_t textLen);
+extern int32_t rpccgo_store_error_text(char* text, int32_t textLen);
 
 typedef int32_t (*GreeterChatCGONativeBidiStreamStartCallback)(int32_t* stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamSendCallback)(int32_t stream, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, int32_t Seq);
@@ -599,7 +599,7 @@ static char greeterBidiNames[8][64];
 static int32_t greeterBidiSeqs[8];
 
 static int32_t greeterBidiError(const char* text) {
-	return StoreGreeterCGONativeServerErrorTextForExport((char*)text, (int32_t)strlen(text));
+	return rpccgo_store_error_text((char*)text, (int32_t)strlen(text));
 }
 
 static int32_t greeterChatStart(int32_t* stream) {

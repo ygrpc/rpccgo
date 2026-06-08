@@ -10,10 +10,29 @@ package main
 import "C"
 
 import (
+	errors "errors"
+	fmt "fmt"
 	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
+	unsafe "unsafe"
 )
 
 // rpccgo cgo support generated file for shared exports
+
+//export rpccgo_store_error_text
+func rpccgo_store_error_text(text *C.char, textLen C.int32_t) C.int32_t {
+	length, err := rpcruntime.LengthFromInt32(int32(textLen))
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: cgo error text: %w", err)))
+	}
+	if text == nil && length != 0 {
+		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: cgo error text pointer is nil")))
+	}
+	var data []byte
+	if length != 0 {
+		data = unsafe.Slice((*byte)(unsafe.Pointer(text)), length)
+	}
+	return C.int32_t(rpcruntime.StoreError(errors.New(string(data))))
+}
 
 //export rpccgo_take_error_text
 func rpccgo_take_error_text(errID C.int32_t, textPtr *C.uintptr_t, textLen *C.int32_t) C.int32_t {

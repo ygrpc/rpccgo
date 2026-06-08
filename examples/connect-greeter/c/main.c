@@ -73,7 +73,7 @@ static void sleep_briefly(void) {
 }
 
 static int32_t demo_eof(void) {
-  return StoreGreeterCGONativeServerErrorTextForExport("EOF", 3);
+  return rpccgo_store_error_text("EOF", 3);
 }
 
 static void copy_field(char *dst, size_t dst_len, const char *src, int32_t src_len) {

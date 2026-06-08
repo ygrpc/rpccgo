@@ -533,7 +533,7 @@ const nativeServerStreamingCGOFixtureCallbackSource = `package main
 #include <stdlib.h>
 #include <string.h>
 
-extern int32_t StoreGreeterCGONativeServerErrorTextForExport(char* text, int32_t textLen);
+extern int32_t rpccgo_store_error_text(char* text, int32_t textLen);
 
 typedef int32_t (*GreeterListCGONativeServerStreamStartCallback)(uintptr_t PrefixPtr, int32_t PrefixLen, int32_t PrefixOwnership, int32_t Limit, int32_t* stream);
 typedef int32_t (*GreeterListCGONativeServerStreamRecvCallback)(int32_t stream, int32_t* outIndex, uintptr_t* outNamePtr, int32_t* outNameLen, int32_t* outNameOwnership);
@@ -556,7 +556,7 @@ static int32_t greeterServerStreamErrorMode;
 static char greeterServerStreamPrefix[64];
 
 static int32_t greeterServerStreamError(const char* text) {
-	return StoreGreeterCGONativeServerErrorTextForExport((char*)text, (int32_t)strlen(text));
+	return rpccgo_store_error_text((char*)text, (int32_t)strlen(text));
 }
 
 static int32_t greeterListStart(uintptr_t PrefixPtr, int32_t PrefixLen, int32_t PrefixOwnership, int32_t Limit, int32_t* stream) {

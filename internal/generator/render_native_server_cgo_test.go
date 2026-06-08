@@ -94,9 +94,6 @@ func TestRenderNativeServerCGODefinesFlatServiceCallbackRegistration(t *testing.
 		"cleanupErr = errors.Join(cleanupErr, err)",
 		"func allServiceCGONativeServerErrorFromID(errID int32) error {",
 		"rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))",
-		"//export StoreAllServiceCGONativeServerErrorTextForExport",
-		"func StoreAllServiceCGONativeServerErrorTextForExport(text *C.char, textLen C.int32_t) C.int32_t {",
-		"return C.int32_t(rpcruntime.StoreError(errors.New(string(data))))",
 	} {
 		assertGeneratedContentContains(t, plugin, cgoServerFile, fragment)
 	}
@@ -125,6 +122,7 @@ func TestRenderNativeServerCGODefinesFlatServiceCallbackRegistration(t *testing.
 		"allServiceCGONativeServerAdapter.UnaryCallback = callback",
 		"allServiceCGONativeServerAdapter.ClientStreamStart = start",
 		"rpccgo_native_testv1_AllService_Unary_register",
+		"CGONativeServerErrorTextForExport",
 	)
 	for _, generated := range plugin.Response().GetFile() {
 		if generated.GetName() != cgoServerFile {
@@ -151,8 +149,8 @@ func TestRenderNativeServerCGOScalarOnlyGeneratedSourceCompiles(t *testing.T) {
 	}
 
 	const cgoServerFile = "test/v1/cgo/native_scalar.scalar.server.native.cgo.rpccgo.go"
-	assertGeneratedContentContains(t, plugin, cgoServerFile, `unsafe "unsafe"`)
-	assertGeneratedContentContains(t, plugin, cgoServerFile, "func StoreScalarCGONativeServerErrorTextForExport(text *C.char, textLen C.int32_t) C.int32_t {")
+	assertGeneratedFileContentDoesNotContain(t, plugin, cgoServerFile, `unsafe "unsafe"`)
+	assertGeneratedFileContentDoesNotContain(t, plugin, cgoServerFile, "CGONativeServerErrorTextForExport")
 
 	tmp := t.TempDir()
 	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {

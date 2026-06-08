@@ -565,7 +565,7 @@ const nativeClientStreamingCGOFixtureCallbackSource = `package main
 #include <stdlib.h>
 #include <string.h>
 
-extern int32_t StoreGreeterCGONativeServerErrorTextForExport(char* text, int32_t textLen);
+extern int32_t rpccgo_store_error_text(char* text, int32_t textLen);
 
 typedef int32_t (*GreeterUploadCGONativeClientStreamStartCallback)(int32_t* stream);
 typedef int32_t (*GreeterUploadCGONativeClientStreamSendCallback)(int32_t stream, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t PayloadPtr, int32_t PayloadLen, int32_t PayloadOwnership);
@@ -586,7 +586,7 @@ static int32_t greeterStreamCancels;
 static int32_t greeterStreamErrorMode;
 
 static int32_t greeterForcedError(const char* text) {
-	return StoreGreeterCGONativeServerErrorTextForExport((char*)text, (int32_t)strlen(text));
+	return rpccgo_store_error_text((char*)text, (int32_t)strlen(text));
 }
 
 static int32_t greeterUploadStart(int32_t* stream) {
@@ -595,7 +595,7 @@ static int32_t greeterUploadStart(int32_t* stream) {
 	}
 	if (stream == NULL) {
 		char msg[] = "stream output missing";
-		return StoreGreeterCGONativeServerErrorTextForExport(msg, sizeof(msg)-1);
+		return rpccgo_store_error_text(msg, sizeof(msg)-1);
 	}
 	greeterStreamID = 41;
 	greeterStreamCount = 0;
@@ -615,7 +615,7 @@ static int32_t greeterUploadSend(int32_t stream, uintptr_t NamePtr, int32_t Name
 	}
 	if (stream != greeterStreamID) {
 		char msg[] = "stream send did not reach cgo callback";
-		return StoreGreeterCGONativeServerErrorTextForExport(msg, sizeof(msg)-1);
+		return rpccgo_store_error_text(msg, sizeof(msg)-1);
 	}
 	greeterStreamCount += 1;
 	greeterStreamBytes += PayloadLen;
@@ -629,12 +629,12 @@ static int32_t greeterUploadSendForcedError(int32_t stream, uintptr_t NamePtr, i
 static int32_t greeterUploadFinish(int32_t stream, int32_t *outCount, uintptr_t *outSummaryPtr, int32_t *outSummaryLen, int32_t *outSummaryOwnership) {
 	if (stream != greeterStreamID || outCount == NULL || outSummaryPtr == NULL || outSummaryLen == NULL || outSummaryOwnership == NULL) {
 		char msg[] = "stream finish did not reach cgo callback";
-		return StoreGreeterCGONativeServerErrorTextForExport(msg, sizeof(msg)-1);
+		return rpccgo_store_error_text(msg, sizeof(msg)-1);
 	}
 	char* summary = (char*)malloc(7);
 	if (summary == NULL) {
 		char msg[] = "summary malloc failed";
-		return StoreGreeterCGONativeServerErrorTextForExport(msg, sizeof(msg)-1);
+		return rpccgo_store_error_text(msg, sizeof(msg)-1);
 	}
 	summary[0] = 'c'; summary[1] = 'g'; summary[2] = 'o'; summary[3] = ':'; summary[4] = '2'; summary[5] = ':'; summary[6] = '5';
 	*outCount = greeterStreamCount;
@@ -668,7 +668,7 @@ static int32_t greeterUploadCancel(int32_t stream) {
 	}
 	if (stream != greeterStreamID) {
 		char msg[] = "stream cancel did not reach cgo callback";
-		return StoreGreeterCGONativeServerErrorTextForExport(msg, sizeof(msg)-1);
+		return rpccgo_store_error_text(msg, sizeof(msg)-1);
 	}
 	greeterStreamCancels += 1;
 	return 0;

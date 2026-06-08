@@ -213,6 +213,12 @@ cgo native server 使用 native 字段 ABI callback；cgo message server 使用 
 - 同一个 kind 的 per-method register 会累积到现有 cgo adapter。
 - 不同 kind 的注册会替换 current registered server。
 
+C callback 返回 `0` 表示成功。返回错误时，使用 shared export 把错误文本存入 runtime，并返回得到的 error id：
+
+```c
+return rpccgo_store_error_text(message, message_len);
+```
+
 ## Streaming 行为
 
 rpccgo 支持四类 RPC：
