@@ -15,6 +15,7 @@ func TestGeneratedLayoutContract(t *testing.T) {
 		"test/v1/greeter.greeter.server.native.rpccgo.go",
 		"test/v1/greeter.greeter.server.message.rpccgo.go",
 		"test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
+		"test/cmd/rpc/main.go",
 		"test/cmd/rpc/greeter.greeter.server.native.cgo.rpccgo.go",
 		"test/cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go",
 		"test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go",
@@ -26,6 +27,7 @@ func TestGeneratedLayoutContract(t *testing.T) {
 	assertGeneratedPackage(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go", "package testv1")
 	assertGeneratedPackage(t, plugin, "test/v1/greeter.greeter.codec.rpccgo.go", "package testv1")
 	assertGeneratedPackage(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go", "package main")
+	assertGeneratedPackage(t, plugin, "test/cmd/rpc/main.go", "package main")
 	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.server.native.cgo.rpccgo.go", "package main")
 	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go", "package main")
 	assertGeneratedPackage(t, plugin, "test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go", "package main")
@@ -105,6 +107,12 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
 		"//export rpccgo_take_error_text",
+	)
+	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/main.go",
+		"func main() {}",
+	)
+	assertGeneratedFileContentDoesNotContain(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
+		"func main() {}",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
 		"if textPtr == nil || textLen == nil {\n\t\treturn -1\n\t}",

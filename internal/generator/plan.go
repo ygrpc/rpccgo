@@ -86,6 +86,7 @@ const (
 	GeneratedArtifactKindCGOMessageServer GeneratedArtifactKind = "cgo_message_server"
 	GeneratedArtifactKindCGOMessageClient GeneratedArtifactKind = "cgo_message_client"
 	GeneratedArtifactKindSharedCGOExports GeneratedArtifactKind = "shared_cgo_exports"
+	GeneratedArtifactKindSharedCGOMain    GeneratedArtifactKind = "shared_cgo_main"
 )
 
 // GeneratedArtifactPlan records the kind and output filename of one generated artifact.

@@ -49,6 +49,10 @@ func BuildSharedArtifactPlans(pkg PackagePlan) []GeneratedArtifactPlan {
 			Kind:     GeneratedArtifactKindSharedCGOExports,
 			Filename: path.Join(dir, cgoDirForPackagePlan(pkg), "rpccgo.exports.cgo.rpccgo.go"),
 		},
+		{
+			Kind:     GeneratedArtifactKindSharedCGOMain,
+			Filename: path.Join(dir, cgoDirForPackagePlan(pkg), "main.go"),
+		},
 	}
 }
 

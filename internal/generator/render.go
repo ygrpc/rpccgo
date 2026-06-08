@@ -36,6 +36,9 @@ func renderPackageArtifact(plugin *protogen.Plugin, pkg PackagePlan, artifact Ge
 	case GeneratedArtifactKindSharedCGOExports:
 		renderCGOExportSupportFile(plugin, pkg, artifact)
 		return nil
+	case GeneratedArtifactKindSharedCGOMain:
+		renderCGOMainFile(plugin, pkg, artifact)
+		return nil
 	default:
 		return fmt.Errorf("unknown package artifact kind %q", artifact.Kind)
 	}

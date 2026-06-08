@@ -132,7 +132,7 @@ func validateArtifacts(artifacts []GeneratedArtifactPlan, shared bool) error {
 			return fmt.Errorf("artifact %q filename is empty", artifact.Kind)
 		}
 		if shared {
-			if artifact.Kind != GeneratedArtifactKindSharedCGOExports {
+			if artifact.Kind != GeneratedArtifactKindSharedCGOExports && artifact.Kind != GeneratedArtifactKindSharedCGOMain {
 				return fmt.Errorf("artifact kind %q is not valid for package shared artifacts", artifact.Kind)
 			}
 			continue

@@ -40,7 +40,7 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, "remote/v1/cgo/message_direct_path_callbacks.go"), strings.ReplaceAll(strings.ReplaceAll(messageDirectPathFixtureCallbackSource, "example.com/messagedirect/test/v1", "example.com/remotetransport/remote/v1"), "testv1", "remotev1"))
 	writeFile(t, filepath.Join(tmp, "local/v1/cgo/message_direct_path_callbacks.go"), strings.ReplaceAll(strings.ReplaceAll(messageDirectPathFixtureCallbackSource, "example.com/messagedirect/test/v1", "example.com/remotetransport/local/v1"), "testv1", "localv1"))
 	writeFile(t, filepath.Join(tmp, "local/v1/cgo/message_direct_path_cgo_client_bridge.go"), strings.ReplaceAll(strings.ReplaceAll(messageDirectPathCGOClientBridgeSource, "example.com/messagedirect/test/v1", "example.com/remotetransport/local/v1"), "testv1", "localv1"))
-	writeFile(t, filepath.Join(tmp, "remote/v1/cgo/remote_server_main.go"), remoteTransportServerMainSource)
+	writeFile(t, filepath.Join(tmp, "remote/v1/cgo/remote_server_boot.go"), remoteTransportServerBootSource)
 	writeFile(t, filepath.Join(tmp, "local/v1/cgo/remote_transport_test.go"), remoteTransportLocalFixtureTestSource)
 
 	buildCmd := exec.Command("go", "build", "-o", filepath.Join(tmp, "remote-transport-server"), "./remote/v1/cgo")
@@ -182,7 +182,7 @@ func (c *greeterClient) Chat(ctx context.Context) (*connect.BidiStreamForClientS
 }
 `
 
-const remoteTransportServerMainSource = `package main
+const remoteTransportServerBootSource = `package main
 
 import (
 	context "context"
@@ -200,7 +200,7 @@ import (
 	remotev1 "example.com/remotetransport/remote/v1"
 )
 
-func main() {
+func init() {
 	transport := flag.String("transport", "connect", "remote transport")
 	unaryError := flag.Bool("unary-error", false, "enable unary error")
 	cancelObserver := flag.Bool("cancel-observer", false, "enable remote cancel observer mode")

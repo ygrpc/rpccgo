@@ -67,11 +67,14 @@ func TestBuildSharedArtifactPlansUsesPackageLevelExportsFilename(t *testing.T) {
 
 	got := BuildSharedArtifactPlans(pkg)
 
-	if len(got) != 1 {
-		t.Fatalf("shared artifacts = %d, want 1", len(got))
+	if len(got) != 2 {
+		t.Fatalf("shared artifacts = %d, want 2", len(got))
 	}
 	if got[0].Kind != GeneratedArtifactKindSharedCGOExports || got[0].Filename != "test/v1/cgo/rpccgo.exports.cgo.rpccgo.go" {
 		t.Fatalf("shared artifact = %#v, want package-level exports", got[0])
+	}
+	if got[1].Kind != GeneratedArtifactKindSharedCGOMain || got[1].Filename != "test/v1/cgo/main.go" {
+		t.Fatalf("shared artifact = %#v, want package-level cgo main", got[1])
 	}
 }
 
