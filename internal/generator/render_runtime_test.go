@@ -216,9 +216,11 @@ func TestRenderRuntimeGlueDefinesPackageLevelStreamOperations(t *testing.T) {
 	for _, fragment := range []string{
 		"func SendAllServiceNativeClientStream(ctx context.Context, handle rpcruntime.StreamHandle, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) error {",
 		"entry, err := rpcruntime.SendStreamSession(handle)",
-		"source, ok := entry.Session.(AllServiceClientStreamNativeStreamSession)",
+		"source, ok := entry.Session.(rpcruntime.ClientStreamingClient[AllServiceClientStreamNativeStreamRequest, AllServiceClientStreamNativeStreamResponse])",
+		"return source.Send(ctx, AllServiceClientStreamNativeStreamRequest{Name: name, Enabled: enabled, Child: child})",
 		"func FinishAllServiceNativeClientStream(ctx context.Context, handle rpcruntime.StreamHandle) (bool, []byte, error) {",
 		"entry, err := rpcruntime.FinishStreamSession(handle)",
+		"return resp.Accepted, resp.Payload, nil",
 		"func RecvAllServiceNativeServerStream(ctx context.Context, handle rpcruntime.StreamHandle) (bool, []byte, error) {",
 		"entry, err := rpcruntime.RecvStreamSession(handle)",
 		"func FinishAllServiceNativeServerStream(ctx context.Context, handle rpcruntime.StreamHandle) error {",
@@ -233,7 +235,7 @@ func TestRenderRuntimeGlueDefinesPackageLevelStreamOperations(t *testing.T) {
 		"func SendAllServiceMessageClientStream(ctx context.Context, handle rpcruntime.StreamHandle, req *AllRequest) error {",
 		`return errors.New("rpccgo: message request is nil")`,
 		"entry, err := rpcruntime.SendStreamSession(handle)",
-		"source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*AllRequest, *AllReply])",
+		"source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*AllRequest, *AllReply])",
 		"func FinishAllServiceMessageClientStream(ctx context.Context, handle rpcruntime.StreamHandle) (*AllReply, error) {",
 		"entry, err := rpcruntime.FinishStreamSession(handle)",
 		"func RecvAllServiceMessageServerStream(ctx context.Context, handle rpcruntime.StreamHandle) (*AllReply, error) {",
@@ -349,9 +351,9 @@ func TestRenderRuntimeGlueRoutesMessageStreamsToNativeSessionsWithConverter(t *t
 	for _, fragment := range []string{
 		"name, enabled, child, reqOwner, err := convertAllServiceClientStreamMessageToNativeRequest(req)",
 		"goruntime.KeepAlive(reqOwner)",
-		"err = source.Send(ctx, name, enabled, child)",
-		"acceptedResult, payloadResult, err := source.Finish(ctx)",
-		"return convertAllServiceClientStreamNativeToMessageResponse(acceptedResult, payloadResult)",
+		"err = source.Send(ctx, AllServiceClientStreamNativeStreamRequest{Name: name, Enabled: enabled, Child: child})",
+		"resp, err := source.Finish(ctx)",
+		"return convertAllServiceClientStreamNativeToMessageResponse(resp.Accepted, resp.Payload)",
 	} {
 		assertGeneratedContentContains(t, plugin, messageServerFile, fragment)
 	}
@@ -493,8 +495,8 @@ func runtimeTestMethod(name string, streaming StreamingKind, nativeEntryMethod s
 	}
 	if streamShape != runtimeStreamUnary {
 		method.Contract.Stream = runtimeTestStreamCapability(streamShape)
-		method.RenderPlan.Symbols.NativeSessionType = "Greeter" + name + "NativeStreamSession"
-		method.RenderPlan.Symbols.MessageSessionType = "Greeter" + name + "MessageStreamSession"
+		method.RenderPlan.Symbols.NativeStreamRequestType = "Greeter" + name + "NativeStreamRequest"
+		method.RenderPlan.Symbols.NativeStreamResponseType = "Greeter" + name + "NativeStreamResponse"
 	}
 	return method
 }

@@ -145,7 +145,7 @@ func decodeGreeterSayHelloCGOMessageResponse(responsePtr C.uintptr_t, responseLe
 	return resp, nil
 }
 
-func (a *greeterCGOMessageAdapter) StartCollect(ctx context.Context) (rpcruntime.CGOMessageClientStreamSession[*v1.SayHelloRequest, *v1.SayHelloResponse], error) {
+func (a *greeterCGOMessageAdapter) StartCollect(ctx context.Context) (rpcruntime.ClientStreamingClient[*v1.SayHelloRequest, *v1.SayHelloResponse], error) {
 	if a == nil {
 		return nil, greeterCGOMessageServerCallbacksNil
 	}
@@ -157,10 +157,10 @@ func (a *greeterCGOMessageAdapter) StartCollect(ctx context.Context) (rpcruntime
 	if errID != 0 {
 		return nil, greeterCGOMessageServerError(errID)
 	}
-	return &greeterCollectCGOMessageClientStreamSession{send: a.CollectSend, finish: a.CollectFinish, cancel: a.CollectCancel, stream: int32(stream)}, nil
+	return &greeterCollectCGOMessageClientStreamingClient{send: a.CollectSend, finish: a.CollectFinish, cancel: a.CollectCancel, stream: int32(stream)}, nil
 }
 
-func (a *greeterCGOMessageAdapter) Collect(ctx context.Context, stream rpcruntime.CGOMessageClientStream[*v1.SayHelloRequest]) (*v1.SayHelloResponse, error) {
+func (a *greeterCGOMessageAdapter) Collect(ctx context.Context, stream rpcruntime.ClientStreamingServer[*v1.SayHelloRequest]) (*v1.SayHelloResponse, error) {
 	session, err := a.StartCollect(ctx)
 	if err != nil {
 		return nil, err
@@ -181,14 +181,14 @@ func (a *greeterCGOMessageAdapter) Collect(ctx context.Context, stream rpcruntim
 	}
 }
 
-type greeterCollectCGOMessageClientStreamSession struct {
+type greeterCollectCGOMessageClientStreamingClient struct {
 	send   C.GreeterCollectCGOMessageClientStreamSendCallback
 	finish C.GreeterCollectCGOMessageClientStreamFinishCallback
 	cancel C.GreeterCollectCGOMessageClientStreamCancelCallback
 	stream int32
 }
 
-func (s *greeterCollectCGOMessageClientStreamSession) Send(ctx context.Context, req *v1.SayHelloRequest) error {
+func (s *greeterCollectCGOMessageClientStreamingClient) Send(ctx context.Context, req *v1.SayHelloRequest) error {
 	if req == nil {
 		err := errors.New("rpccgo: message request is nil")
 		return err
@@ -213,7 +213,7 @@ func (s *greeterCollectCGOMessageClientStreamSession) Send(ctx context.Context, 
 	return nil
 }
 
-func (s *greeterCollectCGOMessageClientStreamSession) Finish(ctx context.Context) (*v1.SayHelloResponse, error) {
+func (s *greeterCollectCGOMessageClientStreamingClient) Finish(ctx context.Context) (*v1.SayHelloResponse, error) {
 	var responsePtr C.uintptr_t
 	var responseLen C.int32_t
 	errID := int32(C.callGreeterCollectCGOMessageClientStreamFinish(s.finish, C.int32_t(s.stream), &responsePtr, &responseLen))
@@ -223,7 +223,7 @@ func (s *greeterCollectCGOMessageClientStreamSession) Finish(ctx context.Context
 	return decodeGreeterCollectCGOMessageResponse(responsePtr, responseLen)
 }
 
-func (s *greeterCollectCGOMessageClientStreamSession) Cancel(ctx context.Context) error {
+func (s *greeterCollectCGOMessageClientStreamingClient) Cancel(ctx context.Context) error {
 	errID := int32(C.callGreeterCollectCGOMessageClientStreamCancel(s.cancel, C.int32_t(s.stream)))
 	if errID != 0 {
 		return greeterCGOMessageServerError(errID)
@@ -249,7 +249,7 @@ func decodeGreeterCollectCGOMessageResponse(responsePtr C.uintptr_t, responseLen
 	return resp, nil
 }
 
-func (a *greeterCGOMessageAdapter) StartBroadcast(ctx context.Context, req *v1.SayHelloRequest) (rpcruntime.CGOMessageServerStreamSession[*v1.SayHelloResponse], error) {
+func (a *greeterCGOMessageAdapter) StartBroadcast(ctx context.Context, req *v1.SayHelloRequest) (rpcruntime.ServerStreamingClient[*v1.SayHelloResponse], error) {
 	if a == nil {
 		return nil, greeterCGOMessageServerCallbacksNil
 	}
@@ -278,10 +278,10 @@ func (a *greeterCGOMessageAdapter) StartBroadcast(ctx context.Context, req *v1.S
 	if errID != 0 {
 		return nil, greeterCGOMessageServerError(errID)
 	}
-	return &greeterBroadcastCGOMessageServerStreamSession{recv: a.BroadcastRecv, finish: a.BroadcastFinish, cancel: a.BroadcastCancel, stream: int32(stream)}, nil
+	return &greeterBroadcastCGOMessageServerStreamingClient{recv: a.BroadcastRecv, finish: a.BroadcastFinish, cancel: a.BroadcastCancel, stream: int32(stream)}, nil
 }
 
-func (a *greeterCGOMessageAdapter) Broadcast(ctx context.Context, req *v1.SayHelloRequest, stream rpcruntime.CGOMessageServerStream[*v1.SayHelloResponse]) error {
+func (a *greeterCGOMessageAdapter) Broadcast(ctx context.Context, req *v1.SayHelloRequest, stream rpcruntime.ServerStreamingServer[*v1.SayHelloResponse]) error {
 	session, err := a.StartBroadcast(ctx, req)
 	if err != nil {
 		return err
@@ -305,14 +305,14 @@ func (a *greeterCGOMessageAdapter) Broadcast(ctx context.Context, req *v1.SayHel
 	}
 }
 
-type greeterBroadcastCGOMessageServerStreamSession struct {
+type greeterBroadcastCGOMessageServerStreamingClient struct {
 	recv   C.GreeterBroadcastCGOMessageServerStreamRecvCallback
 	finish C.GreeterBroadcastCGOMessageServerStreamFinishCallback
 	cancel C.GreeterBroadcastCGOMessageServerStreamCancelCallback
 	stream int32
 }
 
-func (s *greeterBroadcastCGOMessageServerStreamSession) Recv(ctx context.Context) (*v1.SayHelloResponse, error) {
+func (s *greeterBroadcastCGOMessageServerStreamingClient) Recv(ctx context.Context) (*v1.SayHelloResponse, error) {
 	var responsePtr C.uintptr_t
 	var responseLen C.int32_t
 	errID := int32(C.callGreeterBroadcastCGOMessageServerStreamRecv(s.recv, C.int32_t(s.stream), &responsePtr, &responseLen))
@@ -322,7 +322,7 @@ func (s *greeterBroadcastCGOMessageServerStreamSession) Recv(ctx context.Context
 	return decodeGreeterBroadcastCGOMessageResponse(responsePtr, responseLen)
 }
 
-func (s *greeterBroadcastCGOMessageServerStreamSession) Finish(ctx context.Context) error {
+func (s *greeterBroadcastCGOMessageServerStreamingClient) Finish(ctx context.Context) error {
 	errID := int32(C.callGreeterBroadcastCGOMessageServerStreamFinish(s.finish, C.int32_t(s.stream)))
 	if errID != 0 {
 		return greeterCGOMessageServerError(errID)
@@ -330,7 +330,7 @@ func (s *greeterBroadcastCGOMessageServerStreamSession) Finish(ctx context.Conte
 	return nil
 }
 
-func (s *greeterBroadcastCGOMessageServerStreamSession) Cancel(ctx context.Context) error {
+func (s *greeterBroadcastCGOMessageServerStreamingClient) Cancel(ctx context.Context) error {
 	errID := int32(C.callGreeterBroadcastCGOMessageServerStreamCancel(s.cancel, C.int32_t(s.stream)))
 	if errID != 0 {
 		return greeterCGOMessageServerError(errID)
@@ -356,7 +356,7 @@ func decodeGreeterBroadcastCGOMessageResponse(responsePtr C.uintptr_t, responseL
 	return resp, nil
 }
 
-func (a *greeterCGOMessageAdapter) StartChat(ctx context.Context) (rpcruntime.CGOMessageBidiStreamSession[*v1.SayHelloRequest, *v1.SayHelloResponse], error) {
+func (a *greeterCGOMessageAdapter) StartChat(ctx context.Context) (rpcruntime.BidiStreamingClient[*v1.SayHelloRequest, *v1.SayHelloResponse], error) {
 	if a == nil {
 		return nil, greeterCGOMessageServerCallbacksNil
 	}
@@ -368,10 +368,10 @@ func (a *greeterCGOMessageAdapter) StartChat(ctx context.Context) (rpcruntime.CG
 	if errID != 0 {
 		return nil, greeterCGOMessageServerError(errID)
 	}
-	return &greeterChatCGOMessageBidiStreamSession{send: a.ChatSend, recv: a.ChatRecv, closeSend: a.ChatCloseSend, finish: a.ChatFinish, cancel: a.ChatCancel, stream: int32(stream)}, nil
+	return &greeterChatCGOMessageBidiStreamingClient{send: a.ChatSend, recv: a.ChatRecv, closeSend: a.ChatCloseSend, finish: a.ChatFinish, cancel: a.ChatCancel, stream: int32(stream)}, nil
 }
 
-func (a *greeterCGOMessageAdapter) Chat(ctx context.Context, stream rpcruntime.CGOMessageBidiStream[*v1.SayHelloRequest, *v1.SayHelloResponse]) error {
+func (a *greeterCGOMessageAdapter) Chat(ctx context.Context, stream rpcruntime.BidiStreamingServer[*v1.SayHelloRequest, *v1.SayHelloResponse]) error {
 	session, err := a.StartChat(ctx)
 	if err != nil {
 		return err
@@ -428,7 +428,7 @@ func (a *greeterCGOMessageAdapter) Chat(ctx context.Context, stream rpcruntime.C
 	return nil
 }
 
-type greeterChatCGOMessageBidiStreamSession struct {
+type greeterChatCGOMessageBidiStreamingClient struct {
 	send      C.GreeterChatCGOMessageBidiStreamSendCallback
 	recv      C.GreeterChatCGOMessageBidiStreamRecvCallback
 	closeSend C.GreeterChatCGOMessageBidiStreamCloseSendCallback
@@ -437,7 +437,7 @@ type greeterChatCGOMessageBidiStreamSession struct {
 	stream    int32
 }
 
-func (s *greeterChatCGOMessageBidiStreamSession) Send(ctx context.Context, req *v1.SayHelloRequest) error {
+func (s *greeterChatCGOMessageBidiStreamingClient) Send(ctx context.Context, req *v1.SayHelloRequest) error {
 	if req == nil {
 		err := errors.New("rpccgo: message request is nil")
 		return err
@@ -462,7 +462,7 @@ func (s *greeterChatCGOMessageBidiStreamSession) Send(ctx context.Context, req *
 	return nil
 }
 
-func (s *greeterChatCGOMessageBidiStreamSession) Recv(ctx context.Context) (*v1.SayHelloResponse, error) {
+func (s *greeterChatCGOMessageBidiStreamingClient) Recv(ctx context.Context) (*v1.SayHelloResponse, error) {
 	var responsePtr C.uintptr_t
 	var responseLen C.int32_t
 	errID := int32(C.callGreeterChatCGOMessageBidiStreamRecv(s.recv, C.int32_t(s.stream), &responsePtr, &responseLen))
@@ -472,7 +472,7 @@ func (s *greeterChatCGOMessageBidiStreamSession) Recv(ctx context.Context) (*v1.
 	return decodeGreeterChatCGOMessageResponse(responsePtr, responseLen)
 }
 
-func (s *greeterChatCGOMessageBidiStreamSession) CloseSend(ctx context.Context) error {
+func (s *greeterChatCGOMessageBidiStreamingClient) CloseSend(ctx context.Context) error {
 	errID := int32(C.callGreeterChatCGOMessageBidiStreamCloseSend(s.closeSend, C.int32_t(s.stream)))
 	if errID != 0 {
 		return greeterCGOMessageServerError(errID)
@@ -480,7 +480,7 @@ func (s *greeterChatCGOMessageBidiStreamSession) CloseSend(ctx context.Context) 
 	return nil
 }
 
-func (s *greeterChatCGOMessageBidiStreamSession) Finish(ctx context.Context) error {
+func (s *greeterChatCGOMessageBidiStreamingClient) Finish(ctx context.Context) error {
 	errID := int32(C.callGreeterChatCGOMessageBidiStreamFinish(s.finish, C.int32_t(s.stream)))
 	if errID != 0 {
 		return greeterCGOMessageServerError(errID)
@@ -488,7 +488,7 @@ func (s *greeterChatCGOMessageBidiStreamSession) Finish(ctx context.Context) err
 	return nil
 }
 
-func (s *greeterChatCGOMessageBidiStreamSession) Cancel(ctx context.Context) error {
+func (s *greeterChatCGOMessageBidiStreamingClient) Cancel(ctx context.Context) error {
 	errID := int32(C.callGreeterChatCGOMessageBidiStreamCancel(s.cancel, C.int32_t(s.stream)))
 	if errID != 0 {
 		return greeterCGOMessageServerError(errID)

@@ -60,7 +60,7 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	if service.Generation.NativeEnabled && !service.HasArtifact(GeneratedArtifactKindNativeServer) {
 		renderGoNativeServerInterface(g, service, adapterName)
 		renderGoNativeStreamInterfaces(g, service)
-		renderNativeSourceSessionInterfaces(g, streamingMethods)
+		renderNativeSourceSessionInterfaces(g, service)
 	}
 	for _, method := range streamingMethods {
 		if service.Generation.NativeEnabled && !service.HasArtifact(GeneratedArtifactKindNativeServer) {

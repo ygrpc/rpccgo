@@ -126,8 +126,8 @@ func TestBuildRuntimeMethodProjectionsProjectStreamingShapes(t *testing.T) {
 			if !got.Stream.Streaming {
 				t.Fatal("projection streaming = false, want true")
 			}
-			if got.Symbols.NativeSourceSessionType == "" || got.Symbols.MessageSourceSessionType == "" {
-				t.Fatalf("projection source session types = %#v, want both names", got.Symbols)
+			if got.Symbols.NativeStreamRequestType == "" || got.Symbols.NativeStreamResponseType == "" {
+				t.Fatalf("projection native stream envelope types = %#v, want both names", got.Symbols)
 			}
 		})
 	}

@@ -8,8 +8,6 @@ import (
 	context "context"
 	errors "errors"
 	fmt "fmt"
-	io "io"
-	sync "sync"
 	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
@@ -48,27 +46,61 @@ type GreeterChatNativeBidiStream interface {
 	Send(ctx context.Context, message string) error
 }
 
-// GreeterCollectNativeStreamSession is the native stream session contract captured for Collect.
-type GreeterCollectNativeStreamSession interface {
-	Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error
-	Finish(ctx context.Context) (string, error)
-	Cancel(ctx context.Context) error
+// GreeterCollectNativeStreamRequest carries native request values for the Collect stream call.
+type GreeterCollectNativeStreamRequest struct {
+	Name *rpcruntime.RpcString
+	City *rpcruntime.RpcString
 }
 
-// GreeterBroadcastNativeStreamSession is the native stream session contract captured for Broadcast.
-type GreeterBroadcastNativeStreamSession interface {
-	Recv(ctx context.Context) (string, error)
-	Finish(ctx context.Context) error
-	Cancel(ctx context.Context) error
+// GreeterCollectNativeStreamResponse carries native response values for the Collect stream call.
+type GreeterCollectNativeStreamResponse struct {
+	Message string
 }
 
-// GreeterChatNativeStreamSession is the native stream session contract captured for Chat.
-type GreeterChatNativeStreamSession interface {
-	Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error
-	Recv(ctx context.Context) (string, error)
-	CloseSend(ctx context.Context) error
-	Finish(ctx context.Context) error
-	Cancel(ctx context.Context) error
+type greeterCollectGoNativeClientStreamingServer struct {
+	stream rpcruntime.ClientStreamingServer[GreeterCollectNativeStreamRequest]
+}
+
+func (s *greeterCollectGoNativeClientStreamingServer) Recv(ctx context.Context) (*rpcruntime.RpcString, *rpcruntime.RpcString, error) {
+	req, err := s.stream.Recv(ctx)
+	return req.Name, req.City, err
+}
+
+// GreeterBroadcastNativeStreamResponse carries native response values for the Broadcast stream call.
+type GreeterBroadcastNativeStreamResponse struct {
+	Message string
+}
+
+type greeterBroadcastGoNativeServerStreamingServer struct {
+	stream rpcruntime.ServerStreamingServer[GreeterBroadcastNativeStreamResponse]
+}
+
+func (s *greeterBroadcastGoNativeServerStreamingServer) Send(ctx context.Context, message string) error {
+	return s.stream.Send(ctx, GreeterBroadcastNativeStreamResponse{Message: message})
+}
+
+// GreeterChatNativeStreamRequest carries native request values for the Chat stream call.
+type GreeterChatNativeStreamRequest struct {
+	Name *rpcruntime.RpcString
+	City *rpcruntime.RpcString
+}
+
+// GreeterChatNativeStreamResponse carries native response values for the Chat stream call.
+type GreeterChatNativeStreamResponse struct {
+	Message string
+}
+
+type greeterChatGoNativeBidiStreamingServer struct {
+	stream rpcruntime.BidiStreamingServer[GreeterChatNativeStreamRequest, GreeterChatNativeStreamResponse]
+}
+
+func (s *greeterChatGoNativeBidiStreamingServer) Recv(ctx context.Context) (*rpcruntime.RpcString, *rpcruntime.RpcString, error) {
+	req, err := s.stream.Recv(ctx)
+	return req.Name, req.City, err
+}
+
+func (s *greeterChatGoNativeBidiStreamingServer) Send(ctx context.Context, message string) error {
+	return s.stream.Send(ctx, GreeterChatNativeStreamResponse{Message: message})
 }
 
 // SendGreeterNativeCollect sends native request values on an active Collect stream.
@@ -79,19 +111,19 @@ func SendGreeterNativeCollect(ctx context.Context, handle rpcruntime.StreamHandl
 	}
 	switch entry.Kind {
 	case rpcruntime.ServerKindGoNative:
-		source, ok := entry.Session.(GreeterCollectNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[GreeterCollectNativeStreamRequest, GreeterCollectNativeStreamResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Send(ctx, name, city)
+		return source.Send(ctx, GreeterCollectNativeStreamRequest{Name: name, City: city})
 	case rpcruntime.ServerKindCGONative:
-		source, ok := entry.Session.(GreeterCollectNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[GreeterCollectNativeStreamRequest, GreeterCollectNativeStreamResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Send(ctx, name, city)
+		return source.Send(ctx, GreeterCollectNativeStreamRequest{Name: name, City: city})
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -101,7 +133,7 @@ func SendGreeterNativeCollect(ctx context.Context, handle rpcruntime.StreamHandl
 		}
 		return source.Send(ctx, messageReq)
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -111,7 +143,7 @@ func SendGreeterNativeCollect(ctx context.Context, handle rpcruntime.StreamHandl
 		}
 		return source.Send(ctx, messageReq)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -121,7 +153,7 @@ func SendGreeterNativeCollect(ctx context.Context, handle rpcruntime.StreamHandl
 		}
 		return source.Send(ctx, messageReq)
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -131,7 +163,7 @@ func SendGreeterNativeCollect(ctx context.Context, handle rpcruntime.StreamHandl
 		}
 		return source.Send(ctx, messageReq)
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -153,19 +185,27 @@ func FinishGreeterNativeCollect(ctx context.Context, handle rpcruntime.StreamHan
 	}
 	switch entry.Kind {
 	case rpcruntime.ServerKindGoNative:
-		source, ok := entry.Session.(GreeterCollectNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[GreeterCollectNativeStreamRequest, GreeterCollectNativeStreamResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Finish(ctx)
+		resp, err := source.Finish(ctx)
+		if err != nil {
+			return "", err
+		}
+		return resp.Message, nil
 	case rpcruntime.ServerKindCGONative:
-		source, ok := entry.Session.(GreeterCollectNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[GreeterCollectNativeStreamRequest, GreeterCollectNativeStreamResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Finish(ctx)
+		resp, err := source.Finish(ctx)
+		if err != nil {
+			return "", err
+		}
+		return resp.Message, nil
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
@@ -175,7 +215,7 @@ func FinishGreeterNativeCollect(ctx context.Context, handle rpcruntime.StreamHan
 		}
 		return convertGreeterCollectMessageToNativeResponse(messageResp)
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
@@ -185,7 +225,7 @@ func FinishGreeterNativeCollect(ctx context.Context, handle rpcruntime.StreamHan
 		}
 		return convertGreeterCollectMessageToNativeResponse(messageResp)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
@@ -195,7 +235,7 @@ func FinishGreeterNativeCollect(ctx context.Context, handle rpcruntime.StreamHan
 		}
 		return convertGreeterCollectMessageToNativeResponse(messageResp)
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
@@ -205,7 +245,7 @@ func FinishGreeterNativeCollect(ctx context.Context, handle rpcruntime.StreamHan
 		}
 		return convertGreeterCollectMessageToNativeResponse(messageResp)
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
@@ -227,43 +267,43 @@ func CancelGreeterNativeCollect(ctx context.Context, handle rpcruntime.StreamHan
 	}
 	switch entry.Kind {
 	case rpcruntime.ServerKindGoNative:
-		source, ok := entry.Session.(GreeterCollectNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[GreeterCollectNativeStreamRequest, GreeterCollectNativeStreamResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindCGONative:
-		source, ok := entry.Session.(GreeterCollectNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[GreeterCollectNativeStreamRequest, GreeterCollectNativeStreamResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageClientStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -281,19 +321,27 @@ func RecvGreeterNativeBroadcast(ctx context.Context, handle rpcruntime.StreamHan
 	}
 	switch entry.Kind {
 	case rpcruntime.ServerKindGoNative:
-		source, ok := entry.Session.(GreeterBroadcastNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[GreeterBroadcastNativeStreamResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Recv(ctx)
+		resp, err := source.Recv(ctx)
+		if err != nil {
+			return "", err
+		}
+		return resp.Message, nil
 	case rpcruntime.ServerKindCGONative:
-		source, ok := entry.Session.(GreeterBroadcastNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[GreeterBroadcastNativeStreamResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Recv(ctx)
+		resp, err := source.Recv(ctx)
+		if err != nil {
+			return "", err
+		}
+		return resp.Message, nil
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
@@ -303,7 +351,7 @@ func RecvGreeterNativeBroadcast(ctx context.Context, handle rpcruntime.StreamHan
 		}
 		return convertGreeterBroadcastMessageToNativeResponse(messageResp)
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
@@ -313,7 +361,7 @@ func RecvGreeterNativeBroadcast(ctx context.Context, handle rpcruntime.StreamHan
 		}
 		return convertGreeterBroadcastMessageToNativeResponse(messageResp)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
@@ -323,7 +371,7 @@ func RecvGreeterNativeBroadcast(ctx context.Context, handle rpcruntime.StreamHan
 		}
 		return convertGreeterBroadcastMessageToNativeResponse(messageResp)
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
@@ -333,7 +381,7 @@ func RecvGreeterNativeBroadcast(ctx context.Context, handle rpcruntime.StreamHan
 		}
 		return convertGreeterBroadcastMessageToNativeResponse(messageResp)
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
@@ -355,43 +403,43 @@ func FinishGreeterNativeBroadcast(ctx context.Context, handle rpcruntime.StreamH
 	}
 	switch entry.Kind {
 	case rpcruntime.ServerKindGoNative:
-		source, ok := entry.Session.(GreeterBroadcastNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[GreeterBroadcastNativeStreamResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindCGONative:
-		source, ok := entry.Session.(GreeterBroadcastNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[GreeterBroadcastNativeStreamResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -409,43 +457,43 @@ func CancelGreeterNativeBroadcast(ctx context.Context, handle rpcruntime.StreamH
 	}
 	switch entry.Kind {
 	case rpcruntime.ServerKindGoNative:
-		source, ok := entry.Session.(GreeterBroadcastNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[GreeterBroadcastNativeStreamResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindCGONative:
-		source, ok := entry.Session.(GreeterBroadcastNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[GreeterBroadcastNativeStreamResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageServerStreamSession[*SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -463,19 +511,19 @@ func SendGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle, 
 	}
 	switch entry.Kind {
 	case rpcruntime.ServerKindGoNative:
-		source, ok := entry.Session.(GreeterChatNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[GreeterChatNativeStreamRequest, GreeterChatNativeStreamResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Send(ctx, name, city)
+		return source.Send(ctx, GreeterChatNativeStreamRequest{Name: name, City: city})
 	case rpcruntime.ServerKindCGONative:
-		source, ok := entry.Session.(GreeterChatNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[GreeterChatNativeStreamRequest, GreeterChatNativeStreamResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Send(ctx, name, city)
+		return source.Send(ctx, GreeterChatNativeStreamRequest{Name: name, City: city})
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -485,7 +533,7 @@ func SendGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle, 
 		}
 		return source.Send(ctx, messageReq)
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -495,7 +543,7 @@ func SendGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle, 
 		}
 		return source.Send(ctx, messageReq)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -505,7 +553,7 @@ func SendGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle, 
 		}
 		return source.Send(ctx, messageReq)
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -515,7 +563,7 @@ func SendGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle, 
 		}
 		return source.Send(ctx, messageReq)
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -537,19 +585,27 @@ func RecvGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle) 
 	}
 	switch entry.Kind {
 	case rpcruntime.ServerKindGoNative:
-		source, ok := entry.Session.(GreeterChatNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[GreeterChatNativeStreamRequest, GreeterChatNativeStreamResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Recv(ctx)
+		resp, err := source.Recv(ctx)
+		if err != nil {
+			return "", err
+		}
+		return resp.Message, nil
 	case rpcruntime.ServerKindCGONative:
-		source, ok := entry.Session.(GreeterChatNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[GreeterChatNativeStreamRequest, GreeterChatNativeStreamResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
-		return source.Recv(ctx)
+		resp, err := source.Recv(ctx)
+		if err != nil {
+			return "", err
+		}
+		return resp.Message, nil
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
@@ -559,7 +615,7 @@ func RecvGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle) 
 		}
 		return convertGreeterChatMessageToNativeResponse(messageResp)
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
@@ -569,7 +625,7 @@ func RecvGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle) 
 		}
 		return convertGreeterChatMessageToNativeResponse(messageResp)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
@@ -579,7 +635,7 @@ func RecvGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle) 
 		}
 		return convertGreeterChatMessageToNativeResponse(messageResp)
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
@@ -589,7 +645,7 @@ func RecvGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle) 
 		}
 		return convertGreeterChatMessageToNativeResponse(messageResp)
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return "", rpcruntime.ErrStreamInvalidHandle
 		}
@@ -611,43 +667,43 @@ func CloseSendGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHan
 	}
 	switch entry.Kind {
 	case rpcruntime.ServerKindGoNative:
-		source, ok := entry.Session.(GreeterChatNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[GreeterChatNativeStreamRequest, GreeterChatNativeStreamResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.CloseSend(ctx)
 	case rpcruntime.ServerKindCGONative:
-		source, ok := entry.Session.(GreeterChatNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[GreeterChatNativeStreamRequest, GreeterChatNativeStreamResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.CloseSend(ctx)
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.CloseSend(ctx)
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.CloseSend(ctx)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.CloseSend(ctx)
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.CloseSend(ctx)
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -665,43 +721,43 @@ func FinishGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle
 	}
 	switch entry.Kind {
 	case rpcruntime.ServerKindGoNative:
-		source, ok := entry.Session.(GreeterChatNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[GreeterChatNativeStreamRequest, GreeterChatNativeStreamResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindCGONative:
-		source, ok := entry.Session.(GreeterChatNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[GreeterChatNativeStreamRequest, GreeterChatNativeStreamResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Finish(ctx)
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -719,43 +775,43 @@ func CancelGreeterNativeChat(ctx context.Context, handle rpcruntime.StreamHandle
 	}
 	switch entry.Kind {
 	case rpcruntime.ServerKindGoNative:
-		source, ok := entry.Session.(GreeterChatNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[GreeterChatNativeStreamRequest, GreeterChatNativeStreamResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindCGONative:
-		source, ok := entry.Session.(GreeterChatNativeStreamSession)
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[GreeterChatNativeStreamRequest, GreeterChatNativeStreamResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Cancel(ctx)
 	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(rpcruntime.CGOMessageBidiStreamSession[*SayHelloRequest, *SayHelloResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
 		}
@@ -830,531 +886,42 @@ func RegisterGreeterCGONativeServer(server GreeterNativeServer) error {
 	return nil
 }
 
-func startGreeterGoNativeCollect(ctx context.Context, server GreeterNativeServer) (GreeterCollectNativeStreamSession, error) {
-	streamCtx, cancel := context.WithCancel(ctx)
-	session := &greeterCollectGoNativeClientStreamSession{
-		ctx:      streamCtx,
-		cancel:   cancel,
-		requests: make(chan greeterCollectGoNativeClientStreamSessionRequest, 16),
-		sendDone: make(chan struct{}),
-		done:     make(chan struct{}),
-	}
+func startGreeterGoNativeCollect(ctx context.Context, server GreeterNativeServer) (rpcruntime.ClientStreamingClient[GreeterCollectNativeStreamRequest, GreeterCollectNativeStreamResponse], error) {
+	client, stream, streamCtx := rpcruntime.NewClientStreaming[GreeterCollectNativeStreamRequest, GreeterCollectNativeStreamResponse](ctx, rpcruntime.LocalStreamOptions{
+		RequestBuffer: 16,
+		StreamClosed:  greeterNativeStreamClosed,
+	})
+	serverStream := &greeterCollectGoNativeClientStreamingServer{stream: stream}
 	go func() {
-		defer close(session.done)
-		session.result.message, session.result.err = server.Collect(streamCtx, session)
+		message, err := server.Collect(streamCtx, serverStream)
+		stream.Complete(GreeterCollectNativeStreamResponse{Message: message}, err)
 	}()
-	return session, nil
+	return client, nil
 }
 
-type greeterCollectGoNativeClientStreamSessionRequest struct {
-	name     *rpcruntime.RpcString
-	city     *rpcruntime.RpcString
-	received chan struct{}
-}
-
-type greeterCollectGoNativeClientStreamSessionResult struct {
-	message string
-	err     error
-}
-
-type greeterCollectGoNativeClientStreamSession struct {
-	ctx           context.Context
-	cancel        context.CancelFunc
-	requests      chan greeterCollectGoNativeClientStreamSessionRequest
-	sendDone      chan struct{}
-	closeSendOnce sync.Once
-	receivedMu    sync.Mutex
-	received      chan struct{}
-	done          chan struct{}
-	result        greeterCollectGoNativeClientStreamSessionResult
-}
-
-func (s *greeterCollectGoNativeClientStreamSession) acknowledgeReceived() {
-	s.receivedMu.Lock()
-	defer s.receivedMu.Unlock()
-	if s.received != nil {
-		close(s.received)
-		s.received = nil
-	}
-}
-
-func (s *greeterCollectGoNativeClientStreamSession) storeReceived(received chan struct{}) {
-	s.receivedMu.Lock()
-	defer s.receivedMu.Unlock()
-	s.received = received
-}
-
-func (s *greeterCollectGoNativeClientStreamSession) Recv(ctx context.Context) (*rpcruntime.RpcString, *rpcruntime.RpcString, error) {
-	select {
-	case req := <-s.requests:
-		close(req.received)
-		return req.name, req.city, nil
-	default:
-	}
-	select {
-	case <-ctx.Done():
-		return nil, nil, ctx.Err()
-	case <-s.ctx.Done():
-		return nil, nil, s.ctx.Err()
-	case req := <-s.requests:
-		close(req.received)
-		return req.name, req.city, nil
-	case <-s.sendDone:
-		return nil, nil, io.EOF
-	}
-}
-
-func (s *greeterCollectGoNativeClientStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
-	s.acknowledgeReceived()
-	select {
-	case <-s.sendDone:
-		return greeterNativeStreamClosed
-	default:
-	}
-	req := greeterCollectGoNativeClientStreamSessionRequest{name: name, city: city, received: make(chan struct{})}
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-s.ctx.Done():
-		return s.ctx.Err()
-	case <-s.done:
-		if s.result.err != nil {
-			return s.result.err
-		}
-		return greeterNativeStreamClosed
-	case <-s.sendDone:
-		return greeterNativeStreamClosed
-	case s.requests <- req:
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-s.ctx.Done():
-			return s.ctx.Err()
-		case <-s.done:
-			if s.result.err != nil {
-				return s.result.err
-			}
-			return greeterNativeStreamClosed
-		case <-s.sendDone:
-			return greeterNativeStreamClosed
-		case <-req.received:
-			return nil
-		}
-	}
-}
-
-func (s *greeterCollectGoNativeClientStreamSession) Finish(ctx context.Context) (string, error) {
-	s.closeSendOnce.Do(func() { close(s.sendDone) })
-	select {
-	case <-ctx.Done():
-		return "", ctx.Err()
-	case <-s.done:
-		return s.result.message, s.result.err
-	}
-}
-
-func (s *greeterCollectGoNativeClientStreamSession) Cancel(ctx context.Context) error {
-	s.cancel()
-	s.acknowledgeReceived()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-s.done:
-		return nil
-	}
-}
-
-func startGreeterGoNativeBroadcast(ctx context.Context, server GreeterNativeServer, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (GreeterBroadcastNativeStreamSession, error) {
-	streamCtx, cancel := context.WithCancel(ctx)
-	session := &greeterBroadcastGoNativeServerStreamSession{
-		ctx:       streamCtx,
-		cancel:    cancel,
-		responses: make(chan greeterBroadcastGoNativeServerStreamSessionResponse, 1),
-		done:      make(chan struct{}),
-	}
+func startGreeterGoNativeBroadcast(ctx context.Context, server GreeterNativeServer, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (rpcruntime.ServerStreamingClient[GreeterBroadcastNativeStreamResponse], error) {
+	client, stream, streamCtx := rpcruntime.NewServerStreaming[GreeterBroadcastNativeStreamResponse](ctx, rpcruntime.LocalStreamOptions{
+		ResponseBuffer: 1,
+		StreamClosed:   greeterNativeStreamClosed,
+	})
+	serverStream := &greeterBroadcastGoNativeServerStreamingServer{stream: stream}
 	go func() {
-		defer close(session.done)
-		defer close(session.responses)
-		session.err = server.Broadcast(streamCtx, name, city, session)
+		err := server.Broadcast(streamCtx, name, city, serverStream)
+		stream.Complete(err)
 	}()
-	return session, nil
+	return client, nil
 }
 
-type greeterBroadcastGoNativeServerStreamSessionResponse struct {
-	message  string
-	received chan struct{}
-}
-
-type greeterBroadcastGoNativeServerStreamSession struct {
-	ctx           context.Context
-	cancel        context.CancelFunc
-	responses     chan greeterBroadcastGoNativeServerStreamSessionResponse
-	receivedMu    sync.Mutex
-	received      chan struct{}
-	doneRequested bool
-	done          chan struct{}
-	err           error
-}
-
-func (s *greeterBroadcastGoNativeServerStreamSession) acknowledgeReceived() {
-	s.receivedMu.Lock()
-	defer s.receivedMu.Unlock()
-	if s.received != nil {
-		close(s.received)
-		s.received = nil
-	}
-}
-
-func (s *greeterBroadcastGoNativeServerStreamSession) storeReceived(received chan struct{}) {
-	s.receivedMu.Lock()
-	defer s.receivedMu.Unlock()
-	s.received = received
-}
-
-func (s *greeterBroadcastGoNativeServerStreamSession) Send(ctx context.Context, message string) error {
-	resp := greeterBroadcastGoNativeServerStreamSessionResponse{message: message, received: make(chan struct{})}
-	select {
-	case <-ctx.Done():
-		if s.doneRequested {
-			return io.EOF
-		}
-		return ctx.Err()
-	case <-s.ctx.Done():
-		if s.doneRequested {
-			return io.EOF
-		}
-		return s.ctx.Err()
-	case <-s.done:
-		if s.err != nil {
-			return s.err
-		}
-		return greeterNativeStreamClosed
-	case s.responses <- resp:
-		select {
-		case <-ctx.Done():
-			if s.doneRequested {
-				return io.EOF
-			}
-			return ctx.Err()
-		case <-s.ctx.Done():
-			if s.doneRequested {
-				return io.EOF
-			}
-			return s.ctx.Err()
-		case <-s.done:
-			if s.err != nil {
-				return s.err
-			}
-			return greeterNativeStreamClosed
-		case <-resp.received:
-			if s.ctx.Err() != nil {
-				if s.doneRequested {
-					return io.EOF
-				}
-				return s.ctx.Err()
-			}
-			return nil
-		}
-	}
-}
-
-func (s *greeterBroadcastGoNativeServerStreamSession) Recv(ctx context.Context) (string, error) {
-	s.acknowledgeReceived()
-	select {
-	case <-ctx.Done():
-		return "", ctx.Err()
-	case <-s.ctx.Done():
-		return "", s.ctx.Err()
-	case resp, ok := <-s.responses:
-		if ok {
-			s.storeReceived(resp.received)
-			return resp.message, nil
-		}
-		s.acknowledgeReceived()
-		<-s.done
-		if s.err != nil {
-			return "", s.err
-		}
-		return "", io.EOF
-	}
-}
-
-func (s *greeterBroadcastGoNativeServerStreamSession) Finish(ctx context.Context) error {
-	s.doneRequested = true
-	s.cancel()
-	s.acknowledgeReceived()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-s.done:
-		if errors.Is(s.err, context.Canceled) || errors.Is(s.err, io.EOF) {
-			return nil
-		}
-		return s.err
-	}
-}
-
-func (s *greeterBroadcastGoNativeServerStreamSession) Cancel(ctx context.Context) error {
-	s.cancel()
-	s.acknowledgeReceived()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-s.done:
-		return nil
-	}
-}
-
-func startGreeterGoNativeChat(ctx context.Context, server GreeterNativeServer) (GreeterChatNativeStreamSession, error) {
-	streamCtx, cancel := context.WithCancel(ctx)
-	session := &greeterChatGoNativeBidiStreamSession{
-		ctx:              streamCtx,
-		cancel:           cancel,
-		requests:         make(chan greeterChatGoNativeBidiStreamSessionRequest, 16),
-		sendDone:         make(chan struct{}),
-		sendDoneReceived: make(chan struct{}),
-		responses:        make(chan greeterChatGoNativeBidiStreamSessionResponse, 1),
-		responseReady:    make(chan struct{}),
-		requestReceived:  make(chan struct{}),
-		done:             make(chan struct{}),
-	}
+func startGreeterGoNativeChat(ctx context.Context, server GreeterNativeServer) (rpcruntime.BidiStreamingClient[GreeterChatNativeStreamRequest, GreeterChatNativeStreamResponse], error) {
+	client, stream, streamCtx := rpcruntime.NewBidiStreaming[GreeterChatNativeStreamRequest, GreeterChatNativeStreamResponse](ctx, rpcruntime.LocalStreamOptions{
+		RequestBuffer:  16,
+		ResponseBuffer: 1,
+		StreamClosed:   greeterNativeStreamClosed,
+	})
+	serverStream := &greeterChatGoNativeBidiStreamingServer{stream: stream}
 	go func() {
-		defer close(session.done)
-		defer close(session.responses)
-		session.err = server.Chat(streamCtx, &greeterChatGoNativeBidiStreamFacade{source: session})
+		err := server.Chat(streamCtx, serverStream)
+		stream.Complete(err)
 	}()
-	return session, nil
-}
-
-type greeterChatGoNativeBidiStreamSessionRequest struct {
-	name     *rpcruntime.RpcString
-	city     *rpcruntime.RpcString
-	received chan struct{}
-}
-
-type greeterChatGoNativeBidiStreamSessionResponse struct {
-	message  string
-	received chan struct{}
-}
-
-type greeterChatGoNativeBidiStreamSession struct {
-	ctx                  context.Context
-	cancel               context.CancelFunc
-	requests             chan greeterChatGoNativeBidiStreamSessionRequest
-	sendDone             chan struct{}
-	sendDoneReceived     chan struct{}
-	sendDoneReceivedOnce sync.Once
-	closeSendOnce        sync.Once
-	responses            chan greeterChatGoNativeBidiStreamSessionResponse
-	responseReady        chan struct{}
-	responseReadyOnce    sync.Once
-	requestReceived      chan struct{}
-	requestReceivedOnce  sync.Once
-	receivedMu           sync.Mutex
-	received             chan struct{}
-	doneRequested        bool
-	done                 chan struct{}
-	err                  error
-}
-
-func (s *greeterChatGoNativeBidiStreamSession) acknowledgeReceived() {
-	s.receivedMu.Lock()
-	defer s.receivedMu.Unlock()
-	if s.received != nil {
-		close(s.received)
-		s.received = nil
-	}
-}
-
-func (s *greeterChatGoNativeBidiStreamSession) storeReceived(received chan struct{}) {
-	s.receivedMu.Lock()
-	defer s.receivedMu.Unlock()
-	s.received = received
-}
-
-type greeterChatGoNativeBidiStreamFacade struct {
-	source *greeterChatGoNativeBidiStreamSession
-}
-
-func (s *greeterChatGoNativeBidiStreamFacade) Recv(ctx context.Context) (*rpcruntime.RpcString, *rpcruntime.RpcString, error) {
-	select {
-	case req := <-s.source.requests:
-		close(req.received)
-		s.source.requestReceivedOnce.Do(func() { close(s.source.requestReceived) })
-		return req.name, req.city, nil
-	default:
-	}
-	select {
-	case <-ctx.Done():
-		return nil, nil, ctx.Err()
-	case <-s.source.ctx.Done():
-		return nil, nil, s.source.ctx.Err()
-	case req := <-s.source.requests:
-		close(req.received)
-		s.source.requestReceivedOnce.Do(func() { close(s.source.requestReceived) })
-		return req.name, req.city, nil
-	case <-s.source.sendDone:
-		s.source.sendDoneReceivedOnce.Do(func() { close(s.source.sendDoneReceived) })
-		return nil, nil, io.EOF
-	}
-}
-
-func (s *greeterChatGoNativeBidiStreamFacade) Send(ctx context.Context, message string) error {
-	resp := greeterChatGoNativeBidiStreamSessionResponse{message: message, received: make(chan struct{})}
-	select {
-	case <-ctx.Done():
-		if s.source.doneRequested {
-			return io.EOF
-		}
-		return ctx.Err()
-	case <-s.source.ctx.Done():
-		if s.source.doneRequested {
-			return io.EOF
-		}
-		return s.source.ctx.Err()
-	case <-s.source.done:
-		if s.source.err != nil {
-			return s.source.err
-		}
-		return greeterNativeStreamClosed
-	case s.source.responses <- resp:
-		s.source.responseReadyOnce.Do(func() { close(s.source.responseReady) })
-		select {
-		case <-ctx.Done():
-			if s.source.doneRequested {
-				return io.EOF
-			}
-			return ctx.Err()
-		case <-s.source.ctx.Done():
-			if s.source.doneRequested {
-				return io.EOF
-			}
-			return s.source.ctx.Err()
-		case <-s.source.done:
-			if s.source.err != nil {
-				return s.source.err
-			}
-			return greeterNativeStreamClosed
-		case <-resp.received:
-			if s.source.ctx.Err() != nil {
-				if s.source.doneRequested {
-					return io.EOF
-				}
-				return s.source.ctx.Err()
-			}
-			return nil
-		}
-	}
-}
-
-func (s *greeterChatGoNativeBidiStreamSession) Send(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) error {
-	s.acknowledgeReceived()
-	select {
-	case <-s.sendDone:
-		return greeterNativeStreamClosed
-	default:
-	}
-	req := greeterChatGoNativeBidiStreamSessionRequest{name: name, city: city, received: make(chan struct{})}
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-s.ctx.Done():
-		return s.ctx.Err()
-	case <-s.done:
-		if s.err != nil {
-			return s.err
-		}
-		return greeterNativeStreamClosed
-	case <-s.sendDone:
-		return greeterNativeStreamClosed
-	case s.requests <- req:
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-s.ctx.Done():
-			return s.ctx.Err()
-		case <-s.done:
-			if s.err != nil {
-				return s.err
-			}
-			return greeterNativeStreamClosed
-		case <-s.sendDone:
-			return greeterNativeStreamClosed
-		case <-s.responseReady:
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-s.ctx.Done():
-				return s.ctx.Err()
-			case <-s.done:
-				if s.err != nil {
-					return s.err
-				}
-				return greeterNativeStreamClosed
-			case <-s.sendDone:
-				return greeterNativeStreamClosed
-			case <-s.requestReceived:
-				return nil
-			case <-req.received:
-				return nil
-			}
-			return nil
-		case <-req.received:
-			return nil
-		}
-	}
-}
-
-func (s *greeterChatGoNativeBidiStreamSession) Recv(ctx context.Context) (string, error) {
-	s.acknowledgeReceived()
-	select {
-	case <-ctx.Done():
-		return "", ctx.Err()
-	case <-s.ctx.Done():
-		return "", s.ctx.Err()
-	case resp, ok := <-s.responses:
-		if ok {
-			s.responseReady = make(chan struct{})
-			s.responseReadyOnce = sync.Once{}
-			s.storeReceived(resp.received)
-			return resp.message, nil
-		}
-		s.acknowledgeReceived()
-		<-s.done
-		if s.err != nil {
-			return "", s.err
-		}
-		return "", io.EOF
-	}
-}
-
-func (s *greeterChatGoNativeBidiStreamSession) CloseSend(ctx context.Context) error {
-	s.closeSendOnce.Do(func() { close(s.sendDone) })
-	return nil
-}
-
-func (s *greeterChatGoNativeBidiStreamSession) Finish(ctx context.Context) error {
-	s.doneRequested = true
-	s.cancel()
-	s.acknowledgeReceived()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-s.done:
-		if errors.Is(s.err, context.Canceled) || errors.Is(s.err, io.EOF) {
-			return nil
-		}
-		return s.err
-	}
-}
-
-func (s *greeterChatGoNativeBidiStreamSession) Cancel(ctx context.Context) error {
-	s.cancel()
-	s.acknowledgeReceived()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-s.done:
-		return nil
-	}
+	return client, nil
 }

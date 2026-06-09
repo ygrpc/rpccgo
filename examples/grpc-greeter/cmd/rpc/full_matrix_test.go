@@ -83,7 +83,7 @@ func (localMessageServer) SayHello(_ context.Context, req *greeterv1.SayHelloReq
 	return &greeterv1.SayHelloResponse{Message: fmt.Sprintf("hello %s from %s", req.GetName(), req.GetCity())}, nil
 }
 
-func (localMessageServer) Collect(ctx context.Context, stream rpcruntime.CGOMessageClientStream[*greeterv1.SayHelloRequest]) (*greeterv1.SayHelloResponse, error) {
+func (localMessageServer) Collect(ctx context.Context, stream rpcruntime.ClientStreamingServer[*greeterv1.SayHelloRequest]) (*greeterv1.SayHelloResponse, error) {
 	var names []string
 	for {
 		req, err := stream.Recv(ctx)
@@ -97,7 +97,7 @@ func (localMessageServer) Collect(ctx context.Context, stream rpcruntime.CGOMess
 	}
 }
 
-func (localMessageServer) Broadcast(ctx context.Context, req *greeterv1.SayHelloRequest, stream rpcruntime.CGOMessageServerStream[*greeterv1.SayHelloResponse]) error {
+func (localMessageServer) Broadcast(ctx context.Context, req *greeterv1.SayHelloRequest, stream rpcruntime.ServerStreamingServer[*greeterv1.SayHelloResponse]) error {
 	for index := 0; index < 2; index++ {
 		resp := &greeterv1.SayHelloResponse{Message: fmt.Sprintf("broadcast[%d]:%s", index, req.GetName())}
 		if err := stream.Send(ctx, resp); err != nil {
@@ -107,7 +107,7 @@ func (localMessageServer) Broadcast(ctx context.Context, req *greeterv1.SayHello
 	return nil
 }
 
-func (localMessageServer) Chat(ctx context.Context, stream rpcruntime.CGOMessageBidiStream[*greeterv1.SayHelloRequest, *greeterv1.SayHelloResponse]) error {
+func (localMessageServer) Chat(ctx context.Context, stream rpcruntime.BidiStreamingServer[*greeterv1.SayHelloRequest, *greeterv1.SayHelloResponse]) error {
 	for {
 		req, err := stream.Recv(ctx)
 		if err == io.EOF {

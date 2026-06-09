@@ -164,9 +164,9 @@ func TestRenderMessageArtifactsEmitsDirectTransportArtifacts(t *testing.T) {
 		for _, fragment := range []string{
 			"type GreeterCGOMessageServer interface {",
 			"Unary(ctx context.Context, req *MessageRequest) (*MessageReply, error)",
-			"Upload(ctx context.Context, stream rpcruntime.CGOMessageClientStream[*MessageRequest]) (*MessageReply, error)",
-			"List(ctx context.Context, req *MessageRequest, stream rpcruntime.CGOMessageServerStream[*MessageReply]) error",
-			"Chat(ctx context.Context, stream rpcruntime.CGOMessageBidiStream[*MessageRequest, *MessageReply]) error",
+			"Upload(ctx context.Context, stream rpcruntime.ClientStreamingServer[*MessageRequest]) (*MessageReply, error)",
+			"List(ctx context.Context, req *MessageRequest, stream rpcruntime.ServerStreamingServer[*MessageReply]) error",
+			"Chat(ctx context.Context, stream rpcruntime.BidiStreamingServer[*MessageRequest, *MessageReply]) error",
 		} {
 			assertGeneratedContentContains(t, plugin, messageContractFile, fragment)
 		}
@@ -831,17 +831,10 @@ func assertGeneratedFilenameContains(t *testing.T, plugin *protogen.Plugin, frag
 func assertGeneratedContentContains(t *testing.T, plugin *protogen.Plugin, filename string, fragment string) {
 	t.Helper()
 
-	for _, file := range plugin.Response().GetFile() {
-		if file.GetName() != filename {
-			continue
-		}
-		if !strings.Contains(file.GetContent(), fragment) {
-			t.Fatalf("generated file %q content missing %q: %q", filename, fragment, file.GetContent())
-		}
-		return
+	content := generatedFileContent(t, plugin, filename)
+	if !strings.Contains(content, fragment) {
+		t.Fatalf("generated file %q content missing %q: %q", filename, fragment, content)
 	}
-	response := plugin.Response()
-	t.Fatalf("generated file %q not found; all files: %v; response error: %q", filename, generatedFilenames(plugin), response.GetError())
 }
 
 func assertGeneratedContentDoesNotContain(t *testing.T, plugin *protogen.Plugin, fragments ...string) {
@@ -880,4 +873,30 @@ func generatedFilenames(plugin *protogen.Plugin) []string {
 		names = append(names, file.GetName())
 	}
 	return names
+}
+
+func generatedFileContent(t *testing.T, plugin *protogen.Plugin, filename string) string {
+	t.Helper()
+
+	for _, file := range plugin.Response().GetFile() {
+		if file.GetName() == filename {
+			return file.GetContent()
+		}
+	}
+	response := plugin.Response()
+	t.Fatalf("generated file %q not found; all files: %v; response error: %q", filename, generatedFilenames(plugin), response.GetError())
+	return ""
+}
+
+func assertContentOrder(t *testing.T, content string, fragments ...string) {
+	t.Helper()
+
+	offset := 0
+	for _, fragment := range fragments {
+		index := strings.Index(content[offset:], fragment)
+		if index < 0 {
+			t.Fatalf("content missing %q after byte offset %d: %q", fragment, offset, content)
+		}
+		offset += index + len(fragment)
+	}
 }

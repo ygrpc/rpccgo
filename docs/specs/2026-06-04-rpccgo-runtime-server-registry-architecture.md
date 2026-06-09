@@ -1,6 +1,6 @@
 # rpccgo Runtime Server Registry Architecture
 
-新版 rpccgo 使用 `rpcruntime` 的统一 server registry 保存每个 service 的 current registered server，并使用 `rpcruntime` 的统一 stream session registry 保存 active streaming session。Generated server contract artifact 负责对应 contract 的注册 helper 和 source session interface；generated service runtime 负责 registry lookup、typed dispatch、native/message 转换、cgo ABI glue、transport registration glue 和 stream `Start` glue；generated server contract artifact 或 runtime artifact 按 artifact selection 生成 package-level stream operation 函数。`rpcruntime` 只提供通用 server registry、`ServerKind`、stream session registry 和 transport/runtime primitive。
+新版 rpccgo 使用 `rpcruntime` 的统一 server registry 保存每个 service 的 current registered server，并使用 `rpcruntime` 的统一 stream session registry 保存 active streaming session。Generated server contract artifact 负责对应 contract 的注册 helper、handler stream interface 和 native stream envelope；generated service runtime 负责 registry lookup、typed dispatch、native/message 转换、cgo ABI glue、transport registration glue 和 stream `Start` glue；generated server contract artifact 或 runtime artifact 按 artifact selection 生成 package-level stream operation 函数。`rpcruntime` 只提供通用 server registry、`ServerKind`、stream session registry 和 transport/runtime primitive。
 
 ## 核心规则
 
@@ -54,9 +54,9 @@ cgo message unary call
 
 ## Streaming
 
-Stream `Start` 读取 current registered server 一次，根据 `ServerKind` 创建具体 typed stream session，并把 `{ServerKind, session}` 存入 `rpcruntime` 的全局 stream session registry。后续 `Send`、`Recv`、`Finish`、`CloseSend` 和 `Cancel` 只通过 stream handle 找回该 session，不重新读取 server registry。C per-method register 更新只影响后续 unary 调用和后续 stream `Start`，不影响已经开始的 stream session。
+Stream `Start` 读取 current registered server 一次，根据 `ServerKind` 取得具体 typed client endpoint，并把 `{ServerKind, session}` 存入 `rpcruntime` 的全局 stream session registry。后续 `Send`、`Recv`、`Finish`、`CloseSend` 和 `Cancel` 只通过 stream handle 找回该 endpoint，不重新读取 server registry。C per-method register 更新只影响后续 unary 调用和后续 stream `Start`，不影响已经开始的 stream session。
 
-Stream session 不保存 operation closure，也不维护通用 lifecycle state machine。Generated package-level stream operation 按 session record 的 `ServerKind` 把 `session` 转回对应 typed session 并直接调用。终态操作从 `rpcruntime` stream session registry 移除 handle；移除后的 handle 再操作返回 invalid-handle 错误。
+Stream session record 不保存 operation closure，也不维护 registry-level lifecycle state machine。Generated package-level stream operation 按 session record 的 `ServerKind` 把 `session` 转回对应 typed client endpoint 并直接调用。终态操作从 `rpcruntime` stream session registry 移除 handle；移除后的 handle 再操作返回 invalid-handle 错误。
 
 `Finish` 是 graceful terminal，`CloseSend` 是 bidi/client-streaming half-close，`Cancel` 是 abort terminal。具体 method operation、native/message conversion 和 flat ABI 编解码留在 generated service runtime。
 
@@ -85,7 +85,7 @@ Stream session 不保存 operation closure，也不维护通用 lifecycle state 
 
 Shared cgo exports 按 cgo Go package 只生成一次，文件名固定为 `rpccgo.exports.cgo.rpccgo.go`。
 
-Go native server contracts 位于 protobuf Go package 的 generated native server file，包含 `<Service>NativeServer`、native stream interfaces、native source session interfaces、native package-level stream operation functions 和 `Unimplemented<Service>NativeServer` helper。C message server contracts 位于 generated message server file，包含 `<Service>CGOMessageServer`、message stream interfaces、message source session interfaces、message package-level stream operation functions 和 `Unimplemented<Service>CGOMessageServer` helper。
+Go native server contracts 位于 protobuf Go package 的 generated native server file，包含 `<Service>NativeServer`、flat native handler stream interfaces、method-local native stream envelope、native package-level stream operation functions 和 `Unimplemented<Service>NativeServer` helper。Native 与 message active dispatch 共用 `rpcruntime.ClientStreamingClient[Req, Resp]`、`rpcruntime.ServerStreamingClient[Resp]` 和 `rpcruntime.BidiStreamingClient[Req, Resp]`；handler 侧对应使用 `ClientStreamingServer`、`ServerStreamingServer` 和 `BidiStreamingServer`。本地 Go server 调用由 reusable generic client/server endpoint structs 和 private shared state 管理 queue、acknowledgement、cancellation、close-send 和 completion；generated code 不生成 per-method state、session 或 thin facade。Go native 只生成 flat native fields 与 server endpoint envelope 之间的 mapper，C message server 则直接使用 typed protobuf message endpoint。
 
 Package-level stream operation functions use the operation, contract, service and method in the function name, and accept `rpcruntime.StreamHandle` directly, for example:
 
@@ -98,6 +98,6 @@ CloseSendGreeterNativeChat(ctx, handle)
 
 ## 不生成的结构
 
-Generated code 不应生成 native/message active binding slot、service-wide binding closure table、per-contract current server、runtime forwarding struct、remote adapter file、operation closure session、generic dispatcher、service-local stream registry、method-specific final session record 或只封装 handle 的 stream facade struct。
+Generated code 不应生成 native/message active binding slot、service-wide binding closure table、per-contract current server、runtime forwarding struct、remote adapter file、operation closure session、generic dispatcher、service-local stream registry、method-specific stream state/session/facade 或只封装 handle 的 stream facade struct。
 
 `rpcruntime` 不应引入 `ActiveServerSlot`、`ServerContract`、`AdapterSnapshot`、stream executor、generic dispatcher 或 registry lifecycle helper layer。`rpcruntime` 可以拥有通用 stream session record，因为该 record 只保存 `ServerKind` 与 opaque session，不执行 service-specific dispatch。

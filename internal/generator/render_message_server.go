@@ -26,11 +26,9 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	g.P(`errors "errors"`)
 	if serviceHasStreamingMethod(service) {
 		g.P(`fmt "fmt"`)
-		g.P(`io "io"`)
 		if messageServerNeedsGoRuntime(service) {
 			g.P(`goruntime "runtime"`)
 		}
-		g.P(`sync "sync"`)
 	}
 	g.P(`rpcruntime "`, rpcruntimeImportPath, `"`)
 	g.P(")")
@@ -48,11 +46,11 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 		case !method.Stream.Streaming:
 			renderDocLine(g, method.Identity.DocComment, method.Identity.GoName, "(ctx context.Context, req *", method.Message.RequestType, ") (*", method.Message.ResponseType, ", error)")
 		case method.Stream.CanSend && method.Stream.FinishReturnsResponse:
-			renderDocLine(g, method.Identity.DocComment, method.Identity.GoName, "(ctx context.Context, stream rpcruntime.CGOMessageClientStream[*", method.Message.RequestType, "]) (*", method.Message.ResponseType, ", error)")
+			renderDocLine(g, method.Identity.DocComment, method.Identity.GoName, "(ctx context.Context, stream rpcruntime.ClientStreamingServer[*", method.Message.RequestType, "]) (*", method.Message.ResponseType, ", error)")
 		case method.Stream.CanRecv && !method.Stream.CanSend:
-			renderDocLine(g, method.Identity.DocComment, method.Identity.GoName, "(ctx context.Context, req *", method.Message.RequestType, ", stream rpcruntime.CGOMessageServerStream[*", method.Message.ResponseType, "]) error")
+			renderDocLine(g, method.Identity.DocComment, method.Identity.GoName, "(ctx context.Context, req *", method.Message.RequestType, ", stream rpcruntime.ServerStreamingServer[*", method.Message.ResponseType, "]) error")
 		case method.Stream.CanSend && method.Stream.CanRecv && method.Stream.CanCloseSend:
-			renderDocLine(g, method.Identity.DocComment, method.Identity.GoName, "(ctx context.Context, stream rpcruntime.CGOMessageBidiStream[*", method.Message.RequestType, ", *", method.Message.ResponseType, "]) error")
+			renderDocLine(g, method.Identity.DocComment, method.Identity.GoName, "(ctx context.Context, stream rpcruntime.BidiStreamingServer[*", method.Message.RequestType, ", *", method.Message.ResponseType, "]) error")
 		}
 	}
 	g.P("}")
@@ -117,15 +115,15 @@ func renderUnimplementedCGOMessageServer(g *protogen.GeneratedFile, service Serv
 			g.P("return nil, ", errExpr)
 			g.P("}")
 		case method.Stream.CanSend && method.Stream.FinishReturnsResponse:
-			g.P("func (", serverName, ") ", method.Identity.GoName, "(ctx context.Context, stream rpcruntime.CGOMessageClientStream[*", method.Message.RequestType, "]) (*", method.Message.ResponseType, ", error) {")
+			g.P("func (", serverName, ") ", method.Identity.GoName, "(ctx context.Context, stream rpcruntime.ClientStreamingServer[*", method.Message.RequestType, "]) (*", method.Message.ResponseType, ", error) {")
 			g.P("return nil, ", errExpr)
 			g.P("}")
 		case method.Stream.CanRecv && !method.Stream.CanSend:
-			g.P("func (", serverName, ") ", method.Identity.GoName, "(ctx context.Context, req *", method.Message.RequestType, ", stream rpcruntime.CGOMessageServerStream[*", method.Message.ResponseType, "]) error {")
+			g.P("func (", serverName, ") ", method.Identity.GoName, "(ctx context.Context, req *", method.Message.RequestType, ", stream rpcruntime.ServerStreamingServer[*", method.Message.ResponseType, "]) error {")
 			g.P("return ", errExpr)
 			g.P("}")
 		case method.Stream.CanSend && method.Stream.CanRecv && method.Stream.CanCloseSend:
-			g.P("func (", serverName, ") ", method.Identity.GoName, "(ctx context.Context, stream rpcruntime.CGOMessageBidiStream[*", method.Message.RequestType, ", *", method.Message.ResponseType, "]) error {")
+			g.P("func (", serverName, ") ", method.Identity.GoName, "(ctx context.Context, stream rpcruntime.BidiStreamingServer[*", method.Message.RequestType, ", *", method.Message.ResponseType, "]) error {")
 			g.P("return ", errExpr)
 			g.P("}")
 		}

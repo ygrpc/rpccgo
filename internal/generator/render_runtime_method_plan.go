@@ -59,8 +59,8 @@ type runtimeMethodSymbolsProjection struct {
 	MessageEntryMethod       string
 	NativeAdapterMethod      string
 	MessageAdapterMethod     string
-	NativeSourceSessionType  string
-	MessageSourceSessionType string
+	NativeStreamRequestType  string
+	NativeStreamResponseType string
 }
 
 type runtimeCodecProjection struct {
@@ -115,8 +115,8 @@ func runtimePlaceholderMethodProjection(serviceName, methodName string, shape ru
 			MessageEntryMethod:       methodName,
 			NativeAdapterMethod:      methodName,
 			MessageAdapterMethod:     methodName,
-			NativeSourceSessionType:  serviceName + methodName + "NativeStreamSession",
-			MessageSourceSessionType: serviceName + methodName + "MessageStreamSession",
+			NativeStreamRequestType:  serviceName + methodName + "NativeStreamRequest",
+			NativeStreamResponseType: serviceName + methodName + "NativeStreamResponse",
 		},
 	}
 	switch shape {
@@ -126,19 +126,19 @@ func runtimePlaceholderMethodProjection(serviceName, methodName string, shape ru
 		projected.Stream.Streaming = true
 		projected.Stream.CanSend = true
 		projected.Stream.FinishReturnsResponse = true
-		projected.Native.EntryResult = " (" + projected.Symbols.NativeSourceSessionType + ", error)"
+		projected.Native.EntryResult = " (" + runtimeNativeStreamingClientInterface(projected) + ", error)"
 	case runtimeStreamServer:
 		projected.Stream.Streaming = true
 		projected.Stream.Shape = runtimeStreamServer
 		projected.Stream.CanRecv = true
 		projected.Stream.StartAcceptsRequest = true
-		projected.Native.EntryResult = " (" + projected.Symbols.NativeSourceSessionType + ", error)"
+		projected.Native.EntryResult = " (" + runtimeNativeStreamingClientInterface(projected) + ", error)"
 	case runtimeStreamBidi:
 		projected.Stream.Streaming = true
 		projected.Stream.CanSend = true
 		projected.Stream.CanRecv = true
 		projected.Stream.CanCloseSend = true
-		projected.Native.EntryResult = " (" + projected.Symbols.NativeSourceSessionType + ", error)"
+		projected.Native.EntryResult = " (" + runtimeNativeStreamingClientInterface(projected) + ", error)"
 	}
 	return projected
 }
@@ -162,8 +162,8 @@ func projectRuntimeMethod(g *protogen.GeneratedFile, service ServicePlan, method
 		MessageEntryMethod:       method.RenderPlan.Symbols.MessageEntryMethod,
 		NativeAdapterMethod:      method.RenderPlan.Symbols.NativeAdapterMethod,
 		MessageAdapterMethod:     method.RenderPlan.Symbols.MessageAdapterMethod,
-		NativeSourceSessionType:  method.RenderPlan.Symbols.NativeSessionType,
-		MessageSourceSessionType: method.RenderPlan.Symbols.MessageSessionType,
+		NativeStreamRequestType:  method.RenderPlan.Symbols.NativeStreamRequestType,
+		NativeStreamResponseType: method.RenderPlan.Symbols.NativeStreamResponseType,
 	}
 	requestType := ""
 	responseType := ""
@@ -209,7 +209,7 @@ func projectRuntimeMethod(g *protogen.GeneratedFile, service ServicePlan, method
 		projected.Native.EntryResult = " (" + nativeReturns + ")"
 		return projected, nil
 	}
-	projected.Native.EntryResult = " (" + projected.Symbols.NativeSourceSessionType + ", error)"
+	projected.Native.EntryResult = " (" + runtimeNativeStreamingClientInterface(projected) + ", error)"
 	if stream.StartAcceptsRequest {
 		projected.Native.EntryArgs = nativeArgs
 	}

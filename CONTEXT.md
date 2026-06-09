@@ -37,8 +37,12 @@ _Avoid_: Active record source, RecordRenderer as contract
 _Avoid_: generated service runtime
 
 **Stream session**:
-一次 streaming call 在 `Start` 后保存到 **Runtime core** 的 `{ServerKind, session}` record；后续 stream operation 通过 handle 找回 record，并由 generated code 按 kind 把 session 转回对应 typed session 直接调用。
+一次 streaming call 在 `Start` 后保存到 **Runtime core** 的 `{ServerKind, session}` record；其中 `session` 是该 call 的 typed client endpoint。后续 stream operation 通过 handle 找回 record，并由 generated code 按 kind 转回对应 endpoint 直接调用。
 _Avoid_: stream lifecycle state machine, operation closure session
+
+**Stream endpoint**:
+Streaming call 的单侧操作能力，必须同时按 streaming shape 与 client/server side 区分。Client streaming、server streaming 和 bidi streaming 各自拥有 client endpoint 与 server endpoint；两侧共享一次 call 的状态，但暴露不同方向的操作。
+_Avoid_: direction-neutral stream, per-method facade
 
 **Stream operation projection**:
 generator 侧的 contract-to-render 投影，把 streaming method 的 operation capability、terminal policy 和 codec requirement 转换为 generated package-level stream operation 函数；不执行 runtime state machine，也不拥有 handle storage。
@@ -80,12 +84,13 @@ _Avoid_: active server
 - Go native server 与 C native server 都实现同一个 **Native** server contract；C message server 属于 **Message contract**，不应被混入 native server 命名。
 - C message server 应有独立的 generated server contract，例如 `GreeterCGOMessageServer`；其方法名使用 service method Go name，不额外追加 `Message` 或 `Start` 前缀，message contract 由 server contract 名称表达。
 - C message server 的 Go 侧 server contract 使用 typed protobuf request/response message；跨 C ABI 的 `ptr/len` bytes 只是 **Message contract** 的 C projection，不是 Go 侧 contract surface。
-- C message server 的 Go 侧 streaming 参数使用带 CGO 前缀的 generic stream surface，例如 `CGOMessageClientStream[Req]`、`CGOMessageServerStream[Resp]` 和 `CGOMessageBidiStream[Req, Resp]`，用于区别标准 connect/gRPC transport stream。
-- C message runtime active stream session 使用带 `Session` 后缀的 generic operation surface，例如 `CGOMessageClientStreamSession[Req, Resp]`、`CGOMessageServerStreamSession[Resp]` 和 `CGOMessageBidiStreamSession[Req, Resp]`；它与 handler-style stream 方向相反，不生成 per-method message source session interface。
+- Native 与 Message contract 共用按 shape 和 side 区分的 generic **Stream endpoint** surface：`ClientStreamingClient/Server`、`ServerStreamingClient/Server` 和 `BidiStreamingClient/Server`。Contract 差异由 endpoint 的 `Req` / `Resp` 类型表达，不使用 `Native`、`CGOMessage` 或 `Session` 前缀复制接口。
+- 本地 Go server 调用使用成对的 generic client/server endpoint；两端通过私有 shared state 协调 queue、ack、cancel、close-send 和 finish。Generated code 不生成 per-method state、client facade 或重复 lifecycle methods。
+- Native endpoint 的 `Req` / `Resp` 使用 generated method-local envelope；package-level native stream operation 和 Go native handler stream interface 仍暴露 flat field-level boundary。Go native 只生成 flat fields 与 server endpoint envelope 之间的 mapper。
 - Go 侧 typed **Message contract** request/response 不接受 nil protobuf message；nil request、nil response 或 nil stream payload 必须返回显式错误。C ABI 的空 `ptr/len` bytes 表示空 protobuf message，由 generated C projection 转换为非 nil typed message。
 - C **Message contract** projection 读取 `ptr/len` bytes 时，`len == 0` 一律转换为非 nil 空 protobuf message 且不读取 `ptr`；`len < 0` 或 `len > 0 && ptr == 0` 必须返回显式错误。
 - C **Message contract** projection 写出 typed protobuf message 时，先拒绝 nil message，再序列化；序列化结果长度为 0 时输出 `ptr=0,len=0` 且不分配跨 C 边界 buffer。
-- C message server streaming 方法属于 handler-style server contract：stream 对象作为方法参数传入；`Start` 返回 final session 只属于 generated server contract artifact 与 C callback ABI 的内部投影。
+- C message server streaming 方法属于 handler-style server contract：server endpoint 作为方法参数传入；`Start` 返回 client endpoint 只属于 generated runtime dispatch 与 C callback ABI 的内部投影。
 - C **Message contract** server callback 与 C **Native** server callback 一样支持按 method 局部注册；未注册 method 调用时返回 generated unimplemented error，streaming method 的 operation callbacks 不允许半注册。
 - **Native C ABI lowering** 必须从 **Native** / `NativeContractPlan` 派生，不能重新解释 proto descriptor 或形成独立 contract。
 - C 侧 **Native** callback 必须使用字段级参数列表，例如 `field_ptr/field_len/ownership` 和输出字段指针参数；不能接收 generated `Request*` / `Response*` struct。
@@ -114,9 +119,9 @@ _Avoid_: active server
 - **Registered server** 是新版调用模型的一部分；它不能改变 **Native** 的字段级函数边界语义。
 - **Runtime core** 负责通用 server registry、server kind、全局 stream session registry 和 connect stream unsafe shim；**Generated service runtime** 负责 service-specific typed glue、registry lookup、native/message 转换和 flat ABI 编解码。
 - Stream 终态操作通过从 stream registry 移除 handle 来表达；移除后的 handle 再操作返回 invalid-handle 错误，不维护额外通用 lifecycle state machine。
-- **Runtime core** 统一持有 stream session registry，并直接保存 `{ServerKind, session}` record。Generated `Start` 负责创建 service-specific typed session 后写入 **Runtime core**；generated stream operation 函数通过 handle 取回 record 后执行 service-specific typed dispatch 与 Native/Message 转换。
+- **Runtime core** 统一持有 stream session registry，并直接保存 `{ServerKind, session}` record。Generated `Start` 负责取得 typed client endpoint 后写入 **Runtime core**；generated stream operation 函数通过 handle 取回 record 后执行 service-specific typed dispatch 与 Native/Message 转换。
 - Generated code 不应生成 service-local stream registry、method-specific final session record、只包一层 handle 的 stream handle facade，或把 `Send`、`Recv`、`Finish`、`CloseSend`、`Cancel` 实现为 handle wrapper 的成员方法。
-- Native/Message source session interface 仍生成在对应 server contract artifact 中，因为它们是 service-specific typed dispatch surface；`{ServerKind, session}` record type 属于 **Runtime core**，不在 generated artifact 中重复生成。
+- Native handler stream interface 仍生成在 native server contract artifact 中并保持 flat field-level boundary；Native active stream dispatch 使用 generic client endpoint 和 generated method-local envelope。`{ServerKind, session}` record type 属于 **Runtime core**，不在 generated artifact 中重复生成。
 - Server contract registration helper 应生成在定义该 server contract 的 artifact 中；standard transport registration helper 可以留在 **Generated service runtime** 中。所有 helper 都必须把具体 server 注册到 **Server registry**；用户不直接手写 **Service ID** 或 **Server kind** 调用 runtime primitive。
 - **Generated service runtime** 不应生成 native/message active closure 字段；native/message 差异应由 server contract、registry lookup 和转换逻辑表达。
 - **Registration source** 使用 `Origin + Contract + Transport + Mode` 描述；renderer 选择由这四个维度派生，source plan 不存储 `RecordRenderer`。`Label` 只用于错误文本，不能控制生成逻辑。
@@ -145,7 +150,7 @@ _Avoid_: active server
 - Registration helper 失败时会清空该 **Service ID** 当前 **Registered server** 并返回错误；后续调用应得到 no-active-server 错误，而不是继续使用旧 server。
 - Generated service runtime 暴露 service-specific clear helper 来清空当前 **Registered server**；用户不直接手写 **Service ID** 调用 runtime clear primitive。
 - Unary 调用每次从 **Server registry** 读取 current **Registered server**；重新注册只影响后续 unary 调用和后续 stream `Start`。
-- Streaming `Start` 捕获当前 **Registered server** record 并创建 **Stream session**；后续 stream 操作只通过 stream handle 从 **Runtime core** 找回该 session，不重新读取 **Server registry**，也不通过 operation closure 调用。
+- Streaming `Start` 捕获当前 **Registered server** record，取得 typed client endpoint 并创建 **Stream session**；后续 stream 操作只通过 stream handle 从 **Runtime core** 找回该 endpoint，不重新读取 **Server registry**，也不通过 operation closure 调用。
 - 外部包只能通过 generated package-level entry 函数进入；不应再生成只转发到内部对象的 public client object，也不应保留 runtime forwarding struct。
 - 无 registered server 使用 `rpcruntime.ErrNoActiveServer`。错误必须显式传递。
 - **Remote registered server** 使用标准 transport client 作为注册输入；rpccgo generated code 不应构造 per-method client。
