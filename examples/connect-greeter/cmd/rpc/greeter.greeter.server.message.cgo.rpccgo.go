@@ -93,6 +93,39 @@ type greeterCGOMessageAdapter struct {
 	ChatCancel       C.GreeterChatCGOMessageBidiStreamCancelCallback
 }
 
+// greeterCGOMessageRecvResult carries the result of a blocking cgo message Recv callback.
+type greeterCGOMessageRecvResult[T any] struct {
+	value T
+	err   error
+}
+
+// greeterAwaitCGOMessageRecv waits for a blocking cgo message Recv callback while allowing Finish or Cancel to interrupt the wait.
+func greeterAwaitCGOMessageRecv[T any](ctx context.Context, finishRequested <-chan struct{}, recv func() (T, error), finish func() error, cancel func() error) (T, error, bool) {
+	select {
+	case <-finishRequested:
+		var zero T
+		return zero, finish(), true
+	case <-ctx.Done():
+		var zero T
+		return zero, errors.Join(ctx.Err(), cancel()), true
+	default:
+	}
+	results := make(chan greeterCGOMessageRecvResult[T], 1)
+	go func() {
+		value, err := recv()
+		results <- greeterCGOMessageRecvResult[T]{value: value, err: err}
+	}()
+	var zero T
+	select {
+	case result := <-results:
+		return result.value, result.err, false
+	case <-finishRequested:
+		return zero, finish(), true
+	case <-ctx.Done():
+		return zero, errors.Join(ctx.Err(), cancel()), true
+	}
+}
+
 func (a *greeterCGOMessageAdapter) SayHello(ctx context.Context, req *proto.SayHelloRequest) (*proto.SayHelloResponse, error) {
 	if a == nil {
 		return nil, greeterCGOMessageServerCallbacksNil
@@ -287,12 +320,10 @@ func (a *greeterCGOMessageAdapter) Broadcast(ctx context.Context, req *proto.Say
 		return err
 	}
 	for {
-		select {
-		case <-stream.FinishRequested():
-			return session.Finish(ctx)
-		default:
+		resp, err, stopped := greeterAwaitCGOMessageRecv(ctx, stream.FinishRequested(), func() (*proto.SayHelloResponse, error) { return session.Recv(ctx) }, func() error { return session.Finish(ctx) }, func() error { return session.Cancel(ctx) })
+		if stopped {
+			return err
 		}
-		resp, err := session.Recv(ctx)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return session.Finish(ctx)
@@ -383,6 +414,7 @@ func (a *greeterCGOMessageAdapter) Chat(ctx context.Context, stream rpcruntime.B
 	}
 	bridgeCtx, cancelBridge := context.WithCancel(ctx)
 	defer cancelBridge()
+	cancelSession := sync.OnceValue(func() error { return session.Cancel(bridgeCtx) })
 	errs := make(chan error, 2)
 	go func() {
 		for {
@@ -403,13 +435,11 @@ func (a *greeterCGOMessageAdapter) Chat(ctx context.Context, stream rpcruntime.B
 	}()
 	go func() {
 		for {
-			select {
-			case <-stream.FinishRequested():
-				errs <- session.Finish(bridgeCtx)
+			resp, err, stopped := greeterAwaitCGOMessageRecv(bridgeCtx, stream.FinishRequested(), func() (*proto.SayHelloResponse, error) { return session.Recv(bridgeCtx) }, func() error { return session.Finish(bridgeCtx) }, cancelSession)
+			if stopped {
+				errs <- err
 				return
-			default:
 			}
-			resp, err := session.Recv(bridgeCtx)
 			if errors.Is(err, io.EOF) {
 				errs <- session.Finish(bridgeCtx)
 				return
@@ -436,7 +466,7 @@ func (a *greeterCGOMessageAdapter) Chat(ctx context.Context, stream rpcruntime.B
 	for range 2 {
 		if err := <-errs; err != nil {
 			if resultErr == nil {
-				_ = session.Cancel(bridgeCtx)
+				_ = cancelSession()
 				cancelBridge()
 			}
 			resultErr = errors.Join(resultErr, err)

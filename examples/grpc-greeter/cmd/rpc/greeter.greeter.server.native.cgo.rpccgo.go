@@ -132,6 +132,39 @@ type greeterCGONativeAdapter struct {
 	ChatCancel       C.GreeterChatCGONativeBidiStreamCancelCallback
 }
 
+// greeterCGONativeRecvResult carries the result of a blocking cgo native Recv callback.
+type greeterCGONativeRecvResult[T any] struct {
+	value T
+	err   error
+}
+
+// greeterAwaitCGONativeRecv waits for a blocking cgo native Recv callback while allowing Finish or Cancel to interrupt the wait.
+func greeterAwaitCGONativeRecv[T any](ctx context.Context, finishRequested <-chan struct{}, recv func() (T, error), finish func() error, cancel func() error) (T, error, bool) {
+	select {
+	case <-finishRequested:
+		var zero T
+		return zero, finish(), true
+	case <-ctx.Done():
+		var zero T
+		return zero, errors.Join(ctx.Err(), cancel()), true
+	default:
+	}
+	results := make(chan greeterCGONativeRecvResult[T], 1)
+	go func() {
+		value, err := recv()
+		results <- greeterCGONativeRecvResult[T]{value: value, err: err}
+	}()
+	var zero T
+	select {
+	case result := <-results:
+		return result.value, result.err, false
+	case <-finishRequested:
+		return zero, finish(), true
+	case <-ctx.Done():
+		return zero, errors.Join(ctx.Err(), cancel()), true
+	}
+}
+
 func (a *greeterCGONativeAdapter) SayHello(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (string, error) {
 	if a == nil {
 		return "", greeterCGONativeServerCallbacksNil
@@ -430,12 +463,10 @@ func (a *greeterCGONativeAdapter) Broadcast(ctx context.Context, name *rpcruntim
 		return err
 	}
 	for {
-		select {
-		case <-stream.FinishRequested():
-			return session.Finish(ctx)
-		default:
+		resp, err, stopped := greeterAwaitCGONativeRecv(ctx, stream.FinishRequested(), func() (v1.GreeterBroadcastNativeStreamResponse, error) { return session.Recv(ctx) }, func() error { return session.Finish(ctx) }, func() error { return session.Cancel(ctx) })
+		if stopped {
+			return err
 		}
-		resp, err := session.Recv(ctx)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				return session.Finish(ctx)
@@ -477,16 +508,10 @@ func (a *greeterCGONativeAdapter) Chat(ctx context.Context, stream v1.GreeterCha
 		}
 	}()
 	for {
-		select {
-		case <-stream.FinishRequested():
-			if sendErr := <-sendDone; sendErr != nil {
-				_ = session.Cancel(ctx)
-				return sendErr
-			}
-			return session.Finish(ctx)
-		default:
+		resp, err, stopped := greeterAwaitCGONativeRecv(ctx, stream.FinishRequested(), func() (v1.GreeterChatNativeStreamResponse, error) { return session.Recv(ctx) }, func() error { return session.Finish(ctx) }, func() error { return session.Cancel(ctx) })
+		if stopped {
+			return errors.Join(err, <-sendDone)
 		}
-		resp, err := session.Recv(ctx)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				if sendErr := <-sendDone; sendErr != nil {

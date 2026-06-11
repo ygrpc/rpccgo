@@ -56,6 +56,19 @@ func TestGeneratorExportedDeclarationsHaveDocComments(t *testing.T) {
 	}
 }
 
+func TestCGORecvWaiterRenderersHaveDocComments(t *testing.T) {
+	for name, declarations := range map[string][]string{
+		"render_message_server_cgo.go": {"renderCGOMessageRecvWaiter"},
+		"render_native_server_cgo.go":  {"renderCGONativeRecvWaiter"},
+	} {
+		content, err := os.ReadFile(name)
+		if err != nil {
+			t.Fatalf("read %s: %v", name, err)
+		}
+		assertGoSourceNamedDeclarationsHaveDocComments(t, name, string(content), declarations)
+	}
+}
+
 func assertCGOExportWrappersHaveDocComments(t *testing.T, name, content string) {
 	t.Helper()
 
@@ -110,6 +123,38 @@ func assertGoSourceExportedDeclarationsHaveDocComments(t *testing.T, name, conte
 			if ast.IsExported(d.Name.Name) && exportedReceiver(d.Recv) && !hasPublicDoc(d.Doc) {
 				t.Errorf("%s:%d: exported function %s lacks doc comment", name, fset.Position(d.Pos()).Line, d.Name.Name)
 			}
+		}
+	}
+}
+
+func assertGoSourceNamedDeclarationsHaveDocComments(t *testing.T, name, content string, declarations []string) {
+	t.Helper()
+
+	wanted := make(map[string]bool, len(declarations))
+	for _, declaration := range declarations {
+		wanted[declaration] = false
+	}
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, name, content, parser.ParseComments)
+	if err != nil {
+		t.Fatalf("parse %s: %v", name, err)
+	}
+	for _, decl := range file.Decls {
+		function, ok := decl.(*ast.FuncDecl)
+		if !ok {
+			continue
+		}
+		if _, ok := wanted[function.Name.Name]; !ok {
+			continue
+		}
+		wanted[function.Name.Name] = true
+		if !hasPublicDoc(function.Doc) {
+			t.Errorf("%s:%d: function %s lacks doc comment", name, fset.Position(function.Pos()).Line, function.Name.Name)
+		}
+	}
+	for declaration, found := range wanted {
+		if !found {
+			t.Errorf("%s: declaration %s not found", name, declaration)
 		}
 	}
 }

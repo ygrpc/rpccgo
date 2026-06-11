@@ -552,6 +552,7 @@ func renderCGONativeServerAdapter(g *protogen.GeneratedFile, service ServicePlan
 	renderCGONativeServerAdapterFields(g, service, abi)
 	g.P("}")
 	g.P()
+	renderCGONativeRecvWaiter(g, service)
 
 	byName := make(map[string]MethodPlan, len(service.Methods))
 	for _, method := range service.Methods {
@@ -608,6 +609,44 @@ func renderCGONativeServerAdapter(g *protogen.GeneratedFile, service ServicePlan
 		}
 	}
 	renderCGONativeErrorIDHelper(g, service)
+}
+
+// renderCGONativeRecvWaiter emits the coordination types that let Finish or Cancel interrupt a blocking cgo native Recv callback.
+func renderCGONativeRecvWaiter(g *protogen.GeneratedFile, service ServicePlan) {
+	prefix := lowerInitial(service.GoName)
+	g.P("// ", prefix, "CGONativeRecvResult carries the result of a blocking cgo native Recv callback.")
+	g.P("type ", prefix, "CGONativeRecvResult[T any] struct {")
+	g.P("value T")
+	g.P("err error")
+	g.P("}")
+	g.P()
+	g.P("// ", prefix, "AwaitCGONativeRecv waits for a blocking cgo native Recv callback while allowing Finish or Cancel to interrupt the wait.")
+	g.P("func ", prefix, "AwaitCGONativeRecv[T any](ctx context.Context, finishRequested <-chan struct{}, recv func() (T, error), finish func() error, cancel func() error) (T, error, bool) {")
+	g.P("select {")
+	g.P("case <-finishRequested:")
+	g.P("var zero T")
+	g.P("return zero, finish(), true")
+	g.P("case <-ctx.Done():")
+	g.P("var zero T")
+	g.P("return zero, errors.Join(ctx.Err(), cancel()), true")
+	g.P("default:")
+	g.P("}")
+	g.P("results := make(chan ", prefix, "CGONativeRecvResult[T], 1)")
+	g.P("go func() {")
+	g.P("value, err := recv()")
+	g.P("results <- ", prefix, "CGONativeRecvResult[T]{value: value, err: err}")
+	g.P("}()")
+	g.P("var zero T")
+	g.P("select {")
+	g.P("case result := <-results:")
+	g.P("return result.value, result.err, false")
+	g.P("case <-finishRequested:")
+	g.P("return zero, finish(), true")
+	g.P("case <-ctx.Done():")
+	g.P("return zero, errors.Join(ctx.Err(), cancel()), true")
+	g.P("}")
+	g.P("}")
+	g.P()
 }
 
 func renderCGONativeServerAdapterFields(g *protogen.GeneratedFile, service ServicePlan, abi nativeCServiceABI) {
@@ -950,16 +989,14 @@ func renderCGONativeServerServerStreamServerMethod(g *protogen.GeneratedFile, se
 	g.P("return err")
 	g.P("}")
 	g.P("for {")
-	g.P("select {")
-	g.P("case <-stream.FinishRequested():")
-	g.P("return session.Finish(ctx)")
-	g.P("default:")
-	g.P("}")
 	if len(method.Contract.Native.ResponseFields) == 0 {
-		g.P("_, err := session.Recv(ctx)")
+		g.P("_, err, stopped := ", lowerInitial(service.GoName), "AwaitCGONativeRecv(ctx, stream.FinishRequested(), func() (", servicePackage, method.RenderPlan.Symbols.NativeStreamResponseType, ", error) { return session.Recv(ctx) }, func() error { return session.Finish(ctx) }, func() error { return session.Cancel(ctx) })")
 	} else {
-		g.P("resp, err := session.Recv(ctx)")
+		g.P("resp, err, stopped := ", lowerInitial(service.GoName), "AwaitCGONativeRecv(ctx, stream.FinishRequested(), func() (", servicePackage, method.RenderPlan.Symbols.NativeStreamResponseType, ", error) { return session.Recv(ctx) }, func() error { return session.Finish(ctx) }, func() error { return session.Cancel(ctx) })")
 	}
+	g.P("if stopped {")
+	g.P("return err")
+	g.P("}")
 	g.P("if err != nil {")
 	g.P("if errors.Is(err, io.EOF) {")
 	g.P("return session.Finish(ctx)")
@@ -1150,20 +1187,14 @@ func renderCGONativeServerBidiStreamServerMethod(g *protogen.GeneratedFile, serv
 	g.P("}")
 	g.P("}()")
 	g.P("for {")
-	g.P("select {")
-	g.P("case <-stream.FinishRequested():")
-	g.P("if sendErr := <-sendDone; sendErr != nil {")
-	g.P("_ = session.Cancel(ctx)")
-	g.P("return sendErr")
-	g.P("}")
-	g.P("return session.Finish(ctx)")
-	g.P("default:")
-	g.P("}")
 	if len(method.Contract.Native.ResponseFields) == 0 {
-		g.P("_, err := session.Recv(ctx)")
+		g.P("_, err, stopped := ", lowerInitial(service.GoName), "AwaitCGONativeRecv(ctx, stream.FinishRequested(), func() (", servicePackage, method.RenderPlan.Symbols.NativeStreamResponseType, ", error) { return session.Recv(ctx) }, func() error { return session.Finish(ctx) }, func() error { return session.Cancel(ctx) })")
 	} else {
-		g.P("resp, err := session.Recv(ctx)")
+		g.P("resp, err, stopped := ", lowerInitial(service.GoName), "AwaitCGONativeRecv(ctx, stream.FinishRequested(), func() (", servicePackage, method.RenderPlan.Symbols.NativeStreamResponseType, ", error) { return session.Recv(ctx) }, func() error { return session.Finish(ctx) }, func() error { return session.Cancel(ctx) })")
 	}
+	g.P("if stopped {")
+	g.P("return errors.Join(err, <-sendDone)")
+	g.P("}")
 	g.P("if err != nil {")
 	g.P("if errors.Is(err, io.EOF) {")
 	g.P("if sendErr := <-sendDone; sendErr != nil {")
