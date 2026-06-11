@@ -23,6 +23,7 @@ type ServerStreamingClient[Resp any] interface {
 
 // ServerStreamingServer is the server-side operation surface for a server-streaming RPC.
 type ServerStreamingServer[Resp any] interface {
+	FinishRequested() <-chan struct{}
 	Send(context.Context, Resp) error
 }
 
@@ -37,6 +38,7 @@ type BidiStreamingClient[Req, Resp any] interface {
 
 // BidiStreamingServer is the server-side operation surface for a bidirectional-streaming RPC.
 type BidiStreamingServer[Req, Resp any] interface {
+	FinishRequested() <-chan struct{}
 	Recv(context.Context) (Req, error)
 	Send(context.Context, Resp) error
 }

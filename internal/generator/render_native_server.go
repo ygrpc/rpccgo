@@ -118,6 +118,7 @@ func renderGoNativeStreamInterfaces(g *protogen.GeneratedFile, service ServicePl
 			name := service.GoName + method.GoName + "NativeServerStream"
 			renderDoc(g, name, "sends native response values for the "+method.GoName+" server-streaming method.")
 			g.P("type ", service.GoName, method.GoName, "NativeServerStream interface {")
+			g.P("FinishRequested() <-chan struct{}")
 			g.P("Send(ctx context.Context", responseParams, ") error")
 			g.P("}")
 			g.P()
@@ -125,6 +126,7 @@ func renderGoNativeStreamInterfaces(g *protogen.GeneratedFile, service ServicePl
 			name := service.GoName + method.GoName + "NativeBidiStream"
 			renderDoc(g, name, "sends and receives native values for the "+method.GoName+" bidi-streaming method.")
 			g.P("type ", service.GoName, method.GoName, "NativeBidiStream interface {")
+			g.P("FinishRequested() <-chan struct{}")
 			g.P("Recv(ctx context.Context) (", requestReturns, ")")
 			g.P("Send(ctx context.Context", responseParams, ") error")
 			g.P("}")
@@ -318,6 +320,10 @@ func renderGoNativeClientStreamingServerRecv(g *protogen.GeneratedFile, receiver
 }
 
 func renderGoNativeServerStreamingServerSend(g *protogen.GeneratedFile, receiver string, method MethodPlan, errorNames nativeServerErrorNames) {
+	g.P("func (s *", receiver, ") FinishRequested() <-chan struct{} {")
+	g.P("return s.stream.FinishRequested()")
+	g.P("}")
+	g.P()
 	responseParams := nativeGoResponseParams(g, method.Contract.Native.ResponseFields)
 	g.P("func (s *", receiver, ") Send(ctx context.Context", responseParams, ") error {")
 	g.P("return s.stream.Send(ctx, ", nativeResponseEnvelopeLiteralFromLocals(method), ")")
@@ -327,6 +333,10 @@ func renderGoNativeServerStreamingServerSend(g *protogen.GeneratedFile, receiver
 }
 
 func renderGoNativeBidiStreamingServerRecv(g *protogen.GeneratedFile, receiver string, method MethodPlan) {
+	g.P("func (s *", receiver, ") FinishRequested() <-chan struct{} {")
+	g.P("return s.stream.FinishRequested()")
+	g.P("}")
+	g.P()
 	requestReturns := nativeGoRequestReturns(g, method.Contract.Native.RequestFields)
 	g.P("func (s *", receiver, ") Recv(ctx context.Context) (", requestReturns, ") {")
 	g.P(nativeRequestEnvelopeRecvAssignment(method.Contract.Native.RequestFields), "s.stream.Recv(ctx)")

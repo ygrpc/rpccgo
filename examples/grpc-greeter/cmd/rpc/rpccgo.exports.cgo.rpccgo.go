@@ -24,6 +24,8 @@ import (
 
 // rpccgo cgo support generated file for shared exports
 
+// rpccgo_register_free registers the C free callback used to release C-owned memory.
+//
 //export rpccgo_register_free
 func rpccgo_register_free(callback C.rpccgo_free_callback) C.int32_t {
 	if callback == nil {
@@ -35,6 +37,8 @@ func rpccgo_register_free(callback C.rpccgo_free_callback) C.int32_t {
 	return 0
 }
 
+// rpccgo_store_error_text stores C error text in the Go error registry and returns its error id.
+//
 //export rpccgo_store_error_text
 func rpccgo_store_error_text(text *C.char, textLen C.int32_t) C.int32_t {
 	length, err := rpcruntime.LengthFromInt32(int32(textLen))
@@ -51,6 +55,8 @@ func rpccgo_store_error_text(text *C.char, textLen C.int32_t) C.int32_t {
 	return C.int32_t(rpcruntime.StoreError(errors.New(string(data))))
 }
 
+// rpccgo_take_error_text takes stored Go error text for a C caller and releases the error id.
+//
 //export rpccgo_take_error_text
 func rpccgo_take_error_text(errID C.int32_t, textPtr *C.uintptr_t, textLen *C.int32_t) C.int32_t {
 	if textPtr == nil || textLen == nil {
@@ -67,6 +73,8 @@ func rpccgo_take_error_text(errID C.int32_t, textPtr *C.uintptr_t, textLen *C.in
 	return 0
 }
 
+// rpccgo_release releases memory previously handed to C through rpccgo ABI helpers.
+//
 //export rpccgo_release
 func rpccgo_release(ptr C.uintptr_t) C.int32_t {
 	if !rpcruntime.Release(uintptr(ptr)) {

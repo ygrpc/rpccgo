@@ -950,6 +950,11 @@ func renderCGONativeServerServerStreamServerMethod(g *protogen.GeneratedFile, se
 	g.P("return err")
 	g.P("}")
 	g.P("for {")
+	g.P("select {")
+	g.P("case <-stream.FinishRequested():")
+	g.P("return session.Finish(ctx)")
+	g.P("default:")
+	g.P("}")
 	if len(method.Contract.Native.ResponseFields) == 0 {
 		g.P("_, err := session.Recv(ctx)")
 	} else {
@@ -1145,6 +1150,15 @@ func renderCGONativeServerBidiStreamServerMethod(g *protogen.GeneratedFile, serv
 	g.P("}")
 	g.P("}()")
 	g.P("for {")
+	g.P("select {")
+	g.P("case <-stream.FinishRequested():")
+	g.P("if sendErr := <-sendDone; sendErr != nil {")
+	g.P("_ = session.Cancel(ctx)")
+	g.P("return sendErr")
+	g.P("}")
+	g.P("return session.Finish(ctx)")
+	g.P("default:")
+	g.P("}")
 	if len(method.Contract.Native.ResponseFields) == 0 {
 		g.P("_, err := session.Recv(ctx)")
 	} else {
@@ -1457,6 +1471,7 @@ func renderCGONativeServerRegistration(g *protogen.GeneratedFile, service Servic
 	adapterVarName := lowerInitial(service.GoName) + "CGONativeServerAdapter"
 	adapterTypeName := lowerInitial(service.GoName) + "CGONativeAdapter"
 	registerABI := abi.Register
+	renderCGOExportDoc(g, registerABI.Symbol, "registers cgo native callbacks as the current server for "+service.FullName+".")
 	g.P("//export ", registerABI.Symbol)
 	g.P("func ", registerABI.Symbol, "(", nativeCABIRegisterParamList(registerABI.Params), ") ", registerABI.Return.CGoType, " {")
 	g.P(adapterVarName, "Mu.Lock()")
@@ -1490,6 +1505,7 @@ func renderCGONativeServerRegistration(g *protogen.GeneratedFile, service Servic
 
 func renderCGONativeServerMethodRegistration(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, registerABI COperationABI, adapterVarName string, errorNames nativeServerCGOErrorNames, servicePackage string) {
 	exportName := registerABI.Symbol + "_" + method.GoName
+	renderCGOExportDoc(g, exportName, "registers cgo native callbacks for "+method.FullName+".")
 	g.P("//export ", exportName)
 	g.P("func ", exportName, "(", nativeCGOServerMethodRegisterParamList(service, method), ") ", registerABI.Return.CGoType, " {")
 	g.P(adapterVarName, "Mu.Lock()")

@@ -127,8 +127,12 @@ func (c *ClientStreamForClient[Req, Resp]) Finish(ctx context.Context) (Resp, er
 	s.closeSendOnce.Do(func() { close(s.sendDone) })
 	select {
 	case <-ctx.Done():
+		s.cancel()
 		var zero Resp
 		return zero, ctx.Err()
+	case <-s.ctx.Done():
+		var zero Resp
+		return zero, s.ctx.Err()
 	case <-s.done:
 		s.cancel()
 		return s.resp, s.err
@@ -158,8 +162,18 @@ func (s *ClientStreamForServer[Req, Resp]) Recv(ctx context.Context) (Req, error
 	var zero Req
 	select {
 	case <-ctx.Done():
+		select {
+		case <-s.state.sendDone:
+			return zero, io.EOF
+		default:
+		}
 		return zero, ctx.Err()
 	case <-s.state.ctx.Done():
+		select {
+		case <-s.state.sendDone:
+			return zero, io.EOF
+		default:
+		}
 		return zero, s.state.ctx.Err()
 	case req := <-s.state.requests:
 		close(req.received)
@@ -245,7 +259,10 @@ func (c *ServerStreamForClient[Resp]) Finish(ctx context.Context) error {
 	defer s.cancel()
 	select {
 	case <-ctx.Done():
+		s.cancel()
 		return ctx.Err()
+	case <-s.ctx.Done():
+		return s.ctx.Err()
 	case <-s.done:
 		return nil
 	}
@@ -269,6 +286,11 @@ func (s *ServerStreamForServer[Resp]) Send(ctx context.Context, resp Resp) error
 		return s.state.nilResponse
 	}
 	return sendStreamResponse(ctx, s.state.ctx, s.state.finishCtx, s.state.done, s.state.responses, s.state.streamClosed, func() error { return s.state.err }, resp)
+}
+
+// FinishRequested returns a channel closed when the client asks the server to finish gracefully.
+func (s *ServerStreamForServer[Resp]) FinishRequested() <-chan struct{} {
+	return s.state.finishCtx.Done()
 }
 
 // Complete records the handler result and completes the RPC.
@@ -379,6 +401,12 @@ func (c *BidiStreamForClient[Req, Resp]) Recv(ctx context.Context) (Resp, error)
 	s := c.state
 	var zero Resp
 	select {
+	case resp := <-s.responses:
+		close(resp.received)
+		return resp.value, nil
+	default:
+	}
+	select {
 	case <-ctx.Done():
 		return zero, ctx.Err()
 	case <-s.ctx.Done():
@@ -387,6 +415,12 @@ func (c *BidiStreamForClient[Req, Resp]) Recv(ctx context.Context) (Resp, error)
 		close(resp.received)
 		return resp.value, nil
 	case <-s.done:
+		select {
+		case resp := <-s.responses:
+			close(resp.received)
+			return resp.value, nil
+		default:
+		}
 		if s.err != nil {
 			return zero, s.err
 		}
@@ -418,7 +452,10 @@ func (c *BidiStreamForClient[Req, Resp]) Finish(ctx context.Context) error {
 	defer s.cancel()
 	select {
 	case <-ctx.Done():
+		s.cancel()
 		return ctx.Err()
+	case <-s.ctx.Done():
+		return s.ctx.Err()
 	case <-s.done:
 		return nil
 	}
@@ -446,6 +483,11 @@ func (s *BidiStreamForServer[Req, Resp]) Recv(ctx context.Context) (Req, error) 
 	}
 	var zero Req
 	select {
+	case <-s.state.sendDone:
+		return zero, io.EOF
+	default:
+	}
+	select {
 	case <-ctx.Done():
 		return zero, ctx.Err()
 	case <-s.state.ctx.Done():
@@ -463,7 +505,12 @@ func (s *BidiStreamForServer[Req, Resp]) Send(ctx context.Context, resp Resp) er
 	if s.state.nilResponse != nil && isNilStreamValue(resp) {
 		return s.state.nilResponse
 	}
-	return sendStreamResponse(ctx, s.state.ctx, s.state.finishCtx, s.state.done, s.state.responses, s.state.streamClosed, func() error { return s.state.err }, resp)
+	return sendBidiStreamResponse(ctx, s.state.ctx, s.state.finishCtx, s.state.done, s.state.responses, s.state.streamClosed, func() error { return s.state.err }, resp)
+}
+
+// FinishRequested returns a channel closed when the client asks the server to finish gracefully.
+func (s *BidiStreamForServer[Req, Resp]) FinishRequested() <-chan struct{} {
+	return s.state.finishCtx.Done()
 }
 
 // Complete records the handler result and completes the RPC.
@@ -524,5 +571,39 @@ func sendStreamResponse[T any](ctx, streamCtx, finishCtx context.Context, done <
 		case <-item.received:
 			return nil
 		}
+	}
+}
+
+func sendBidiStreamResponse[T any](ctx, streamCtx, finishCtx context.Context, done <-chan struct{}, responses chan<- streamItem[T], streamClosed error, streamErr func() error, value T) error {
+	item := streamItem[T]{value: value, received: make(chan struct{})}
+	select {
+	case <-done:
+		if err := streamErr(); err != nil {
+			return err
+		}
+		return streamClosed
+	case <-finishCtx.Done():
+		return io.EOF
+	default:
+	}
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-streamCtx.Done():
+		select {
+		case <-finishCtx.Done():
+			return io.EOF
+		default:
+			return streamCtx.Err()
+		}
+	case <-finishCtx.Done():
+		return io.EOF
+	case <-done:
+		if err := streamErr(); err != nil {
+			return err
+		}
+		return streamClosed
+	case responses <- item:
+		return nil
 	}
 }

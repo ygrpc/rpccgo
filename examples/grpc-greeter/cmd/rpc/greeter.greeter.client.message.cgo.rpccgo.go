@@ -24,6 +24,8 @@ import (
 
 // rpccgo message direct generated file for Greeter cgo message client
 
+// rpccgo_msg_greeterv1_Greeter_SayHello invokes the message unary client entrypoint for examples.grpc.greeter.v1.Greeter.SayHello.
+//
 //export rpccgo_msg_greeterv1_Greeter_SayHello
 func rpccgo_msg_greeterv1_Greeter_SayHello(requestPtr C.uintptr_t, requestLen C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -133,6 +135,8 @@ func encodeGreeterCollectMessageResponse(message *v1.SayHelloResponse) (uintptr,
 	return ptr, length, nil
 }
 
+// rpccgo_msg_greeterv1_Greeter_Collect_start starts the message client-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Collect.
+//
 //export rpccgo_msg_greeterv1_Greeter_Collect_start
 func rpccgo_msg_greeterv1_Greeter_Collect_start(handle *C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -150,6 +154,8 @@ func rpccgo_msg_greeterv1_Greeter_Collect_start(handle *C.int32_t) C.int32_t {
 	return 0
 }
 
+// rpccgo_msg_greeterv1_Greeter_Collect_send sends a message request to the client-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Collect.
+//
 //export rpccgo_msg_greeterv1_Greeter_Collect_send
 func rpccgo_msg_greeterv1_Greeter_Collect_send(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -165,6 +171,8 @@ func rpccgo_msg_greeterv1_Greeter_Collect_send(handle C.int32_t, requestPtr C.ui
 	return 0
 }
 
+// rpccgo_msg_greeterv1_Greeter_Collect_finish finishes the message client-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Collect.
+//
 //export rpccgo_msg_greeterv1_Greeter_Collect_finish
 func rpccgo_msg_greeterv1_Greeter_Collect_finish(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -191,6 +199,8 @@ func rpccgo_msg_greeterv1_Greeter_Collect_finish(handle C.int32_t, responsePtr *
 	return 0
 }
 
+// rpccgo_msg_greeterv1_Greeter_Collect_cancel cancels the message client-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Collect.
+//
 //export rpccgo_msg_greeterv1_Greeter_Collect_cancel
 func rpccgo_msg_greeterv1_Greeter_Collect_cancel(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -242,6 +252,8 @@ func encodeGreeterBroadcastMessageResponse(message *v1.SayHelloResponse) (uintpt
 	return ptr, length, nil
 }
 
+// rpccgo_msg_greeterv1_Greeter_Broadcast_start starts the message server-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Broadcast.
+//
 //export rpccgo_msg_greeterv1_Greeter_Broadcast_start
 func rpccgo_msg_greeterv1_Greeter_Broadcast_start(requestPtr C.uintptr_t, requestLen C.int32_t, handle *C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -263,6 +275,8 @@ func rpccgo_msg_greeterv1_Greeter_Broadcast_start(requestPtr C.uintptr_t, reques
 	return 0
 }
 
+// rpccgo_msg_greeterv1_Greeter_Broadcast_read reads a message response from the server-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Broadcast.
+//
 //export rpccgo_msg_greeterv1_Greeter_Broadcast_read
 func rpccgo_msg_greeterv1_Greeter_Broadcast_read(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -289,6 +303,8 @@ func rpccgo_msg_greeterv1_Greeter_Broadcast_read(handle C.int32_t, responsePtr *
 	return 0
 }
 
+// rpccgo_msg_greeterv1_Greeter_Broadcast_finish finishes the message server-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Broadcast.
+//
 //export rpccgo_msg_greeterv1_Greeter_Broadcast_finish
 func rpccgo_msg_greeterv1_Greeter_Broadcast_finish(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -300,6 +316,8 @@ func rpccgo_msg_greeterv1_Greeter_Broadcast_finish(handle C.int32_t) C.int32_t {
 	return 0
 }
 
+// rpccgo_msg_greeterv1_Greeter_Broadcast_cancel cancels the message server-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Broadcast.
+//
 //export rpccgo_msg_greeterv1_Greeter_Broadcast_cancel
 func rpccgo_msg_greeterv1_Greeter_Broadcast_cancel(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -351,6 +369,8 @@ func encodeGreeterChatMessageResponse(message *v1.SayHelloResponse) (uintptr, in
 	return ptr, length, nil
 }
 
+// rpccgo_msg_greeterv1_Greeter_Chat_start starts the message bidi-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Chat.
+//
 //export rpccgo_msg_greeterv1_Greeter_Chat_start
 func rpccgo_msg_greeterv1_Greeter_Chat_start(handle *C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -368,6 +388,8 @@ func rpccgo_msg_greeterv1_Greeter_Chat_start(handle *C.int32_t) C.int32_t {
 	return 0
 }
 
+// rpccgo_msg_greeterv1_Greeter_Chat_send sends a message request to the bidi-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Chat.
+//
 //export rpccgo_msg_greeterv1_Greeter_Chat_send
 func rpccgo_msg_greeterv1_Greeter_Chat_send(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -383,6 +405,8 @@ func rpccgo_msg_greeterv1_Greeter_Chat_send(handle C.int32_t, requestPtr C.uintp
 	return 0
 }
 
+// rpccgo_msg_greeterv1_Greeter_Chat_read reads a message response from the bidi-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Chat.
+//
 //export rpccgo_msg_greeterv1_Greeter_Chat_read
 func rpccgo_msg_greeterv1_Greeter_Chat_read(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -409,6 +433,8 @@ func rpccgo_msg_greeterv1_Greeter_Chat_read(handle C.int32_t, responsePtr *C.uin
 	return 0
 }
 
+// rpccgo_msg_greeterv1_Greeter_Chat_close_send closes the message bidi-streaming client send side for examples.grpc.greeter.v1.Greeter.Chat.
+//
 //export rpccgo_msg_greeterv1_Greeter_Chat_close_send
 func rpccgo_msg_greeterv1_Greeter_Chat_close_send(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -420,6 +446,8 @@ func rpccgo_msg_greeterv1_Greeter_Chat_close_send(handle C.int32_t) C.int32_t {
 	return 0
 }
 
+// rpccgo_msg_greeterv1_Greeter_Chat_finish finishes the message bidi-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Chat.
+//
 //export rpccgo_msg_greeterv1_Greeter_Chat_finish
 func rpccgo_msg_greeterv1_Greeter_Chat_finish(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -431,6 +459,8 @@ func rpccgo_msg_greeterv1_Greeter_Chat_finish(handle C.int32_t) C.int32_t {
 	return 0
 }
 
+// rpccgo_msg_greeterv1_Greeter_Chat_cancel cancels the message bidi-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Chat.
+//
 //export rpccgo_msg_greeterv1_Greeter_Chat_cancel
 func rpccgo_msg_greeterv1_Greeter_Chat_cancel(handle C.int32_t) C.int32_t {
 	ctx := context.Background()

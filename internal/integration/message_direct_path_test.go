@@ -1498,7 +1498,11 @@ func TestMessageBytesRejectInvalidCallbackResponse(t *testing.T) {
 
 	chatHandle, errID := startGreeterChatMessageBidiStream(context.Background())
 	assertMessageNoErr(t, errID)
-	assertMessageNoErr(t, sendGreeterChatMessageBidiStream(context.Background(), chatHandle, 0, 0))
+	errID = sendGreeterChatMessageBidiStream(context.Background(), chatHandle, 0, 0)
+	if errID != 0 {
+		assertMessageErrContains(t, errID, "message response protobuf unmarshal failed")
+		return
+	}
 	errID = readGreeterChatMessageBidiStream(context.Background(), chatHandle, &greeterMessageOutput{})
 	assertMessageErrContains(t, errID, "message response protobuf unmarshal failed")
 	assertMessageNoErr(t, finishGreeterChatMessageBidiStream(context.Background(), chatHandle))

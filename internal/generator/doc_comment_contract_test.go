@@ -23,6 +23,22 @@ func TestGeneratedExportedDeclarationsHaveDocComments(t *testing.T) {
 	}
 }
 
+func TestGeneratedCGOExportWrappersHaveDocComments(t *testing.T) {
+	file := messageContractTestFile()
+	setSimpleServiceComment(t, file, "@rpccgo: msg-connect|native\n")
+	plugin := newTestPlugin(t, "paths=source_relative,cgo_dir=../cmd/rpc", file)
+	if _, err := GenerateWithOptions(plugin); err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	for _, generated := range plugin.Response().GetFile() {
+		if !strings.HasSuffix(generated.GetName(), ".cgo.rpccgo.go") {
+			continue
+		}
+		assertCGOExportWrappersHaveDocComments(t, generated.GetName(), generated.GetContent())
+	}
+}
+
 func TestGeneratorExportedDeclarationsHaveDocComments(t *testing.T) {
 	files, err := filepath.Glob("*.go")
 	if err != nil {
@@ -37,6 +53,31 @@ func TestGeneratorExportedDeclarationsHaveDocComments(t *testing.T) {
 			t.Fatalf("read %s: %v", name, err)
 		}
 		assertGoSourceExportedDeclarationsHaveDocComments(t, name, string(content))
+	}
+}
+
+func assertCGOExportWrappersHaveDocComments(t *testing.T, name, content string) {
+	t.Helper()
+
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		if !strings.HasPrefix(strings.TrimSpace(line), "//export ") {
+			continue
+		}
+		if i == 0 {
+			t.Errorf("%s:%d: cgo export wrapper lacks doc comment", name, i+1)
+			continue
+		}
+		previous := ""
+		for j := i - 1; j >= 0; j-- {
+			previous = strings.TrimSpace(lines[j])
+			if previous != "" {
+				break
+			}
+		}
+		if !strings.HasPrefix(previous, "//") || strings.HasPrefix(previous, "//export ") {
+			t.Errorf("%s:%d: cgo export wrapper lacks doc comment", name, i+1)
+		}
 	}
 }
 

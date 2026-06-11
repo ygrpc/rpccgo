@@ -33,11 +33,12 @@ rpccgo 用于把 C/FFI 调用接入 Go、Connect 或 gRPC 服务，并在 native
 - service-specific registry lookup、typed dispatch、converter、method metadata、cgo ABI 留在 generated service runtime。
 - Native/Message source session interface、stream handle facade 和 `{ServerKind, session}` record type 生成在对应 server contract artifact 中，不放在 `*.runtime.rpccgo.go`。
 - 不要生成 native/message active binding slot、service-wide binding closure table、`rpcruntime.ActiveServerSlot`、`ServerContract`、`AdapterSnapshot` 或 version metadata。
-- 注册 helper 完整校验后写入 `{ServerKind, Server}` record；注册失败必须清空该 `ServiceID` current server 并返回错误。
-- C native/message callback 支持按 method 局部注册；每个 method 内部必须原子校验，unary callback nil 表示该 method 未实现，streaming method 的 operation callbacks 要么全 nil、要么全非 nil，不允许半注册。C per-method register 在 current server 为同一 `ServerKind` 时累积到现有 cgo adapter；否则创建新的 cgo adapter 并替换 current server。
+- 非 C callback 的注册 helper 完整校验后写入 `{ServerKind, Server}` record；注册失败必须清空该 `ServiceID` current server 并返回错误。
+- C native/message callback 支持 service-level 和 per-method 局部注册；每个 method 内部必须原子校验，unary callback nil 表示该 method 未实现，streaming method 的 operation callbacks 要么全 nil、要么全非 nil，不允许半注册。C service-level register 和 per-method register 都在 current server 为同一 `ServerKind` 时累积到现有 cgo adapter；否则创建新的 cgo adapter 并替换 current server。C callback register 遇到半注册 method 时清空该 method callbacks、保留其他有效 method callbacks、写入 cgo adapter，并返回错误报告被拒绝的 method。
 - stream registry 直接保存 `{ServerKind, session}`；不要保留 `StreamEntry`、dispatcher、executor、operation closure session 或 registry lifecycle helper 层。
 - connect 和 grpc 保持标准 RPC transport 语义；不要重新设计 connect client 或 grpc client。
 - connect/grpc remote registered server 直接注册标准 connect/grpc client，不生成独立 remote adapter 文件。
+- 没有 current registered server 时返回 `rpcruntime.ErrNoRegisteredServer`。
 - 不允许使用 painc，所有错误必须显式传递。
 
 ## Server 与 Client 模型

@@ -287,6 +287,11 @@ func (a *greeterCGOMessageAdapter) Broadcast(ctx context.Context, req *v1.SayHel
 		return err
 	}
 	for {
+		select {
+		case <-stream.FinishRequested():
+			return session.Finish(ctx)
+		default:
+		}
 		resp, err := session.Recv(ctx)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -376,19 +381,21 @@ func (a *greeterCGOMessageAdapter) Chat(ctx context.Context, stream rpcruntime.B
 	if err != nil {
 		return err
 	}
+	bridgeCtx, cancelBridge := context.WithCancel(ctx)
+	defer cancelBridge()
 	errs := make(chan error, 2)
 	go func() {
 		for {
-			req, err := stream.Recv(ctx)
+			req, err := stream.Recv(bridgeCtx)
 			if errors.Is(err, io.EOF) {
-				errs <- session.CloseSend(ctx)
+				errs <- session.CloseSend(bridgeCtx)
 				return
 			}
 			if err != nil {
 				errs <- err
 				return
 			}
-			if err := session.Send(ctx, req); err != nil {
+			if err := session.Send(bridgeCtx, req); err != nil {
 				errs <- err
 				return
 			}
@@ -396,18 +403,24 @@ func (a *greeterCGOMessageAdapter) Chat(ctx context.Context, stream rpcruntime.B
 	}()
 	go func() {
 		for {
-			resp, err := session.Recv(ctx)
+			select {
+			case <-stream.FinishRequested():
+				errs <- session.Finish(bridgeCtx)
+				return
+			default:
+			}
+			resp, err := session.Recv(bridgeCtx)
 			if errors.Is(err, io.EOF) {
-				errs <- session.Finish(ctx)
+				errs <- session.Finish(bridgeCtx)
 				return
 			}
 			if err != nil {
 				errs <- err
 				return
 			}
-			if err := stream.Send(ctx, resp); err != nil {
+			if err := stream.Send(bridgeCtx, resp); err != nil {
 				if errors.Is(err, io.EOF) {
-					if finishErr := session.Finish(ctx); finishErr != nil {
+					if finishErr := session.Finish(bridgeCtx); finishErr != nil {
 						errs <- errors.Join(err, finishErr)
 						return
 					}
@@ -419,13 +432,17 @@ func (a *greeterCGOMessageAdapter) Chat(ctx context.Context, stream rpcruntime.B
 			}
 		}
 	}()
+	var resultErr error
 	for range 2 {
 		if err := <-errs; err != nil {
-			_ = session.Cancel(ctx)
-			return err
+			if resultErr == nil {
+				_ = session.Cancel(bridgeCtx)
+				cancelBridge()
+			}
+			resultErr = errors.Join(resultErr, err)
 		}
 	}
-	return nil
+	return resultErr
 }
 
 type greeterChatCGOMessageBidiStreamingClient struct {
@@ -514,6 +531,8 @@ func decodeGreeterChatCGOMessageResponse(responsePtr C.uintptr_t, responseLen C.
 	return resp, nil
 }
 
+// rpccgo_msg_greeterv1_Greeter_register registers cgo message callbacks as the current server for examples.grpc.greeter.v1.Greeter.
+//
 //export rpccgo_msg_greeterv1_Greeter_register
 func rpccgo_msg_greeterv1_Greeter_register(sayHelloCallback C.GreeterSayHelloCGOMessageUnaryCallback, collectStart C.GreeterCollectCGOMessageClientStreamStartCallback, collectSend C.GreeterCollectCGOMessageClientStreamSendCallback, collectFinish C.GreeterCollectCGOMessageClientStreamFinishCallback, collectCancel C.GreeterCollectCGOMessageClientStreamCancelCallback, broadcastStart C.GreeterBroadcastCGOMessageServerStreamStartCallback, broadcastRecv C.GreeterBroadcastCGOMessageServerStreamRecvCallback, broadcastFinish C.GreeterBroadcastCGOMessageServerStreamFinishCallback, broadcastCancel C.GreeterBroadcastCGOMessageServerStreamCancelCallback, chatStart C.GreeterChatCGOMessageBidiStreamStartCallback, chatSend C.GreeterChatCGOMessageBidiStreamSendCallback, chatRecv C.GreeterChatCGOMessageBidiStreamRecvCallback, chatCloseSend C.GreeterChatCGOMessageBidiStreamCloseSendCallback, chatFinish C.GreeterChatCGOMessageBidiStreamFinishCallback, chatCancel C.GreeterChatCGOMessageBidiStreamCancelCallback) C.int32_t {
 	greeterCGOMessageServerAdapterMu.Lock()
@@ -594,6 +613,8 @@ func rpccgo_msg_greeterv1_Greeter_register(sayHelloCallback C.GreeterSayHelloCGO
 	return 0
 }
 
+// rpccgo_msg_greeterv1_Greeter_register_SayHello registers cgo message callbacks for examples.grpc.greeter.v1.Greeter.SayHello.
+//
 //export rpccgo_msg_greeterv1_Greeter_register_SayHello
 func rpccgo_msg_greeterv1_Greeter_register_SayHello(sayHelloCallback C.GreeterSayHelloCGOMessageUnaryCallback) C.int32_t {
 	greeterCGOMessageServerAdapterMu.Lock()
@@ -611,6 +632,8 @@ func rpccgo_msg_greeterv1_Greeter_register_SayHello(sayHelloCallback C.GreeterSa
 	return 0
 }
 
+// rpccgo_msg_greeterv1_Greeter_register_Collect registers cgo message callbacks for examples.grpc.greeter.v1.Greeter.Collect.
+//
 //export rpccgo_msg_greeterv1_Greeter_register_Collect
 func rpccgo_msg_greeterv1_Greeter_register_Collect(collectStart C.GreeterCollectCGOMessageClientStreamStartCallback, collectSend C.GreeterCollectCGOMessageClientStreamSendCallback, collectFinish C.GreeterCollectCGOMessageClientStreamFinishCallback, collectCancel C.GreeterCollectCGOMessageClientStreamCancelCallback) C.int32_t {
 	greeterCGOMessageServerAdapterMu.Lock()
@@ -646,6 +669,8 @@ func rpccgo_msg_greeterv1_Greeter_register_Collect(collectStart C.GreeterCollect
 	return 0
 }
 
+// rpccgo_msg_greeterv1_Greeter_register_Broadcast registers cgo message callbacks for examples.grpc.greeter.v1.Greeter.Broadcast.
+//
 //export rpccgo_msg_greeterv1_Greeter_register_Broadcast
 func rpccgo_msg_greeterv1_Greeter_register_Broadcast(broadcastStart C.GreeterBroadcastCGOMessageServerStreamStartCallback, broadcastRecv C.GreeterBroadcastCGOMessageServerStreamRecvCallback, broadcastFinish C.GreeterBroadcastCGOMessageServerStreamFinishCallback, broadcastCancel C.GreeterBroadcastCGOMessageServerStreamCancelCallback) C.int32_t {
 	greeterCGOMessageServerAdapterMu.Lock()
@@ -681,6 +706,8 @@ func rpccgo_msg_greeterv1_Greeter_register_Broadcast(broadcastStart C.GreeterBro
 	return 0
 }
 
+// rpccgo_msg_greeterv1_Greeter_register_Chat registers cgo message callbacks for examples.grpc.greeter.v1.Greeter.Chat.
+//
 //export rpccgo_msg_greeterv1_Greeter_register_Chat
 func rpccgo_msg_greeterv1_Greeter_register_Chat(chatStart C.GreeterChatCGOMessageBidiStreamStartCallback, chatSend C.GreeterChatCGOMessageBidiStreamSendCallback, chatRecv C.GreeterChatCGOMessageBidiStreamRecvCallback, chatCloseSend C.GreeterChatCGOMessageBidiStreamCloseSendCallback, chatFinish C.GreeterChatCGOMessageBidiStreamFinishCallback, chatCancel C.GreeterChatCGOMessageBidiStreamCancelCallback) C.int32_t {
 	greeterCGOMessageServerAdapterMu.Lock()

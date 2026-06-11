@@ -107,7 +107,7 @@ _Avoid_: active server
 - `NativeContract` 这类字段计划可以作为参数转换的中间表示保留；它不是最终 **Native** 边界。
 - **Native C ABI lowering** 可表达 ownership / cleanup / transfer；它不应新增现有 ABI 之外的 ownership 参数，但若现有 C boundary 已包含 ownership slot，lowering 应把它作为 ABI slot 结构化表达。
 - **Native C ABI lowering** 位于 `NativeContract` 之后、renderer 之前；client/server renderer 共享同一套按需 lowering，不持久化独立的 service-level 或 method-level C ABI plan。
-- generator 不保留 `NativeCABIPlan`、`MethodNativeCABIPlan`、`MethodContractPlan.NativeCABI` 或 method C ABI attach/finalize 阶段；service-level callback 注册 ABI 由各 method 的按需 lowering 结果直接组装。
+- generator 不保留 `NativeCABIPlan`、`MethodNativeCABIPlan`、`MethodContractPlan.NativeCABI` 或 method C ABI attach/finalize 阶段；service-level callback 注册 ABI 由各 method 的按需 lowering 结果直接组装。Renderer 可以在渲染单个 artifact 时使用临时 service-level ABI 聚合值，但该值不得存入 `GenerationPlan`、`ServicePlan` 或 `MethodPlan`。
 - **Native C ABI lowering** 应返回 slot role、最终 C type spelling、cleanup capability、export symbol naming 和 callback typedef naming，使 renderer 不再重复推断 ABI 语义。
 - **Native C ABI lowering** 拥有 method-level C boundary operation inventory；renderer 不重复维护 unary、client streaming、server streaming 和 bidi streaming 的 operation 列表。
 - lowered ABI slot 只保留 renderer 实际消费的最小字段：name、C type、cgo Go type、role 和可选 field Go name；不保留只用于解释旧 plan 的 source metadata 或未被 renderer 消费的 cleanup metadata。
@@ -147,12 +147,13 @@ _Avoid_: active server
 - **Server registry** 在注册阶段保存具体 server 与 **Server kind**；调用阶段从 registry 取得 server，并按调用 contract 与 server kind 选择直接调用或 Native/Message 转换。
 - **Server kind** 由 `rpcruntime` 定义，但具体方法调用、type assertion、protobuf 编解码和 Native/Message 转换必须留在 **Generated service runtime**。
 - 每个 **Service ID** 同一时刻只有一个 current **Registered server**；native、message、connect、gRPC 和 remote registration 都替换同一个 registry record。
-- Registration helper 失败时会清空该 **Service ID** 当前 **Registered server** 并返回错误；后续调用应得到 no-active-server 错误，而不是继续使用旧 server。
-- Generated service runtime 暴露 service-specific clear helper 来清空当前 **Registered server**；用户不直接手写 **Service ID** 调用 runtime clear primitive。
+- 非 C callback 的 registration helper 失败时会清空该 **Service ID** 当前 **Registered server** 并返回错误；后续调用应得到 `rpcruntime.ErrNoRegisteredServer`，而不是继续使用旧 server。
+- C callback registration 以 method 为原子校验边界；service-level 和 per-method register 遇到半注册 streaming method 时清空该 method callbacks、保留其他有效 method callbacks、写入 cgo adapter，并返回错误报告被拒绝的 method。
+- Generated service runtime 暴露 service-specific clear helper 来清空当前 **Registered server**，也暴露 service-specific load helper 供 generated cgo register 累积 current cgo adapter；用户不直接手写 **Service ID** 调用 runtime clear primitive。
 - Unary 调用每次从 **Server registry** 读取 current **Registered server**；重新注册只影响后续 unary 调用和后续 stream `Start`。
 - Streaming `Start` 捕获当前 **Registered server** record，取得 typed client endpoint 并创建 **Stream session**；后续 stream 操作只通过 stream handle 从 **Runtime core** 找回该 endpoint，不重新读取 **Server registry**，也不通过 operation closure 调用。
 - 外部包只能通过 generated package-level entry 函数进入；不应再生成只转发到内部对象的 public client object，也不应保留 runtime forwarding struct。
-- 无 registered server 使用 `rpcruntime.ErrNoActiveServer`。错误必须显式传递。
+- 无 registered server 使用 `rpcruntime.ErrNoRegisteredServer`。错误必须显式传递。
 - **Remote registered server** 使用标准 transport client 作为注册输入；rpccgo generated code 不应构造 per-method client。
 - **Remote registered server** 只转发 protobuf message payload 和 error；metadata/header/trailer 不属于当前 contract。
 - `Register<Service>ConnectRemoteServer` 与 `Register<Service>GRPCRemoteServer` 命名可以保留，但它们应直接接收标准 transport client 并返回 `error`，不应构造 service-specific wrapper adapter。

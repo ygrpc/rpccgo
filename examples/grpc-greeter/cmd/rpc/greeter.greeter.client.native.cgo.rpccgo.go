@@ -88,6 +88,8 @@ func encodeGreeterSayHelloNativeUnaryResponse(messageResult string, outMessagePt
 	return nil
 }
 
+// rpccgo_native_greeterv1_Greeter_SayHello invokes the native unary client entrypoint for examples.grpc.greeter.v1.Greeter.SayHello.
+//
 //export rpccgo_native_greeterv1_Greeter_SayHello
 func rpccgo_native_greeterv1_Greeter_SayHello(NamePtr C.uintptr_t, NameLen C.int32_t, NameOwnership C.int32_t, CityPtr C.uintptr_t, CityLen C.int32_t, CityOwnership C.int32_t, outMessagePtr *C.uintptr_t, outMessageLen *C.int32_t, outMessageOwnership *C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -188,6 +190,8 @@ func encodeGreeterCollectNativeClientStreamResponse(messageResult string, outMes
 	return nil
 }
 
+// rpccgo_native_greeterv1_Greeter_Collect_start starts the native client-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Collect.
+//
 //export rpccgo_native_greeterv1_Greeter_Collect_start
 func rpccgo_native_greeterv1_Greeter_Collect_start(stream *C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -205,6 +209,8 @@ func rpccgo_native_greeterv1_Greeter_Collect_start(stream *C.int32_t) C.int32_t 
 	return 0
 }
 
+// rpccgo_native_greeterv1_Greeter_Collect_send sends native request values to the client-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Collect.
+//
 //export rpccgo_native_greeterv1_Greeter_Collect_send
 func rpccgo_native_greeterv1_Greeter_Collect_send(stream C.int32_t, NamePtr C.uintptr_t, NameLen C.int32_t, NameOwnership C.int32_t, CityPtr C.uintptr_t, CityLen C.int32_t, CityOwnership C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -224,6 +230,8 @@ func rpccgo_native_greeterv1_Greeter_Collect_send(stream C.int32_t, NamePtr C.ui
 	return 0
 }
 
+// rpccgo_native_greeterv1_Greeter_Collect_finish finishes the native client-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Collect.
+//
 //export rpccgo_native_greeterv1_Greeter_Collect_finish
 func rpccgo_native_greeterv1_Greeter_Collect_finish(stream C.int32_t, outMessagePtr *C.uintptr_t, outMessageLen *C.int32_t, outMessageOwnership *C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -258,6 +266,8 @@ func rpccgo_native_greeterv1_Greeter_Collect_finish(stream C.int32_t, outMessage
 	return 0
 }
 
+// rpccgo_native_greeterv1_Greeter_Collect_cancel cancels the native client-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Collect.
+//
 //export rpccgo_native_greeterv1_Greeter_Collect_cancel
 func rpccgo_native_greeterv1_Greeter_Collect_cancel(stream C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -332,6 +342,8 @@ func encodeGreeterBroadcastNativeServerStreamResponse(messageResult string, outM
 	return nil
 }
 
+// rpccgo_native_greeterv1_Greeter_Broadcast_start starts the native server-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Broadcast.
+//
 //export rpccgo_native_greeterv1_Greeter_Broadcast_start
 func rpccgo_native_greeterv1_Greeter_Broadcast_start(NamePtr C.uintptr_t, NameLen C.int32_t, NameOwnership C.int32_t, CityPtr C.uintptr_t, CityLen C.int32_t, CityOwnership C.int32_t, stream *C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -357,6 +369,8 @@ func rpccgo_native_greeterv1_Greeter_Broadcast_start(NamePtr C.uintptr_t, NameLe
 	return 0
 }
 
+// rpccgo_native_greeterv1_Greeter_Broadcast_read reads native response values from the server-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Broadcast.
+//
 //export rpccgo_native_greeterv1_Greeter_Broadcast_read
 func rpccgo_native_greeterv1_Greeter_Broadcast_read(stream C.int32_t, outMessagePtr *C.uintptr_t, outMessageLen *C.int32_t, outMessageOwnership *C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -391,6 +405,8 @@ func rpccgo_native_greeterv1_Greeter_Broadcast_read(stream C.int32_t, outMessage
 	return 0
 }
 
+// rpccgo_native_greeterv1_Greeter_Broadcast_finish finishes the native server-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Broadcast.
+//
 //export rpccgo_native_greeterv1_Greeter_Broadcast_finish
 func rpccgo_native_greeterv1_Greeter_Broadcast_finish(stream C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -403,6 +419,8 @@ func rpccgo_native_greeterv1_Greeter_Broadcast_finish(stream C.int32_t) C.int32_
 	return 0
 }
 
+// rpccgo_native_greeterv1_Greeter_Broadcast_cancel cancels the native server-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Broadcast.
+//
 //export rpccgo_native_greeterv1_Greeter_Broadcast_cancel
 func rpccgo_native_greeterv1_Greeter_Broadcast_cancel(stream C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -477,6 +495,8 @@ func encodeGreeterChatNativeBidiStreamResponse(messageResult string, outMessageP
 	return nil
 }
 
+// rpccgo_native_greeterv1_Greeter_Chat_start starts the native bidi-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Chat.
+//
 //export rpccgo_native_greeterv1_Greeter_Chat_start
 func rpccgo_native_greeterv1_Greeter_Chat_start(stream *C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -494,6 +514,8 @@ func rpccgo_native_greeterv1_Greeter_Chat_start(stream *C.int32_t) C.int32_t {
 	return 0
 }
 
+// rpccgo_native_greeterv1_Greeter_Chat_send sends native request values to the bidi-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Chat.
+//
 //export rpccgo_native_greeterv1_Greeter_Chat_send
 func rpccgo_native_greeterv1_Greeter_Chat_send(stream C.int32_t, NamePtr C.uintptr_t, NameLen C.int32_t, NameOwnership C.int32_t, CityPtr C.uintptr_t, CityLen C.int32_t, CityOwnership C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -513,6 +535,8 @@ func rpccgo_native_greeterv1_Greeter_Chat_send(stream C.int32_t, NamePtr C.uintp
 	return 0
 }
 
+// rpccgo_native_greeterv1_Greeter_Chat_read reads native response values from the bidi-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Chat.
+//
 //export rpccgo_native_greeterv1_Greeter_Chat_read
 func rpccgo_native_greeterv1_Greeter_Chat_read(stream C.int32_t, outMessagePtr *C.uintptr_t, outMessageLen *C.int32_t, outMessageOwnership *C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -547,6 +571,8 @@ func rpccgo_native_greeterv1_Greeter_Chat_read(stream C.int32_t, outMessagePtr *
 	return 0
 }
 
+// rpccgo_native_greeterv1_Greeter_Chat_close_send closes the native bidi-streaming client send side for examples.grpc.greeter.v1.Greeter.Chat.
+//
 //export rpccgo_native_greeterv1_Greeter_Chat_close_send
 func rpccgo_native_greeterv1_Greeter_Chat_close_send(stream C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -559,6 +585,8 @@ func rpccgo_native_greeterv1_Greeter_Chat_close_send(stream C.int32_t) C.int32_t
 	return 0
 }
 
+// rpccgo_native_greeterv1_Greeter_Chat_finish finishes the native bidi-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Chat.
+//
 //export rpccgo_native_greeterv1_Greeter_Chat_finish
 func rpccgo_native_greeterv1_Greeter_Chat_finish(stream C.int32_t) C.int32_t {
 	ctx := context.Background()
@@ -571,6 +599,8 @@ func rpccgo_native_greeterv1_Greeter_Chat_finish(stream C.int32_t) C.int32_t {
 	return 0
 }
 
+// rpccgo_native_greeterv1_Greeter_Chat_cancel cancels the native bidi-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Chat.
+//
 //export rpccgo_native_greeterv1_Greeter_Chat_cancel
 func rpccgo_native_greeterv1_Greeter_Chat_cancel(stream C.int32_t) C.int32_t {
 	ctx := context.Background()

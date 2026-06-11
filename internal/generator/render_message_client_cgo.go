@@ -152,6 +152,7 @@ func renderMessageCExportWrappers(g *protogen.GeneratedFile, plan FilePlan, serv
 
 func renderMessageUnaryCExportWrapper(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, servicePackage string) {
 	exportName := messageCExportFuncName(plan, service, method, "")
+	renderCGOExportDoc(g, exportName, "invokes the message unary client entrypoint for "+method.FullName+".")
 	g.P("//export ", exportName)
 	g.P("func ", exportName, "(requestPtr C.uintptr_t, requestLen C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {")
 	g.P("ctx := context.Background()")
@@ -177,6 +178,7 @@ func renderMessageUnaryCExportWrapper(g *protogen.GeneratedFile, plan FilePlan, 
 
 func renderMessageClientStreamingCExportWrappers(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, servicePackage string) {
 	startName := messageCExportFuncName(plan, service, method, "start")
+	renderCGOExportDoc(g, startName, "starts the message client-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", startName)
 	g.P("func ", startName, "(handle *C.int32_t) C.int32_t {")
 	g.P("ctx := context.Background()")
@@ -191,6 +193,7 @@ func renderMessageClientStreamingCExportWrappers(g *protogen.GeneratedFile, plan
 	g.P()
 
 	sendName := messageCExportFuncName(plan, service, method, "send")
+	renderCGOExportDoc(g, sendName, "sends a message request to the client-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", sendName)
 	g.P("func ", sendName, "(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {")
 	g.P("ctx := context.Background()")
@@ -208,6 +211,7 @@ func renderMessageClientStreamingCExportWrappers(g *protogen.GeneratedFile, plan
 	g.P()
 
 	finishName := messageCExportFuncName(plan, service, method, "finish")
+	renderCGOExportDoc(g, finishName, "finishes the message client-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", finishName)
 	g.P("func ", finishName, "(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {")
 	g.P("ctx := context.Background()")
@@ -228,6 +232,7 @@ func renderMessageClientStreamingCExportWrappers(g *protogen.GeneratedFile, plan
 	g.P()
 
 	cancelName := messageCExportFuncName(plan, service, method, "cancel")
+	renderCGOExportDoc(g, cancelName, "cancels the message client-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", cancelName)
 	g.P("func ", cancelName, "(handle C.int32_t) C.int32_t {")
 	g.P("ctx := context.Background()")
@@ -243,6 +248,7 @@ func renderMessageClientStreamingCExportWrappers(g *protogen.GeneratedFile, plan
 
 func renderMessageServerStreamingCExportWrappers(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, servicePackage string) {
 	startName := messageCExportFuncName(plan, service, method, "start")
+	renderCGOExportDoc(g, startName, "starts the message server-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", startName)
 	g.P("func ", startName, "(requestPtr C.uintptr_t, requestLen C.int32_t, handle *C.int32_t) C.int32_t {")
 	g.P("ctx := context.Background()")
@@ -261,6 +267,7 @@ func renderMessageServerStreamingCExportWrappers(g *protogen.GeneratedFile, plan
 	g.P()
 
 	readName := messageCExportFuncName(plan, service, method, "read")
+	renderCGOExportDoc(g, readName, "reads a message response from the server-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", readName)
 	g.P("func ", readName, "(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {")
 	g.P("ctx := context.Background()")
@@ -281,6 +288,7 @@ func renderMessageServerStreamingCExportWrappers(g *protogen.GeneratedFile, plan
 	g.P()
 
 	finishName := messageCExportFuncName(plan, service, method, "finish")
+	renderCGOExportDoc(g, finishName, "finishes the message server-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", finishName)
 	g.P("func ", finishName, "(handle C.int32_t) C.int32_t {")
 	g.P("ctx := context.Background()")
@@ -294,6 +302,7 @@ func renderMessageServerStreamingCExportWrappers(g *protogen.GeneratedFile, plan
 	g.P()
 
 	cancelName := messageCExportFuncName(plan, service, method, "cancel")
+	renderCGOExportDoc(g, cancelName, "cancels the message server-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", cancelName)
 	g.P("func ", cancelName, "(handle C.int32_t) C.int32_t {")
 	g.P("ctx := context.Background()")
@@ -309,6 +318,7 @@ func renderMessageServerStreamingCExportWrappers(g *protogen.GeneratedFile, plan
 
 func renderMessageBidiStreamingCExportWrappers(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, servicePackage string) {
 	startName := messageCExportFuncName(plan, service, method, "start")
+	renderCGOExportDoc(g, startName, "starts the message bidi-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", startName)
 	g.P("func ", startName, "(handle *C.int32_t) C.int32_t {")
 	g.P("ctx := context.Background()")
@@ -323,6 +333,7 @@ func renderMessageBidiStreamingCExportWrappers(g *protogen.GeneratedFile, plan F
 	g.P()
 
 	sendName := messageCExportFuncName(plan, service, method, "send")
+	renderCGOExportDoc(g, sendName, "sends a message request to the bidi-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", sendName)
 	g.P("func ", sendName, "(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {")
 	g.P("ctx := context.Background()")
@@ -340,6 +351,7 @@ func renderMessageBidiStreamingCExportWrappers(g *protogen.GeneratedFile, plan F
 	g.P()
 
 	readName := messageCExportFuncName(plan, service, method, "read")
+	renderCGOExportDoc(g, readName, "reads a message response from the bidi-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", readName)
 	g.P("func ", readName, "(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {")
 	g.P("ctx := context.Background()")
@@ -360,6 +372,7 @@ func renderMessageBidiStreamingCExportWrappers(g *protogen.GeneratedFile, plan F
 	g.P()
 
 	closeSendName := messageCExportFuncName(plan, service, method, "close_send")
+	renderCGOExportDoc(g, closeSendName, "closes the message bidi-streaming client send side for "+method.FullName+".")
 	g.P("//export ", closeSendName)
 	g.P("func ", closeSendName, "(handle C.int32_t) C.int32_t {")
 	g.P("ctx := context.Background()")
@@ -373,6 +386,7 @@ func renderMessageBidiStreamingCExportWrappers(g *protogen.GeneratedFile, plan F
 	g.P()
 
 	finishName := messageCExportFuncName(plan, service, method, "finish")
+	renderCGOExportDoc(g, finishName, "finishes the message bidi-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", finishName)
 	g.P("func ", finishName, "(handle C.int32_t) C.int32_t {")
 	g.P("ctx := context.Background()")
@@ -386,6 +400,7 @@ func renderMessageBidiStreamingCExportWrappers(g *protogen.GeneratedFile, plan F
 	g.P()
 
 	cancelName := messageCExportFuncName(plan, service, method, "cancel")
+	renderCGOExportDoc(g, cancelName, "cancels the message bidi-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", cancelName)
 	g.P("func ", cancelName, "(handle C.int32_t) C.int32_t {")
 	g.P("ctx := context.Background()")

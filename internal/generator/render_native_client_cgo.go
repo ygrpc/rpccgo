@@ -638,6 +638,7 @@ func renderNativeCExportWrappers(g *protogen.GeneratedFile, plan FilePlan, servi
 
 func renderNativeUnaryCExportWrapper(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage string, unaryABI COperationABI) {
 	exportName := unaryABI.Symbol
+	renderCGOExportDoc(g, exportName, "invokes the native unary client entrypoint for "+method.FullName+".")
 	g.P("//export ", exportName)
 	g.P("func ", exportName, "(", nativeCExportParams(unaryABI.Params), ") ", unaryABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")
@@ -649,6 +650,7 @@ func renderNativeUnaryCExportWrapper(g *protogen.GeneratedFile, service ServiceP
 
 func renderNativeClientStreamingCExportWrappers(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage string, methodABI map[NativeCOperation]COperationABI) {
 	startABI := methodABI[NativeCOperationStart]
+	renderCGOExportDoc(g, startABI.Symbol, "starts the native client-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", startABI.Symbol)
 	g.P("func ", startABI.Symbol, "(", nativeCExportParams(startABI.Params), ") ", startABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")
@@ -658,6 +660,7 @@ func renderNativeClientStreamingCExportWrappers(g *protogen.GeneratedFile, servi
 	g.P()
 
 	sendABI := methodABI[NativeCOperationSend]
+	renderCGOExportDoc(g, sendABI.Symbol, "sends native request values to the client-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", sendABI.Symbol)
 	g.P("func ", sendABI.Symbol, "(", nativeCExportParams(sendABI.Params), ") ", sendABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")
@@ -666,6 +669,7 @@ func renderNativeClientStreamingCExportWrappers(g *protogen.GeneratedFile, servi
 	g.P()
 
 	finishABI := methodABI[NativeCOperationFinish]
+	renderCGOExportDoc(g, finishABI.Symbol, "finishes the native client-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", finishABI.Symbol)
 	g.P("func ", finishABI.Symbol, "(", nativeCExportParams(finishABI.Params), ") ", finishABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")
@@ -675,6 +679,7 @@ func renderNativeClientStreamingCExportWrappers(g *protogen.GeneratedFile, servi
 	g.P()
 
 	cancelABI := methodABI[NativeCOperationCancel]
+	renderCGOExportDoc(g, cancelABI.Symbol, "cancels the native client-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", cancelABI.Symbol)
 	g.P("func ", cancelABI.Symbol, "(", nativeCExportParams(cancelABI.Params), ") ", cancelABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")
@@ -685,6 +690,7 @@ func renderNativeClientStreamingCExportWrappers(g *protogen.GeneratedFile, servi
 
 func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage string, methodABI map[NativeCOperation]COperationABI) {
 	startABI := methodABI[NativeCOperationStart]
+	renderCGOExportDoc(g, startABI.Symbol, "starts the native server-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", startABI.Symbol)
 	g.P("func ", startABI.Symbol, "(", nativeCExportParams(startABI.Params), ") ", startABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")
@@ -694,6 +700,7 @@ func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, servi
 	g.P()
 
 	readABI := methodABI[NativeCOperationRecv]
+	renderCGOExportDoc(g, readABI.Symbol, "reads native response values from the server-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", readABI.Symbol)
 	g.P("func ", readABI.Symbol, "(", nativeCExportParams(readABI.Params), ") ", readABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")
@@ -703,6 +710,7 @@ func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, servi
 	g.P()
 
 	finishABI := methodABI[NativeCOperationFinish]
+	renderCGOExportDoc(g, finishABI.Symbol, "finishes the native server-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", finishABI.Symbol)
 	g.P("func ", finishABI.Symbol, "(", nativeCExportParams(finishABI.Params), ") ", finishABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")
@@ -711,6 +719,7 @@ func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, servi
 	g.P()
 
 	cancelABI := methodABI[NativeCOperationCancel]
+	renderCGOExportDoc(g, cancelABI.Symbol, "cancels the native server-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", cancelABI.Symbol)
 	g.P("func ", cancelABI.Symbol, "(", nativeCExportParams(cancelABI.Params), ") ", cancelABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")
@@ -721,6 +730,7 @@ func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, servi
 
 func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage string, methodABI map[NativeCOperation]COperationABI) {
 	startABI := methodABI[NativeCOperationStart]
+	renderCGOExportDoc(g, startABI.Symbol, "starts the native bidi-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", startABI.Symbol)
 	g.P("func ", startABI.Symbol, "(", nativeCExportParams(startABI.Params), ") ", startABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")
@@ -730,6 +740,7 @@ func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, service
 	g.P()
 
 	sendABI := methodABI[NativeCOperationSend]
+	renderCGOExportDoc(g, sendABI.Symbol, "sends native request values to the bidi-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", sendABI.Symbol)
 	g.P("func ", sendABI.Symbol, "(", nativeCExportParams(sendABI.Params), ") ", sendABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")
@@ -738,6 +749,7 @@ func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, service
 	g.P()
 
 	readABI := methodABI[NativeCOperationRecv]
+	renderCGOExportDoc(g, readABI.Symbol, "reads native response values from the bidi-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", readABI.Symbol)
 	g.P("func ", readABI.Symbol, "(", nativeCExportParams(readABI.Params), ") ", readABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")
@@ -747,6 +759,7 @@ func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, service
 	g.P()
 
 	closeSendABI := methodABI[NativeCOperationCloseSend]
+	renderCGOExportDoc(g, closeSendABI.Symbol, "closes the native bidi-streaming client send side for "+method.FullName+".")
 	g.P("//export ", closeSendABI.Symbol)
 	g.P("func ", closeSendABI.Symbol, "(", nativeCExportParams(closeSendABI.Params), ") ", closeSendABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")
@@ -755,6 +768,7 @@ func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, service
 	g.P()
 
 	finishABI := methodABI[NativeCOperationFinish]
+	renderCGOExportDoc(g, finishABI.Symbol, "finishes the native bidi-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", finishABI.Symbol)
 	g.P("func ", finishABI.Symbol, "(", nativeCExportParams(finishABI.Params), ") ", finishABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")
@@ -763,6 +777,7 @@ func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, service
 	g.P()
 
 	cancelABI := methodABI[NativeCOperationCancel]
+	renderCGOExportDoc(g, cancelABI.Symbol, "cancels the native bidi-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", cancelABI.Symbol)
 	g.P("func ", cancelABI.Symbol, "(", nativeCExportParams(cancelABI.Params), ") ", cancelABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")

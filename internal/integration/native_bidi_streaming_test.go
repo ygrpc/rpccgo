@@ -473,8 +473,8 @@ func TestNativeBidiStreamingCGOServerCloseSendSemantics(t *testing.T) {
 	sendChatCGO(t, handle, "one", 1)
 	sendChatCGO(t, handle, "two", 2)
 	assertChatReadCGO(t, handle, 1, "one")
-	if got := frees(); got != 1 {
-		t.Fatalf("free count after first read = %d, want 1", got)
+	if got := frees(); got != 2 {
+		t.Fatalf("free count after first read = %d, want 2", got)
 	}
 	if errID := CloseSendGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
 		t.Fatalf("CloseSendGreeterChatNativeBidiStream() errID = %d", errID)
@@ -657,11 +657,14 @@ static int32_t greeterChatRecv(int32_t stream, int32_t* outAck, uintptr_t* outMe
 	for (int i = 0; i < 1000 && greeterBidiRead >= greeterBidiCount && !greeterBidiClosed; i++) {
 		usleep(1000);
 	}
-	if (greeterBidiRead >= greeterBidiCount) {
-		char finished[64];
-		snprintf(finished, sizeof(finished), "cgo bidi finished read=%d count=%d", greeterBidiRead, greeterBidiCount);
-		return greeterBidiError(finished);
-	}
+		if (greeterBidiRead >= greeterBidiCount) {
+			if (greeterBidiClosed) {
+				return greeterBidiError("EOF");
+			}
+			char finished[64];
+			snprintf(finished, sizeof(finished), "cgo bidi finished read=%d count=%d", greeterBidiRead, greeterBidiCount);
+			return greeterBidiError(finished);
+		}
 	char* msg = (char*)malloc((size_t)strlen(greeterBidiNames[greeterBidiRead]));
 	if (msg == NULL) {
 		return greeterBidiError("bidi malloc failed");

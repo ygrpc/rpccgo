@@ -26,9 +26,11 @@ greeterv1.RegisterGreeterConnectRemoteServer(client)
 greeterv1.RegisterGreeterGRPCRemoteServer(client)
 ```
 
-Generated helper 完成 nil check、service contract validation 和 callback validation 后，把 `{Kind, Server}` 写入 `rpcruntime` server registry。C native/message callback 支持按 method 局部注册；未注册 method 调用时返回 generated unimplemented error，全部 method 都未注册时仍可注册为全 unimplemented server，streaming method 的 operation callbacks 必须全 nil 或全非 nil。C per-method register 在 current server 为同一 `ServerKind` 时累积到现有 cgo adapter；current server 为空或不是同一 `ServerKind` 时创建新的 cgo adapter 并替换 current server。Per-method register 校验失败时只清空当前 method callbacks，使该 method 回到 unimplemented 状态，不清空 current server 或其他 method callbacks；如果 current server 不是同一 `ServerKind`，仍创建并注册新的同 kind cgo adapter，再把当前 method 保持为 unimplemented。Service-level registration helper 失败时仍清空该 `ServiceID` 当前 registered server 并返回错误；后续调用应返回 no-active-server 错误，而不是继续使用旧 server。
+非 C callback generated helper 完成 nil check 和 service contract validation 后，把 `{Kind, Server}` 写入 `rpcruntime` server registry；这类 service-level registration helper 失败时清空该 `ServiceID` 当前 registered server 并返回错误，后续调用应返回 `rpcruntime.ErrNoRegisteredServer`，而不是继续使用旧 server。
 
-Generated service runtime 也应暴露 service-specific clear helper，内部调用 runtime clear primitive。clear 只影响后续 unary 调用和后续 stream `Start`，不影响已经开始的 stream session。
+C native/message callback registration 支持 service-level 和 per-method 两种入口。未注册 method 调用时返回 generated unimplemented error，全部 method 都未注册时仍可注册为全 unimplemented server。每个 method 内部原子校验：unary callback nil 表示该 method 未实现，streaming method 的 operation callbacks 必须全 nil 或全非 nil。C service-level register 和 per-method register 都在 current server 为同一 `ServerKind` 时累积到现有 cgo adapter；current server 为空或不是同一 `ServerKind` 时创建新的 cgo adapter 并替换 current server。任一 method 校验失败时只清空该 method callbacks，使该 method 回到 unimplemented 状态，不清空 current server 或其他 method callbacks；如果 current server 不是同一 `ServerKind`，仍创建并注册新的同 kind cgo adapter，再把失败 method 保持为 unimplemented。C callback registration 返回错误报告被拒绝的 method，但保留其他已校验通过的 callback 更新。
+
+Generated service runtime 也应暴露 service-specific clear helper 和 load helper。clear helper 内部调用 runtime clear primitive；load helper 内部调用 runtime load primitive，用于 generated cgo register 读取并累积当前同 kind cgo adapter。clear 只影响后续 unary 调用和后续 stream `Start`，不影响已经开始的 stream session。
 
 ## 调用
 
@@ -50,7 +52,7 @@ cgo message unary call
   -> direct message call or message->native conversion
 ```
 
-注册新 server 会影响后续 unary 调用。没有 current registered server 时返回 `rpcruntime.ErrNoActiveServer`。
+注册新 server 会影响后续 unary 调用。没有 current registered server 时返回 `rpcruntime.ErrNoRegisteredServer`。
 
 ## Streaming
 

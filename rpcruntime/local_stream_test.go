@@ -3,6 +3,7 @@ package rpcruntime
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"testing"
 	"time"
@@ -204,6 +205,25 @@ func TestBidiStreamingCloseSendDoesNotWaitForServerRecv(t *testing.T) {
 	assertLocalStreamCompletes(t, handlerDone)
 }
 
+func TestBidiStreamingServerRecvPrefersCloseSendAfterCancel(t *testing.T) {
+	client, server, streamCtx := NewBidiStreaming[int, string](context.Background(), LocalStreamOptions{
+		StreamClosed: errors.New("stream closed"),
+	})
+	recvDone := make(chan error, 1)
+	go func() {
+		_, err := server.Recv(streamCtx)
+		recvDone <- err
+	}()
+	if err := client.CloseSend(context.Background()); err != nil {
+		t.Fatalf("CloseSend() error = %v", err)
+	}
+	client.state.cancel()
+
+	if err := <-recvDone; !errors.Is(err, io.EOF) {
+		t.Fatalf("Recv() error = %v, want EOF", err)
+	}
+}
+
 func TestBidiStreamingAllowsConcurrentSendAndRecv(t *testing.T) {
 	client, server, streamCtx := NewBidiStreaming[int, string](context.Background(), LocalStreamOptions{
 		RequestBuffer:  1,
@@ -244,6 +264,47 @@ func TestBidiStreamingAllowsConcurrentSendAndRecv(t *testing.T) {
 
 	assertLocalStreamCompletes(t, recvDone)
 	assertLocalStreamCompletes(t, sendDone)
+	assertLocalStreamCompletes(t, handlerDone)
+}
+
+func TestBidiStreamingAllowsMultipleClientSendsBeforeRecv(t *testing.T) {
+	client, server, streamCtx := NewBidiStreaming[int, string](context.Background(), LocalStreamOptions{
+		RequestBuffer:  16,
+		ResponseBuffer: 1,
+		StreamClosed:   errors.New("stream closed"),
+	})
+	handlerDone := make(chan error, 1)
+	go func() {
+		for i := 0; i < 2; i++ {
+			req, err := server.Recv(streamCtx)
+			if err != nil {
+				handlerDone <- err
+				return
+			}
+			if err := server.Send(streamCtx, fmt.Sprintf("resp-%d", req)); err != nil {
+				handlerDone <- err
+				return
+			}
+		}
+		server.Complete(nil)
+		handlerDone <- nil
+	}()
+
+	if err := client.Send(context.Background(), 1); err != nil {
+		t.Fatalf("first Send() error = %v", err)
+	}
+	if err := client.Send(context.Background(), 2); err != nil {
+		t.Fatalf("second Send() error = %v", err)
+	}
+	for _, want := range []string{"resp-1", "resp-2"} {
+		resp, err := client.Recv(context.Background())
+		if err != nil {
+			t.Fatalf("Recv() error = %v", err)
+		}
+		if resp != want {
+			t.Fatalf("Recv() response = %q, want %q", resp, want)
+		}
+	}
 	assertLocalStreamCompletes(t, handlerDone)
 }
 

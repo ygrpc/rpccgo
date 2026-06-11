@@ -37,11 +37,13 @@ type GreeterCollectNativeClientStream interface {
 
 // GreeterBroadcastNativeServerStream sends native response values for the Broadcast server-streaming method.
 type GreeterBroadcastNativeServerStream interface {
+	FinishRequested() <-chan struct{}
 	Send(ctx context.Context, message string) error
 }
 
 // GreeterChatNativeBidiStream sends and receives native values for the Chat bidi-streaming method.
 type GreeterChatNativeBidiStream interface {
+	FinishRequested() <-chan struct{}
 	Recv(ctx context.Context) (*rpcruntime.RpcString, *rpcruntime.RpcString, error)
 	Send(ctx context.Context, message string) error
 }
@@ -75,6 +77,10 @@ type greeterBroadcastGoNativeServerStreamingServer struct {
 	stream rpcruntime.ServerStreamingServer[GreeterBroadcastNativeStreamResponse]
 }
 
+func (s *greeterBroadcastGoNativeServerStreamingServer) FinishRequested() <-chan struct{} {
+	return s.stream.FinishRequested()
+}
+
 func (s *greeterBroadcastGoNativeServerStreamingServer) Send(ctx context.Context, message string) error {
 	return s.stream.Send(ctx, GreeterBroadcastNativeStreamResponse{Message: message})
 }
@@ -92,6 +98,10 @@ type GreeterChatNativeStreamResponse struct {
 
 type greeterChatGoNativeBidiStreamingServer struct {
 	stream rpcruntime.BidiStreamingServer[GreeterChatNativeStreamRequest, GreeterChatNativeStreamResponse]
+}
+
+func (s *greeterChatGoNativeBidiStreamingServer) FinishRequested() <-chan struct{} {
+	return s.stream.FinishRequested()
 }
 
 func (s *greeterChatGoNativeBidiStreamingServer) Recv(ctx context.Context) (*rpcruntime.RpcString, *rpcruntime.RpcString, error) {

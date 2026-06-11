@@ -430,6 +430,11 @@ func (a *greeterCGONativeAdapter) Broadcast(ctx context.Context, name *rpcruntim
 		return err
 	}
 	for {
+		select {
+		case <-stream.FinishRequested():
+			return session.Finish(ctx)
+		default:
+		}
 		resp, err := session.Recv(ctx)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -472,6 +477,15 @@ func (a *greeterCGONativeAdapter) Chat(ctx context.Context, stream proto.Greeter
 		}
 	}()
 	for {
+		select {
+		case <-stream.FinishRequested():
+			if sendErr := <-sendDone; sendErr != nil {
+				_ = session.Cancel(ctx)
+				return sendErr
+			}
+			return session.Finish(ctx)
+		default:
+		}
 		resp, err := session.Recv(ctx)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -879,6 +893,8 @@ func greeterCGONativeServerErrorFromID(errID int32) error {
 	return fmt.Errorf("rpccgo: cgo native server callback returned unknown error id %d", errID)
 }
 
+// rpccgo_native_greeterv1_Greeter_register registers cgo native callbacks as the current server for examples.connect.greeter.v1.Greeter.
+//
 //export rpccgo_native_greeterv1_Greeter_register
 func rpccgo_native_greeterv1_Greeter_register(sayHelloCallback C.GreeterSayHelloCGONativeUnaryCallback, collectStart C.GreeterCollectCGONativeClientStreamStartCallback, collectSend C.GreeterCollectCGONativeClientStreamSendCallback, collectFinish C.GreeterCollectCGONativeClientStreamFinishCallback, collectCancel C.GreeterCollectCGONativeClientStreamCancelCallback, broadcastStart C.GreeterBroadcastCGONativeServerStreamStartCallback, broadcastRecv C.GreeterBroadcastCGONativeServerStreamRecvCallback, broadcastFinish C.GreeterBroadcastCGONativeServerStreamFinishCallback, broadcastCancel C.GreeterBroadcastCGONativeServerStreamCancelCallback, chatStart C.GreeterChatCGONativeBidiStreamStartCallback, chatSend C.GreeterChatCGONativeBidiStreamSendCallback, chatRecv C.GreeterChatCGONativeBidiStreamRecvCallback, chatCloseSend C.GreeterChatCGONativeBidiStreamCloseSendCallback, chatFinish C.GreeterChatCGONativeBidiStreamFinishCallback, chatCancel C.GreeterChatCGONativeBidiStreamCancelCallback) C.int32_t {
 	greeterCGONativeServerAdapterMu.Lock()
@@ -959,6 +975,8 @@ func rpccgo_native_greeterv1_Greeter_register(sayHelloCallback C.GreeterSayHello
 	return 0
 }
 
+// rpccgo_native_greeterv1_Greeter_register_SayHello registers cgo native callbacks for examples.connect.greeter.v1.Greeter.SayHello.
+//
 //export rpccgo_native_greeterv1_Greeter_register_SayHello
 func rpccgo_native_greeterv1_Greeter_register_SayHello(sayHelloCallback C.GreeterSayHelloCGONativeUnaryCallback) C.int32_t {
 	greeterCGONativeServerAdapterMu.Lock()
@@ -976,6 +994,8 @@ func rpccgo_native_greeterv1_Greeter_register_SayHello(sayHelloCallback C.Greete
 	return 0
 }
 
+// rpccgo_native_greeterv1_Greeter_register_Collect registers cgo native callbacks for examples.connect.greeter.v1.Greeter.Collect.
+//
 //export rpccgo_native_greeterv1_Greeter_register_Collect
 func rpccgo_native_greeterv1_Greeter_register_Collect(collectStart C.GreeterCollectCGONativeClientStreamStartCallback, collectSend C.GreeterCollectCGONativeClientStreamSendCallback, collectFinish C.GreeterCollectCGONativeClientStreamFinishCallback, collectCancel C.GreeterCollectCGONativeClientStreamCancelCallback) C.int32_t {
 	greeterCGONativeServerAdapterMu.Lock()
@@ -1011,6 +1031,8 @@ func rpccgo_native_greeterv1_Greeter_register_Collect(collectStart C.GreeterColl
 	return 0
 }
 
+// rpccgo_native_greeterv1_Greeter_register_Broadcast registers cgo native callbacks for examples.connect.greeter.v1.Greeter.Broadcast.
+//
 //export rpccgo_native_greeterv1_Greeter_register_Broadcast
 func rpccgo_native_greeterv1_Greeter_register_Broadcast(broadcastStart C.GreeterBroadcastCGONativeServerStreamStartCallback, broadcastRecv C.GreeterBroadcastCGONativeServerStreamRecvCallback, broadcastFinish C.GreeterBroadcastCGONativeServerStreamFinishCallback, broadcastCancel C.GreeterBroadcastCGONativeServerStreamCancelCallback) C.int32_t {
 	greeterCGONativeServerAdapterMu.Lock()
@@ -1046,6 +1068,8 @@ func rpccgo_native_greeterv1_Greeter_register_Broadcast(broadcastStart C.Greeter
 	return 0
 }
 
+// rpccgo_native_greeterv1_Greeter_register_Chat registers cgo native callbacks for examples.connect.greeter.v1.Greeter.Chat.
+//
 //export rpccgo_native_greeterv1_Greeter_register_Chat
 func rpccgo_native_greeterv1_Greeter_register_Chat(chatStart C.GreeterChatCGONativeBidiStreamStartCallback, chatSend C.GreeterChatCGONativeBidiStreamSendCallback, chatRecv C.GreeterChatCGONativeBidiStreamRecvCallback, chatCloseSend C.GreeterChatCGONativeBidiStreamCloseSendCallback, chatFinish C.GreeterChatCGONativeBidiStreamFinishCallback, chatCancel C.GreeterChatCGONativeBidiStreamCancelCallback) C.int32_t {
 	greeterCGONativeServerAdapterMu.Lock()
