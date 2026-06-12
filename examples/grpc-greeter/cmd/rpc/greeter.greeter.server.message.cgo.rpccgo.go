@@ -567,14 +567,13 @@ func decodeGreeterChatCGOMessageResponse(responsePtr C.uintptr_t, responseLen C.
 func rpccgo_msg_greeterv1_Greeter_register(sayHelloCallback C.GreeterSayHelloCGOMessageUnaryCallback, collectStart C.GreeterCollectCGOMessageClientStreamStartCallback, collectSend C.GreeterCollectCGOMessageClientStreamSendCallback, collectFinish C.GreeterCollectCGOMessageClientStreamFinishCallback, collectCancel C.GreeterCollectCGOMessageClientStreamCancelCallback, broadcastStart C.GreeterBroadcastCGOMessageServerStreamStartCallback, broadcastRecv C.GreeterBroadcastCGOMessageServerStreamRecvCallback, broadcastFinish C.GreeterBroadcastCGOMessageServerStreamFinishCallback, broadcastCancel C.GreeterBroadcastCGOMessageServerStreamCancelCallback, chatStart C.GreeterChatCGOMessageBidiStreamStartCallback, chatSend C.GreeterChatCGOMessageBidiStreamSendCallback, chatRecv C.GreeterChatCGOMessageBidiStreamRecvCallback, chatCloseSend C.GreeterChatCGOMessageBidiStreamCloseSendCallback, chatFinish C.GreeterChatCGOMessageBidiStreamFinishCallback, chatCancel C.GreeterChatCGOMessageBidiStreamCancelCallback) C.int32_t {
 	greeterCGOMessageServerAdapterMu.Lock()
 	defer greeterCGOMessageServerAdapterMu.Unlock()
-	next := &greeterCGOMessageAdapter{}
+	next := greeterCGOMessageServerAdapterForRegister()
 	var registerErr error
-	next.SayHelloCallback = sayHelloCallback
+	if sayHelloCallback != nil {
+		next.SayHelloCallback = sayHelloCallback
+	}
 	if collectStart == nil && collectSend == nil && collectFinish == nil && collectCancel == nil {
-		next.CollectStart = nil
-		next.CollectSend = nil
-		next.CollectFinish = nil
-		next.CollectCancel = nil
+		// Preserve existing callbacks for methods omitted from a service-level update.
 	} else if collectStart != nil && collectSend != nil && collectFinish != nil && collectCancel != nil {
 		next.CollectStart = collectStart
 		next.CollectSend = collectSend
@@ -585,15 +584,10 @@ func rpccgo_msg_greeterv1_Greeter_register(sayHelloCallback C.GreeterSayHelloCGO
 		next.CollectSend = nil
 		next.CollectFinish = nil
 		next.CollectCancel = nil
-		if registerErr == nil {
-			registerErr = greeterCGOMessageServerStreamPartiallyRegistered
-		}
+		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", greeterCGOMessageServerStreamPartiallyRegistered, "examples.grpc.greeter.v1.Greeter.Collect"))
 	}
 	if broadcastStart == nil && broadcastRecv == nil && broadcastFinish == nil && broadcastCancel == nil {
-		next.BroadcastStart = nil
-		next.BroadcastRecv = nil
-		next.BroadcastFinish = nil
-		next.BroadcastCancel = nil
+		// Preserve existing callbacks for methods omitted from a service-level update.
 	} else if broadcastStart != nil && broadcastRecv != nil && broadcastFinish != nil && broadcastCancel != nil {
 		next.BroadcastStart = broadcastStart
 		next.BroadcastRecv = broadcastRecv
@@ -604,17 +598,10 @@ func rpccgo_msg_greeterv1_Greeter_register(sayHelloCallback C.GreeterSayHelloCGO
 		next.BroadcastRecv = nil
 		next.BroadcastFinish = nil
 		next.BroadcastCancel = nil
-		if registerErr == nil {
-			registerErr = greeterCGOMessageServerStreamPartiallyRegistered
-		}
+		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", greeterCGOMessageServerStreamPartiallyRegistered, "examples.grpc.greeter.v1.Greeter.Broadcast"))
 	}
 	if chatStart == nil && chatSend == nil && chatRecv == nil && chatCloseSend == nil && chatFinish == nil && chatCancel == nil {
-		next.ChatStart = nil
-		next.ChatSend = nil
-		next.ChatRecv = nil
-		next.ChatCloseSend = nil
-		next.ChatFinish = nil
-		next.ChatCancel = nil
+		// Preserve existing callbacks for methods omitted from a service-level update.
 	} else if chatStart != nil && chatSend != nil && chatRecv != nil && chatCloseSend != nil && chatFinish != nil && chatCancel != nil {
 		next.ChatStart = chatStart
 		next.ChatSend = chatSend
@@ -629,9 +616,7 @@ func rpccgo_msg_greeterv1_Greeter_register(sayHelloCallback C.GreeterSayHelloCGO
 		next.ChatCloseSend = nil
 		next.ChatFinish = nil
 		next.ChatCancel = nil
-		if registerErr == nil {
-			registerErr = greeterCGOMessageServerStreamPartiallyRegistered
-		}
+		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", greeterCGOMessageServerStreamPartiallyRegistered, "examples.grpc.greeter.v1.Greeter.Chat"))
 	}
 	if err := v1.RegisterGreeterCGOMessageServer(next); err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
@@ -685,9 +670,7 @@ func rpccgo_msg_greeterv1_Greeter_register_Collect(collectStart C.GreeterCollect
 		next.CollectSend = nil
 		next.CollectFinish = nil
 		next.CollectCancel = nil
-		if registerErr == nil {
-			registerErr = greeterCGOMessageServerStreamPartiallyRegistered
-		}
+		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", greeterCGOMessageServerStreamPartiallyRegistered, "examples.grpc.greeter.v1.Greeter.Collect"))
 	}
 	if err := v1.RegisterGreeterCGOMessageServer(next); err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
@@ -722,9 +705,7 @@ func rpccgo_msg_greeterv1_Greeter_register_Broadcast(broadcastStart C.GreeterBro
 		next.BroadcastRecv = nil
 		next.BroadcastFinish = nil
 		next.BroadcastCancel = nil
-		if registerErr == nil {
-			registerErr = greeterCGOMessageServerStreamPartiallyRegistered
-		}
+		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", greeterCGOMessageServerStreamPartiallyRegistered, "examples.grpc.greeter.v1.Greeter.Broadcast"))
 	}
 	if err := v1.RegisterGreeterCGOMessageServer(next); err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
@@ -765,9 +746,7 @@ func rpccgo_msg_greeterv1_Greeter_register_Chat(chatStart C.GreeterChatCGOMessag
 		next.ChatCloseSend = nil
 		next.ChatFinish = nil
 		next.ChatCancel = nil
-		if registerErr == nil {
-			registerErr = greeterCGOMessageServerStreamPartiallyRegistered
-		}
+		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", greeterCGOMessageServerStreamPartiallyRegistered, "examples.grpc.greeter.v1.Greeter.Chat"))
 	}
 	if err := v1.RegisterGreeterCGOMessageServer(next); err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
