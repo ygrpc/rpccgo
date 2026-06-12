@@ -7,10 +7,10 @@ import (
 )
 
 func main() {
-	generator.ProtogenOptions().Run(run)
+	generator.DartProtogenOptions().Run(run)
 }
 
 func run(plugin *protogen.Plugin) error {
-	_, err := generator.GenerateWithOptions(plugin)
+	_, err := generator.GenerateDartWithOptions(plugin)
 	return err
 }

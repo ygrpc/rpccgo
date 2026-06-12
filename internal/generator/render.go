@@ -14,6 +14,10 @@ func RenderGeneratedFiles(plugin *protogen.Plugin, plan GenerationPlan) error {
 	if err := ValidateGenerationPlan(plan); err != nil {
 		return err
 	}
+	return renderGeneratedFiles(plugin, plan)
+}
+
+func renderGeneratedFiles(plugin *protogen.Plugin, plan GenerationPlan) error {
 	for _, pkg := range plan.Packages {
 		for _, artifact := range pkg.SharedArtifacts {
 			if err := renderPackageArtifact(plugin, pkg, artifact); err != nil {
