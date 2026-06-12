@@ -1507,10 +1507,10 @@ func renderCGONativeServerRegistration(g *protogen.GeneratedFile, service Servic
 	g.P("func ", registerABI.Symbol, "(", nativeCABIRegisterParamList(registerABI.Params), ") ", registerABI.Return.CGoType, " {")
 	g.P(adapterVarName, "Mu.Lock()")
 	g.P("defer ", adapterVarName, "Mu.Unlock()")
-	g.P("next := &", adapterTypeName, "{}")
+	g.P("next := ", adapterVarName, "ForRegister()")
 	g.P("var registerErr error")
 	for _, method := range service.Methods {
-		renderCGONativeServerMethodAssignment(g, service, method, "next", errorNames)
+		renderCGONativeServerServiceMethodAssignment(g, service, method, "next", errorNames)
 	}
 	g.P("if err := ", servicePackage, "Register", service.GoName, "CGONativeServer(next); err != nil { return C.int32_t(rpcruntime.StoreError(err)) }")
 	g.P(adapterVarName, " = next")
@@ -1552,6 +1552,44 @@ func renderCGONativeServerMethodRegistration(g *protogen.GeneratedFile, service 
 	g.P()
 }
 
+func renderCGONativeServerServiceMethodAssignment(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, target string, errorNames nativeServerCGOErrorNames) {
+	operations, _ := NativeCOperationsForMethod(method)
+	callbackNames := make([]string, 0, len(operations))
+	fieldNames := make([]string, 0, len(operations))
+	for _, operation := range operations {
+		callbackNames = append(callbackNames, nativeCGOServerRegisterCallbackParamName(method, operation))
+		fieldName := upperInitial(nativeCABIRegisterParamName(operation))
+		if operation == NativeCOperationUnary {
+			fieldName = "Callback"
+		}
+		fieldNames = append(fieldNames, fieldName)
+	}
+	if method.Streaming == StreamingKindUnary {
+		g.P("if ", callbackNames[0], " != nil {")
+		g.P(target, ".", method.GoName, fieldNames[0], " = ", callbackNames[0])
+		g.P("}")
+		return
+	}
+	allNil := make([]string, 0, len(callbackNames))
+	allPresent := make([]string, 0, len(callbackNames))
+	for _, callbackName := range callbackNames {
+		allNil = append(allNil, callbackName+" == nil")
+		allPresent = append(allPresent, callbackName+" != nil")
+	}
+	g.P("if ", strings.Join(allNil, " && "), " {")
+	g.P("// Preserve existing callbacks for methods omitted from a service-level update.")
+	g.P("} else if ", strings.Join(allPresent, " && "), " {")
+	for i, fieldName := range fieldNames {
+		g.P(target, ".", method.GoName, fieldName, " = ", callbackNames[i])
+	}
+	g.P("} else {")
+	for _, fieldName := range fieldNames {
+		g.P(target, ".", method.GoName, fieldName, " = nil")
+	}
+	g.P(`registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", `, errorNames.StreamPartiallyRegistered, `, "`, method.FullName, `"))`)
+	g.P("}")
+}
+
 func renderCGONativeServerMethodAssignment(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, target string, errorNames nativeServerCGOErrorNames) {
 	operations, _ := NativeCOperationsForMethod(method)
 	callbackNames := make([]string, 0, len(operations))
@@ -1586,7 +1624,7 @@ func renderCGONativeServerMethodAssignment(g *protogen.GeneratedFile, service Se
 	for _, fieldName := range fieldNames {
 		g.P(target, ".", method.GoName, fieldName, " = nil")
 	}
-	g.P("if registerErr == nil { registerErr = ", errorNames.StreamPartiallyRegistered, " }")
+	g.P(`registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", `, errorNames.StreamPartiallyRegistered, `, "`, method.FullName, `"))`)
 	g.P("}")
 }
 

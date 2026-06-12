@@ -129,7 +129,7 @@ func renderRuntimeNativeStreamFinish(g *protogen.GeneratedFile, serviceName stri
 	} else {
 		g.P("func Finish", serviceName, "Native", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle) error {")
 	}
-	g.P("entry, err := rpcruntime.FinishStreamSession(handle)")
+	g.P("entry, err := rpcruntime.LoadStreamSession(handle)")
 	if method.Stream.FinishReturnsResponse {
 		g.P("if err != nil { return ", method.Native.InvalidZero, " }")
 	} else {
@@ -141,6 +141,7 @@ func renderRuntimeNativeStreamFinish(g *protogen.GeneratedFile, serviceName stri
 		invalidReturn = method.Native.InvalidZero
 	}
 	renderRuntimeNativeStreamNativeSessionCase(g, method, "rpcruntime.ServerKindGoNative", "source", invalidReturn, func() {
+		g.P("if _, err = rpcruntime.FinishStreamSession(handle); err != nil { return ", invalidReturn, " }")
 		if method.Stream.FinishReturnsResponse {
 			if method.Native.ResultNames == "" {
 				g.P("_, err := source.Finish(ctx)")
@@ -154,6 +155,7 @@ func renderRuntimeNativeStreamFinish(g *protogen.GeneratedFile, serviceName stri
 		}
 	})
 	renderRuntimeNativeStreamNativeSessionCase(g, method, "rpcruntime.ServerKindCGONative", "source", invalidReturn, func() {
+		g.P("if _, err = rpcruntime.FinishStreamSession(handle); err != nil { return ", invalidReturn, " }")
 		if method.Stream.FinishReturnsResponse {
 			if method.Native.ResultNames == "" {
 				g.P("_, err := source.Finish(ctx)")
@@ -167,6 +169,7 @@ func renderRuntimeNativeStreamFinish(g *protogen.GeneratedFile, serviceName stri
 		}
 	})
 	renderRuntimeNativeStreamMessageSessionCases(g, serviceName, method, "source", invalidReturn, func() {
+		g.P("if _, err = rpcruntime.FinishStreamSession(handle); err != nil { return ", invalidReturn, " }")
 		if method.Stream.FinishReturnsResponse {
 			g.P("messageResp, err := source.Finish(ctx)")
 			g.P("if err != nil { return ", method.Native.ErrZero, " }")
@@ -190,16 +193,19 @@ func renderRuntimeNativeStreamCancel(g *protogen.GeneratedFile, serviceName stri
 	name := "Cancel" + serviceName + "Native" + method.Identity.GoName
 	renderDoc(g, name, "cancels an active native "+method.Identity.GoName+" stream and releases its handle.")
 	g.P("func Cancel", serviceName, "Native", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle) error {")
-	g.P("entry, err := rpcruntime.CancelStreamSession(handle)")
+	g.P("entry, err := rpcruntime.LoadStreamSession(handle)")
 	g.P("if err != nil { return err }")
 	g.P("switch entry.Kind {")
 	renderRuntimeNativeStreamNativeSessionCase(g, method, "rpcruntime.ServerKindGoNative", "source", "rpcruntime.ErrStreamInvalidHandle", func() {
+		g.P("if _, err = rpcruntime.CancelStreamSession(handle); err != nil { return rpcruntime.ErrStreamInvalidHandle }")
 		g.P("return source.Cancel(ctx)")
 	})
 	renderRuntimeNativeStreamNativeSessionCase(g, method, "rpcruntime.ServerKindCGONative", "source", "rpcruntime.ErrStreamInvalidHandle", func() {
+		g.P("if _, err = rpcruntime.CancelStreamSession(handle); err != nil { return rpcruntime.ErrStreamInvalidHandle }")
 		g.P("return source.Cancel(ctx)")
 	})
 	renderRuntimeNativeStreamMessageSessionCases(g, serviceName, method, "source", "rpcruntime.ErrStreamInvalidHandle", func() {
+		g.P("if _, err = rpcruntime.CancelStreamSession(handle); err != nil { return rpcruntime.ErrStreamInvalidHandle }")
 		g.P("return source.Cancel(ctx)")
 	})
 	g.P("default:")
@@ -301,7 +307,7 @@ func renderRuntimeMessageStreamFinish(g *protogen.GeneratedFile, serviceName str
 	} else {
 		g.P("func Finish", serviceName, "Message", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle) error {")
 	}
-	g.P("entry, err := rpcruntime.FinishStreamSession(handle)")
+	g.P("entry, err := rpcruntime.LoadStreamSession(handle)")
 	if method.Stream.FinishReturnsResponse {
 		g.P("if err != nil { return nil, err }")
 	} else {
@@ -314,6 +320,7 @@ func renderRuntimeMessageStreamFinish(g *protogen.GeneratedFile, serviceName str
 	}
 	if nativeEnabled {
 		renderRuntimeMessageStreamNativeSessionCases(g, method, "source", invalidReturn, func() {
+			g.P("if _, err = rpcruntime.FinishStreamSession(handle); err != nil { return ", invalidReturn, " }")
 			if method.Stream.FinishReturnsResponse {
 				if method.Native.ResultNames == "" {
 					g.P("_, err := source.Finish(ctx)")
@@ -328,6 +335,7 @@ func renderRuntimeMessageStreamFinish(g *protogen.GeneratedFile, serviceName str
 		})
 	}
 	renderRuntimeMessageStreamMessageSessionCases(g, serviceName, method, "source", invalidReturn, func() {
+		g.P("if _, err = rpcruntime.FinishStreamSession(handle); err != nil { return ", invalidReturn, " }")
 		if method.Stream.FinishReturnsResponse {
 			g.P("resp, err := source.Finish(ctx)")
 			g.P("if err != nil { return nil, err }")
@@ -354,15 +362,17 @@ func renderRuntimeMessageStreamCancel(g *protogen.GeneratedFile, serviceName str
 	name := "Cancel" + serviceName + "Message" + method.Identity.GoName
 	renderDoc(g, name, "cancels an active message "+method.Identity.GoName+" stream and releases its handle.")
 	g.P("func Cancel", serviceName, "Message", method.Identity.GoName, "(ctx context.Context, handle rpcruntime.StreamHandle) error {")
-	g.P("entry, err := rpcruntime.CancelStreamSession(handle)")
+	g.P("entry, err := rpcruntime.LoadStreamSession(handle)")
 	g.P("if err != nil { return err }")
 	g.P("switch entry.Kind {")
 	if nativeEnabled {
 		renderRuntimeMessageStreamNativeSessionCases(g, method, "source", "rpcruntime.ErrStreamInvalidHandle", func() {
+			g.P("if _, err = rpcruntime.CancelStreamSession(handle); err != nil { return rpcruntime.ErrStreamInvalidHandle }")
 			g.P("return source.Cancel(ctx)")
 		})
 	}
 	renderRuntimeMessageStreamMessageSessionCases(g, serviceName, method, "source", "rpcruntime.ErrStreamInvalidHandle", func() {
+		g.P("if _, err = rpcruntime.CancelStreamSession(handle); err != nil { return rpcruntime.ErrStreamInvalidHandle }")
 		g.P("return source.Cancel(ctx)")
 	})
 	g.P("default:")

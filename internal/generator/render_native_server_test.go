@@ -316,6 +316,33 @@ func TestRenderNativeServerUnimplementedHelperSupportsPartialImplementation(t *t
 	}
 }
 
+func TestRenderNativeServerNilRegistrationClearsCurrentServer(t *testing.T) {
+	file := completeServicePlanTestFile()
+	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/complete_service_plan.proto", file)
+
+	_, err := GenerateWithOptions(plugin)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	tmp := t.TempDir()
+	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {
+		return strings.Contains(name, ".runtime.rpccgo.go") ||
+			strings.Contains(name, ".codec.rpccgo.go") ||
+			strings.Contains(name, ".server.message.rpccgo.go") ||
+			strings.Contains(name, ".server.native.rpccgo.go")
+	})
+	writeNativeServerCompileStubs(t, tmp)
+	writeNativeRegistrationClearBehaviorTest(t, tmp)
+
+	cmd := exec.Command("go", "test", "-mod=mod", "./...")
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("generated native registration clear test failed: %v\n%s", err, out)
+	}
+}
+
 func writePartialNativeServerBehaviorTest(t *testing.T, root string) {
 	t.Helper()
 
@@ -358,6 +385,51 @@ func TestPartialNativeServerUsesUnimplementedFallback(t *testing.T) {
 	target := filepath.Join(root, "partial_native_server_test.go")
 	if err := os.WriteFile(target, []byte(content), 0o644); err != nil {
 		t.Fatalf("write partial native server behavior test: %v", err)
+	}
+}
+
+func writeNativeRegistrationClearBehaviorTest(t *testing.T, root string) {
+	t.Helper()
+
+	const content = `package testv1
+
+import (
+	context "context"
+	errors "errors"
+	strings "strings"
+	testing "testing"
+
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
+)
+
+type registrationClearAllServiceNativeServer struct {
+	UnimplementedAllServiceNativeServer
+}
+
+func (registrationClearAllServiceNativeServer) Unary(ctx context.Context, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) (bool, []byte, error) {
+	return true, []byte("ok"), nil
+}
+
+func TestRegisterAllServiceGoNativeServerNilClearsCurrentServer(t *testing.T) {
+	if err := RegisterAllServiceGoNativeServer(registrationClearAllServiceNativeServer{}); err != nil {
+		t.Fatalf("RegisterAllServiceGoNativeServer(valid) error = %v", err)
+	}
+	if _, err := rpcruntime.LoadServer(allServiceServiceID); err != nil {
+		t.Fatalf("LoadServer(valid) error = %v", err)
+	}
+
+	err := RegisterAllServiceGoNativeServer(nil)
+	if err == nil || !strings.Contains(err.Error(), "go native server is nil") {
+		t.Fatalf("RegisterAllServiceGoNativeServer(nil) error = %v, want go native server is nil", err)
+	}
+	if _, err := rpcruntime.LoadServer(allServiceServiceID); !errors.Is(err, rpcruntime.ErrNoRegisteredServer) {
+		t.Fatalf("LoadServer(after nil register) error = %v, want ErrNoRegisteredServer", err)
+	}
+}
+`
+	target := filepath.Join(root, "test/v1/native_registration_clear_test.go")
+	if err := os.WriteFile(target, []byte(content), 0o644); err != nil {
+		t.Fatalf("write native registration clear behavior test: %v", err)
 	}
 }
 

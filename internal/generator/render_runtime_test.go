@@ -219,14 +219,15 @@ func TestRenderRuntimeGlueDefinesPackageLevelStreamOperations(t *testing.T) {
 		"source, ok := entry.Session.(rpcruntime.ClientStreamingClient[AllServiceClientStreamNativeStreamRequest, AllServiceClientStreamNativeStreamResponse])",
 		"return source.Send(ctx, AllServiceClientStreamNativeStreamRequest{Name: name, Enabled: enabled, Child: child})",
 		"func FinishAllServiceNativeClientStream(ctx context.Context, handle rpcruntime.StreamHandle) (bool, []byte, error) {",
-		"entry, err := rpcruntime.FinishStreamSession(handle)",
+		"entry, err := rpcruntime.LoadStreamSession(handle)",
+		"_, err = rpcruntime.FinishStreamSession(handle)",
 		"return resp.Accepted, resp.Payload, nil",
 		"func RecvAllServiceNativeServerStream(ctx context.Context, handle rpcruntime.StreamHandle) (bool, []byte, error) {",
 		"entry, err := rpcruntime.RecvStreamSession(handle)",
 		"func FinishAllServiceNativeServerStream(ctx context.Context, handle rpcruntime.StreamHandle) error {",
 		"func CloseSendAllServiceNativeBidiStream(ctx context.Context, handle rpcruntime.StreamHandle) error {",
 		"entry, err := rpcruntime.CloseSendStreamSession(handle)",
-		"entry, err := rpcruntime.CancelStreamSession(handle)",
+		"_, err = rpcruntime.CancelStreamSession(handle)",
 		"return source.Cancel(ctx)",
 	} {
 		assertGeneratedContentContains(t, plugin, nativeServerFile, fragment)
@@ -237,13 +238,14 @@ func TestRenderRuntimeGlueDefinesPackageLevelStreamOperations(t *testing.T) {
 		"entry, err := rpcruntime.SendStreamSession(handle)",
 		"source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*AllRequest, *AllReply])",
 		"func FinishAllServiceMessageClientStream(ctx context.Context, handle rpcruntime.StreamHandle) (*AllReply, error) {",
-		"entry, err := rpcruntime.FinishStreamSession(handle)",
+		"entry, err := rpcruntime.LoadStreamSession(handle)",
+		"_, err = rpcruntime.FinishStreamSession(handle)",
 		"func RecvAllServiceMessageServerStream(ctx context.Context, handle rpcruntime.StreamHandle) (*AllReply, error) {",
 		"entry, err := rpcruntime.RecvStreamSession(handle)",
 		`return nil, errors.New("rpccgo: message response is nil")`,
 		"func CloseSendAllServiceMessageBidiStream(ctx context.Context, handle rpcruntime.StreamHandle) error {",
 		"entry, err := rpcruntime.CloseSendStreamSession(handle)",
-		"entry, err := rpcruntime.CancelStreamSession(handle)",
+		"_, err = rpcruntime.CancelStreamSession(handle)",
 	} {
 		assertGeneratedContentContains(t, plugin, messageServerFile, fragment)
 	}

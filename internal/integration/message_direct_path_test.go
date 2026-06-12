@@ -85,6 +85,26 @@ func TestMessageStreamInvalidHandleReturnsError(t *testing.T) {
 	runMessageDirectPathFixture(t, "TestMessageStreamInvalidHandleReturnsError")
 }
 
+func TestMessageWrongTerminalOperationPreservesStreamHandle(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageWrongTerminalOperationPreservesStreamHandle")
+}
+
+func TestMessageServiceLevelRegistrationAccumulatesExistingCallbacks(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageServiceLevelRegistrationAccumulatesExistingCallbacks")
+}
+
+func TestNativeServiceLevelRegistrationAccumulatesExistingCallbacks(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestNativeServiceLevelRegistrationAccumulatesExistingCallbacks")
+}
+
+func TestMessagePartialRegistrationReportsRejectedMethods(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessagePartialRegistrationReportsRejectedMethods")
+}
+
+func TestNativePartialRegistrationReportsRejectedMethods(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestNativePartialRegistrationReportsRejectedMethods")
+}
+
 func TestMessageDirectConnectHandlerRegistrationRoutesUnaryAndStreaming(t *testing.T) {
 	runMessageDirectRegistrationFixture(t, "@rpccgo: msg-connect\n", "TestDirectConnectHandlerRegistration")
 }
@@ -1127,12 +1147,89 @@ func registerGreeterMessageCallbacks(callbacks C.GreeterCGOMessageServerCallback
 	return nil
 }
 
+func registerGreeterMessageUnaryOnlyForIntegration() error {
+	v1.ResetGreeterServerForIntegrationTest()
+	C.resetMessageCounters()
+	C.setUnaryError(0)
+	C.setUnaryStoredError(0)
+	C.setMessageStreamEOFMode(0)
+	C.setInvalidMessageResponse(0)
+	callbacks := C.greeterMessageCallbacks()
+	errID := rpccgo_msg_testv1_Greeter_register_Unary(callbacks.Unary)
+	if errID == 0 {
+		return nil
+	}
+	return cgoFixtureStoredError(errID)
+}
+
+func registerGreeterMessageUploadOnlyServiceLevelWithoutResetForIntegration() error {
+	C.setUnaryError(0)
+	C.setUnaryStoredError(0)
+	C.setMessageStreamEOFMode(0)
+	C.setInvalidMessageResponse(0)
+	callbacks := C.greeterMessageCallbacks()
+	errID := rpccgo_msg_testv1_Greeter_register(nil, callbacks.UploadStart, callbacks.UploadSend, callbacks.UploadFinish, callbacks.UploadCancel, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	if errID == 0 {
+		return nil
+	}
+	return cgoFixtureStoredError(errID)
+}
+
+func registerGreeterMessagePartialStreamingMethodsForIntegration() error {
+	v1.ResetGreeterServerForIntegrationTest()
+	C.resetMessageCounters()
+	C.setUnaryError(0)
+	C.setUnaryStoredError(0)
+	C.setMessageStreamEOFMode(0)
+	C.setInvalidMessageResponse(0)
+	callbacks := C.greeterMessageCallbacks()
+	errID := rpccgo_msg_testv1_Greeter_register(nil, callbacks.UploadStart, nil, callbacks.UploadFinish, callbacks.UploadCancel, nil, nil, nil, nil, callbacks.ChatStart, callbacks.ChatSend, nil, callbacks.ChatCloseSend, callbacks.ChatFinish, callbacks.ChatCancel)
+	if errID == 0 {
+		return nil
+	}
+	return cgoFixtureStoredError(errID)
+}
+
 func registerGreeterNativeCallbacks(callbacks C.GreeterCGONativeServerCallbacks) error {
 	errID := rpccgo_native_testv1_Greeter_register(callbacks.Unary, callbacks.UploadStart, callbacks.UploadSend, callbacks.UploadFinish, callbacks.UploadCancel, callbacks.ListStart, callbacks.ListRecv, callbacks.ListFinish, callbacks.ListCancel, callbacks.ChatStart, callbacks.ChatSend, callbacks.ChatRecv, callbacks.ChatCloseSend, callbacks.ChatFinish, callbacks.ChatCancel)
 	if errID != 0 {
 		return cgoFixtureStoredError(errID)
 	}
 	return nil
+}
+
+func registerGreeterNativeUnaryOnlyForIntegration() error {
+	v1.ResetGreeterServerForIntegrationTest()
+	C.resetMessageCounters()
+	C.setNativeUnaryError(0)
+	callbacks := C.greeterNativeCallbacks()
+	errID := rpccgo_native_testv1_Greeter_register_Unary(callbacks.Unary)
+	if errID == 0 {
+		return nil
+	}
+	return cgoFixtureStoredError(errID)
+}
+
+func registerGreeterNativeUploadOnlyServiceLevelWithoutResetForIntegration() error {
+	C.setNativeUnaryError(0)
+	callbacks := C.greeterNativeCallbacks()
+	errID := rpccgo_native_testv1_Greeter_register(nil, callbacks.UploadStart, callbacks.UploadSend, callbacks.UploadFinish, callbacks.UploadCancel, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	if errID == 0 {
+		return nil
+	}
+	return cgoFixtureStoredError(errID)
+}
+
+func registerGreeterNativePartialStreamingMethodsForIntegration() error {
+	v1.ResetGreeterServerForIntegrationTest()
+	C.resetMessageCounters()
+	C.setNativeUnaryError(0)
+	callbacks := C.greeterNativeCallbacks()
+	errID := rpccgo_native_testv1_Greeter_register(nil, callbacks.UploadStart, nil, callbacks.UploadFinish, callbacks.UploadCancel, nil, nil, nil, nil, callbacks.ChatStart, callbacks.ChatSend, nil, callbacks.ChatCloseSend, callbacks.ChatFinish, callbacks.ChatCancel)
+	if errID == 0 {
+		return nil
+	}
+	return cgoFixtureStoredError(errID)
 }
 
 func cgoFixtureStoredError(errID C.int32_t) error {
@@ -1600,6 +1697,98 @@ func TestMessageStreamInvalidHandleReturnsError(t *testing.T) {
 	assertMessageErrContains(t, finishGreeterListMessageServerStream(context.Background(), invalid), "stream handle is invalid")
 	assertMessageErrContains(t, closeSendGreeterChatMessageBidiStream(context.Background(), invalid), "stream handle is invalid")
 	assertMessageErrContains(t, cancelGreeterChatMessageBidiStream(context.Background(), invalid), "stream handle is invalid")
+}
+
+func TestMessageWrongTerminalOperationPreservesStreamHandle(t *testing.T) {
+	registerMessageServer(t)
+
+	uploadHandle, errID := startGreeterUploadMessageClientStream(context.Background())
+	assertMessageNoErr(t, errID)
+	assertMessageErrContains(t, finishGreeterChatMessageBidiStream(context.Background(), uploadHandle), "stream handle is invalid")
+	assertMessageNoErr(t, sendGreeterUploadMessageClientStream(context.Background(), uploadHandle, 0, 0))
+	assertMessageNoErr(t, finishGreeterUploadMessageClientStream(context.Background(), uploadHandle, &greeterMessageOutput{}))
+
+	listHandle, errID := startGreeterListMessageServerStream(context.Background(), 0, 0)
+	assertMessageNoErr(t, errID)
+	assertMessageErrContains(t, cancelGreeterChatMessageBidiStream(context.Background(), listHandle), "stream handle is invalid")
+	assertMessageNoErr(t, readGreeterListMessageServerStream(context.Background(), listHandle, &greeterMessageOutput{}))
+	assertMessageNoErr(t, finishGreeterListMessageServerStream(context.Background(), listHandle))
+}
+
+func TestMessageServiceLevelRegistrationAccumulatesExistingCallbacks(t *testing.T) {
+	if err := registerGreeterMessageUnaryOnlyForIntegration(); err != nil {
+		t.Fatalf("registerGreeterMessageUnaryOnlyForIntegration() error = %v", err)
+	}
+	if err := registerGreeterMessageUploadOnlyServiceLevelWithoutResetForIntegration(); err != nil {
+		t.Fatalf("registerGreeterMessageUploadOnlyServiceLevelWithoutResetForIntegration() error = %v", err)
+	}
+
+	assertMessageNoErr(t, callGreeterUnaryMessageUnary(context.Background(), 0, 0, &greeterMessageOutput{}))
+	handle, errID := startGreeterUploadMessageClientStream(context.Background())
+	assertMessageNoErr(t, errID)
+	assertMessageNoErr(t, sendGreeterUploadMessageClientStream(context.Background(), handle, 0, 0))
+	assertMessageNoErr(t, finishGreeterUploadMessageClientStream(context.Background(), handle, &greeterMessageOutput{}))
+
+	if got := greeterMessageUnaryCallsForIntegration(); got != 1 {
+		t.Fatalf("message unary calls = %d, want 1", got)
+	}
+	if got := greeterMessageUploadStartsForIntegration(); got != 1 {
+		t.Fatalf("message upload starts = %d, want 1", got)
+	}
+	if got := greeterMessageUploadSendsForIntegration(); got != 1 {
+		t.Fatalf("message upload sends = %d, want 1", got)
+	}
+	if got := greeterMessageUploadFinishesForIntegration(); got != 1 {
+		t.Fatalf("message upload finishes = %d, want 1", got)
+	}
+}
+
+func TestNativeServiceLevelRegistrationAccumulatesExistingCallbacks(t *testing.T) {
+	if err := registerGreeterNativeUnaryOnlyForIntegration(); err != nil {
+		t.Fatalf("registerGreeterNativeUnaryOnlyForIntegration() error = %v", err)
+	}
+	if err := registerGreeterNativeUploadOnlyServiceLevelWithoutResetForIntegration(); err != nil {
+		t.Fatalf("registerGreeterNativeUploadOnlyServiceLevelWithoutResetForIntegration() error = %v", err)
+	}
+
+	assertMessageNoErr(t, callGreeterUnaryMessageUnary(context.Background(), 0, 0, &greeterMessageOutput{}))
+	handle, errID := startGreeterUploadMessageClientStream(context.Background())
+	assertMessageNoErr(t, errID)
+	assertMessageNoErr(t, sendGreeterUploadMessageClientStream(context.Background(), handle, 0, 0))
+	assertMessageNoErr(t, finishGreeterUploadMessageClientStream(context.Background(), handle, &greeterMessageOutput{}))
+
+	if got := greeterNativeUnaryCallsForIntegration(); got != 1 {
+		t.Fatalf("native unary calls = %d, want 1", got)
+	}
+	if got := greeterNativeUploadStartsForIntegration(); got != 1 {
+		t.Fatalf("native upload starts = %d, want 1", got)
+	}
+	if got := greeterNativeUploadSendsForIntegration(); got != 1 {
+		t.Fatalf("native upload sends = %d, want 1", got)
+	}
+	if got := greeterNativeUploadFinishesForIntegration(); got != 1 {
+		t.Fatalf("native upload finishes = %d, want 1", got)
+	}
+}
+
+func TestMessagePartialRegistrationReportsRejectedMethods(t *testing.T) {
+	err := registerGreeterMessagePartialStreamingMethodsForIntegration()
+	if err == nil {
+		t.Fatal("registerGreeterMessagePartialStreamingMethodsForIntegration() error = nil")
+	}
+	if !strings.Contains(err.Error(), "test.v1.Greeter.Upload") || !strings.Contains(err.Error(), "test.v1.Greeter.Chat") {
+		t.Fatalf("message partial registration error = %q, want rejected method names", err)
+	}
+}
+
+func TestNativePartialRegistrationReportsRejectedMethods(t *testing.T) {
+	err := registerGreeterNativePartialStreamingMethodsForIntegration()
+	if err == nil {
+		t.Fatal("registerGreeterNativePartialStreamingMethodsForIntegration() error = nil")
+	}
+	if !strings.Contains(err.Error(), "test.v1.Greeter.Upload") || !strings.Contains(err.Error(), "test.v1.Greeter.Chat") {
+		t.Fatalf("native partial registration error = %q, want rejected method names", err)
+	}
 }
 
 func TestMessageStreamStartCapturesActiveServerSnapshot(t *testing.T) {

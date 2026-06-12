@@ -508,6 +508,7 @@ func renderGoNativeRegistration(g *protogen.GeneratedFile, service ServicePlan, 
 	renderDoc(g, "Register"+service.GoName+"GoNativeServer", "registers a Go native server as the current server for "+service.GoName+".")
 	g.P("func Register", service.GoName, "GoNativeServer(server ", serverName, ") error {")
 	g.P("if server == nil {")
+	g.P("_ = register", service.GoName, "GoNativeServer(server)")
 	g.P(`return errors.New("rpccgo: `, service.GoName, ` go native server is nil")`)
 	g.P("}")
 	g.P("return register", service.GoName, "GoNativeServer(server)")

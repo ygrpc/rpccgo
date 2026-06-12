@@ -198,9 +198,9 @@ func renderCGOMessageServerRegistration(g *protogen.GeneratedFile, plan FilePlan
 	g.P("func ", exportName, "(", strings.Join(params, ", "), ") C.int32_t {")
 	g.P(lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Lock()")
 	g.P("defer ", lowerInitial(service.GoName), "CGOMessageServerAdapterMu.Unlock()")
-	g.P("next := &", adapterName, "{}")
+	g.P("next := ", lowerInitial(service.GoName), "CGOMessageServerAdapterForRegister()")
 	g.P("var registerErr error")
-	renderCGOMessageServerRegistrationAssignments(g, service)
+	renderCGOMessageServerServiceRegistrationAssignments(g, service)
 	g.P("if err := ", servicePackage, "Register", service.GoName, "CGOMessageServer(next); err != nil { return C.int32_t(rpcruntime.StoreError(err)) }")
 	g.P(lowerInitial(service.GoName), "CGOMessageServerAdapter = next")
 	g.P("if registerErr != nil { return C.int32_t(rpcruntime.StoreError(registerErr)) }")
@@ -223,10 +223,40 @@ func renderCGOMessageServerRegistration(g *protogen.GeneratedFile, plan FilePlan
 	g.P()
 }
 
-func renderCGOMessageServerRegistrationAssignments(g *protogen.GeneratedFile, service ServicePlan) {
+func renderCGOMessageServerServiceRegistrationAssignments(g *protogen.GeneratedFile, service ServicePlan) {
 	for _, method := range service.Methods {
-		renderCGOMessageServerMethodAssignment(g, service, method, "next")
+		renderCGOMessageServerServiceMethodAssignment(g, service, method, "next")
 	}
+}
+
+func renderCGOMessageServerServiceMethodAssignment(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, target string) {
+	prefix := lowerInitial(method.GoName)
+	suffixes := cgoMessageServerRegisterSuffixes(method)
+	if method.Streaming == StreamingKindUnary {
+		g.P("if ", prefix, "Callback != nil {")
+		g.P(target, ".", method.GoName, "Callback = ", prefix, "Callback")
+		g.P("}")
+		return
+	}
+	allNil := make([]string, 0, len(suffixes))
+	allPresent := make([]string, 0, len(suffixes))
+	for _, suffix := range suffixes {
+		param := prefix + suffix
+		allNil = append(allNil, param+" == nil")
+		allPresent = append(allPresent, param+" != nil")
+	}
+	g.P("if ", strings.Join(allNil, " && "), " {")
+	g.P("// Preserve existing callbacks for methods omitted from a service-level update.")
+	g.P("} else if ", strings.Join(allPresent, " && "), " {")
+	for _, suffix := range suffixes {
+		g.P(target, ".", method.GoName, suffix, " = ", prefix, suffix)
+	}
+	g.P("} else {")
+	for _, suffix := range suffixes {
+		g.P(target, ".", method.GoName, suffix, " = nil")
+	}
+	g.P(`registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", `, lowerInitial(service.GoName), `CGOMessageServerStreamPartiallyRegistered, "`, method.FullName, `"))`)
+	g.P("}")
 }
 
 func renderCGOMessageServerMethodRegistration(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, adapterName, servicePackage string) {
@@ -273,7 +303,7 @@ func renderCGOMessageServerMethodAssignment(g *protogen.GeneratedFile, service S
 	for _, suffix := range suffixes {
 		g.P(target, ".", method.GoName, suffix, " = nil")
 	}
-	g.P("if registerErr == nil { registerErr = ", lowerInitial(service.GoName), "CGOMessageServerStreamPartiallyRegistered }")
+	g.P(`registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", `, lowerInitial(service.GoName), `CGOMessageServerStreamPartiallyRegistered, "`, method.FullName, `"))`)
 	g.P("}")
 }
 

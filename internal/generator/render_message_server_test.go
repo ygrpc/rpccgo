@@ -121,6 +121,30 @@ func TestRenderMessageServerUnimplementedHelperSupportsPartialImplementation(t *
 	}
 }
 
+func TestRenderMessageServerNilRegistrationClearsCurrentServer(t *testing.T) {
+	file := simpleTestFile()
+	plugin := newTestPlugin(t, "paths=source_relative", file)
+
+	_, err := GenerateWithOptions(plugin)
+	if err != nil {
+		t.Fatalf("GenerateWithOptions() error = %v", err)
+	}
+
+	tmp := t.TempDir()
+	writeNativeGeneratedModule(t, tmp, plugin, func(name string) bool {
+		return strings.Contains(name, ".server.message.rpccgo.go")
+	})
+	writeMessageServerRuntimeStub(t, tmp)
+	writeMessageRegistrationClearBehaviorTest(t, tmp)
+
+	cmd := exec.Command("go", "test", "-mod=mod", "./...")
+	cmd.Dir = tmp
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("generated message registration clear test failed: %v\n%s", err, out)
+	}
+}
+
 func writePartialMessageServerBehaviorTest(t *testing.T, root string) {
 	t.Helper()
 
@@ -155,6 +179,47 @@ func TestPartialMessageServerUsesUnimplementedFallback(t *testing.T) {
 	target := filepath.Join(root, "partial_message_server_test.go")
 	if err := os.WriteFile(target, []byte(content), 0o644); err != nil {
 		t.Fatalf("write partial message server behavior test: %v", err)
+	}
+}
+
+func writeMessageRegistrationClearBehaviorTest(t *testing.T, root string) {
+	t.Helper()
+
+	const content = `package testv1
+
+import (
+	context "context"
+	errors "errors"
+	strings "strings"
+	testing "testing"
+
+	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
+)
+
+func TestRegisterGreeterCGOMessageServerNilClearsCurrentServer(t *testing.T) {
+	if err := RegisterGreeterCGOMessageServer(UnimplementedGreeterCGOMessageServer{}); err != nil {
+		t.Fatalf("RegisterGreeterCGOMessageServer(valid) error = %v", err)
+	}
+	if _, err := rpcruntime.LoadServer(greeterServiceID); err != nil {
+		t.Fatalf("LoadServer(valid) error = %v", err)
+	}
+
+	err := RegisterGreeterCGOMessageServer(nil)
+	if err == nil || !strings.Contains(err.Error(), "cgo message server is nil") {
+		t.Fatalf("RegisterGreeterCGOMessageServer(nil) error = %v, want cgo message server is nil", err)
+	}
+	if _, err := rpcruntime.LoadServer(greeterServiceID); !errors.Is(err, rpcruntime.ErrNoRegisteredServer) {
+		t.Fatalf("LoadServer(after nil register) error = %v, want ErrNoRegisteredServer", err)
+	}
+}
+
+func (UnimplementedGreeterCGOMessageServer) Unary(context.Context, *HelloRequest) (*HelloReply, error) {
+	return nil, nil
+}
+`
+	target := filepath.Join(root, "test/v1/message_registration_clear_test.go")
+	if err := os.WriteFile(target, []byte(content), 0o644); err != nil {
+		t.Fatalf("write message registration clear behavior test: %v", err)
 	}
 }
 

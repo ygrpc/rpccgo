@@ -62,6 +62,7 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	renderDoc(g, "Register"+service.GoName+"CGOMessageServer", "registers a cgo message server as the current server for "+service.GoName+".")
 	g.P("func Register", service.GoName, "CGOMessageServer(server ", serverName, ") error {")
 	g.P("if server == nil {")
+	g.P("_ = register", service.GoName, "CGOMessageServer(server)")
 	g.P(`return errors.New("rpccgo: `, service.GoName, ` cgo message server is nil")`)
 	g.P("}")
 	g.P("return register", service.GoName, "CGOMessageServer(server)")
