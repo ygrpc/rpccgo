@@ -184,7 +184,9 @@ func TestRenderMessageArtifactsEmitsDirectTransportArtifacts(t *testing.T) {
 			"//export rpccgo_msg_testv1_Greeter_Chat_send",
 			"//export rpccgo_msg_testv1_Greeter_Chat_close_send",
 			"//export rpccgo_msg_testv1_Greeter_Chat_finish",
-			"protobuf.Unmarshal",
+			"req := &v1.MessageRequest{}",
+			"rpcruntime.DecodeMessage(uintptr(requestPtr), int32(requestLen), req)",
+			"rpcruntime.EncodeMessage(resp)",
 			"rpcruntime.StoreError",
 		} {
 			assertGeneratedContentContains(t, plugin, messageClientFile, fragment)

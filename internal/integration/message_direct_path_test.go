@@ -1485,7 +1485,7 @@ func TestMessageUnaryDirectPath(t *testing.T) {
 
 	invalid := []byte{0xff}
 	errID := callGreeterUnaryMessageUnary(context.Background(), uintptr(unsafe.Pointer(&invalid[0])), int32(len(invalid)), &greeterMessageOutput{})
-	assertMessageErrContains(t, errID, "message request protobuf unmarshal failed")
+	assertMessageErrContains(t, errID, "message request decode failed")
 
 	setGreeterMessageUnaryErrorForIntegration(true)
 	errID = callGreeterUnaryMessageUnary(context.Background(), 0, 0, &greeterMessageOutput{})
@@ -1523,7 +1523,7 @@ func TestMessageBytesRejectInvalidUnaryRequest(t *testing.T) {
 	registerMessageServer(t)
 	invalid := []byte{0xff}
 	errID := callGreeterUnaryMessageUnary(context.Background(), uintptr(unsafe.Pointer(&invalid[0])), int32(len(invalid)), &greeterMessageOutput{})
-	assertMessageErrContains(t, errID, "message request protobuf unmarshal failed")
+	assertMessageErrContains(t, errID, "message request decode failed")
 	if got := greeterMessageUnaryCallsForIntegration(); got != 0 {
 		t.Fatalf("unary callback calls = %d, want 0 after invalid request bytes", got)
 	}
@@ -1538,7 +1538,7 @@ func TestMessageBytesRejectInvalidClientStreamSend(t *testing.T) {
 	})
 	invalid := []byte{0xff}
 	errID = sendGreeterUploadMessageClientStream(context.Background(), handle, uintptr(unsafe.Pointer(&invalid[0])), int32(len(invalid)))
-	assertMessageErrContains(t, errID, "message request protobuf unmarshal failed")
+	assertMessageErrContains(t, errID, "message request decode failed")
 	if got := greeterMessageUploadSendsForIntegration(); got != 0 {
 		t.Fatalf("upload sends = %d, want 0 after invalid request bytes", got)
 	}
@@ -1548,7 +1548,7 @@ func TestMessageBytesRejectInvalidServerStreamStart(t *testing.T) {
 	registerMessageServer(t)
 	invalid := []byte{0xff}
 	handle, errID := startGreeterListMessageServerStream(context.Background(), uintptr(unsafe.Pointer(&invalid[0])), int32(len(invalid)))
-	assertMessageErrContains(t, errID, "message request protobuf unmarshal failed")
+	assertMessageErrContains(t, errID, "message request decode failed")
 	if handle != 0 {
 		if cancelErrID := cancelGreeterListMessageServerStream(context.Background(), handle); cancelErrID == 0 {
 			t.Fatalf("startGreeterListMessageServerStream() returned usable handle %d after invalid request bytes", handle)
@@ -1568,7 +1568,7 @@ func TestMessageBytesRejectInvalidBidiSend(t *testing.T) {
 	})
 	invalid := []byte{0xff}
 	errID = sendGreeterChatMessageBidiStream(context.Background(), handle, uintptr(unsafe.Pointer(&invalid[0])), int32(len(invalid)))
-	assertMessageErrContains(t, errID, "message request protobuf unmarshal failed")
+	assertMessageErrContains(t, errID, "message request decode failed")
 	if got := greeterMessageChatSendsForIntegration(); got != 0 {
 		t.Fatalf("chat sends = %d, want 0 after invalid request bytes", got)
 	}
@@ -1579,29 +1579,29 @@ func TestMessageBytesRejectInvalidCallbackResponse(t *testing.T) {
 	setGreeterMessageInvalidResponseForIntegration(true)
 
 	errID := callGreeterUnaryMessageUnary(context.Background(), 0, 0, &greeterMessageOutput{})
-	assertMessageErrContains(t, errID, "message response protobuf unmarshal failed")
+	assertMessageErrContains(t, errID, "message server response decode failed")
 
 	uploadHandle, errID := startGreeterUploadMessageClientStream(context.Background())
 	assertMessageNoErr(t, errID)
 	assertMessageNoErr(t, sendGreeterUploadMessageClientStream(context.Background(), uploadHandle, 0, 0))
 	errID = finishGreeterUploadMessageClientStream(context.Background(), uploadHandle, &greeterMessageOutput{})
-	assertMessageErrContains(t, errID, "message response protobuf unmarshal failed")
+	assertMessageErrContains(t, errID, "message server response decode failed")
 
 	listHandle, errID := startGreeterListMessageServerStream(context.Background(), 0, 0)
 	assertMessageNoErr(t, errID)
 	errID = readGreeterListMessageServerStream(context.Background(), listHandle, &greeterMessageOutput{})
-	assertMessageErrContains(t, errID, "message response protobuf unmarshal failed")
+	assertMessageErrContains(t, errID, "message server response decode failed")
 	assertMessageNoErr(t, finishGreeterListMessageServerStream(context.Background(), listHandle))
 
 	chatHandle, errID := startGreeterChatMessageBidiStream(context.Background())
 	assertMessageNoErr(t, errID)
 	errID = sendGreeterChatMessageBidiStream(context.Background(), chatHandle, 0, 0)
 	if errID != 0 {
-		assertMessageErrContains(t, errID, "message response protobuf unmarshal failed")
+		assertMessageErrContains(t, errID, "message server response decode failed")
 		return
 	}
 	errID = readGreeterChatMessageBidiStream(context.Background(), chatHandle, &greeterMessageOutput{})
-	assertMessageErrContains(t, errID, "message response protobuf unmarshal failed")
+	assertMessageErrContains(t, errID, "message server response decode failed")
 	assertMessageNoErr(t, finishGreeterChatMessageBidiStream(context.Background(), chatHandle))
 }
 

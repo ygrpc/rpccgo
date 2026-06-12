@@ -1,10 +1,6 @@
 package generator
 
-import (
-	"fmt"
-
-	"google.golang.org/protobuf/compiler/protogen"
-)
+import "google.golang.org/protobuf/compiler/protogen"
 
 func renderMessageClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedArtifactPlan) error {
 	cgoImportPath := protogen.GoImportPath(cgoGoImportPath(plan))
@@ -22,9 +18,7 @@ func renderMessageClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service 
 	g.P(`context "context"`)
 	g.P(`errors "errors"`)
 	g.P(`fmt "fmt"`)
-	g.P(`protobuf "google.golang.org/protobuf/proto"`)
 	g.P(`rpcruntime "`, rpcruntimeImportPath, `"`)
-	g.P(`unsafe "unsafe"`)
 	g.P(")")
 	g.P()
 	g.P("// ", messageStageMarker(service, file))
@@ -47,90 +41,18 @@ func renderMessageClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service 
 
 func renderMessageUnaryClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, servicePackage string) {
 	renderMessageCExportWrappers(g, plan, service, method, servicePackage)
-
-	g.P("func ", messageFromABIName(service, method, "Request"), "(ptr uintptr, length int32) (", messageGoPointerType(g, method.Request), ", error) {")
-	renderMessageFromABIBody(g, method.Request, "request")
-	g.P("}")
-	g.P()
-
-	g.P("func ", messageToABIName(service, method, "Response"), "(message ", messageGoPointerType(g, method.Response), ") (uintptr, int32, error) {")
-	renderMessageToABIBody(g, "response")
-	g.P("}")
-	g.P()
 }
 
 func renderMessageClientStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, servicePackage string) {
-	renderMessageClientBytesHelpers(g, plan, service, method, servicePackage)
-}
-
-func renderMessageServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, servicePackage string) {
-	renderMessageClientBytesHelpers(g, plan, service, method, servicePackage)
-}
-
-func renderMessageBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, servicePackage string) {
-	renderMessageClientBytesHelpers(g, plan, service, method, servicePackage)
-}
-
-func renderMessageClientBytesHelpers(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, servicePackage string) {
-	g.P("func ", messageFromABIName(service, method, "Request"), "(ptr uintptr, length int32) (", messageGoPointerType(g, method.Request), ", error) {")
-	renderMessageFromABIBody(g, method.Request, "request")
-	g.P("}")
-	g.P()
-
-	g.P("func ", messageToABIName(service, method, "Response"), "(message ", messageGoPointerType(g, method.Response), ") (uintptr, int32, error) {")
-	renderMessageToABIBody(g, "response")
-	g.P("}")
-	g.P()
-
 	renderMessageCExportWrappers(g, plan, service, method, servicePackage)
 }
 
-func renderMessageFromABIBody(g *protogen.GeneratedFile, message MethodIOPlan, label string) {
-	g.P("msg := &", g.QualifiedGoIdent(protogen.GoIdent{GoName: message.GoName, GoImportPath: protogen.GoImportPath(message.GoImportPath)}), "{}")
-	g.P("if length < 0 {")
-	g.P(`return nil, errors.New("rpccgo: message `, label, ` length is negative")`)
-	g.P("}")
-	g.P("if length == 0 {")
-	g.P("return msg, nil")
-	g.P("}")
-	g.P("if ptr == 0 {")
-	g.P(`return nil, errors.New("rpccgo: message `, label, ` pointer is nil")`)
-	g.P("}")
-	g.P("data := unsafe.Slice((*byte)(unsafe.Pointer(ptr)), int(length))")
-	g.P("if err := protobuf.Unmarshal(data, msg); err != nil {")
-	g.P(`return nil, fmt.Errorf("rpccgo: message `, label, ` protobuf unmarshal failed: %w", err)`)
-	g.P("}")
-	g.P("return msg, nil")
+func renderMessageServerStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, servicePackage string) {
+	renderMessageCExportWrappers(g, plan, service, method, servicePackage)
 }
 
-func renderMessageToABIBody(g *protogen.GeneratedFile, label string) {
-	g.P("if message == nil {")
-	g.P(`return 0, 0, errors.New("rpccgo: message `, label, ` is nil")`)
-	g.P("}")
-	g.P("data, err := protobuf.Marshal(message)")
-	g.P("if err != nil {")
-	g.P(`return 0, 0, fmt.Errorf("rpccgo: message `, label, ` protobuf marshal failed: %w", err)`)
-	g.P("}")
-	g.P("length, err := rpcruntime.LengthToInt32(len(data))")
-	g.P("if err != nil {")
-	g.P("return 0, 0, err")
-	g.P("}")
-	g.P("if length == 0 {")
-	g.P("return 0, 0, nil")
-	g.P("}")
-	g.P("ptr, err := rpcruntime.PinBytes(data)")
-	g.P("if err != nil {")
-	g.P("return 0, 0, err")
-	g.P("}")
-	g.P("return ptr, length, nil")
-}
-
-func messageFromABIName(service ServicePlan, method MethodPlan, suffix string) string {
-	return fmt.Sprintf("decode%s%sMessage%s", service.GoName, method.GoName, suffix)
-}
-
-func messageToABIName(service ServicePlan, method MethodPlan, suffix string) string {
-	return fmt.Sprintf("encode%s%sMessage%s", service.GoName, method.GoName, suffix)
+func renderMessageBidiStreamingClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, servicePackage string) {
+	renderMessageCExportWrappers(g, plan, service, method, servicePackage)
 }
 
 func messageGoPointerType(g *protogen.GeneratedFile, message MethodIOPlan) string {
@@ -157,17 +79,17 @@ func renderMessageUnaryCExportWrapper(g *protogen.GeneratedFile, plan FilePlan, 
 	g.P("func ", exportName, "(requestPtr C.uintptr_t, requestLen C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {")
 	g.P("ctx := context.Background()")
 	renderMessageCExportOutputValidation(g)
-	g.P("req, err := ", messageFromABIName(service, method, "Request"), "(uintptr(requestPtr), int32(requestLen))")
-	g.P("if err != nil {")
-	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("req := &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Request.GoName, GoImportPath: protogen.GoImportPath(method.Request.GoImportPath)}), "{}")
+	g.P("if err := rpcruntime.DecodeMessage(uintptr(requestPtr), int32(requestLen), req); err != nil {")
+	g.P(`return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request decode failed: %w", err)))`)
 	g.P("}")
 	g.P("resp, err := ", servicePackage, "Invoke", service.GoName, "Message", method.GoName, "(ctx, req)")
 	g.P("if err != nil {")
 	g.P("return C.int32_t(rpcruntime.StoreError(err))")
 	g.P("}")
-	g.P("ptr, length, err := ", messageToABIName(service, method, "Response"), "(resp)")
+	g.P("ptr, length, err := rpcruntime.EncodeMessage(resp)")
 	g.P("if err != nil {")
-	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P(`return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))`)
 	g.P("}")
 	g.P("*responsePtr = C.uintptr_t(ptr)")
 	g.P("*responseLen = C.int32_t(length)")
@@ -198,12 +120,11 @@ func renderMessageClientStreamingCExportWrappers(g *protogen.GeneratedFile, plan
 	g.P("func ", sendName, "(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {")
 	g.P("ctx := context.Background()")
 	g.P("handleValue := int32(handle)")
-	g.P("req, err := ", messageFromABIName(service, method, "Request"), "(uintptr(requestPtr), int32(requestLen))")
-	g.P("if err != nil {")
-	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("req := &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Request.GoName, GoImportPath: protogen.GoImportPath(method.Request.GoImportPath)}), "{}")
+	g.P("if err := rpcruntime.DecodeMessage(uintptr(requestPtr), int32(requestLen), req); err != nil {")
+	g.P(`return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request decode failed: %w", err)))`)
 	g.P("}")
-	g.P("err = ", servicePackage, "Send", service.GoName, "Message", method.GoName, "(ctx, rpcruntime.StreamHandle(handleValue), req)")
-	g.P("if err != nil {")
+	g.P("if err := ", servicePackage, "Send", service.GoName, "Message", method.GoName, "(ctx, rpcruntime.StreamHandle(handleValue), req); err != nil {")
 	g.P("return C.int32_t(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return 0")
@@ -221,9 +142,9 @@ func renderMessageClientStreamingCExportWrappers(g *protogen.GeneratedFile, plan
 	g.P("if err != nil {")
 	g.P("return C.int32_t(rpcruntime.StoreError(err))")
 	g.P("}")
-	g.P("ptr, length, err := ", messageToABIName(service, method, "Response"), "(resp)")
+	g.P("ptr, length, err := rpcruntime.EncodeMessage(resp)")
 	g.P("if err != nil {")
-	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P(`return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))`)
 	g.P("}")
 	g.P("*responsePtr = C.uintptr_t(ptr)")
 	g.P("*responseLen = C.int32_t(length)")
@@ -253,9 +174,9 @@ func renderMessageServerStreamingCExportWrappers(g *protogen.GeneratedFile, plan
 	g.P("func ", startName, "(requestPtr C.uintptr_t, requestLen C.int32_t, handle *C.int32_t) C.int32_t {")
 	g.P("ctx := context.Background()")
 	renderMessageCExportHandleValidation(g)
-	g.P("req, err := ", messageFromABIName(service, method, "Request"), "(uintptr(requestPtr), int32(requestLen))")
-	g.P("if err != nil {")
-	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("req := &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Request.GoName, GoImportPath: protogen.GoImportPath(method.Request.GoImportPath)}), "{}")
+	g.P("if err := rpcruntime.DecodeMessage(uintptr(requestPtr), int32(requestLen), req); err != nil {")
+	g.P(`return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request decode failed: %w", err)))`)
 	g.P("}")
 	g.P("handleValue, err := ", servicePackage, "Start", service.GoName, "Message", method.GoName, "(ctx, req)")
 	g.P("if err != nil {")
@@ -277,9 +198,9 @@ func renderMessageServerStreamingCExportWrappers(g *protogen.GeneratedFile, plan
 	g.P("if err != nil {")
 	g.P("return C.int32_t(rpcruntime.StoreError(err))")
 	g.P("}")
-	g.P("ptr, length, err := ", messageToABIName(service, method, "Response"), "(resp)")
+	g.P("ptr, length, err := rpcruntime.EncodeMessage(resp)")
 	g.P("if err != nil {")
-	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P(`return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))`)
 	g.P("}")
 	g.P("*responsePtr = C.uintptr_t(ptr)")
 	g.P("*responseLen = C.int32_t(length)")
@@ -338,12 +259,11 @@ func renderMessageBidiStreamingCExportWrappers(g *protogen.GeneratedFile, plan F
 	g.P("func ", sendName, "(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {")
 	g.P("ctx := context.Background()")
 	g.P("handleValue := int32(handle)")
-	g.P("req, err := ", messageFromABIName(service, method, "Request"), "(uintptr(requestPtr), int32(requestLen))")
-	g.P("if err != nil {")
-	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("req := &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Request.GoName, GoImportPath: protogen.GoImportPath(method.Request.GoImportPath)}), "{}")
+	g.P("if err := rpcruntime.DecodeMessage(uintptr(requestPtr), int32(requestLen), req); err != nil {")
+	g.P(`return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request decode failed: %w", err)))`)
 	g.P("}")
-	g.P("err = ", servicePackage, "Send", service.GoName, "Message", method.GoName, "(ctx, rpcruntime.StreamHandle(handleValue), req)")
-	g.P("if err != nil {")
+	g.P("if err := ", servicePackage, "Send", service.GoName, "Message", method.GoName, "(ctx, rpcruntime.StreamHandle(handleValue), req); err != nil {")
 	g.P("return C.int32_t(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return 0")
@@ -361,9 +281,9 @@ func renderMessageBidiStreamingCExportWrappers(g *protogen.GeneratedFile, plan F
 	g.P("if err != nil {")
 	g.P("return C.int32_t(rpcruntime.StoreError(err))")
 	g.P("}")
-	g.P("ptr, length, err := ", messageToABIName(service, method, "Response"), "(resp)")
+	g.P("ptr, length, err := rpcruntime.EncodeMessage(resp)")
 	g.P("if err != nil {")
-	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P(`return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))`)
 	g.P("}")
 	g.P("*responsePtr = C.uintptr_t(ptr)")
 	g.P("*responseLen = C.int32_t(length)")

@@ -17,9 +17,7 @@ import (
 	context "context"
 	errors "errors"
 	fmt "fmt"
-	protobuf "google.golang.org/protobuf/proto"
 	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
-	unsafe "unsafe"
 )
 
 // rpccgo message direct generated file for Greeter cgo message client
@@ -38,101 +36,21 @@ func rpccgo_msg_greeterv1_Greeter_SayHello(requestPtr C.uintptr_t, requestLen C.
 	if responsePtr == nil || responseLen == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client output pointer is nil")))
 	}
-	req, err := decodeGreeterSayHelloMessageRequest(uintptr(requestPtr), int32(requestLen))
-	if err != nil {
-		return C.int32_t(rpcruntime.StoreError(err))
+	req := &proto.SayHelloRequest{}
+	if err := rpcruntime.DecodeMessage(uintptr(requestPtr), int32(requestLen), req); err != nil {
+		return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request decode failed: %w", err)))
 	}
 	resp, err := proto.InvokeGreeterMessageSayHello(ctx, req)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
-	ptr, length, err := encodeGreeterSayHelloMessageResponse(resp)
+	ptr, length, err := rpcruntime.EncodeMessage(resp)
 	if err != nil {
-		return C.int32_t(rpcruntime.StoreError(err))
+		return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))
 	}
 	*responsePtr = C.uintptr_t(ptr)
 	*responseLen = C.int32_t(length)
 	return 0
-}
-
-func decodeGreeterSayHelloMessageRequest(ptr uintptr, length int32) (*proto.SayHelloRequest, error) {
-	msg := &proto.SayHelloRequest{}
-	if length < 0 {
-		return nil, errors.New("rpccgo: message request length is negative")
-	}
-	if length == 0 {
-		return msg, nil
-	}
-	if ptr == 0 {
-		return nil, errors.New("rpccgo: message request pointer is nil")
-	}
-	data := unsafe.Slice((*byte)(unsafe.Pointer(ptr)), int(length))
-	if err := protobuf.Unmarshal(data, msg); err != nil {
-		return nil, fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)
-	}
-	return msg, nil
-}
-
-func encodeGreeterSayHelloMessageResponse(message *proto.SayHelloResponse) (uintptr, int32, error) {
-	if message == nil {
-		return 0, 0, errors.New("rpccgo: message response is nil")
-	}
-	data, err := protobuf.Marshal(message)
-	if err != nil {
-		return 0, 0, fmt.Errorf("rpccgo: message response protobuf marshal failed: %w", err)
-	}
-	length, err := rpcruntime.LengthToInt32(len(data))
-	if err != nil {
-		return 0, 0, err
-	}
-	if length == 0 {
-		return 0, 0, nil
-	}
-	ptr, err := rpcruntime.PinBytes(data)
-	if err != nil {
-		return 0, 0, err
-	}
-	return ptr, length, nil
-}
-
-func decodeGreeterCollectMessageRequest(ptr uintptr, length int32) (*proto.SayHelloRequest, error) {
-	msg := &proto.SayHelloRequest{}
-	if length < 0 {
-		return nil, errors.New("rpccgo: message request length is negative")
-	}
-	if length == 0 {
-		return msg, nil
-	}
-	if ptr == 0 {
-		return nil, errors.New("rpccgo: message request pointer is nil")
-	}
-	data := unsafe.Slice((*byte)(unsafe.Pointer(ptr)), int(length))
-	if err := protobuf.Unmarshal(data, msg); err != nil {
-		return nil, fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)
-	}
-	return msg, nil
-}
-
-func encodeGreeterCollectMessageResponse(message *proto.SayHelloResponse) (uintptr, int32, error) {
-	if message == nil {
-		return 0, 0, errors.New("rpccgo: message response is nil")
-	}
-	data, err := protobuf.Marshal(message)
-	if err != nil {
-		return 0, 0, fmt.Errorf("rpccgo: message response protobuf marshal failed: %w", err)
-	}
-	length, err := rpcruntime.LengthToInt32(len(data))
-	if err != nil {
-		return 0, 0, err
-	}
-	if length == 0 {
-		return 0, 0, nil
-	}
-	ptr, err := rpcruntime.PinBytes(data)
-	if err != nil {
-		return 0, 0, err
-	}
-	return ptr, length, nil
 }
 
 // rpccgo_msg_greeterv1_Greeter_Collect_start starts the message client-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Collect.
@@ -160,12 +78,11 @@ func rpccgo_msg_greeterv1_Greeter_Collect_start(handle *C.int32_t) C.int32_t {
 func rpccgo_msg_greeterv1_Greeter_Collect_send(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
-	req, err := decodeGreeterCollectMessageRequest(uintptr(requestPtr), int32(requestLen))
-	if err != nil {
-		return C.int32_t(rpcruntime.StoreError(err))
+	req := &proto.SayHelloRequest{}
+	if err := rpcruntime.DecodeMessage(uintptr(requestPtr), int32(requestLen), req); err != nil {
+		return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request decode failed: %w", err)))
 	}
-	err = proto.SendGreeterMessageCollect(ctx, rpcruntime.StreamHandle(handleValue), req)
-	if err != nil {
+	if err := proto.SendGreeterMessageCollect(ctx, rpcruntime.StreamHandle(handleValue), req); err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
 	return 0
@@ -190,9 +107,9 @@ func rpccgo_msg_greeterv1_Greeter_Collect_finish(handle C.int32_t, responsePtr *
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
-	ptr, length, err := encodeGreeterCollectMessageResponse(resp)
+	ptr, length, err := rpcruntime.EncodeMessage(resp)
 	if err != nil {
-		return C.int32_t(rpcruntime.StoreError(err))
+		return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))
 	}
 	*responsePtr = C.uintptr_t(ptr)
 	*responseLen = C.int32_t(length)
@@ -212,46 +129,6 @@ func rpccgo_msg_greeterv1_Greeter_Collect_cancel(handle C.int32_t) C.int32_t {
 	return 0
 }
 
-func decodeGreeterBroadcastMessageRequest(ptr uintptr, length int32) (*proto.SayHelloRequest, error) {
-	msg := &proto.SayHelloRequest{}
-	if length < 0 {
-		return nil, errors.New("rpccgo: message request length is negative")
-	}
-	if length == 0 {
-		return msg, nil
-	}
-	if ptr == 0 {
-		return nil, errors.New("rpccgo: message request pointer is nil")
-	}
-	data := unsafe.Slice((*byte)(unsafe.Pointer(ptr)), int(length))
-	if err := protobuf.Unmarshal(data, msg); err != nil {
-		return nil, fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)
-	}
-	return msg, nil
-}
-
-func encodeGreeterBroadcastMessageResponse(message *proto.SayHelloResponse) (uintptr, int32, error) {
-	if message == nil {
-		return 0, 0, errors.New("rpccgo: message response is nil")
-	}
-	data, err := protobuf.Marshal(message)
-	if err != nil {
-		return 0, 0, fmt.Errorf("rpccgo: message response protobuf marshal failed: %w", err)
-	}
-	length, err := rpcruntime.LengthToInt32(len(data))
-	if err != nil {
-		return 0, 0, err
-	}
-	if length == 0 {
-		return 0, 0, nil
-	}
-	ptr, err := rpcruntime.PinBytes(data)
-	if err != nil {
-		return 0, 0, err
-	}
-	return ptr, length, nil
-}
-
 // rpccgo_msg_greeterv1_Greeter_Broadcast_start starts the message server-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Broadcast.
 //
 //export rpccgo_msg_greeterv1_Greeter_Broadcast_start
@@ -263,9 +140,9 @@ func rpccgo_msg_greeterv1_Greeter_Broadcast_start(requestPtr C.uintptr_t, reques
 	if handle == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client handle pointer is nil")))
 	}
-	req, err := decodeGreeterBroadcastMessageRequest(uintptr(requestPtr), int32(requestLen))
-	if err != nil {
-		return C.int32_t(rpcruntime.StoreError(err))
+	req := &proto.SayHelloRequest{}
+	if err := rpcruntime.DecodeMessage(uintptr(requestPtr), int32(requestLen), req); err != nil {
+		return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request decode failed: %w", err)))
 	}
 	handleValue, err := proto.StartGreeterMessageBroadcast(ctx, req)
 	if err != nil {
@@ -294,9 +171,9 @@ func rpccgo_msg_greeterv1_Greeter_Broadcast_read(handle C.int32_t, responsePtr *
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
-	ptr, length, err := encodeGreeterBroadcastMessageResponse(resp)
+	ptr, length, err := rpcruntime.EncodeMessage(resp)
 	if err != nil {
-		return C.int32_t(rpcruntime.StoreError(err))
+		return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))
 	}
 	*responsePtr = C.uintptr_t(ptr)
 	*responseLen = C.int32_t(length)
@@ -329,46 +206,6 @@ func rpccgo_msg_greeterv1_Greeter_Broadcast_cancel(handle C.int32_t) C.int32_t {
 	return 0
 }
 
-func decodeGreeterChatMessageRequest(ptr uintptr, length int32) (*proto.SayHelloRequest, error) {
-	msg := &proto.SayHelloRequest{}
-	if length < 0 {
-		return nil, errors.New("rpccgo: message request length is negative")
-	}
-	if length == 0 {
-		return msg, nil
-	}
-	if ptr == 0 {
-		return nil, errors.New("rpccgo: message request pointer is nil")
-	}
-	data := unsafe.Slice((*byte)(unsafe.Pointer(ptr)), int(length))
-	if err := protobuf.Unmarshal(data, msg); err != nil {
-		return nil, fmt.Errorf("rpccgo: message request protobuf unmarshal failed: %w", err)
-	}
-	return msg, nil
-}
-
-func encodeGreeterChatMessageResponse(message *proto.SayHelloResponse) (uintptr, int32, error) {
-	if message == nil {
-		return 0, 0, errors.New("rpccgo: message response is nil")
-	}
-	data, err := protobuf.Marshal(message)
-	if err != nil {
-		return 0, 0, fmt.Errorf("rpccgo: message response protobuf marshal failed: %w", err)
-	}
-	length, err := rpcruntime.LengthToInt32(len(data))
-	if err != nil {
-		return 0, 0, err
-	}
-	if length == 0 {
-		return 0, 0, nil
-	}
-	ptr, err := rpcruntime.PinBytes(data)
-	if err != nil {
-		return 0, 0, err
-	}
-	return ptr, length, nil
-}
-
 // rpccgo_msg_greeterv1_Greeter_Chat_start starts the message bidi-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Chat.
 //
 //export rpccgo_msg_greeterv1_Greeter_Chat_start
@@ -394,12 +231,11 @@ func rpccgo_msg_greeterv1_Greeter_Chat_start(handle *C.int32_t) C.int32_t {
 func rpccgo_msg_greeterv1_Greeter_Chat_send(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
-	req, err := decodeGreeterChatMessageRequest(uintptr(requestPtr), int32(requestLen))
-	if err != nil {
-		return C.int32_t(rpcruntime.StoreError(err))
+	req := &proto.SayHelloRequest{}
+	if err := rpcruntime.DecodeMessage(uintptr(requestPtr), int32(requestLen), req); err != nil {
+		return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request decode failed: %w", err)))
 	}
-	err = proto.SendGreeterMessageChat(ctx, rpcruntime.StreamHandle(handleValue), req)
-	if err != nil {
+	if err := proto.SendGreeterMessageChat(ctx, rpcruntime.StreamHandle(handleValue), req); err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
 	return 0
@@ -424,9 +260,9 @@ func rpccgo_msg_greeterv1_Greeter_Chat_read(handle C.int32_t, responsePtr *C.uin
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
-	ptr, length, err := encodeGreeterChatMessageResponse(resp)
+	ptr, length, err := rpcruntime.EncodeMessage(resp)
 	if err != nil {
-		return C.int32_t(rpcruntime.StoreError(err))
+		return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))
 	}
 	*responsePtr = C.uintptr_t(ptr)
 	*responseLen = C.int32_t(length)

@@ -57,7 +57,6 @@ func renderMessageServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service 
 		case StreamingKindBidiStreaming:
 			renderCGOMessageServerBidiStreamAdapter(g, service, method, adapterName)
 		}
-		renderCGOMessageResponseBytesHelper(g, service, method)
 	}
 
 	renderCGOMessageServerRegistration(g, plan, service, adapterName, servicePackage)
@@ -182,7 +181,9 @@ func renderCGOMessageServerUnaryAdapter(g *protogen.GeneratedFile, service Servi
 	g.P("if errID != 0 {")
 	g.P("return nil, ", messageCGOServerErrorIDHelperName(service), "(errID)")
 	g.P("}")
-	g.P("return ", messageCGOServerResponseName(service, method), "(responsePtr, responseLen)")
+	g.P("resp := &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Response.GoName, GoImportPath: protogen.GoImportPath(method.Response.GoImportPath)}), "{}")
+	g.P(`if err := rpcruntime.DecodeMessage(uintptr(responsePtr), int32(responseLen), resp); err != nil { return nil, fmt.Errorf("rpccgo: message server response decode failed: %w", err) }`)
+	g.P("return resp, nil")
 	g.P("}")
 	g.P()
 }
@@ -711,30 +712,11 @@ func renderCGOMessageResponseVars(g *protogen.GeneratedFile) {
 	g.P("var responseLen C.int32_t")
 }
 
-func renderCGOMessageResponseBytesHelper(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
-	g.P("func ", messageCGOServerResponseName(service, method), "(responsePtr C.uintptr_t, responseLen C.int32_t) (", messageGoPointerType(g, method.Response), ", error) {")
-	g.P("resp := &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Response.GoName, GoImportPath: protogen.GoImportPath(method.Response.GoImportPath)}), "{}")
-	g.P("if responseLen < 0 {")
-	g.P(`return nil, errors.New("rpccgo: message server response length is negative")`)
-	g.P("}")
-	g.P("if responseLen == 0 {")
-	g.P("return resp, nil")
-	g.P("}")
-	g.P("if responsePtr == 0 {")
-	g.P(`return nil, errors.New("rpccgo: message server response pointer is nil")`)
-	g.P("}")
-	g.P("data := unsafe.Slice((*byte)(unsafe.Pointer(uintptr(responsePtr))), int(responseLen))")
-	g.P("if err := protobuf.Unmarshal(data, resp); err != nil {")
-	g.P(`return nil, fmt.Errorf("rpccgo: message response protobuf unmarshal failed: %w", err)`)
-	g.P("}")
-	g.P("return resp, nil")
-	g.P("}")
-	g.P()
-}
-
 func renderCGOMessageResponseReturn(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, errIDName string) {
 	g.P("if ", errIDName, " != 0 { return nil, ", messageCGOServerErrorIDHelperName(service), "(", errIDName, ") }")
-	g.P("return ", messageCGOServerResponseName(service, method), "(responsePtr, responseLen)")
+	g.P("resp := &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Response.GoName, GoImportPath: protogen.GoImportPath(method.Response.GoImportPath)}), "{}")
+	g.P(`if err := rpcruntime.DecodeMessage(uintptr(responsePtr), int32(responseLen), resp); err != nil { return nil, fmt.Errorf("rpccgo: message server response decode failed: %w", err) }`)
+	g.P("return resp, nil")
 }
 
 func cgoMessageClientStreamType(g *protogen.GeneratedFile, method MethodPlan) string {
@@ -759,10 +741,6 @@ func cgoMessageServerStreamingClientType(g *protogen.GeneratedFile, method Metho
 
 func cgoMessageBidiStreamingClientType(g *protogen.GeneratedFile, method MethodPlan) string {
 	return "rpcruntime.BidiStreamingClient[" + messageGoPointerType(g, method.Request) + ", " + messageGoPointerType(g, method.Response) + "]"
-}
-
-func messageCGOServerResponseName(service ServicePlan, method MethodPlan) string {
-	return "decode" + service.GoName + method.GoName + "CGOMessageResponse"
 }
 
 func messageCGOServerUnaryCallbackName(service ServicePlan, method MethodPlan) string {
