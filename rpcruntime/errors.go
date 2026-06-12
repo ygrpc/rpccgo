@@ -6,94 +6,178 @@ import (
 	"time"
 )
 
+type ErrorID int32
+
 type errorRecord struct {
-	msg       []byte
+	text      string
 	expiresAt time.Time
 }
 
-var (
-	registryMu sync.Mutex
-	registry   = make(map[uint64]errorRecord)
-
-	nextErrorID atomic.Uint64
-)
-
-var errorTTL = 3 * time.Second
-
-// StoreError stores an error message in the global registry and returns its id.
-//
-// A returned id of 0 indicates "no error" (i.e. err is nil).
-func StoreError(err error) uint64 {
-	if err == nil {
-		return 0
-	} else {
-		return StoreErrorMsg([]byte(err.Error()))
-	}
+type preparedErrorText struct {
+	data   []byte
+	ptr    uintptr
+	length int32
 }
 
-// StoreErrorMsg stores msg in the global registry and returns its id.
-//
-// The stored bytes are copied.
-func StoreErrorMsg(msg []byte) uint64 {
-	startCleanerOnce.Do(startCleaner)
+type errorStore struct {
+	mu      sync.RWMutex
+	records map[ErrorID]errorRecord
+}
 
-	id := nextErrorID.Add(1)
-	copied := make([]byte, len(msg))
-	copy(copied, msg)
+var (
+	errorSeq atomic.Int32
+	errorTTL = 3 * time.Second
 
-	record := errorRecord{
-		msg:       copied,
-		expiresAt: time.Now().Add(errorTTL),
+	errorRecords                    = newErrorStore()
+	errorCleanupScheduler           = newCleanupScheduler(100*time.Millisecond, 256)
+	pinErrorText                    = PinString
+	errorTextLengthToInt32ForExport = LengthToInt32
+)
+
+func StoreError(err error) ErrorID {
+	if err == nil {
+		return 0
 	}
 
-	registryMu.Lock()
-	registry[id] = record
-	registryMu.Unlock()
-
+	next := nextErrorID()
+	id := ErrorID(next)
+	store := errorRecords
+	record := errorRecord{
+		text:      err.Error(),
+		expiresAt: time.Now().Add(errorTTL),
+	}
+	store.store(id, record)
+	errorCleanupScheduler.schedule(int32(id), errorTTL, func() {
+		store.delete(id)
+	})
 	return id
 }
 
-// GetErrorMsgBytes returns a copy of the stored message bytes.
-//
-// If the record is expired, it is removed and ok is false.
-func GetErrorMsgBytes(errorID uint64) (msg []byte, ok bool) {
-	if errorID == 0 {
-		return nil, false
-	} else {
-		now := time.Now()
-
-		registryMu.Lock()
-		defer registryMu.Unlock()
-		record, exists := registry[errorID]
-		if !exists {
-			return nil, false
+func nextErrorID() int32 {
+	for {
+		current := errorSeq.Load()
+		next := current + 1
+		if current >= 1<<31-1 || next <= 0 {
+			next = 1
 		}
-
-		if now.After(record.expiresAt) {
-			delete(registry, errorID)
-			return nil, false
-		} else {
-			copied := make([]byte, len(record.msg))
-			copy(copied, record.msg)
-			return copied, true
+		if errorSeq.CompareAndSwap(current, next) {
+			return next
 		}
 	}
 }
 
-// cleanupExpired removes expired entries from the registry.
-//
-// It returns the number of removed records.
-func cleanupExpired(now time.Time) int {
-	registryMu.Lock()
-	defer registryMu.Unlock()
-
-	removed := 0
-	for id, record := range registry {
-		if now.After(record.expiresAt) {
-			delete(registry, id)
-			removed++
-		}
+func TakeErrorText(id ErrorID) ([]byte, uintptr, bool) {
+	if id == 0 {
+		return nil, 0, false
 	}
 
-	return removed
+	prepared, ok := errorRecords.takePrepared(id, func(record errorRecord) (preparedErrorText, error) {
+		data, ptr, err := pinErrorText(record.text)
+		if err != nil {
+			return preparedErrorText{}, err
+		}
+		return preparedErrorText{data: data, ptr: ptr}, nil
+	})
+	if !ok {
+		return nil, 0, false
+	}
+	return prepared.data, prepared.ptr, true
+}
+
+func takeErrorTextForExport(id ErrorID) (preparedErrorText, bool) {
+	if id == 0 {
+		return preparedErrorText{}, false
+	}
+
+	return errorRecords.takePrepared(id, func(record errorRecord) (preparedErrorText, error) {
+		data, ptr, err := pinErrorText(record.text)
+		if err != nil {
+			return preparedErrorText{}, err
+		}
+		length, err := errorTextLengthToInt32ForExport(len(data))
+		if err != nil {
+			Release(ptr)
+			return preparedErrorText{}, err
+		}
+		return preparedErrorText{
+			data:   data,
+			ptr:    ptr,
+			length: length,
+		}, nil
+	})
+}
+
+func newErrorStore() *errorStore {
+	return &errorStore{records: make(map[ErrorID]errorRecord)}
+}
+
+func (s *errorStore) store(id ErrorID, record errorRecord) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.records[id] = record
+}
+
+func (s *errorStore) takePrepared(id ErrorID, prepare func(errorRecord) (preparedErrorText, error)) (preparedErrorText, bool) {
+	s.mu.Lock()
+	cancelCleanup := false
+
+	record, ok := s.records[id]
+	if !ok {
+		s.mu.Unlock()
+		return preparedErrorText{}, false
+	}
+	if s.expired(record, time.Now()) {
+		delete(s.records, id)
+		cancelCleanup = true
+		s.mu.Unlock()
+		if cancelCleanup {
+			errorCleanupScheduler.cancel(int32(id))
+		}
+		return preparedErrorText{}, false
+	}
+
+	prepared, err := prepare(record)
+	if err != nil {
+		s.mu.Unlock()
+		return preparedErrorText{}, false
+	}
+
+	delete(s.records, id)
+	cancelCleanup = true
+	s.mu.Unlock()
+	if cancelCleanup {
+		errorCleanupScheduler.cancel(int32(id))
+	}
+	return prepared, true
+}
+
+func (s *errorStore) has(id ErrorID) bool {
+	s.mu.Lock()
+	cancelCleanup := false
+	record, ok := s.records[id]
+	if !ok {
+		s.mu.Unlock()
+		return false
+	}
+	if s.expired(record, time.Now()) {
+		delete(s.records, id)
+		cancelCleanup = true
+		s.mu.Unlock()
+		if cancelCleanup {
+			errorCleanupScheduler.cancel(int32(id))
+		}
+		return false
+	}
+	s.mu.Unlock()
+	return true
+}
+
+func (s *errorStore) delete(id ErrorID) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.records, id)
+}
+
+func (s *errorStore) expired(record errorRecord, now time.Time) bool {
+	return !now.Before(record.expiresAt)
 }

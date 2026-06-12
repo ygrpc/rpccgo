@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package examples.connect.greeter.v1;
+
+option go_package = "example.com/rpccgo-connect/proto;greeterv1";
+
+// SayHelloRequest carries the name and city used to build a greeting.
+message SayHelloRequest {
+  string name = 1;
+  string city = 2;
+}
+
+// SayHelloResponse carries the greeting text returned by the server.
+message SayHelloResponse {
+  string message = 1;
+}
+
+// Greeter serves greeting RPCs for the Connect example.
+// @rpccgo: msg-connect|native
+service Greeter {
+  // SayHello returns a single greeting.
+  rpc SayHello(SayHelloRequest) returns (SayHelloResponse);
+  // Collect accepts many requests and returns one greeting.
+  rpc Collect(stream SayHelloRequest) returns (SayHelloResponse);
+  // Broadcast accepts one request and streams greetings back.
+  rpc Broadcast(SayHelloRequest) returns (stream SayHelloResponse);
+  // Chat exchanges greeting requests and responses bidirectionally.
+  rpc Chat(stream SayHelloRequest) returns (stream SayHelloResponse);
+}
