@@ -44,7 +44,7 @@ func GenerateWithOptions(plugin *protogen.Plugin) (GenerationPlan, error) {
 	if err != nil {
 		return GenerationPlan{}, err
 	}
-	if err := RenderGeneratedFiles(plugin, plan); err != nil {
+	if err := renderGeneratedFiles(plugin, plan); err != nil {
 		return GenerationPlan{}, err
 	}
 	return plan, nil
