@@ -88,6 +88,7 @@ _Avoid_: active server
 - 本地 Go server 调用使用成对的 generic client/server endpoint；两端通过私有 shared state 协调 queue、ack、cancel、close-send 和 finish。Generated code 不生成 per-method state、client facade 或重复 lifecycle methods。
 - Native endpoint 的 `Req` / `Resp` 使用 generated method-local envelope；package-level native stream operation 和 Go native handler stream interface 仍暴露 flat field-level boundary。Go native 只生成 flat fields 与 server endpoint envelope 之间的 mapper。
 - Go 侧 typed **Message contract** request/response 不接受 nil protobuf message；nil request、nil response 或 nil stream payload 必须返回显式错误。C ABI 的空 `ptr/len` bytes 表示空 protobuf message，由 generated C projection 转换为非 nil typed message。
+- C **Message contract** projection 的 request-side `ptr/len` 表达 borrowed bytes view，不引入 ownership slot；需要跨调用或跨 stream 持有请求内容时，由持有方自行复制。
 - C **Message contract** projection 读取 `ptr/len` bytes 时，`len == 0` 一律转换为非 nil 空 protobuf message 且不读取 `ptr`；`len < 0` 或 `len > 0 && ptr == 0` 必须返回显式错误。
 - C **Message contract** projection 写出 typed protobuf message 时，先拒绝 nil message，再序列化；序列化结果长度为 0 时输出 `ptr=0,len=0` 且不分配跨 C 边界 buffer。
 - C message server streaming 方法属于 handler-style server contract：server endpoint 作为方法参数传入；`Start` 返回 client endpoint 只属于 generated runtime dispatch 与 C callback ABI 的内部投影。

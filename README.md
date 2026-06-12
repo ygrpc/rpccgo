@@ -206,6 +206,8 @@ int32_t err = rpccgo_msg_greeterv1_Greeter_SayHello(
     &response_ptr, &response_len);
 ```
 
+这里的 `request_ptr/request_len` 是 borrowed input，不携带 `request_ownership`。Go 会在导出函数内立即把 bytes 解码成 typed protobuf message；调用方只需保证这块 request buffer 在本次调用返回前保持可读，返回后可以自行释放或复用。
+
 返回值 `0` 表示成功，非 `0` 是 runtime error id。错误文本通过 shared exports 读取：
 
 ```c
@@ -215,7 +217,7 @@ rpccgo_take_error_text(err, &text_ptr, &text_len);
 rpccgo_release(text_ptr);
 ```
 
-输出 buffer 使用完成后调用 `rpccgo_release` 释放。stream handle 使用 `int32_t`，后续操作通过 handle 继续调用对应 generated stream operation。
+这里的 `response_ptr/response_len` 是 Go 返回给 C 的 output buffer；使用完成后调用 `rpccgo_release` 释放。stream handle 使用 `int32_t`，后续操作通过 handle 继续调用对应 generated stream operation。
 
 ## 从 C 注册 Server
 
@@ -227,6 +229,8 @@ cgo native server 使用 native 字段 ABI callback；cgo message server 使用 
 - streaming method 的 operation callbacks 必须全 nil 或全非 nil。
 - 同一个 kind 的 per-method register 会累积到现有 cgo adapter。
 - 不同 kind 的注册会替换 current registered server。
+
+cgo message callback 的 `request_ptr/request_len` 也采用 borrowed input 语义，不生成 ownership 参数。Go 侧只保证 request bytes 在本次同步 callback 调用期间可读；如果 C 侧要跨 callback 或跨 stream 保存内容，必须自行复制。callback 写回的 `response_ptr/response_len` 同样不带 ownership，必须保证返回的 bytes 在本次 rpccgo 调用完成前持续可读，不能返回指向 callback 栈内临时 buffer 的指针。
 
 C 侧传入或返回 `ownership > 0` 的内存前，必须通过 shared export 注册对应的释放函数。使用标准 `malloc` 分配时可以直接注册 `free`：
 
