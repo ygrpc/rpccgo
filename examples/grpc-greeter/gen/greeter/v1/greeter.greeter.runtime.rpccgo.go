@@ -10,9 +10,7 @@ import (
 	goruntime "runtime"
 	fmt "fmt"
 	io "io"
-	sync "sync"
 	grpc "google.golang.org/grpc"
-	metadata "google.golang.org/grpc/metadata"
 	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
@@ -70,142 +68,15 @@ func RegisterGreeterGRPCRemoteServer(client GreeterClient) error {
 	return nil
 }
 
-type greeterCollectGRPCDirectMessageStreamSessionResult struct {
-	data     *SayHelloResponse
-	err      error
-	terminal bool
-}
-
-type greeterCollectGRPCDirectMessageStreamSession struct {
-	ctx           context.Context
-	cancel        context.CancelFunc
-	requests      chan *SayHelloRequest
-	closeRequests sync.Once
-	result        chan greeterCollectGRPCDirectMessageStreamSessionResult
-	resultOnce    sync.Once
-	header        metadata.MD
-	trailer       metadata.MD
-}
-
-func newgreeterCollectGRPCDirectMessageStreamSession(ctx context.Context, server GreeterServer) *greeterCollectGRPCDirectMessageStreamSession {
-	streamCtx, cancel := context.WithCancel(ctx)
-	session := &greeterCollectGRPCDirectMessageStreamSession{ctx: streamCtx, cancel: cancel, requests: make(chan *SayHelloRequest), result: make(chan greeterCollectGRPCDirectMessageStreamSessionResult, 1)}
-	go func() {
-		err := server.Collect(session)
-		if err != nil {
-			session.deliver(greeterCollectGRPCDirectMessageStreamSessionResult{err: err, terminal: true})
-			return
-		}
-		session.deliver(greeterCollectGRPCDirectMessageStreamSessionResult{err: fmt.Errorf("rpccgo: grpc direct client stream completed without SendAndClose"), terminal: true})
-	}()
-	return session
-}
-
-func (s *greeterCollectGRPCDirectMessageStreamSession) deliver(result greeterCollectGRPCDirectMessageStreamSessionResult) {
-	s.resultOnce.Do(func() {
-		s.result <- result
+func newgreeterCollectGRPCDirectMessageStreamSession(ctx context.Context, server GreeterServer) rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse] {
+	client, stream, streamCtx := rpcruntime.NewClientStreaming[*SayHelloRequest, *SayHelloResponse](ctx, rpcruntime.LocalStreamOptions{
+		RequestBuffer: 16,
+		StreamClosed:  errors.New("rpccgo: message stream is closed"),
+		NilRequest:    errors.New("rpccgo: message request is nil"),
 	})
-}
-
-func (s *greeterCollectGRPCDirectMessageStreamSession) Recv() (*SayHelloRequest, error) {
-	select {
-	case <-s.ctx.Done():
-		return nil, s.ctx.Err()
-	case msg, ok := <-s.requests:
-		if !ok {
-			return nil, io.EOF
-		}
-		return msg, nil
-	}
-}
-
-func (s *greeterCollectGRPCDirectMessageStreamSession) RecvMsg(m any) error {
-	msg, err := s.Recv()
-	if err != nil {
-		return err
-	}
-	typed, ok := m.(*SayHelloRequest)
-	if !ok || typed == nil {
-		return fmt.Errorf("rpccgo: grpc direct client stream request type mismatch")
-	}
-	*typed = *msg
-	return nil
-}
-
-func (s *greeterCollectGRPCDirectMessageStreamSession) SendAndClose(resp *SayHelloResponse) error {
-	if resp == nil {
-		return fmt.Errorf("rpccgo: grpc direct client stream response is nil")
-	}
-	s.deliver(greeterCollectGRPCDirectMessageStreamSessionResult{data: resp, terminal: true})
-	return nil
-}
-
-func (s *greeterCollectGRPCDirectMessageStreamSession) SendMsg(m any) error {
-	typed, ok := m.(*SayHelloResponse)
-	if !ok || typed == nil {
-		return fmt.Errorf("rpccgo: grpc direct client stream response type mismatch")
-	}
-	return s.SendAndClose(typed)
-}
-
-func (s *greeterCollectGRPCDirectMessageStreamSession) SetHeader(md metadata.MD) error {
-	if md == nil {
-		return nil
-	}
-	if s.header == nil {
-		s.header = md.Copy()
-		return nil
-	}
-	s.header = metadata.Join(s.header, md)
-	return nil
-}
-
-func (s *greeterCollectGRPCDirectMessageStreamSession) SendHeader(md metadata.MD) error {
-	return s.SetHeader(md)
-}
-
-func (s *greeterCollectGRPCDirectMessageStreamSession) SetTrailer(md metadata.MD) {
-	if md == nil {
-		return
-	}
-	if s.trailer == nil {
-		s.trailer = md.Copy()
-		return
-	}
-	s.trailer = metadata.Join(s.trailer, md)
-}
-
-func (s *greeterCollectGRPCDirectMessageStreamSession) Context() context.Context { return s.ctx }
-
-func (s *greeterCollectGRPCDirectMessageStreamSession) Send(ctx context.Context, req *SayHelloRequest) error {
-	if req == nil {
-		return errors.New("rpccgo: message request is nil")
-	}
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-s.ctx.Done():
-		return s.ctx.Err()
-	case s.requests <- req:
-		return nil
-	}
-}
-
-func (s *greeterCollectGRPCDirectMessageStreamSession) Finish(ctx context.Context) (*SayHelloResponse, error) {
-	s.closeRequests.Do(func() { close(s.requests) })
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case result := <-s.result:
-		s.cancel()
-		return result.data, result.err
-	}
-}
-
-func (s *greeterCollectGRPCDirectMessageStreamSession) Cancel(ctx context.Context) error {
-	s.cancel()
-	s.closeRequests.Do(func() { close(s.requests) })
-	return nil
+	grpcStream := rpcruntime.NewGRPCClientStreamingServer[SayHelloRequest, SayHelloResponse](streamCtx, stream)
+	go func() { grpcStream.Complete(server.Collect(grpcStream)) }()
+	return client
 }
 
 func newgreeterCollectGRPCRemoteMessageStreamSession(ctx context.Context, client GreeterClient) (*greeterCollectGRPCRemoteMessageStreamSession, error) {
@@ -265,110 +136,18 @@ func (s *greeterCollectGRPCRemoteMessageStreamSession) Cancel(ctx context.Contex
 	return s.stream.CloseSend()
 }
 
-type greeterBroadcastGRPCDirectMessageStreamSessionResult struct {
-	data     *SayHelloResponse
-	err      error
-	terminal bool
-}
-
-type greeterBroadcastGRPCDirectMessageStreamSession struct {
-	ctx       context.Context
-	cancel    context.CancelFunc
-	responses chan greeterBroadcastGRPCDirectMessageStreamSessionResult
-	header    metadata.MD
-	trailer   metadata.MD
-}
-
-func newgreeterBroadcastGRPCDirectMessageStreamSession(ctx context.Context, server GreeterServer, req *SayHelloRequest) (*greeterBroadcastGRPCDirectMessageStreamSession, error) {
+func newgreeterBroadcastGRPCDirectMessageStreamSession(ctx context.Context, server GreeterServer, req *SayHelloRequest) (rpcruntime.ServerStreamingClient[*SayHelloResponse], error) {
 	if req == nil {
 		return nil, errors.New("rpccgo: message request is nil")
 	}
-	streamCtx, cancel := context.WithCancel(ctx)
-	session := &greeterBroadcastGRPCDirectMessageStreamSession{ctx: streamCtx, cancel: cancel, responses: make(chan greeterBroadcastGRPCDirectMessageStreamSessionResult, 1)}
-	go func() {
-		err := server.Broadcast(req, session)
-		session.responses <- greeterBroadcastGRPCDirectMessageStreamSessionResult{err: err, terminal: true}
-	}()
-	return session, nil
-}
-
-func (s *greeterBroadcastGRPCDirectMessageStreamSession) Send(resp *SayHelloResponse) error {
-	if resp == nil {
-		return fmt.Errorf("rpccgo: grpc direct server stream response is nil")
-	}
-	select {
-	case <-s.ctx.Done():
-		return s.ctx.Err()
-	case s.responses <- greeterBroadcastGRPCDirectMessageStreamSessionResult{data: resp}:
-		return nil
-	}
-}
-
-func (s *greeterBroadcastGRPCDirectMessageStreamSession) SendMsg(m any) error {
-	typed, ok := m.(*SayHelloResponse)
-	if !ok || typed == nil {
-		return fmt.Errorf("rpccgo: grpc direct server stream response type mismatch")
-	}
-	return s.Send(typed)
-}
-
-func (s *greeterBroadcastGRPCDirectMessageStreamSession) RecvMsg(m any) error {
-	return io.EOF
-}
-
-func (s *greeterBroadcastGRPCDirectMessageStreamSession) SetHeader(md metadata.MD) error {
-	if md == nil {
-		return nil
-	}
-	if s.header == nil {
-		s.header = md.Copy()
-		return nil
-	}
-	s.header = metadata.Join(s.header, md)
-	return nil
-}
-
-func (s *greeterBroadcastGRPCDirectMessageStreamSession) SendHeader(md metadata.MD) error {
-	return s.SetHeader(md)
-}
-
-func (s *greeterBroadcastGRPCDirectMessageStreamSession) SetTrailer(md metadata.MD) {
-	if md == nil {
-		return
-	}
-	if s.trailer == nil {
-		s.trailer = md.Copy()
-		return
-	}
-	s.trailer = metadata.Join(s.trailer, md)
-}
-
-func (s *greeterBroadcastGRPCDirectMessageStreamSession) Context() context.Context { return s.ctx }
-
-func (s *greeterBroadcastGRPCDirectMessageStreamSession) Recv(ctx context.Context) (*SayHelloResponse, error) {
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case result := <-s.responses:
-		if result.terminal {
-			s.cancel()
-			if result.err != nil {
-				return nil, result.err
-			}
-			return nil, io.EOF
-		}
-		return result.data, result.err
-	}
-}
-
-func (s *greeterBroadcastGRPCDirectMessageStreamSession) Finish(ctx context.Context) error {
-	s.cancel()
-	return nil
-}
-
-func (s *greeterBroadcastGRPCDirectMessageStreamSession) Cancel(ctx context.Context) error {
-	s.cancel()
-	return nil
+	client, stream, streamCtx := rpcruntime.NewServerStreaming[*SayHelloResponse](ctx, rpcruntime.LocalStreamOptions{
+		ResponseBuffer: 1,
+		StreamClosed:   errors.New("rpccgo: message stream is closed"),
+		NilResponse:    errors.New("rpccgo: message response is nil"),
+	})
+	grpcStream := rpcruntime.NewGRPCServerStreamingServer[SayHelloResponse](streamCtx, stream)
+	go func() { stream.Complete(server.Broadcast(req, grpcStream)) }()
+	return client, nil
 }
 
 func newgreeterBroadcastGRPCRemoteMessageStreamSession(ctx context.Context, client GreeterClient, req *SayHelloRequest) (*greeterBroadcastGRPCRemoteMessageStreamSession, error) {
@@ -426,167 +205,17 @@ func (s *greeterBroadcastGRPCRemoteMessageStreamSession) Cancel(ctx context.Cont
 	return s.stream.CloseSend()
 }
 
-type greeterChatGRPCDirectMessageStreamSessionResult struct {
-	data     *SayHelloResponse
-	err      error
-	terminal bool
-}
-
-type greeterChatGRPCDirectMessageStreamSession struct {
-	ctx           context.Context
-	cancel        context.CancelFunc
-	requests      chan *SayHelloRequest
-	closeRequests sync.Once
-	responses     chan greeterChatGRPCDirectMessageStreamSessionResult
-	header        metadata.MD
-	trailer       metadata.MD
-}
-
-type greeterChatGRPCDirectMessageStreamSessionGRPCStream struct {
-	source *greeterChatGRPCDirectMessageStreamSession
-}
-
-func newgreeterChatGRPCDirectMessageStreamSession(ctx context.Context, server GreeterServer) *greeterChatGRPCDirectMessageStreamSession {
-	streamCtx, cancel := context.WithCancel(ctx)
-	session := &greeterChatGRPCDirectMessageStreamSession{ctx: streamCtx, cancel: cancel, requests: make(chan *SayHelloRequest), responses: make(chan greeterChatGRPCDirectMessageStreamSessionResult, 1)}
-	go func() {
-		err := server.Chat(&greeterChatGRPCDirectMessageStreamSessionGRPCStream{source: session})
-		session.responses <- greeterChatGRPCDirectMessageStreamSessionResult{err: err, terminal: true}
-	}()
-	return session
-}
-
-func (s *greeterChatGRPCDirectMessageStreamSessionGRPCStream) Recv() (*SayHelloRequest, error) {
-	select {
-	case <-s.source.ctx.Done():
-		return nil, s.source.ctx.Err()
-	case msg, ok := <-s.source.requests:
-		if !ok {
-			return nil, io.EOF
-		}
-		return msg, nil
-	}
-}
-
-func (s *greeterChatGRPCDirectMessageStreamSessionGRPCStream) RecvMsg(m any) error {
-	msg, err := s.Recv()
-	if err != nil {
-		return err
-	}
-	typed, ok := m.(*SayHelloRequest)
-	if !ok || typed == nil {
-		return fmt.Errorf("rpccgo: grpc direct bidi request type mismatch")
-	}
-	*typed = *msg
-	return nil
-}
-
-func (s *greeterChatGRPCDirectMessageStreamSessionGRPCStream) Send(resp *SayHelloResponse) error {
-	if resp == nil {
-		return fmt.Errorf("rpccgo: grpc direct bidi response is nil")
-	}
-	select {
-	case <-s.source.ctx.Done():
-		return s.source.ctx.Err()
-	case s.source.responses <- greeterChatGRPCDirectMessageStreamSessionResult{data: resp}:
-		return nil
-	}
-}
-
-func (s *greeterChatGRPCDirectMessageStreamSessionGRPCStream) SendMsg(m any) error {
-	typed, ok := m.(*SayHelloResponse)
-	if !ok || typed == nil {
-		return fmt.Errorf("rpccgo: grpc direct bidi response type mismatch")
-	}
-	return s.Send(typed)
-}
-
-func (s *greeterChatGRPCDirectMessageStreamSessionGRPCStream) SetHeader(md metadata.MD) error {
-	return s.source.SetHeader(md)
-}
-
-func (s *greeterChatGRPCDirectMessageStreamSessionGRPCStream) SendHeader(md metadata.MD) error {
-	return s.source.SendHeader(md)
-}
-
-func (s *greeterChatGRPCDirectMessageStreamSessionGRPCStream) SetTrailer(md metadata.MD) {
-	s.source.SetTrailer(md)
-}
-
-func (s *greeterChatGRPCDirectMessageStreamSessionGRPCStream) Context() context.Context {
-	return s.source.ctx
-}
-
-func (s *greeterChatGRPCDirectMessageStreamSession) SetHeader(md metadata.MD) error {
-	if md == nil {
-		return nil
-	}
-	if s.header == nil {
-		s.header = md.Copy()
-		return nil
-	}
-	s.header = metadata.Join(s.header, md)
-	return nil
-}
-
-func (s *greeterChatGRPCDirectMessageStreamSession) SendHeader(md metadata.MD) error {
-	return s.SetHeader(md)
-}
-
-func (s *greeterChatGRPCDirectMessageStreamSession) SetTrailer(md metadata.MD) {
-	if md == nil {
-		return
-	}
-	if s.trailer == nil {
-		s.trailer = md.Copy()
-		return
-	}
-	s.trailer = metadata.Join(s.trailer, md)
-}
-
-func (s *greeterChatGRPCDirectMessageStreamSession) Send(ctx context.Context, req *SayHelloRequest) error {
-	if req == nil {
-		return errors.New("rpccgo: message request is nil")
-	}
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-s.ctx.Done():
-		return s.ctx.Err()
-	case s.requests <- req:
-		return nil
-	}
-}
-
-func (s *greeterChatGRPCDirectMessageStreamSession) CloseSend(ctx context.Context) error {
-	s.closeRequests.Do(func() { close(s.requests) })
-	return nil
-}
-
-func (s *greeterChatGRPCDirectMessageStreamSession) Recv(ctx context.Context) (*SayHelloResponse, error) {
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case result := <-s.responses:
-		if result.terminal {
-			s.cancel()
-			if result.err != nil {
-				return nil, result.err
-			}
-			return nil, io.EOF
-		}
-		return result.data, result.err
-	}
-}
-
-func (s *greeterChatGRPCDirectMessageStreamSession) Finish(ctx context.Context) error {
-	s.cancel()
-	return nil
-}
-
-func (s *greeterChatGRPCDirectMessageStreamSession) Cancel(ctx context.Context) error {
-	s.cancel()
-	return nil
+func newgreeterChatGRPCDirectMessageStreamSession(ctx context.Context, server GreeterServer) rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse] {
+	client, stream, streamCtx := rpcruntime.NewBidiStreaming[*SayHelloRequest, *SayHelloResponse](ctx, rpcruntime.LocalStreamOptions{
+		RequestBuffer:  16,
+		ResponseBuffer: 1,
+		StreamClosed:   errors.New("rpccgo: message stream is closed"),
+		NilRequest:     errors.New("rpccgo: message request is nil"),
+		NilResponse:    errors.New("rpccgo: message response is nil"),
+	})
+	grpcStream := rpcruntime.NewGRPCBidiStreamingServer[SayHelloRequest, SayHelloResponse](streamCtx, stream)
+	go func() { stream.Complete(server.Chat(grpcStream)) }()
+	return client
 }
 
 func newgreeterChatGRPCRemoteMessageStreamSession(ctx context.Context, client GreeterClient) (*greeterChatGRPCRemoteMessageStreamSession, error) {

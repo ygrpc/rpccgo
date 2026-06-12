@@ -524,10 +524,17 @@ import (
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
-type directConnectGreeter struct{}
+type directConnectGreeter struct{ label string }
+
+var directConnectUploadLabel string
 
 func (directConnectGreeter) Unary(context.Context, *emptypb.Empty) (*emptypb.Empty, error) { return &emptypb.Empty{}, nil }
-func (directConnectGreeter) Upload(ctx context.Context, stream *connect.ClientStream[emptypb.Empty]) (*emptypb.Empty, error) {
+func (g directConnectGreeter) Upload(ctx context.Context, stream *connect.ClientStream[emptypb.Empty]) (*emptypb.Empty, error) {
+	directConnectUploadLabel = g.label
+	if g.label == "cancel" {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
 	for stream.Receive() {
 	}
 	if err := stream.Err(); err != nil {
@@ -540,7 +547,7 @@ func (directConnectGreeter) Chat(context.Context, *connect.BidiStream[emptypb.Em
 
 func TestDirectConnectHandlerRegistration(t *testing.T) {
 	ResetGreeterServerForIntegrationTest()
-	if err := RegisterGreeterConnectHandler(directConnectGreeter{}); err != nil {
+	if err := RegisterGreeterConnectHandler(directConnectGreeter{label: "A"}); err != nil {
 		t.Fatalf("RegisterGreeterConnectHandler() error = %v", err)
 	}
 	if _, err := InvokeGreeterMessageUnary(context.Background(), &emptypb.Empty{}); err != nil {
@@ -550,11 +557,27 @@ func TestDirectConnectHandlerRegistration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartGreeterMessageUpload() error = %v", err)
 	}
+	if err := RegisterGreeterConnectHandler(directConnectGreeter{label: "B"}); err != nil {
+		t.Fatalf("RegisterGreeterConnectHandler(B) error = %v", err)
+	}
 	if err := SendGreeterMessageUpload(context.Background(), uploadHandle, &emptypb.Empty{}); err != nil {
 		t.Fatalf("upload Send() error = %v", err)
 	}
 	if _, err := FinishGreeterMessageUpload(context.Background(), uploadHandle); err != nil {
 		t.Fatalf("upload Finish() error = %v", err)
+	}
+	if directConnectUploadLabel != "A" {
+		t.Fatalf("upload handler = %q, want captured server A", directConnectUploadLabel)
+	}
+	if err := RegisterGreeterConnectHandler(directConnectGreeter{label: "cancel"}); err != nil {
+		t.Fatalf("RegisterGreeterConnectHandler(cancel) error = %v", err)
+	}
+	cancelHandle, err := StartGreeterMessageUpload(context.Background())
+	if err != nil {
+		t.Fatalf("StartGreeterMessageUpload(cancel) error = %v", err)
+	}
+	if err := CancelGreeterMessageUpload(context.Background(), cancelHandle); err != nil {
+		t.Fatalf("upload Cancel() error = %v", err)
 	}
 	listHandle, err := StartGreeterMessageList(context.Background(), &emptypb.Empty{})
 	if err != nil {
@@ -592,10 +615,17 @@ import (
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
-type directGRPCGreeter struct{}
+type directGRPCGreeter struct{ label string }
+
+var directGRPCUploadLabel string
 
 func (directGRPCGreeter) Unary(context.Context, *emptypb.Empty) (*emptypb.Empty, error) { return &emptypb.Empty{}, nil }
-func (directGRPCGreeter) Upload(stream Greeter_UploadServer) error {
+func (g directGRPCGreeter) Upload(stream Greeter_UploadServer) error {
+	directGRPCUploadLabel = g.label
+	if g.label == "cancel" {
+		<-stream.Context().Done()
+		return stream.Context().Err()
+	}
 	for {
 		_, err := stream.Recv()
 		if err == io.EOF {
@@ -611,7 +641,7 @@ func (directGRPCGreeter) Chat(Greeter_ChatServer) error { return nil }
 
 func TestDirectGRPCServerRegistration(t *testing.T) {
 	ResetGreeterServerForIntegrationTest()
-	if err := RegisterGreeterGRPCServer(directGRPCGreeter{}); err != nil {
+	if err := RegisterGreeterGRPCServer(directGRPCGreeter{label: "A"}); err != nil {
 		t.Fatalf("RegisterGreeterGRPCServer() error = %v", err)
 	}
 	if _, err := InvokeGreeterMessageUnary(context.Background(), &emptypb.Empty{}); err != nil {
@@ -621,11 +651,27 @@ func TestDirectGRPCServerRegistration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartGreeterMessageUpload() error = %v", err)
 	}
+	if err := RegisterGreeterGRPCServer(directGRPCGreeter{label: "B"}); err != nil {
+		t.Fatalf("RegisterGreeterGRPCServer(B) error = %v", err)
+	}
 	if err := SendGreeterMessageUpload(context.Background(), uploadHandle, &emptypb.Empty{}); err != nil {
 		t.Fatalf("upload Send() error = %v", err)
 	}
 	if _, err := FinishGreeterMessageUpload(context.Background(), uploadHandle); err != nil {
 		t.Fatalf("upload Finish() error = %v", err)
+	}
+	if directGRPCUploadLabel != "A" {
+		t.Fatalf("upload server = %q, want captured server A", directGRPCUploadLabel)
+	}
+	if err := RegisterGreeterGRPCServer(directGRPCGreeter{label: "cancel"}); err != nil {
+		t.Fatalf("RegisterGreeterGRPCServer(cancel) error = %v", err)
+	}
+	cancelHandle, err := StartGreeterMessageUpload(context.Background())
+	if err != nil {
+		t.Fatalf("StartGreeterMessageUpload(cancel) error = %v", err)
+	}
+	if err := CancelGreeterMessageUpload(context.Background(), cancelHandle); err != nil {
+		t.Fatalf("upload Cancel() error = %v", err)
 	}
 	listHandle, err := StartGreeterMessageList(context.Background(), &emptypb.Empty{})
 	if err != nil {

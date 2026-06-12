@@ -177,7 +177,7 @@ func TestRenderRuntimeGlueDefinesGRPCDirectRegistration(t *testing.T) {
 	}
 }
 
-func TestRenderRuntimeGlueDefinesGRPCDirectStreamingSessions(t *testing.T) {
+func TestRenderRuntimeGlueUsesGenericEndpointsForGRPCDirectStreaming(t *testing.T) {
 	file := grpcStreamingRuntimeTestFile()
 	plugin := newTestPluginGenerating(t, "paths=source_relative", "test/v1/grpc_streaming_runtime.proto", file)
 
@@ -190,15 +190,20 @@ func TestRenderRuntimeGlueDefinesGRPCDirectStreamingSessions(t *testing.T) {
 	for _, fragment := range []string{
 		"func RegisterGrpcStreamingServiceGRPCServer(server GrpcStreamingServiceServer) error {",
 		"Kind:   rpcruntime.ServerKindGRPC,",
-		"source := newgrpcStreamingServiceClientStreamGRPCDirectMessageStreamSession(ctx, server)",
-		"source, err := newgrpcStreamingServiceServerStreamGRPCDirectMessageStreamSession(ctx, server, req)",
-		"source := newgrpcStreamingServiceBidiStreamGRPCDirectMessageStreamSession(ctx, server)",
+		"client, stream, streamCtx := rpcruntime.NewClientStreaming[*GRPCStreamingRequest, *GRPCStreamingReply]",
+		"grpcStream := rpcruntime.NewGRPCClientStreamingServer[GRPCStreamingRequest, GRPCStreamingReply]",
+		"client, stream, streamCtx := rpcruntime.NewServerStreaming[*GRPCStreamingReply]",
+		"grpcStream := rpcruntime.NewGRPCServerStreamingServer[GRPCStreamingReply]",
+		"client, stream, streamCtx := rpcruntime.NewBidiStreaming[*GRPCStreamingRequest, *GRPCStreamingReply]",
+		"grpcStream := rpcruntime.NewGRPCBidiStreamingServer[GRPCStreamingRequest, GRPCStreamingReply]",
 	} {
 		assertGeneratedContentContains(t, plugin, runtimeFile, fragment)
 	}
 	assertGeneratedFileContentDoesNotContain(t, plugin, runtimeFile,
-		"source := newgrpcStreamingServiceClientStreamGRPCDirectMessageStreamSession(ctx, server)\n\t\tvar err error\n\t\tif err != nil",
-		"source := newgrpcStreamingServiceBidiStreamGRPCDirectMessageStreamSession(ctx, server)\n\t\tvar err error\n\t\tif err != nil",
+		"type grpcStreamingServiceClientStreamGRPCDirectMessageStreamSession struct",
+		"type grpcStreamingServiceServerStreamGRPCDirectMessageStreamSession struct",
+		"type grpcStreamingServiceBidiStreamGRPCDirectMessageStreamSession struct",
+		"type grpcStreamingServiceClientStreamGRPCDirectMessageStreamSessionResult struct",
 	)
 }
 
@@ -378,9 +383,9 @@ func TestRenderRuntimeGlueRoutesNativeStreamsToMessageSessionsWithConverter(t *t
 	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	const nativeServerFile = "test/v1/complete_service_plan.all_service.server.native.rpccgo.go"
 	for _, fragment := range []string{
-		"source := newallServiceClientStreamConnectDirectMessageStreamSession(ctx, server)",
-		"source, err := newallServiceServerStreamConnectDirectMessageStreamSession(ctx, server, req)",
-		"source := newallServiceBidiStreamConnectDirectMessageStreamSession(ctx, server)",
+		"client, stream, streamCtx := rpcruntime.NewClientStreaming[*AllRequest, *AllReply]",
+		"client, stream, streamCtx := rpcruntime.NewServerStreaming[*AllReply]",
+		"client, stream, streamCtx := rpcruntime.NewBidiStreaming[*AllRequest, *AllReply]",
 		"rpcruntime.NewConnectClientStream[AllRequest](conn)",
 		"rpcruntime.NewConnectServerStream[AllReply](conn)",
 		"rpcruntime.NewConnectBidiStream[AllRequest, AllReply](conn)",
@@ -397,8 +402,10 @@ func TestRenderRuntimeGlueRoutesNativeStreamsToMessageSessionsWithConverter(t *t
 	}
 	assertGeneratedFileContentDoesNotContain(t, plugin, runtimeFile,
 		"source, err := serverBinding.StartServerStream(ctx, messageReq)",
-		"source := newallServiceClientStreamConnectDirectMessageStreamSession(ctx, server)\n\t\tvar err error\n\t\tif err != nil",
-		"source := newallServiceBidiStreamConnectDirectMessageStreamSession(ctx, server)\n\t\tvar err error\n\t\tif err != nil",
+		"type allServiceClientStreamConnectDirectMessageStreamSession struct",
+		"type allServiceServerStreamConnectDirectMessageStreamSession struct",
+		"type allServiceBidiStreamConnectDirectMessageStreamSession struct",
+		"type allServiceClientStreamConnectDirectMessageStreamSessionResult struct",
 	)
 }
 

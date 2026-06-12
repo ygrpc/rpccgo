@@ -31,9 +31,12 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 		g.P(`fmt "fmt"`)
 	}
 	runtimeRendersNativeServer := service.Generation.NativeEnabled && !service.HasArtifact(GeneratedArtifactKindNativeServer)
-	if directConnectStreaming || directGRPCStreaming || nativeServerHasStreamingMethod(service) || serviceHasStreamingMethod(service) {
+	runtimeNeedsIO := runtimeRendersNativeServer && nativeServerHasStreamingMethod(service) ||
+		directConnectStreaming && serviceHasServerStreamingMethod(service) ||
+		directGRPCStreaming && (serviceHasServerStreamingMethod(service) || serviceHasBidiStreamingMethod(service))
+	if runtimeNeedsIO {
 		g.P(`io "io"`)
-		if serviceHasClientStreamingMethod(service) || serviceHasBidiStreamingMethod(service) || runtimeRendersNativeServer && nativeServerHasStreamingMethod(service) {
+		if runtimeRendersNativeServer && (serviceHasClientStreamingMethod(service) || serviceHasBidiStreamingMethod(service)) {
 			g.P(`sync "sync"`)
 		}
 	}
@@ -45,7 +48,6 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	}
 	if directGRPCStreaming {
 		g.P(`grpc "google.golang.org/grpc"`)
-		g.P(`metadata "google.golang.org/grpc/metadata"`)
 	}
 	g.P(`rpcruntime "`, rpcruntimeImportPath, `"`)
 	g.P(")")

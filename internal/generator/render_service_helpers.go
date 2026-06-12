@@ -29,6 +29,15 @@ func serviceHasClientStreamingMethod(service ServicePlan) bool {
 	return false
 }
 
+func serviceHasServerStreamingMethod(service ServicePlan) bool {
+	for _, method := range service.Methods {
+		if method.Streaming == StreamingKindServerStreaming {
+			return true
+		}
+	}
+	return false
+}
+
 func serviceHasBidiStreamingMethod(service ServicePlan) bool {
 	for _, method := range service.Methods {
 		if method.Streaming == StreamingKindBidiStreaming {
