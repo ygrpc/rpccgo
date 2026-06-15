@@ -1,0 +1,50 @@
+syntax = "proto3";
+
+package examples.flutter.sharedso.v1;
+
+option go_package = "example.com/rpccgo-flutter-shared-so/proto;fluttersharedv1";
+
+// ComposeGreetingRequest carries the caller label and greeting target.
+message ComposeGreetingRequest {
+  string name = 1;
+  string caller = 2;
+}
+
+// ComposeGreetingResponse carries the rendered greeting and runtime markers.
+message ComposeGreetingResponse {
+  string message = 1;
+  string served_by = 2;
+  string library = 3;
+}
+
+// IncrementRuntimeStateRequest changes mutable state inside the Go runtime.
+message IncrementRuntimeStateRequest {
+  int32 delta = 1;
+  string caller = 2;
+}
+
+// ReadRuntimeStateRequest identifies the path observing the Go runtime state.
+message ReadRuntimeStateRequest {
+  string caller = 1;
+}
+
+// RuntimeStateResponse identifies one mutable Go runtime state instance.
+message RuntimeStateResponse {
+  int64 value = 1;
+  int64 revision = 2;
+  string runtime_id = 3;
+  string caller = 4;
+}
+
+// SharedSoDemo exposes one unary RPC for the shared-library validation example.
+// @rpccgo: msg-connect
+service SharedSoDemo {
+  // ComposeGreeting returns a greeting that identifies the caller path.
+  rpc ComposeGreeting(ComposeGreetingRequest) returns (ComposeGreetingResponse);
+
+  // IncrementRuntimeState modifies state through the Flutter FFI path.
+  rpc IncrementRuntimeState(IncrementRuntimeStateRequest) returns (RuntimeStateResponse);
+
+  // ReadRuntimeState observes the same state through the Kotlin/JNI path.
+  rpc ReadRuntimeState(ReadRuntimeStateRequest) returns (RuntimeStateResponse);
+}
