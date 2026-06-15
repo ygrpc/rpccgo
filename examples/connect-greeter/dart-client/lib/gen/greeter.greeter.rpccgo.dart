@@ -2,6 +2,9 @@
 //
 // Source: greeter.proto
 
+@ffi.DefaultAsset('package:rpccgo_connect_greeter_dart_client/rpccgo.dart')
+library;
+
 import 'dart:convert' as convert;
 import 'dart:ffi' as ffi;
 import 'dart:typed_data' as typed_data;
@@ -13,16 +16,9 @@ import 'greeter.pb.dart' as pb;
 // rpccgo Dart FFI message client generated file for Greeter
 
 typedef _RpccgoReleaseNative = ffi.Int32 Function(ffi.UintPtr ptr);
-typedef _RpccgoRelease = int Function(int ptr);
 typedef _RpccgoTakeErrorTextNative =
     ffi.Int32 Function(
       ffi.Int32 errID,
-      ffi.Pointer<ffi.UintPtr> textPtr,
-      ffi.Pointer<ffi.Int32> textLen,
-    );
-typedef _RpccgoTakeErrorText =
-    int Function(
-      int errID,
       ffi.Pointer<ffi.UintPtr> textPtr,
       ffi.Pointer<ffi.Int32> textLen,
     );
@@ -33,41 +29,23 @@ typedef _RpccgoMessageUnaryNative =
       ffi.Pointer<ffi.UintPtr> responsePtr,
       ffi.Pointer<ffi.Int32> responseLen,
     );
-typedef _RpccgoMessageUnary =
-    int Function(
-      int requestPtr,
-      int requestLen,
-      ffi.Pointer<ffi.UintPtr> responsePtr,
-      ffi.Pointer<ffi.Int32> responseLen,
-    );
 typedef _RpccgoStreamStartNative =
     ffi.Int32 Function(ffi.Pointer<ffi.Int32> handle);
-typedef _RpccgoStreamStart = int Function(ffi.Pointer<ffi.Int32> handle);
 typedef _RpccgoServerStreamStartNative =
     ffi.Int32 Function(
       ffi.UintPtr requestPtr,
       ffi.Int32 requestLen,
       ffi.Pointer<ffi.Int32> handle,
     );
-typedef _RpccgoServerStreamStart =
-    int Function(int requestPtr, int requestLen, ffi.Pointer<ffi.Int32> handle);
 typedef _RpccgoStreamSendNative =
     ffi.Int32 Function(
       ffi.Int32 handle,
       ffi.UintPtr requestPtr,
       ffi.Int32 requestLen,
     );
-typedef _RpccgoStreamSend =
-    int Function(int handle, int requestPtr, int requestLen);
 typedef _RpccgoStreamReadNative =
     ffi.Int32 Function(
       ffi.Int32 handle,
-      ffi.Pointer<ffi.UintPtr> responsePtr,
-      ffi.Pointer<ffi.Int32> responseLen,
-    );
-typedef _RpccgoStreamRead =
-    int Function(
-      int handle,
       ffi.Pointer<ffi.UintPtr> responsePtr,
       ffi.Pointer<ffi.Int32> responseLen,
     );
@@ -77,108 +55,209 @@ typedef _RpccgoStreamFinishNative =
       ffi.Pointer<ffi.UintPtr> responsePtr,
       ffi.Pointer<ffi.Int32> responseLen,
     );
-typedef _RpccgoStreamFinish =
-    int Function(
-      int handle,
-      ffi.Pointer<ffi.UintPtr> responsePtr,
-      ffi.Pointer<ffi.Int32> responseLen,
-    );
 typedef _RpccgoStreamFinishVoidNative = ffi.Int32 Function(ffi.Int32 handle);
-typedef _RpccgoStreamFinishVoid = int Function(int handle);
 typedef _RpccgoStreamCancelNative = ffi.Int32 Function(ffi.Int32 handle);
-typedef _RpccgoStreamCancel = int Function(int handle);
+
+@ffi.Native<_RpccgoReleaseNative>(symbol: 'rpccgoRelease')
+external int _rpccgoReleaseRaw(int ptr);
+
+@ffi.Native<_RpccgoTakeErrorTextNative>(symbol: 'rpccgoTakeErrorText')
+external int _rpccgoTakeErrorTextRaw(
+  int errID,
+  ffi.Pointer<ffi.UintPtr> textPtr,
+  ffi.Pointer<ffi.Int32> textLen,
+);
+
+@ffi.Native<_RpccgoMessageUnaryNative>(
+  symbol: 'rpccgoMsgGreeterv1GreeterSayHello',
+)
+external int _sayHelloRaw(
+  int requestPtr,
+  int requestLen,
+  ffi.Pointer<ffi.UintPtr> responsePtr,
+  ffi.Pointer<ffi.Int32> responseLen,
+);
+
+@ffi.Native<_RpccgoStreamStartNative>(
+  symbol: 'rpccgoMsgGreeterv1GreeterCollectStart',
+)
+external int _collectStartRaw(ffi.Pointer<ffi.Int32> handle);
+
+@ffi.Native<_RpccgoStreamSendNative>(
+  symbol: 'rpccgoMsgGreeterv1GreeterCollectSend',
+)
+external int _collectSendRaw(int handle, int requestPtr, int requestLen);
+
+@ffi.Native<_RpccgoStreamFinishNative>(
+  symbol: 'rpccgoMsgGreeterv1GreeterCollectFinish',
+)
+external int _collectFinishRaw(
+  int handle,
+  ffi.Pointer<ffi.UintPtr> responsePtr,
+  ffi.Pointer<ffi.Int32> responseLen,
+);
+
+@ffi.Native<_RpccgoStreamCancelNative>(
+  symbol: 'rpccgoMsgGreeterv1GreeterCollectCancel',
+)
+external int _collectCancelRaw(int handle);
+
+@ffi.Native<_RpccgoServerStreamStartNative>(
+  symbol: 'rpccgoMsgGreeterv1GreeterBroadcastStart',
+)
+external int _broadcastStartRaw(
+  int requestPtr,
+  int requestLen,
+  ffi.Pointer<ffi.Int32> handle,
+);
+
+@ffi.Native<_RpccgoStreamReadNative>(
+  symbol: 'rpccgoMsgGreeterv1GreeterBroadcastRead',
+)
+external int _broadcastReadRaw(
+  int handle,
+  ffi.Pointer<ffi.UintPtr> responsePtr,
+  ffi.Pointer<ffi.Int32> responseLen,
+);
+
+@ffi.Native<_RpccgoStreamFinishVoidNative>(
+  symbol: 'rpccgoMsgGreeterv1GreeterBroadcastFinish',
+)
+external int _broadcastFinishRaw(int handle);
+
+@ffi.Native<_RpccgoStreamCancelNative>(
+  symbol: 'rpccgoMsgGreeterv1GreeterBroadcastCancel',
+)
+external int _broadcastCancelRaw(int handle);
+
+@ffi.Native<_RpccgoStreamStartNative>(
+  symbol: 'rpccgoMsgGreeterv1GreeterChatStart',
+)
+external int _chatStartRaw(ffi.Pointer<ffi.Int32> handle);
+
+@ffi.Native<_RpccgoStreamSendNative>(
+  symbol: 'rpccgoMsgGreeterv1GreeterChatSend',
+)
+external int _chatSendRaw(int handle, int requestPtr, int requestLen);
+
+@ffi.Native<_RpccgoStreamReadNative>(
+  symbol: 'rpccgoMsgGreeterv1GreeterChatRead',
+)
+external int _chatReadRaw(
+  int handle,
+  ffi.Pointer<ffi.UintPtr> responsePtr,
+  ffi.Pointer<ffi.Int32> responseLen,
+);
+
+@ffi.Native<_RpccgoStreamFinishVoidNative>(
+  symbol: 'rpccgoMsgGreeterv1GreeterChatCloseSend',
+)
+external int _chatCloseSendRaw(int handle);
+
+@ffi.Native<_RpccgoStreamFinishVoidNative>(
+  symbol: 'rpccgoMsgGreeterv1GreeterChatFinish',
+)
+external int _chatFinishRaw(int handle);
+
+@ffi.Native<_RpccgoStreamCancelNative>(
+  symbol: 'rpccgoMsgGreeterv1GreeterChatCancel',
+)
+external int _chatCancelRaw(int handle);
 
 class GreeterRpccgoClient {
-  GreeterRpccgoClient(ffi.DynamicLibrary library)
-    : _release = library.lookupFunction<_RpccgoReleaseNative, _RpccgoRelease>(
-        'rpccgo_release',
-      ),
-      _takeErrorText = library
-          .lookupFunction<_RpccgoTakeErrorTextNative, _RpccgoTakeErrorText>(
-            'rpccgo_take_error_text',
-          ),
-      _sayHello = library
-          .lookupFunction<_RpccgoMessageUnaryNative, _RpccgoMessageUnary>(
-            'rpccgo_msg_greeterv1_Greeter_SayHello',
-          ),
-      _collectStart = library
-          .lookupFunction<_RpccgoStreamStartNative, _RpccgoStreamStart>(
-            'rpccgo_msg_greeterv1_Greeter_Collect_start',
-          ),
-      _collectSend = library
-          .lookupFunction<_RpccgoStreamSendNative, _RpccgoStreamSend>(
-            'rpccgo_msg_greeterv1_Greeter_Collect_send',
-          ),
-      _collectFinish = library
-          .lookupFunction<_RpccgoStreamFinishNative, _RpccgoStreamFinish>(
-            'rpccgo_msg_greeterv1_Greeter_Collect_finish',
-          ),
-      _collectCancel = library
-          .lookupFunction<_RpccgoStreamCancelNative, _RpccgoStreamCancel>(
-            'rpccgo_msg_greeterv1_Greeter_Collect_cancel',
-          ),
-      _broadcastStart = library
-          .lookupFunction<
-            _RpccgoServerStreamStartNative,
-            _RpccgoServerStreamStart
-          >('rpccgo_msg_greeterv1_Greeter_Broadcast_start'),
-      _broadcastRead = library
-          .lookupFunction<_RpccgoStreamReadNative, _RpccgoStreamRead>(
-            'rpccgo_msg_greeterv1_Greeter_Broadcast_read',
-          ),
-      _broadcastFinish = library
-          .lookupFunction<
-            _RpccgoStreamFinishVoidNative,
-            _RpccgoStreamFinishVoid
-          >('rpccgo_msg_greeterv1_Greeter_Broadcast_finish'),
-      _broadcastCancel = library
-          .lookupFunction<_RpccgoStreamCancelNative, _RpccgoStreamCancel>(
-            'rpccgo_msg_greeterv1_Greeter_Broadcast_cancel',
-          ),
-      _chatStart = library
-          .lookupFunction<_RpccgoStreamStartNative, _RpccgoStreamStart>(
-            'rpccgo_msg_greeterv1_Greeter_Chat_start',
-          ),
-      _chatSend = library
-          .lookupFunction<_RpccgoStreamSendNative, _RpccgoStreamSend>(
-            'rpccgo_msg_greeterv1_Greeter_Chat_send',
-          ),
-      _chatRead = library
-          .lookupFunction<_RpccgoStreamReadNative, _RpccgoStreamRead>(
-            'rpccgo_msg_greeterv1_Greeter_Chat_read',
-          ),
-      _chatCloseSend = library
-          .lookupFunction<
-            _RpccgoStreamFinishVoidNative,
-            _RpccgoStreamFinishVoid
-          >('rpccgo_msg_greeterv1_Greeter_Chat_close_send'),
-      _chatFinish = library
-          .lookupFunction<
-            _RpccgoStreamFinishVoidNative,
-            _RpccgoStreamFinishVoid
-          >('rpccgo_msg_greeterv1_Greeter_Chat_finish'),
-      _chatCancel = library
-          .lookupFunction<_RpccgoStreamCancelNative, _RpccgoStreamCancel>(
-            'rpccgo_msg_greeterv1_Greeter_Chat_cancel',
-          );
+  const GreeterRpccgoClient();
+  int _sayHello(
+    int requestPtr,
+    int requestLen,
+    ffi.Pointer<ffi.UintPtr> responsePtr,
+    ffi.Pointer<ffi.Int32> responseLen,
+  ) {
+    return _sayHelloRaw(requestPtr, requestLen, responsePtr, responseLen);
+  }
 
-  final _RpccgoRelease _release;
-  final _RpccgoTakeErrorText _takeErrorText;
-  final _RpccgoMessageUnary _sayHello;
-  final _RpccgoStreamStart _collectStart;
-  final _RpccgoStreamSend _collectSend;
-  final _RpccgoStreamFinish _collectFinish;
-  final _RpccgoStreamCancel _collectCancel;
-  final _RpccgoServerStreamStart _broadcastStart;
-  final _RpccgoStreamRead _broadcastRead;
-  final _RpccgoStreamFinishVoid _broadcastFinish;
-  final _RpccgoStreamCancel _broadcastCancel;
-  final _RpccgoStreamStart _chatStart;
-  final _RpccgoStreamSend _chatSend;
-  final _RpccgoStreamRead _chatRead;
-  final _RpccgoStreamFinishVoid _chatCloseSend;
-  final _RpccgoStreamFinishVoid _chatFinish;
-  final _RpccgoStreamCancel _chatCancel;
+  int _collectStart(ffi.Pointer<ffi.Int32> handle) {
+    return _collectStartRaw(handle);
+  }
+
+  int _collectSend(int handle, int requestPtr, int requestLen) {
+    return _collectSendRaw(handle, requestPtr, requestLen);
+  }
+
+  int _collectFinish(
+    int handle,
+    ffi.Pointer<ffi.UintPtr> responsePtr,
+    ffi.Pointer<ffi.Int32> responseLen,
+  ) {
+    return _collectFinishRaw(handle, responsePtr, responseLen);
+  }
+
+  int _collectCancel(int handle) {
+    return _collectCancelRaw(handle);
+  }
+
+  int _broadcastStart(
+    int requestPtr,
+    int requestLen,
+    ffi.Pointer<ffi.Int32> handle,
+  ) {
+    return _broadcastStartRaw(requestPtr, requestLen, handle);
+  }
+
+  int _broadcastRead(
+    int handle,
+    ffi.Pointer<ffi.UintPtr> responsePtr,
+    ffi.Pointer<ffi.Int32> responseLen,
+  ) {
+    return _broadcastReadRaw(handle, responsePtr, responseLen);
+  }
+
+  int _broadcastFinish(int handle) {
+    return _broadcastFinishRaw(handle);
+  }
+
+  int _broadcastCancel(int handle) {
+    return _broadcastCancelRaw(handle);
+  }
+
+  int _chatStart(ffi.Pointer<ffi.Int32> handle) {
+    return _chatStartRaw(handle);
+  }
+
+  int _chatSend(int handle, int requestPtr, int requestLen) {
+    return _chatSendRaw(handle, requestPtr, requestLen);
+  }
+
+  int _chatRead(
+    int handle,
+    ffi.Pointer<ffi.UintPtr> responsePtr,
+    ffi.Pointer<ffi.Int32> responseLen,
+  ) {
+    return _chatReadRaw(handle, responsePtr, responseLen);
+  }
+
+  int _chatCloseSend(int handle) {
+    return _chatCloseSendRaw(handle);
+  }
+
+  int _chatFinish(int handle) {
+    return _chatFinishRaw(handle);
+  }
+
+  int _chatCancel(int handle) {
+    return _chatCancelRaw(handle);
+  }
+
+  int _release(int ptr) {
+    return _rpccgoReleaseRaw(ptr);
+  }
+
+  int _takeErrorText(
+    int errID,
+    ffi.Pointer<ffi.UintPtr> textPtr,
+    ffi.Pointer<ffi.Int32> textLen,
+  ) {
+    return _rpccgoTakeErrorTextRaw(errID, textPtr, textLen);
+  }
 
   pb.SayHelloResponse SayHello(pb.SayHelloRequest request) {
     final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();

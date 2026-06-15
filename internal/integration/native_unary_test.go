@@ -228,7 +228,7 @@ func CallGreeterSayHelloNativeUnary(ctx context.Context, NamePtr uintptr, NameLe
 	var extraPayloadPtr C.uintptr_t
 	var extraPayloadLen C.int32_t
 	var extraPayloadOwnership C.int32_t
-	errID := rpccgo_native_testv1_Greeter_SayHello(C.uintptr_t(NamePtr), C.int32_t(NameLen), C.int32_t(NameOwnership), C.uintptr_t(PayloadPtr), C.int32_t(PayloadLen), C.int32_t(PayloadOwnership), C.int8_t(Enabled), &accepted, &payloadPtr, &payloadLen, &payloadOwnership, &notePtr, &noteLen, &noteOwnership, &extraPayloadPtr, &extraPayloadLen, &extraPayloadOwnership)
+	errID := rpccgoNativeTestv1GreeterSayHello(C.uintptr_t(NamePtr), C.int32_t(NameLen), C.int32_t(NameOwnership), C.uintptr_t(PayloadPtr), C.int32_t(PayloadLen), C.int32_t(PayloadOwnership), C.int8_t(Enabled), &accepted, &payloadPtr, &payloadLen, &payloadOwnership, &notePtr, &noteLen, &noteOwnership, &extraPayloadPtr, &extraPayloadLen, &extraPayloadOwnership)
 	*outAccepted = int8(accepted)
 	*outPayloadPtr = uintptr(payloadPtr)
 	*outPayloadLen = int32(payloadLen)
@@ -249,7 +249,7 @@ func CallGreeterSayUnsupportedNativeUnary(ctx context.Context, NamePtr uintptr, 
 	var unsupportedPtr C.uintptr_t
 	var unsupportedLen C.int32_t
 	var unsupportedOwnership C.int32_t
-	errID := rpccgo_native_testv1_Greeter_SayUnsupported(C.uintptr_t(NamePtr), C.int32_t(NameLen), C.int32_t(NameOwnership), C.uintptr_t(PayloadPtr), C.int32_t(PayloadLen), C.int32_t(PayloadOwnership), C.int8_t(Enabled), &payloadPtr, &payloadLen, &payloadOwnership, &notePtr, &noteLen, &noteOwnership, &unsupportedPtr, &unsupportedLen, &unsupportedOwnership)
+	errID := rpccgoNativeTestv1GreeterSayUnsupported(C.uintptr_t(NamePtr), C.int32_t(NameLen), C.int32_t(NameOwnership), C.uintptr_t(PayloadPtr), C.int32_t(PayloadLen), C.int32_t(PayloadOwnership), C.int8_t(Enabled), &payloadPtr, &payloadLen, &payloadOwnership, &notePtr, &noteLen, &noteOwnership, &unsupportedPtr, &unsupportedLen, &unsupportedOwnership)
 	*outPayloadPtr = uintptr(payloadPtr)
 	*outPayloadLen = int32(payloadLen)
 	*outNotePtr = uintptr(notePtr)

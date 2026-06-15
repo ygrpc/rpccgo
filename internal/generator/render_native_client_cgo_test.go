@@ -27,8 +27,8 @@ func TestRenderNativeClientCGODefinesUnaryExportSurface(t *testing.T) {
 		`v1 "example.com/test/v1"`,
 		`rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"`,
 		`unsafe "unsafe"`,
-		"//export rpccgo_native_testv1_AllService_Unary",
-		"func rpccgo_native_testv1_AllService_Unary(NamePtr C.uintptr_t, NameLen C.int32_t, NameOwnership C.int32_t, Enabled C.int8_t, ChildPtr C.uintptr_t, ChildLen C.int32_t, ChildOwnership C.int32_t, outAccepted *C.int8_t, outPayloadPtr *C.uintptr_t, outPayloadLen *C.int32_t, outPayloadOwnership *C.int32_t) C.int32_t {",
+		"//export rpccgoNativeTestv1AllServiceUnary",
+		"func rpccgoNativeTestv1AllServiceUnary(NamePtr C.uintptr_t, NameLen C.int32_t, NameOwnership C.int32_t, Enabled C.int8_t, ChildPtr C.uintptr_t, ChildLen C.int32_t, ChildOwnership C.int32_t, outAccepted *C.int8_t, outPayloadPtr *C.uintptr_t, outPayloadLen *C.int32_t, outPayloadOwnership *C.int32_t) C.int32_t {",
 		"ctx := context.Background()",
 		"if err := validateAllServiceUnaryNativeUnaryResponse((*int8)(unsafe.Pointer(outAccepted)), (*uintptr)(unsafe.Pointer(outPayloadPtr)), (*int32)(unsafe.Pointer(outPayloadLen))); err != nil {",
 		"nameValue, enabledValue, childValue, err := decodeAllServiceUnaryNativeUnaryRequest(uintptr(NamePtr), int32(NameLen), int32(NameOwnership), int8(Enabled), uintptr(ChildPtr), int32(ChildLen), int32(ChildOwnership))",
@@ -70,10 +70,10 @@ func TestRenderNativeClientCGOStreamsUseRuntimeStreamOperations(t *testing.T) {
 
 	const nativeClientFile = "test/v1/cgo/message_cgo.greeter.client.native.cgo.rpccgo.go"
 	for _, fragment := range []string{
-		"//export rpccgo_native_testv1_Greeter_Upload_start",
-		"//export rpccgo_native_testv1_Greeter_Upload_send",
-		"//export rpccgo_native_testv1_Greeter_List_read",
-		"//export rpccgo_native_testv1_Greeter_Chat_close_send",
+		"//export rpccgoNativeTestv1GreeterUploadStart",
+		"//export rpccgoNativeTestv1GreeterUploadSend",
+		"//export rpccgoNativeTestv1GreeterListRead",
+		"//export rpccgoNativeTestv1GreeterChatCloseSend",
 		"err = v1.SendGreeterNativeUpload(ctx, rpcruntime.StreamHandle(handle)",
 		"v1.FinishGreeterNativeUpload(ctx, rpcruntime.StreamHandle(handle))",
 		"err = v1.FinishGreeterNativeList(ctx, rpcruntime.StreamHandle(handle))",

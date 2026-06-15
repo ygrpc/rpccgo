@@ -156,7 +156,7 @@ import (
 func registerRepeatedGreeterMessageCallbacksForIntegration() error {
 	repeatedv1.ResetRepeatedGreeterServerForIntegrationTest()
 	callbacks := C.repeatedGreeterMessageCallbacks()
-	errID := rpccgo_msg_repeatedv1_RepeatedGreeter_register(callbacks.Echo)
+	errID := rpccgoMsgRepeatedv1RepeatedGreeterRegister(callbacks.Echo)
 	if errID == 0 {
 		return nil
 	}
@@ -191,7 +191,7 @@ func CallRepeatedGreeterEchoNativeUnary(ctx context.Context, ScoresPtr uintptr, 
 	var flagsPtr C.uintptr_t
 	var flagsLen C.int32_t
 	var flagsOwnership C.int32_t
-	errID := rpccgo_native_repeatedv1_RepeatedGreeter_Echo(C.uintptr_t(ScoresPtr), C.int32_t(ScoresLen), C.int32_t(ScoresOwnership), C.uintptr_t(FlagsPtr), C.int32_t(FlagsLen), C.int32_t(FlagsOwnership), &scoresPtr, &scoresLen, &scoresOwnership, &flagsPtr, &flagsLen, &flagsOwnership)
+	errID := rpccgoNativeRepeatedv1RepeatedGreeterEcho(C.uintptr_t(ScoresPtr), C.int32_t(ScoresLen), C.int32_t(ScoresOwnership), C.uintptr_t(FlagsPtr), C.int32_t(FlagsLen), C.int32_t(FlagsOwnership), &scoresPtr, &scoresLen, &scoresOwnership, &flagsPtr, &flagsLen, &flagsOwnership)
 	*outScoresPtr = uintptr(scoresPtr)
 	*outScoresLen = int32(scoresLen)
 	*outFlagsPtr = uintptr(flagsPtr)

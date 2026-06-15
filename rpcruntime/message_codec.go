@@ -18,11 +18,12 @@ func DecodeMessage[T protobuf.Message](ptr uintptr, length int32, message T) err
 	if isNilMessage(message) {
 		return errors.New("message is nil")
 	}
+	if length == 0 {
+		protobuf.Reset(message)
+		return nil
+	}
 	if ptr == 0 {
 		return errors.New("message pointer is nil")
-	}
-	if length == 0 {
-		return nil
 	}
 	protobuf.Reset(message)
 	data := unsafe.Slice((*byte)(unsafe.Pointer(ptr)), int(length))

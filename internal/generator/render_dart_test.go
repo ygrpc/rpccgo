@@ -10,7 +10,7 @@ import (
 )
 
 func TestGenerateDartEmitsMessageFFIClient(t *testing.T) {
-	plugin := newTestDartPlugin(t, "paths=source_relative", simpleTestFile())
+	plugin := newTestDartPlugin(t, "paths=source_relative,dart_package=rpccgo_test", simpleTestFile())
 
 	if _, err := GenerateDartWithOptions(plugin); err != nil {
 		t.Fatalf("GenerateDartWithOptions() error = %v", err)
@@ -19,16 +19,22 @@ func TestGenerateDartEmitsMessageFFIClient(t *testing.T) {
 	assertDartGeneratedFilenames(t, plugin, []string{
 		"test/v1/greeter.greeter.rpccgo.dart",
 	})
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "@ffi.DefaultAsset('package:rpccgo_test/rpccgo.dart')")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "class GreeterRpccgoClient {")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "const GreeterRpccgoClient();")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "import 'greeter.pb.dart' as pb;")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "pb.HelloReply SayHello(pb.HelloRequest request) {")
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "'rpccgo_msg_testv1_Greeter_SayHello'")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "@ffi.Native<_RpccgoMessageUnaryNative>(symbol: 'rpccgoMsgTestv1GreeterSayHello')")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "request.writeToBuffer()")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "pb.HelloReply.fromBuffer(responseBytes)")
+	assertGeneratedFileContentDoesNotContain(t, plugin, "test/v1/greeter.greeter.rpccgo.dart",
+		"ffi.DynamicLibrary library",
+		"lookupFunction<",
+	)
 }
 
 func TestGenerateDartEmitsStreamingMessageFFIClient(t *testing.T) {
-	plugin := newTestDartPlugin(t, "paths=source_relative", messageContractTestFile())
+	plugin := newTestDartPlugin(t, "paths=source_relative,dart_package=rpccgo_test", messageContractTestFile())
 
 	if _, err := GenerateDartWithOptions(plugin); err != nil {
 		t.Fatalf("GenerateDartWithOptions() error = %v", err)
@@ -46,9 +52,9 @@ func TestGenerateDartEmitsStreamingMessageFFIClient(t *testing.T) {
 		"void finish() {",
 		"GreeterChatStream Chat() {",
 		"void closeSend() {",
-		"'rpccgo_msg_testv1_Greeter_Upload_start'",
-		"'rpccgo_msg_testv1_Greeter_List_read'",
-		"'rpccgo_msg_testv1_Greeter_Chat_close_send'",
+		"symbol: 'rpccgoMsgTestv1GreeterUploadStart'",
+		"symbol: 'rpccgoMsgTestv1GreeterListRead'",
+		"symbol: 'rpccgoMsgTestv1GreeterChatCloseSend'",
 	} {
 		assertGeneratedContentContains(t, plugin, file, fragment)
 	}
@@ -58,8 +64,32 @@ func TestGenerateDartEmitsStreamingMessageFFIClient(t *testing.T) {
 	)
 }
 
+func TestGenerateDartRequiresDartPackage(t *testing.T) {
+	plugin := newTestDartPlugin(t, "paths=source_relative", simpleTestFile())
+
+	_, err := GenerateDartWithOptions(plugin)
+	if err == nil {
+		t.Fatal("GenerateDartWithOptions() error = nil, want missing dart_package error")
+	}
+	if !strings.Contains(err.Error(), "dart_package parameter is required") {
+		t.Fatalf("GenerateDartWithOptions() error = %q, want missing dart_package error", err.Error())
+	}
+}
+
+func TestGenerateDartRejectsEmptyDartPackage(t *testing.T) {
+	request := newTestCodeGeneratorRequest("paths=source_relative,dart_package=", simpleTestFile())
+
+	_, err := DartProtogenOptions().New(request)
+	if err == nil {
+		t.Fatal("DartProtogenOptions().New() error = nil, want empty dart_package error")
+	}
+	if !strings.Contains(err.Error(), "dart_package must not be empty") {
+		t.Fatalf("DartProtogenOptions().New() error = %q, want empty dart_package error", err.Error())
+	}
+}
+
 func TestDartProtogenOptionsRejectUnknownParameter(t *testing.T) {
-	request := newTestCodeGeneratorRequest("mode=message", simpleTestFile())
+	request := newTestCodeGeneratorRequest("dart_package=rpccgo_test,mode=message", simpleTestFile())
 
 	_, err := DartProtogenOptions().New(request)
 	if err == nil {

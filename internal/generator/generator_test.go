@@ -173,17 +173,17 @@ func TestRenderMessageArtifactsEmitsDirectTransportArtifacts(t *testing.T) {
 
 		const messageClientFile = "test/v1/cgo/message_contract.greeter.client.message.cgo.rpccgo.go"
 		for _, fragment := range []string{
-			"//export rpccgo_msg_testv1_Greeter_Unary",
-			"//export rpccgo_msg_testv1_Greeter_Upload_start",
-			"//export rpccgo_msg_testv1_Greeter_Upload_send",
-			"//export rpccgo_msg_testv1_Greeter_Upload_finish",
-			"//export rpccgo_msg_testv1_Greeter_List_start",
-			"//export rpccgo_msg_testv1_Greeter_List_read",
-			"//export rpccgo_msg_testv1_Greeter_List_finish",
-			"//export rpccgo_msg_testv1_Greeter_Chat_start",
-			"//export rpccgo_msg_testv1_Greeter_Chat_send",
-			"//export rpccgo_msg_testv1_Greeter_Chat_close_send",
-			"//export rpccgo_msg_testv1_Greeter_Chat_finish",
+			"//export rpccgoMsgTestv1GreeterUnary",
+			"//export rpccgoMsgTestv1GreeterUploadStart",
+			"//export rpccgoMsgTestv1GreeterUploadSend",
+			"//export rpccgoMsgTestv1GreeterUploadFinish",
+			"//export rpccgoMsgTestv1GreeterListStart",
+			"//export rpccgoMsgTestv1GreeterListRead",
+			"//export rpccgoMsgTestv1GreeterListFinish",
+			"//export rpccgoMsgTestv1GreeterChatStart",
+			"//export rpccgoMsgTestv1GreeterChatSend",
+			"//export rpccgoMsgTestv1GreeterChatCloseSend",
+			"//export rpccgoMsgTestv1GreeterChatFinish",
 			"req := &v1.MessageRequest{}",
 			"rpcruntime.DecodeMessage(uintptr(requestPtr), int32(requestLen), req)",
 			"rpcruntime.EncodeMessage(resp)",
@@ -211,7 +211,7 @@ func TestRenderMessageArtifactsEmitsDirectTransportArtifacts(t *testing.T) {
 			"GreeterUploadCGOMessageClientStreamStartCallback",
 			"GreeterListCGOMessageServerStreamRecvCallback",
 			"GreeterChatCGOMessageBidiStreamCloseSendCallback",
-			"//export rpccgo_msg_testv1_Greeter_register",
+			"//export rpccgoMsgTestv1GreeterRegister",
 			"v1.RegisterGreeterCGOMessageServer(next)",
 		} {
 			assertGeneratedContentContains(t, plugin, messageServerFile, fragment)

@@ -397,7 +397,7 @@ func nativeCABIRegisterParamName(operation NativeCOperation) string {
 }
 
 func nativeCServiceRegisterExportFuncName(plan FilePlan, service ServicePlan) string {
-	return "rpccgo_native_" + plan.GoPackageName + "_" + service.GoName + "_register"
+	return cgoServiceExportName("native", plan, service, "register")
 }
 
 func upperInitial(value string) string {

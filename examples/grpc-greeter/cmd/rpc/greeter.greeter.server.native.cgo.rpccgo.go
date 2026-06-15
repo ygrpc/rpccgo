@@ -918,10 +918,10 @@ func greeterCGONativeServerErrorFromID(errID int32) error {
 	return fmt.Errorf("rpccgo: cgo native server callback returned unknown error id %d", errID)
 }
 
-// rpccgo_native_greeterv1_Greeter_register registers cgo native callbacks as the current server for examples.grpc.greeter.v1.Greeter.
+// rpccgoNativeGreeterv1GreeterRegister registers cgo native callbacks as the current server for examples.grpc.greeter.v1.Greeter.
 //
-//export rpccgo_native_greeterv1_Greeter_register
-func rpccgo_native_greeterv1_Greeter_register(sayHelloCallback C.GreeterSayHelloCGONativeUnaryCallback, collectStart C.GreeterCollectCGONativeClientStreamStartCallback, collectSend C.GreeterCollectCGONativeClientStreamSendCallback, collectFinish C.GreeterCollectCGONativeClientStreamFinishCallback, collectCancel C.GreeterCollectCGONativeClientStreamCancelCallback, broadcastStart C.GreeterBroadcastCGONativeServerStreamStartCallback, broadcastRecv C.GreeterBroadcastCGONativeServerStreamRecvCallback, broadcastFinish C.GreeterBroadcastCGONativeServerStreamFinishCallback, broadcastCancel C.GreeterBroadcastCGONativeServerStreamCancelCallback, chatStart C.GreeterChatCGONativeBidiStreamStartCallback, chatSend C.GreeterChatCGONativeBidiStreamSendCallback, chatRecv C.GreeterChatCGONativeBidiStreamRecvCallback, chatCloseSend C.GreeterChatCGONativeBidiStreamCloseSendCallback, chatFinish C.GreeterChatCGONativeBidiStreamFinishCallback, chatCancel C.GreeterChatCGONativeBidiStreamCancelCallback) C.int32_t {
+//export rpccgoNativeGreeterv1GreeterRegister
+func rpccgoNativeGreeterv1GreeterRegister(sayHelloCallback C.GreeterSayHelloCGONativeUnaryCallback, collectStart C.GreeterCollectCGONativeClientStreamStartCallback, collectSend C.GreeterCollectCGONativeClientStreamSendCallback, collectFinish C.GreeterCollectCGONativeClientStreamFinishCallback, collectCancel C.GreeterCollectCGONativeClientStreamCancelCallback, broadcastStart C.GreeterBroadcastCGONativeServerStreamStartCallback, broadcastRecv C.GreeterBroadcastCGONativeServerStreamRecvCallback, broadcastFinish C.GreeterBroadcastCGONativeServerStreamFinishCallback, broadcastCancel C.GreeterBroadcastCGONativeServerStreamCancelCallback, chatStart C.GreeterChatCGONativeBidiStreamStartCallback, chatSend C.GreeterChatCGONativeBidiStreamSendCallback, chatRecv C.GreeterChatCGONativeBidiStreamRecvCallback, chatCloseSend C.GreeterChatCGONativeBidiStreamCloseSendCallback, chatFinish C.GreeterChatCGONativeBidiStreamFinishCallback, chatCancel C.GreeterChatCGONativeBidiStreamCancelCallback) C.int32_t {
 	greeterCGONativeServerAdapterMu.Lock()
 	defer greeterCGONativeServerAdapterMu.Unlock()
 	next := greeterCGONativeServerAdapterForRegister()
@@ -985,10 +985,10 @@ func rpccgo_native_greeterv1_Greeter_register(sayHelloCallback C.GreeterSayHello
 	return 0
 }
 
-// rpccgo_native_greeterv1_Greeter_register_SayHello registers cgo native callbacks for examples.grpc.greeter.v1.Greeter.SayHello.
+// rpccgoNativeGreeterv1GreeterRegisterSayHello registers cgo native callbacks for examples.grpc.greeter.v1.Greeter.SayHello.
 //
-//export rpccgo_native_greeterv1_Greeter_register_SayHello
-func rpccgo_native_greeterv1_Greeter_register_SayHello(sayHelloCallback C.GreeterSayHelloCGONativeUnaryCallback) C.int32_t {
+//export rpccgoNativeGreeterv1GreeterRegisterSayHello
+func rpccgoNativeGreeterv1GreeterRegisterSayHello(sayHelloCallback C.GreeterSayHelloCGONativeUnaryCallback) C.int32_t {
 	greeterCGONativeServerAdapterMu.Lock()
 	defer greeterCGONativeServerAdapterMu.Unlock()
 	next := greeterCGONativeServerAdapterForRegister()
@@ -1004,10 +1004,10 @@ func rpccgo_native_greeterv1_Greeter_register_SayHello(sayHelloCallback C.Greete
 	return 0
 }
 
-// rpccgo_native_greeterv1_Greeter_register_Collect registers cgo native callbacks for examples.grpc.greeter.v1.Greeter.Collect.
+// rpccgoNativeGreeterv1GreeterRegisterCollect registers cgo native callbacks for examples.grpc.greeter.v1.Greeter.Collect.
 //
-//export rpccgo_native_greeterv1_Greeter_register_Collect
-func rpccgo_native_greeterv1_Greeter_register_Collect(collectStart C.GreeterCollectCGONativeClientStreamStartCallback, collectSend C.GreeterCollectCGONativeClientStreamSendCallback, collectFinish C.GreeterCollectCGONativeClientStreamFinishCallback, collectCancel C.GreeterCollectCGONativeClientStreamCancelCallback) C.int32_t {
+//export rpccgoNativeGreeterv1GreeterRegisterCollect
+func rpccgoNativeGreeterv1GreeterRegisterCollect(collectStart C.GreeterCollectCGONativeClientStreamStartCallback, collectSend C.GreeterCollectCGONativeClientStreamSendCallback, collectFinish C.GreeterCollectCGONativeClientStreamFinishCallback, collectCancel C.GreeterCollectCGONativeClientStreamCancelCallback) C.int32_t {
 	greeterCGONativeServerAdapterMu.Lock()
 	defer greeterCGONativeServerAdapterMu.Unlock()
 	next := greeterCGONativeServerAdapterForRegister()
@@ -1039,10 +1039,10 @@ func rpccgo_native_greeterv1_Greeter_register_Collect(collectStart C.GreeterColl
 	return 0
 }
 
-// rpccgo_native_greeterv1_Greeter_register_Broadcast registers cgo native callbacks for examples.grpc.greeter.v1.Greeter.Broadcast.
+// rpccgoNativeGreeterv1GreeterRegisterBroadcast registers cgo native callbacks for examples.grpc.greeter.v1.Greeter.Broadcast.
 //
-//export rpccgo_native_greeterv1_Greeter_register_Broadcast
-func rpccgo_native_greeterv1_Greeter_register_Broadcast(broadcastStart C.GreeterBroadcastCGONativeServerStreamStartCallback, broadcastRecv C.GreeterBroadcastCGONativeServerStreamRecvCallback, broadcastFinish C.GreeterBroadcastCGONativeServerStreamFinishCallback, broadcastCancel C.GreeterBroadcastCGONativeServerStreamCancelCallback) C.int32_t {
+//export rpccgoNativeGreeterv1GreeterRegisterBroadcast
+func rpccgoNativeGreeterv1GreeterRegisterBroadcast(broadcastStart C.GreeterBroadcastCGONativeServerStreamStartCallback, broadcastRecv C.GreeterBroadcastCGONativeServerStreamRecvCallback, broadcastFinish C.GreeterBroadcastCGONativeServerStreamFinishCallback, broadcastCancel C.GreeterBroadcastCGONativeServerStreamCancelCallback) C.int32_t {
 	greeterCGONativeServerAdapterMu.Lock()
 	defer greeterCGONativeServerAdapterMu.Unlock()
 	next := greeterCGONativeServerAdapterForRegister()
@@ -1074,10 +1074,10 @@ func rpccgo_native_greeterv1_Greeter_register_Broadcast(broadcastStart C.Greeter
 	return 0
 }
 
-// rpccgo_native_greeterv1_Greeter_register_Chat registers cgo native callbacks for examples.grpc.greeter.v1.Greeter.Chat.
+// rpccgoNativeGreeterv1GreeterRegisterChat registers cgo native callbacks for examples.grpc.greeter.v1.Greeter.Chat.
 //
-//export rpccgo_native_greeterv1_Greeter_register_Chat
-func rpccgo_native_greeterv1_Greeter_register_Chat(chatStart C.GreeterChatCGONativeBidiStreamStartCallback, chatSend C.GreeterChatCGONativeBidiStreamSendCallback, chatRecv C.GreeterChatCGONativeBidiStreamRecvCallback, chatCloseSend C.GreeterChatCGONativeBidiStreamCloseSendCallback, chatFinish C.GreeterChatCGONativeBidiStreamFinishCallback, chatCancel C.GreeterChatCGONativeBidiStreamCancelCallback) C.int32_t {
+//export rpccgoNativeGreeterv1GreeterRegisterChat
+func rpccgoNativeGreeterv1GreeterRegisterChat(chatStart C.GreeterChatCGONativeBidiStreamStartCallback, chatSend C.GreeterChatCGONativeBidiStreamSendCallback, chatRecv C.GreeterChatCGONativeBidiStreamRecvCallback, chatCloseSend C.GreeterChatCGONativeBidiStreamCloseSendCallback, chatFinish C.GreeterChatCGONativeBidiStreamFinishCallback, chatCancel C.GreeterChatCGONativeBidiStreamCancelCallback) C.int32_t {
 	greeterCGONativeServerAdapterMu.Lock()
 	defer greeterCGONativeServerAdapterMu.Unlock()
 	next := greeterCGONativeServerAdapterForRegister()

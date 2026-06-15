@@ -187,7 +187,7 @@ import context "context"
 
 func StartGreeterListNativeServerStream(ctx context.Context, PrefixPtr uintptr, PrefixLen int32, PrefixOwnership int32, Limit int32) (int32, int32) {
 	var stream C.int32_t
-	errID := rpccgo_native_testv1_Greeter_List_start(C.uintptr_t(PrefixPtr), C.int32_t(PrefixLen), C.int32_t(PrefixOwnership), C.int32_t(Limit), &stream)
+	errID := rpccgoNativeTestv1GreeterListStart(C.uintptr_t(PrefixPtr), C.int32_t(PrefixLen), C.int32_t(PrefixOwnership), C.int32_t(Limit), &stream)
 	return int32(stream), int32(errID)
 }
 
@@ -196,7 +196,7 @@ func ReadGreeterListNativeServerStream(ctx context.Context, stream int32, outInd
 	var namePtr C.uintptr_t
 	var nameLen C.int32_t
 	var nameOwnership C.int32_t
-	errID := rpccgo_native_testv1_Greeter_List_read(C.int32_t(stream), &index, &namePtr, &nameLen, &nameOwnership)
+	errID := rpccgoNativeTestv1GreeterListRead(C.int32_t(stream), &index, &namePtr, &nameLen, &nameOwnership)
 	*outIndex = int32(index)
 	*outNamePtr = uintptr(namePtr)
 	*outNameLen = int32(nameLen)
@@ -204,11 +204,11 @@ func ReadGreeterListNativeServerStream(ctx context.Context, stream int32, outInd
 }
 
 func FinishGreeterListNativeServerStream(ctx context.Context, stream int32) int32 {
-	return int32(rpccgo_native_testv1_Greeter_List_finish(C.int32_t(stream)))
+	return int32(rpccgoNativeTestv1GreeterListFinish(C.int32_t(stream)))
 }
 
 func CancelGreeterListNativeServerStream(ctx context.Context, stream int32) int32 {
-	return int32(rpccgo_native_testv1_Greeter_List_cancel(C.int32_t(stream)))
+	return int32(rpccgoNativeTestv1GreeterListCancel(C.int32_t(stream)))
 }
 `
 
@@ -533,7 +533,7 @@ const nativeServerStreamingCGOFixtureCallbackSource = `package main
 #include <stdlib.h>
 #include <string.h>
 
-extern int32_t rpccgo_store_error_text(char* text, int32_t textLen);
+extern int32_t rpccgoStoreErrorText(char* text, int32_t textLen);
 
 typedef int32_t (*GreeterListCGONativeServerStreamStartCallback)(uintptr_t PrefixPtr, int32_t PrefixLen, int32_t PrefixOwnership, int32_t Limit, int32_t* stream);
 typedef int32_t (*GreeterListCGONativeServerStreamRecvCallback)(int32_t stream, int32_t* outIndex, uintptr_t* outNamePtr, int32_t* outNameLen, int32_t* outNameOwnership);
@@ -556,7 +556,7 @@ static int32_t greeterServerStreamErrorMode;
 static char greeterServerStreamPrefix[64];
 
 static int32_t greeterServerStreamError(const char* text) {
-	return rpccgo_store_error_text((char*)text, (int32_t)strlen(text));
+	return rpccgoStoreErrorText((char*)text, (int32_t)strlen(text));
 }
 
 static int32_t greeterListStart(uintptr_t PrefixPtr, int32_t PrefixLen, int32_t PrefixOwnership, int32_t Limit, int32_t* stream) {
@@ -700,7 +700,7 @@ func registerGreeterServerStreamCGONativeServerCallbacksWithMode(mode int32) err
 }
 
 func registerGreeterServerStreamCGONativeServerCallbackTable(callbacks C.GreeterCGONativeServerCallbacks) error {
-	errID := rpccgo_native_testv1_Greeter_register(callbacks.ListStart, callbacks.ListRecv, callbacks.ListFinish, callbacks.ListCancel)
+	errID := rpccgoNativeTestv1GreeterRegister(callbacks.ListStart, callbacks.ListRecv, callbacks.ListFinish, callbacks.ListCancel)
 	if errID == 0 {
 		return nil
 	}

@@ -26,12 +26,12 @@ func TestGRPCGreeterGenerate(t *testing.T) {
 		}
 	}
 
-	assertFileContains(t, "cmd/rpc/rpccgo.exports.cgo.rpccgo.go", "//export rpccgo_register_free")
-	assertFileContains(t, "cmd/rpc/rpccgo.exports.cgo.rpccgo.go", "//export rpccgo_store_error_text")
-	assertFileContains(t, "cmd/rpc/rpccgo.exports.cgo.rpccgo.go", "//export rpccgo_take_error_text")
-	assertFileContains(t, "cmd/rpc/rpccgo.exports.cgo.rpccgo.go", "//export rpccgo_release")
-	assertFileContains(t, "cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go", "//export rpccgo_native_greeterv1_Greeter_SayHello")
-	assertFileContains(t, "cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go", "//export rpccgo_msg_greeterv1_Greeter_SayHello")
+	assertFileContains(t, "cmd/rpc/rpccgo.exports.cgo.rpccgo.go", "//export rpccgoRegisterFree")
+	assertFileContains(t, "cmd/rpc/rpccgo.exports.cgo.rpccgo.go", "//export rpccgoStoreErrorText")
+	assertFileContains(t, "cmd/rpc/rpccgo.exports.cgo.rpccgo.go", "//export rpccgoTakeErrorText")
+	assertFileContains(t, "cmd/rpc/rpccgo.exports.cgo.rpccgo.go", "//export rpccgoRelease")
+	assertFileContains(t, "cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go", "//export rpccgoNativeGreeterv1GreeterSayHello")
+	assertFileContains(t, "cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go", "//export rpccgoMsgGreeterv1GreeterSayHello")
 	assertFileContains(t, "gen/greeter/v1/greeter.greeter.runtime.rpccgo.go", "func RegisterGreeterGRPCRemoteServer(client GreeterClient) error")
 }
 
@@ -59,15 +59,15 @@ func TestGRPCGreeterCSharedClientExample(t *testing.T) {
 		t.Fatalf("read c-shared header error = %v", err)
 	}
 	for _, symbol := range []string{
-		"rpccgo_native_greeterv1_Greeter_SayHello",
-		"rpccgo_native_greeterv1_Greeter_Collect_start",
-		"rpccgo_native_greeterv1_Greeter_Broadcast_start",
-		"rpccgo_native_greeterv1_Greeter_Chat_start",
-		"rpccgo_msg_greeterv1_Greeter_SayHello",
-		"rpccgo_register_free",
-		"rpccgo_store_error_text",
-		"rpccgo_take_error_text",
-		"rpccgo_release",
+		"rpccgoNativeGreeterv1GreeterSayHello",
+		"rpccgoNativeGreeterv1GreeterCollectStart",
+		"rpccgoNativeGreeterv1GreeterBroadcastStart",
+		"rpccgoNativeGreeterv1GreeterChatStart",
+		"rpccgoMsgGreeterv1GreeterSayHello",
+		"rpccgoRegisterFree",
+		"rpccgoStoreErrorText",
+		"rpccgoTakeErrorText",
+		"rpccgoRelease",
 	} {
 		if !bytes.Contains(header, []byte(symbol)) {
 			t.Fatalf("c-shared header missing %q", symbol)

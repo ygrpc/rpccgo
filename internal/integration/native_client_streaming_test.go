@@ -188,12 +188,12 @@ import context "context"
 
 func StartGreeterUploadNativeClientStream(ctx context.Context) (int32, int32) {
 	var stream C.int32_t
-	errID := rpccgo_native_testv1_Greeter_Upload_start(&stream)
+	errID := rpccgoNativeTestv1GreeterUploadStart(&stream)
 	return int32(stream), int32(errID)
 }
 
 func SendGreeterUploadNativeClientStream(ctx context.Context, stream int32, NamePtr uintptr, NameLen int32, NameOwnership int32, PayloadPtr uintptr, PayloadLen int32, PayloadOwnership int32) int32 {
-	return int32(rpccgo_native_testv1_Greeter_Upload_send(C.int32_t(stream), C.uintptr_t(NamePtr), C.int32_t(NameLen), C.int32_t(NameOwnership), C.uintptr_t(PayloadPtr), C.int32_t(PayloadLen), C.int32_t(PayloadOwnership)))
+	return int32(rpccgoNativeTestv1GreeterUploadSend(C.int32_t(stream), C.uintptr_t(NamePtr), C.int32_t(NameLen), C.int32_t(NameOwnership), C.uintptr_t(PayloadPtr), C.int32_t(PayloadLen), C.int32_t(PayloadOwnership)))
 }
 
 func FinishGreeterUploadNativeClientStream(ctx context.Context, stream int32, outCount *int32, outSummaryPtr *uintptr, outSummaryLen *int32) int32 {
@@ -201,7 +201,7 @@ func FinishGreeterUploadNativeClientStream(ctx context.Context, stream int32, ou
 	var summaryPtr C.uintptr_t
 	var summaryLen C.int32_t
 	var summaryOwnership C.int32_t
-	errID := rpccgo_native_testv1_Greeter_Upload_finish(C.int32_t(stream), &count, &summaryPtr, &summaryLen, &summaryOwnership)
+	errID := rpccgoNativeTestv1GreeterUploadFinish(C.int32_t(stream), &count, &summaryPtr, &summaryLen, &summaryOwnership)
 	*outCount = int32(count)
 	*outSummaryPtr = uintptr(summaryPtr)
 	*outSummaryLen = int32(summaryLen)
@@ -209,7 +209,7 @@ func FinishGreeterUploadNativeClientStream(ctx context.Context, stream int32, ou
 }
 
 func CancelGreeterUploadNativeClientStream(ctx context.Context, stream int32) int32 {
-	return int32(rpccgo_native_testv1_Greeter_Upload_cancel(C.int32_t(stream)))
+	return int32(rpccgoNativeTestv1GreeterUploadCancel(C.int32_t(stream)))
 }
 `
 
@@ -565,7 +565,7 @@ const nativeClientStreamingCGOFixtureCallbackSource = `package main
 #include <stdlib.h>
 #include <string.h>
 
-extern int32_t rpccgo_store_error_text(char* text, int32_t textLen);
+extern int32_t rpccgoStoreErrorText(char* text, int32_t textLen);
 
 typedef int32_t (*GreeterUploadCGONativeClientStreamStartCallback)(int32_t* stream);
 typedef int32_t (*GreeterUploadCGONativeClientStreamSendCallback)(int32_t stream, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t PayloadPtr, int32_t PayloadLen, int32_t PayloadOwnership);
@@ -586,7 +586,7 @@ static int32_t greeterStreamCancels;
 static int32_t greeterStreamErrorMode;
 
 static int32_t greeterForcedError(const char* text) {
-	return rpccgo_store_error_text((char*)text, (int32_t)strlen(text));
+	return rpccgoStoreErrorText((char*)text, (int32_t)strlen(text));
 }
 
 static int32_t greeterUploadStart(int32_t* stream) {
@@ -595,7 +595,7 @@ static int32_t greeterUploadStart(int32_t* stream) {
 	}
 	if (stream == NULL) {
 		char msg[] = "stream output missing";
-		return rpccgo_store_error_text(msg, sizeof(msg)-1);
+		return rpccgoStoreErrorText(msg, sizeof(msg)-1);
 	}
 	greeterStreamID = 41;
 	greeterStreamCount = 0;
@@ -615,7 +615,7 @@ static int32_t greeterUploadSend(int32_t stream, uintptr_t NamePtr, int32_t Name
 	}
 	if (stream != greeterStreamID) {
 		char msg[] = "stream send did not reach cgo callback";
-		return rpccgo_store_error_text(msg, sizeof(msg)-1);
+		return rpccgoStoreErrorText(msg, sizeof(msg)-1);
 	}
 	greeterStreamCount += 1;
 	greeterStreamBytes += PayloadLen;
@@ -629,12 +629,12 @@ static int32_t greeterUploadSendForcedError(int32_t stream, uintptr_t NamePtr, i
 static int32_t greeterUploadFinish(int32_t stream, int32_t *outCount, uintptr_t *outSummaryPtr, int32_t *outSummaryLen, int32_t *outSummaryOwnership) {
 	if (stream != greeterStreamID || outCount == NULL || outSummaryPtr == NULL || outSummaryLen == NULL || outSummaryOwnership == NULL) {
 		char msg[] = "stream finish did not reach cgo callback";
-		return rpccgo_store_error_text(msg, sizeof(msg)-1);
+		return rpccgoStoreErrorText(msg, sizeof(msg)-1);
 	}
 	char* summary = (char*)malloc(7);
 	if (summary == NULL) {
 		char msg[] = "summary malloc failed";
-		return rpccgo_store_error_text(msg, sizeof(msg)-1);
+		return rpccgoStoreErrorText(msg, sizeof(msg)-1);
 	}
 	summary[0] = 'c'; summary[1] = 'g'; summary[2] = 'o'; summary[3] = ':'; summary[4] = '2'; summary[5] = ':'; summary[6] = '5';
 	*outCount = greeterStreamCount;
@@ -668,7 +668,7 @@ static int32_t greeterUploadCancel(int32_t stream) {
 	}
 	if (stream != greeterStreamID) {
 		char msg[] = "stream cancel did not reach cgo callback";
-		return rpccgo_store_error_text(msg, sizeof(msg)-1);
+		return rpccgoStoreErrorText(msg, sizeof(msg)-1);
 	}
 	greeterStreamCancels += 1;
 	return 0;
@@ -732,7 +732,7 @@ func registerGreeterClientStreamCGONativeServerCallbacksWithMode(mode int32) err
 }
 
 func registerGreeterClientStreamCGONativeServerCallbackTable(callbacks C.GreeterCGONativeServerCallbacks) error {
-	errID := rpccgo_native_testv1_Greeter_register(callbacks.UploadStart, callbacks.UploadSend, callbacks.UploadFinish, callbacks.UploadCancel)
+	errID := rpccgoNativeTestv1GreeterRegister(callbacks.UploadStart, callbacks.UploadSend, callbacks.UploadFinish, callbacks.UploadCancel)
 	if errID == 0 {
 		return nil
 	}

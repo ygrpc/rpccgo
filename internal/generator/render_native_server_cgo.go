@@ -1535,7 +1535,7 @@ func renderCGONativeServerRegistration(g *protogen.GeneratedFile, service Servic
 }
 
 func renderCGONativeServerMethodRegistration(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, registerABI COperationABI, adapterVarName string, errorNames nativeServerCGOErrorNames, servicePackage string) {
-	exportName := registerABI.Symbol + "_" + method.GoName
+	exportName := registerABI.Symbol + upperInitial(method.GoName)
 	renderCGOExportDoc(g, exportName, "registers cgo native callbacks for "+method.FullName+".")
 	g.P("//export ", exportName)
 	g.P("func ", exportName, "(", nativeCGOServerMethodRegisterParamList(service, method), ") ", registerABI.Return.CGoType, " {")

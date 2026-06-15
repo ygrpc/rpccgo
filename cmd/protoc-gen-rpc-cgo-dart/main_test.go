@@ -13,15 +13,16 @@ import (
 )
 
 func TestRunEmitsDartFFIClient(t *testing.T) {
-	plugin := newDartMainTestPlugin(t, "paths=source_relative", dartMainTestFile())
+	plugin := newDartMainTestPlugin(t, "paths=source_relative,dart_package=rpccgo_test", dartMainTestFile())
 
 	if err := run(plugin); err != nil {
 		t.Fatalf("run() error = %v", err)
 	}
 
-	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "class GreeterRpccgoClient {")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "@ffi.DefaultAsset('package:rpccgo_test/rpccgo.dart')")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "const GreeterRpccgoClient();")
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "pb.HelloReply SayHello(pb.HelloRequest request) {")
-	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "'rpccgo_msg_testv1_Greeter_SayHello'")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "symbol: 'rpccgoMsgTestv1GreeterSayHello'")
 }
 
 func newDartMainTestPlugin(t *testing.T, parameter string, files ...*descriptorpb.FileDescriptorProto) *protogen.Plugin {

@@ -348,7 +348,7 @@ const nativeCGOServerUnaryFixtureCallbackSource = `package main
 #include <stdint.h>
 #include <stdlib.h>
 
-extern int32_t rpccgo_store_error_text(char* text, int32_t textLen);
+extern int32_t rpccgoStoreErrorText(char* text, int32_t textLen);
 
 typedef int32_t (*GreeterSayHelloCGONativeUnaryCallback)(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t PayloadPtr, int32_t PayloadLen, int32_t PayloadOwnership, int8_t Enabled, int8_t* outAccepted, uintptr_t* outPayloadPtr, int32_t* outPayloadLen, int32_t* outPayloadOwnership, uintptr_t* outNotePtr, int32_t* outNoteLen, int32_t* outNoteOwnership, uintptr_t* outExtraPayloadPtr, int32_t* outExtraPayloadLen, int32_t* outExtraPayloadOwnership);
 typedef int32_t (*GreeterSayUnsupportedCGONativeUnaryCallback)(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t PayloadPtr, int32_t PayloadLen, int32_t PayloadOwnership, int8_t Enabled, uintptr_t* outPayloadPtr, int32_t* outPayloadLen, int32_t* outPayloadOwnership, uintptr_t* outNotePtr, int32_t* outNoteLen, int32_t* outNoteOwnership, uintptr_t* outUnsupportedPtr, int32_t* outUnsupportedLen, int32_t* outUnsupportedOwnership);
@@ -361,16 +361,16 @@ GreeterSayUnsupportedCGONativeUnaryCallback SayUnsupported;
 static int32_t greeterSayHelloCallback(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t PayloadPtr, int32_t PayloadLen, int32_t PayloadOwnership, int8_t Enabled, int8_t* outAccepted, uintptr_t* outPayloadPtr, int32_t* outPayloadLen, int32_t* outPayloadOwnership, uintptr_t* outNotePtr, int32_t* outNoteLen, int32_t* outNoteOwnership, uintptr_t* outExtraPayloadPtr, int32_t* outExtraPayloadLen, int32_t* outExtraPayloadOwnership) {
 	if (outAccepted == NULL || outPayloadPtr == NULL || outPayloadLen == NULL || outPayloadOwnership == NULL) {
 		char msg[] = "callback output missing";
-		return rpccgo_store_error_text(msg, sizeof(msg)-1);
+		return rpccgoStoreErrorText(msg, sizeof(msg)-1);
 	}
 	if (NameLen != 6 || PayloadLen != 5 || Enabled != 1) {
 		char msg[] = "request did not reach cgo callback";
-		return rpccgo_store_error_text(msg, sizeof(msg)-1);
+		return rpccgoStoreErrorText(msg, sizeof(msg)-1);
 	}
 	char* resp = (char*)malloc(17);
 	if (resp == NULL) {
 		char msg[] = "callback malloc failed";
-		return rpccgo_store_error_text(msg, sizeof(msg)-1);
+		return rpccgoStoreErrorText(msg, sizeof(msg)-1);
 	}
 	resp[0] = 'c'; resp[1] = 'g'; resp[2] = 'o'; resp[3] = '-'; resp[4] = 's'; resp[5] = 'e'; resp[6] = 'r'; resp[7] = 'v'; resp[8] = 'e'; resp[9] = 'r'; resp[10] = ':'; resp[11] = 'n'; resp[12] = 'a'; resp[13] = 't'; resp[14] = 'i'; resp[15] = 'v'; resp[16] = 'e';
 	*outAccepted = 1;
@@ -386,7 +386,7 @@ static int32_t greeterSayUnsupportedCallback(uintptr_t NamePtr, int32_t NameLen,
 
 static int32_t greeterErrorCallback(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t PayloadPtr, int32_t PayloadLen, int32_t PayloadOwnership, int8_t Enabled, int8_t* outAccepted, uintptr_t* outPayloadPtr, int32_t* outPayloadLen, int32_t* outPayloadOwnership, uintptr_t* outNotePtr, int32_t* outNoteLen, int32_t* outNoteOwnership, uintptr_t* outExtraPayloadPtr, int32_t* outExtraPayloadLen, int32_t* outExtraPayloadOwnership) {
 	char msg[] = "callback exploded";
-	return rpccgo_store_error_text(msg, sizeof(msg)-1);
+	return rpccgoStoreErrorText(msg, sizeof(msg)-1);
 }
 
 static int32_t greeterUnknownErrorCallback(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t PayloadPtr, int32_t PayloadLen, int32_t PayloadOwnership, int8_t Enabled, int8_t* outAccepted, uintptr_t* outPayloadPtr, int32_t* outPayloadLen, int32_t* outPayloadOwnership, uintptr_t* outNotePtr, int32_t* outNoteLen, int32_t* outNoteOwnership, uintptr_t* outExtraPayloadPtr, int32_t* outExtraPayloadLen, int32_t* outExtraPayloadOwnership) {
@@ -397,7 +397,7 @@ static int32_t greeterNegativeLengthCallback(uintptr_t NamePtr, int32_t NameLen,
 	char* resp = (char*)malloc(1);
 	if (resp == NULL) {
 		char msg[] = "callback malloc failed";
-		return rpccgo_store_error_text(msg, sizeof(msg)-1);
+		return rpccgoStoreErrorText(msg, sizeof(msg)-1);
 	}
 	*outPayloadPtr = (uintptr_t)resp;
 	*outPayloadLen = -1;
@@ -409,13 +409,13 @@ static int32_t greeterPartialErrorCallback(uintptr_t NamePtr, int32_t NameLen, i
 	char* resp = (char*)malloc(1);
 	if (resp == NULL) {
 		char msg[] = "callback malloc failed";
-		return rpccgo_store_error_text(msg, sizeof(msg)-1);
+		return rpccgoStoreErrorText(msg, sizeof(msg)-1);
 	}
 	*outPayloadPtr = (uintptr_t)resp;
 	*outPayloadLen = 1;
 	*outPayloadOwnership = 1;
 	char msg[] = "partial failure";
-	return rpccgo_store_error_text(msg, sizeof(msg)-1);
+	return rpccgoStoreErrorText(msg, sizeof(msg)-1);
 }
 
 static GreeterCGONativeServerCallbacks greeterCallbacks(void) {
@@ -472,7 +472,7 @@ func registerGreeterCGONativeServerCallbacksThenClearLocalTable() error {
 }
 
 func registerGreeterCGONativeServerNilCallback() error {
-	return nativeCGORegistrationError(rpccgo_native_testv1_Greeter_register(nil, nil))
+	return nativeCGORegistrationError(rpccgoNativeTestv1GreeterRegister(nil, nil))
 }
 
 func registerGreeterCGONativeServerEmptyCallbacks() error {
@@ -500,7 +500,7 @@ func registerGreeterCGONativeServerPartialErrorCallback() error {
 }
 
 func registerGreeterCGONativeServerCallbacksTable(callbacks C.GreeterCGONativeServerCallbacks) error {
-	return nativeCGORegistrationError(rpccgo_native_testv1_Greeter_register(callbacks.SayHello, callbacks.SayUnsupported))
+	return nativeCGORegistrationError(rpccgoNativeTestv1GreeterRegister(callbacks.SayHello, callbacks.SayUnsupported))
 }
 
 func nativeCGORegistrationError(errID C.int32_t) error {

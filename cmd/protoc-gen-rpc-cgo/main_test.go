@@ -37,8 +37,8 @@ func TestRunEmitsMessageDirectPathForDefaultService(t *testing.T) {
 	}
 
 	assertMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.server.message.rpccgo.go", "type GreeterCGOMessageServer interface {")
-	assertMainGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go", "//export rpccgo_msg_testv1_Greeter_register")
-	assertMainGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go", "//export rpccgo_msg_testv1_Greeter_SayHello")
+	assertMainGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go", "//export rpccgoMsgTestv1GreeterRegister")
+	assertMainGeneratedContentContains(t, plugin, "test/v1/cgo/greeter.greeter.client.message.cgo.rpccgo.go", "//export rpccgoMsgTestv1GreeterSayHello")
 }
 
 func newMainTestPlugin(t *testing.T, parameter string, files ...*descriptorpb.FileDescriptorProto) *protogen.Plugin {

@@ -189,12 +189,12 @@ import context "context"
 
 func StartGreeterChatNativeBidiStream(ctx context.Context) (int32, int32) {
 	var stream C.int32_t
-	errID := rpccgo_native_testv1_Greeter_Chat_start(&stream)
+	errID := rpccgoNativeTestv1GreeterChatStart(&stream)
 	return int32(stream), int32(errID)
 }
 
 func SendGreeterChatNativeBidiStream(ctx context.Context, stream int32, NamePtr uintptr, NameLen int32, NameOwnership int32, Seq int32) int32 {
-	return int32(rpccgo_native_testv1_Greeter_Chat_send(C.int32_t(stream), C.uintptr_t(NamePtr), C.int32_t(NameLen), C.int32_t(NameOwnership), C.int32_t(Seq)))
+	return int32(rpccgoNativeTestv1GreeterChatSend(C.int32_t(stream), C.uintptr_t(NamePtr), C.int32_t(NameLen), C.int32_t(NameOwnership), C.int32_t(Seq)))
 }
 
 func ReadGreeterChatNativeBidiStream(ctx context.Context, stream int32, outAck *int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
@@ -202,7 +202,7 @@ func ReadGreeterChatNativeBidiStream(ctx context.Context, stream int32, outAck *
 	var messagePtr C.uintptr_t
 	var messageLen C.int32_t
 	var messageOwnership C.int32_t
-	errID := rpccgo_native_testv1_Greeter_Chat_read(C.int32_t(stream), &ack, &messagePtr, &messageLen, &messageOwnership)
+	errID := rpccgoNativeTestv1GreeterChatRead(C.int32_t(stream), &ack, &messagePtr, &messageLen, &messageOwnership)
 	*outAck = int32(ack)
 	*outMessagePtr = uintptr(messagePtr)
 	*outMessageLen = int32(messageLen)
@@ -210,15 +210,15 @@ func ReadGreeterChatNativeBidiStream(ctx context.Context, stream int32, outAck *
 }
 
 func CloseSendGreeterChatNativeBidiStream(ctx context.Context, stream int32) int32 {
-	return int32(rpccgo_native_testv1_Greeter_Chat_close_send(C.int32_t(stream)))
+	return int32(rpccgoNativeTestv1GreeterChatCloseSend(C.int32_t(stream)))
 }
 
 func FinishGreeterChatNativeBidiStream(ctx context.Context, stream int32) int32 {
-	return int32(rpccgo_native_testv1_Greeter_Chat_finish(C.int32_t(stream)))
+	return int32(rpccgoNativeTestv1GreeterChatFinish(C.int32_t(stream)))
 }
 
 func CancelGreeterChatNativeBidiStream(ctx context.Context, stream int32) int32 {
-	return int32(rpccgo_native_testv1_Greeter_Chat_cancel(C.int32_t(stream)))
+	return int32(rpccgoNativeTestv1GreeterChatCancel(C.int32_t(stream)))
 }
 `
 
@@ -570,7 +570,7 @@ const nativeBidiStreamingCGOFixtureCallbackSource = `package main
 #include <string.h>
 #include <unistd.h>
 
-extern int32_t rpccgo_store_error_text(char* text, int32_t textLen);
+extern int32_t rpccgoStoreErrorText(char* text, int32_t textLen);
 
 typedef int32_t (*GreeterChatCGONativeBidiStreamStartCallback)(int32_t* stream);
 typedef int32_t (*GreeterChatCGONativeBidiStreamSendCallback)(int32_t stream, uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, int32_t Seq);
@@ -599,7 +599,7 @@ static char greeterBidiNames[8][64];
 static int32_t greeterBidiSeqs[8];
 
 static int32_t greeterBidiError(const char* text) {
-	return rpccgo_store_error_text((char*)text, (int32_t)strlen(text));
+	return rpccgoStoreErrorText((char*)text, (int32_t)strlen(text));
 }
 
 static int32_t greeterChatStart(int32_t* stream) {
@@ -789,7 +789,7 @@ func registerGreeterBidiCGONativeServerCallbacksWithMode(mode int32) error {
 }
 
 func registerGreeterBidiCGONativeServerCallbackTable(callbacks C.GreeterCGONativeServerCallbacks) error {
-	errID := rpccgo_native_testv1_Greeter_register(callbacks.ChatStart, callbacks.ChatSend, callbacks.ChatRecv, callbacks.ChatCloseSend, callbacks.ChatFinish, callbacks.ChatCancel)
+	errID := rpccgoNativeTestv1GreeterRegister(callbacks.ChatStart, callbacks.ChatSend, callbacks.ChatRecv, callbacks.ChatCloseSend, callbacks.ChatFinish, callbacks.ChatCancel)
 	if errID == 0 {
 		return nil
 	}

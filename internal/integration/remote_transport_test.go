@@ -37,9 +37,9 @@ func TestRemoteTransportAcceptance(t *testing.T) {
 	writeFile(t, filepath.Join(tmp, "local/v1/message_integration_reset.go"), strings.ReplaceAll(messageDirectPathResetSource, "package testv1", "package localv1"))
 	writeFile(t, filepath.Join(tmp, "remote/v1/remote_transport.connect.go"), strings.ReplaceAll(remoteTransportConnectClientSource, "package testv1", "package remotev1"))
 	writeFile(t, filepath.Join(tmp, "local/v1/remote_transport.connect.go"), strings.ReplaceAll(remoteTransportConnectClientSource, "package testv1", "package localv1"))
-	writeFile(t, filepath.Join(tmp, "remote/v1/cgo/message_direct_path_callbacks.go"), strings.ReplaceAll(strings.ReplaceAll(messageDirectPathFixtureCallbackSource, "example.com/messagedirect/test/v1", "example.com/remotetransport/remote/v1"), "testv1", "remotev1"))
-	writeFile(t, filepath.Join(tmp, "local/v1/cgo/message_direct_path_callbacks.go"), strings.ReplaceAll(strings.ReplaceAll(messageDirectPathFixtureCallbackSource, "example.com/messagedirect/test/v1", "example.com/remotetransport/local/v1"), "testv1", "localv1"))
-	writeFile(t, filepath.Join(tmp, "local/v1/cgo/message_direct_path_cgo_client_bridge.go"), strings.ReplaceAll(strings.ReplaceAll(messageDirectPathCGOClientBridgeSource, "example.com/messagedirect/test/v1", "example.com/remotetransport/local/v1"), "testv1", "localv1"))
+	writeFile(t, filepath.Join(tmp, "remote/v1/cgo/message_direct_path_callbacks.go"), strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(messageDirectPathFixtureCallbackSource, "example.com/messagedirect/test/v1", "example.com/remotetransport/remote/v1"), "testv1", "remotev1"), "Testv1", "Remotev1"))
+	writeFile(t, filepath.Join(tmp, "local/v1/cgo/message_direct_path_callbacks.go"), strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(messageDirectPathFixtureCallbackSource, "example.com/messagedirect/test/v1", "example.com/remotetransport/local/v1"), "testv1", "localv1"), "Testv1", "Localv1"))
+	writeFile(t, filepath.Join(tmp, "local/v1/cgo/message_direct_path_cgo_client_bridge.go"), strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(messageDirectPathCGOClientBridgeSource, "example.com/messagedirect/test/v1", "example.com/remotetransport/local/v1"), "testv1", "localv1"), "Testv1", "Localv1"))
 	writeFile(t, filepath.Join(tmp, "remote/v1/cgo/remote_server_boot.go"), remoteTransportServerBootSource)
 	writeFile(t, filepath.Join(tmp, "local/v1/cgo/remote_transport_test.go"), remoteTransportLocalFixtureTestSource)
 

@@ -356,9 +356,5 @@ func renderMessageCExportHandleValidation(g *protogen.GeneratedFile) {
 }
 
 func messageCExportFuncName(plan FilePlan, service ServicePlan, method MethodPlan, operation string) string {
-	name := "rpccgo_msg_" + plan.GoPackageName + "_" + service.GoName + "_" + method.GoName
-	if operation != "" {
-		name += "_" + operation
-	}
-	return name
+	return cgoServiceExportName("msg", plan, service, method.GoName, operation)
 }

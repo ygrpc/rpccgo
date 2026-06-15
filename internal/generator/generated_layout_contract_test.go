@@ -100,31 +100,31 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"Kind:   rpcruntime.ServerKindConnectRemote",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.server.native.cgo.rpccgo.go",
-		"//export rpccgo_native_testv1_Greeter_register",
+		"//export rpccgoNativeTestv1GreeterRegister",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.client.native.cgo.rpccgo.go",
-		"//export rpccgo_native_testv1_Greeter_SayHello",
+		"//export rpccgoNativeTestv1GreeterSayHello",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
 		"typedef void (*rpccgo_free_callback)(void*);",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
-		"//export rpccgo_register_free",
+		"//export rpccgoRegisterFree",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
-		"func rpccgo_register_free(callback C.rpccgo_free_callback) C.int32_t {",
+		"func rpccgoRegisterFree(callback C.rpccgo_free_callback) C.int32_t {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
 		"rpcruntime.RegisterFreeCallback(func(ptr unsafe.Pointer) {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
-		"//export rpccgo_store_error_text",
+		"//export rpccgoStoreErrorText",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
-		"func rpccgo_store_error_text(text *C.char, textLen C.int32_t) C.int32_t {",
+		"func rpccgoStoreErrorText(text *C.char, textLen C.int32_t) C.int32_t {",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
-		"//export rpccgo_take_error_text",
+		"//export rpccgoTakeErrorText",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/main.go",
 		"func main() {}",
@@ -144,13 +144,13 @@ func TestGeneratedLayoutPublicAPIContract(t *testing.T) {
 		"CGONativeServerErrorTextForExport",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
-		"//export rpccgo_release",
+		"//export rpccgoRelease",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go",
-		"//export rpccgo_msg_testv1_Greeter_register",
+		"//export rpccgoMsgTestv1GreeterRegister",
 	)
 	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go",
-		"//export rpccgo_msg_testv1_Greeter_SayHello",
+		"//export rpccgoMsgTestv1GreeterSayHello",
 	)
 	assertGeneratedFileContentDoesNotContain(t, plugin, "test/cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go",
 		"func CallGreeterSayHelloMessageUnary",

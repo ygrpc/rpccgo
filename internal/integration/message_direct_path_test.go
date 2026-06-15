@@ -1186,7 +1186,7 @@ func registerGreeterNativeCallbacksForIntegration() error {
 }
 
 func registerGreeterMessageCallbacks(callbacks C.GreeterCGOMessageServerCallbacks) error {
-	errID := rpccgo_msg_testv1_Greeter_register(callbacks.Unary, callbacks.UploadStart, callbacks.UploadSend, callbacks.UploadFinish, callbacks.UploadCancel, callbacks.ListStart, callbacks.ListRecv, callbacks.ListFinish, callbacks.ListCancel, callbacks.ChatStart, callbacks.ChatSend, callbacks.ChatRecv, callbacks.ChatCloseSend, callbacks.ChatFinish, callbacks.ChatCancel)
+	errID := rpccgoMsgTestv1GreeterRegister(callbacks.Unary, callbacks.UploadStart, callbacks.UploadSend, callbacks.UploadFinish, callbacks.UploadCancel, callbacks.ListStart, callbacks.ListRecv, callbacks.ListFinish, callbacks.ListCancel, callbacks.ChatStart, callbacks.ChatSend, callbacks.ChatRecv, callbacks.ChatCloseSend, callbacks.ChatFinish, callbacks.ChatCancel)
 	if errID != 0 {
 		return cgoFixtureStoredError(errID)
 	}
@@ -1201,7 +1201,7 @@ func registerGreeterMessageUnaryOnlyForIntegration() error {
 	C.setMessageStreamEOFMode(0)
 	C.setInvalidMessageResponse(0)
 	callbacks := C.greeterMessageCallbacks()
-	errID := rpccgo_msg_testv1_Greeter_register_Unary(callbacks.Unary)
+	errID := rpccgoMsgTestv1GreeterRegisterUnary(callbacks.Unary)
 	if errID == 0 {
 		return nil
 	}
@@ -1214,7 +1214,7 @@ func registerGreeterMessageUploadOnlyServiceLevelWithoutResetForIntegration() er
 	C.setMessageStreamEOFMode(0)
 	C.setInvalidMessageResponse(0)
 	callbacks := C.greeterMessageCallbacks()
-	errID := rpccgo_msg_testv1_Greeter_register(nil, callbacks.UploadStart, callbacks.UploadSend, callbacks.UploadFinish, callbacks.UploadCancel, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	errID := rpccgoMsgTestv1GreeterRegister(nil, callbacks.UploadStart, callbacks.UploadSend, callbacks.UploadFinish, callbacks.UploadCancel, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if errID == 0 {
 		return nil
 	}
@@ -1229,7 +1229,7 @@ func registerGreeterMessagePartialStreamingMethodsForIntegration() error {
 	C.setMessageStreamEOFMode(0)
 	C.setInvalidMessageResponse(0)
 	callbacks := C.greeterMessageCallbacks()
-	errID := rpccgo_msg_testv1_Greeter_register(nil, callbacks.UploadStart, nil, callbacks.UploadFinish, callbacks.UploadCancel, nil, nil, nil, nil, callbacks.ChatStart, callbacks.ChatSend, nil, callbacks.ChatCloseSend, callbacks.ChatFinish, callbacks.ChatCancel)
+	errID := rpccgoMsgTestv1GreeterRegister(nil, callbacks.UploadStart, nil, callbacks.UploadFinish, callbacks.UploadCancel, nil, nil, nil, nil, callbacks.ChatStart, callbacks.ChatSend, nil, callbacks.ChatCloseSend, callbacks.ChatFinish, callbacks.ChatCancel)
 	if errID == 0 {
 		return nil
 	}
@@ -1237,7 +1237,7 @@ func registerGreeterMessagePartialStreamingMethodsForIntegration() error {
 }
 
 func registerGreeterNativeCallbacks(callbacks C.GreeterCGONativeServerCallbacks) error {
-	errID := rpccgo_native_testv1_Greeter_register(callbacks.Unary, callbacks.UploadStart, callbacks.UploadSend, callbacks.UploadFinish, callbacks.UploadCancel, callbacks.ListStart, callbacks.ListRecv, callbacks.ListFinish, callbacks.ListCancel, callbacks.ChatStart, callbacks.ChatSend, callbacks.ChatRecv, callbacks.ChatCloseSend, callbacks.ChatFinish, callbacks.ChatCancel)
+	errID := rpccgoNativeTestv1GreeterRegister(callbacks.Unary, callbacks.UploadStart, callbacks.UploadSend, callbacks.UploadFinish, callbacks.UploadCancel, callbacks.ListStart, callbacks.ListRecv, callbacks.ListFinish, callbacks.ListCancel, callbacks.ChatStart, callbacks.ChatSend, callbacks.ChatRecv, callbacks.ChatCloseSend, callbacks.ChatFinish, callbacks.ChatCancel)
 	if errID != 0 {
 		return cgoFixtureStoredError(errID)
 	}
@@ -1249,7 +1249,7 @@ func registerGreeterNativeUnaryOnlyForIntegration() error {
 	C.resetMessageCounters()
 	C.setNativeUnaryError(0)
 	callbacks := C.greeterNativeCallbacks()
-	errID := rpccgo_native_testv1_Greeter_register_Unary(callbacks.Unary)
+	errID := rpccgoNativeTestv1GreeterRegisterUnary(callbacks.Unary)
 	if errID == 0 {
 		return nil
 	}
@@ -1259,7 +1259,7 @@ func registerGreeterNativeUnaryOnlyForIntegration() error {
 func registerGreeterNativeUploadOnlyServiceLevelWithoutResetForIntegration() error {
 	C.setNativeUnaryError(0)
 	callbacks := C.greeterNativeCallbacks()
-	errID := rpccgo_native_testv1_Greeter_register(nil, callbacks.UploadStart, callbacks.UploadSend, callbacks.UploadFinish, callbacks.UploadCancel, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	errID := rpccgoNativeTestv1GreeterRegister(nil, callbacks.UploadStart, callbacks.UploadSend, callbacks.UploadFinish, callbacks.UploadCancel, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if errID == 0 {
 		return nil
 	}
@@ -1271,7 +1271,7 @@ func registerGreeterNativePartialStreamingMethodsForIntegration() error {
 	C.resetMessageCounters()
 	C.setNativeUnaryError(0)
 	callbacks := C.greeterNativeCallbacks()
-	errID := rpccgo_native_testv1_Greeter_register(nil, callbacks.UploadStart, nil, callbacks.UploadFinish, callbacks.UploadCancel, nil, nil, nil, nil, callbacks.ChatStart, callbacks.ChatSend, nil, callbacks.ChatCloseSend, callbacks.ChatFinish, callbacks.ChatCancel)
+	errID := rpccgoNativeTestv1GreeterRegister(nil, callbacks.UploadStart, nil, callbacks.UploadFinish, callbacks.UploadCancel, nil, nil, nil, nil, callbacks.ChatStart, callbacks.ChatSend, nil, callbacks.ChatCloseSend, callbacks.ChatFinish, callbacks.ChatCancel)
 	if errID == 0 {
 		return nil
 	}
@@ -1391,7 +1391,7 @@ func callGreeterUnaryMessageUnary(ctx context.Context, requestPtr uintptr, reque
 	}
 	var responsePtr C.uintptr_t
 	var responseLen C.int32_t
-	errID := rpccgo_msg_testv1_Greeter_Unary(C.uintptr_t(requestPtr), C.int32_t(requestLen), &responsePtr, &responseLen)
+	errID := rpccgoMsgTestv1GreeterUnary(C.uintptr_t(requestPtr), C.int32_t(requestLen), &responsePtr, &responseLen)
 	output.DataPtr = uintptr(responsePtr)
 	output.DataLen = int32(responseLen)
 	return int32(errID)
@@ -1400,13 +1400,13 @@ func callGreeterUnaryMessageUnary(ctx context.Context, requestPtr uintptr, reque
 func startGreeterUploadMessageClientStream(ctx context.Context) (int32, int32) {
 	_ = ctx
 	var handle C.int32_t
-	errID := rpccgo_msg_testv1_Greeter_Upload_start(&handle)
+	errID := rpccgoMsgTestv1GreeterUploadStart(&handle)
 	return int32(handle), int32(errID)
 }
 
 func sendGreeterUploadMessageClientStream(ctx context.Context, handle int32, requestPtr uintptr, requestLen int32) int32 {
 	_ = ctx
-	return int32(rpccgo_msg_testv1_Greeter_Upload_send(C.int32_t(handle), C.uintptr_t(requestPtr), C.int32_t(requestLen)))
+	return int32(rpccgoMsgTestv1GreeterUploadSend(C.int32_t(handle), C.uintptr_t(requestPtr), C.int32_t(requestLen)))
 }
 
 func finishGreeterUploadMessageClientStream(ctx context.Context, handle int32, output *greeterMessageOutput) int32 {
@@ -1416,7 +1416,7 @@ func finishGreeterUploadMessageClientStream(ctx context.Context, handle int32, o
 	}
 	var responsePtr C.uintptr_t
 	var responseLen C.int32_t
-	errID := rpccgo_msg_testv1_Greeter_Upload_finish(C.int32_t(handle), &responsePtr, &responseLen)
+	errID := rpccgoMsgTestv1GreeterUploadFinish(C.int32_t(handle), &responsePtr, &responseLen)
 	output.DataPtr = uintptr(responsePtr)
 	output.DataLen = int32(responseLen)
 	return int32(errID)
@@ -1424,13 +1424,13 @@ func finishGreeterUploadMessageClientStream(ctx context.Context, handle int32, o
 
 func cancelGreeterUploadMessageClientStream(ctx context.Context, handle int32) int32 {
 	_ = ctx
-	return int32(rpccgo_msg_testv1_Greeter_Upload_cancel(C.int32_t(handle)))
+	return int32(rpccgoMsgTestv1GreeterUploadCancel(C.int32_t(handle)))
 }
 
 func startGreeterListMessageServerStream(ctx context.Context, requestPtr uintptr, requestLen int32) (int32, int32) {
 	_ = ctx
 	var handle C.int32_t
-	errID := rpccgo_msg_testv1_Greeter_List_start(C.uintptr_t(requestPtr), C.int32_t(requestLen), &handle)
+	errID := rpccgoMsgTestv1GreeterListStart(C.uintptr_t(requestPtr), C.int32_t(requestLen), &handle)
 	return int32(handle), int32(errID)
 }
 
@@ -1441,7 +1441,7 @@ func readGreeterListMessageServerStream(ctx context.Context, handle int32, outpu
 	}
 	var responsePtr C.uintptr_t
 	var responseLen C.int32_t
-	errID := rpccgo_msg_testv1_Greeter_List_read(C.int32_t(handle), &responsePtr, &responseLen)
+	errID := rpccgoMsgTestv1GreeterListRead(C.int32_t(handle), &responsePtr, &responseLen)
 	output.DataPtr = uintptr(responsePtr)
 	output.DataLen = int32(responseLen)
 	return int32(errID)
@@ -1449,24 +1449,24 @@ func readGreeterListMessageServerStream(ctx context.Context, handle int32, outpu
 
 func finishGreeterListMessageServerStream(ctx context.Context, handle int32) int32 {
 	_ = ctx
-	return int32(rpccgo_msg_testv1_Greeter_List_finish(C.int32_t(handle)))
+	return int32(rpccgoMsgTestv1GreeterListFinish(C.int32_t(handle)))
 }
 
 func cancelGreeterListMessageServerStream(ctx context.Context, handle int32) int32 {
 	_ = ctx
-	return int32(rpccgo_msg_testv1_Greeter_List_cancel(C.int32_t(handle)))
+	return int32(rpccgoMsgTestv1GreeterListCancel(C.int32_t(handle)))
 }
 
 func startGreeterChatMessageBidiStream(ctx context.Context) (int32, int32) {
 	_ = ctx
 	var handle C.int32_t
-	errID := rpccgo_msg_testv1_Greeter_Chat_start(&handle)
+	errID := rpccgoMsgTestv1GreeterChatStart(&handle)
 	return int32(handle), int32(errID)
 }
 
 func sendGreeterChatMessageBidiStream(ctx context.Context, handle int32, requestPtr uintptr, requestLen int32) int32 {
 	_ = ctx
-	return int32(rpccgo_msg_testv1_Greeter_Chat_send(C.int32_t(handle), C.uintptr_t(requestPtr), C.int32_t(requestLen)))
+	return int32(rpccgoMsgTestv1GreeterChatSend(C.int32_t(handle), C.uintptr_t(requestPtr), C.int32_t(requestLen)))
 }
 
 func readGreeterChatMessageBidiStream(ctx context.Context, handle int32, output *greeterMessageOutput) int32 {
@@ -1476,7 +1476,7 @@ func readGreeterChatMessageBidiStream(ctx context.Context, handle int32, output 
 	}
 	var responsePtr C.uintptr_t
 	var responseLen C.int32_t
-	errID := rpccgo_msg_testv1_Greeter_Chat_read(C.int32_t(handle), &responsePtr, &responseLen)
+	errID := rpccgoMsgTestv1GreeterChatRead(C.int32_t(handle), &responsePtr, &responseLen)
 	output.DataPtr = uintptr(responsePtr)
 	output.DataLen = int32(responseLen)
 	return int32(errID)
@@ -1484,17 +1484,17 @@ func readGreeterChatMessageBidiStream(ctx context.Context, handle int32, output 
 
 func closeSendGreeterChatMessageBidiStream(ctx context.Context, handle int32) int32 {
 	_ = ctx
-	return int32(rpccgo_msg_testv1_Greeter_Chat_close_send(C.int32_t(handle)))
+	return int32(rpccgoMsgTestv1GreeterChatCloseSend(C.int32_t(handle)))
 }
 
 func finishGreeterChatMessageBidiStream(ctx context.Context, handle int32) int32 {
 	_ = ctx
-	return int32(rpccgo_msg_testv1_Greeter_Chat_finish(C.int32_t(handle)))
+	return int32(rpccgoMsgTestv1GreeterChatFinish(C.int32_t(handle)))
 }
 
 func cancelGreeterChatMessageBidiStream(ctx context.Context, handle int32) int32 {
 	_ = ctx
-	return int32(rpccgo_msg_testv1_Greeter_Chat_cancel(C.int32_t(handle)))
+	return int32(rpccgoMsgTestv1GreeterChatCancel(C.int32_t(handle)))
 }
 `
 

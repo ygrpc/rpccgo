@@ -817,11 +817,7 @@ func renderNativeCExportHandleValidation(g *protogen.GeneratedFile, name string)
 }
 
 func nativeCExportFuncName(plan FilePlan, service ServicePlan, method MethodPlan, operation string) string {
-	name := "rpccgo_native_" + plan.GoPackageName + "_" + service.GoName + "_" + method.GoName
-	if operation != "" {
-		name += "_" + operation
-	}
-	return name
+	return cgoServiceExportName("native", plan, service, method.GoName, operation)
 }
 
 func nativeCExportParams(slots []CABISlot) string {

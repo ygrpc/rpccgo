@@ -357,11 +357,11 @@ func cgoMessageServerRegisterSuffixes(method MethodPlan) []string {
 }
 
 func messageCServiceRegisterExportFuncName(plan FilePlan, service ServicePlan) string {
-	return "rpccgo_msg_" + plan.GoPackageName + "_" + service.GoName + "_register"
+	return cgoServiceExportName("msg", plan, service, "register")
 }
 
 func messageCServiceMethodRegisterExportFuncName(plan FilePlan, service ServicePlan, method MethodPlan) string {
-	return messageCServiceRegisterExportFuncName(plan, service) + "_" + method.GoName
+	return cgoServiceExportName("msg", plan, service, "register", method.GoName)
 }
 
 func renderCGOMessageStreamEOFHelper(g *protogen.GeneratedFile, service ServicePlan) {

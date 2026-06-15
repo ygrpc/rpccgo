@@ -30,7 +30,7 @@ func TestNativeCOperationABIUnaryAllFields(t *testing.T) {
 		t.Fatalf("operations = %#v, want %#v", gotOperations, want)
 	}
 
-	if unary.Symbol != "rpccgo_native_testv1_NativeABI_Check" {
+	if unary.Symbol != "rpccgoNativeTestv1NativeABICheck" {
 		t.Fatalf("unary Symbol = %q", unary.Symbol)
 	}
 	if unary.TypeName != "NativeABICheckCGONativeUnaryCallback" {
@@ -118,7 +118,7 @@ func TestNativeCRegisterABIDefinesFlatServiceRegistration(t *testing.T) {
 		t.Fatalf("NativeCRegisterABI() error = %v", err)
 	}
 
-	if got, want := abi.Symbol, "rpccgo_native_testv1_Greeter_register"; got != want {
+	if got, want := abi.Symbol, "rpccgoNativeTestv1GreeterRegister"; got != want {
 		t.Fatalf("register Symbol = %q, want %q", got, want)
 	}
 	if got, want := len(abi.Params), 15; got != want {
