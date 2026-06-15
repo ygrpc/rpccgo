@@ -19,7 +19,8 @@ func TestRunEmitsDartFFIClient(t *testing.T) {
 		t.Fatalf("run() error = %v", err)
 	}
 
-	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "@ffi.DefaultAsset('package:rpccgo_test/rpccgo.dart')")
+	assertDartMainGeneratedContentContains(t, plugin, "rpccgo.dart", "export 'test/v1/greeter.greeter.rpccgo.dart';")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "@ffi.DefaultAsset('package:rpccgo_test/gen/rpccgo.dart')")
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "const GreeterRpccgoClient();")
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "pb.HelloReply SayHello(pb.HelloRequest request) {")
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "symbol: 'rpccgoMsgTestv1GreeterSayHello'")

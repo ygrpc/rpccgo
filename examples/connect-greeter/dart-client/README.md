@@ -5,8 +5,8 @@
 当前约定是：
 
 - `protoc-gen-rpc-cgo-dart` 总是生成 native-assets 风格的 Dart 代码。
-- `dart_package` 是必填参数，生成器会把 raw bindings 的 asset ID 固定推导成 `package:rpccgo_connect_greeter_dart_client/rpccgo.dart`。
-- generator 需要在 generated `@Native` 声明里显式使用这个 asset ID；仅靠 `lib/rpccgo.dart` 的 re-export 不会改变其他 library 的默认 asset ID。
+- `dart_package` 是必填参数，raw bindings 的 asset ID 固定为 `package:rpccgo_connect_greeter_dart_client/gen/rpccgo.dart`。
+- generator 会在 `--rpc-cgo-dart_out=lib/gen` 下生成 `rpccgo.dart` entry library，并在 generated `@Native` 声明里显式使用这个 asset ID。
 - `hook/build.dart` 只消费现有 runtime artifact，不会重新执行 `go build`。
 
 下面的命令默认都在 `examples/connect-greeter/dart-client` 目录下执行。

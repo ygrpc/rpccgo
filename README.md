@@ -147,7 +147,7 @@ protoc \
   proto/greeter.proto
 ```
 
-`protoc-gen-rpc-cgo-dart` 现在总是生成 native-assets 风格的 `<proto>.<service>.rpccgo.dart`。`dart_package` 是必填参数，生成器会据此把 native asset ID 固定成 `package:<dart_package>/rpccgo.dart`，并在生成文件里使用 `@ffi.DefaultAsset` 和 `@ffi.Native` 绑定 rpccgo 生成的 message cgo client exports，例如 `rpccgoMsg<GoPackage><Service><Method>`。公开 Dart 方法名保持 proto method 原名，不做 lowerCamelCase 改写。使用方需要在该 Dart package 里提供同名 library URI，并通过 build hook 或其他 code-asset 机制把共享的 `.so` / `.dylib` / `.dll` 暴露给运行时；基础依赖至少需要 `ffi`，若采用 Dart build hooks 还需要 `code_assets` 和 `hooks`。
+`protoc-gen-rpc-cgo-dart` 现在总是生成 native-assets 风格的 `<proto>.<service>.rpccgo.dart`，并额外在 `--rpc-cgo-dart_out` 目录下生成 shared `rpccgo.dart` entry library。`dart_package` 是必填参数；当输出目录是 `lib/gen` 时，生成器使用 native asset ID `package:<dart_package>/gen/rpccgo.dart`。生成文件使用 `@ffi.DefaultAsset` 和 `@ffi.Native` 绑定 rpccgo 生成的 message cgo client exports，例如 `rpccgoMsg<GoPackage><Service><Method>`。公开 Dart 方法名保持 proto method 原名，不做 lowerCamelCase 改写。使用方需要通过 build hook 或其他 code-asset 机制把共享的 `.so` / `.dylib` / `.dll` 暴露给同一个 asset ID；基础依赖至少需要 `ffi`，若采用 Dart build hooks 还需要 `code_assets` 和 `hooks`。
 
 生成文件按 service 和能力拆分，常见文件包括：
 

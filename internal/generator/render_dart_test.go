@@ -17,19 +17,27 @@ func TestGenerateDartEmitsMessageFFIClient(t *testing.T) {
 	}
 
 	assertDartGeneratedFilenames(t, plugin, []string{
+		"rpccgo.dart",
 		"test/v1/greeter.greeter.rpccgo.dart",
 	})
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "@ffi.DefaultAsset('package:rpccgo_test/rpccgo.dart')")
+	assertGeneratedContentContains(t, plugin, "rpccgo.dart", "export 'test/v1/greeter.greeter.rpccgo.dart';")
+	assertGeneratedContentContains(t, plugin, "rpccgo.dart", "export 'test/v1/greeter.pb.dart';")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "@ffi.DefaultAsset('package:rpccgo_test/gen/rpccgo.dart')")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "class GreeterRpccgoClient {")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "const GreeterRpccgoClient();")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "import 'greeter.pb.dart' as pb;")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "pb.HelloReply SayHello(pb.HelloRequest request) {")
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "@ffi.Native<_RpccgoMessageUnaryNative>(symbol: 'rpccgoMsgTestv1GreeterSayHello')")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "@ffi.Native<_RpccgoMessageUnaryCAbi>(symbol: 'rpccgoMsgTestv1GreeterSayHello')")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "request.writeToBuffer()")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "pb.HelloReply.fromBuffer(responseBytes)")
 	assertGeneratedFileContentDoesNotContain(t, plugin, "test/v1/greeter.greeter.rpccgo.dart",
 		"ffi.DynamicLibrary library",
 		"lookupFunction<",
+		"typedef _RpccgoMessageUnaryNative",
+		"typedef _RpccgoStreamSendNative",
+		"int _sayHello(",
+		"int _release(",
+		"int _takeErrorText(",
 	)
 }
 
@@ -41,13 +49,13 @@ func TestGenerateDartEmitsStreamingMessageFFIClient(t *testing.T) {
 	}
 
 	const file = "test/v1/message_contract.greeter.rpccgo.dart"
-	assertDartGeneratedFilenames(t, plugin, []string{file})
+	assertDartGeneratedFilenames(t, plugin, []string{"rpccgo.dart", file})
 	for _, fragment := range []string{
 		"GreeterUploadStream Upload() {",
 		"void send(pb.MessageRequest request) {",
 		"pb.MessageReply finish() {",
 		"GreeterListStream List(pb.MessageRequest request) {",
-		"final errID = _listStart(requestPtr.address, requestBytes.length, handlePtr);",
+		"final errID = _listStartRaw(requestPtr.address, requestBytes.length, handlePtr);",
 		"pb.MessageReply read() {",
 		"void finish() {",
 		"GreeterChatStream Chat() {",
@@ -61,6 +69,8 @@ func TestGenerateDartEmitsStreamingMessageFFIClient(t *testing.T) {
 	assertGeneratedFileContentDoesNotContain(t, plugin, file,
 		"final _RpccgoStreamFinishVoid _uploadCloseSend;",
 		"final _RpccgoStreamFinishVoid _listCloseSend;",
+		"int _uploadStart(",
+		"int _chatCloseSend(",
 	)
 }
 

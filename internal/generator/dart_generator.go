@@ -8,7 +8,10 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-const defaultDartNativeAssetName = "rpccgo.dart"
+const (
+	defaultDartNativeAssetName = "rpccgo.dart"
+	defaultDartNativeAssetPath = "gen/rpccgo.dart"
+)
 
 var dartPackagePattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
@@ -78,7 +81,7 @@ func dartGeneratorConfigFromPlugin(plugin *protogen.Plugin) (DartGeneratorConfig
 	}
 
 	var config DartGeneratorConfig
-	var found bool
+	var foundPackage bool
 	for _, param := range strings.Split(plugin.Request.GetParameter(), ",") {
 		if param == "" {
 			continue
@@ -94,9 +97,9 @@ func dartGeneratorConfigFromPlugin(plugin *protogen.Plugin) (DartGeneratorConfig
 			return DartGeneratorConfig{}, err
 		}
 		config.DartPackage = value
-		found = true
+		foundPackage = true
 	}
-	if !found {
+	if !foundPackage {
 		return DartGeneratorConfig{}, fmt.Errorf("dart_package parameter is required")
 	}
 	return config, nil

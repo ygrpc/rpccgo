@@ -1,4 +1,4 @@
-import 'package:rpccgo_connect_greeter_dart_client/rpccgo.dart';
+import 'package:rpccgo_connect_greeter_dart_client/gen/rpccgo.dart';
 
 void main(List<String> args) {
   const client = GreeterRpccgoClient();

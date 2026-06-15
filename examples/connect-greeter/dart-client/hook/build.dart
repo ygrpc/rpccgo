@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:code_assets/code_assets.dart';
 import 'package:hooks/hooks.dart';
 
-const _assetName = 'rpccgo.dart';
+const _assetName = 'gen/rpccgo.dart';
 const _artifactRelativePath = '../build/librpccgo_connect_greeter.so';
 const _bundledLibraryName = 'librpccgo_connect_greeter.so';
 
