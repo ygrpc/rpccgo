@@ -134,7 +134,6 @@ _Avoid_: active server
 - **Registration source** 必须经过 validation：四轴字段非空、组合属于 7 类白名单、renderer projection 可完整派生。projection 与 renderer 对未知组合显式返回 `error`，不允许 `panic`。
 - `Origin + Contract + Transport + Mode` 只描述 **Registration source**，不复用于 generated artifact planning。service-shared runtime、codec 和 cgo client artifact 不是 registration source，应使用独立 artifact plan 表达。
 - generator plan 使用 `GenerationPlan -> PackagePlan -> FilePlan -> ServicePlan` 层级：package-level symbols、cgo import path 和 shared cgo exports 属于 `PackagePlan`，proto descriptor 与 service artifact 属于 `FilePlan` / `ServicePlan`。
-- generator 入口直接返回 `GenerationPlan`；项目未发布，不保留返回 `[]FilePlan` 的兼容 API。
 - generated artifact planner 使用 `PackagePlan.SharedArtifacts` 与 `ServicePlan.Artifacts` 两级白名单列表；两者共用同一个 `GeneratedArtifactPlan` item 类型，每项只保存 artifact kind 和 filename。不保留重复表达 runtime 的 native/message file family，也不保留 `Enabled` 字段。未启用 artifact 不进入列表。
 - generator 只保留完整 artifact list renderer，不保留 native/message 分阶段生成 API 或 options。测试通过 artifact kind 定向筛选或验证完整生成结果。
 - generated artifact enabled 规则固定：service runtime、codec 和 shared cgo exports 始终生成；`native` 启用 Go native server contract、cgo native server artifact 和 cgo native client artifact；`msg-connect` 或 `msg-grpc` 启用 Go message server contract、cgo message server artifact 和 cgo message client artifact。没有 `native` token 时不得生成 native artifact。
