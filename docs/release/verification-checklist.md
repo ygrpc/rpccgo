@@ -19,6 +19,8 @@ rtk env GOCACHE=/tmp/rpccgo-go-build go test ./... -count=1
 - `cd examples/connect-greeter && rtk go run github.com/magefile/mage generate`
 - `cd examples/connect-greeter && rtk go run github.com/magefile/mage test`
 - `cd examples/connect-greeter && rtk go run github.com/magefile/mage run`
+- `cd examples/flutter-shared-so && rtk go run github.com/magefile/mage generate`
+- `cd examples/flutter-shared-so && rtk go run github.com/magefile/mage test`
 
 ## 合同扫描
 

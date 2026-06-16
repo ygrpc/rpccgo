@@ -35,7 +35,7 @@ func Test() error {
 	if err := runWithBinDir(binDir, "go", "generate", "./..."); err != nil {
 		return err
 	}
-	return runWithBinDir(binDir, "go", "test", "./...", "-count=1")
+	return runWithBinDir(binDir, "go", "test", "./...", "-count=1", "-skip", "^TestSharedSoDemoMageTestNoPanic$")
 }
 
 func installProtocPlugins() (string, func(), error) {

@@ -53,27 +53,29 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
       _flutterBusy = true;
     });
     await _showBusyState();
-    try {
-      final response = _client.ComposeGreeting(
-        ComposeGreetingRequest(name: _effectiveName, caller: 'flutter-ffi'),
-      );
+    final response = _client.ComposeGreeting(
+      ComposeGreetingRequest(name: _effectiveName, caller: 'flutter-ffi'),
+    );
+    final error = response.error;
+    final value = response.value;
+    if (error != null || value == null) {
+      setState(() {
+        _latestActivityTitle = 'Latest Activity: Flutter FFI (Error)';
+        _latestActivityBody =
+            'flutter ffi error: ${error ?? 'missing response'}';
+        _latestActivityColor = Colors.red;
+      });
+    } else {
       setState(() {
         _latestActivityTitle = 'Latest Activity: Flutter FFI';
         _latestActivityBody =
-            '${response.message} | served_by=${response.servedBy} | library=${response.library}';
+            '${value.message} | served_by=${value.servedBy} | library=${value.library}';
         _latestActivityColor = const Color(0xFF0B7285);
       });
-    } catch (error) {
-      setState(() {
-        _latestActivityTitle = 'Latest Activity: Flutter FFI (Error)';
-        _latestActivityBody = 'flutter ffi error: $error';
-        _latestActivityColor = Colors.red;
-      });
-    } finally {
-      setState(() {
-        _flutterBusy = false;
-      });
     }
+    setState(() {
+      _flutterBusy = false;
+    });
   }
 
   Future<void> _callViaJNI() async {
@@ -118,10 +120,23 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
       _runtimeBusy = true;
     });
     await _showBusyState();
+    final writtenResult = _client.IncrementRuntimeState(
+      IncrementRuntimeStateRequest(delta: 1, caller: 'flutter-ffi'),
+    );
+    final writtenError = writtenResult.error;
+    final written = writtenResult.value;
+    if (writtenError != null || written == null) {
+      setState(() {
+        _latestActivityTitle =
+            'Latest Activity: Shared Go runtime state (Error)';
+        _latestActivityBody =
+            'shared runtime verification error: ${writtenError ?? 'missing response'}';
+        _latestActivityColor = Colors.red;
+        _runtimeBusy = false;
+      });
+      return;
+    }
     try {
-      final written = _client.IncrementRuntimeState(
-        IncrementRuntimeStateRequest(delta: 1, caller: 'flutter-ffi'),
-      );
       debugPrint(
         'Flutter FFI wrote instance_address=${written.instanceAddress} pid=${written.pid} '
         'value=${written.value} revision=${written.revision}',
@@ -140,7 +155,8 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
       });
     } catch (error) {
       setState(() {
-        _latestActivityTitle = 'Latest Activity: Shared Go runtime state (Error)';
+        _latestActivityTitle =
+            'Latest Activity: Shared Go runtime state (Error)';
         _latestActivityBody = 'shared runtime verification error: $error';
         _latestActivityColor = Colors.red;
       });
