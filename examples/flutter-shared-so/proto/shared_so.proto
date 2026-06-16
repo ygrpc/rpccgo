@@ -32,8 +32,9 @@ message ReadRuntimeStateRequest {
 message RuntimeStateResponse {
   int64 value = 1;
   int64 revision = 2;
-  string runtime_id = 3;
+  string instance_address = 3;
   string caller = 4;
+  int32 pid = 5;
 }
 
 // SharedSoDemo exposes one unary RPC for the shared-library validation example.

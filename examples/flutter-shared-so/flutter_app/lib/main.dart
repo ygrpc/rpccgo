@@ -123,7 +123,7 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
         IncrementRuntimeStateRequest(delta: 1, caller: 'flutter-ffi'),
       );
       debugPrint(
-        'Flutter FFI wrote runtime_id=${written.runtimeId} '
+        'Flutter FFI wrote instance_address=${written.instanceAddress} pid=${written.pid} '
         'value=${written.value} revision=${written.revision}',
       );
       final observed = await _jniChannel.invokeMethod<String>(
@@ -133,7 +133,7 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
       setState(() {
         _latestActivityTitle = 'Latest Activity: Shared Go runtime state';
         _latestActivityBody =
-            'Flutter wrote: runtime_id=${written.runtimeId} | '
+            'Flutter wrote: instance_address=${written.instanceAddress} | pid=${written.pid} | '
             'value=${written.value} | revision=${written.revision}\n'
             'Kotlin read: ${observed ?? 'jni returned null'}';
         _latestActivityColor = const Color(0xFFE67700);

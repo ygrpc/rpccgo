@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"sync"
 
@@ -60,7 +61,7 @@ func (s *SharedSoDemoServer) IncrementRuntimeState(_ context.Context, req *flutt
 	s.value += int64(req.GetDelta())
 	s.revision++
 	resp := s.runtimeStateResponse(req.GetCaller())
-	log.Printf("rpccgo shared runtime write: runtime_id=%s caller=%s value=%d revision=%d", resp.GetRuntimeId(), resp.GetCaller(), resp.GetValue(), resp.GetRevision())
+	log.Printf("rpccgo shared runtime write: instance_address=%s pid=%d caller=%s value=%d revision=%d", resp.GetInstanceAddress(), resp.GetPid(), resp.GetCaller(), resp.GetValue(), resp.GetRevision())
 	return resp, nil
 }
 
@@ -73,7 +74,7 @@ func (s *SharedSoDemoServer) ReadRuntimeState(_ context.Context, req *fluttersha
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	resp := s.runtimeStateResponse(req.GetCaller())
-	log.Printf("rpccgo shared runtime read: runtime_id=%s caller=%s value=%d revision=%d", resp.GetRuntimeId(), resp.GetCaller(), resp.GetValue(), resp.GetRevision())
+	log.Printf("rpccgo shared runtime read: instance_address=%s pid=%d caller=%s value=%d revision=%d", resp.GetInstanceAddress(), resp.GetPid(), resp.GetCaller(), resp.GetValue(), resp.GetRevision())
 	return resp, nil
 }
 
@@ -83,9 +84,10 @@ func (s *SharedSoDemoServer) runtimeStateResponse(caller string) *fluttersharedv
 		caller = "unknown-caller"
 	}
 	return &fluttersharedv1.RuntimeStateResponse{
-		Value:     s.value,
-		Revision:  s.revision,
-		RuntimeId: fmt.Sprintf("%p", s),
-		Caller:    caller,
+		Value:           s.value,
+		Revision:        s.revision,
+		InstanceAddress: fmt.Sprintf("%p", s),
+		Caller:          caller,
+		Pid:             int32(os.Getpid()),
 	}
 }

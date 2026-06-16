@@ -13,6 +13,7 @@ func TestReleaseVerificationCoversNestedExampleModules(t *testing.T) {
 	for _, dir := range []string{
 		filepath.Join("examples", "grpc-greeter"),
 		filepath.Join("examples", "connect-greeter"),
+		filepath.Join("examples", "flutter-shared-so"),
 	} {
 		dir := dir
 		t.Run(dir, func(t *testing.T) {

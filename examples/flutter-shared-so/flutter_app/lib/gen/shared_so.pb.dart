@@ -8,7 +8,7 @@
 // ignore_for_file: constant_identifier_names
 // ignore_for_file: curly_braces_in_flow_control_structures
 // ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
-// ignore_for_file: non_constant_identifier_names
+// ignore_for_file: non_constant_identifier_names, prefer_relative_imports
 
 import 'dart:async' as $async;
 import 'dart:core' as $core;
@@ -49,8 +49,7 @@ class ComposeGreetingRequest extends $pb.GeneratedMessage {
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ComposeGreetingRequest clone() =>
-      ComposeGreetingRequest()..mergeFromMessage(this);
+  ComposeGreetingRequest clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   ComposeGreetingRequest copyWith(
           void Function(ComposeGreetingRequest) updates) =>
@@ -64,8 +63,6 @@ class ComposeGreetingRequest extends $pb.GeneratedMessage {
   static ComposeGreetingRequest create() => ComposeGreetingRequest._();
   @$core.override
   ComposeGreetingRequest createEmptyInstance() => create();
-  static $pb.PbList<ComposeGreetingRequest> createRepeated() =>
-      $pb.PbList<ComposeGreetingRequest>();
   @$core.pragma('dart2js:noInline')
   static ComposeGreetingRequest getDefault() => _defaultInstance ??=
       $pb.GeneratedMessage.$_defaultFor<ComposeGreetingRequest>(create);
@@ -124,8 +121,7 @@ class ComposeGreetingResponse extends $pb.GeneratedMessage {
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ComposeGreetingResponse clone() =>
-      ComposeGreetingResponse()..mergeFromMessage(this);
+  ComposeGreetingResponse clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   ComposeGreetingResponse copyWith(
           void Function(ComposeGreetingResponse) updates) =>
@@ -139,8 +135,6 @@ class ComposeGreetingResponse extends $pb.GeneratedMessage {
   static ComposeGreetingResponse create() => ComposeGreetingResponse._();
   @$core.override
   ComposeGreetingResponse createEmptyInstance() => create();
-  static $pb.PbList<ComposeGreetingResponse> createRepeated() =>
-      $pb.PbList<ComposeGreetingResponse>();
   @$core.pragma('dart2js:noInline')
   static ComposeGreetingResponse getDefault() => _defaultInstance ??=
       $pb.GeneratedMessage.$_defaultFor<ComposeGreetingResponse>(create);
@@ -200,13 +194,12 @@ class IncrementRuntimeStateRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(
           _omitMessageNames ? '' : 'examples.flutter.sharedso.v1'),
       createEmptyInstance: create)
-    ..a<$core.int>(1, _omitFieldNames ? '' : 'delta', $pb.PbFieldType.O3)
+    ..aI(1, _omitFieldNames ? '' : 'delta')
     ..aOS(2, _omitFieldNames ? '' : 'caller')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  IncrementRuntimeStateRequest clone() =>
-      IncrementRuntimeStateRequest()..mergeFromMessage(this);
+  IncrementRuntimeStateRequest clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   IncrementRuntimeStateRequest copyWith(
           void Function(IncrementRuntimeStateRequest) updates) =>
@@ -222,8 +215,6 @@ class IncrementRuntimeStateRequest extends $pb.GeneratedMessage {
       IncrementRuntimeStateRequest._();
   @$core.override
   IncrementRuntimeStateRequest createEmptyInstance() => create();
-  static $pb.PbList<IncrementRuntimeStateRequest> createRepeated() =>
-      $pb.PbList<IncrementRuntimeStateRequest>();
   @$core.pragma('dart2js:noInline')
   static IncrementRuntimeStateRequest getDefault() => _defaultInstance ??=
       $pb.GeneratedMessage.$_defaultFor<IncrementRuntimeStateRequest>(create);
@@ -276,8 +267,7 @@ class ReadRuntimeStateRequest extends $pb.GeneratedMessage {
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  ReadRuntimeStateRequest clone() =>
-      ReadRuntimeStateRequest()..mergeFromMessage(this);
+  ReadRuntimeStateRequest clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   ReadRuntimeStateRequest copyWith(
           void Function(ReadRuntimeStateRequest) updates) =>
@@ -291,8 +281,6 @@ class ReadRuntimeStateRequest extends $pb.GeneratedMessage {
   static ReadRuntimeStateRequest create() => ReadRuntimeStateRequest._();
   @$core.override
   ReadRuntimeStateRequest createEmptyInstance() => create();
-  static $pb.PbList<ReadRuntimeStateRequest> createRepeated() =>
-      $pb.PbList<ReadRuntimeStateRequest>();
   @$core.pragma('dart2js:noInline')
   static ReadRuntimeStateRequest getDefault() => _defaultInstance ??=
       $pb.GeneratedMessage.$_defaultFor<ReadRuntimeStateRequest>(create);
@@ -313,14 +301,16 @@ class RuntimeStateResponse extends $pb.GeneratedMessage {
   factory RuntimeStateResponse({
     $fixnum.Int64? value,
     $fixnum.Int64? revision,
-    $core.String? runtimeId,
+    $core.String? instanceAddress,
     $core.String? caller,
+    $core.int? pid,
   }) {
     final result = create();
     if (value != null) result.value = value;
     if (revision != null) result.revision = revision;
-    if (runtimeId != null) result.runtimeId = runtimeId;
+    if (instanceAddress != null) result.instanceAddress = instanceAddress;
     if (caller != null) result.caller = caller;
+    if (pid != null) result.pid = pid;
     return result;
   }
 
@@ -340,13 +330,13 @@ class RuntimeStateResponse extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aInt64(1, _omitFieldNames ? '' : 'value')
     ..aInt64(2, _omitFieldNames ? '' : 'revision')
-    ..aOS(3, _omitFieldNames ? '' : 'runtimeId')
+    ..aOS(3, _omitFieldNames ? '' : 'instanceAddress')
     ..aOS(4, _omitFieldNames ? '' : 'caller')
+    ..aI(5, _omitFieldNames ? '' : 'pid')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
-  RuntimeStateResponse clone() =>
-      RuntimeStateResponse()..mergeFromMessage(this);
+  RuntimeStateResponse clone() => deepCopy();
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
   RuntimeStateResponse copyWith(void Function(RuntimeStateResponse) updates) =>
       super.copyWith((message) => updates(message as RuntimeStateResponse))
@@ -359,8 +349,6 @@ class RuntimeStateResponse extends $pb.GeneratedMessage {
   static RuntimeStateResponse create() => RuntimeStateResponse._();
   @$core.override
   RuntimeStateResponse createEmptyInstance() => create();
-  static $pb.PbList<RuntimeStateResponse> createRepeated() =>
-      $pb.PbList<RuntimeStateResponse>();
   @$core.pragma('dart2js:noInline')
   static RuntimeStateResponse getDefault() => _defaultInstance ??=
       $pb.GeneratedMessage.$_defaultFor<RuntimeStateResponse>(create);
@@ -385,13 +373,13 @@ class RuntimeStateResponse extends $pb.GeneratedMessage {
   void clearRevision() => $_clearField(2);
 
   @$pb.TagNumber(3)
-  $core.String get runtimeId => $_getSZ(2);
+  $core.String get instanceAddress => $_getSZ(2);
   @$pb.TagNumber(3)
-  set runtimeId($core.String value) => $_setString(2, value);
+  set instanceAddress($core.String value) => $_setString(2, value);
   @$pb.TagNumber(3)
-  $core.bool hasRuntimeId() => $_has(2);
+  $core.bool hasInstanceAddress() => $_has(2);
   @$pb.TagNumber(3)
-  void clearRuntimeId() => $_clearField(3);
+  void clearInstanceAddress() => $_clearField(3);
 
   @$pb.TagNumber(4)
   $core.String get caller => $_getSZ(3);
@@ -401,6 +389,15 @@ class RuntimeStateResponse extends $pb.GeneratedMessage {
   $core.bool hasCaller() => $_has(3);
   @$pb.TagNumber(4)
   void clearCaller() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.int get pid => $_getIZ(4);
+  @$pb.TagNumber(5)
+  set pid($core.int value) => $_setSignedInt32(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasPid() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearPid() => $_clearField(5);
 }
 
 /// SharedSoDemo exposes one unary RPC for the shared-library validation example.

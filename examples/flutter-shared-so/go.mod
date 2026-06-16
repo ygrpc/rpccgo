@@ -9,8 +9,11 @@ require (
 )
 
 require (
+	github.com/magefile/mage v1.17.2 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	google.golang.org/grpc v1.79.3 // indirect
 )
 
 replace github.com/ygrpc/rpccgo => ../..
+
+tool github.com/magefile/mage

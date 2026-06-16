@@ -62,7 +62,7 @@ func Java_com_ygrpc_examples_rpccgofluttersharedso_MainActivity_nativeReadRuntim
 	if err != nil {
 		return newJNIString(env, fmt.Sprintf("jni runtime read error: %v", err))
 	}
-	return newJNIString(env, fmt.Sprintf("runtime_id=%s | value=%d | revision=%d | caller=%s", resp.GetRuntimeId(), resp.GetValue(), resp.GetRevision(), resp.GetCaller()))
+	return newJNIString(env, fmt.Sprintf("instance_address=%s | pid=%d | value=%d | revision=%d | caller=%s", resp.GetInstanceAddress(), resp.GetPid(), resp.GetValue(), resp.GetRevision(), resp.GetCaller()))
 }
 
 func goJNIString(env *C.JNIEnv, value C.jstring) string {

@@ -235,13 +235,14 @@ func (x *ReadRuntimeStateRequest) GetCaller() string {
 
 // RuntimeStateResponse identifies one mutable Go runtime state instance.
 type RuntimeStateResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Value         int64                  `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
-	Revision      int64                  `protobuf:"varint,2,opt,name=revision,proto3" json:"revision,omitempty"`
-	RuntimeId     string                 `protobuf:"bytes,3,opt,name=runtime_id,json=runtimeId,proto3" json:"runtime_id,omitempty"`
-	Caller        string                 `protobuf:"bytes,4,opt,name=caller,proto3" json:"caller,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Value           int64                  `protobuf:"varint,1,opt,name=value,proto3" json:"value,omitempty"`
+	Revision        int64                  `protobuf:"varint,2,opt,name=revision,proto3" json:"revision,omitempty"`
+	InstanceAddress string                 `protobuf:"bytes,3,opt,name=instance_address,json=instanceAddress,proto3" json:"instance_address,omitempty"`
+	Caller          string                 `protobuf:"bytes,4,opt,name=caller,proto3" json:"caller,omitempty"`
+	Pid             int32                  `protobuf:"varint,5,opt,name=pid,proto3" json:"pid,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *RuntimeStateResponse) Reset() {
@@ -288,9 +289,9 @@ func (x *RuntimeStateResponse) GetRevision() int64 {
 	return 0
 }
 
-func (x *RuntimeStateResponse) GetRuntimeId() string {
+func (x *RuntimeStateResponse) GetInstanceAddress() string {
 	if x != nil {
-		return x.RuntimeId
+		return x.InstanceAddress
 	}
 	return ""
 }
@@ -300,6 +301,13 @@ func (x *RuntimeStateResponse) GetCaller() string {
 		return x.Caller
 	}
 	return ""
+}
+
+func (x *RuntimeStateResponse) GetPid() int32 {
+	if x != nil {
+		return x.Pid
+	}
+	return 0
 }
 
 var File_shared_so_proto protoreflect.FileDescriptor
@@ -318,13 +326,13 @@ const file_shared_so_proto_rawDesc = "" +
 	"\x05delta\x18\x01 \x01(\x05R\x05delta\x12\x16\n" +
 	"\x06caller\x18\x02 \x01(\tR\x06caller\"1\n" +
 	"\x17ReadRuntimeStateRequest\x12\x16\n" +
-	"\x06caller\x18\x01 \x01(\tR\x06caller\"\x7f\n" +
+	"\x06caller\x18\x01 \x01(\tR\x06caller\"\x9d\x01\n" +
 	"\x14RuntimeStateResponse\x12\x14\n" +
 	"\x05value\x18\x01 \x01(\x03R\x05value\x12\x1a\n" +
-	"\brevision\x18\x02 \x01(\x03R\brevision\x12\x1d\n" +
-	"\n" +
-	"runtime_id\x18\x03 \x01(\tR\truntimeId\x12\x16\n" +
-	"\x06caller\x18\x04 \x01(\tR\x06caller2\x97\x03\n" +
+	"\brevision\x18\x02 \x01(\x03R\brevision\x12)\n" +
+	"\x10instance_address\x18\x03 \x01(\tR\x0finstanceAddress\x12\x16\n" +
+	"\x06caller\x18\x04 \x01(\tR\x06caller\x12\x10\n" +
+	"\x03pid\x18\x05 \x01(\x05R\x03pid2\x97\x03\n" +
 	"\fSharedSoDemo\x12~\n" +
 	"\x0fComposeGreeting\x124.examples.flutter.sharedso.v1.ComposeGreetingRequest\x1a5.examples.flutter.sharedso.v1.ComposeGreetingResponse\x12\x87\x01\n" +
 	"\x15IncrementRuntimeState\x12:.examples.flutter.sharedso.v1.IncrementRuntimeStateRequest\x1a2.examples.flutter.sharedso.v1.RuntimeStateResponse\x12}\n" +

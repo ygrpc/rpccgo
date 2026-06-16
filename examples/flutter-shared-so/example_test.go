@@ -70,8 +70,11 @@ func TestSharedSoDemoSharesMutableRuntimeState(t *testing.T) {
 	if got, want := observed.GetRevision(), updated.GetRevision(); got != want {
 		t.Fatalf("observed revision = %d, want %d", got, want)
 	}
-	if observed.GetRuntimeId() == "" || observed.GetRuntimeId() != updated.GetRuntimeId() {
-		t.Fatalf("runtime IDs differ: updated=%q observed=%q", updated.GetRuntimeId(), observed.GetRuntimeId())
+	if observed.GetInstanceAddress() == "" || observed.GetInstanceAddress() != updated.GetInstanceAddress() {
+		t.Fatalf("instance addresses differ: updated=%q observed=%q", updated.GetInstanceAddress(), observed.GetInstanceAddress())
+	}
+	if observed.GetPid() <= 0 || observed.GetPid() != updated.GetPid() {
+		t.Fatalf("PIDs differ or invalid: updated=%d observed=%d", updated.GetPid(), observed.GetPid())
 	}
 }
 
@@ -124,5 +127,17 @@ func assertFileContains(t *testing.T, path, fragment string) {
 	}
 	if !bytes.Contains(data, []byte(fragment)) {
 		t.Fatalf("%s missing %q", path, fragment)
+	}
+}
+
+func TestSharedSoDemoMageTestNoPanic(t *testing.T) {
+	cmd := exec.Command("go", "run", "github.com/magefile/mage", "test")
+	cmd.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("mage test error = %v\n%s", err, out)
+	}
+	if bytes.Contains(out, []byte("panic:")) {
+		t.Fatalf("mage test output contains panic:\n%s", out)
 	}
 }

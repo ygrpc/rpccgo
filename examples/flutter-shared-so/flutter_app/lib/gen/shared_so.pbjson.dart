@@ -8,7 +8,8 @@
 // ignore_for_file: constant_identifier_names
 // ignore_for_file: curly_braces_in_flow_control_structures
 // ignore_for_file: deprecated_member_use_from_same_package, library_prefixes
-// ignore_for_file: non_constant_identifier_names, unused_import
+// ignore_for_file: non_constant_identifier_names, prefer_relative_imports
+// ignore_for_file: unused_import
 
 import 'dart:convert' as $convert;
 import 'dart:core' as $core;
@@ -78,16 +79,17 @@ const RuntimeStateResponse$json = {
   '2': [
     {'1': 'value', '3': 1, '4': 1, '5': 3, '10': 'value'},
     {'1': 'revision', '3': 2, '4': 1, '5': 3, '10': 'revision'},
-    {'1': 'runtime_id', '3': 3, '4': 1, '5': 9, '10': 'runtimeId'},
+    {'1': 'instance_address', '3': 3, '4': 1, '5': 9, '10': 'instanceAddress'},
     {'1': 'caller', '3': 4, '4': 1, '5': 9, '10': 'caller'},
+    {'1': 'pid', '3': 5, '4': 1, '5': 5, '10': 'pid'},
   ],
 };
 
 /// Descriptor for `RuntimeStateResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List runtimeStateResponseDescriptor = $convert.base64Decode(
     'ChRSdW50aW1lU3RhdGVSZXNwb25zZRIUCgV2YWx1ZRgBIAEoA1IFdmFsdWUSGgoIcmV2aXNpb2'
-    '4YAiABKANSCHJldmlzaW9uEh0KCnJ1bnRpbWVfaWQYAyABKAlSCXJ1bnRpbWVJZBIWCgZjYWxs'
-    'ZXIYBCABKAlSBmNhbGxlcg==');
+    '4YAiABKANSCHJldmlzaW9uEikKEGluc3RhbmNlX2FkZHJlc3MYAyABKAlSD2luc3RhbmNlQWRk'
+    'cmVzcxIWCgZjYWxsZXIYBCABKAlSBmNhbGxlchIQCgNwaWQYBSABKAVSA3BpZA==');
 
 const $core.Map<$core.String, $core.dynamic> SharedSoDemoServiceBase$json = {
   '1': 'SharedSoDemo',

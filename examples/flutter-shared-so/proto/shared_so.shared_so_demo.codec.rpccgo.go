@@ -100,24 +100,26 @@ func convertSharedSoDemoIncrementRuntimeStateNativeToMessageRequest(delta int32,
 	return msg, nil
 }
 
-func convertSharedSoDemoIncrementRuntimeStateMessageToNativeResponse(msg *RuntimeStateResponse) (int64, int64, string, string, error) {
+func convertSharedSoDemoIncrementRuntimeStateMessageToNativeResponse(msg *RuntimeStateResponse) (int64, int64, string, string, int32, error) {
 	if msg == nil {
 		err := errors.New("rpccgo: message response is nil")
-		return 0, 0, "", "", err
+		return 0, 0, "", "", 0, err
 	}
 	value := msg.Value
 	revision := msg.Revision
-	runtimeId := msg.RuntimeId
+	instanceAddress := msg.InstanceAddress
 	caller := msg.Caller
-	return value, revision, runtimeId, caller, nil
+	pid := msg.Pid
+	return value, revision, instanceAddress, caller, pid, nil
 }
 
-func convertSharedSoDemoIncrementRuntimeStateNativeToMessageResponse(value int64, revision int64, runtimeId string, caller string) (*RuntimeStateResponse, error) {
+func convertSharedSoDemoIncrementRuntimeStateNativeToMessageResponse(value int64, revision int64, instanceAddress string, caller string, pid int32) (*RuntimeStateResponse, error) {
 	msg := &RuntimeStateResponse{}
 	msg.Value = value
 	msg.Revision = revision
-	msg.RuntimeId = runtimeId
+	msg.InstanceAddress = instanceAddress
 	msg.Caller = caller
+	msg.Pid = pid
 	return msg, nil
 }
 
@@ -148,23 +150,25 @@ func convertSharedSoDemoReadRuntimeStateNativeToMessageRequest(caller *rpcruntim
 	return msg, nil
 }
 
-func convertSharedSoDemoReadRuntimeStateMessageToNativeResponse(msg *RuntimeStateResponse) (int64, int64, string, string, error) {
+func convertSharedSoDemoReadRuntimeStateMessageToNativeResponse(msg *RuntimeStateResponse) (int64, int64, string, string, int32, error) {
 	if msg == nil {
 		err := errors.New("rpccgo: message response is nil")
-		return 0, 0, "", "", err
+		return 0, 0, "", "", 0, err
 	}
 	value := msg.Value
 	revision := msg.Revision
-	runtimeId := msg.RuntimeId
+	instanceAddress := msg.InstanceAddress
 	caller := msg.Caller
-	return value, revision, runtimeId, caller, nil
+	pid := msg.Pid
+	return value, revision, instanceAddress, caller, pid, nil
 }
 
-func convertSharedSoDemoReadRuntimeStateNativeToMessageResponse(value int64, revision int64, runtimeId string, caller string) (*RuntimeStateResponse, error) {
+func convertSharedSoDemoReadRuntimeStateNativeToMessageResponse(value int64, revision int64, instanceAddress string, caller string, pid int32) (*RuntimeStateResponse, error) {
 	msg := &RuntimeStateResponse{}
 	msg.Value = value
 	msg.Revision = revision
-	msg.RuntimeId = runtimeId
+	msg.InstanceAddress = instanceAddress
 	msg.Caller = caller
+	msg.Pid = pid
 	return msg, nil
 }
