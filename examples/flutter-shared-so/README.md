@@ -14,6 +14,24 @@
 - `internal/backend/`：Go service 实现。
 - `flutter_app/`：Android-only Flutter app，包含 Kotlin `MainActivity`、build hook 和 UI。
 
+## Android JNI 生成边界
+
+Android JNI 形态是：
+
+```text
+Kotlin -> Android C++ JNI shim -> Go c-shared rpccgo C ABI -> Go runtime
+```
+
+也就是说，Go shared library 只暴露 `rpccgoMsg...` 等 C ABI；Android 端 JNI adapter 由 C++ 编写并编译成独立 `.so`，再动态链接同一个 Go c-shared `.so`。这样 JNI 头文件、`JNIEnv`、`JavaVM*` 和 `Java_...` export 都留在 Android native 层，Go 侧保持普通 cgo C ABI。
+
+`protoc-gen-rpc-cgo-jni` 的目标生成物是：
+
+- Kotlin typed shim，例如 `SharedSoDemoJni.kt`
+- C++ JNI shim，例如 `shared_so.shared_so_demo.jni.cpp`
+
+它不生成或覆盖 `CMakeLists.txt`。Android 工程应自行维护 CMake 配置，把生成的 C++ shim 编译成 JNI adapter library，并链接 Go `-buildmode=c-shared` 产出的 `.so` 和 `.h`。
+
+
 ## 关键验证点
 
 Flutter 侧没有再打包第二份独立 native asset。`flutter_app/hook/build.dart` 为 `gen/rpccgo.dart` 注册 `DynamicLoadingSystem(Uri.file('librpccgo_flutter_shared.so'))`，因此 Dart `@Native` 绑定会按 SONAME 获取目标库的 handle，再从该 handle 解析符号。`MainActivity` 在启动时先执行：

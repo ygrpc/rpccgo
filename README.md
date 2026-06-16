@@ -132,27 +132,6 @@ protoc \
 
 `cgo_dir` 用于设置 cgo生成文件目录，路径相对 protobuf Go package 的生成目录解析。cgo 文件会生成到 `package main`，通常放在用于构建 `-buildmode=c-shared` 的 Go package 中。
 
-Android JNI message client 需要同时设置 `jni_client_dir` 和 `jni_class`：
-
-```bash
-protoc \
-  -I proto \
-  --go_out=gen --go_opt=paths=source_relative \
-  --connect-go_out=gen \
-  --connect-go_opt=paths=source_relative \
-  --connect-go_opt=package_suffix= \
-  --connect-go_opt=simple=true \
-  --rpc-cgo_out=gen --rpc-cgo_opt=paths=source_relative \
-  --rpc-cgo_opt=cgo_dir=../cmd/rpc \
-  --rpc-cgo_opt=jni_client_dir=../android/app/src/main/kotlin \
-  --rpc-cgo_opt=jni_class=com.example.app.GreeterJni \
-  proto/greeter.proto
-```
-
-`jni_client_dir` 是 Android Kotlin/Java source 根目录，路径同样相对 protobuf Go package 的生成目录解析。`jni_class` 必须是包含包名和类名的完全限定类名。两者必须同时提供；如果显式设置 `cgo_dir=` 为空，则不会生成 JNI 相关代码，因为 JNI Go bridge 必须生成到 cgo `package main` 中。
-
-JNI Go bridge 文件只在 Android+cgo 构建中参与编译，会带有 `//go:build android && cgo`。这是因为该文件包含 `jni.h` 并导出 `Java_...` JNI 符号；普通 cgo FFI 文件不依赖 Android NDK，因此不带这个 build tag。
-
 生成文件按 service 和能力拆分，常见文件包括：
 
 - `<proto>.<service>.runtime.rpccgo.go`
@@ -163,8 +142,6 @@ JNI Go bridge 文件只在 Android+cgo 构建中参与编译，会带有 `//go:b
 - `<proto>.<service>.client.message.cgo.rpccgo.go`
 - `<proto>.<service>.server.native.cgo.rpccgo.go`
 - `<proto>.<service>.server.message.cgo.rpccgo.go`
-- `<proto>.<service>.client.message.jni.rpccgo.go`
-- `<JniClass>.kt`
 - `rpccgo.exports.cgo.rpccgo.go`
 
 ## 注册 Server
@@ -312,6 +289,70 @@ protoc \
    ```
 
 *注：关于如何在 Android 下使 Flutter 和 Kotlin JNI 共享同一个 Go `.so` 运行时和内存状态，请参考 [examples/flutter-shared-so](examples/flutter-shared-so/README.md) 示例。*
+
+## Android JNI 接入 (protoc-gen-rpc-cgo-jni)
+
+`protoc-gen-rpc-cgo-jni` 是面向 Android 的 JNI adapter 生成器。它生成 Kotlin typed shim 和 C++ JNI shim；C++ shim 通过 Go `-buildmode=c-shared` 产出的 C ABI 调用 `rpccgoMsg...` 符号，不在 Go 文件中直接生成 `Java_...` JNI export。
+
+调用形态：
+
+```text
+Kotlin -> Android C++ JNI shim -> Go c-shared rpccgo C ABI -> Go runtime
+```
+
+生成示例：
+
+```bash
+protoc \
+  -I proto \
+  --rpc-cgo-jni_out=android/app/src/main \
+  --rpc-cgo-jni_opt=paths=source_relative \
+  --rpc-cgo-jni_opt=jni_class=com.example.app.GreeterJni \
+  --rpc-cgo-jni_opt=cpp_dir=cpp/rpccgo \
+  --rpc-cgo-jni_opt=kotlin_dir=kotlin \
+  --rpc-cgo-jni_opt=rpccgo_header=librpccgo_service.h \
+  proto/greeter.proto
+```
+
+生成参数说明：
+
+- `jni_class` (必填)：Kotlin JNI facade 的完全限定类名，例如 `com.example.app.GreeterJni`。生成器用它决定 Kotlin 文件路径、Kotlin object 名称，以及 C++ JNI 函数名。
+- `rpccgo_header` (必填)：Go `-buildmode=c-shared` 生成的 C header 文件名，例如 `librpccgo_service.h`。C++ JNI shim 会 include 这个 header 来调用 `rpccgoMsg...`、`rpccgoRelease` 和错误读取函数。
+- `cpp_dir` (默认 `cpp/rpccgo`)：相对 `--rpc-cgo-jni_out` 的 C++ 输出目录。例如 `--rpc-cgo-jni_out=android/app/src/main` 时，默认输出到 `android/app/src/main/cpp/rpccgo/`。
+- `kotlin_dir` (默认 `kotlin`)：相对 `--rpc-cgo-jni_out` 的 Kotlin source 根目录。例如默认输出到 `android/app/src/main/kotlin/<jni_class package>/`。
+- `paths=source_relative`：沿用 protoc 常规路径语义，控制按 proto source path 组织生成文件。
+
+生成产物：
+
+- `<proto>.<service>.jni.cpp`：Android C++ JNI shim。它负责 `jbyteArray` 与 C ABI buffer 转换、调用 Go c-shared message ABI、释放 Go 返回内存，并把结果 envelope 返回 Kotlin。
+- `<JniClass>.kt`：Kotlin typed shim。它声明 external native 方法，并暴露 protobuf JVM message 类型的 public API。
+
+生成器不会生成或覆盖 `CMakeLists.txt`。Android 工程应自行维护 CMake 配置，把生成的 C++ 文件编译成独立 JNI `.so`，并动态链接 Go c-shared `.so`。典型运行时会有两个 `.so`：
+
+- `librpccgo_service.so`：Go c-shared library，包含 Go runtime 和 rpccgo C ABI。
+- `lib<jni_adapter>.so`：Android C++ JNI adapter，依赖并调用 `librpccgo_service.so`。
+
+Kotlin 侧应确保先加载 Go c-shared library，再加载 JNI adapter：
+
+```kotlin
+System.loadLibrary("rpccgo_service")
+System.loadLibrary("greeter_jni")
+```
+
+C++ JNI shim 默认应包含 `JNI_OnLoad` 和 `JNI_OnUnload`，保存并清除 `JavaVM*`，为后续 stream、callback 或跨线程场景保留 JVM attachment 能力：
+
+```cpp
+static JavaVM* javaVM = nullptr;
+
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) {
+    javaVM = vm;
+    return JNI_VERSION_1_6;
+}
+
+JNIEXPORT void JNICALL JNI_OnUnload(JavaVM*, void*) {
+    javaVM = nullptr;
+}
+```
 
 ## Examples
 
