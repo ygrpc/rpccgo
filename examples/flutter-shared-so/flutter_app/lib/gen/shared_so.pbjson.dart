@@ -109,6 +109,12 @@ const $core.Map<$core.String, $core.dynamic> SharedSoDemoServiceBase$json = {
       '2': '.examples.flutter.sharedso.v1.ReadRuntimeStateRequest',
       '3': '.examples.flutter.sharedso.v1.RuntimeStateResponse'
     },
+    {
+      '1': 'WatchRuntimeState',
+      '2': '.examples.flutter.sharedso.v1.ReadRuntimeStateRequest',
+      '3': '.examples.flutter.sharedso.v1.RuntimeStateResponse',
+      '6': true
+    },
   ],
 };
 
@@ -136,4 +142,6 @@ final $typed_data.Uint8List sharedSoDemoServiceDescriptor = $convert.base64Decod
     'ZXF1ZXN0GjIuZXhhbXBsZXMuZmx1dHRlci5zaGFyZWRzby52MS5SdW50aW1lU3RhdGVSZXNwb2'
     '5zZRJ9ChBSZWFkUnVudGltZVN0YXRlEjUuZXhhbXBsZXMuZmx1dHRlci5zaGFyZWRzby52MS5S'
     'ZWFkUnVudGltZVN0YXRlUmVxdWVzdBoyLmV4YW1wbGVzLmZsdXR0ZXIuc2hhcmVkc28udjEuUn'
-    'VudGltZVN0YXRlUmVzcG9uc2U=');
+    'VudGltZVN0YXRlUmVzcG9uc2USgAEKEVdhdGNoUnVudGltZVN0YXRlEjUuZXhhbXBsZXMuZmx1'
+    'dHRlci5zaGFyZWRzby52MS5SZWFkUnVudGltZVN0YXRlUmVxdWVzdBoyLmV4YW1wbGVzLmZsdX'
+    'R0ZXIuc2hhcmVkc28udjEuUnVudGltZVN0YXRlUmVzcG9uc2UwAQ==');

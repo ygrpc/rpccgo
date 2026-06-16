@@ -26,9 +26,6 @@ func ValidatePackagePlan(pkg PackagePlan) error {
 	if pkg.GoImportPath == "" {
 		return fmt.Errorf("go import path is empty")
 	}
-	if pkg.CGODir == "" {
-		return fmt.Errorf("cgo dir is empty")
-	}
 	if err := validateArtifacts(pkg.SharedArtifacts, true); err != nil {
 		return err
 	}
@@ -71,9 +68,6 @@ func ValidateFilePlan(file FilePlan) error {
 	}
 	if file.GeneratedFilenamePrefix == "" {
 		return fmt.Errorf("generated filename prefix is empty")
-	}
-	if file.CGODir == "" {
-		return fmt.Errorf("cgo dir is empty")
 	}
 	serviceKinds := make(map[string]map[GeneratedArtifactKind]bool)
 	for si, service := range file.Services {
@@ -153,7 +147,9 @@ func isServiceArtifactKind(kind GeneratedArtifactKind) bool {
 		GeneratedArtifactKindCGONativeClient,
 		GeneratedArtifactKindMessageServer,
 		GeneratedArtifactKindCGOMessageServer,
-		GeneratedArtifactKindCGOMessageClient:
+		GeneratedArtifactKindCGOMessageClient,
+		GeneratedArtifactKindJNIMessageClient,
+		GeneratedArtifactKindJNIKotlinClient:
 		return true
 	default:
 		return false

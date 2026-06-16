@@ -424,6 +424,12 @@ class SharedSoDemoApi {
           $pb.ClientContext? ctx, ReadRuntimeStateRequest request) =>
       _client.invoke<RuntimeStateResponse>(ctx, 'SharedSoDemo',
           'ReadRuntimeState', request, RuntimeStateResponse());
+
+  /// WatchRuntimeState streams runtime state snapshots through the Kotlin/JNI path.
+  $async.Future<RuntimeStateResponse> watchRuntimeState(
+          $pb.ClientContext? ctx, ReadRuntimeStateRequest request) =>
+      _client.invoke<RuntimeStateResponse>(ctx, 'SharedSoDemo',
+          'WatchRuntimeState', request, RuntimeStateResponse());
 }
 
 const $core.bool _omitFieldNames =

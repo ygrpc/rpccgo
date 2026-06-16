@@ -41,6 +41,9 @@ const (
 	// SharedSoDemoReadRuntimeStateProcedure is the fully-qualified name of the SharedSoDemo's
 	// ReadRuntimeState RPC.
 	SharedSoDemoReadRuntimeStateProcedure = "/examples.flutter.sharedso.v1.SharedSoDemo/ReadRuntimeState"
+	// SharedSoDemoWatchRuntimeStateProcedure is the fully-qualified name of the SharedSoDemo's
+	// WatchRuntimeState RPC.
+	SharedSoDemoWatchRuntimeStateProcedure = "/examples.flutter.sharedso.v1.SharedSoDemo/WatchRuntimeState"
 )
 
 // SharedSoDemoClient is a client for the examples.flutter.sharedso.v1.SharedSoDemo service.
@@ -51,6 +54,8 @@ type SharedSoDemoClient interface {
 	IncrementRuntimeState(context.Context, *IncrementRuntimeStateRequest) (*RuntimeStateResponse, error)
 	// ReadRuntimeState observes the same state through the Kotlin/JNI path.
 	ReadRuntimeState(context.Context, *ReadRuntimeStateRequest) (*RuntimeStateResponse, error)
+	// WatchRuntimeState streams runtime state snapshots through the Kotlin/JNI path.
+	WatchRuntimeState(context.Context, *ReadRuntimeStateRequest) (*connect.ServerStreamForClient[RuntimeStateResponse], error)
 }
 
 // NewSharedSoDemoClient constructs a client for the examples.flutter.sharedso.v1.SharedSoDemo
@@ -82,6 +87,12 @@ func NewSharedSoDemoClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(sharedSoDemoMethods.ByName("ReadRuntimeState")),
 			connect.WithClientOptions(opts...),
 		),
+		watchRuntimeState: connect.NewClient[ReadRuntimeStateRequest, RuntimeStateResponse](
+			httpClient,
+			baseURL+SharedSoDemoWatchRuntimeStateProcedure,
+			connect.WithSchema(sharedSoDemoMethods.ByName("WatchRuntimeState")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -90,6 +101,7 @@ type sharedSoDemoClient struct {
 	composeGreeting       *connect.Client[ComposeGreetingRequest, ComposeGreetingResponse]
 	incrementRuntimeState *connect.Client[IncrementRuntimeStateRequest, RuntimeStateResponse]
 	readRuntimeState      *connect.Client[ReadRuntimeStateRequest, RuntimeStateResponse]
+	watchRuntimeState     *connect.Client[ReadRuntimeStateRequest, RuntimeStateResponse]
 }
 
 // ComposeGreeting calls examples.flutter.sharedso.v1.SharedSoDemo.ComposeGreeting.
@@ -119,6 +131,11 @@ func (c *sharedSoDemoClient) ReadRuntimeState(ctx context.Context, req *ReadRunt
 	return nil, err
 }
 
+// WatchRuntimeState calls examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState.
+func (c *sharedSoDemoClient) WatchRuntimeState(ctx context.Context, req *ReadRuntimeStateRequest) (*connect.ServerStreamForClient[RuntimeStateResponse], error) {
+	return c.watchRuntimeState.CallServerStream(ctx, connect.NewRequest(req))
+}
+
 // SharedSoDemoHandler is an implementation of the examples.flutter.sharedso.v1.SharedSoDemo
 // service.
 type SharedSoDemoHandler interface {
@@ -128,6 +145,8 @@ type SharedSoDemoHandler interface {
 	IncrementRuntimeState(context.Context, *IncrementRuntimeStateRequest) (*RuntimeStateResponse, error)
 	// ReadRuntimeState observes the same state through the Kotlin/JNI path.
 	ReadRuntimeState(context.Context, *ReadRuntimeStateRequest) (*RuntimeStateResponse, error)
+	// WatchRuntimeState streams runtime state snapshots through the Kotlin/JNI path.
+	WatchRuntimeState(context.Context, *ReadRuntimeStateRequest, *connect.ServerStream[RuntimeStateResponse]) error
 }
 
 // NewSharedSoDemoHandler builds an HTTP handler from the service implementation. It returns the
@@ -155,6 +174,12 @@ func NewSharedSoDemoHandler(svc SharedSoDemoHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(sharedSoDemoMethods.ByName("ReadRuntimeState")),
 		connect.WithHandlerOptions(opts...),
 	)
+	sharedSoDemoWatchRuntimeStateHandler := connect.NewServerStreamHandlerSimple(
+		SharedSoDemoWatchRuntimeStateProcedure,
+		svc.WatchRuntimeState,
+		connect.WithSchema(sharedSoDemoMethods.ByName("WatchRuntimeState")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/examples.flutter.sharedso.v1.SharedSoDemo/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SharedSoDemoComposeGreetingProcedure:
@@ -163,6 +188,8 @@ func NewSharedSoDemoHandler(svc SharedSoDemoHandler, opts ...connect.HandlerOpti
 			sharedSoDemoIncrementRuntimeStateHandler.ServeHTTP(w, r)
 		case SharedSoDemoReadRuntimeStateProcedure:
 			sharedSoDemoReadRuntimeStateHandler.ServeHTTP(w, r)
+		case SharedSoDemoWatchRuntimeStateProcedure:
+			sharedSoDemoWatchRuntimeStateHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -182,4 +209,8 @@ func (UnimplementedSharedSoDemoHandler) IncrementRuntimeState(context.Context, *
 
 func (UnimplementedSharedSoDemoHandler) ReadRuntimeState(context.Context, *ReadRuntimeStateRequest) (*RuntimeStateResponse, error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("examples.flutter.sharedso.v1.SharedSoDemo.ReadRuntimeState is not implemented"))
+}
+
+func (UnimplementedSharedSoDemoHandler) WatchRuntimeState(context.Context, *ReadRuntimeStateRequest, *connect.ServerStream[RuntimeStateResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState is not implemented"))
 }

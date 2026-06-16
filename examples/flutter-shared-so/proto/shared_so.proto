@@ -3,6 +3,8 @@ syntax = "proto3";
 package examples.flutter.sharedso.v1;
 
 option go_package = "example.com/rpccgo-flutter-shared-so/proto;fluttersharedv1";
+option java_package = "examples.flutter.sharedso.v1";
+option java_multiple_files = true;
 
 // ComposeGreetingRequest carries the caller label and greeting target.
 message ComposeGreetingRequest {
@@ -48,4 +50,7 @@ service SharedSoDemo {
 
   // ReadRuntimeState observes the same state through the Kotlin/JNI path.
   rpc ReadRuntimeState(ReadRuntimeStateRequest) returns (RuntimeStateResponse);
+
+  // WatchRuntimeState streams runtime state snapshots through the Kotlin/JNI path.
+  rpc WatchRuntimeState(ReadRuntimeStateRequest) returns (stream RuntimeStateResponse);
 }

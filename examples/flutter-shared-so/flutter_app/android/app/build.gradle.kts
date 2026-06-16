@@ -1,11 +1,16 @@
+import com.google.protobuf.gradle.id
+import com.google.protobuf.gradle.proto
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+    id("com.google.protobuf")
 }
 
 val flutterAppDir = rootProject.projectDir.parentFile
 val exampleDir = flutterAppDir.parentFile
+val protoDir = exampleDir.resolve("proto")
 val buildSharedSoForAndroid by tasks.registering(Exec::class) {
     group = "build"
     description = "Builds the rpccgo Android shared libraries consumed by Flutter FFI and Kotlin/JNI."
@@ -47,8 +52,16 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
         }
     }
+}
+
+dependencies {
+    implementation("com.google.protobuf:protobuf-javalite:4.33.2")
 }
 
 tasks.named("preBuild") {
@@ -58,6 +71,27 @@ tasks.named("preBuild") {
 kotlin {
     compilerOptions {
         jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:4.33.2"
+    }
+    generateProtoTasks {
+        all().forEach { task ->
+            task.builtins {
+                id("java") {
+                    option("lite")
+                }
+            }
+        }
+    }
+}
+
+android.sourceSets.named("main") {
+    proto {
+        srcDir(protoDir)
     }
 }
 

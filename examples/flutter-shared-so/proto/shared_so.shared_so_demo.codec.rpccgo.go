@@ -172,3 +172,53 @@ func convertSharedSoDemoReadRuntimeStateNativeToMessageResponse(value int64, rev
 	msg.Pid = pid
 	return msg, nil
 }
+
+func convertSharedSoDemoWatchRuntimeStateMessageToNativeRequest(msg *ReadRuntimeStateRequest) (*rpcruntime.RpcString, any, error) {
+	if msg == nil {
+		return nil, nil, errors.New("rpccgo: message request is nil")
+	}
+	// Returned native wrappers borrow from msg and reqOwner-owned buffers.
+	// Callers must keep the returned owner alive until the synchronous native call returns.
+	reqOwner := []any{msg}
+	var err error
+	var caller *rpcruntime.RpcString
+	if msg.Caller != "" {
+		caller, err = rpcruntime.NewRpcStringChecked(unsafe.StringData(msg.Caller), int32(len(msg.Caller)), false)
+		if err != nil {
+			return nil, reqOwner, err
+		}
+	} else {
+		caller = rpcruntime.EmptyRpcString()
+	}
+	return caller, reqOwner, nil
+}
+
+func convertSharedSoDemoWatchRuntimeStateNativeToMessageRequest(caller *rpcruntime.RpcString) (*ReadRuntimeStateRequest, error) {
+	msg := &ReadRuntimeStateRequest{}
+	msg.Caller = caller.UnsafeString()
+	goruntime.KeepAlive(caller)
+	return msg, nil
+}
+
+func convertSharedSoDemoWatchRuntimeStateMessageToNativeResponse(msg *RuntimeStateResponse) (int64, int64, string, string, int32, error) {
+	if msg == nil {
+		err := errors.New("rpccgo: message response is nil")
+		return 0, 0, "", "", 0, err
+	}
+	value := msg.Value
+	revision := msg.Revision
+	instanceAddress := msg.InstanceAddress
+	caller := msg.Caller
+	pid := msg.Pid
+	return value, revision, instanceAddress, caller, pid, nil
+}
+
+func convertSharedSoDemoWatchRuntimeStateNativeToMessageResponse(value int64, revision int64, instanceAddress string, caller string, pid int32) (*RuntimeStateResponse, error) {
+	msg := &RuntimeStateResponse{}
+	msg.Value = value
+	msg.Revision = revision
+	msg.InstanceAddress = instanceAddress
+	msg.Caller = caller
+	msg.Pid = pid
+	return msg, nil
+}

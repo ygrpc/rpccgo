@@ -3,6 +3,7 @@ package generator
 import (
 	"fmt"
 	"path"
+	"strings"
 )
 
 // AttachServiceArtifactPlans fills each service with the generated artifact list derived from file options.
@@ -19,20 +20,34 @@ func AttachServiceArtifactPlans(file *FilePlan) {
 func BuildServiceArtifactPlans(file FilePlan, service ServicePlan) []GeneratedArtifactPlan {
 	serviceName := lowerSnakeCase(service.GoName)
 	prefix := file.GeneratedFilenamePrefix
-	cgoPrefix := path.Join(path.Dir(prefix), cgoDirForFilePlan(file), path.Base(prefix))
 
 	artifacts := []GeneratedArtifactPlan{
 		{Kind: GeneratedArtifactKindRuntime, Filename: fmt.Sprintf("%s.%s.runtime.rpccgo.go", prefix, serviceName)},
 		{Kind: GeneratedArtifactKindCodec, Filename: fmt.Sprintf("%s.%s.codec.rpccgo.go", prefix, serviceName)},
 		{Kind: GeneratedArtifactKindMessageServer, Filename: fmt.Sprintf("%s.%s.server.message.rpccgo.go", prefix, serviceName)},
-		{Kind: GeneratedArtifactKindCGOMessageServer, Filename: fmt.Sprintf("%s.%s.server.message.cgo.rpccgo.go", cgoPrefix, serviceName)},
-		{Kind: GeneratedArtifactKindCGOMessageClient, Filename: fmt.Sprintf("%s.%s.client.message.cgo.rpccgo.go", cgoPrefix, serviceName)},
+	}
+	if cgoArtifactsEnabledForFilePlan(file) {
+		cgoPrefix := path.Join(path.Dir(prefix), cgoDirForFilePlan(file), path.Base(prefix))
+		artifacts = append(artifacts,
+			GeneratedArtifactPlan{Kind: GeneratedArtifactKindCGOMessageServer, Filename: fmt.Sprintf("%s.%s.server.message.cgo.rpccgo.go", cgoPrefix, serviceName)},
+			GeneratedArtifactPlan{Kind: GeneratedArtifactKindCGOMessageClient, Filename: fmt.Sprintf("%s.%s.client.message.cgo.rpccgo.go", cgoPrefix, serviceName)},
+		)
+		if file.JNIClass != "" && file.JNIClientDir != "" {
+			artifacts = append(artifacts,
+				GeneratedArtifactPlan{Kind: GeneratedArtifactKindJNIMessageClient, Filename: fmt.Sprintf("%s.%s.client.message.jni.rpccgo.go", cgoPrefix, serviceName)},
+				GeneratedArtifactPlan{Kind: GeneratedArtifactKindJNIKotlinClient, Filename: jniKotlinClientFilename(file)},
+			)
+		}
+		if service.Generation.NativeEnabled {
+			artifacts = append(artifacts,
+				GeneratedArtifactPlan{Kind: GeneratedArtifactKindCGONativeServer, Filename: fmt.Sprintf("%s.%s.server.native.cgo.rpccgo.go", cgoPrefix, serviceName)},
+				GeneratedArtifactPlan{Kind: GeneratedArtifactKindCGONativeClient, Filename: fmt.Sprintf("%s.%s.client.native.cgo.rpccgo.go", cgoPrefix, serviceName)},
+			)
+		}
 	}
 	if service.Generation.NativeEnabled {
 		artifacts = append(artifacts,
 			GeneratedArtifactPlan{Kind: GeneratedArtifactKindNativeServer, Filename: fmt.Sprintf("%s.%s.server.native.rpccgo.go", prefix, serviceName)},
-			GeneratedArtifactPlan{Kind: GeneratedArtifactKindCGONativeServer, Filename: fmt.Sprintf("%s.%s.server.native.cgo.rpccgo.go", cgoPrefix, serviceName)},
-			GeneratedArtifactPlan{Kind: GeneratedArtifactKindCGONativeClient, Filename: fmt.Sprintf("%s.%s.client.native.cgo.rpccgo.go", cgoPrefix, serviceName)},
 		)
 	}
 	return artifacts
@@ -72,7 +87,7 @@ func packageHasCGOArtifacts(pkg PackagePlan) bool {
 		for _, service := range file.Services {
 			for _, artifact := range service.Artifacts {
 				switch artifact.Kind {
-				case GeneratedArtifactKindCGONativeServer, GeneratedArtifactKindCGONativeClient, GeneratedArtifactKindCGOMessageServer, GeneratedArtifactKindCGOMessageClient:
+				case GeneratedArtifactKindCGONativeServer, GeneratedArtifactKindCGONativeClient, GeneratedArtifactKindCGOMessageServer, GeneratedArtifactKindCGOMessageClient, GeneratedArtifactKindJNIMessageClient:
 					return true
 				}
 			}
@@ -86,6 +101,15 @@ func cgoDirForFilePlan(file FilePlan) string {
 		return defaultCGODir
 	}
 	return file.CGODir
+}
+
+func cgoArtifactsEnabledForFilePlan(file FilePlan) bool {
+	return file.CGODir != ""
+}
+
+func jniKotlinClientFilename(file FilePlan) string {
+	pkg, className := jniClassPackageAndSimpleName(file.JNIClass)
+	return path.Join(path.Dir(file.GeneratedFilenamePrefix), file.JNIClientDir, path.Join(strings.Split(pkg, ".")...), className+".kt")
 }
 
 func cgoDirForPackagePlan(pkg PackagePlan) string {

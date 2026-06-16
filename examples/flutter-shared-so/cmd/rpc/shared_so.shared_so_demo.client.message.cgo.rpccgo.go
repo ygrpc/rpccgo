@@ -114,3 +114,80 @@ func rpccgoMsgFluttersharedv1SharedSoDemoReadRuntimeState(requestPtr C.uintptr_t
 	*responseLen = C.int32_t(length)
 	return 0
 }
+
+// rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart starts the message server-streaming client entrypoint for examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState.
+//
+//export rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart
+func rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart(requestPtr C.uintptr_t, requestLen C.int32_t, handle *C.int32_t) C.int32_t {
+	ctx := context.Background()
+	if handle != nil {
+		*handle = 0
+	}
+	if handle == nil {
+		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client handle pointer is nil")))
+	}
+	req := &proto.ReadRuntimeStateRequest{}
+	if err := rpcruntime.DecodeMessage(uintptr(requestPtr), int32(requestLen), req); err != nil {
+		return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request decode failed: %w", err)))
+	}
+	handleValue, err := proto.StartSharedSoDemoMessageWatchRuntimeState(ctx, req)
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	*handle = C.int32_t(int32(handleValue))
+	return 0
+}
+
+// rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateRead reads a message response from the server-streaming client entrypoint for examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState.
+//
+//export rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateRead
+func rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateRead(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
+	ctx := context.Background()
+	if responsePtr != nil {
+		*responsePtr = 0
+	}
+	if responseLen != nil {
+		*responseLen = 0
+	}
+	if responsePtr == nil || responseLen == nil {
+		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client output pointer is nil")))
+	}
+	handleValue := int32(handle)
+	resp, err := proto.RecvSharedSoDemoMessageWatchRuntimeState(ctx, rpcruntime.StreamHandle(handleValue))
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	ptr, length, err := rpcruntime.EncodeMessage(resp)
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))
+	}
+	*responsePtr = C.uintptr_t(ptr)
+	*responseLen = C.int32_t(length)
+	return 0
+}
+
+// rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateFinish finishes the message server-streaming client entrypoint for examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState.
+//
+//export rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateFinish
+func rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateFinish(handle C.int32_t) C.int32_t {
+	ctx := context.Background()
+	handleValue := int32(handle)
+	err := proto.FinishSharedSoDemoMessageWatchRuntimeState(ctx, rpcruntime.StreamHandle(handleValue))
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	return 0
+}
+
+// rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateCancel cancels the message server-streaming client entrypoint for examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState.
+//
+//export rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateCancel
+func rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateCancel(handle C.int32_t) C.int32_t {
+	ctx := context.Background()
+	handleValue := int32(handle)
+	err := proto.CancelSharedSoDemoMessageWatchRuntimeState(ctx, rpcruntime.StreamHandle(handleValue))
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	return 0
+}

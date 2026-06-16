@@ -41,6 +41,18 @@ external int _incrementRuntimeStateRaw(int requestPtr, int requestLen, ffi.Point
 @ffi.Native<_RpccgoMessageUnaryCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoReadRuntimeState')
 external int _readRuntimeStateRaw(int requestPtr, int requestLen, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
 
+@ffi.Native<_RpccgoServerStreamStartCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart')
+external int _watchRuntimeStateStartRaw(int requestPtr, int requestLen, ffi.Pointer<ffi.Int32> handle);
+
+@ffi.Native<_RpccgoStreamReadCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateRead')
+external int _watchRuntimeStateReadRaw(int handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
+
+@ffi.Native<_RpccgoStreamFinishVoidCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateFinish')
+external int _watchRuntimeStateFinishRaw(int handle);
+
+@ffi.Native<_RpccgoStreamCancelCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateCancel')
+external int _watchRuntimeStateCancelRaw(int handle);
+
 class SharedSoDemoRpccgoClient {
 const SharedSoDemoRpccgoClient();
 pb.ComposeGreetingResponse ComposeGreeting(pb.ComposeGreetingRequest request) {
@@ -94,6 +106,20 @@ pkg_ffi.calloc.free(responseLen);
 }
 }
 
+SharedSoDemoWatchRuntimeStateStream WatchRuntimeState(pb.ReadRuntimeStateRequest request) {
+final handlePtr = pkg_ffi.calloc<ffi.Int32>();
+final requestBytes = request.writeToBuffer();
+final requestPtr = _allocateBytes(requestBytes);
+try {
+final errID = _watchRuntimeStateStartRaw(requestPtr.address, requestBytes.length, handlePtr);
+_throwIfError(errID);
+return SharedSoDemoWatchRuntimeStateStream._(this, handlePtr.value);
+} finally {
+pkg_ffi.calloc.free(requestPtr);
+pkg_ffi.calloc.free(handlePtr);
+}
+}
+
 ffi.Pointer<ffi.Uint8> _allocateBytes(List<int> data) {
 final ptr = pkg_ffi.calloc<ffi.Uint8>(data.length);
 ptr.asTypedList(data.length).setAll(0, data);
@@ -139,6 +165,33 @@ return convert.utf8.decode(data);
 pkg_ffi.calloc.free(textPtr);
 pkg_ffi.calloc.free(textLen);
 }
+}
+}
+
+class SharedSoDemoWatchRuntimeStateStream {
+SharedSoDemoWatchRuntimeStateStream._(this._client, this._handle);
+final SharedSoDemoRpccgoClient _client;
+final int _handle;
+pb.RuntimeStateResponse read() {
+final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
+final responseLen = pkg_ffi.calloc<ffi.Int32>();
+try {
+final errID = _watchRuntimeStateReadRaw(_handle, responsePtr, responseLen);
+_client._throwIfError(errID);
+final responseBytes = _client._takeBytes(responsePtr.value, responseLen.value);
+return pb.RuntimeStateResponse.fromBuffer(responseBytes);
+} finally {
+pkg_ffi.calloc.free(responsePtr);
+pkg_ffi.calloc.free(responseLen);
+}
+}
+void finish() {
+final errID = _watchRuntimeStateFinishRaw(_handle);
+_client._throwIfError(errID);
+}
+void cancel() {
+final errID = _watchRuntimeStateCancelRaw(_handle);
+_client._throwIfError(errID);
 }
 }
 

@@ -8,6 +8,8 @@ import (
 	context "context"
 	errors "errors"
 	fmt "fmt"
+	io "io"
+	connect "connectrpc.com/connect"
 	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
 
@@ -58,6 +60,91 @@ func RegisterSharedSoDemoConnectRemoteServer(client SharedSoDemoClient) error {
 	if err != nil {
 		_ = rpcruntime.ClearServer(sharedSoDemoServiceID)
 		return err
+	}
+	return nil
+}
+
+func newsharedSoDemoWatchRuntimeStateConnectDirectMessageStreamSession(ctx context.Context, handler SharedSoDemoHandler, req *ReadRuntimeStateRequest) (rpcruntime.ServerStreamingClient[*RuntimeStateResponse], error) {
+	if req == nil {
+		return nil, errors.New("rpccgo: message request is nil")
+	}
+	client, stream, streamCtx := rpcruntime.NewServerStreaming[*RuntimeStateResponse](ctx, rpcruntime.LocalStreamOptions{
+		ResponseBuffer: 1,
+		StreamClosed:   errors.New("rpccgo: message stream is closed"),
+		NilResponse:    errors.New("rpccgo: message response is nil"),
+	})
+	go func() {
+		conn := &rpcruntime.ConnectStreamingHandlerConn{SendFunc: func(message any) error {
+			resp, ok := message.(*RuntimeStateResponse)
+			if !ok || resp == nil {
+				return errors.New("rpccgo: connect handler stream response type mismatch")
+			}
+			return stream.Send(streamCtx, resp)
+		}}
+		stream.Complete(handler.WatchRuntimeState(streamCtx, req, rpcruntime.NewConnectServerStream[RuntimeStateResponse](conn)))
+	}()
+	return client, nil
+}
+
+func newsharedSoDemoWatchRuntimeStateConnectRemoteMessageStreamSession(ctx context.Context, client interface {
+	WatchRuntimeState(context.Context, *ReadRuntimeStateRequest) (*connect.ServerStreamForClient[RuntimeStateResponse], error)
+}, req *ReadRuntimeStateRequest) (*sharedSoDemoWatchRuntimeStateConnectRemoteMessageStreamSession, error) {
+	if req == nil {
+		return nil, errors.New("rpccgo: message request is nil")
+	}
+	streamCtx, cancel := context.WithCancel(ctx)
+	stream, err := client.WatchRuntimeState(streamCtx, req)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	return &sharedSoDemoWatchRuntimeStateConnectRemoteMessageStreamSession{stream: stream, cancel: cancel}, nil
+}
+
+type sharedSoDemoWatchRuntimeStateConnectRemoteMessageStreamSession struct {
+	stream *connect.ServerStreamForClient[RuntimeStateResponse]
+	cancel context.CancelFunc
+}
+
+func (s *sharedSoDemoWatchRuntimeStateConnectRemoteMessageStreamSession) Recv(ctx context.Context) (*RuntimeStateResponse, error) {
+	_ = ctx
+	if s == nil {
+		return nil, errors.New("rpccgo: connect remote server stream is nil")
+	}
+	if s.stream == nil {
+		return nil, errors.New("rpccgo: connect remote server stream is nil")
+	}
+	if !s.stream.Receive() {
+		if err := s.stream.Err(); err != nil {
+			return nil, err
+		}
+		return nil, io.EOF
+	}
+	msg := s.stream.Msg()
+	if msg == nil {
+		return nil, errors.New("rpccgo: message response is nil")
+	}
+	return msg, nil
+}
+
+func (s *sharedSoDemoWatchRuntimeStateConnectRemoteMessageStreamSession) Finish(ctx context.Context) error {
+	_ = ctx
+	if s == nil || s.stream == nil {
+		return nil
+	}
+	if s.cancel != nil {
+		defer s.cancel()
+	}
+	return s.stream.Close()
+}
+
+func (s *sharedSoDemoWatchRuntimeStateConnectRemoteMessageStreamSession) Cancel(ctx context.Context) error {
+	_ = ctx
+	if s == nil || s.stream == nil {
+		return nil
+	}
+	if s.cancel != nil {
+		s.cancel()
 	}
 	return nil
 }
@@ -221,5 +308,50 @@ func InvokeSharedSoDemoMessageReadRuntimeState(ctx context.Context, req *ReadRun
 		return messageResp, nil
 	default:
 		return nil, fmt.Errorf("rpccgo: SharedSoDemo registered server kind %d is unsupported for message calls", registered.Kind)
+	}
+}
+
+// StartSharedSoDemoMessageWatchRuntimeState starts a message contract stream for WatchRuntimeState on the current registered server.
+func StartSharedSoDemoMessageWatchRuntimeState(ctx context.Context, req *ReadRuntimeStateRequest) (rpcruntime.StreamHandle, error) {
+	if req == nil {
+		return 0, errors.New("rpccgo: message request is nil")
+	}
+	registered, err := rpcruntime.LoadServer(sharedSoDemoServiceID)
+	if err != nil {
+		return 0, err
+	}
+	switch registered.Kind {
+	case rpcruntime.ServerKindCGOMessage:
+		server, ok := registered.Server.(SharedSoDemoCGOMessageServer)
+		if !ok {
+			return 0, fmt.Errorf("rpccgo: SharedSoDemo cgo message registered server has invalid type")
+		}
+		source, err := startSharedSoDemoCGOMessageWatchRuntimeState(ctx, server, req)
+		if err != nil {
+			return 0, err
+		}
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindCGOMessage, source)
+	case rpcruntime.ServerKindConnect:
+		server, ok := registered.Server.(SharedSoDemoHandler)
+		if !ok {
+			return 0, fmt.Errorf("rpccgo: SharedSoDemo connect handler registered server has invalid type")
+		}
+		source, err := newsharedSoDemoWatchRuntimeStateConnectDirectMessageStreamSession(ctx, server, req)
+		if err != nil {
+			return 0, err
+		}
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindConnect, source)
+	case rpcruntime.ServerKindConnectRemote:
+		server, ok := registered.Server.(SharedSoDemoClient)
+		if !ok {
+			return 0, fmt.Errorf("rpccgo: SharedSoDemo connect remote registered server has invalid type")
+		}
+		source, err := newsharedSoDemoWatchRuntimeStateConnectRemoteMessageStreamSession(ctx, server, req)
+		if err != nil {
+			return 0, err
+		}
+		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindConnectRemote, source)
+	default:
+		return 0, fmt.Errorf("rpccgo: SharedSoDemo registered server kind %d is unsupported for message stream starts", registered.Kind)
 	}
 }

@@ -132,6 +132,27 @@ protoc \
 
 `cgo_dir` 用于设置 cgo生成文件目录，路径相对 protobuf Go package 的生成目录解析。cgo 文件会生成到 `package main`，通常放在用于构建 `-buildmode=c-shared` 的 Go package 中。
 
+Android JNI message client 需要同时设置 `jni_client_dir` 和 `jni_class`：
+
+```bash
+protoc \
+  -I proto \
+  --go_out=gen --go_opt=paths=source_relative \
+  --connect-go_out=gen \
+  --connect-go_opt=paths=source_relative \
+  --connect-go_opt=package_suffix= \
+  --connect-go_opt=simple=true \
+  --rpc-cgo_out=gen --rpc-cgo_opt=paths=source_relative \
+  --rpc-cgo_opt=cgo_dir=../cmd/rpc \
+  --rpc-cgo_opt=jni_client_dir=../android/app/src/main/kotlin \
+  --rpc-cgo_opt=jni_class=com.example.app.GreeterJni \
+  proto/greeter.proto
+```
+
+`jni_client_dir` 是 Android Kotlin/Java source 根目录，路径同样相对 protobuf Go package 的生成目录解析。`jni_class` 必须是包含包名和类名的完全限定类名。两者必须同时提供；如果显式设置 `cgo_dir=` 为空，则不会生成 JNI 相关代码，因为 JNI Go bridge 必须生成到 cgo `package main` 中。
+
+JNI Go bridge 文件只在 Android+cgo 构建中参与编译，会带有 `//go:build android && cgo`。这是因为该文件包含 `jni.h` 并导出 `Java_...` JNI 符号；普通 cgo FFI 文件不依赖 Android NDK，因此不带这个 build tag。
+
 生成文件按 service 和能力拆分，常见文件包括：
 
 - `<proto>.<service>.runtime.rpccgo.go`
@@ -142,6 +163,8 @@ protoc \
 - `<proto>.<service>.client.message.cgo.rpccgo.go`
 - `<proto>.<service>.server.native.cgo.rpccgo.go`
 - `<proto>.<service>.server.message.cgo.rpccgo.go`
+- `<proto>.<service>.client.message.jni.rpccgo.go`
+- `<JniClass>.kt`
 - `rpccgo.exports.cgo.rpccgo.go`
 
 ## 注册 Server

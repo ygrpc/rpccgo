@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -14,8 +15,12 @@ const defaultCGODir = "cgo"
 
 // GeneratorConfig stores protoc-gen-rpc-cgo options after parameter parsing.
 type GeneratorConfig struct {
-	CGODir string
+	CGODir       string
+	JNIClientDir string
+	JNIClass     string
 }
+
+var jniClassPattern = regexp.MustCompile(`^[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)+$`)
 
 // Generate parses the protoc plugin request into a generation plan without
 // emitting generated files.
@@ -69,6 +74,8 @@ func buildFilePlans(plugin *protogen.Plugin, config GeneratorConfig) ([]FilePlan
 			return nil, err
 		}
 		plan.CGODir = config.CGODir
+		plan.JNIClientDir = config.JNIClientDir
+		plan.JNIClass = config.JNIClass
 		AttachServiceArtifactPlans(&plan)
 		plans = append(plans, plan)
 	}
@@ -86,6 +93,8 @@ func packagePlansFromFiles(files []FilePlan, descriptors []*protogen.File, confi
 				GoPackageName: file.GoPackageName,
 				GoImportPath:  file.GoImportPath,
 				CGODir:        config.CGODir,
+				JNIClientDir:  config.JNIClientDir,
+				JNIClass:      config.JNIClass,
 			}
 			byImportPath[key] = pkg
 			order = append(order, key)
@@ -119,6 +128,11 @@ func parseRPCCGOParameter(name, value string) error {
 	case "cgo_dir":
 		_, err := cleanCGODir(value)
 		return err
+	case "jni_client_dir":
+		_, err := cleanJNIClientDir(value)
+		return err
+	case "jni_class":
+		return validateJNIClass(value)
 	default:
 		return fmt.Errorf("unknown rpccgo parameter %q", name)
 	}
@@ -129,36 +143,78 @@ func generatorConfigFromPlugin(plugin *protogen.Plugin) (GeneratorConfig, error)
 	if plugin.Request == nil {
 		return config, nil
 	}
+	seenJNIClientDir := false
+	seenJNIClass := false
 	for _, param := range strings.Split(plugin.Request.GetParameter(), ",") {
 		if param == "" {
 			continue
 		}
 		name, value, hasValue := strings.Cut(param, "=")
-		if name != "cgo_dir" {
-			continue
-		}
 		if !hasValue {
 			value = ""
 		}
-		cleaned, err := cleanCGODir(value)
-		if err != nil {
-			return GeneratorConfig{}, err
+		switch name {
+		case "cgo_dir":
+			cleaned, err := cleanCGODir(value)
+			if err != nil {
+				return GeneratorConfig{}, err
+			}
+			config.CGODir = cleaned
+		case "jni_client_dir":
+			seenJNIClientDir = true
+			cleaned, err := cleanJNIClientDir(value)
+			if err != nil {
+				return GeneratorConfig{}, err
+			}
+			config.JNIClientDir = cleaned
+		case "jni_class":
+			seenJNIClass = true
+			if err := validateJNIClass(value); err != nil {
+				return GeneratorConfig{}, err
+			}
+			config.JNIClass = value
 		}
-		config.CGODir = cleaned
+	}
+	if seenJNIClientDir != seenJNIClass {
+		return GeneratorConfig{}, fmt.Errorf("jni_client_dir and jni_class must be provided together")
+	}
+	if (config.JNIClientDir != "" || config.JNIClass != "") && config.CGODir == "" {
+		return GeneratorConfig{}, fmt.Errorf("jni_client_dir and jni_class require non-empty cgo_dir")
 	}
 	return config, nil
 }
 
 func cleanCGODir(value string) (string, error) {
 	if value == "" {
-		return "", fmt.Errorf("cgo_dir must not be empty")
+		return "", nil
 	}
 	if filepath.IsAbs(value) || path.IsAbs(value) {
 		return "", fmt.Errorf("cgo_dir must be relative to the protobuf Go package output directory")
 	}
 	cleaned := path.Clean(strings.ReplaceAll(value, "\\", "/"))
 	if cleaned == "." {
-		return "", fmt.Errorf("cgo_dir must not be empty")
+		return "", nil
 	}
 	return cleaned, nil
+}
+
+func cleanJNIClientDir(value string) (string, error) {
+	if value == "" {
+		return "", fmt.Errorf("jni_client_dir must not be empty")
+	}
+	if filepath.IsAbs(value) || path.IsAbs(value) {
+		return "", fmt.Errorf("jni_client_dir must be relative to the protobuf Go package output directory")
+	}
+	cleaned := path.Clean(strings.ReplaceAll(value, "\\", "/"))
+	if cleaned == "." {
+		return "", fmt.Errorf("jni_client_dir must not be empty")
+	}
+	return cleaned, nil
+}
+
+func validateJNIClass(value string) error {
+	if !jniClassPattern.MatchString(value) {
+		return fmt.Errorf("jni_class must be a fully-qualified Java class name")
+	}
+	return nil
 }

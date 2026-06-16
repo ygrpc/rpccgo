@@ -27,6 +27,8 @@ abstract class SharedSoDemoServiceBase extends $pb.GeneratedService {
       $pb.ServerContext ctx, $0.IncrementRuntimeStateRequest request);
   $async.Future<$0.RuntimeStateResponse> readRuntimeState(
       $pb.ServerContext ctx, $0.ReadRuntimeStateRequest request);
+  $async.Future<$0.RuntimeStateResponse> watchRuntimeState(
+      $pb.ServerContext ctx, $0.ReadRuntimeStateRequest request);
 
   $pb.GeneratedMessage createRequest($core.String methodName) {
     switch (methodName) {
@@ -35,6 +37,8 @@ abstract class SharedSoDemoServiceBase extends $pb.GeneratedService {
       case 'IncrementRuntimeState':
         return $0.IncrementRuntimeStateRequest();
       case 'ReadRuntimeState':
+        return $0.ReadRuntimeStateRequest();
+      case 'WatchRuntimeState':
         return $0.ReadRuntimeStateRequest();
       default:
         throw $core.ArgumentError('Unknown method: $methodName');
@@ -51,6 +55,8 @@ abstract class SharedSoDemoServiceBase extends $pb.GeneratedService {
             ctx, request as $0.IncrementRuntimeStateRequest);
       case 'ReadRuntimeState':
         return readRuntimeState(ctx, request as $0.ReadRuntimeStateRequest);
+      case 'WatchRuntimeState':
+        return watchRuntimeState(ctx, request as $0.ReadRuntimeStateRequest);
       default:
         throw $core.ArgumentError('Unknown method: $methodName');
     }

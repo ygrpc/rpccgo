@@ -20,20 +20,16 @@
 
 要在您的 Flutter 项目中实现类似架构，请遵循以下配置步骤：
 
-### 第一步：编写 Go 端及 JNI 桥接代码
+### 第一步：生成 Go 端及 JNI 桥接代码
 在 Go 端的 `main` 包中，我们需要同时暴露两种 API：
 1. **FFI 接口**：由 `rpccgo` 插件自动生成。
-2. **JNI 接口**：在 [jni_bridge_android.go](file:///home/zenghp/github.com/ygrpc/rpccgo/examples/flutter-shared-so/cmd/rpc/jni_bridge_android.go) 中手动声明，用于提供给 Kotlin 调用。例如：
-   ```go
-   //export Java_com_ygrpc_examples_rpccgofluttersharedso_MainActivity_nativeComposeGreeting
-   func Java_com_ygrpc_examples_rpccgofluttersharedso_MainActivity_nativeComposeGreeting(env *C.JNIEnv, _ C.jobject, value C.jstring) C.jstring {
-       // ... 转换字符串并调用 Go 逻辑 ...
-   }
-   ```
+2. **JNI 接口**：由 `rpccgo` 插件根据 `jni_client_dir` 和 `jni_class` 自动生成到 Go `package main` 与 Android Java source 目录。Go bridge 通过 protobuf message bytes 调用当前注册的 `rpcruntime` server，Kotlin 垫片提供 `SharedSoDemoJni` typed API。
+
+生成的 JNI Go bridge 文件使用 `//go:build android && cgo`。这是因为该文件包含 `#include <jni.h>` 并导出 `Java_...` JNI 符号，只能在 Android NDK + cgo 编译时参与构建。普通 cgo FFI 文件不带这个 build tag，因为它们不依赖 JNI 头文件，需要在桌面测试、`go build -buildmode=c-shared` 和 Flutter FFI 场景下继续可编译。
 
 ### 第二步：配置 Android 原生侧编译与加载
-1. **在 Kotlin 中加载 `.so` 并声明外部方法**：
-   在 [MainActivity.kt](file:///home/zenghp/github.com/ygrpc/rpccgo/examples/flutter-shared-so/flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt) 的 `companion object` 中加载库，并声明 `external` 方法：
+1. **在 Kotlin 中加载 `.so` 并调用生成垫片**：
+   在 [MainActivity.kt](file:///home/zenghp/github.com/ygrpc/rpccgo/examples/flutter-shared-so/flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt) 的 `companion object` 中加载库，业务代码调用生成的 `SharedSoDemoJni`：
    ```kotlin
    class MainActivity : FlutterActivity() {
        companion object {
@@ -41,9 +37,12 @@
                System.loadLibrary("rpccgo_flutter_shared")
            }
        }
-       private external fun nativeComposeGreeting(name: String): String
-       private external fun nativeReadRuntimeState(): String
-       
+       val result = SharedSoDemoJni.ComposeGreeting(
+           ComposeGreetingRequest.newBuilder()
+               .setName("Ada")
+               .setCaller("kotlin-jni")
+               .build()
+       )
        // ... 注册 MethodChannel 暴露给 Flutter UI 触发 ...
    }
    ```
@@ -58,6 +57,26 @@
    }
    tasks.named("preBuild") {
        dependsOn(buildSharedSoForAndroid)
+   }
+   ```
+
+3. **保留 R8 并配置 protobuf-javalite keep 规则**：
+   Kotlin 垫片使用 protobuf JVM lite API 的 `toByteArray()` 和 `parseFrom(...)`。`protobuf-javalite` 的 generated message 会把字段名字符串传给 `GeneratedMessageLite.newMessageInfo`，因此 release/profile 构建启用 R8 时不能混淆这些 generated message 的私有字段名，否则运行时会出现 `Field caller_ ... not found` 一类错误。
+
+   在 release buildType 中保留 R8，并接入 [proguard-rules.pro](file:///home/zenghp/github.com/ygrpc/rpccgo/examples/flutter-shared-so/flutter_app/android/app/proguard-rules.pro)：
+   ```kotlin
+   release {
+       proguardFiles(
+           getDefaultProguardFile("proguard-android-optimize.txt"),
+           "proguard-rules.pro",
+       )
+   }
+   ```
+
+   对本示例的 proto Java package，keep 规则只保留 protobuf generated fields：
+   ```proguard
+   -keepclassmembers class examples.flutter.sharedso.v1.** extends com.google.protobuf.GeneratedMessageLite {
+       <fields>;
    }
    ```
 

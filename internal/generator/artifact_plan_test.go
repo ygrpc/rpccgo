@@ -3,7 +3,7 @@ package generator
 import "testing"
 
 func TestBuildServiceArtifactPlansNativeEnabledService(t *testing.T) {
-	file := FilePlan{GeneratedFilenamePrefix: "test/v1/greeter"}
+	file := FilePlan{GeneratedFilenamePrefix: "test/v1/greeter", CGODir: "cgo"}
 	service := ServicePlan{
 		GoName:     "Greeter",
 		Generation: ServiceGenerationSelection{MessageTransport: MessageTransportConnect, NativeEnabled: true},
@@ -22,7 +22,7 @@ func TestBuildServiceArtifactPlansNativeEnabledService(t *testing.T) {
 }
 
 func TestBuildServiceArtifactPlansMessageOnlyServiceOmitsNativeArtifacts(t *testing.T) {
-	file := FilePlan{GeneratedFilenamePrefix: "test/v1/greeter"}
+	file := FilePlan{GeneratedFilenamePrefix: "test/v1/greeter", CGODir: "cgo"}
 	service := ServicePlan{
 		GoName:     "Greeter",
 		Generation: ServiceGenerationSelection{MessageTransport: MessageTransportConnect},
@@ -50,6 +50,43 @@ func TestBuildServiceArtifactPlansUsesConfiguredCGODir(t *testing.T) {
 
 	assertArtifact(t, got, GeneratedArtifactKindCGONativeServer, "test/cmd/rpc/greeter.greeter.server.native.cgo.rpccgo.go")
 	assertArtifact(t, got, GeneratedArtifactKindCGOMessageServer, "test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go")
+}
+
+func TestBuildServiceArtifactPlansOmitsCGOArtifactsWhenCGODirDisabled(t *testing.T) {
+	file := FilePlan{GeneratedFilenamePrefix: "test/v1/greeter"}
+	service := ServicePlan{
+		GoName:     "Greeter",
+		Generation: ServiceGenerationSelection{MessageTransport: MessageTransportConnect, NativeEnabled: true},
+	}
+
+	got := BuildServiceArtifactPlans(file, service)
+
+	assertArtifact(t, got, GeneratedArtifactKindRuntime, "test/v1/greeter.greeter.runtime.rpccgo.go")
+	assertArtifact(t, got, GeneratedArtifactKindNativeServer, "test/v1/greeter.greeter.server.native.rpccgo.go")
+	assertArtifactMissing(t, got, GeneratedArtifactKindCGOMessageServer)
+	assertArtifactMissing(t, got, GeneratedArtifactKindCGOMessageClient)
+	assertArtifactMissing(t, got, GeneratedArtifactKindCGONativeServer)
+	assertArtifactMissing(t, got, GeneratedArtifactKindCGONativeClient)
+	assertArtifactMissing(t, got, GeneratedArtifactKindJNIMessageClient)
+	assertArtifactMissing(t, got, GeneratedArtifactKindJNIKotlinClient)
+}
+
+func TestBuildServiceArtifactPlansAddsJNIArtifacts(t *testing.T) {
+	file := FilePlan{
+		GeneratedFilenamePrefix: "test/v1/greeter",
+		CGODir:                  "../cmd/rpc",
+		JNIClientDir:            "../android/app/src/main/java",
+		JNIClass:                "com.example.GreeterJni",
+	}
+	service := ServicePlan{
+		GoName:     "Greeter",
+		Generation: ServiceGenerationSelection{MessageTransport: MessageTransportConnect},
+	}
+
+	got := BuildServiceArtifactPlans(file, service)
+
+	assertArtifact(t, got, GeneratedArtifactKindJNIMessageClient, "test/cmd/rpc/greeter.greeter.client.message.jni.rpccgo.go")
+	assertArtifact(t, got, GeneratedArtifactKindJNIKotlinClient, "test/android/app/src/main/java/com/example/GreeterJni.kt")
 }
 
 func TestBuildSharedArtifactPlansUsesPackageLevelExportsFilename(t *testing.T) {

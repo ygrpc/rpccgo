@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	connect "connectrpc.com/connect"
 	fluttersharedv1 "example.com/rpccgo-flutter-shared-so/proto"
 )
 
@@ -76,6 +77,30 @@ func (s *SharedSoDemoServer) ReadRuntimeState(_ context.Context, req *fluttersha
 	resp := s.runtimeStateResponse(req.GetCaller())
 	log.Printf("rpccgo shared runtime read: instance_address=%s pid=%d caller=%s value=%d revision=%d", resp.GetInstanceAddress(), resp.GetPid(), resp.GetCaller(), resp.GetValue(), resp.GetRevision())
 	return resp, nil
+}
+
+// WatchRuntimeState streams two snapshots of the current runtime state.
+func (s *SharedSoDemoServer) WatchRuntimeState(ctx context.Context, req *fluttersharedv1.ReadRuntimeStateRequest, stream *connect.ServerStream[fluttersharedv1.RuntimeStateResponse]) error {
+	if req == nil {
+		return fmt.Errorf("watch runtime state request is nil")
+	}
+	if stream == nil {
+		return fmt.Errorf("watch runtime state stream is nil")
+	}
+	for i := 0; i < 2; i++ {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		s.mu.Lock()
+		resp := s.runtimeStateResponse(req.GetCaller())
+		s.mu.Unlock()
+		if err := stream.Send(resp); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *SharedSoDemoServer) runtimeStateResponse(caller string) *fluttersharedv1.RuntimeStateResponse {

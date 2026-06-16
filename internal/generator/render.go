@@ -76,6 +76,10 @@ func renderServiceArtifact(plugin *protogen.Plugin, file FilePlan, service Servi
 		return renderMessageServerCGOFile(plugin, file, service, artifact)
 	case GeneratedArtifactKindCGOMessageClient:
 		return renderMessageClientCGOFile(plugin, file, service, artifact)
+	case GeneratedArtifactKindJNIMessageClient:
+		return renderMessageClientJNIFile(plugin, file, service, artifact)
+	case GeneratedArtifactKindJNIKotlinClient:
+		return renderMessageClientKotlinFile(plugin, file, service, artifact)
 	default:
 		return fmt.Errorf("unknown service artifact kind %q", artifact.Kind)
 	}
