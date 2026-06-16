@@ -35,11 +35,9 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
   static const _client = SharedSoDemoRpccgoClient();
 
   final _nameController = TextEditingController(text: 'Ada');
-  String _flutterResult = 'Tap the Flutter FFI button to call rpccgo.';
-  String _jniResult = 'Tap the Kotlin/JNI button to call the same library.';
-  String _runtimeResult =
-      'Tap the shared runtime button: Flutter writes, then Kotlin/JNI reads.';
-  String _activityStatus = 'No call has run yet.';
+  String _latestActivityTitle = 'Latest Activity';
+  String _latestActivityBody = 'Tap any button above to execute a call.';
+  Color _latestActivityColor = Colors.grey;
   bool _flutterBusy = false;
   bool _jniBusy = false;
   bool _runtimeBusy = false;
@@ -53,7 +51,6 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
   Future<void> _callViaFlutter() async {
     setState(() {
       _flutterBusy = true;
-      _activityStatus = 'Calling Go through Flutter FFI...';
     });
     await _showBusyState();
     try {
@@ -61,14 +58,16 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
         ComposeGreetingRequest(name: _effectiveName, caller: 'flutter-ffi'),
       );
       setState(() {
-        _flutterResult =
+        _latestActivityTitle = 'Latest Activity: Flutter FFI';
+        _latestActivityBody =
             '${response.message} | served_by=${response.servedBy} | library=${response.library}';
-        _activityStatus = 'Flutter FFI succeeded: ${response.message}';
+        _latestActivityColor = const Color(0xFF0B7285);
       });
     } catch (error) {
       setState(() {
-        _flutterResult = 'flutter ffi error: $error';
-        _activityStatus = 'Flutter FFI failed: $error';
+        _latestActivityTitle = 'Latest Activity: Flutter FFI (Error)';
+        _latestActivityBody = 'flutter ffi error: $error';
+        _latestActivityColor = Colors.red;
       });
     } finally {
       setState(() {
@@ -80,7 +79,6 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
   Future<void> _callViaJNI() async {
     setState(() {
       _jniBusy = true;
-      _activityStatus = 'Calling Go through Kotlin/JNI...';
     });
     await _showBusyState();
     try {
@@ -89,18 +87,24 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
         <String, Object?>{'name': _effectiveName},
       );
       setState(() {
-        _jniResult = response ?? 'jni returned null';
-        _activityStatus = 'Kotlin/JNI succeeded: $_jniResult';
+        final result = response ?? 'jni returned null';
+        _latestActivityTitle = 'Latest Activity: Kotlin/JNI';
+        _latestActivityBody = result;
+        _latestActivityColor = const Color(0xFF2B8A3E);
       });
     } on PlatformException catch (error) {
       setState(() {
-        _jniResult = 'jni platform error: ${error.message ?? error.code}';
-        _activityStatus = _jniResult;
+        final errMsg = 'jni platform error: ${error.message ?? error.code}';
+        _latestActivityTitle = 'Latest Activity: Kotlin/JNI (Error)';
+        _latestActivityBody = errMsg;
+        _latestActivityColor = Colors.red;
       });
     } catch (error) {
       setState(() {
-        _jniResult = 'jni error: $error';
-        _activityStatus = _jniResult;
+        final errMsg = 'jni error: $error';
+        _latestActivityTitle = 'Latest Activity: Kotlin/JNI (Error)';
+        _latestActivityBody = errMsg;
+        _latestActivityColor = Colors.red;
       });
     } finally {
       setState(() {
@@ -112,7 +116,6 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
   Future<void> _verifySharedRuntime() async {
     setState(() {
       _runtimeBusy = true;
-      _activityStatus = 'Flutter is writing shared Go runtime state...';
     });
     await _showBusyState();
     try {
@@ -128,18 +131,18 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
       );
       debugPrint('Kotlin/JNI observed $observed');
       setState(() {
-        _runtimeResult =
+        _latestActivityTitle = 'Latest Activity: Shared Go runtime state';
+        _latestActivityBody =
             'Flutter wrote: runtime_id=${written.runtimeId} | '
             'value=${written.value} | revision=${written.revision}\n'
             'Kotlin read: ${observed ?? 'jni returned null'}';
-        _activityStatus =
-            'Shared runtime verified: value=${written.value}, '
-            'revision=${written.revision}, runtime_id=${written.runtimeId}';
+        _latestActivityColor = const Color(0xFFE67700);
       });
     } catch (error) {
       setState(() {
-        _runtimeResult = 'shared runtime verification error: $error';
-        _activityStatus = 'Shared runtime verification failed: $error';
+        _latestActivityTitle = 'Latest Activity: Shared Go runtime state (Error)';
+        _latestActivityBody = 'shared runtime verification error: $error';
+        _latestActivityColor = Colors.red;
       });
     } finally {
       setState(() {
@@ -246,34 +249,15 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 20),
-                          Text(
-                            'Latest activity',
-                            style: Theme.of(context).textTheme.labelLarge,
-                          ),
-                          const SizedBox(height: 6),
-                          SelectableText(_activityStatus),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(height: 20),
                   _ResultCard(
-                    title: 'Flutter FFI',
-                    body: _flutterResult,
-                    stripeColor: const Color(0xFF0B7285),
-                  ),
-                  const SizedBox(height: 16),
-                  _ResultCard(
-                    title: 'Kotlin/JNI',
-                    body: _jniResult,
-                    stripeColor: const Color(0xFF2B8A3E),
-                  ),
-                  const SizedBox(height: 16),
-                  _ResultCard(
-                    title: 'Shared Go runtime state',
-                    body: _runtimeResult,
-                    stripeColor: const Color(0xFFE67700),
+                    title: _latestActivityTitle,
+                    body: _latestActivityBody,
+                    stripeColor: _latestActivityColor,
                   ),
                 ],
               ),
