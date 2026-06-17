@@ -35,12 +35,14 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
   static const _client = SharedSoDemoRpccgoClient();
 
   final _nameController = TextEditingController(text: 'Ada');
-  String _latestActivityTitle = 'Latest Activity';
-  String _latestActivityBody = 'Tap any button above to execute a call.';
+  String _latestActivityTitle = 'Latest Result';
+  String _latestActivityBody =
+      'Choose a call path to see which runtime handled the request and how the shared state changed.';
   Color _latestActivityColor = Colors.grey;
   bool _flutterBusy = false;
   bool _jniBusy = false;
   bool _runtimeBusy = false;
+  bool _streamBusy = false;
 
   @override
   void dispose() {
@@ -68,8 +70,7 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
     } else {
       setState(() {
         _latestActivityTitle = 'Latest Activity: Flutter FFI';
-        _latestActivityBody =
-            '${value.message} | served_by=${value.servedBy} | library=${value.library}';
+        _latestActivityBody = _formatGreetingResult('Flutter FFI', value);
         _latestActivityColor = const Color(0xFF0B7285);
       });
     }
@@ -148,9 +149,13 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
       setState(() {
         _latestActivityTitle = 'Latest Activity: Shared Go runtime state';
         _latestActivityBody =
-            'Flutter wrote: instance_address=${written.instanceAddress} | pid=${written.pid} | '
-            'value=${written.value} | revision=${written.revision}\n'
-            'Kotlin read: ${observed ?? 'jni returned null'}';
+            'Flutter FFI wrote shared state\n'
+            'Value: ${written.value}\n'
+            'Revision: ${written.revision}\n'
+            'Go instance: ${written.instanceAddress}\n'
+            'Process ID: ${written.pid}\n\n'
+            'Kotlin/JNI then read the same state\n'
+            '${observed ?? 'jni returned null'}';
         _latestActivityColor = const Color(0xFFE67700);
       });
     } catch (error) {
@@ -165,6 +170,142 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
         _runtimeBusy = false;
       });
     }
+  }
+
+  Future<void> _runStreams() async {
+    setState(() {
+      _streamBusy = true;
+    });
+    await _showBusyState();
+    try {
+      final flutterSummary = _runFlutterStreams();
+      final jniSummary = await _jniChannel.invokeMethod<String>('runStreams');
+      setState(() {
+        _latestActivityTitle = 'Latest Activity: Streaming';
+        _latestActivityBody =
+            'Same Go counter. Kotlin/JNI continues after Flutter FFI.\n'
+            '$flutterSummary\n'
+            '${jniSummary ?? 'Kotlin/JNI: no result'}';
+        _latestActivityColor = const Color(0xFF7048E8);
+      });
+    } catch (error) {
+      setState(() {
+        _latestActivityTitle = 'Latest Activity: Streaming (Error)';
+        _latestActivityBody = 'streaming error: $error';
+        _latestActivityColor = Colors.red;
+      });
+    } finally {
+      setState(() {
+        _streamBusy = false;
+      });
+    }
+  }
+
+  String _runFlutterStreams() {
+    final collectResult = _client.CollectRuntimeState();
+    final collect = collectResult.value;
+    if (collectResult.error != null || collect == null) {
+      throw StateError('client stream start: ${collectResult.error}');
+    }
+    for (final request in [
+      IncrementRuntimeStateRequest(
+        delta: 2,
+        caller: 'flutter-ffi-client-stream-a',
+      ),
+      IncrementRuntimeStateRequest(
+        delta: 3,
+        caller: 'flutter-ffi-client-stream-b',
+      ),
+    ]) {
+      final error = collect.send(request);
+      if (error != null) {
+        throw StateError('client stream send: $error');
+      }
+    }
+    final collected = collect.finish();
+    final collectedValue = collected.value;
+    if (collected.error != null || collectedValue == null) {
+      throw StateError('client stream finish: ${collected.error}');
+    }
+
+    final streamResult = _client.StreamRuntimeState(
+      ReadRuntimeStateRequest(caller: 'flutter-ffi-server-stream'),
+    );
+    final serverStream = streamResult.value;
+    if (streamResult.error != null || serverStream == null) {
+      throw StateError('server stream start: ${streamResult.error}');
+    }
+    final serverValues = [];
+    for (var i = 0; i < 3; i++) {
+      final next = serverStream.read();
+      final value = next.value;
+      if (next.error != null || value == null) {
+        throw StateError('server stream read: ${next.error}');
+      }
+      serverValues.add(value.value);
+    }
+    final serverFinishError = serverStream.finish();
+    if (serverFinishError != null) {
+      throw StateError('server stream finish: $serverFinishError');
+    }
+
+    final chatResult = _client.ChatRuntimeState();
+    final chat = chatResult.value;
+    if (chatResult.error != null || chat == null) {
+      throw StateError('bidi stream start: ${chatResult.error}');
+    }
+    final bidiValues = [];
+    for (final request in [
+      IncrementRuntimeStateRequest(delta: 4, caller: 'flutter-ffi-bidi-a'),
+      IncrementRuntimeStateRequest(delta: 5, caller: 'flutter-ffi-bidi-b'),
+    ]) {
+      final sendError = chat.send(request);
+      if (sendError != null) {
+        throw StateError('bidi stream send: $sendError');
+      }
+      final next = chat.read();
+      final value = next.value;
+      if (next.error != null || value == null) {
+        throw StateError('bidi stream read: ${next.error}');
+      }
+      bidiValues.add(value.value);
+    }
+    final closeSendError = chat.closeSend();
+    if (closeSendError != null) {
+      throw StateError('bidi stream close-send: $closeSendError');
+    }
+    final finishError = chat.finish();
+    if (finishError != null) {
+      throw StateError('bidi stream finish: $finishError');
+    }
+
+    return _formatStreamResult(
+      'Flutter FFI',
+      collectedValue.value,
+      collectedValue.revision,
+      serverValues,
+      bidiValues,
+    );
+  }
+
+  String _formatGreetingResult(String path, ComposeGreetingResponse value) {
+    return '$path unary call\n'
+        'Message: ${value.message}\n'
+        'Go handler: ${value.servedBy}\n'
+        'Shared library: ${value.library}';
+  }
+
+  String _formatStreamResult(
+    String path,
+    Object? finalValue,
+    Object? revision,
+    List<Object?> serverValues,
+    List<Object?> bidiValues,
+  ) {
+    final lastValue = bidiValues.isEmpty ? finalValue : bidiValues.last;
+    return '$path: +2+3 -> $finalValue (rev $revision); '
+        'read ${serverValues.join(', ')}; +4+5 -> ${bidiValues.join(' -> ')}; '
+        'final $lastValue';
   }
 
   Future<void> _showBusyState() async {
@@ -198,16 +339,14 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
                 padding: const EdgeInsets.all(24),
                 children: [
                   Text(
-                    'One .so, two call paths',
+                    'Shared .so',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'Kotlin/JNI loads the shared library first. Flutter FFI then '
-                    'opens the same Android library by SONAME and resolves the '
-                    'rpccgo symbols from that library handle.',
+                    'Flutter FFI and Kotlin/JNI call the same Go runtime in one shared library.',
                     style: Theme.of(context).textTheme.bodyLarge,
                   ),
                   const SizedBox(height: 24),
@@ -240,16 +379,14 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
                                 label: Text(
                                   _flutterBusy
                                       ? 'Calling...'
-                                      : 'Call via Flutter FFI',
+                                      : 'Flutter FFI unary',
                                 ),
                               ),
                               FilledButton.icon(
                                 onPressed: _jniBusy ? null : _callViaJNI,
                                 icon: const Icon(Icons.android),
                                 label: Text(
-                                  _jniBusy
-                                      ? 'Calling...'
-                                      : 'Call via Kotlin/JNI',
+                                  _jniBusy ? 'Calling...' : 'Kotlin/JNI unary',
                                 ),
                               ),
                               FilledButton.tonalIcon(
@@ -260,7 +397,16 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
                                 label: Text(
                                   _runtimeBusy
                                       ? 'Verifying...'
-                                      : 'Flutter write, Kotlin read',
+                                      : 'Verify shared state',
+                                ),
+                              ),
+                              FilledButton.icon(
+                                onPressed: _streamBusy ? null : _runStreams,
+                                icon: const Icon(Icons.sync),
+                                label: Text(
+                                  _streamBusy
+                                      ? 'Streaming...'
+                                      : 'Compare stream RPCs',
                                 ),
                               ),
                             ],
@@ -335,7 +481,12 @@ class _ResultCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 10),
-                  SelectableText(body),
+                  SelectableText(
+                    body,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(height: 1.35),
+                  ),
                 ],
               ),
             ),

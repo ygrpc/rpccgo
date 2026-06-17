@@ -112,6 +112,74 @@ func TestSharedSoDemoMessageStreamContract(t *testing.T) {
 	if err := fluttersharedv1.FinishSharedSoDemoMessageWatchRuntimeState(context.Background(), handle); err != nil {
 		t.Fatalf("finish runtime state stream: %v", err)
 	}
+
+	collect, err := fluttersharedv1.StartSharedSoDemoMessageCollectRuntimeState(context.Background())
+	if err != nil {
+		t.Fatalf("start collect runtime state stream: %v", err)
+	}
+	for _, req := range []*fluttersharedv1.IncrementRuntimeStateRequest{
+		{Delta: 2, Caller: "client-stream-a"},
+		{Delta: 3, Caller: "client-stream-b"},
+	} {
+		if err := fluttersharedv1.SendSharedSoDemoMessageCollectRuntimeState(context.Background(), collect, req); err != nil {
+			t.Fatalf("send collect runtime state request: %v", err)
+		}
+	}
+	collected, err := fluttersharedv1.FinishSharedSoDemoMessageCollectRuntimeState(context.Background(), collect)
+	if err != nil {
+		t.Fatalf("finish collect runtime state stream: %v", err)
+	}
+	if got, want := collected.GetValue(), int64(5); got != want {
+		t.Fatalf("collected value = %d, want %d", got, want)
+	}
+	if got, want := collected.GetCaller(), "client-stream-b"; got != want {
+		t.Fatalf("collected caller = %q, want %q", got, want)
+	}
+
+	stream, err := fluttersharedv1.StartSharedSoDemoMessageStreamRuntimeState(context.Background(), &fluttersharedv1.ReadRuntimeStateRequest{
+		Caller: "server-stream-test",
+	})
+	if err != nil {
+		t.Fatalf("start stream runtime state: %v", err)
+	}
+	for i := 0; i < 3; i++ {
+		resp, err := fluttersharedv1.RecvSharedSoDemoMessageStreamRuntimeState(context.Background(), stream)
+		if err != nil {
+			t.Fatalf("recv stream runtime state response %d: %v", i, err)
+		}
+		if got, want := resp.GetCaller(), "server-stream-test"; got != want {
+			t.Fatalf("server stream caller = %q, want %q", got, want)
+		}
+	}
+	if err := fluttersharedv1.FinishSharedSoDemoMessageStreamRuntimeState(context.Background(), stream); err != nil {
+		t.Fatalf("finish stream runtime state: %v", err)
+	}
+
+	chat, err := fluttersharedv1.StartSharedSoDemoMessageChatRuntimeState(context.Background())
+	if err != nil {
+		t.Fatalf("start chat runtime state stream: %v", err)
+	}
+	for i, req := range []*fluttersharedv1.IncrementRuntimeStateRequest{
+		{Delta: 4, Caller: "bidi-stream-a"},
+		{Delta: 5, Caller: "bidi-stream-b"},
+	} {
+		if err := fluttersharedv1.SendSharedSoDemoMessageChatRuntimeState(context.Background(), chat, req); err != nil {
+			t.Fatalf("send chat runtime state request %d: %v", i, err)
+		}
+		resp, err := fluttersharedv1.RecvSharedSoDemoMessageChatRuntimeState(context.Background(), chat)
+		if err != nil {
+			t.Fatalf("recv chat runtime state response %d: %v", i, err)
+		}
+		if got, want := resp.GetCaller(), req.GetCaller(); got != want {
+			t.Fatalf("bidi caller = %q, want %q", got, want)
+		}
+	}
+	if err := fluttersharedv1.CloseSendSharedSoDemoMessageChatRuntimeState(context.Background(), chat); err != nil {
+		t.Fatalf("close send chat runtime state stream: %v", err)
+	}
+	if err := fluttersharedv1.FinishSharedSoDemoMessageChatRuntimeState(context.Background(), chat); err != nil {
+		t.Fatalf("finish chat runtime state stream: %v", err)
+	}
 }
 
 func TestSharedSoDemoFlutterProjectContracts(t *testing.T) {
@@ -122,14 +190,30 @@ func TestSharedSoDemoFlutterProjectContracts(t *testing.T) {
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "SharedSoDemoJni.ComposeGreeting")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "SharedSoDemoJni.ReadRuntimeState")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun StartWatchRuntimeState")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun StartCollectRuntimeState")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun StartStreamRuntimeState")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun StartChatRuntimeState")
 	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "rpccgoMsgFluttersharedv1SharedSoDemoCollectRuntimeStateFinish")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateCloseSend")
 	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "JNIEXPORT jint JNICALL JNI_OnLoad")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "AttachCurrentThread")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "void* rawEnv = nullptr;")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "env = static_cast<JNIEnv*>(rawEnv);")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "JNIEnv* attachedEnv = nullptr;")
 	assertFileContains(t, "flutter_app/android/app/src/main/cpp/CMakeLists.txt", "rpccgo_flutter_shared_jni")
 	assertFileContains(t, "flutter_app/android/app/src/main/cpp/CMakeLists.txt", "-l:librpccgo_flutter_shared.so")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "ComposeGreetingRequest.newBuilder()")
 	assertFileContains(t, "flutter_app/lib/main.dart", "IncrementRuntimeState")
+	assertFileContains(t, "flutter_app/lib/main.dart", "CollectRuntimeState")
+	assertFileContains(t, "flutter_app/lib/main.dart", "StreamRuntimeState")
+	assertFileContains(t, "flutter_app/lib/main.dart", "ChatRuntimeState")
 	assertFileContains(t, "flutter_app/lib/main.dart", "Latest Activity")
 	assertFileContains(t, "flutter_app/lib/main.dart", "_latestActivityBody")
+	assertFileContains(t, "flutter_app/lib/main.dart", "Same Go counter")
+	assertFileContains(t, "flutter_app/lib/main.dart", "continues after Flutter FFI")
+	assertFileContains(t, "flutter_app/lib/main.dart", "+2+3 ->")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "+4+5 ->")
 	assertFileContains(t, "flutter_app/android/app/build.gradle.kts", "dependsOn(buildSharedSoForAndroid)")
 	assertFileContains(t, "flutter_app/android/app/build.gradle.kts", "externalNativeBuild")
 	assertFileContains(t, "flutter_app/android/app/build.gradle.kts", "abiFilters.addAll(listOf(\"arm64-v8a\", \"armeabi-v7a\", \"x86_64\"))")
@@ -158,6 +242,9 @@ func TestSharedSoDemoCSharedBuild(t *testing.T) {
 	for _, fragment := range []string{
 		"rpccgoMsgFluttersharedv1SharedSoDemoComposeGreeting",
 		"rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart",
+		"rpccgoMsgFluttersharedv1SharedSoDemoCollectRuntimeStateStart",
+		"rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateRead",
+		"rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateCloseSend",
 		"rpccgoTakeErrorText",
 		"rpccgoRelease",
 	} {

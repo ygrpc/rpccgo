@@ -430,6 +430,24 @@ class SharedSoDemoApi {
           $pb.ClientContext? ctx, ReadRuntimeStateRequest request) =>
       _client.invoke<RuntimeStateResponse>(ctx, 'SharedSoDemo',
           'WatchRuntimeState', request, RuntimeStateResponse());
+
+  /// CollectRuntimeState verifies client streaming through both Flutter FFI and Kotlin/JNI.
+  $async.Future<RuntimeStateResponse> collectRuntimeState(
+          $pb.ClientContext? ctx, IncrementRuntimeStateRequest request) =>
+      _client.invoke<RuntimeStateResponse>(ctx, 'SharedSoDemo',
+          'CollectRuntimeState', request, RuntimeStateResponse());
+
+  /// StreamRuntimeState verifies server streaming through both Flutter FFI and Kotlin/JNI.
+  $async.Future<RuntimeStateResponse> streamRuntimeState(
+          $pb.ClientContext? ctx, ReadRuntimeStateRequest request) =>
+      _client.invoke<RuntimeStateResponse>(ctx, 'SharedSoDemo',
+          'StreamRuntimeState', request, RuntimeStateResponse());
+
+  /// ChatRuntimeState verifies bidi streaming through both Flutter FFI and Kotlin/JNI.
+  $async.Future<RuntimeStateResponse> chatRuntimeState(
+          $pb.ClientContext? ctx, IncrementRuntimeStateRequest request) =>
+      _client.invoke<RuntimeStateResponse>(ctx, 'SharedSoDemo',
+          'ChatRuntimeState', request, RuntimeStateResponse());
 }
 
 const $core.bool _omitFieldNames =

@@ -332,12 +332,15 @@ const file_shared_so_proto_rawDesc = "" +
 	"\brevision\x18\x02 \x01(\x03R\brevision\x12)\n" +
 	"\x10instance_address\x18\x03 \x01(\tR\x0finstanceAddress\x12\x16\n" +
 	"\x06caller\x18\x04 \x01(\tR\x06caller\x12\x10\n" +
-	"\x03pid\x18\x05 \x01(\x05R\x03pid2\x9a\x04\n" +
+	"\x03pid\x18\x05 \x01(\x05R\x03pid2\xb1\a\n" +
 	"\fSharedSoDemo\x12~\n" +
 	"\x0fComposeGreeting\x124.examples.flutter.sharedso.v1.ComposeGreetingRequest\x1a5.examples.flutter.sharedso.v1.ComposeGreetingResponse\x12\x87\x01\n" +
 	"\x15IncrementRuntimeState\x12:.examples.flutter.sharedso.v1.IncrementRuntimeStateRequest\x1a2.examples.flutter.sharedso.v1.RuntimeStateResponse\x12}\n" +
 	"\x10ReadRuntimeState\x125.examples.flutter.sharedso.v1.ReadRuntimeStateRequest\x1a2.examples.flutter.sharedso.v1.RuntimeStateResponse\x12\x80\x01\n" +
-	"\x11WatchRuntimeState\x125.examples.flutter.sharedso.v1.ReadRuntimeStateRequest\x1a2.examples.flutter.sharedso.v1.RuntimeStateResponse0\x01B\\\n" +
+	"\x11WatchRuntimeState\x125.examples.flutter.sharedso.v1.ReadRuntimeStateRequest\x1a2.examples.flutter.sharedso.v1.RuntimeStateResponse0\x01\x12\x87\x01\n" +
+	"\x13CollectRuntimeState\x12:.examples.flutter.sharedso.v1.IncrementRuntimeStateRequest\x1a2.examples.flutter.sharedso.v1.RuntimeStateResponse(\x01\x12\x81\x01\n" +
+	"\x12StreamRuntimeState\x125.examples.flutter.sharedso.v1.ReadRuntimeStateRequest\x1a2.examples.flutter.sharedso.v1.RuntimeStateResponse0\x01\x12\x86\x01\n" +
+	"\x10ChatRuntimeState\x12:.examples.flutter.sharedso.v1.IncrementRuntimeStateRequest\x1a2.examples.flutter.sharedso.v1.RuntimeStateResponse(\x010\x01B\\\n" +
 	"\x1cexamples.flutter.sharedso.v1P\x01Z:example.com/rpccgo-flutter-shared-so/proto;fluttersharedv1b\x06proto3"
 
 var (
@@ -365,12 +368,18 @@ var file_shared_so_proto_depIdxs = []int32{
 	2, // 1: examples.flutter.sharedso.v1.SharedSoDemo.IncrementRuntimeState:input_type -> examples.flutter.sharedso.v1.IncrementRuntimeStateRequest
 	3, // 2: examples.flutter.sharedso.v1.SharedSoDemo.ReadRuntimeState:input_type -> examples.flutter.sharedso.v1.ReadRuntimeStateRequest
 	3, // 3: examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState:input_type -> examples.flutter.sharedso.v1.ReadRuntimeStateRequest
-	1, // 4: examples.flutter.sharedso.v1.SharedSoDemo.ComposeGreeting:output_type -> examples.flutter.sharedso.v1.ComposeGreetingResponse
-	4, // 5: examples.flutter.sharedso.v1.SharedSoDemo.IncrementRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
-	4, // 6: examples.flutter.sharedso.v1.SharedSoDemo.ReadRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
-	4, // 7: examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
-	4, // [4:8] is the sub-list for method output_type
-	0, // [0:4] is the sub-list for method input_type
+	2, // 4: examples.flutter.sharedso.v1.SharedSoDemo.CollectRuntimeState:input_type -> examples.flutter.sharedso.v1.IncrementRuntimeStateRequest
+	3, // 5: examples.flutter.sharedso.v1.SharedSoDemo.StreamRuntimeState:input_type -> examples.flutter.sharedso.v1.ReadRuntimeStateRequest
+	2, // 6: examples.flutter.sharedso.v1.SharedSoDemo.ChatRuntimeState:input_type -> examples.flutter.sharedso.v1.IncrementRuntimeStateRequest
+	1, // 7: examples.flutter.sharedso.v1.SharedSoDemo.ComposeGreeting:output_type -> examples.flutter.sharedso.v1.ComposeGreetingResponse
+	4, // 8: examples.flutter.sharedso.v1.SharedSoDemo.IncrementRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
+	4, // 9: examples.flutter.sharedso.v1.SharedSoDemo.ReadRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
+	4, // 10: examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
+	4, // 11: examples.flutter.sharedso.v1.SharedSoDemo.CollectRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
+	4, // 12: examples.flutter.sharedso.v1.SharedSoDemo.StreamRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
+	4, // 13: examples.flutter.sharedso.v1.SharedSoDemo.ChatRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
+	7, // [7:14] is the sub-list for method output_type
+	0, // [0:7] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name

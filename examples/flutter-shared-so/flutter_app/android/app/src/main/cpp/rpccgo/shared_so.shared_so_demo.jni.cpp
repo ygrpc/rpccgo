@@ -15,7 +15,7 @@ JavaVM* javaVM = nullptr;
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) {
     javaVM = vm;
-    // Android supports JNI 1.6; this return value declares the JNI interface version requested by this library.
+    // Android supports JNI 1.6; the JavaVM is also used to resolve JNIEnv on stream operation threads.
     return JNI_VERSION_1_6;
 }
 
@@ -24,6 +24,31 @@ JNIEXPORT void JNICALL JNI_OnUnload(JavaVM*, void*) {
 }
 
 namespace {
+
+class rpccgoJNIEnvScope {
+public:
+    explicit rpccgoJNIEnvScope(JNIEnv* current) : env(current), attached(false) {
+        if (env != nullptr || javaVM == nullptr) { return; }
+        void* rawEnv = nullptr;
+        jint status = javaVM->GetEnv(&rawEnv, JNI_VERSION_1_6);
+        if (status == JNI_OK) {
+            env = static_cast<JNIEnv*>(rawEnv);
+            return;
+        }
+        JNIEnv* attachedEnv = nullptr;
+        if (status == JNI_EDETACHED && javaVM->AttachCurrentThread(&attachedEnv, nullptr) == JNI_OK) {
+            env = attachedEnv;
+            attached = true;
+        }
+    }
+    ~rpccgoJNIEnvScope() {
+        if (attached && javaVM != nullptr) { javaVM->DetachCurrentThread(); }
+    }
+    JNIEnv* env;
+
+private:
+    bool attached;
+};
 
 jbyteArray rpccgoJNIByteArray(JNIEnv* env, const std::vector<uint8_t>& data) {
     if (env == nullptr) { return nullptr; }
@@ -115,6 +140,9 @@ uintptr_t rpccgoVectorPtr(const std::vector<uint8_t>& data) {
 
 // Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoComposeGreeting invokes examples.flutter.sharedso.v1.SharedSoDemo.ComposeGreeting through the Android C++ JNI adapter.
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoComposeGreeting(JNIEnv* env, jobject, jbyteArray request) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
     bool requestOK = false;
     std::vector<uint8_t> requestBytes = rpccgoJNIBytes(env, request, &requestOK);
     if (!requestOK) { return rpccgoErrorResult(env, "rpccgo: JNI request bytes are null or unreadable"); }
@@ -127,6 +155,9 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersha
 
 // Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoIncrementRuntimeState invokes examples.flutter.sharedso.v1.SharedSoDemo.IncrementRuntimeState through the Android C++ JNI adapter.
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoIncrementRuntimeState(JNIEnv* env, jobject, jbyteArray request) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
     bool requestOK = false;
     std::vector<uint8_t> requestBytes = rpccgoJNIBytes(env, request, &requestOK);
     if (!requestOK) { return rpccgoErrorResult(env, "rpccgo: JNI request bytes are null or unreadable"); }
@@ -139,6 +170,9 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersha
 
 // Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoReadRuntimeState invokes examples.flutter.sharedso.v1.SharedSoDemo.ReadRuntimeState through the Android C++ JNI adapter.
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoReadRuntimeState(JNIEnv* env, jobject, jbyteArray request) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
     bool requestOK = false;
     std::vector<uint8_t> requestBytes = rpccgoJNIBytes(env, request, &requestOK);
     if (!requestOK) { return rpccgoErrorResult(env, "rpccgo: JNI request bytes are null or unreadable"); }
@@ -151,6 +185,9 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersha
 
 // Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoWatchRuntimeStateStart invokes examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState through the Android C++ JNI adapter.
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoWatchRuntimeStateStart(JNIEnv* env, jobject, jbyteArray request) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
     bool requestOK = false;
     std::vector<uint8_t> requestBytes = rpccgoJNIBytes(env, request, &requestOK);
     if (!requestOK) { return rpccgoErrorResult(env, "rpccgo: JNI request bytes are null or unreadable"); }
@@ -162,6 +199,9 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersha
 
 // Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoWatchRuntimeStateRecv invokes examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState through the Android C++ JNI adapter.
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoWatchRuntimeStateRecv(JNIEnv* env, jobject, jint handle) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
     uintptr_t responsePtr = 0;
     int32_t responseLen = 0;
     int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateRead(static_cast<int32_t>(handle), &responsePtr, &responseLen);
@@ -171,6 +211,9 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersha
 
 // Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoWatchRuntimeStateFinish invokes examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState through the Android C++ JNI adapter.
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoWatchRuntimeStateFinish(JNIEnv* env, jobject, jint handle) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
     int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateFinish(static_cast<int32_t>(handle));
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessUnit(env);
@@ -178,7 +221,168 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersha
 
 // Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoWatchRuntimeStateCancel invokes examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState through the Android C++ JNI adapter.
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoWatchRuntimeStateCancel(JNIEnv* env, jobject, jint handle) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
     int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateCancel(static_cast<int32_t>(handle));
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessUnit(env);
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoCollectRuntimeStateStart invokes examples.flutter.sharedso.v1.SharedSoDemo.CollectRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoCollectRuntimeStateStart(JNIEnv* env, jobject) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    int32_t handle = 0;
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoCollectRuntimeStateStart(&handle);
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessHandle(env, handle);
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoCollectRuntimeStateSend invokes examples.flutter.sharedso.v1.SharedSoDemo.CollectRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoCollectRuntimeStateSend(JNIEnv* env, jobject, jint handle, jbyteArray request) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    bool requestOK = false;
+    std::vector<uint8_t> requestBytes = rpccgoJNIBytes(env, request, &requestOK);
+    if (!requestOK) { return rpccgoErrorResult(env, "rpccgo: JNI request bytes are null or unreadable"); }
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoCollectRuntimeStateSend(static_cast<int32_t>(handle), rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()));
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessUnit(env);
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoCollectRuntimeStateFinish invokes examples.flutter.sharedso.v1.SharedSoDemo.CollectRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoCollectRuntimeStateFinish(JNIEnv* env, jobject, jint handle) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    uintptr_t responsePtr = 0;
+    int32_t responseLen = 0;
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoCollectRuntimeStateFinish(static_cast<int32_t>(handle), &responsePtr, &responseLen);
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessBytes(env, responsePtr, responseLen);
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoCollectRuntimeStateCancel invokes examples.flutter.sharedso.v1.SharedSoDemo.CollectRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoCollectRuntimeStateCancel(JNIEnv* env, jobject, jint handle) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoCollectRuntimeStateCancel(static_cast<int32_t>(handle));
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessUnit(env);
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoStreamRuntimeStateStart invokes examples.flutter.sharedso.v1.SharedSoDemo.StreamRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoStreamRuntimeStateStart(JNIEnv* env, jobject, jbyteArray request) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    bool requestOK = false;
+    std::vector<uint8_t> requestBytes = rpccgoJNIBytes(env, request, &requestOK);
+    if (!requestOK) { return rpccgoErrorResult(env, "rpccgo: JNI request bytes are null or unreadable"); }
+    int32_t handle = 0;
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateStart(rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()), &handle);
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessHandle(env, handle);
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoStreamRuntimeStateRecv invokes examples.flutter.sharedso.v1.SharedSoDemo.StreamRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoStreamRuntimeStateRecv(JNIEnv* env, jobject, jint handle) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    uintptr_t responsePtr = 0;
+    int32_t responseLen = 0;
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateRead(static_cast<int32_t>(handle), &responsePtr, &responseLen);
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessBytes(env, responsePtr, responseLen);
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoStreamRuntimeStateFinish invokes examples.flutter.sharedso.v1.SharedSoDemo.StreamRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoStreamRuntimeStateFinish(JNIEnv* env, jobject, jint handle) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateFinish(static_cast<int32_t>(handle));
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessUnit(env);
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoStreamRuntimeStateCancel invokes examples.flutter.sharedso.v1.SharedSoDemo.StreamRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoStreamRuntimeStateCancel(JNIEnv* env, jobject, jint handle) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateCancel(static_cast<int32_t>(handle));
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessUnit(env);
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoChatRuntimeStateStart invokes examples.flutter.sharedso.v1.SharedSoDemo.ChatRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoChatRuntimeStateStart(JNIEnv* env, jobject) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    int32_t handle = 0;
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateStart(&handle);
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessHandle(env, handle);
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoChatRuntimeStateSend invokes examples.flutter.sharedso.v1.SharedSoDemo.ChatRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoChatRuntimeStateSend(JNIEnv* env, jobject, jint handle, jbyteArray request) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    bool requestOK = false;
+    std::vector<uint8_t> requestBytes = rpccgoJNIBytes(env, request, &requestOK);
+    if (!requestOK) { return rpccgoErrorResult(env, "rpccgo: JNI request bytes are null or unreadable"); }
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateSend(static_cast<int32_t>(handle), rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()));
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessUnit(env);
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoChatRuntimeStateRecv invokes examples.flutter.sharedso.v1.SharedSoDemo.ChatRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoChatRuntimeStateRecv(JNIEnv* env, jobject, jint handle) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    uintptr_t responsePtr = 0;
+    int32_t responseLen = 0;
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateRead(static_cast<int32_t>(handle), &responsePtr, &responseLen);
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessBytes(env, responsePtr, responseLen);
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoChatRuntimeStateCloseSend invokes examples.flutter.sharedso.v1.SharedSoDemo.ChatRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoChatRuntimeStateCloseSend(JNIEnv* env, jobject, jint handle) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateCloseSend(static_cast<int32_t>(handle));
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessUnit(env);
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoChatRuntimeStateFinish invokes examples.flutter.sharedso.v1.SharedSoDemo.ChatRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoChatRuntimeStateFinish(JNIEnv* env, jobject, jint handle) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateFinish(static_cast<int32_t>(handle));
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessUnit(env);
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoChatRuntimeStateCancel invokes examples.flutter.sharedso.v1.SharedSoDemo.ChatRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoChatRuntimeStateCancel(JNIEnv* env, jobject, jint handle) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateCancel(static_cast<int32_t>(handle));
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessUnit(env);
 }

@@ -53,4 +53,13 @@ service SharedSoDemo {
 
   // WatchRuntimeState streams runtime state snapshots through the Kotlin/JNI path.
   rpc WatchRuntimeState(ReadRuntimeStateRequest) returns (stream RuntimeStateResponse);
+
+  // CollectRuntimeState verifies client streaming through both Flutter FFI and Kotlin/JNI.
+  rpc CollectRuntimeState(stream IncrementRuntimeStateRequest) returns (RuntimeStateResponse);
+
+  // StreamRuntimeState verifies server streaming through both Flutter FFI and Kotlin/JNI.
+  rpc StreamRuntimeState(ReadRuntimeStateRequest) returns (stream RuntimeStateResponse);
+
+  // ChatRuntimeState verifies bidi streaming through both Flutter FFI and Kotlin/JNI.
+  rpc ChatRuntimeState(stream IncrementRuntimeStateRequest) returns (stream RuntimeStateResponse);
 }

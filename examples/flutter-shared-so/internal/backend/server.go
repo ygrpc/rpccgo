@@ -3,6 +3,7 @@ package backend
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"strings"
@@ -101,6 +102,101 @@ func (s *SharedSoDemoServer) WatchRuntimeState(ctx context.Context, req *flutter
 		}
 	}
 	return nil
+}
+
+// CollectRuntimeState receives a client stream of state changes and returns the
+// final state snapshot.
+func (s *SharedSoDemoServer) CollectRuntimeState(ctx context.Context, stream *connect.ClientStream[fluttersharedv1.IncrementRuntimeStateRequest]) (*fluttersharedv1.RuntimeStateResponse, error) {
+	if stream == nil {
+		return nil, fmt.Errorf("collect runtime state stream is nil")
+	}
+
+	caller := "unknown-caller"
+	for stream.Receive() {
+		req := stream.Msg()
+		if req == nil {
+			return nil, fmt.Errorf("collect runtime state request is nil")
+		}
+		if trimmed := strings.TrimSpace(req.GetCaller()); trimmed != "" {
+			caller = trimmed
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+		s.mu.Lock()
+		s.value += int64(req.GetDelta())
+		s.revision++
+		s.mu.Unlock()
+	}
+	if err := stream.Err(); err != nil {
+		return nil, err
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	resp := s.runtimeStateResponse(caller)
+	log.Printf("rpccgo shared runtime collect: instance_address=%s pid=%d caller=%s value=%d revision=%d", resp.GetInstanceAddress(), resp.GetPid(), resp.GetCaller(), resp.GetValue(), resp.GetRevision())
+	return resp, nil
+}
+
+// StreamRuntimeState streams three snapshots of the current runtime state.
+func (s *SharedSoDemoServer) StreamRuntimeState(ctx context.Context, req *fluttersharedv1.ReadRuntimeStateRequest, stream *connect.ServerStream[fluttersharedv1.RuntimeStateResponse]) error {
+	if req == nil {
+		return fmt.Errorf("stream runtime state request is nil")
+	}
+	if stream == nil {
+		return fmt.Errorf("stream runtime state stream is nil")
+	}
+	for i := 0; i < 3; i++ {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		s.mu.Lock()
+		resp := s.runtimeStateResponse(req.GetCaller())
+		s.mu.Unlock()
+		if err := stream.Send(resp); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ChatRuntimeState applies each streamed state change and returns a snapshot for
+// every request.
+func (s *SharedSoDemoServer) ChatRuntimeState(ctx context.Context, stream *connect.BidiStream[fluttersharedv1.IncrementRuntimeStateRequest, fluttersharedv1.RuntimeStateResponse]) error {
+	if stream == nil {
+		return fmt.Errorf("chat runtime state stream is nil")
+	}
+
+	for {
+		req, err := stream.Receive()
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+		if req == nil {
+			return fmt.Errorf("chat runtime state request is nil")
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		s.mu.Lock()
+		s.value += int64(req.GetDelta())
+		s.revision++
+		resp := s.runtimeStateResponse(req.GetCaller())
+		s.mu.Unlock()
+		if err := stream.Send(resp); err != nil {
+			return err
+		}
+	}
 }
 
 func (s *SharedSoDemoServer) runtimeStateResponse(caller string) *fluttersharedv1.RuntimeStateResponse {

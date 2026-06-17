@@ -23,6 +23,20 @@ object SharedSoDemoJni {
     private external fun sharedSoDemoWatchRuntimeStateRecv(handle: Int): ByteArray?
     private external fun sharedSoDemoWatchRuntimeStateFinish(handle: Int): ByteArray?
     private external fun sharedSoDemoWatchRuntimeStateCancel(handle: Int): ByteArray?
+    private external fun sharedSoDemoCollectRuntimeStateStart(): ByteArray?
+    private external fun sharedSoDemoCollectRuntimeStateSend(handle: Int, request: ByteArray): ByteArray?
+    private external fun sharedSoDemoCollectRuntimeStateFinish(handle: Int): ByteArray?
+    private external fun sharedSoDemoCollectRuntimeStateCancel(handle: Int): ByteArray?
+    private external fun sharedSoDemoStreamRuntimeStateStart(request: ByteArray): ByteArray?
+    private external fun sharedSoDemoStreamRuntimeStateRecv(handle: Int): ByteArray?
+    private external fun sharedSoDemoStreamRuntimeStateFinish(handle: Int): ByteArray?
+    private external fun sharedSoDemoStreamRuntimeStateCancel(handle: Int): ByteArray?
+    private external fun sharedSoDemoChatRuntimeStateStart(): ByteArray?
+    private external fun sharedSoDemoChatRuntimeStateSend(handle: Int, request: ByteArray): ByteArray?
+    private external fun sharedSoDemoChatRuntimeStateRecv(handle: Int): ByteArray?
+    private external fun sharedSoDemoChatRuntimeStateCloseSend(handle: Int): ByteArray?
+    private external fun sharedSoDemoChatRuntimeStateFinish(handle: Int): ByteArray?
+    private external fun sharedSoDemoChatRuntimeStateCancel(handle: Int): ByteArray?
 
     fun ComposeGreeting(req: examples.flutter.sharedso.v1.ComposeGreetingRequest): RpccgoResult<examples.flutter.sharedso.v1.ComposeGreetingResponse> =
         decodeResult(sharedSoDemoComposeGreeting(req.toByteArray())) { examples.flutter.sharedso.v1.ComposeGreetingResponse.parseFrom(it) }
@@ -46,6 +60,55 @@ object SharedSoDemoJni {
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoWatchRuntimeStateFinish(handle))
         fun Cancel(): RpccgoResult<Unit> =
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoWatchRuntimeStateCancel(handle))
+    }
+
+    fun StartCollectRuntimeState(): RpccgoResult<SharedSoDemoCollectRuntimeStateClientStream> {
+        val handle = decodeHandleResult(sharedSoDemoCollectRuntimeStateStart())
+        if (!handle.ok) return RpccgoResult.failure(handle.error ?: "rpccgo: stream start failed")
+        return RpccgoResult.success(SharedSoDemoCollectRuntimeStateClientStream(handle.value ?: 0))
+    }
+
+    class SharedSoDemoCollectRuntimeStateClientStream internal constructor(private val handle: Int) {
+        fun Send(req: examples.flutter.sharedso.v1.IncrementRuntimeStateRequest): RpccgoResult<Unit> =
+            decodeUnitResult(SharedSoDemoJni.sharedSoDemoCollectRuntimeStateSend(handle, req.toByteArray()))
+        fun Finish(): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> =
+            decodeResult(SharedSoDemoJni.sharedSoDemoCollectRuntimeStateFinish(handle)) { examples.flutter.sharedso.v1.RuntimeStateResponse.parseFrom(it) }
+        fun Cancel(): RpccgoResult<Unit> =
+            decodeUnitResult(SharedSoDemoJni.sharedSoDemoCollectRuntimeStateCancel(handle))
+    }
+
+    fun StartStreamRuntimeState(req: examples.flutter.sharedso.v1.ReadRuntimeStateRequest): RpccgoResult<SharedSoDemoStreamRuntimeStateServerStream> {
+        val handle = decodeHandleResult(sharedSoDemoStreamRuntimeStateStart(req.toByteArray()))
+        if (!handle.ok) return RpccgoResult.failure(handle.error ?: "rpccgo: stream start failed")
+        return RpccgoResult.success(SharedSoDemoStreamRuntimeStateServerStream(handle.value ?: 0))
+    }
+
+    class SharedSoDemoStreamRuntimeStateServerStream internal constructor(private val handle: Int) {
+        fun Recv(): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> =
+            decodeResult(SharedSoDemoJni.sharedSoDemoStreamRuntimeStateRecv(handle)) { examples.flutter.sharedso.v1.RuntimeStateResponse.parseFrom(it) }
+        fun Finish(): RpccgoResult<Unit> =
+            decodeUnitResult(SharedSoDemoJni.sharedSoDemoStreamRuntimeStateFinish(handle))
+        fun Cancel(): RpccgoResult<Unit> =
+            decodeUnitResult(SharedSoDemoJni.sharedSoDemoStreamRuntimeStateCancel(handle))
+    }
+
+    fun StartChatRuntimeState(): RpccgoResult<SharedSoDemoChatRuntimeStateBidiStream> {
+        val handle = decodeHandleResult(sharedSoDemoChatRuntimeStateStart())
+        if (!handle.ok) return RpccgoResult.failure(handle.error ?: "rpccgo: stream start failed")
+        return RpccgoResult.success(SharedSoDemoChatRuntimeStateBidiStream(handle.value ?: 0))
+    }
+
+    class SharedSoDemoChatRuntimeStateBidiStream internal constructor(private val handle: Int) {
+        fun Send(req: examples.flutter.sharedso.v1.IncrementRuntimeStateRequest): RpccgoResult<Unit> =
+            decodeUnitResult(SharedSoDemoJni.sharedSoDemoChatRuntimeStateSend(handle, req.toByteArray()))
+        fun Recv(): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> =
+            decodeResult(SharedSoDemoJni.sharedSoDemoChatRuntimeStateRecv(handle)) { examples.flutter.sharedso.v1.RuntimeStateResponse.parseFrom(it) }
+        fun CloseSend(): RpccgoResult<Unit> =
+            decodeUnitResult(SharedSoDemoJni.sharedSoDemoChatRuntimeStateCloseSend(handle))
+        fun Finish(): RpccgoResult<Unit> =
+            decodeUnitResult(SharedSoDemoJni.sharedSoDemoChatRuntimeStateFinish(handle))
+        fun Cancel(): RpccgoResult<Unit> =
+            decodeUnitResult(SharedSoDemoJni.sharedSoDemoChatRuntimeStateCancel(handle))
     }
 
     private fun decodeResultPayload(bytes: ByteArray?): RpccgoResult<ByteArray> {

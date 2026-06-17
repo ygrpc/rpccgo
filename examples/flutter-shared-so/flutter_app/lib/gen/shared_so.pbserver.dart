@@ -29,6 +29,12 @@ abstract class SharedSoDemoServiceBase extends $pb.GeneratedService {
       $pb.ServerContext ctx, $0.ReadRuntimeStateRequest request);
   $async.Future<$0.RuntimeStateResponse> watchRuntimeState(
       $pb.ServerContext ctx, $0.ReadRuntimeStateRequest request);
+  $async.Future<$0.RuntimeStateResponse> collectRuntimeState(
+      $pb.ServerContext ctx, $0.IncrementRuntimeStateRequest request);
+  $async.Future<$0.RuntimeStateResponse> streamRuntimeState(
+      $pb.ServerContext ctx, $0.ReadRuntimeStateRequest request);
+  $async.Future<$0.RuntimeStateResponse> chatRuntimeState(
+      $pb.ServerContext ctx, $0.IncrementRuntimeStateRequest request);
 
   $pb.GeneratedMessage createRequest($core.String methodName) {
     switch (methodName) {
@@ -40,6 +46,12 @@ abstract class SharedSoDemoServiceBase extends $pb.GeneratedService {
         return $0.ReadRuntimeStateRequest();
       case 'WatchRuntimeState':
         return $0.ReadRuntimeStateRequest();
+      case 'CollectRuntimeState':
+        return $0.IncrementRuntimeStateRequest();
+      case 'StreamRuntimeState':
+        return $0.ReadRuntimeStateRequest();
+      case 'ChatRuntimeState':
+        return $0.IncrementRuntimeStateRequest();
       default:
         throw $core.ArgumentError('Unknown method: $methodName');
     }
@@ -57,6 +69,14 @@ abstract class SharedSoDemoServiceBase extends $pb.GeneratedService {
         return readRuntimeState(ctx, request as $0.ReadRuntimeStateRequest);
       case 'WatchRuntimeState':
         return watchRuntimeState(ctx, request as $0.ReadRuntimeStateRequest);
+      case 'CollectRuntimeState':
+        return collectRuntimeState(
+            ctx, request as $0.IncrementRuntimeStateRequest);
+      case 'StreamRuntimeState':
+        return streamRuntimeState(ctx, request as $0.ReadRuntimeStateRequest);
+      case 'ChatRuntimeState':
+        return chatRuntimeState(
+            ctx, request as $0.IncrementRuntimeStateRequest);
       default:
         throw $core.ArgumentError('Unknown method: $methodName');
     }

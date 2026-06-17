@@ -139,3 +139,12 @@ flutter run
 2. 该操作会首先通过 **Flutter FFI** 调用 Go 写入一个全局自增状态，输出最新的状态计数和当前 Go runtime 实例地址。
 3. 随后会通过 **MethodChannel** 触发 **Kotlin/JNI** 调用 Go 读取相同的状态。
 4. 结果表明，两边读取到的实例地址和自增计数值完全一致，这验证了两者在使用同一个运行时。
+
+### 4. 验证 streaming RPC
+点击 **"Run streams"** 按钮。Flutter FFI 和 Kotlin/JNI 会分别调用：
+
+- `CollectRuntimeState`：client streaming。
+- `StreamRuntimeState`：server streaming。
+- `ChatRuntimeState`：bidi streaming。
+
+Android C++ JNI shim 在 `JNI_OnLoad` 保存 `JavaVM*`，stream operation 入口会通过它解析当前线程的 `JNIEnv`。

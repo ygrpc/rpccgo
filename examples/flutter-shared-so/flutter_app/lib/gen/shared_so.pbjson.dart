@@ -115,6 +115,25 @@ const $core.Map<$core.String, $core.dynamic> SharedSoDemoServiceBase$json = {
       '3': '.examples.flutter.sharedso.v1.RuntimeStateResponse',
       '6': true
     },
+    {
+      '1': 'CollectRuntimeState',
+      '2': '.examples.flutter.sharedso.v1.IncrementRuntimeStateRequest',
+      '3': '.examples.flutter.sharedso.v1.RuntimeStateResponse',
+      '5': true
+    },
+    {
+      '1': 'StreamRuntimeState',
+      '2': '.examples.flutter.sharedso.v1.ReadRuntimeStateRequest',
+      '3': '.examples.flutter.sharedso.v1.RuntimeStateResponse',
+      '6': true
+    },
+    {
+      '1': 'ChatRuntimeState',
+      '2': '.examples.flutter.sharedso.v1.IncrementRuntimeStateRequest',
+      '3': '.examples.flutter.sharedso.v1.RuntimeStateResponse',
+      '5': true,
+      '6': true
+    },
   ],
 };
 
@@ -144,4 +163,12 @@ final $typed_data.Uint8List sharedSoDemoServiceDescriptor = $convert.base64Decod
     'ZWFkUnVudGltZVN0YXRlUmVxdWVzdBoyLmV4YW1wbGVzLmZsdXR0ZXIuc2hhcmVkc28udjEuUn'
     'VudGltZVN0YXRlUmVzcG9uc2USgAEKEVdhdGNoUnVudGltZVN0YXRlEjUuZXhhbXBsZXMuZmx1'
     'dHRlci5zaGFyZWRzby52MS5SZWFkUnVudGltZVN0YXRlUmVxdWVzdBoyLmV4YW1wbGVzLmZsdX'
-    'R0ZXIuc2hhcmVkc28udjEuUnVudGltZVN0YXRlUmVzcG9uc2UwAQ==');
+    'R0ZXIuc2hhcmVkc28udjEuUnVudGltZVN0YXRlUmVzcG9uc2UwARKHAQoTQ29sbGVjdFJ1bnRp'
+    'bWVTdGF0ZRI6LmV4YW1wbGVzLmZsdXR0ZXIuc2hhcmVkc28udjEuSW5jcmVtZW50UnVudGltZV'
+    'N0YXRlUmVxdWVzdBoyLmV4YW1wbGVzLmZsdXR0ZXIuc2hhcmVkc28udjEuUnVudGltZVN0YXRl'
+    'UmVzcG9uc2UoARKBAQoSU3RyZWFtUnVudGltZVN0YXRlEjUuZXhhbXBsZXMuZmx1dHRlci5zaG'
+    'FyZWRzby52MS5SZWFkUnVudGltZVN0YXRlUmVxdWVzdBoyLmV4YW1wbGVzLmZsdXR0ZXIuc2hh'
+    'cmVkc28udjEuUnVudGltZVN0YXRlUmVzcG9uc2UwARKGAQoQQ2hhdFJ1bnRpbWVTdGF0ZRI6Lm'
+    'V4YW1wbGVzLmZsdXR0ZXIuc2hhcmVkc28udjEuSW5jcmVtZW50UnVudGltZVN0YXRlUmVxdWVz'
+    'dBoyLmV4YW1wbGVzLmZsdXR0ZXIuc2hhcmVkc28udjEuUnVudGltZVN0YXRlUmVzcG9uc2UoAT'
+    'AB');

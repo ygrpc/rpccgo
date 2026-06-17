@@ -6,6 +6,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"runtime"
+	"strings"
 )
 
 var protocPluginPackages = []string{
@@ -23,7 +26,7 @@ func Generate() error {
 		return err
 	}
 	defer cleanup()
-	return runWithBinDir(binDir, "go", "generate", "./...")
+	return generateWithBinDir(binDir)
 }
 
 // Test verifies the shared-so E2E contracts and build process.
@@ -33,10 +36,10 @@ func Test() error {
 		return err
 	}
 	defer cleanup()
-	if err := runWithBinDir(binDir, "go", "generate", "./..."); err != nil {
+	if err := generateWithBinDir(binDir); err != nil {
 		return err
 	}
-	return runWithBinDir(binDir, "go", "test", "./...", "-count=1", "-skip", "^TestSharedSoDemoMageTestNoPanic$")
+	return runWithEnv(map[string]string{"GOFLAGS": "-mod=mod"}, "go", "test", "./...", "-count=1", "-skip", "^TestSharedSoDemoMageTestNoPanic$")
 }
 
 func installProtocPlugins() (string, func(), error) {
@@ -54,26 +57,84 @@ func installProtocPlugins() (string, func(), error) {
 	return binDir, cleanup, nil
 }
 
-func runWithBinDir(binDir string, name string, args ...string) error {
+func generateWithBinDir(binDir string) error {
+	args := []string{
+		"--plugin=protoc-gen-go=" + pluginPath(binDir, "protoc-gen-go"),
+		"--plugin=protoc-gen-connect-go=" + pluginPath(binDir, "protoc-gen-connect-go"),
+		"--plugin=protoc-gen-rpc-cgo=" + pluginPath(binDir, "protoc-gen-rpc-cgo"),
+		"--plugin=protoc-gen-rpc-cgo-dart=" + pluginPath(binDir, "protoc-gen-rpc-cgo-dart"),
+		"--plugin=protoc-gen-rpc-cgo-jni=" + pluginPath(binDir, "protoc-gen-rpc-cgo-jni"),
+		"--unsafe_allow_out_dir_escape",
+		"-I", "proto",
+		"--go_out=proto",
+		"--go_opt=paths=source_relative",
+		"--connect-go_out=proto",
+		"--connect-go_opt=paths=source_relative",
+		"--connect-go_opt=package_suffix=",
+		"--connect-go_opt=simple=true",
+		"--rpc-cgo_out=proto",
+		"--rpc-cgo_opt=paths=source_relative",
+		"--rpc-cgo_opt=cgo_dir=../cmd/rpc",
+		"--dart_out=flutter_app/lib/gen",
+		"--rpc-cgo-dart_out=flutter_app/lib/gen",
+		"--rpc-cgo-dart_opt=paths=source_relative,dart_package=rpccgofluttersharedso",
+		"--rpc-cgo-jni_out=flutter_app/android/app/src/main",
+		"--rpc-cgo-jni_opt=paths=source_relative",
+		"--rpc-cgo-jni_opt=jni_class=com.ygrpc.examples.rpccgofluttersharedso.SharedSoDemoJni",
+		"--rpc-cgo-jni_opt=rpccgo_header=librpccgo_flutter_shared.h",
+		"proto/shared_so.proto",
+	}
 	return runWithEnv(map[string]string{
 		"GOFLAGS": "-mod=mod",
 		"PATH":    binDir + string(os.PathListSeparator) + os.Getenv("PATH"),
-	}, name, args...)
+	}, "protoc", args...)
+}
+
+func pluginPath(binDir, name string) string {
+	if runtime.GOOS == "windows" {
+		name += ".exe"
+	}
+	return filepath.Join(binDir, name)
 }
 
 func runWithEnv(extra map[string]string, name string, args ...string) error {
 	cmd := exec.Command(name, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	cmd.Env = os.Environ()
-	for key, value := range extra {
-		cmd.Env = append(cmd.Env, key+"="+value)
-	}
+	cmd.Env = mergedEnv(os.Environ(), extra)
 	return cmd.Run()
+}
+
+func mergedEnv(base []string, extra map[string]string) []string {
+	env := make([]string, 0, len(base)+len(extra))
+	seen := make(map[string]bool, len(extra))
+	for _, entry := range base {
+		key, _, ok := strings.Cut(entry, "=")
+		if !ok {
+			env = append(env, entry)
+			continue
+		}
+		value, exists := extra[key]
+		if !exists {
+			env = append(env, entry)
+			continue
+		}
+		env = append(env, key+"="+value)
+		seen[key] = true
+	}
+	for key, value := range extra {
+		if !seen[key] {
+			env = append(env, key+"="+value)
+		}
+	}
+	return env
 }
 
 // BuildApk compiles the Flutter application into a release APK.
 func BuildApk() error {
+	if err := Generate(); err != nil {
+		return err
+	}
 	return runInFlutterApp("flutter", "build", "apk")
 }
 
