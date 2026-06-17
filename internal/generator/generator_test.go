@@ -503,70 +503,12 @@ func TestPluginOptionsRejectAbsoluteCGODirParameter(t *testing.T) {
 	}
 }
 
-func TestGenerateAcceptsJNIParameters(t *testing.T) {
-	plugin := newTestPlugin(t, "paths=source_relative,cgo_dir=../cmd/rpc,jni_client_dir=../android/app/src/main/java,jni_class=com.example.GreeterJni", simpleTestFile())
-
-	generation, err := GenerateWithOptions(plugin)
-	if err != nil {
-		t.Fatalf("GenerateWithOptions() error = %v", err)
-	}
-
-	file := firstFilePlan(t, generation)
-	if got, want := file.JNIClientDir, "../android/app/src/main/java"; got != want {
-		t.Fatalf("JNIClientDir = %q, want %q", got, want)
-	}
-	if got, want := file.JNIClass, "com.example.GreeterJni"; got != want {
-		t.Fatalf("JNIClass = %q, want %q", got, want)
-	}
-	assertGeneratedFilenames(t, plugin, []string{
-		"test/v1/greeter.greeter.runtime.rpccgo.go",
-		"test/v1/greeter.greeter.codec.rpccgo.go",
-		"test/v1/greeter.greeter.server.message.rpccgo.go",
-		"test/cmd/rpc/rpccgo.exports.cgo.rpccgo.go",
-		"test/cmd/rpc/main.go",
-		"test/cmd/rpc/greeter.greeter.server.message.cgo.rpccgo.go",
-		"test/cmd/rpc/greeter.greeter.client.message.cgo.rpccgo.go",
-		"test/cmd/rpc/greeter.greeter.client.message.jni.rpccgo.go",
-		"test/android/app/src/main/java/com/example/GreeterJni.kt",
-	})
-	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.client.message.jni.rpccgo.go",
-		"//export Java_com_example_GreeterJni_greeterSayHello")
-	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.client.message.jni.rpccgo.go",
-		"func Java_com_example_GreeterJni_greeterSayHello(env *C.JNIEnv, _ C.jobject, request C.jbyteArray) C.jbyteArray {")
-	assertGeneratedContentContains(t, plugin, "test/cmd/rpc/greeter.greeter.client.message.jni.rpccgo.go",
-		"resp, err := v1.InvokeGreeterMessageSayHello(ctx, req)")
-	assertGeneratedContentContains(t, plugin, "test/android/app/src/main/java/com/example/GreeterJni.kt",
-		"data class RpccgoResult<T>")
-	assertGeneratedContentContains(t, plugin, "test/android/app/src/main/java/com/example/GreeterJni.kt",
-		"object GreeterJni")
-	assertGeneratedContentContains(t, plugin, "test/android/app/src/main/java/com/example/GreeterJni.kt",
-		"fun SayHello(req: test.v1.HelloRequest): RpccgoResult<test.v1.HelloReply>")
-}
-
-func TestGenerateRejectsPartialJNIParameters(t *testing.T) {
-	plugin := newTestPlugin(t, "paths=source_relative,jni_client_dir=../android/app/src/main/java", simpleTestFile())
-
-	_, err := GenerateWithOptions(plugin)
-	if err == nil || !strings.Contains(err.Error(), "jni_client_dir and jni_class must be provided together") {
-		t.Fatalf("GenerateWithOptions() error = %v, want paired JNI parameter error", err)
-	}
-}
-
-func TestGenerateRejectsJNIWithDisabledCGODir(t *testing.T) {
-	plugin := newTestPlugin(t, "paths=source_relative,cgo_dir=,jni_client_dir=../android/app/src/main/java,jni_class=com.example.GreeterJni", simpleTestFile())
-
-	_, err := GenerateWithOptions(plugin)
-	if err == nil || !strings.Contains(err.Error(), "require non-empty cgo_dir") {
-		t.Fatalf("GenerateWithOptions() error = %v, want JNI cgo_dir error", err)
-	}
-}
-
-func TestPluginOptionsRejectInvalidJNIClass(t *testing.T) {
-	request := newTestCodeGeneratorRequest("jni_class=GreeterJni", simpleTestFile())
+func TestGenerateRejectsLegacyJNIParameters(t *testing.T) {
+	request := newTestCodeGeneratorRequest("paths=source_relative,jni_client_dir=../android/app/src/main/java", simpleTestFile())
 
 	_, err := ProtogenOptions().New(request)
-	if err == nil || !strings.Contains(err.Error(), "jni_class") {
-		t.Fatalf("ProtogenOptions().New() error = %v, want invalid jni_class error", err)
+	if err == nil || !strings.Contains(err.Error(), `unknown rpccgo parameter "jni_client_dir"`) {
+		t.Fatalf("ProtogenOptions().New() error = %v, want legacy JNI parameter rejection", err)
 	}
 }
 

@@ -11,6 +11,7 @@ class MainActivity : FlutterActivity() {
     companion object {
         init {
             System.loadLibrary("rpccgo_flutter_shared")
+            System.loadLibrary("rpccgo_flutter_shared_jni")
         }
     }
 

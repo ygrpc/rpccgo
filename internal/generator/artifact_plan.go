@@ -3,7 +3,6 @@ package generator
 import (
 	"fmt"
 	"path"
-	"strings"
 )
 
 // AttachServiceArtifactPlans fills each service with the generated artifact list derived from file options.
@@ -32,12 +31,6 @@ func BuildServiceArtifactPlans(file FilePlan, service ServicePlan) []GeneratedAr
 			GeneratedArtifactPlan{Kind: GeneratedArtifactKindCGOMessageServer, Filename: fmt.Sprintf("%s.%s.server.message.cgo.rpccgo.go", cgoPrefix, serviceName)},
 			GeneratedArtifactPlan{Kind: GeneratedArtifactKindCGOMessageClient, Filename: fmt.Sprintf("%s.%s.client.message.cgo.rpccgo.go", cgoPrefix, serviceName)},
 		)
-		if file.JNIClass != "" && file.JNIClientDir != "" {
-			artifacts = append(artifacts,
-				GeneratedArtifactPlan{Kind: GeneratedArtifactKindJNIMessageClient, Filename: fmt.Sprintf("%s.%s.client.message.jni.rpccgo.go", cgoPrefix, serviceName)},
-				GeneratedArtifactPlan{Kind: GeneratedArtifactKindJNIKotlinClient, Filename: jniKotlinClientFilename(file)},
-			)
-		}
 		if service.Generation.NativeEnabled {
 			artifacts = append(artifacts,
 				GeneratedArtifactPlan{Kind: GeneratedArtifactKindCGONativeServer, Filename: fmt.Sprintf("%s.%s.server.native.cgo.rpccgo.go", cgoPrefix, serviceName)},
@@ -87,7 +80,7 @@ func packageHasCGOArtifacts(pkg PackagePlan) bool {
 		for _, service := range file.Services {
 			for _, artifact := range service.Artifacts {
 				switch artifact.Kind {
-				case GeneratedArtifactKindCGONativeServer, GeneratedArtifactKindCGONativeClient, GeneratedArtifactKindCGOMessageServer, GeneratedArtifactKindCGOMessageClient, GeneratedArtifactKindJNIMessageClient:
+				case GeneratedArtifactKindCGONativeServer, GeneratedArtifactKindCGONativeClient, GeneratedArtifactKindCGOMessageServer, GeneratedArtifactKindCGOMessageClient:
 					return true
 				}
 			}
@@ -105,11 +98,6 @@ func cgoDirForFilePlan(file FilePlan) string {
 
 func cgoArtifactsEnabledForFilePlan(file FilePlan) bool {
 	return file.CGODir != ""
-}
-
-func jniKotlinClientFilename(file FilePlan) string {
-	pkg, className := jniClassPackageAndSimpleName(file.JNIClass)
-	return path.Join(path.Dir(file.GeneratedFilenamePrefix), file.JNIClientDir, path.Join(strings.Split(pkg, ".")...), className+".kt")
 }
 
 func cgoDirForPackagePlan(pkg PackagePlan) string {

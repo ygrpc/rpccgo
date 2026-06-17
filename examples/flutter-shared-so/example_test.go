@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	backend "example.com/rpccgo-flutter-shared-so/internal/backend"
@@ -116,16 +118,21 @@ func TestSharedSoDemoFlutterProjectContracts(t *testing.T) {
 	assertFileContains(t, "flutter_app/hook/build.dart", "DynamicLoadingSystem(")
 	assertFileContains(t, "flutter_app/hook/build.dart", "Uri.file('librpccgo_flutter_shared.so')")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "System.loadLibrary(\"rpccgo_flutter_shared\")")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "System.loadLibrary(\"rpccgo_flutter_shared_jni\")")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "SharedSoDemoJni.ComposeGreeting")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "SharedSoDemoJni.ReadRuntimeState")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun StartWatchRuntimeState")
-	assertFileContains(t, "cmd/rpc/shared_so.shared_so_demo.client.message.jni.rpccgo.go", "sharedSoDemoWatchRuntimeStateStart")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "JNIEXPORT jint JNICALL JNI_OnLoad")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/CMakeLists.txt", "rpccgo_flutter_shared_jni")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/CMakeLists.txt", "-l:librpccgo_flutter_shared.so")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "ComposeGreetingRequest.newBuilder()")
 	assertFileContains(t, "flutter_app/lib/main.dart", "IncrementRuntimeState")
 	assertFileContains(t, "flutter_app/lib/main.dart", "Latest Activity")
 	assertFileContains(t, "flutter_app/lib/main.dart", "_latestActivityBody")
 	assertFileContains(t, "flutter_app/android/app/build.gradle.kts", "dependsOn(buildSharedSoForAndroid)")
-	assertFileContains(t, "flutter_app/android/app/build.gradle.kts", "abiFilters += listOf(\"arm64-v8a\", \"x86_64\")")
+	assertFileContains(t, "flutter_app/android/app/build.gradle.kts", "externalNativeBuild")
+	assertFileContains(t, "flutter_app/android/app/build.gradle.kts", "abiFilters.addAll(listOf(\"arm64-v8a\", \"armeabi-v7a\", \"x86_64\"))")
 	assertFileContains(t, "flutter_app/android/app/build.gradle.kts", "protobuf-javalite")
 	assertFileContains(t, "flutter_app/android/app/build.gradle.kts", "proguard-rules.pro")
 	assertFileContains(t, "flutter_app/android/app/proguard-rules.pro", "GeneratedMessageLite")
@@ -150,12 +157,94 @@ func TestSharedSoDemoCSharedBuild(t *testing.T) {
 	}
 	for _, fragment := range []string{
 		"rpccgoMsgFluttersharedv1SharedSoDemoComposeGreeting",
+		"rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart",
 		"rpccgoTakeErrorText",
 		"rpccgoRelease",
 	} {
 		if !bytes.Contains(header, []byte(fragment)) {
 			t.Fatalf("header missing %q", fragment)
 		}
+	}
+	if bytes.Contains(header, []byte("Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni")) {
+		t.Fatalf("c-shared header still contains Go-exported JNI symbols")
+	}
+}
+
+func TestSharedSoDemoJNIAdapterDoesNotNeedBuildHostPath(t *testing.T) {
+	patterns := []string{
+		filepath.Join("flutter_app", "build", "app", "intermediates", "cxx", "*", "*", "obj", "*", "librpccgo_flutter_shared_jni.so"),
+		filepath.Join("flutter_app", "build", "app", "intermediates", "cmake", "*", "obj", "*", "librpccgo_flutter_shared_jni.so"),
+	}
+	var soPaths []string
+	for _, pattern := range patterns {
+		matches, err := filepath.Glob(pattern)
+		if err != nil {
+			t.Fatalf("glob JNI adapter shared libraries: %v", err)
+		}
+		soPaths = append(soPaths, matches...)
+	}
+	if len(soPaths) == 0 {
+		t.Skip("JNI adapter shared libraries have not been built")
+	}
+
+	readelf := findAndroidLLVMReadelf(t)
+	for _, soPath := range soPaths {
+		out, err := exec.Command(readelf, "-d", soPath).CombinedOutput()
+		if err != nil {
+			t.Fatalf("read JNI adapter dynamic section for %s: %v\n%s", soPath, err, out)
+		}
+		text := string(out)
+		if !strings.Contains(text, "Shared library: [librpccgo_flutter_shared.so]") {
+			t.Fatalf("%s missing relative Go shared library dependency:\n%s", soPath, text)
+		}
+		if strings.Contains(text, "/jniLibs/") || strings.Contains(text, "/home/") {
+			t.Fatalf("%s dynamic dependencies contain build-host path:\n%s", soPath, text)
+		}
+	}
+}
+
+func findAndroidLLVMReadelf(t *testing.T) string {
+	t.Helper()
+
+	if ndk := os.Getenv("ANDROID_NDK_HOME"); ndk != "" {
+		path := filepath.Join(ndk, "toolchains", "llvm", "prebuilt", androidHostTag(t), "bin", "llvm-readelf")
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+
+	sdk := os.Getenv("ANDROID_HOME")
+	if sdk == "" {
+		sdk = os.Getenv("ANDROID_SDK_ROOT")
+	}
+	if sdk == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			t.Skipf("cannot resolve home directory: %v", err)
+		}
+		sdk = filepath.Join(home, "Android", "Sdk")
+	}
+	matches, err := filepath.Glob(filepath.Join(sdk, "ndk", "*", "toolchains", "llvm", "prebuilt", androidHostTag(t), "bin", "llvm-readelf"))
+	if err != nil || len(matches) == 0 {
+		t.Skip("llvm-readelf not found under Android SDK")
+	}
+	return matches[len(matches)-1]
+}
+
+func androidHostTag(t *testing.T) string {
+	t.Helper()
+
+	switch runtime.GOOS {
+	case "linux":
+		return "linux-x86_64"
+	case "darwin":
+		if runtime.GOARCH == "arm64" {
+			return "darwin-arm64"
+		}
+		return "darwin-x86_64"
+	default:
+		t.Skipf("unsupported Android NDK host OS %s", runtime.GOOS)
+		return ""
 	}
 }
 

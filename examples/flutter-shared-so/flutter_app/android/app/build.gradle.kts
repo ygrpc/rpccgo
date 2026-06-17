@@ -18,6 +18,7 @@ val buildSharedSoForAndroid by tasks.registering(Exec::class) {
     commandLine("bash", exampleDir.resolve("flutter_app/tool/build_android_so.sh").absolutePath)
     inputs.dir(exampleDir.resolve("cmd/rpc"))
     inputs.dir(exampleDir.resolve("proto"))
+    inputs.file(exampleDir.resolve("flutter_app/tool/build_android_so.sh"))
     inputs.file(exampleDir.resolve("go.mod"))
     inputs.file(exampleDir.resolve("go.sum"))
     outputs.dir(projectDir.resolve("src/main/jniLibs"))
@@ -43,7 +44,18 @@ android {
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+            abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a", "x86_64"))
+        }
+        externalNativeBuild {
+            cmake {
+                arguments += listOf("-DANDROID_STL=c++_shared")
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
         }
     }
 
@@ -65,6 +77,10 @@ dependencies {
 }
 
 tasks.named("preBuild") {
+    dependsOn(buildSharedSoForAndroid)
+}
+
+tasks.matching { it.name.startsWith("externalNativeBuild") }.configureEach {
     dependsOn(buildSharedSoForAndroid)
 }
 
@@ -92,6 +108,13 @@ protobuf {
 android.sourceSets.named("main") {
     proto {
         srcDir(protoDir)
+    }
+}
+
+afterEvaluate {
+    android.defaultConfig.ndk {
+        abiFilters.clear()
+        abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a", "x86_64"))
     }
 }
 

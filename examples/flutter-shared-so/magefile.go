@@ -13,6 +13,7 @@ var protocPluginPackages = []string{
 	"connectrpc.com/connect/cmd/protoc-gen-connect-go",
 	"../../cmd/protoc-gen-rpc-cgo",
 	"../../cmd/protoc-gen-rpc-cgo-dart",
+	"../../cmd/protoc-gen-rpc-cgo-jni",
 }
 
 // Generate refreshes all generated files for the flutter shared-so example.

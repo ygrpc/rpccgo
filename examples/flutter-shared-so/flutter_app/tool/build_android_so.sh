@@ -53,6 +53,7 @@ build_one() {
   local goarch="$1"
   local abi="$2"
   local cc_name="$3"
+  local goarm="${4:-}"
   local out_dir="$JNI_LIBS_DIR/$abi"
 
   mkdir -p "$out_dir" "$BUILD_DIR/include"
@@ -62,17 +63,17 @@ build_one() {
     CGO_ENABLED=1 \
     GOOS=android \
     GOARCH="$goarch" \
+    GOARM="$goarm" \
     CC="$TOOLCHAIN/$cc_name" \
     GOFLAGS="-mod=mod" \
     go build -buildmode=c-shared -o "$out_dir/$LIB_NAME" ./cmd/rpc
 
-  if [[ ! -f "$BUILD_DIR/include/rpccgo_flutter_shared.h" ]]; then
-    cp "$out_dir/${LIB_NAME%.so}.h" "$BUILD_DIR/include/rpccgo_flutter_shared.h"
-  fi
+  cp "$out_dir/${LIB_NAME%.so}.h" "$BUILD_DIR/include/rpccgo_flutter_shared.h"
 }
 
 cd "$ROOT_DIR"
 build_one arm64 arm64-v8a aarch64-linux-android21-clang
 build_one amd64 x86_64 x86_64-linux-android21-clang
+build_one arm armeabi-v7a armv7a-linux-androideabi21-clang 7
 
 echo "Built Android shared libraries into $JNI_LIBS_DIR"

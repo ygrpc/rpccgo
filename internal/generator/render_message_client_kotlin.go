@@ -2,12 +2,12 @@ package generator
 
 import "google.golang.org/protobuf/compiler/protogen"
 
-func renderMessageClientKotlinFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, file GeneratedArtifactPlan) error {
-	g := plugin.NewGeneratedFile(file.Filename, "")
-	renderGeneratedHeader(g)
+func renderJNIKotlinFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, config JNIGeneratorConfig) {
+	g := plugin.NewGeneratedFile(jniKotlinFilename(config), "")
+	renderGeneratedHeaderForTool(g, "protoc-gen-rpc-cgo-jni")
 	g.P("// Source: ", plan.ProtoPath)
 	g.P()
-	pkg, className := jniClassPackageAndSimpleName(plan.JNIClass)
+	pkg, className := jniClassPackageAndSimpleName(config.JNIClass)
 	g.P("package ", pkg)
 	g.P()
 	g.P("import java.nio.ByteBuffer")
@@ -71,7 +71,6 @@ func renderMessageClientKotlinFile(plugin *protogen.Plugin, plan FilePlan, servi
 	g.P("    }")
 	g.P("}")
 	g.P()
-	return nil
 }
 
 func renderKotlinNativeDeclarations(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {

@@ -67,26 +67,6 @@ func TestBuildServiceArtifactPlansOmitsCGOArtifactsWhenCGODirDisabled(t *testing
 	assertArtifactMissing(t, got, GeneratedArtifactKindCGOMessageClient)
 	assertArtifactMissing(t, got, GeneratedArtifactKindCGONativeServer)
 	assertArtifactMissing(t, got, GeneratedArtifactKindCGONativeClient)
-	assertArtifactMissing(t, got, GeneratedArtifactKindJNIMessageClient)
-	assertArtifactMissing(t, got, GeneratedArtifactKindJNIKotlinClient)
-}
-
-func TestBuildServiceArtifactPlansAddsJNIArtifacts(t *testing.T) {
-	file := FilePlan{
-		GeneratedFilenamePrefix: "test/v1/greeter",
-		CGODir:                  "../cmd/rpc",
-		JNIClientDir:            "../android/app/src/main/java",
-		JNIClass:                "com.example.GreeterJni",
-	}
-	service := ServicePlan{
-		GoName:     "Greeter",
-		Generation: ServiceGenerationSelection{MessageTransport: MessageTransportConnect},
-	}
-
-	got := BuildServiceArtifactPlans(file, service)
-
-	assertArtifact(t, got, GeneratedArtifactKindJNIMessageClient, "test/cmd/rpc/greeter.greeter.client.message.jni.rpccgo.go")
-	assertArtifact(t, got, GeneratedArtifactKindJNIKotlinClient, "test/android/app/src/main/java/com/example/GreeterJni.kt")
 }
 
 func TestBuildSharedArtifactPlansUsesPackageLevelExportsFilename(t *testing.T) {

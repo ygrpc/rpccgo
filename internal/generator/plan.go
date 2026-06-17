@@ -30,8 +30,6 @@ type PackagePlan struct {
 	GoPackageName   string
 	GoImportPath    string
 	CGODir          string
-	JNIClientDir    string
-	JNIClass        string
 	TopLevelSymbols []TopLevelSymbolPlan
 	SharedArtifacts []GeneratedArtifactPlan
 	Files           []FilePlan
@@ -49,8 +47,6 @@ type FilePlan struct {
 	ProtoPath               string
 	GeneratedFilenamePrefix string
 	CGODir                  string
-	JNIClientDir            string
-	JNIClass                string
 	TopLevelSymbols         []TopLevelSymbolPlan
 	Services                []ServicePlan
 }
@@ -89,8 +85,6 @@ const (
 	GeneratedArtifactKindMessageServer    GeneratedArtifactKind = "message_server"
 	GeneratedArtifactKindCGOMessageServer GeneratedArtifactKind = "cgo_message_server"
 	GeneratedArtifactKindCGOMessageClient GeneratedArtifactKind = "cgo_message_client"
-	GeneratedArtifactKindJNIMessageClient GeneratedArtifactKind = "jni_message_client"
-	GeneratedArtifactKindJNIKotlinClient  GeneratedArtifactKind = "jni_kotlin_client"
 	GeneratedArtifactKindSharedCGOExports GeneratedArtifactKind = "shared_cgo_exports"
 	GeneratedArtifactKindSharedCGOMain    GeneratedArtifactKind = "shared_cgo_main"
 )

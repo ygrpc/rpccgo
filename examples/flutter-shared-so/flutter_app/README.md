@@ -58,6 +58,23 @@
    }
    ```
 
+3. **配置 CMake 编译 JNI adapter**：
+   本示例由用户维护 [CMakeLists.txt](file:///home/zenghp/github.com/ygrpc/rpccgo/examples/flutter-shared-so/flutter_app/android/app/src/main/cpp/CMakeLists.txt)，把生成的 C++ JNI shim 编译成 `librpccgo_flutter_shared_jni.so`，并链接 Go c-shared 库：
+   ```cmake
+   set(RPCCGO_SHARED_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../jniLibs/${ANDROID_ABI}")
+
+   target_include_directories(rpccgo_flutter_shared_jni PRIVATE
+       "${RPCCGO_SHARED_LIB_DIR}"
+   )
+
+   target_link_libraries(rpccgo_flutter_shared_jni PRIVATE
+       "-L${RPCCGO_SHARED_LIB_DIR}"
+       "-l:librpccgo_flutter_shared.so"
+       log
+   )
+   ```
+   不要用 `IMPORTED_LOCATION` 直接链接 Go 生成的 `.so`。Go `-buildmode=c-shared` 产物通常没有 `SONAME`，这样可能把构建机绝对路径写入 JNI adapter 的 `DT_NEEDED`，导致 Android 设备上 `dlopen` 找不到库。
+
 ### 第三步：配置 Flutter Native Assets 钩子
 在 Flutter 项目根目录下创建或编辑 [build.dart](file:///home/zenghp/github.com/ygrpc/rpccgo/examples/flutter-shared-so/flutter_app/hook/build.dart)，指定对应的 `linkMode` 为系统动态加载模式：
 ```dart

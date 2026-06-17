@@ -147,9 +147,7 @@ func isServiceArtifactKind(kind GeneratedArtifactKind) bool {
 		GeneratedArtifactKindCGONativeClient,
 		GeneratedArtifactKindMessageServer,
 		GeneratedArtifactKindCGOMessageServer,
-		GeneratedArtifactKindCGOMessageClient,
-		GeneratedArtifactKindJNIMessageClient,
-		GeneratedArtifactKindJNIKotlinClient:
+		GeneratedArtifactKindCGOMessageClient:
 		return true
 	default:
 		return false

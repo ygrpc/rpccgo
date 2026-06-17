@@ -339,13 +339,30 @@ System.loadLibrary("rpccgo_service")
 System.loadLibrary("greeter_jni")
 ```
 
-C++ JNI shim 默认应包含 `JNI_OnLoad` 和 `JNI_OnUnload`，保存并清除 `JavaVM*`，为后续 stream、callback 或跨线程场景保留 JVM attachment 能力：
+维护 `CMakeLists.txt` 时，不要用 `IMPORTED_LOCATION` 直接链接 Go 生成的 `.so`。Go `-buildmode=c-shared` 产物通常没有 `SONAME`，Android linker 可能会把构建机绝对路径写入 JNI adapter 的 `DT_NEEDED`，导致安装到设备后 `dlopen` 失败。应通过 link search path 加文件名链接：
+
+```cmake
+set(RPCCGO_SHARED_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../jniLibs/${ANDROID_ABI}")
+
+target_include_directories(greeter_jni PRIVATE
+    "${RPCCGO_SHARED_LIB_DIR}"
+)
+
+target_link_libraries(greeter_jni PRIVATE
+    "-L${RPCCGO_SHARED_LIB_DIR}"
+    "-l:librpccgo_service.so"
+    log
+)
+```
+
+C++ JNI shim 默认应包含 `JNI_OnLoad` 和 `JNI_OnUnload`，保存并清除 `JavaVM*`，为后续 stream、callback 或跨线程场景保留 JVM attachment 能力。生成器当前返回 `JNI_VERSION_1_6`，这是 Android NDK 支持的 JNI interface version，不是用户必须配置的生成参数：
 
 ```cpp
 static JavaVM* javaVM = nullptr;
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) {
     javaVM = vm;
+    // Android supports JNI 1.6; this declares the JNI interface version requested by this library.
     return JNI_VERSION_1_6;
 }
 
