@@ -62,6 +62,30 @@ Stream session record 不保存 operation closure，也不维护 registry-level 
 
 `Finish` 是 graceful terminal，`CloseSend` 是 bidi/client-streaming half-close，`Cancel` 是 abort terminal。具体 method operation、native/message conversion 和 flat ABI 编解码留在 generated service runtime。
 
+### Stream operation semantics and naming
+
+Generated stream code uses one canonical operation vocabulary across runtime, Go, C ABI, Dart, Kotlin, JNI C++ and examples:
+
+- `Start` creates a stream session, captures the current registered server, and returns a stream handle or host-language stream object.
+- `Send` sends one request payload on a client-streaming or bidi stream.
+- `Recv` receives one response payload on a server-streaming or bidi stream.
+- `Finish` performs graceful terminal completion and releases the stream handle where that layer owns a handle.
+- `CloseSend` half-closes the send side on client-streaming or bidi streams.
+- `Cancel` aborts the stream and releases the stream handle where that layer owns a handle.
+
+Generated stream operation names must preserve these exact operation tokens when the operation is user-visible, ABI-visible, or used as a cross-language bridge symbol. `Recv` is the canonical receive operation because gRPC-Go exposes receive as `RecvMsg` and generated gRPC stream clients commonly expose `Recv`; Connect-Go exposes the same direction as `Receive`. Do not use synonyms such as `Read` for `Recv`, and do not hide `Start` behind a method-only name such as `CollectRuntimeState` when the call creates a stream session.
+
+Every generated layer uses one global operation position rule: when a generated stream symbol name contains both the protobuf method name and the stream operation, the operation is always the suffix after the method name. The symbol may include contract, namespace, service, language-runtime, or binding qualifiers, but those qualifiers must not move the operation before the method.
+
+- C exports: `rpccgo<Contract><Namespace><Service><Method><Operation>`, for example `rpccgoMsgDemoGreeterChatRecv`.
+- Go package-level stream operation functions: `<Service><Contract><Method><Operation>`, for example `GreeterMessageChatRecv`.
+- Go server contract stream objects and host-language stream objects: operation methods are exactly `Send`, `Recv`, `Finish`, `CloseSend` and `Cancel`.
+- Dart and Kotlin public stream entry methods: `<Method>Start`, for example `CollectRuntimeStateStart`; the returned stream object exposes `Send`, `Recv`, `Finish`, `CloseSend` and `Cancel`.
+- JNI C++ bridge helpers follow the Java/Kotlin native method shape but keep the canonical operation as the final method segment, for example `sharedSoDemoCollectRuntimeStateRecv`.
+- Private/raw bindings may use the host language's casing convention, but they must keep the same operation token and the same operation position as their layer, for example `_collectRuntimeStateRecvRaw` instead of `_collectRuntimeStateReadRaw`.
+
+Generated code must not mix operation-first and method-first naming across layers or within a layer. This avoids inconsistent pairs such as `collectRuntimeStateStart` and `startCollectRuntimeState`; only the method-first, operation-suffix form is valid for combined method-operation symbols.
+
 ## Server Types
 
 支持注册的 server 类型：
