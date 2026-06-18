@@ -25,11 +25,14 @@ func TestGenerateDartEmitsMessageFFIClient(t *testing.T) {
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "@ffi.DefaultAsset('package:rpccgo_test/gen/rpccgo.dart')")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "class GreeterRpccgoClient {")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "const GreeterRpccgoClient();")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "class GreeterRpccgoClient {\n  const GreeterRpccgoClient();")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "  ({pb.HelloReply? value, String? error}) SayHello(pb.HelloRequest request) {\n    final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "    try {\n      final errID = _sayHelloRaw(")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "import 'greeter.pb.dart' as pb;")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "({pb.HelloReply? value, String? error}) SayHello(pb.HelloRequest request) {")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "@ffi.Native<_RpccgoMessageUnaryCAbi>(symbol: 'rpccgoMsgTestv1GreeterSayHello')")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "request.writeToBuffer()")
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "return (value: pb.HelloReply.fromBuffer(responseBytes.value!), error: null);")
+	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "pb.HelloReply.fromBuffer(responseBytes.value!)")
 	assertGeneratedFileContentDoesNotContain(t, plugin, "test/v1/greeter.greeter.rpccgo.dart",
 		"RpccgoResult",
 		"RpccgoVoidResult",
@@ -58,13 +61,16 @@ func TestGenerateDartEmitsStreamingMessageFFIClient(t *testing.T) {
 		"({GreeterUploadStream? value, String? error}) UploadStart() {",
 		"String? Send(pb.MessageRequest request) {",
 		"({pb.MessageReply? value, String? error}) Finish() {",
-		"({GreeterListStream? value, String? error}) ListStart(pb.MessageRequest request) {",
-		"final errID = _listStartRaw(requestPtr.address, requestBytes.length, handlePtr);",
+		"ListStart(",
+		"final errID = _listStartRaw(",
 		"({pb.MessageReply? value, String? error}) Recv() {",
 		"String? Finish() {",
 		"({GreeterChatStream? value, String? error}) ChatStart() {",
+		"class GreeterUploadStream {\n  GreeterUploadStream._(this._client, this._handle);",
+		"  String? Send(pb.MessageRequest request) {\n    final requestBytes = request.writeToBuffer();",
+		"    try {\n      final errID = _uploadSendRaw(",
 		"String? CloseSend() {",
-		"typedef _RpccgoStreamRecvCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);",
+		"typedef _RpccgoStreamRecvCAbi = ffi.Int32 Function(",
 		"symbol: 'rpccgoMsgTestv1GreeterUploadStart'",
 		"symbol: 'rpccgoMsgTestv1GreeterListRecv'",
 		"symbol: 'rpccgoMsgTestv1GreeterChatCloseSend'",

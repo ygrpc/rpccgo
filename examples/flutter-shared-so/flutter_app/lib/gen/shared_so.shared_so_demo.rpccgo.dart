@@ -96,338 +96,338 @@ external int _chatRuntimeStateFinishRaw(int handle);
 external int _chatRuntimeStateCancelRaw(int handle);
 
 class SharedSoDemoRpccgoClient {
-const SharedSoDemoRpccgoClient();
-({pb.ComposeGreetingResponse? value, String? error}) ComposeGreeting(pb.ComposeGreetingRequest request) {
-final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
-final responseLen = pkg_ffi.calloc<ffi.Int32>();
-final requestBytes = request.writeToBuffer();
-final requestPtr = _allocateBytes(requestBytes);
-try {
-final errID = _composeGreetingRaw(requestPtr.address, requestBytes.length, responsePtr, responseLen);
-final error = _takeErrorResult(errID);
-if (error != null) {
-return (value: null, error: error);
-}
-final responseBytes = _takeBytes(responsePtr.value, responseLen.value);
-if (responseBytes.error != null) {
-return (value: null, error: responseBytes.error);
-}
-return (value: pb.ComposeGreetingResponse.fromBuffer(responseBytes.value!), error: null);
-} finally {
-pkg_ffi.calloc.free(requestPtr);
-pkg_ffi.calloc.free(responsePtr);
-pkg_ffi.calloc.free(responseLen);
-}
-}
+  const SharedSoDemoRpccgoClient();
+  ({pb.ComposeGreetingResponse? value, String? error}) ComposeGreeting(pb.ComposeGreetingRequest request) {
+    final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
+    final responseLen = pkg_ffi.calloc<ffi.Int32>();
+    final requestBytes = request.writeToBuffer();
+    final requestPtr = _allocateBytes(requestBytes);
+    try {
+      final errID = _composeGreetingRaw(requestPtr.address, requestBytes.length, responsePtr, responseLen);
+      final error = _takeErrorResult(errID);
+      if (error != null) {
+        return (value: null, error: error);
+      }
+      final responseBytes = _takeBytes(responsePtr.value, responseLen.value);
+      if (responseBytes.error != null) {
+        return (value: null, error: responseBytes.error);
+      }
+      return (value: pb.ComposeGreetingResponse.fromBuffer(responseBytes.value!), error: null);
+    } finally {
+      pkg_ffi.calloc.free(requestPtr);
+      pkg_ffi.calloc.free(responsePtr);
+      pkg_ffi.calloc.free(responseLen);
+    }
+  }
 
-({pb.RuntimeStateResponse? value, String? error}) IncrementRuntimeState(pb.IncrementRuntimeStateRequest request) {
-final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
-final responseLen = pkg_ffi.calloc<ffi.Int32>();
-final requestBytes = request.writeToBuffer();
-final requestPtr = _allocateBytes(requestBytes);
-try {
-final errID = _incrementRuntimeStateRaw(requestPtr.address, requestBytes.length, responsePtr, responseLen);
-final error = _takeErrorResult(errID);
-if (error != null) {
-return (value: null, error: error);
-}
-final responseBytes = _takeBytes(responsePtr.value, responseLen.value);
-if (responseBytes.error != null) {
-return (value: null, error: responseBytes.error);
-}
-return (value: pb.RuntimeStateResponse.fromBuffer(responseBytes.value!), error: null);
-} finally {
-pkg_ffi.calloc.free(requestPtr);
-pkg_ffi.calloc.free(responsePtr);
-pkg_ffi.calloc.free(responseLen);
-}
-}
+  ({pb.RuntimeStateResponse? value, String? error}) IncrementRuntimeState(pb.IncrementRuntimeStateRequest request) {
+    final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
+    final responseLen = pkg_ffi.calloc<ffi.Int32>();
+    final requestBytes = request.writeToBuffer();
+    final requestPtr = _allocateBytes(requestBytes);
+    try {
+      final errID = _incrementRuntimeStateRaw(requestPtr.address, requestBytes.length, responsePtr, responseLen);
+      final error = _takeErrorResult(errID);
+      if (error != null) {
+        return (value: null, error: error);
+      }
+      final responseBytes = _takeBytes(responsePtr.value, responseLen.value);
+      if (responseBytes.error != null) {
+        return (value: null, error: responseBytes.error);
+      }
+      return (value: pb.RuntimeStateResponse.fromBuffer(responseBytes.value!), error: null);
+    } finally {
+      pkg_ffi.calloc.free(requestPtr);
+      pkg_ffi.calloc.free(responsePtr);
+      pkg_ffi.calloc.free(responseLen);
+    }
+  }
 
-({pb.RuntimeStateResponse? value, String? error}) ReadRuntimeState(pb.ReadRuntimeStateRequest request) {
-final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
-final responseLen = pkg_ffi.calloc<ffi.Int32>();
-final requestBytes = request.writeToBuffer();
-final requestPtr = _allocateBytes(requestBytes);
-try {
-final errID = _readRuntimeStateRaw(requestPtr.address, requestBytes.length, responsePtr, responseLen);
-final error = _takeErrorResult(errID);
-if (error != null) {
-return (value: null, error: error);
-}
-final responseBytes = _takeBytes(responsePtr.value, responseLen.value);
-if (responseBytes.error != null) {
-return (value: null, error: responseBytes.error);
-}
-return (value: pb.RuntimeStateResponse.fromBuffer(responseBytes.value!), error: null);
-} finally {
-pkg_ffi.calloc.free(requestPtr);
-pkg_ffi.calloc.free(responsePtr);
-pkg_ffi.calloc.free(responseLen);
-}
-}
+  ({pb.RuntimeStateResponse? value, String? error}) ReadRuntimeState(pb.ReadRuntimeStateRequest request) {
+    final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
+    final responseLen = pkg_ffi.calloc<ffi.Int32>();
+    final requestBytes = request.writeToBuffer();
+    final requestPtr = _allocateBytes(requestBytes);
+    try {
+      final errID = _readRuntimeStateRaw(requestPtr.address, requestBytes.length, responsePtr, responseLen);
+      final error = _takeErrorResult(errID);
+      if (error != null) {
+        return (value: null, error: error);
+      }
+      final responseBytes = _takeBytes(responsePtr.value, responseLen.value);
+      if (responseBytes.error != null) {
+        return (value: null, error: responseBytes.error);
+      }
+      return (value: pb.RuntimeStateResponse.fromBuffer(responseBytes.value!), error: null);
+    } finally {
+      pkg_ffi.calloc.free(requestPtr);
+      pkg_ffi.calloc.free(responsePtr);
+      pkg_ffi.calloc.free(responseLen);
+    }
+  }
 
-({SharedSoDemoWatchRuntimeStateStream? value, String? error}) WatchRuntimeStateStart(pb.ReadRuntimeStateRequest request) {
-final handlePtr = pkg_ffi.calloc<ffi.Int32>();
-final requestBytes = request.writeToBuffer();
-final requestPtr = _allocateBytes(requestBytes);
-try {
-final errID = _watchRuntimeStateStartRaw(requestPtr.address, requestBytes.length, handlePtr);
-final error = _takeErrorResult(errID);
-if (error != null) {
-return (value: null, error: error);
-}
-return (value: SharedSoDemoWatchRuntimeStateStream._(this, handlePtr.value), error: null);
-} finally {
-pkg_ffi.calloc.free(requestPtr);
-pkg_ffi.calloc.free(handlePtr);
-}
-}
+  ({SharedSoDemoWatchRuntimeStateStream? value, String? error}) WatchRuntimeStateStart(pb.ReadRuntimeStateRequest request) {
+    final handlePtr = pkg_ffi.calloc<ffi.Int32>();
+    final requestBytes = request.writeToBuffer();
+    final requestPtr = _allocateBytes(requestBytes);
+    try {
+      final errID = _watchRuntimeStateStartRaw(requestPtr.address, requestBytes.length, handlePtr);
+      final error = _takeErrorResult(errID);
+      if (error != null) {
+        return (value: null, error: error);
+      }
+      return (value: SharedSoDemoWatchRuntimeStateStream._(this, handlePtr.value), error: null);
+    } finally {
+      pkg_ffi.calloc.free(requestPtr);
+      pkg_ffi.calloc.free(handlePtr);
+    }
+  }
 
-({SharedSoDemoCollectRuntimeStateStream? value, String? error}) CollectRuntimeStateStart() {
-final handlePtr = pkg_ffi.calloc<ffi.Int32>();
-try {
-final errID = _collectRuntimeStateStartRaw(handlePtr);
-final error = _takeErrorResult(errID);
-if (error != null) {
-return (value: null, error: error);
-}
-return (value: SharedSoDemoCollectRuntimeStateStream._(this, handlePtr.value), error: null);
-} finally {
-pkg_ffi.calloc.free(handlePtr);
-}
-}
+  ({SharedSoDemoCollectRuntimeStateStream? value, String? error}) CollectRuntimeStateStart() {
+    final handlePtr = pkg_ffi.calloc<ffi.Int32>();
+    try {
+      final errID = _collectRuntimeStateStartRaw(handlePtr);
+      final error = _takeErrorResult(errID);
+      if (error != null) {
+        return (value: null, error: error);
+      }
+      return (value: SharedSoDemoCollectRuntimeStateStream._(this, handlePtr.value), error: null);
+    } finally {
+      pkg_ffi.calloc.free(handlePtr);
+    }
+  }
 
-({SharedSoDemoStreamRuntimeStateStream? value, String? error}) StreamRuntimeStateStart(pb.ReadRuntimeStateRequest request) {
-final handlePtr = pkg_ffi.calloc<ffi.Int32>();
-final requestBytes = request.writeToBuffer();
-final requestPtr = _allocateBytes(requestBytes);
-try {
-final errID = _streamRuntimeStateStartRaw(requestPtr.address, requestBytes.length, handlePtr);
-final error = _takeErrorResult(errID);
-if (error != null) {
-return (value: null, error: error);
-}
-return (value: SharedSoDemoStreamRuntimeStateStream._(this, handlePtr.value), error: null);
-} finally {
-pkg_ffi.calloc.free(requestPtr);
-pkg_ffi.calloc.free(handlePtr);
-}
-}
+  ({SharedSoDemoStreamRuntimeStateStream? value, String? error}) StreamRuntimeStateStart(pb.ReadRuntimeStateRequest request) {
+    final handlePtr = pkg_ffi.calloc<ffi.Int32>();
+    final requestBytes = request.writeToBuffer();
+    final requestPtr = _allocateBytes(requestBytes);
+    try {
+      final errID = _streamRuntimeStateStartRaw(requestPtr.address, requestBytes.length, handlePtr);
+      final error = _takeErrorResult(errID);
+      if (error != null) {
+        return (value: null, error: error);
+      }
+      return (value: SharedSoDemoStreamRuntimeStateStream._(this, handlePtr.value), error: null);
+    } finally {
+      pkg_ffi.calloc.free(requestPtr);
+      pkg_ffi.calloc.free(handlePtr);
+    }
+  }
 
-({SharedSoDemoChatRuntimeStateStream? value, String? error}) ChatRuntimeStateStart() {
-final handlePtr = pkg_ffi.calloc<ffi.Int32>();
-try {
-final errID = _chatRuntimeStateStartRaw(handlePtr);
-final error = _takeErrorResult(errID);
-if (error != null) {
-return (value: null, error: error);
-}
-return (value: SharedSoDemoChatRuntimeStateStream._(this, handlePtr.value), error: null);
-} finally {
-pkg_ffi.calloc.free(handlePtr);
-}
-}
+  ({SharedSoDemoChatRuntimeStateStream? value, String? error}) ChatRuntimeStateStart() {
+    final handlePtr = pkg_ffi.calloc<ffi.Int32>();
+    try {
+      final errID = _chatRuntimeStateStartRaw(handlePtr);
+      final error = _takeErrorResult(errID);
+      if (error != null) {
+        return (value: null, error: error);
+      }
+      return (value: SharedSoDemoChatRuntimeStateStream._(this, handlePtr.value), error: null);
+    } finally {
+      pkg_ffi.calloc.free(handlePtr);
+    }
+  }
 
-ffi.Pointer<ffi.Uint8> _allocateBytes(List<int> data) {
-final ptr = pkg_ffi.calloc<ffi.Uint8>(data.length);
-ptr.asTypedList(data.length).setAll(0, data);
-return ptr;
-}
+  ffi.Pointer<ffi.Uint8> _allocateBytes(List<int> data) {
+    final ptr = pkg_ffi.calloc<ffi.Uint8>(data.length);
+    ptr.asTypedList(data.length).setAll(0, data);
+    return ptr;
+  }
 
-({typed_data.Uint8List? value, String? error}) _takeBytes(int ptr, int length) {
-if (length < 0) {
-return (value: null, error: 'rpccgo: response length is negative');
-}
-if (length == 0) {
-return (value: typed_data.Uint8List(0), error: null);
-}
-if (ptr == 0) {
-return (value: null, error: 'rpccgo: response pointer is nil');
-}
-final data = typed_data.Uint8List.fromList(ffi.Pointer<ffi.Uint8>.fromAddress(ptr).asTypedList(length));
-final status = _rpccgoReleaseRaw(ptr);
-if (status != 0) {
-return (value: null, error: 'rpccgo: failed to release response buffer');
-}
-return (value: data, error: null);
-}
+  ({typed_data.Uint8List? value, String? error}) _takeBytes(int ptr, int length) {
+    if (length < 0) {
+      return (value: null, error: 'rpccgo: response length is negative');
+    }
+    if (length == 0) {
+      return (value: typed_data.Uint8List(0), error: null);
+    }
+    if (ptr == 0) {
+      return (value: null, error: 'rpccgo: response pointer is nil');
+    }
+    final data = typed_data.Uint8List.fromList(ffi.Pointer<ffi.Uint8>.fromAddress(ptr).asTypedList(length));
+    final status = _rpccgoReleaseRaw(ptr);
+    if (status != 0) {
+      return (value: null, error: 'rpccgo: failed to release response buffer');
+    }
+    return (value: data, error: null);
+  }
 
-String? _takeErrorResult(int errID) {
-if (errID == 0) {
-return null;
-}
-return _takeError(errID);
-}
+  String? _takeErrorResult(int errID) {
+    if (errID == 0) {
+      return null;
+    }
+    return _takeError(errID);
+  }
 
-String _takeError(int errID) {
-final textPtr = pkg_ffi.calloc<ffi.UintPtr>();
-final textLen = pkg_ffi.calloc<ffi.Int32>();
-try {
-final status = _rpccgoTakeErrorTextRaw(errID, textPtr, textLen);
-if (status != 0) {
-return 'rpccgo error $errID';
-}
-final data = _takeBytes(textPtr.value, textLen.value);
-if (data.error != null) {
-return data.error!;
-}
-return convert.utf8.decode(data.value!);
-} finally {
-pkg_ffi.calloc.free(textPtr);
-pkg_ffi.calloc.free(textLen);
-}
-}
+  String _takeError(int errID) {
+    final textPtr = pkg_ffi.calloc<ffi.UintPtr>();
+    final textLen = pkg_ffi.calloc<ffi.Int32>();
+    try {
+      final status = _rpccgoTakeErrorTextRaw(errID, textPtr, textLen);
+      if (status != 0) {
+        return 'rpccgo error $errID';
+      }
+      final data = _takeBytes(textPtr.value, textLen.value);
+      if (data.error != null) {
+        return data.error!;
+      }
+      return convert.utf8.decode(data.value!);
+    } finally {
+      pkg_ffi.calloc.free(textPtr);
+      pkg_ffi.calloc.free(textLen);
+    }
+  }
 }
 
 class SharedSoDemoWatchRuntimeStateStream {
-SharedSoDemoWatchRuntimeStateStream._(this._client, this._handle);
-final SharedSoDemoRpccgoClient _client;
-final int _handle;
-({pb.RuntimeStateResponse? value, String? error}) Recv() {
-final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
-final responseLen = pkg_ffi.calloc<ffi.Int32>();
-try {
-final errID = _watchRuntimeStateRecvRaw(_handle, responsePtr, responseLen);
-final error = _client._takeErrorResult(errID);
-if (error != null) {
-return (value: null, error: error);
-}
-final responseBytes = _client._takeBytes(responsePtr.value, responseLen.value);
-if (responseBytes.error != null) {
-return (value: null, error: responseBytes.error);
-}
-return (value: pb.RuntimeStateResponse.fromBuffer(responseBytes.value!), error: null);
-} finally {
-pkg_ffi.calloc.free(responsePtr);
-pkg_ffi.calloc.free(responseLen);
-}
-}
-String? Finish() {
-final errID = _watchRuntimeStateFinishRaw(_handle);
-return _client._takeErrorResult(errID);
-}
-String? Cancel() {
-final errID = _watchRuntimeStateCancelRaw(_handle);
-return _client._takeErrorResult(errID);
-}
+  SharedSoDemoWatchRuntimeStateStream._(this._client, this._handle);
+  final SharedSoDemoRpccgoClient _client;
+  final int _handle;
+  ({pb.RuntimeStateResponse? value, String? error}) Recv() {
+    final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
+    final responseLen = pkg_ffi.calloc<ffi.Int32>();
+    try {
+      final errID = _watchRuntimeStateRecvRaw(_handle, responsePtr, responseLen);
+      final error = _client._takeErrorResult(errID);
+      if (error != null) {
+        return (value: null, error: error);
+      }
+      final responseBytes = _client._takeBytes(responsePtr.value, responseLen.value);
+      if (responseBytes.error != null) {
+        return (value: null, error: responseBytes.error);
+      }
+      return (value: pb.RuntimeStateResponse.fromBuffer(responseBytes.value!), error: null);
+    } finally {
+      pkg_ffi.calloc.free(responsePtr);
+      pkg_ffi.calloc.free(responseLen);
+    }
+  }
+  String? Finish() {
+    final errID = _watchRuntimeStateFinishRaw(_handle);
+    return _client._takeErrorResult(errID);
+  }
+  String? Cancel() {
+    final errID = _watchRuntimeStateCancelRaw(_handle);
+    return _client._takeErrorResult(errID);
+  }
 }
 
 class SharedSoDemoCollectRuntimeStateStream {
-SharedSoDemoCollectRuntimeStateStream._(this._client, this._handle);
-final SharedSoDemoRpccgoClient _client;
-final int _handle;
-String? Send(pb.IncrementRuntimeStateRequest request) {
-final requestBytes = request.writeToBuffer();
-final requestPtr = _client._allocateBytes(requestBytes);
-try {
-final errID = _collectRuntimeStateSendRaw(_handle, requestPtr.address, requestBytes.length);
-return _client._takeErrorResult(errID);
-} finally {
-pkg_ffi.calloc.free(requestPtr);
-}
-}
-({pb.RuntimeStateResponse? value, String? error}) Finish() {
-final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
-final responseLen = pkg_ffi.calloc<ffi.Int32>();
-try {
-final errID = _collectRuntimeStateFinishRaw(_handle, responsePtr, responseLen);
-final error = _client._takeErrorResult(errID);
-if (error != null) {
-return (value: null, error: error);
-}
-final responseBytes = _client._takeBytes(responsePtr.value, responseLen.value);
-if (responseBytes.error != null) {
-return (value: null, error: responseBytes.error);
-}
-return (value: pb.RuntimeStateResponse.fromBuffer(responseBytes.value!), error: null);
-} finally {
-pkg_ffi.calloc.free(responsePtr);
-pkg_ffi.calloc.free(responseLen);
-}
-}
-String? Cancel() {
-final errID = _collectRuntimeStateCancelRaw(_handle);
-return _client._takeErrorResult(errID);
-}
+  SharedSoDemoCollectRuntimeStateStream._(this._client, this._handle);
+  final SharedSoDemoRpccgoClient _client;
+  final int _handle;
+  String? Send(pb.IncrementRuntimeStateRequest request) {
+    final requestBytes = request.writeToBuffer();
+    final requestPtr = _client._allocateBytes(requestBytes);
+    try {
+      final errID = _collectRuntimeStateSendRaw(_handle, requestPtr.address, requestBytes.length);
+      return _client._takeErrorResult(errID);
+    } finally {
+      pkg_ffi.calloc.free(requestPtr);
+    }
+  }
+  ({pb.RuntimeStateResponse? value, String? error}) Finish() {
+    final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
+    final responseLen = pkg_ffi.calloc<ffi.Int32>();
+    try {
+      final errID = _collectRuntimeStateFinishRaw(_handle, responsePtr, responseLen);
+      final error = _client._takeErrorResult(errID);
+      if (error != null) {
+        return (value: null, error: error);
+      }
+      final responseBytes = _client._takeBytes(responsePtr.value, responseLen.value);
+      if (responseBytes.error != null) {
+        return (value: null, error: responseBytes.error);
+      }
+      return (value: pb.RuntimeStateResponse.fromBuffer(responseBytes.value!), error: null);
+    } finally {
+      pkg_ffi.calloc.free(responsePtr);
+      pkg_ffi.calloc.free(responseLen);
+    }
+  }
+  String? Cancel() {
+    final errID = _collectRuntimeStateCancelRaw(_handle);
+    return _client._takeErrorResult(errID);
+  }
 }
 
 class SharedSoDemoStreamRuntimeStateStream {
-SharedSoDemoStreamRuntimeStateStream._(this._client, this._handle);
-final SharedSoDemoRpccgoClient _client;
-final int _handle;
-({pb.RuntimeStateResponse? value, String? error}) Recv() {
-final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
-final responseLen = pkg_ffi.calloc<ffi.Int32>();
-try {
-final errID = _streamRuntimeStateRecvRaw(_handle, responsePtr, responseLen);
-final error = _client._takeErrorResult(errID);
-if (error != null) {
-return (value: null, error: error);
-}
-final responseBytes = _client._takeBytes(responsePtr.value, responseLen.value);
-if (responseBytes.error != null) {
-return (value: null, error: responseBytes.error);
-}
-return (value: pb.RuntimeStateResponse.fromBuffer(responseBytes.value!), error: null);
-} finally {
-pkg_ffi.calloc.free(responsePtr);
-pkg_ffi.calloc.free(responseLen);
-}
-}
-String? Finish() {
-final errID = _streamRuntimeStateFinishRaw(_handle);
-return _client._takeErrorResult(errID);
-}
-String? Cancel() {
-final errID = _streamRuntimeStateCancelRaw(_handle);
-return _client._takeErrorResult(errID);
-}
+  SharedSoDemoStreamRuntimeStateStream._(this._client, this._handle);
+  final SharedSoDemoRpccgoClient _client;
+  final int _handle;
+  ({pb.RuntimeStateResponse? value, String? error}) Recv() {
+    final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
+    final responseLen = pkg_ffi.calloc<ffi.Int32>();
+    try {
+      final errID = _streamRuntimeStateRecvRaw(_handle, responsePtr, responseLen);
+      final error = _client._takeErrorResult(errID);
+      if (error != null) {
+        return (value: null, error: error);
+      }
+      final responseBytes = _client._takeBytes(responsePtr.value, responseLen.value);
+      if (responseBytes.error != null) {
+        return (value: null, error: responseBytes.error);
+      }
+      return (value: pb.RuntimeStateResponse.fromBuffer(responseBytes.value!), error: null);
+    } finally {
+      pkg_ffi.calloc.free(responsePtr);
+      pkg_ffi.calloc.free(responseLen);
+    }
+  }
+  String? Finish() {
+    final errID = _streamRuntimeStateFinishRaw(_handle);
+    return _client._takeErrorResult(errID);
+  }
+  String? Cancel() {
+    final errID = _streamRuntimeStateCancelRaw(_handle);
+    return _client._takeErrorResult(errID);
+  }
 }
 
 class SharedSoDemoChatRuntimeStateStream {
-SharedSoDemoChatRuntimeStateStream._(this._client, this._handle);
-final SharedSoDemoRpccgoClient _client;
-final int _handle;
-String? Send(pb.IncrementRuntimeStateRequest request) {
-final requestBytes = request.writeToBuffer();
-final requestPtr = _client._allocateBytes(requestBytes);
-try {
-final errID = _chatRuntimeStateSendRaw(_handle, requestPtr.address, requestBytes.length);
-return _client._takeErrorResult(errID);
-} finally {
-pkg_ffi.calloc.free(requestPtr);
-}
-}
-({pb.RuntimeStateResponse? value, String? error}) Recv() {
-final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
-final responseLen = pkg_ffi.calloc<ffi.Int32>();
-try {
-final errID = _chatRuntimeStateRecvRaw(_handle, responsePtr, responseLen);
-final error = _client._takeErrorResult(errID);
-if (error != null) {
-return (value: null, error: error);
-}
-final responseBytes = _client._takeBytes(responsePtr.value, responseLen.value);
-if (responseBytes.error != null) {
-return (value: null, error: responseBytes.error);
-}
-return (value: pb.RuntimeStateResponse.fromBuffer(responseBytes.value!), error: null);
-} finally {
-pkg_ffi.calloc.free(responsePtr);
-pkg_ffi.calloc.free(responseLen);
-}
-}
-String? CloseSend() {
-final errID = _chatRuntimeStateCloseSendRaw(_handle);
-return _client._takeErrorResult(errID);
-}
-String? Finish() {
-final errID = _chatRuntimeStateFinishRaw(_handle);
-return _client._takeErrorResult(errID);
-}
-String? Cancel() {
-final errID = _chatRuntimeStateCancelRaw(_handle);
-return _client._takeErrorResult(errID);
-}
+  SharedSoDemoChatRuntimeStateStream._(this._client, this._handle);
+  final SharedSoDemoRpccgoClient _client;
+  final int _handle;
+  String? Send(pb.IncrementRuntimeStateRequest request) {
+    final requestBytes = request.writeToBuffer();
+    final requestPtr = _client._allocateBytes(requestBytes);
+    try {
+      final errID = _chatRuntimeStateSendRaw(_handle, requestPtr.address, requestBytes.length);
+      return _client._takeErrorResult(errID);
+    } finally {
+      pkg_ffi.calloc.free(requestPtr);
+    }
+  }
+  ({pb.RuntimeStateResponse? value, String? error}) Recv() {
+    final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
+    final responseLen = pkg_ffi.calloc<ffi.Int32>();
+    try {
+      final errID = _chatRuntimeStateRecvRaw(_handle, responsePtr, responseLen);
+      final error = _client._takeErrorResult(errID);
+      if (error != null) {
+        return (value: null, error: error);
+      }
+      final responseBytes = _client._takeBytes(responsePtr.value, responseLen.value);
+      if (responseBytes.error != null) {
+        return (value: null, error: responseBytes.error);
+      }
+      return (value: pb.RuntimeStateResponse.fromBuffer(responseBytes.value!), error: null);
+    } finally {
+      pkg_ffi.calloc.free(responsePtr);
+      pkg_ffi.calloc.free(responseLen);
+    }
+  }
+  String? CloseSend() {
+    final errID = _chatRuntimeStateCloseSendRaw(_handle);
+    return _client._takeErrorResult(errID);
+  }
+  String? Finish() {
+    final errID = _chatRuntimeStateFinishRaw(_handle);
+    return _client._takeErrorResult(errID);
+  }
+  String? Cancel() {
+    final errID = _chatRuntimeStateCancelRaw(_handle);
+    return _client._takeErrorResult(errID);
+  }
 }
 
