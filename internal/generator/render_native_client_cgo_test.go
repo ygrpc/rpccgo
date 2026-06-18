@@ -72,13 +72,13 @@ func TestRenderNativeClientCGOStreamsUseRuntimeStreamOperations(t *testing.T) {
 	for _, fragment := range []string{
 		"//export rpccgoNativeTestv1GreeterUploadStart",
 		"//export rpccgoNativeTestv1GreeterUploadSend",
-		"//export rpccgoNativeTestv1GreeterListRead",
+		"//export rpccgoNativeTestv1GreeterListRecv",
 		"//export rpccgoNativeTestv1GreeterChatCloseSend",
-		"err = v1.SendGreeterNativeUpload(ctx, rpcruntime.StreamHandle(handle)",
-		"v1.FinishGreeterNativeUpload(ctx, rpcruntime.StreamHandle(handle))",
-		"err = v1.FinishGreeterNativeList(ctx, rpcruntime.StreamHandle(handle))",
-		"err = v1.CloseSendGreeterNativeChat(ctx, rpcruntime.StreamHandle(handle))",
-		"err = v1.FinishGreeterNativeChat(ctx, rpcruntime.StreamHandle(handle))",
+		"err = v1.GreeterNativeUploadSend(ctx, rpcruntime.StreamHandle(handle)",
+		"v1.GreeterNativeUploadFinish(ctx, rpcruntime.StreamHandle(handle))",
+		"err = v1.GreeterNativeListFinish(ctx, rpcruntime.StreamHandle(handle))",
+		"err = v1.GreeterNativeChatCloseSend(ctx, rpcruntime.StreamHandle(handle))",
+		"err = v1.GreeterNativeChatFinish(ctx, rpcruntime.StreamHandle(handle))",
 	} {
 		assertGeneratedContentContains(t, plugin, nativeClientFile, fragment)
 	}

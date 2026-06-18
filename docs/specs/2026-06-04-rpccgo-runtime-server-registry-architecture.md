@@ -113,13 +113,13 @@ Shared cgo exports 按 cgo Go package 只生成一次，文件名固定为 `rpcc
 
 Go native server contracts 位于 protobuf Go package 的 generated native server file，包含 `<Service>NativeServer`、flat native handler stream interfaces、method-local native stream envelope、native package-level stream operation functions 和 `Unimplemented<Service>NativeServer` helper。Native 与 message active dispatch 共用 `rpcruntime.ClientStreamingClient[Req, Resp]`、`rpcruntime.ServerStreamingClient[Resp]` 和 `rpcruntime.BidiStreamingClient[Req, Resp]`；handler 侧对应使用 `ClientStreamingServer`、`ServerStreamingServer` 和 `BidiStreamingServer`。本地 Go server 调用由 reusable generic client/server endpoint structs 和 private shared state 管理 queue、acknowledgement、cancellation、close-send 和 completion；generated code 不生成 per-method state、session 或 thin facade。Go native 只生成 flat native fields 与 server endpoint envelope 之间的 mapper，C message server 则直接使用 typed protobuf message endpoint。
 
-Package-level stream operation functions use the operation, contract, service and method in the function name, and accept `rpcruntime.StreamHandle` directly, for example:
+Package-level stream operation functions use the service, contract, method and operation in the function name, and accept `rpcruntime.StreamHandle` directly, for example:
 
 ```go
-SendGreeterMessageCollect(ctx, handle, req)
-FinishGreeterMessageCollect(ctx, handle)
-RecvGreeterNativeBroadcast(ctx, handle)
-CloseSendGreeterNativeChat(ctx, handle)
+GreeterMessageCollectSend(ctx, handle, req)
+GreeterMessageCollectFinish(ctx, handle)
+GreeterNativeBroadcastRecv(ctx, handle)
+GreeterNativeChatCloseSend(ctx, handle)
 ```
 
 ## 不生成的结构

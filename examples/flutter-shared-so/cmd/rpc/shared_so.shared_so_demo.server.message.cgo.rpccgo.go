@@ -101,24 +101,24 @@ type sharedSoDemoCGOMessageAdapter struct {
 	ComposeGreetingCallback       C.SharedSoDemoComposeGreetingCGOMessageUnaryCallback
 	IncrementRuntimeStateCallback C.SharedSoDemoIncrementRuntimeStateCGOMessageUnaryCallback
 	ReadRuntimeStateCallback      C.SharedSoDemoReadRuntimeStateCGOMessageUnaryCallback
-	WatchRuntimeStateStart        C.SharedSoDemoWatchRuntimeStateCGOMessageServerStreamStartCallback
-	WatchRuntimeStateRecv         C.SharedSoDemoWatchRuntimeStateCGOMessageServerStreamRecvCallback
-	WatchRuntimeStateFinish       C.SharedSoDemoWatchRuntimeStateCGOMessageServerStreamFinishCallback
-	WatchRuntimeStateCancel       C.SharedSoDemoWatchRuntimeStateCGOMessageServerStreamCancelCallback
-	CollectRuntimeStateStart      C.SharedSoDemoCollectRuntimeStateCGOMessageClientStreamStartCallback
-	CollectRuntimeStateSend       C.SharedSoDemoCollectRuntimeStateCGOMessageClientStreamSendCallback
-	CollectRuntimeStateFinish     C.SharedSoDemoCollectRuntimeStateCGOMessageClientStreamFinishCallback
-	CollectRuntimeStateCancel     C.SharedSoDemoCollectRuntimeStateCGOMessageClientStreamCancelCallback
-	StreamRuntimeStateStart       C.SharedSoDemoStreamRuntimeStateCGOMessageServerStreamStartCallback
-	StreamRuntimeStateRecv        C.SharedSoDemoStreamRuntimeStateCGOMessageServerStreamRecvCallback
-	StreamRuntimeStateFinish      C.SharedSoDemoStreamRuntimeStateCGOMessageServerStreamFinishCallback
-	StreamRuntimeStateCancel      C.SharedSoDemoStreamRuntimeStateCGOMessageServerStreamCancelCallback
-	ChatRuntimeStateStart         C.SharedSoDemoChatRuntimeStateCGOMessageBidiStreamStartCallback
-	ChatRuntimeStateSend          C.SharedSoDemoChatRuntimeStateCGOMessageBidiStreamSendCallback
-	ChatRuntimeStateRecv          C.SharedSoDemoChatRuntimeStateCGOMessageBidiStreamRecvCallback
-	ChatRuntimeStateCloseSend     C.SharedSoDemoChatRuntimeStateCGOMessageBidiStreamCloseSendCallback
-	ChatRuntimeStateFinish        C.SharedSoDemoChatRuntimeStateCGOMessageBidiStreamFinishCallback
-	ChatRuntimeStateCancel        C.SharedSoDemoChatRuntimeStateCGOMessageBidiStreamCancelCallback
+	watchRuntimeStateStart        C.SharedSoDemoWatchRuntimeStateCGOMessageServerStreamStartCallback
+	watchRuntimeStateRecv         C.SharedSoDemoWatchRuntimeStateCGOMessageServerStreamRecvCallback
+	watchRuntimeStateFinish       C.SharedSoDemoWatchRuntimeStateCGOMessageServerStreamFinishCallback
+	watchRuntimeStateCancel       C.SharedSoDemoWatchRuntimeStateCGOMessageServerStreamCancelCallback
+	collectRuntimeStateStart      C.SharedSoDemoCollectRuntimeStateCGOMessageClientStreamStartCallback
+	collectRuntimeStateSend       C.SharedSoDemoCollectRuntimeStateCGOMessageClientStreamSendCallback
+	collectRuntimeStateFinish     C.SharedSoDemoCollectRuntimeStateCGOMessageClientStreamFinishCallback
+	collectRuntimeStateCancel     C.SharedSoDemoCollectRuntimeStateCGOMessageClientStreamCancelCallback
+	streamRuntimeStateStart       C.SharedSoDemoStreamRuntimeStateCGOMessageServerStreamStartCallback
+	streamRuntimeStateRecv        C.SharedSoDemoStreamRuntimeStateCGOMessageServerStreamRecvCallback
+	streamRuntimeStateFinish      C.SharedSoDemoStreamRuntimeStateCGOMessageServerStreamFinishCallback
+	streamRuntimeStateCancel      C.SharedSoDemoStreamRuntimeStateCGOMessageServerStreamCancelCallback
+	chatRuntimeStateStart         C.SharedSoDemoChatRuntimeStateCGOMessageBidiStreamStartCallback
+	chatRuntimeStateSend          C.SharedSoDemoChatRuntimeStateCGOMessageBidiStreamSendCallback
+	chatRuntimeStateRecv          C.SharedSoDemoChatRuntimeStateCGOMessageBidiStreamRecvCallback
+	chatRuntimeStateCloseSend     C.SharedSoDemoChatRuntimeStateCGOMessageBidiStreamCloseSendCallback
+	chatRuntimeStateFinish        C.SharedSoDemoChatRuntimeStateCGOMessageBidiStreamFinishCallback
+	chatRuntimeStateCancel        C.SharedSoDemoChatRuntimeStateCGOMessageBidiStreamCancelCallback
 }
 
 // sharedSoDemoCGOMessageRecvResult carries the result of a blocking cgo message Recv callback.
@@ -268,11 +268,11 @@ func (a *sharedSoDemoCGOMessageAdapter) ReadRuntimeState(ctx context.Context, re
 	return resp, nil
 }
 
-func (a *sharedSoDemoCGOMessageAdapter) StartWatchRuntimeState(ctx context.Context, req *proto.ReadRuntimeStateRequest) (rpcruntime.ServerStreamingClient[*proto.RuntimeStateResponse], error) {
+func (a *sharedSoDemoCGOMessageAdapter) WatchRuntimeStateStart(ctx context.Context, req *proto.ReadRuntimeStateRequest) (rpcruntime.ServerStreamingClient[*proto.RuntimeStateResponse], error) {
 	if a == nil {
 		return nil, sharedSoDemoCGOMessageServerCallbacksNil
 	}
-	if a.WatchRuntimeStateStart == nil || a.WatchRuntimeStateRecv == nil || a.WatchRuntimeStateFinish == nil || a.WatchRuntimeStateCancel == nil {
+	if a.watchRuntimeStateStart == nil || a.watchRuntimeStateRecv == nil || a.watchRuntimeStateFinish == nil || a.watchRuntimeStateCancel == nil {
 		return nil, errors.New("rpccgo: SharedSoDemo.WatchRuntimeState cgo message server method is not implemented")
 	}
 	if req == nil {
@@ -293,15 +293,15 @@ func (a *sharedSoDemoCGOMessageAdapter) StartWatchRuntimeState(ctx context.Conte
 		return nil, err
 	}
 	var stream C.int32_t
-	errID := int32(C.callSharedSoDemoWatchRuntimeStateCGOMessageServerStreamStart(a.WatchRuntimeStateStart, C.uintptr_t(requestPtr), C.int32_t(requestLen), &stream))
+	errID := int32(C.callSharedSoDemoWatchRuntimeStateCGOMessageServerStreamStart(a.watchRuntimeStateStart, C.uintptr_t(requestPtr), C.int32_t(requestLen), &stream))
 	if errID != 0 {
 		return nil, sharedSoDemoCGOMessageServerError(errID)
 	}
-	return &sharedSoDemoWatchRuntimeStateCGOMessageServerStreamingClient{recv: a.WatchRuntimeStateRecv, finish: a.WatchRuntimeStateFinish, cancel: a.WatchRuntimeStateCancel, stream: int32(stream)}, nil
+	return &sharedSoDemoWatchRuntimeStateCGOMessageServerStreamingClient{recv: a.watchRuntimeStateRecv, finish: a.watchRuntimeStateFinish, cancel: a.watchRuntimeStateCancel, stream: int32(stream)}, nil
 }
 
 func (a *sharedSoDemoCGOMessageAdapter) WatchRuntimeState(ctx context.Context, req *proto.ReadRuntimeStateRequest, stream rpcruntime.ServerStreamingServer[*proto.RuntimeStateResponse]) error {
-	session, err := a.StartWatchRuntimeState(ctx, req)
+	session, err := a.WatchRuntimeStateStart(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -364,23 +364,23 @@ func (s *sharedSoDemoWatchRuntimeStateCGOMessageServerStreamingClient) Cancel(ct
 	return nil
 }
 
-func (a *sharedSoDemoCGOMessageAdapter) StartCollectRuntimeState(ctx context.Context) (rpcruntime.ClientStreamingClient[*proto.IncrementRuntimeStateRequest, *proto.RuntimeStateResponse], error) {
+func (a *sharedSoDemoCGOMessageAdapter) CollectRuntimeStateStart(ctx context.Context) (rpcruntime.ClientStreamingClient[*proto.IncrementRuntimeStateRequest, *proto.RuntimeStateResponse], error) {
 	if a == nil {
 		return nil, sharedSoDemoCGOMessageServerCallbacksNil
 	}
-	if a.CollectRuntimeStateStart == nil || a.CollectRuntimeStateSend == nil || a.CollectRuntimeStateFinish == nil || a.CollectRuntimeStateCancel == nil {
+	if a.collectRuntimeStateStart == nil || a.collectRuntimeStateSend == nil || a.collectRuntimeStateFinish == nil || a.collectRuntimeStateCancel == nil {
 		return nil, errors.New("rpccgo: SharedSoDemo.CollectRuntimeState cgo message server method is not implemented")
 	}
 	var stream C.int32_t
-	errID := int32(C.callSharedSoDemoCollectRuntimeStateCGOMessageClientStreamStart(a.CollectRuntimeStateStart, &stream))
+	errID := int32(C.callSharedSoDemoCollectRuntimeStateCGOMessageClientStreamStart(a.collectRuntimeStateStart, &stream))
 	if errID != 0 {
 		return nil, sharedSoDemoCGOMessageServerError(errID)
 	}
-	return &sharedSoDemoCollectRuntimeStateCGOMessageClientStreamingClient{send: a.CollectRuntimeStateSend, finish: a.CollectRuntimeStateFinish, cancel: a.CollectRuntimeStateCancel, stream: int32(stream)}, nil
+	return &sharedSoDemoCollectRuntimeStateCGOMessageClientStreamingClient{send: a.collectRuntimeStateSend, finish: a.collectRuntimeStateFinish, cancel: a.collectRuntimeStateCancel, stream: int32(stream)}, nil
 }
 
 func (a *sharedSoDemoCGOMessageAdapter) CollectRuntimeState(ctx context.Context, stream rpcruntime.ClientStreamingServer[*proto.IncrementRuntimeStateRequest]) (*proto.RuntimeStateResponse, error) {
-	session, err := a.StartCollectRuntimeState(ctx)
+	session, err := a.CollectRuntimeStateStart(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -454,11 +454,11 @@ func (s *sharedSoDemoCollectRuntimeStateCGOMessageClientStreamingClient) Cancel(
 	return nil
 }
 
-func (a *sharedSoDemoCGOMessageAdapter) StartStreamRuntimeState(ctx context.Context, req *proto.ReadRuntimeStateRequest) (rpcruntime.ServerStreamingClient[*proto.RuntimeStateResponse], error) {
+func (a *sharedSoDemoCGOMessageAdapter) StreamRuntimeStateStart(ctx context.Context, req *proto.ReadRuntimeStateRequest) (rpcruntime.ServerStreamingClient[*proto.RuntimeStateResponse], error) {
 	if a == nil {
 		return nil, sharedSoDemoCGOMessageServerCallbacksNil
 	}
-	if a.StreamRuntimeStateStart == nil || a.StreamRuntimeStateRecv == nil || a.StreamRuntimeStateFinish == nil || a.StreamRuntimeStateCancel == nil {
+	if a.streamRuntimeStateStart == nil || a.streamRuntimeStateRecv == nil || a.streamRuntimeStateFinish == nil || a.streamRuntimeStateCancel == nil {
 		return nil, errors.New("rpccgo: SharedSoDemo.StreamRuntimeState cgo message server method is not implemented")
 	}
 	if req == nil {
@@ -479,15 +479,15 @@ func (a *sharedSoDemoCGOMessageAdapter) StartStreamRuntimeState(ctx context.Cont
 		return nil, err
 	}
 	var stream C.int32_t
-	errID := int32(C.callSharedSoDemoStreamRuntimeStateCGOMessageServerStreamStart(a.StreamRuntimeStateStart, C.uintptr_t(requestPtr), C.int32_t(requestLen), &stream))
+	errID := int32(C.callSharedSoDemoStreamRuntimeStateCGOMessageServerStreamStart(a.streamRuntimeStateStart, C.uintptr_t(requestPtr), C.int32_t(requestLen), &stream))
 	if errID != 0 {
 		return nil, sharedSoDemoCGOMessageServerError(errID)
 	}
-	return &sharedSoDemoStreamRuntimeStateCGOMessageServerStreamingClient{recv: a.StreamRuntimeStateRecv, finish: a.StreamRuntimeStateFinish, cancel: a.StreamRuntimeStateCancel, stream: int32(stream)}, nil
+	return &sharedSoDemoStreamRuntimeStateCGOMessageServerStreamingClient{recv: a.streamRuntimeStateRecv, finish: a.streamRuntimeStateFinish, cancel: a.streamRuntimeStateCancel, stream: int32(stream)}, nil
 }
 
 func (a *sharedSoDemoCGOMessageAdapter) StreamRuntimeState(ctx context.Context, req *proto.ReadRuntimeStateRequest, stream rpcruntime.ServerStreamingServer[*proto.RuntimeStateResponse]) error {
-	session, err := a.StartStreamRuntimeState(ctx, req)
+	session, err := a.StreamRuntimeStateStart(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -550,23 +550,23 @@ func (s *sharedSoDemoStreamRuntimeStateCGOMessageServerStreamingClient) Cancel(c
 	return nil
 }
 
-func (a *sharedSoDemoCGOMessageAdapter) StartChatRuntimeState(ctx context.Context) (rpcruntime.BidiStreamingClient[*proto.IncrementRuntimeStateRequest, *proto.RuntimeStateResponse], error) {
+func (a *sharedSoDemoCGOMessageAdapter) ChatRuntimeStateStart(ctx context.Context) (rpcruntime.BidiStreamingClient[*proto.IncrementRuntimeStateRequest, *proto.RuntimeStateResponse], error) {
 	if a == nil {
 		return nil, sharedSoDemoCGOMessageServerCallbacksNil
 	}
-	if a.ChatRuntimeStateStart == nil || a.ChatRuntimeStateSend == nil || a.ChatRuntimeStateRecv == nil || a.ChatRuntimeStateCloseSend == nil || a.ChatRuntimeStateFinish == nil || a.ChatRuntimeStateCancel == nil {
+	if a.chatRuntimeStateStart == nil || a.chatRuntimeStateSend == nil || a.chatRuntimeStateRecv == nil || a.chatRuntimeStateCloseSend == nil || a.chatRuntimeStateFinish == nil || a.chatRuntimeStateCancel == nil {
 		return nil, errors.New("rpccgo: SharedSoDemo.ChatRuntimeState cgo message server method is not implemented")
 	}
 	var stream C.int32_t
-	errID := int32(C.callSharedSoDemoChatRuntimeStateCGOMessageBidiStreamStart(a.ChatRuntimeStateStart, &stream))
+	errID := int32(C.callSharedSoDemoChatRuntimeStateCGOMessageBidiStreamStart(a.chatRuntimeStateStart, &stream))
 	if errID != 0 {
 		return nil, sharedSoDemoCGOMessageServerError(errID)
 	}
-	return &sharedSoDemoChatRuntimeStateCGOMessageBidiStreamingClient{send: a.ChatRuntimeStateSend, recv: a.ChatRuntimeStateRecv, closeSend: a.ChatRuntimeStateCloseSend, finish: a.ChatRuntimeStateFinish, cancel: a.ChatRuntimeStateCancel, stream: int32(stream)}, nil
+	return &sharedSoDemoChatRuntimeStateCGOMessageBidiStreamingClient{send: a.chatRuntimeStateSend, recv: a.chatRuntimeStateRecv, closeSend: a.chatRuntimeStateCloseSend, finish: a.chatRuntimeStateFinish, cancel: a.chatRuntimeStateCancel, stream: int32(stream)}, nil
 }
 
 func (a *sharedSoDemoCGOMessageAdapter) ChatRuntimeState(ctx context.Context, stream rpcruntime.BidiStreamingServer[*proto.IncrementRuntimeStateRequest, *proto.RuntimeStateResponse]) error {
-	session, err := a.StartChatRuntimeState(ctx)
+	session, err := a.ChatRuntimeStateStart(ctx)
 	if err != nil {
 		return err
 	}
@@ -725,61 +725,61 @@ func rpccgoMsgFluttersharedv1SharedSoDemoRegister(composeGreetingCallback C.Shar
 	if watchRuntimeStateStart == nil && watchRuntimeStateRecv == nil && watchRuntimeStateFinish == nil && watchRuntimeStateCancel == nil {
 		// Preserve existing callbacks for methods omitted from a service-level update.
 	} else if watchRuntimeStateStart != nil && watchRuntimeStateRecv != nil && watchRuntimeStateFinish != nil && watchRuntimeStateCancel != nil {
-		next.WatchRuntimeStateStart = watchRuntimeStateStart
-		next.WatchRuntimeStateRecv = watchRuntimeStateRecv
-		next.WatchRuntimeStateFinish = watchRuntimeStateFinish
-		next.WatchRuntimeStateCancel = watchRuntimeStateCancel
+		next.watchRuntimeStateStart = watchRuntimeStateStart
+		next.watchRuntimeStateRecv = watchRuntimeStateRecv
+		next.watchRuntimeStateFinish = watchRuntimeStateFinish
+		next.watchRuntimeStateCancel = watchRuntimeStateCancel
 	} else {
-		next.WatchRuntimeStateStart = nil
-		next.WatchRuntimeStateRecv = nil
-		next.WatchRuntimeStateFinish = nil
-		next.WatchRuntimeStateCancel = nil
+		next.watchRuntimeStateStart = nil
+		next.watchRuntimeStateRecv = nil
+		next.watchRuntimeStateFinish = nil
+		next.watchRuntimeStateCancel = nil
 		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", sharedSoDemoCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState"))
 	}
 	if collectRuntimeStateStart == nil && collectRuntimeStateSend == nil && collectRuntimeStateFinish == nil && collectRuntimeStateCancel == nil {
 		// Preserve existing callbacks for methods omitted from a service-level update.
 	} else if collectRuntimeStateStart != nil && collectRuntimeStateSend != nil && collectRuntimeStateFinish != nil && collectRuntimeStateCancel != nil {
-		next.CollectRuntimeStateStart = collectRuntimeStateStart
-		next.CollectRuntimeStateSend = collectRuntimeStateSend
-		next.CollectRuntimeStateFinish = collectRuntimeStateFinish
-		next.CollectRuntimeStateCancel = collectRuntimeStateCancel
+		next.collectRuntimeStateStart = collectRuntimeStateStart
+		next.collectRuntimeStateSend = collectRuntimeStateSend
+		next.collectRuntimeStateFinish = collectRuntimeStateFinish
+		next.collectRuntimeStateCancel = collectRuntimeStateCancel
 	} else {
-		next.CollectRuntimeStateStart = nil
-		next.CollectRuntimeStateSend = nil
-		next.CollectRuntimeStateFinish = nil
-		next.CollectRuntimeStateCancel = nil
+		next.collectRuntimeStateStart = nil
+		next.collectRuntimeStateSend = nil
+		next.collectRuntimeStateFinish = nil
+		next.collectRuntimeStateCancel = nil
 		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", sharedSoDemoCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.SharedSoDemo.CollectRuntimeState"))
 	}
 	if streamRuntimeStateStart == nil && streamRuntimeStateRecv == nil && streamRuntimeStateFinish == nil && streamRuntimeStateCancel == nil {
 		// Preserve existing callbacks for methods omitted from a service-level update.
 	} else if streamRuntimeStateStart != nil && streamRuntimeStateRecv != nil && streamRuntimeStateFinish != nil && streamRuntimeStateCancel != nil {
-		next.StreamRuntimeStateStart = streamRuntimeStateStart
-		next.StreamRuntimeStateRecv = streamRuntimeStateRecv
-		next.StreamRuntimeStateFinish = streamRuntimeStateFinish
-		next.StreamRuntimeStateCancel = streamRuntimeStateCancel
+		next.streamRuntimeStateStart = streamRuntimeStateStart
+		next.streamRuntimeStateRecv = streamRuntimeStateRecv
+		next.streamRuntimeStateFinish = streamRuntimeStateFinish
+		next.streamRuntimeStateCancel = streamRuntimeStateCancel
 	} else {
-		next.StreamRuntimeStateStart = nil
-		next.StreamRuntimeStateRecv = nil
-		next.StreamRuntimeStateFinish = nil
-		next.StreamRuntimeStateCancel = nil
+		next.streamRuntimeStateStart = nil
+		next.streamRuntimeStateRecv = nil
+		next.streamRuntimeStateFinish = nil
+		next.streamRuntimeStateCancel = nil
 		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", sharedSoDemoCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.SharedSoDemo.StreamRuntimeState"))
 	}
 	if chatRuntimeStateStart == nil && chatRuntimeStateSend == nil && chatRuntimeStateRecv == nil && chatRuntimeStateCloseSend == nil && chatRuntimeStateFinish == nil && chatRuntimeStateCancel == nil {
 		// Preserve existing callbacks for methods omitted from a service-level update.
 	} else if chatRuntimeStateStart != nil && chatRuntimeStateSend != nil && chatRuntimeStateRecv != nil && chatRuntimeStateCloseSend != nil && chatRuntimeStateFinish != nil && chatRuntimeStateCancel != nil {
-		next.ChatRuntimeStateStart = chatRuntimeStateStart
-		next.ChatRuntimeStateSend = chatRuntimeStateSend
-		next.ChatRuntimeStateRecv = chatRuntimeStateRecv
-		next.ChatRuntimeStateCloseSend = chatRuntimeStateCloseSend
-		next.ChatRuntimeStateFinish = chatRuntimeStateFinish
-		next.ChatRuntimeStateCancel = chatRuntimeStateCancel
+		next.chatRuntimeStateStart = chatRuntimeStateStart
+		next.chatRuntimeStateSend = chatRuntimeStateSend
+		next.chatRuntimeStateRecv = chatRuntimeStateRecv
+		next.chatRuntimeStateCloseSend = chatRuntimeStateCloseSend
+		next.chatRuntimeStateFinish = chatRuntimeStateFinish
+		next.chatRuntimeStateCancel = chatRuntimeStateCancel
 	} else {
-		next.ChatRuntimeStateStart = nil
-		next.ChatRuntimeStateSend = nil
-		next.ChatRuntimeStateRecv = nil
-		next.ChatRuntimeStateCloseSend = nil
-		next.ChatRuntimeStateFinish = nil
-		next.ChatRuntimeStateCancel = nil
+		next.chatRuntimeStateStart = nil
+		next.chatRuntimeStateSend = nil
+		next.chatRuntimeStateRecv = nil
+		next.chatRuntimeStateCloseSend = nil
+		next.chatRuntimeStateFinish = nil
+		next.chatRuntimeStateCancel = nil
 		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", sharedSoDemoCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.SharedSoDemo.ChatRuntimeState"))
 	}
 	if err := proto.RegisterSharedSoDemoCGOMessageServer(next); err != nil {
@@ -858,20 +858,20 @@ func rpccgoMsgFluttersharedv1SharedSoDemoRegisterWatchRuntimeState(watchRuntimeS
 	next := sharedSoDemoCGOMessageServerAdapterForRegister()
 	var registerErr error
 	if watchRuntimeStateStart == nil && watchRuntimeStateRecv == nil && watchRuntimeStateFinish == nil && watchRuntimeStateCancel == nil {
-		next.WatchRuntimeStateStart = nil
-		next.WatchRuntimeStateRecv = nil
-		next.WatchRuntimeStateFinish = nil
-		next.WatchRuntimeStateCancel = nil
+		next.watchRuntimeStateStart = nil
+		next.watchRuntimeStateRecv = nil
+		next.watchRuntimeStateFinish = nil
+		next.watchRuntimeStateCancel = nil
 	} else if watchRuntimeStateStart != nil && watchRuntimeStateRecv != nil && watchRuntimeStateFinish != nil && watchRuntimeStateCancel != nil {
-		next.WatchRuntimeStateStart = watchRuntimeStateStart
-		next.WatchRuntimeStateRecv = watchRuntimeStateRecv
-		next.WatchRuntimeStateFinish = watchRuntimeStateFinish
-		next.WatchRuntimeStateCancel = watchRuntimeStateCancel
+		next.watchRuntimeStateStart = watchRuntimeStateStart
+		next.watchRuntimeStateRecv = watchRuntimeStateRecv
+		next.watchRuntimeStateFinish = watchRuntimeStateFinish
+		next.watchRuntimeStateCancel = watchRuntimeStateCancel
 	} else {
-		next.WatchRuntimeStateStart = nil
-		next.WatchRuntimeStateRecv = nil
-		next.WatchRuntimeStateFinish = nil
-		next.WatchRuntimeStateCancel = nil
+		next.watchRuntimeStateStart = nil
+		next.watchRuntimeStateRecv = nil
+		next.watchRuntimeStateFinish = nil
+		next.watchRuntimeStateCancel = nil
 		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", sharedSoDemoCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState"))
 	}
 	if err := proto.RegisterSharedSoDemoCGOMessageServer(next); err != nil {
@@ -893,20 +893,20 @@ func rpccgoMsgFluttersharedv1SharedSoDemoRegisterCollectRuntimeState(collectRunt
 	next := sharedSoDemoCGOMessageServerAdapterForRegister()
 	var registerErr error
 	if collectRuntimeStateStart == nil && collectRuntimeStateSend == nil && collectRuntimeStateFinish == nil && collectRuntimeStateCancel == nil {
-		next.CollectRuntimeStateStart = nil
-		next.CollectRuntimeStateSend = nil
-		next.CollectRuntimeStateFinish = nil
-		next.CollectRuntimeStateCancel = nil
+		next.collectRuntimeStateStart = nil
+		next.collectRuntimeStateSend = nil
+		next.collectRuntimeStateFinish = nil
+		next.collectRuntimeStateCancel = nil
 	} else if collectRuntimeStateStart != nil && collectRuntimeStateSend != nil && collectRuntimeStateFinish != nil && collectRuntimeStateCancel != nil {
-		next.CollectRuntimeStateStart = collectRuntimeStateStart
-		next.CollectRuntimeStateSend = collectRuntimeStateSend
-		next.CollectRuntimeStateFinish = collectRuntimeStateFinish
-		next.CollectRuntimeStateCancel = collectRuntimeStateCancel
+		next.collectRuntimeStateStart = collectRuntimeStateStart
+		next.collectRuntimeStateSend = collectRuntimeStateSend
+		next.collectRuntimeStateFinish = collectRuntimeStateFinish
+		next.collectRuntimeStateCancel = collectRuntimeStateCancel
 	} else {
-		next.CollectRuntimeStateStart = nil
-		next.CollectRuntimeStateSend = nil
-		next.CollectRuntimeStateFinish = nil
-		next.CollectRuntimeStateCancel = nil
+		next.collectRuntimeStateStart = nil
+		next.collectRuntimeStateSend = nil
+		next.collectRuntimeStateFinish = nil
+		next.collectRuntimeStateCancel = nil
 		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", sharedSoDemoCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.SharedSoDemo.CollectRuntimeState"))
 	}
 	if err := proto.RegisterSharedSoDemoCGOMessageServer(next); err != nil {
@@ -928,20 +928,20 @@ func rpccgoMsgFluttersharedv1SharedSoDemoRegisterStreamRuntimeState(streamRuntim
 	next := sharedSoDemoCGOMessageServerAdapterForRegister()
 	var registerErr error
 	if streamRuntimeStateStart == nil && streamRuntimeStateRecv == nil && streamRuntimeStateFinish == nil && streamRuntimeStateCancel == nil {
-		next.StreamRuntimeStateStart = nil
-		next.StreamRuntimeStateRecv = nil
-		next.StreamRuntimeStateFinish = nil
-		next.StreamRuntimeStateCancel = nil
+		next.streamRuntimeStateStart = nil
+		next.streamRuntimeStateRecv = nil
+		next.streamRuntimeStateFinish = nil
+		next.streamRuntimeStateCancel = nil
 	} else if streamRuntimeStateStart != nil && streamRuntimeStateRecv != nil && streamRuntimeStateFinish != nil && streamRuntimeStateCancel != nil {
-		next.StreamRuntimeStateStart = streamRuntimeStateStart
-		next.StreamRuntimeStateRecv = streamRuntimeStateRecv
-		next.StreamRuntimeStateFinish = streamRuntimeStateFinish
-		next.StreamRuntimeStateCancel = streamRuntimeStateCancel
+		next.streamRuntimeStateStart = streamRuntimeStateStart
+		next.streamRuntimeStateRecv = streamRuntimeStateRecv
+		next.streamRuntimeStateFinish = streamRuntimeStateFinish
+		next.streamRuntimeStateCancel = streamRuntimeStateCancel
 	} else {
-		next.StreamRuntimeStateStart = nil
-		next.StreamRuntimeStateRecv = nil
-		next.StreamRuntimeStateFinish = nil
-		next.StreamRuntimeStateCancel = nil
+		next.streamRuntimeStateStart = nil
+		next.streamRuntimeStateRecv = nil
+		next.streamRuntimeStateFinish = nil
+		next.streamRuntimeStateCancel = nil
 		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", sharedSoDemoCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.SharedSoDemo.StreamRuntimeState"))
 	}
 	if err := proto.RegisterSharedSoDemoCGOMessageServer(next); err != nil {
@@ -963,26 +963,26 @@ func rpccgoMsgFluttersharedv1SharedSoDemoRegisterChatRuntimeState(chatRuntimeSta
 	next := sharedSoDemoCGOMessageServerAdapterForRegister()
 	var registerErr error
 	if chatRuntimeStateStart == nil && chatRuntimeStateSend == nil && chatRuntimeStateRecv == nil && chatRuntimeStateCloseSend == nil && chatRuntimeStateFinish == nil && chatRuntimeStateCancel == nil {
-		next.ChatRuntimeStateStart = nil
-		next.ChatRuntimeStateSend = nil
-		next.ChatRuntimeStateRecv = nil
-		next.ChatRuntimeStateCloseSend = nil
-		next.ChatRuntimeStateFinish = nil
-		next.ChatRuntimeStateCancel = nil
+		next.chatRuntimeStateStart = nil
+		next.chatRuntimeStateSend = nil
+		next.chatRuntimeStateRecv = nil
+		next.chatRuntimeStateCloseSend = nil
+		next.chatRuntimeStateFinish = nil
+		next.chatRuntimeStateCancel = nil
 	} else if chatRuntimeStateStart != nil && chatRuntimeStateSend != nil && chatRuntimeStateRecv != nil && chatRuntimeStateCloseSend != nil && chatRuntimeStateFinish != nil && chatRuntimeStateCancel != nil {
-		next.ChatRuntimeStateStart = chatRuntimeStateStart
-		next.ChatRuntimeStateSend = chatRuntimeStateSend
-		next.ChatRuntimeStateRecv = chatRuntimeStateRecv
-		next.ChatRuntimeStateCloseSend = chatRuntimeStateCloseSend
-		next.ChatRuntimeStateFinish = chatRuntimeStateFinish
-		next.ChatRuntimeStateCancel = chatRuntimeStateCancel
+		next.chatRuntimeStateStart = chatRuntimeStateStart
+		next.chatRuntimeStateSend = chatRuntimeStateSend
+		next.chatRuntimeStateRecv = chatRuntimeStateRecv
+		next.chatRuntimeStateCloseSend = chatRuntimeStateCloseSend
+		next.chatRuntimeStateFinish = chatRuntimeStateFinish
+		next.chatRuntimeStateCancel = chatRuntimeStateCancel
 	} else {
-		next.ChatRuntimeStateStart = nil
-		next.ChatRuntimeStateSend = nil
-		next.ChatRuntimeStateRecv = nil
-		next.ChatRuntimeStateCloseSend = nil
-		next.ChatRuntimeStateFinish = nil
-		next.ChatRuntimeStateCancel = nil
+		next.chatRuntimeStateStart = nil
+		next.chatRuntimeStateSend = nil
+		next.chatRuntimeStateRecv = nil
+		next.chatRuntimeStateCloseSend = nil
+		next.chatRuntimeStateFinish = nil
+		next.chatRuntimeStateCancel = nil
 		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", sharedSoDemoCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.SharedSoDemo.ChatRuntimeState"))
 	}
 	if err := proto.RegisterSharedSoDemoCGOMessageServer(next); err != nil {

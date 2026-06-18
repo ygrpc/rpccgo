@@ -216,7 +216,7 @@ func (b nativeCABIBuilder) send() COperationABI {
 func (b nativeCABIBuilder) recv() COperationABI {
 	params := []CABISlot{handleSlot("stream")}
 	params = append(params, b.outputSlots(b.method.Contract.Native.ResponseFields)...)
-	return COperationABI{Operation: NativeCOperationRecv, Symbol: nativeCExportFuncName(b.file, b.service, b.method, "read"), TypeName: b.callbackTypeName(NativeCOperationRecv), Params: params, Return: errorIDReturnSlot()}
+	return COperationABI{Operation: NativeCOperationRecv, Symbol: nativeCExportFuncName(b.file, b.service, b.method, "recv"), TypeName: b.callbackTypeName(NativeCOperationRecv), Params: params, Return: errorIDReturnSlot()}
 }
 
 func (b nativeCABIBuilder) finish() COperationABI {

@@ -47,7 +47,7 @@ object SharedSoDemoJni {
     fun ReadRuntimeState(req: examples.flutter.sharedso.v1.ReadRuntimeStateRequest): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> =
         decodeResult(sharedSoDemoReadRuntimeState(req.toByteArray())) { examples.flutter.sharedso.v1.RuntimeStateResponse.parseFrom(it) }
 
-    fun StartWatchRuntimeState(req: examples.flutter.sharedso.v1.ReadRuntimeStateRequest): RpccgoResult<SharedSoDemoWatchRuntimeStateServerStream> {
+    fun WatchRuntimeStateStart(req: examples.flutter.sharedso.v1.ReadRuntimeStateRequest): RpccgoResult<SharedSoDemoWatchRuntimeStateServerStream> {
         val handle = decodeHandleResult(sharedSoDemoWatchRuntimeStateStart(req.toByteArray()))
         if (!handle.ok) return RpccgoResult.failure(handle.error ?: "rpccgo: stream start failed")
         return RpccgoResult.success(SharedSoDemoWatchRuntimeStateServerStream(handle.value ?: 0))
@@ -62,7 +62,7 @@ object SharedSoDemoJni {
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoWatchRuntimeStateCancel(handle))
     }
 
-    fun StartCollectRuntimeState(): RpccgoResult<SharedSoDemoCollectRuntimeStateClientStream> {
+    fun CollectRuntimeStateStart(): RpccgoResult<SharedSoDemoCollectRuntimeStateClientStream> {
         val handle = decodeHandleResult(sharedSoDemoCollectRuntimeStateStart())
         if (!handle.ok) return RpccgoResult.failure(handle.error ?: "rpccgo: stream start failed")
         return RpccgoResult.success(SharedSoDemoCollectRuntimeStateClientStream(handle.value ?: 0))
@@ -77,7 +77,7 @@ object SharedSoDemoJni {
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoCollectRuntimeStateCancel(handle))
     }
 
-    fun StartStreamRuntimeState(req: examples.flutter.sharedso.v1.ReadRuntimeStateRequest): RpccgoResult<SharedSoDemoStreamRuntimeStateServerStream> {
+    fun StreamRuntimeStateStart(req: examples.flutter.sharedso.v1.ReadRuntimeStateRequest): RpccgoResult<SharedSoDemoStreamRuntimeStateServerStream> {
         val handle = decodeHandleResult(sharedSoDemoStreamRuntimeStateStart(req.toByteArray()))
         if (!handle.ok) return RpccgoResult.failure(handle.error ?: "rpccgo: stream start failed")
         return RpccgoResult.success(SharedSoDemoStreamRuntimeStateServerStream(handle.value ?: 0))
@@ -92,7 +92,7 @@ object SharedSoDemoJni {
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoStreamRuntimeStateCancel(handle))
     }
 
-    fun StartChatRuntimeState(): RpccgoResult<SharedSoDemoChatRuntimeStateBidiStream> {
+    fun ChatRuntimeStateStart(): RpccgoResult<SharedSoDemoChatRuntimeStateBidiStream> {
         val handle = decodeHandleResult(sharedSoDemoChatRuntimeStateStart())
         if (!handle.ok) return RpccgoResult.failure(handle.error ?: "rpccgo: stream start failed")
         return RpccgoResult.success(SharedSoDemoChatRuntimeStateBidiStream(handle.value ?: 0))

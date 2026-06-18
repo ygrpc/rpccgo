@@ -21,7 +21,7 @@ typedef _RpccgoMessageUnaryCAbi = ffi.Int32 Function(ffi.UintPtr requestPtr, ffi
 typedef _RpccgoStreamStartCAbi = ffi.Int32 Function(ffi.Pointer<ffi.Int32> handle);
 typedef _RpccgoServerStreamStartCAbi = ffi.Int32 Function(ffi.UintPtr requestPtr, ffi.Int32 requestLen, ffi.Pointer<ffi.Int32> handle);
 typedef _RpccgoStreamSendCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.UintPtr requestPtr, ffi.Int32 requestLen);
-typedef _RpccgoStreamReadCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
+typedef _RpccgoStreamRecvCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
 typedef _RpccgoStreamFinishCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
 typedef _RpccgoStreamFinishVoidCAbi = ffi.Int32 Function(ffi.Int32 handle);
 typedef _RpccgoStreamCancelCAbi = ffi.Int32 Function(ffi.Int32 handle);
@@ -44,8 +44,8 @@ external int _readRuntimeStateRaw(int requestPtr, int requestLen, ffi.Pointer<ff
 @ffi.Native<_RpccgoServerStreamStartCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart')
 external int _watchRuntimeStateStartRaw(int requestPtr, int requestLen, ffi.Pointer<ffi.Int32> handle);
 
-@ffi.Native<_RpccgoStreamReadCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateRead')
-external int _watchRuntimeStateReadRaw(int handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
+@ffi.Native<_RpccgoStreamRecvCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateRecv')
+external int _watchRuntimeStateRecvRaw(int handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
 
 @ffi.Native<_RpccgoStreamFinishVoidCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateFinish')
 external int _watchRuntimeStateFinishRaw(int handle);
@@ -68,8 +68,8 @@ external int _collectRuntimeStateCancelRaw(int handle);
 @ffi.Native<_RpccgoServerStreamStartCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateStart')
 external int _streamRuntimeStateStartRaw(int requestPtr, int requestLen, ffi.Pointer<ffi.Int32> handle);
 
-@ffi.Native<_RpccgoStreamReadCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateRead')
-external int _streamRuntimeStateReadRaw(int handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
+@ffi.Native<_RpccgoStreamRecvCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateRecv')
+external int _streamRuntimeStateRecvRaw(int handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
 
 @ffi.Native<_RpccgoStreamFinishVoidCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateFinish')
 external int _streamRuntimeStateFinishRaw(int handle);
@@ -83,8 +83,8 @@ external int _chatRuntimeStateStartRaw(ffi.Pointer<ffi.Int32> handle);
 @ffi.Native<_RpccgoStreamSendCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateSend')
 external int _chatRuntimeStateSendRaw(int handle, int requestPtr, int requestLen);
 
-@ffi.Native<_RpccgoStreamReadCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateRead')
-external int _chatRuntimeStateReadRaw(int handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
+@ffi.Native<_RpccgoStreamRecvCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateRecv')
+external int _chatRuntimeStateRecvRaw(int handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
 
 @ffi.Native<_RpccgoStreamFinishVoidCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateCloseSend')
 external int _chatRuntimeStateCloseSendRaw(int handle);
@@ -166,7 +166,7 @@ pkg_ffi.calloc.free(responseLen);
 }
 }
 
-({SharedSoDemoWatchRuntimeStateStream? value, String? error}) WatchRuntimeState(pb.ReadRuntimeStateRequest request) {
+({SharedSoDemoWatchRuntimeStateStream? value, String? error}) WatchRuntimeStateStart(pb.ReadRuntimeStateRequest request) {
 final handlePtr = pkg_ffi.calloc<ffi.Int32>();
 final requestBytes = request.writeToBuffer();
 final requestPtr = _allocateBytes(requestBytes);
@@ -183,7 +183,7 @@ pkg_ffi.calloc.free(handlePtr);
 }
 }
 
-({SharedSoDemoCollectRuntimeStateStream? value, String? error}) CollectRuntimeState() {
+({SharedSoDemoCollectRuntimeStateStream? value, String? error}) CollectRuntimeStateStart() {
 final handlePtr = pkg_ffi.calloc<ffi.Int32>();
 try {
 final errID = _collectRuntimeStateStartRaw(handlePtr);
@@ -197,7 +197,7 @@ pkg_ffi.calloc.free(handlePtr);
 }
 }
 
-({SharedSoDemoStreamRuntimeStateStream? value, String? error}) StreamRuntimeState(pb.ReadRuntimeStateRequest request) {
+({SharedSoDemoStreamRuntimeStateStream? value, String? error}) StreamRuntimeStateStart(pb.ReadRuntimeStateRequest request) {
 final handlePtr = pkg_ffi.calloc<ffi.Int32>();
 final requestBytes = request.writeToBuffer();
 final requestPtr = _allocateBytes(requestBytes);
@@ -214,7 +214,7 @@ pkg_ffi.calloc.free(handlePtr);
 }
 }
 
-({SharedSoDemoChatRuntimeStateStream? value, String? error}) ChatRuntimeState() {
+({SharedSoDemoChatRuntimeStateStream? value, String? error}) ChatRuntimeStateStart() {
 final handlePtr = pkg_ffi.calloc<ffi.Int32>();
 try {
 final errID = _chatRuntimeStateStartRaw(handlePtr);
@@ -283,11 +283,11 @@ class SharedSoDemoWatchRuntimeStateStream {
 SharedSoDemoWatchRuntimeStateStream._(this._client, this._handle);
 final SharedSoDemoRpccgoClient _client;
 final int _handle;
-({pb.RuntimeStateResponse? value, String? error}) read() {
+({pb.RuntimeStateResponse? value, String? error}) Recv() {
 final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
 final responseLen = pkg_ffi.calloc<ffi.Int32>();
 try {
-final errID = _watchRuntimeStateReadRaw(_handle, responsePtr, responseLen);
+final errID = _watchRuntimeStateRecvRaw(_handle, responsePtr, responseLen);
 final error = _client._takeErrorResult(errID);
 if (error != null) {
 return (value: null, error: error);
@@ -302,11 +302,11 @@ pkg_ffi.calloc.free(responsePtr);
 pkg_ffi.calloc.free(responseLen);
 }
 }
-String? finish() {
+String? Finish() {
 final errID = _watchRuntimeStateFinishRaw(_handle);
 return _client._takeErrorResult(errID);
 }
-String? cancel() {
+String? Cancel() {
 final errID = _watchRuntimeStateCancelRaw(_handle);
 return _client._takeErrorResult(errID);
 }
@@ -316,7 +316,7 @@ class SharedSoDemoCollectRuntimeStateStream {
 SharedSoDemoCollectRuntimeStateStream._(this._client, this._handle);
 final SharedSoDemoRpccgoClient _client;
 final int _handle;
-String? send(pb.IncrementRuntimeStateRequest request) {
+String? Send(pb.IncrementRuntimeStateRequest request) {
 final requestBytes = request.writeToBuffer();
 final requestPtr = _client._allocateBytes(requestBytes);
 try {
@@ -326,7 +326,7 @@ return _client._takeErrorResult(errID);
 pkg_ffi.calloc.free(requestPtr);
 }
 }
-({pb.RuntimeStateResponse? value, String? error}) finish() {
+({pb.RuntimeStateResponse? value, String? error}) Finish() {
 final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
 final responseLen = pkg_ffi.calloc<ffi.Int32>();
 try {
@@ -345,7 +345,7 @@ pkg_ffi.calloc.free(responsePtr);
 pkg_ffi.calloc.free(responseLen);
 }
 }
-String? cancel() {
+String? Cancel() {
 final errID = _collectRuntimeStateCancelRaw(_handle);
 return _client._takeErrorResult(errID);
 }
@@ -355,11 +355,11 @@ class SharedSoDemoStreamRuntimeStateStream {
 SharedSoDemoStreamRuntimeStateStream._(this._client, this._handle);
 final SharedSoDemoRpccgoClient _client;
 final int _handle;
-({pb.RuntimeStateResponse? value, String? error}) read() {
+({pb.RuntimeStateResponse? value, String? error}) Recv() {
 final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
 final responseLen = pkg_ffi.calloc<ffi.Int32>();
 try {
-final errID = _streamRuntimeStateReadRaw(_handle, responsePtr, responseLen);
+final errID = _streamRuntimeStateRecvRaw(_handle, responsePtr, responseLen);
 final error = _client._takeErrorResult(errID);
 if (error != null) {
 return (value: null, error: error);
@@ -374,11 +374,11 @@ pkg_ffi.calloc.free(responsePtr);
 pkg_ffi.calloc.free(responseLen);
 }
 }
-String? finish() {
+String? Finish() {
 final errID = _streamRuntimeStateFinishRaw(_handle);
 return _client._takeErrorResult(errID);
 }
-String? cancel() {
+String? Cancel() {
 final errID = _streamRuntimeStateCancelRaw(_handle);
 return _client._takeErrorResult(errID);
 }
@@ -388,7 +388,7 @@ class SharedSoDemoChatRuntimeStateStream {
 SharedSoDemoChatRuntimeStateStream._(this._client, this._handle);
 final SharedSoDemoRpccgoClient _client;
 final int _handle;
-String? send(pb.IncrementRuntimeStateRequest request) {
+String? Send(pb.IncrementRuntimeStateRequest request) {
 final requestBytes = request.writeToBuffer();
 final requestPtr = _client._allocateBytes(requestBytes);
 try {
@@ -398,11 +398,11 @@ return _client._takeErrorResult(errID);
 pkg_ffi.calloc.free(requestPtr);
 }
 }
-({pb.RuntimeStateResponse? value, String? error}) read() {
+({pb.RuntimeStateResponse? value, String? error}) Recv() {
 final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
 final responseLen = pkg_ffi.calloc<ffi.Int32>();
 try {
-final errID = _chatRuntimeStateReadRaw(_handle, responsePtr, responseLen);
+final errID = _chatRuntimeStateRecvRaw(_handle, responsePtr, responseLen);
 final error = _client._takeErrorResult(errID);
 if (error != null) {
 return (value: null, error: error);
@@ -417,15 +417,15 @@ pkg_ffi.calloc.free(responsePtr);
 pkg_ffi.calloc.free(responseLen);
 }
 }
-String? closeSend() {
+String? CloseSend() {
 final errID = _chatRuntimeStateCloseSendRaw(_handle);
 return _client._takeErrorResult(errID);
 }
-String? finish() {
+String? Finish() {
 final errID = _chatRuntimeStateFinishRaw(_handle);
 return _client._takeErrorResult(errID);
 }
-String? cancel() {
+String? Cancel() {
 final errID = _chatRuntimeStateCancelRaw(_handle);
 return _client._takeErrorResult(errID);
 }

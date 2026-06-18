@@ -50,19 +50,28 @@ func TestGenerateJNIEmitsStreamingOperations(t *testing.T) {
 		"rpccgoMsgTestv1GreeterUploadSend",
 		"rpccgoMsgTestv1GreeterUploadFinish",
 		"rpccgoMsgTestv1GreeterListStart",
-		"rpccgoMsgTestv1GreeterListRead",
+		"rpccgoMsgTestv1GreeterListRecv",
 		"rpccgoMsgTestv1GreeterChatCloseSend",
 	} {
 		assertGeneratedContentContains(t, plugin, cppFile, fragment)
 	}
+	assertGeneratedFileContentDoesNotContain(t, plugin, cppFile,
+		"rpccgoMsgTestv1GreeterListRead",
+		"rpccgoMsgTestv1GreeterChatRead",
+	)
 	for _, fragment := range []string{
-		"fun StartUpload(): RpccgoResult<GreeterUploadClientStream>",
-		"fun StartList(req: test.v1.MessageRequest): RpccgoResult<GreeterListServerStream>",
-		"fun StartChat(): RpccgoResult<GreeterChatBidiStream>",
+		"fun UploadStart(): RpccgoResult<GreeterUploadClientStream>",
+		"fun ListStart(req: test.v1.MessageRequest): RpccgoResult<GreeterListServerStream>",
+		"fun ChatStart(): RpccgoResult<GreeterChatBidiStream>",
 		"fun CloseSend(): RpccgoResult<Unit>",
 	} {
 		assertGeneratedContentContains(t, plugin, ktFile, fragment)
 	}
+	assertGeneratedFileContentDoesNotContain(t, plugin, ktFile,
+		"fun StartUpload():",
+		"fun StartList(req:",
+		"fun StartChat():",
+	)
 }
 
 func TestGenerateJNIRequiresParameters(t *testing.T) {

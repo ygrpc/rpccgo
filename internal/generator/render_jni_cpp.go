@@ -196,7 +196,7 @@ func renderJNICPPClientStreaming(g *protogen.GeneratedFile, file FilePlan, servi
 func renderJNICPPServerStreaming(g *protogen.GeneratedFile, file FilePlan, service ServicePlan, method MethodPlan, config JNIGeneratorConfig) {
 	renderJNICPPStartWithRequest(g, file, service, method, config)
 	g.P()
-	renderJNICALLResponseByHandle(g, file, service, method, config, "Recv", "read")
+	renderJNICALLResponseByHandle(g, file, service, method, config, "Recv", "recv")
 	g.P()
 	renderJNICALLUnitByHandle(g, file, service, method, config, "Finish", "finish")
 	g.P()
@@ -208,7 +208,7 @@ func renderJNICPPBidiStreaming(g *protogen.GeneratedFile, file FilePlan, service
 	g.P()
 	renderJNICALLWithRequest(g, file, service, method, config, "Send", "send")
 	g.P()
-	renderJNICALLResponseByHandle(g, file, service, method, config, "Recv", "read")
+	renderJNICALLResponseByHandle(g, file, service, method, config, "Recv", "recv")
 	g.P()
 	renderJNICALLUnitByHandle(g, file, service, method, config, "CloseSend", "close_send")
 	g.P()

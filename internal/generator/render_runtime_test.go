@@ -219,18 +219,18 @@ func TestRenderRuntimeGlueDefinesPackageLevelStreamOperations(t *testing.T) {
 	const nativeServerFile = "test/v1/complete_service_plan.all_service.server.native.rpccgo.go"
 	const messageServerFile = "test/v1/complete_service_plan.all_service.server.message.rpccgo.go"
 	for _, fragment := range []string{
-		"func SendAllServiceNativeClientStream(ctx context.Context, handle rpcruntime.StreamHandle, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) error {",
+		"func AllServiceNativeClientStreamSend(ctx context.Context, handle rpcruntime.StreamHandle, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) error {",
 		"entry, err := rpcruntime.SendStreamSession(handle)",
 		"source, ok := entry.Session.(rpcruntime.ClientStreamingClient[AllServiceClientStreamNativeStreamRequest, AllServiceClientStreamNativeStreamResponse])",
 		"return source.Send(ctx, AllServiceClientStreamNativeStreamRequest{Name: name, Enabled: enabled, Child: child})",
-		"func FinishAllServiceNativeClientStream(ctx context.Context, handle rpcruntime.StreamHandle) (bool, []byte, error) {",
+		"func AllServiceNativeClientStreamFinish(ctx context.Context, handle rpcruntime.StreamHandle) (bool, []byte, error) {",
 		"entry, err := rpcruntime.LoadStreamSession(handle)",
 		"_, err = rpcruntime.FinishStreamSession(handle)",
 		"return resp.Accepted, resp.Payload, nil",
-		"func RecvAllServiceNativeServerStream(ctx context.Context, handle rpcruntime.StreamHandle) (bool, []byte, error) {",
+		"func AllServiceNativeServerStreamRecv(ctx context.Context, handle rpcruntime.StreamHandle) (bool, []byte, error) {",
 		"entry, err := rpcruntime.RecvStreamSession(handle)",
-		"func FinishAllServiceNativeServerStream(ctx context.Context, handle rpcruntime.StreamHandle) error {",
-		"func CloseSendAllServiceNativeBidiStream(ctx context.Context, handle rpcruntime.StreamHandle) error {",
+		"func AllServiceNativeServerStreamFinish(ctx context.Context, handle rpcruntime.StreamHandle) error {",
+		"func AllServiceNativeBidiStreamCloseSend(ctx context.Context, handle rpcruntime.StreamHandle) error {",
 		"entry, err := rpcruntime.CloseSendStreamSession(handle)",
 		"_, err = rpcruntime.CancelStreamSession(handle)",
 		"return source.Cancel(ctx)",
@@ -238,23 +238,26 @@ func TestRenderRuntimeGlueDefinesPackageLevelStreamOperations(t *testing.T) {
 		assertGeneratedContentContains(t, plugin, nativeServerFile, fragment)
 	}
 	for _, fragment := range []string{
-		"func SendAllServiceMessageClientStream(ctx context.Context, handle rpcruntime.StreamHandle, req *AllRequest) error {",
+		"func AllServiceMessageClientStreamSend(ctx context.Context, handle rpcruntime.StreamHandle, req *AllRequest) error {",
 		`return errors.New("rpccgo: message request is nil")`,
 		"entry, err := rpcruntime.SendStreamSession(handle)",
 		"source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*AllRequest, *AllReply])",
-		"func FinishAllServiceMessageClientStream(ctx context.Context, handle rpcruntime.StreamHandle) (*AllReply, error) {",
+		"func AllServiceMessageClientStreamFinish(ctx context.Context, handle rpcruntime.StreamHandle) (*AllReply, error) {",
 		"entry, err := rpcruntime.LoadStreamSession(handle)",
 		"_, err = rpcruntime.FinishStreamSession(handle)",
-		"func RecvAllServiceMessageServerStream(ctx context.Context, handle rpcruntime.StreamHandle) (*AllReply, error) {",
+		"func AllServiceMessageServerStreamRecv(ctx context.Context, handle rpcruntime.StreamHandle) (*AllReply, error) {",
 		"entry, err := rpcruntime.RecvStreamSession(handle)",
 		`return nil, errors.New("rpccgo: message response is nil")`,
-		"func CloseSendAllServiceMessageBidiStream(ctx context.Context, handle rpcruntime.StreamHandle) error {",
+		"func AllServiceMessageBidiStreamCloseSend(ctx context.Context, handle rpcruntime.StreamHandle) error {",
 		"entry, err := rpcruntime.CloseSendStreamSession(handle)",
 		"_, err = rpcruntime.CancelStreamSession(handle)",
 	} {
 		assertGeneratedContentContains(t, plugin, messageServerFile, fragment)
 	}
 	assertGeneratedFileContentDoesNotContain(t, plugin, nativeServerFile,
+		"func SendAllServiceNativeClientStream(",
+		"func RecvAllServiceNativeServerStream(",
+		"func CloseSendAllServiceNativeBidiStream(",
 		"type AllServiceClientStream"+"NativeStream struct {",
 		"func NewAllServiceClientStream"+"NativeStream(handle rpcruntime.StreamHandle)",
 		"allServiceStreamRegistry",
@@ -262,6 +265,9 @@ func TestRenderRuntimeGlueDefinesPackageLevelStreamOperations(t *testing.T) {
 		"."+"session",
 	)
 	assertGeneratedFileContentDoesNotContain(t, plugin, messageServerFile,
+		"func SendAllServiceMessageClientStream(",
+		"func RecvAllServiceMessageServerStream(",
+		"func CloseSendAllServiceMessageBidiStream(",
 		"type AllServiceClientStream"+"MessageStream struct {",
 		"func NewAllServiceClientStream"+"MessageStream(handle rpcruntime.StreamHandle)",
 		"allServiceStreamRegistry",
@@ -290,7 +296,7 @@ func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleAndCoreStreamRegistry(t *tes
 
 	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
-		"func StartAllServiceNativeClientStream(ctx context.Context) (rpcruntime.StreamHandle, error) {",
+		"func AllServiceNativeClientStreamStart(ctx context.Context) (rpcruntime.StreamHandle, error) {",
 		"return rpcruntime.CreateStreamSession(rpcruntime.ServerKindGoNative, source)",
 		"return rpcruntime.CreateStreamSession(rpcruntime.ServerKindConnect, source)",
 	} {
@@ -321,7 +327,7 @@ func TestRenderRuntimeGlueUsesRPCRuntimeStreamHandleForMessageHelpers(t *testing
 
 	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	for _, fragment := range []string{
-		"func StartAllServiceMessageClientStream(ctx context.Context) (rpcruntime.StreamHandle, error) {",
+		"func AllServiceMessageClientStreamStart(ctx context.Context) (rpcruntime.StreamHandle, error) {",
 		"return rpcruntime.CreateStreamSession(rpcruntime.ServerKindGoNative, source)",
 		"return rpcruntime.CreateStreamSession(rpcruntime.ServerKindCGOMessage, source)",
 	} {
@@ -349,7 +355,7 @@ func TestRenderRuntimeGlueRoutesMessageStreamsToNativeSessionsWithConverter(t *t
 	const runtimeFile = "test/v1/complete_service_plan.all_service.runtime.rpccgo.go"
 	const messageServerFile = "test/v1/complete_service_plan.all_service.server.message.rpccgo.go"
 	for _, fragment := range []string{
-		"func StartAllServiceMessageClientStream(ctx context.Context) (rpcruntime.StreamHandle, error) {",
+		"func AllServiceMessageClientStreamStart(ctx context.Context) (rpcruntime.StreamHandle, error) {",
 		"case rpcruntime.ServerKindGoNative:",
 		"return rpcruntime.CreateStreamSession(rpcruntime.ServerKindGoNative, source)",
 	} {

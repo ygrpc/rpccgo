@@ -64,7 +64,7 @@ func rpccgoMsgGreeterv1GreeterCollectStart(handle *C.int32_t) C.int32_t {
 	if handle == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client handle pointer is nil")))
 	}
-	handleValue, err := v1.StartGreeterMessageCollect(ctx)
+	handleValue, err := v1.GreeterMessageCollectStart(ctx)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -82,7 +82,7 @@ func rpccgoMsgGreeterv1GreeterCollectSend(handle C.int32_t, requestPtr C.uintptr
 	if err := rpcruntime.DecodeMessage(uintptr(requestPtr), int32(requestLen), req); err != nil {
 		return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request decode failed: %w", err)))
 	}
-	if err := v1.SendGreeterMessageCollect(ctx, rpcruntime.StreamHandle(handleValue), req); err != nil {
+	if err := v1.GreeterMessageCollectSend(ctx, rpcruntime.StreamHandle(handleValue), req); err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
 	return 0
@@ -103,7 +103,7 @@ func rpccgoMsgGreeterv1GreeterCollectFinish(handle C.int32_t, responsePtr *C.uin
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client output pointer is nil")))
 	}
 	handleValue := int32(handle)
-	resp, err := v1.FinishGreeterMessageCollect(ctx, rpcruntime.StreamHandle(handleValue))
+	resp, err := v1.GreeterMessageCollectFinish(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -122,7 +122,7 @@ func rpccgoMsgGreeterv1GreeterCollectFinish(handle C.int32_t, responsePtr *C.uin
 func rpccgoMsgGreeterv1GreeterCollectCancel(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
-	err := v1.CancelGreeterMessageCollect(ctx, rpcruntime.StreamHandle(handleValue))
+	err := v1.GreeterMessageCollectCancel(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -144,7 +144,7 @@ func rpccgoMsgGreeterv1GreeterBroadcastStart(requestPtr C.uintptr_t, requestLen 
 	if err := rpcruntime.DecodeMessage(uintptr(requestPtr), int32(requestLen), req); err != nil {
 		return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request decode failed: %w", err)))
 	}
-	handleValue, err := v1.StartGreeterMessageBroadcast(ctx, req)
+	handleValue, err := v1.GreeterMessageBroadcastStart(ctx, req)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -152,10 +152,10 @@ func rpccgoMsgGreeterv1GreeterBroadcastStart(requestPtr C.uintptr_t, requestLen 
 	return 0
 }
 
-// rpccgoMsgGreeterv1GreeterBroadcastRead reads a message response from the server-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Broadcast.
+// rpccgoMsgGreeterv1GreeterBroadcastRecv receives a message response from the server-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Broadcast.
 //
-//export rpccgoMsgGreeterv1GreeterBroadcastRead
-func rpccgoMsgGreeterv1GreeterBroadcastRead(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
+//export rpccgoMsgGreeterv1GreeterBroadcastRecv
+func rpccgoMsgGreeterv1GreeterBroadcastRecv(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
 	ctx := context.Background()
 	if responsePtr != nil {
 		*responsePtr = 0
@@ -167,7 +167,7 @@ func rpccgoMsgGreeterv1GreeterBroadcastRead(handle C.int32_t, responsePtr *C.uin
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client output pointer is nil")))
 	}
 	handleValue := int32(handle)
-	resp, err := v1.RecvGreeterMessageBroadcast(ctx, rpcruntime.StreamHandle(handleValue))
+	resp, err := v1.GreeterMessageBroadcastRecv(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -186,7 +186,7 @@ func rpccgoMsgGreeterv1GreeterBroadcastRead(handle C.int32_t, responsePtr *C.uin
 func rpccgoMsgGreeterv1GreeterBroadcastFinish(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
-	err := v1.FinishGreeterMessageBroadcast(ctx, rpcruntime.StreamHandle(handleValue))
+	err := v1.GreeterMessageBroadcastFinish(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -199,7 +199,7 @@ func rpccgoMsgGreeterv1GreeterBroadcastFinish(handle C.int32_t) C.int32_t {
 func rpccgoMsgGreeterv1GreeterBroadcastCancel(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
-	err := v1.CancelGreeterMessageBroadcast(ctx, rpcruntime.StreamHandle(handleValue))
+	err := v1.GreeterMessageBroadcastCancel(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -217,7 +217,7 @@ func rpccgoMsgGreeterv1GreeterChatStart(handle *C.int32_t) C.int32_t {
 	if handle == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client handle pointer is nil")))
 	}
-	handleValue, err := v1.StartGreeterMessageChat(ctx)
+	handleValue, err := v1.GreeterMessageChatStart(ctx)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -235,16 +235,16 @@ func rpccgoMsgGreeterv1GreeterChatSend(handle C.int32_t, requestPtr C.uintptr_t,
 	if err := rpcruntime.DecodeMessage(uintptr(requestPtr), int32(requestLen), req); err != nil {
 		return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request decode failed: %w", err)))
 	}
-	if err := v1.SendGreeterMessageChat(ctx, rpcruntime.StreamHandle(handleValue), req); err != nil {
+	if err := v1.GreeterMessageChatSend(ctx, rpcruntime.StreamHandle(handleValue), req); err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
 	return 0
 }
 
-// rpccgoMsgGreeterv1GreeterChatRead reads a message response from the bidi-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Chat.
+// rpccgoMsgGreeterv1GreeterChatRecv receives a message response from the bidi-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Chat.
 //
-//export rpccgoMsgGreeterv1GreeterChatRead
-func rpccgoMsgGreeterv1GreeterChatRead(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
+//export rpccgoMsgGreeterv1GreeterChatRecv
+func rpccgoMsgGreeterv1GreeterChatRecv(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
 	ctx := context.Background()
 	if responsePtr != nil {
 		*responsePtr = 0
@@ -256,7 +256,7 @@ func rpccgoMsgGreeterv1GreeterChatRead(handle C.int32_t, responsePtr *C.uintptr_
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client output pointer is nil")))
 	}
 	handleValue := int32(handle)
-	resp, err := v1.RecvGreeterMessageChat(ctx, rpcruntime.StreamHandle(handleValue))
+	resp, err := v1.GreeterMessageChatRecv(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -275,7 +275,7 @@ func rpccgoMsgGreeterv1GreeterChatRead(handle C.int32_t, responsePtr *C.uintptr_
 func rpccgoMsgGreeterv1GreeterChatCloseSend(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
-	err := v1.CloseSendGreeterMessageChat(ctx, rpcruntime.StreamHandle(handleValue))
+	err := v1.GreeterMessageChatCloseSend(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -288,7 +288,7 @@ func rpccgoMsgGreeterv1GreeterChatCloseSend(handle C.int32_t) C.int32_t {
 func rpccgoMsgGreeterv1GreeterChatFinish(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
-	err := v1.FinishGreeterMessageChat(ctx, rpcruntime.StreamHandle(handleValue))
+	err := v1.GreeterMessageChatFinish(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -301,7 +301,7 @@ func rpccgoMsgGreeterv1GreeterChatFinish(handle C.int32_t) C.int32_t {
 func rpccgoMsgGreeterv1GreeterChatCancel(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
-	err := v1.CancelGreeterMessageChat(ctx, rpcruntime.StreamHandle(handleValue))
+	err := v1.GreeterMessageChatCancel(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}

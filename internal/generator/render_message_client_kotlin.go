@@ -112,7 +112,7 @@ func renderKotlinClientStreamingMethod(g *protogen.GeneratedFile, service Servic
 	respType := rpccgoKotlinMessageType(method.Response)
 	streamType := service.GoName + method.GoName + "ClientStream"
 	nativeName := lowerInitial(service.GoName) + method.GoName
-	g.P("    fun Start", method.GoName, "(): RpccgoResult<", streamType, "> {")
+	g.P("    fun ", method.GoName, "Start(): RpccgoResult<", streamType, "> {")
 	g.P("        val handle = decodeHandleResult(", nativeName, "Start())")
 	g.P("        if (!handle.ok) return RpccgoResult.failure(handle.error ?: \"rpccgo: stream start failed\")")
 	g.P("        return RpccgoResult.success(", streamType, "(handle.value ?: 0))")
@@ -134,7 +134,7 @@ func renderKotlinServerStreamingMethod(g *protogen.GeneratedFile, service Servic
 	respType := rpccgoKotlinMessageType(method.Response)
 	streamType := service.GoName + method.GoName + "ServerStream"
 	nativeName := lowerInitial(service.GoName) + method.GoName
-	g.P("    fun Start", method.GoName, "(req: ", reqType, "): RpccgoResult<", streamType, "> {")
+	g.P("    fun ", method.GoName, "Start(req: ", reqType, "): RpccgoResult<", streamType, "> {")
 	g.P("        val handle = decodeHandleResult(", nativeName, "Start(req.toByteArray()))")
 	g.P("        if (!handle.ok) return RpccgoResult.failure(handle.error ?: \"rpccgo: stream start failed\")")
 	g.P("        return RpccgoResult.success(", streamType, "(handle.value ?: 0))")
@@ -156,7 +156,7 @@ func renderKotlinBidiStreamingMethod(g *protogen.GeneratedFile, service ServiceP
 	respType := rpccgoKotlinMessageType(method.Response)
 	streamType := service.GoName + method.GoName + "BidiStream"
 	nativeName := lowerInitial(service.GoName) + method.GoName
-	g.P("    fun Start", method.GoName, "(): RpccgoResult<", streamType, "> {")
+	g.P("    fun ", method.GoName, "Start(): RpccgoResult<", streamType, "> {")
 	g.P("        val handle = decodeHandleResult(", nativeName, "Start())")
 	g.P("        if (!handle.ok) return RpccgoResult.failure(handle.error ?: \"rpccgo: stream start failed\")")
 	g.P("        return RpccgoResult.success(", streamType, "(handle.value ?: 0))")

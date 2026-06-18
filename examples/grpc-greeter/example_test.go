@@ -126,11 +126,15 @@ func installProtocPlugins(t *testing.T) string {
 		"google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.5.1",
 		"../../cmd/protoc-gen-rpc-cgo",
 	} {
-		cmd := exec.Command("go", "install", pkg)
+		args := []string{"install", pkg}
+		if pkg == "../../cmd/protoc-gen-rpc-cgo" {
+			args = []string{"build", "-o", filepath.Join(binDir, "protoc-gen-rpc-cgo"), pkg}
+		}
+		cmd := exec.Command("go", args...)
 		cmd.Env = append(os.Environ(), "GOBIN="+binDir, "GOFLAGS=-mod=mod")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			t.Fatalf("go install %s failed: %v\n%s", pkg, err, out)
+			t.Fatalf("go %s %s failed: %v\n%s", args[0], pkg, err, out)
 		}
 	}
 	return binDir
@@ -139,11 +143,26 @@ func installProtocPlugins(t *testing.T) string {
 func generateGRPCGreeter(t *testing.T, binDir string) {
 	t.Helper()
 
-	cmd := exec.Command("go", "generate", "./...")
+	args := []string{
+		"--unsafe_allow_out_dir_escape",
+		"-I", ".",
+		"--plugin=protoc-gen-go=" + filepath.Join(binDir, "protoc-gen-go"),
+		"--plugin=protoc-gen-go-grpc=" + filepath.Join(binDir, "protoc-gen-go-grpc"),
+		"--plugin=protoc-gen-rpc-cgo=" + filepath.Join(binDir, "protoc-gen-rpc-cgo"),
+		"--go_out=.",
+		"--go_opt=module=example.com/rpccgo-grpc",
+		"--go-grpc_out=.",
+		"--go-grpc_opt=module=example.com/rpccgo-grpc",
+		"--rpc-cgo_out=.",
+		"--rpc-cgo_opt=module=example.com/rpccgo-grpc",
+		"--rpc-cgo_opt=cgo_dir=../../../cmd/rpc",
+		"proto/greeter.proto",
+	}
+	cmd := exec.Command("protoc", args...)
 	cmd.Env = testEnvWithBinDir(binDir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("go generate failed: %v\n%s", err, out)
+		t.Fatalf("protoc generate failed: %v\n%s", err, out)
 	}
 }
 

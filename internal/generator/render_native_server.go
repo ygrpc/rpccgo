@@ -196,7 +196,7 @@ func renderGoNativeStartHelpers(g *protogen.GeneratedFile, service ServicePlan, 
 }
 
 func goNativeStartHelperName(serviceName, methodName string) string {
-	return "start" + serviceName + "GoNative" + methodName
+	return lowerInitial(serviceName) + methodName + "GoNativeStart"
 }
 
 func renderGoNativeStreamTypes(g *protogen.GeneratedFile, service ServicePlan, errorNames nativeServerErrorNames) {

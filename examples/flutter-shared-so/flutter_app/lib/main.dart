@@ -202,7 +202,7 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
   }
 
   String _runFlutterStreams() {
-    final collectResult = _client.CollectRuntimeState();
+    final collectResult = _client.CollectRuntimeStateStart();
     final collect = collectResult.value;
     if (collectResult.error != null || collect == null) {
       throw StateError('client stream start: ${collectResult.error}');
@@ -217,18 +217,18 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
         caller: 'flutter-ffi-client-stream-b',
       ),
     ]) {
-      final error = collect.send(request);
+      final error = collect.Send(request);
       if (error != null) {
         throw StateError('client stream send: $error');
       }
     }
-    final collected = collect.finish();
+    final collected = collect.Finish();
     final collectedValue = collected.value;
     if (collected.error != null || collectedValue == null) {
       throw StateError('client stream finish: ${collected.error}');
     }
 
-    final streamResult = _client.StreamRuntimeState(
+    final streamResult = _client.StreamRuntimeStateStart(
       ReadRuntimeStateRequest(caller: 'flutter-ffi-server-stream'),
     );
     final serverStream = streamResult.value;
@@ -237,19 +237,19 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
     }
     final serverValues = [];
     for (var i = 0; i < 3; i++) {
-      final next = serverStream.read();
+      final next = serverStream.Recv();
       final value = next.value;
       if (next.error != null || value == null) {
         throw StateError('server stream read: ${next.error}');
       }
       serverValues.add(value.value);
     }
-    final serverFinishError = serverStream.finish();
+    final serverFinishError = serverStream.Finish();
     if (serverFinishError != null) {
       throw StateError('server stream finish: $serverFinishError');
     }
 
-    final chatResult = _client.ChatRuntimeState();
+    final chatResult = _client.ChatRuntimeStateStart();
     final chat = chatResult.value;
     if (chatResult.error != null || chat == null) {
       throw StateError('bidi stream start: ${chatResult.error}');
@@ -259,22 +259,22 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
       IncrementRuntimeStateRequest(delta: 4, caller: 'flutter-ffi-bidi-a'),
       IncrementRuntimeStateRequest(delta: 5, caller: 'flutter-ffi-bidi-b'),
     ]) {
-      final sendError = chat.send(request);
+      final sendError = chat.Send(request);
       if (sendError != null) {
         throw StateError('bidi stream send: $sendError');
       }
-      final next = chat.read();
+      final next = chat.Recv();
       final value = next.value;
       if (next.error != null || value == null) {
         throw StateError('bidi stream read: ${next.error}');
       }
       bidiValues.add(value.value);
     }
-    final closeSendError = chat.closeSend();
+    final closeSendError = chat.CloseSend();
     if (closeSendError != null) {
       throw StateError('bidi stream close-send: $closeSendError');
     }
-    final finishError = chat.finish();
+    final finishError = chat.Finish();
     if (finishError != null) {
       throw StateError('bidi stream finish: $finishError');
     }

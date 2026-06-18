@@ -204,7 +204,7 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersha
     if (env == nullptr) { return nullptr; }
     uintptr_t responsePtr = 0;
     int32_t responseLen = 0;
-    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateRead(static_cast<int32_t>(handle), &responsePtr, &responseLen);
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateRecv(static_cast<int32_t>(handle), &responsePtr, &responseLen);
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessBytes(env, responsePtr, responseLen);
 }
@@ -296,7 +296,7 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersha
     if (env == nullptr) { return nullptr; }
     uintptr_t responsePtr = 0;
     int32_t responseLen = 0;
-    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateRead(static_cast<int32_t>(handle), &responsePtr, &responseLen);
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateRecv(static_cast<int32_t>(handle), &responsePtr, &responseLen);
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessBytes(env, responsePtr, responseLen);
 }
@@ -352,7 +352,7 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersha
     if (env == nullptr) { return nullptr; }
     uintptr_t responsePtr = 0;
     int32_t responseLen = 0;
-    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateRead(static_cast<int32_t>(handle), &responsePtr, &responseLen);
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateRecv(static_cast<int32_t>(handle), &responsePtr, &responseLen);
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessBytes(env, responsePtr, responseLen);
 }

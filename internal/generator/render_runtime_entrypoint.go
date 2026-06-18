@@ -164,12 +164,12 @@ func renderRuntimeUnaryMessageToTransportCase(g *protogen.GeneratedFile, service
 }
 
 func renderRuntimeNativeStartEntrypoint(g *protogen.GeneratedFile, service ServicePlan, serviceIDName, streamRegistryName string, method runtimeMethodProjection) {
-	name := "Start" + service.GoName + "Native" + method.Identity.GoName
+	name := runtimeStreamOperationName(service.GoName, "Native", method, "Start")
 	renderDoc(g, name, "starts a native contract stream for "+method.Identity.GoName+" on the current registered server.")
 	if method.Stream.StartAcceptsRequest {
-		g.P("func Start", service.GoName, "Native", method.Identity.GoName, "(ctx context.Context", method.Native.Args, ") (rpcruntime.StreamHandle, error) {")
+		g.P("func ", name, "(ctx context.Context", method.Native.Args, ") (rpcruntime.StreamHandle, error) {")
 	} else {
-		g.P("func Start", service.GoName, "Native", method.Identity.GoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
+		g.P("func ", name, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
 	}
 	g.P("registered, err := rpcruntime.LoadServer(", serviceIDName, ")")
 	g.P("if err != nil { return 0, err }")
@@ -245,15 +245,15 @@ func renderRuntimeNativeStartTransportCase(g *protogen.GeneratedFile, service Se
 }
 
 func renderRuntimeMessageStartEntrypoint(g *protogen.GeneratedFile, service ServicePlan, serviceIDName, streamRegistryName string, method runtimeMethodProjection) error {
-	name := "Start" + service.GoName + "Message" + method.Identity.GoName
+	name := runtimeStreamOperationName(service.GoName, "Message", method, "Start")
 	renderDoc(g, name, "starts a message contract stream for "+method.Identity.GoName+" on the current registered server.")
 	if method.Stream.StartAcceptsRequest {
-		g.P("func Start", service.GoName, "Message", method.Identity.GoName, "(ctx context.Context, req ", runtimeMessageRequestType(method), ") (rpcruntime.StreamHandle, error) {")
+		g.P("func ", name, "(ctx context.Context, req ", runtimeMessageRequestType(method), ") (rpcruntime.StreamHandle, error) {")
 		g.P("if req == nil {")
 		g.P(`return 0, errors.New("rpccgo: message request is nil")`)
 		g.P("}")
 	} else {
-		g.P("func Start", service.GoName, "Message", method.Identity.GoName, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
+		g.P("func ", name, "(ctx context.Context) (rpcruntime.StreamHandle, error) {")
 	}
 	g.P("registered, err := rpcruntime.LoadServer(", serviceIDName, ")")
 	g.P("if err != nil { return 0, err }")

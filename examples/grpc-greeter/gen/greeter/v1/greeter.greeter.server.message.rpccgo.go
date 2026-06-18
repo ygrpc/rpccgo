@@ -26,8 +26,8 @@ type GreeterCGOMessageServer interface {
 	Chat(ctx context.Context, stream rpcruntime.BidiStreamingServer[*SayHelloRequest, *SayHelloResponse]) error
 }
 
-// SendGreeterMessageCollect sends a message request on an active Collect stream.
-func SendGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHandle, req *SayHelloRequest) error {
+// GreeterMessageCollectSend sends a message request on an active Collect stream.
+func GreeterMessageCollectSend(ctx context.Context, handle rpcruntime.StreamHandle, req *SayHelloRequest) error {
 	if req == nil {
 		return errors.New("rpccgo: message request is nil")
 	}
@@ -95,8 +95,8 @@ func SendGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHand
 	}
 }
 
-// FinishGreeterMessageCollect finishes an active message Collect stream and releases its handle.
-func FinishGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHandle) (*SayHelloResponse, error) {
+// GreeterMessageCollectFinish finishes an active message Collect stream and releases its handle.
+func GreeterMessageCollectFinish(ctx context.Context, handle rpcruntime.StreamHandle) (*SayHelloResponse, error) {
 	entry, err := rpcruntime.LoadStreamSession(handle)
 	if err != nil {
 		return nil, err
@@ -213,8 +213,8 @@ func FinishGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHa
 	}
 }
 
-// CancelGreeterMessageCollect cancels an active message Collect stream and releases its handle.
-func CancelGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHandle) error {
+// GreeterMessageCollectCancel cancels an active message Collect stream and releases its handle.
+func GreeterMessageCollectCancel(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.LoadStreamSession(handle)
 	if err != nil {
 		return err
@@ -288,8 +288,8 @@ func CancelGreeterMessageCollect(ctx context.Context, handle rpcruntime.StreamHa
 	}
 }
 
-// RecvGreeterMessageBroadcast receives a message response from an active Broadcast stream.
-func RecvGreeterMessageBroadcast(ctx context.Context, handle rpcruntime.StreamHandle) (*SayHelloResponse, error) {
+// GreeterMessageBroadcastRecv receives a message response from an active Broadcast stream.
+func GreeterMessageBroadcastRecv(ctx context.Context, handle rpcruntime.StreamHandle) (*SayHelloResponse, error) {
 	entry, err := rpcruntime.RecvStreamSession(handle)
 	if err != nil {
 		return nil, err
@@ -385,8 +385,8 @@ func RecvGreeterMessageBroadcast(ctx context.Context, handle rpcruntime.StreamHa
 	}
 }
 
-// FinishGreeterMessageBroadcast finishes an active message Broadcast stream and releases its handle.
-func FinishGreeterMessageBroadcast(ctx context.Context, handle rpcruntime.StreamHandle) error {
+// GreeterMessageBroadcastFinish finishes an active message Broadcast stream and releases its handle.
+func GreeterMessageBroadcastFinish(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.LoadStreamSession(handle)
 	if err != nil {
 		return err
@@ -460,8 +460,8 @@ func FinishGreeterMessageBroadcast(ctx context.Context, handle rpcruntime.Stream
 	}
 }
 
-// CancelGreeterMessageBroadcast cancels an active message Broadcast stream and releases its handle.
-func CancelGreeterMessageBroadcast(ctx context.Context, handle rpcruntime.StreamHandle) error {
+// GreeterMessageBroadcastCancel cancels an active message Broadcast stream and releases its handle.
+func GreeterMessageBroadcastCancel(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.LoadStreamSession(handle)
 	if err != nil {
 		return err
@@ -535,8 +535,8 @@ func CancelGreeterMessageBroadcast(ctx context.Context, handle rpcruntime.Stream
 	}
 }
 
-// SendGreeterMessageChat sends a message request on an active Chat stream.
-func SendGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle, req *SayHelloRequest) error {
+// GreeterMessageChatSend sends a message request on an active Chat stream.
+func GreeterMessageChatSend(ctx context.Context, handle rpcruntime.StreamHandle, req *SayHelloRequest) error {
 	if req == nil {
 		return errors.New("rpccgo: message request is nil")
 	}
@@ -604,8 +604,8 @@ func SendGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle,
 	}
 }
 
-// RecvGreeterMessageChat receives a message response from an active Chat stream.
-func RecvGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle) (*SayHelloResponse, error) {
+// GreeterMessageChatRecv receives a message response from an active Chat stream.
+func GreeterMessageChatRecv(ctx context.Context, handle rpcruntime.StreamHandle) (*SayHelloResponse, error) {
 	entry, err := rpcruntime.RecvStreamSession(handle)
 	if err != nil {
 		return nil, err
@@ -701,8 +701,8 @@ func RecvGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle)
 	}
 }
 
-// CloseSendGreeterMessageChat closes the message send side of an active Chat stream.
-func CloseSendGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle) error {
+// GreeterMessageChatCloseSend closes the message send side of an active Chat stream.
+func GreeterMessageChatCloseSend(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.CloseSendStreamSession(handle)
 	if err != nil {
 		return err
@@ -755,8 +755,8 @@ func CloseSendGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHa
 	}
 }
 
-// FinishGreeterMessageChat finishes an active message Chat stream and releases its handle.
-func FinishGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle) error {
+// GreeterMessageChatFinish finishes an active message Chat stream and releases its handle.
+func GreeterMessageChatFinish(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.LoadStreamSession(handle)
 	if err != nil {
 		return err
@@ -830,8 +830,8 @@ func FinishGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandl
 	}
 }
 
-// CancelGreeterMessageChat cancels an active message Chat stream and releases its handle.
-func CancelGreeterMessageChat(ctx context.Context, handle rpcruntime.StreamHandle) error {
+// GreeterMessageChatCancel cancels an active message Chat stream and releases its handle.
+func GreeterMessageChatCancel(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.LoadStreamSession(handle)
 	if err != nil {
 		return err
@@ -954,7 +954,7 @@ func registerGreeterCGOMessageServer(server GreeterCGOMessageServer) error {
 	return nil
 }
 
-func startGreeterCGOMessageCollect(ctx context.Context, server GreeterCGOMessageServer) (rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse], error) {
+func greeterCollectCGOMessageStart(ctx context.Context, server GreeterCGOMessageServer) (rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse], error) {
 	client, stream, streamCtx := rpcruntime.NewClientStreaming[*SayHelloRequest, *SayHelloResponse](ctx, rpcruntime.LocalStreamOptions{
 		RequestBuffer: 16,
 		StreamClosed:  errors.New("rpccgo: message stream is closed"),
@@ -967,7 +967,7 @@ func startGreeterCGOMessageCollect(ctx context.Context, server GreeterCGOMessage
 	return client, nil
 }
 
-func startGreeterCGOMessageBroadcast(ctx context.Context, server GreeterCGOMessageServer, req *SayHelloRequest) (rpcruntime.ServerStreamingClient[*SayHelloResponse], error) {
+func greeterBroadcastCGOMessageStart(ctx context.Context, server GreeterCGOMessageServer, req *SayHelloRequest) (rpcruntime.ServerStreamingClient[*SayHelloResponse], error) {
 	if req == nil {
 		return nil, errors.New("rpccgo: message request is nil")
 	}
@@ -983,7 +983,7 @@ func startGreeterCGOMessageBroadcast(ctx context.Context, server GreeterCGOMessa
 	return client, nil
 }
 
-func startGreeterCGOMessageChat(ctx context.Context, server GreeterCGOMessageServer) (rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse], error) {
+func greeterChatCGOMessageStart(ctx context.Context, server GreeterCGOMessageServer) (rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse], error) {
 	client, stream, streamCtx := rpcruntime.NewBidiStreaming[*SayHelloRequest, *SayHelloResponse](ctx, rpcruntime.LocalStreamOptions{
 		RequestBuffer:  16,
 		ResponseBuffer: 1,

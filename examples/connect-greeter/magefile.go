@@ -25,7 +25,7 @@ func Generate() error {
 		return err
 	}
 	defer cleanup()
-	return runWithBinDir(binDir, "go", "generate", "./...")
+	return generateConnectProtos(binDir)
 }
 
 // Test verifies the connect transport matrix and the real c-shared C client demo.
@@ -35,7 +35,7 @@ func Test() error {
 		return err
 	}
 	defer cleanup()
-	if err := runWithBinDir(binDir, "go", "generate", "./..."); err != nil {
+	if err := generateConnectProtos(binDir); err != nil {
 		return err
 	}
 	if err := runWithBinDir(binDir, "go", "test", "./cmd/rpc", "-run", "^TestConnectGreeterTransportAndStreamingMatrix$", "-count=1"); err != nil {
@@ -51,7 +51,7 @@ func Run() error {
 		return err
 	}
 	defer cleanup()
-	if err := runWithBinDir(binDir, "go", "generate", "./..."); err != nil {
+	if err := generateConnectProtos(binDir); err != nil {
 		return err
 	}
 	artifactDir, callerPath, cleanupArtifacts, err := buildCSharedArtifacts()
@@ -128,12 +128,44 @@ func installProtocPlugins() (string, func(), error) {
 	}
 	cleanup := func() { _ = os.RemoveAll(binDir) }
 	for _, pkg := range protocPluginPackages {
+		if pkg == "../../cmd/protoc-gen-rpc-cgo" {
+			if err := runWithEnv(map[string]string{"GOFLAGS": "-mod=mod"}, "go", "build", "-o", filepath.Join(binDir, "protoc-gen-rpc-cgo"), pkg); err != nil {
+				cleanup()
+				return "", nil, fmt.Errorf("build %s: %w", pkg, err)
+			}
+			continue
+		}
 		if err := runWithEnv(map[string]string{"GOBIN": binDir, "GOFLAGS": "-mod=mod"}, "go", "install", pkg); err != nil {
 			cleanup()
 			return "", nil, fmt.Errorf("install %s: %w", pkg, err)
 		}
 	}
 	return binDir, cleanup, nil
+}
+
+func generateConnectProtos(binDir string) error {
+	args := []string{
+		"--unsafe_allow_out_dir_escape",
+		"-I", "proto",
+		"--plugin=protoc-gen-go=" + pluginPath(binDir, "protoc-gen-go"),
+		"--plugin=protoc-gen-connect-go=" + pluginPath(binDir, "protoc-gen-connect-go"),
+		"--plugin=protoc-gen-rpc-cgo=" + pluginPath(binDir, "protoc-gen-rpc-cgo"),
+		"--go_out=proto",
+		"--go_opt=paths=source_relative",
+		"--connect-go_out=proto",
+		"--connect-go_opt=paths=source_relative",
+		"--connect-go_opt=package_suffix=",
+		"--connect-go_opt=simple=true",
+		"--rpc-cgo_out=proto",
+		"--rpc-cgo_opt=paths=source_relative",
+		"--rpc-cgo_opt=cgo_dir=../cmd/rpc",
+		"proto/greeter.proto",
+	}
+	return runWithEnv(map[string]string{"GOFLAGS": "-mod=mod"}, "protoc", args...)
+}
+
+func pluginPath(binDir, name string) string {
+	return filepath.Join(binDir, name)
 }
 
 func buildAndRunCClient() error {

@@ -116,20 +116,20 @@ var (
 
 type greeterCGONativeAdapter struct {
 	SayHelloCallback C.GreeterSayHelloCGONativeUnaryCallback
-	CollectStart     C.GreeterCollectCGONativeClientStreamStartCallback
-	CollectSend      C.GreeterCollectCGONativeClientStreamSendCallback
-	CollectFinish    C.GreeterCollectCGONativeClientStreamFinishCallback
-	CollectCancel    C.GreeterCollectCGONativeClientStreamCancelCallback
-	BroadcastStart   C.GreeterBroadcastCGONativeServerStreamStartCallback
-	BroadcastRecv    C.GreeterBroadcastCGONativeServerStreamRecvCallback
-	BroadcastFinish  C.GreeterBroadcastCGONativeServerStreamFinishCallback
-	BroadcastCancel  C.GreeterBroadcastCGONativeServerStreamCancelCallback
-	ChatStart        C.GreeterChatCGONativeBidiStreamStartCallback
-	ChatSend         C.GreeterChatCGONativeBidiStreamSendCallback
-	ChatRecv         C.GreeterChatCGONativeBidiStreamRecvCallback
-	ChatCloseSend    C.GreeterChatCGONativeBidiStreamCloseSendCallback
-	ChatFinish       C.GreeterChatCGONativeBidiStreamFinishCallback
-	ChatCancel       C.GreeterChatCGONativeBidiStreamCancelCallback
+	collectStart     C.GreeterCollectCGONativeClientStreamStartCallback
+	collectSend      C.GreeterCollectCGONativeClientStreamSendCallback
+	collectFinish    C.GreeterCollectCGONativeClientStreamFinishCallback
+	collectCancel    C.GreeterCollectCGONativeClientStreamCancelCallback
+	broadcastStart   C.GreeterBroadcastCGONativeServerStreamStartCallback
+	broadcastRecv    C.GreeterBroadcastCGONativeServerStreamRecvCallback
+	broadcastFinish  C.GreeterBroadcastCGONativeServerStreamFinishCallback
+	broadcastCancel  C.GreeterBroadcastCGONativeServerStreamCancelCallback
+	chatStart        C.GreeterChatCGONativeBidiStreamStartCallback
+	chatSend         C.GreeterChatCGONativeBidiStreamSendCallback
+	chatRecv         C.GreeterChatCGONativeBidiStreamRecvCallback
+	chatCloseSend    C.GreeterChatCGONativeBidiStreamCloseSendCallback
+	chatFinish       C.GreeterChatCGONativeBidiStreamFinishCallback
+	chatCancel       C.GreeterChatCGONativeBidiStreamCancelCallback
 }
 
 // greeterCGONativeRecvResult carries the result of a blocking cgo native Recv callback.
@@ -204,19 +204,19 @@ func (a *greeterCGONativeAdapter) SayHello(ctx context.Context, name *rpcruntime
 	return messageResult, nil
 }
 
-func (a *greeterCGONativeAdapter) StartCollect(ctx context.Context) (rpcruntime.ClientStreamingClient[proto.GreeterCollectNativeStreamRequest, proto.GreeterCollectNativeStreamResponse], error) {
+func (a *greeterCGONativeAdapter) CollectStart(ctx context.Context) (rpcruntime.ClientStreamingClient[proto.GreeterCollectNativeStreamRequest, proto.GreeterCollectNativeStreamResponse], error) {
 	if a == nil {
 		return nil, greeterCGONativeServerCallbacksNil
 	}
-	if a.CollectStart == nil || a.CollectSend == nil || a.CollectFinish == nil || a.CollectCancel == nil {
+	if a.collectStart == nil || a.collectSend == nil || a.collectFinish == nil || a.collectCancel == nil {
 		return nil, errors.New("rpccgo: Greeter.Collect native server method is not implemented")
 	}
 	var stream C.int32_t
-	errID := int32(C.callGreeterCollectCGONativeClientStreamStartCallback(a.CollectStart, &stream))
+	errID := int32(C.callGreeterCollectCGONativeClientStreamStartCallback(a.collectStart, &stream))
 	if errID != 0 {
 		return nil, greeterCGONativeServerErrorFromID(errID)
 	}
-	return &greeterCollectCGONativeClientStreamingClient{send: a.CollectSend, finish: a.CollectFinish, cancel: a.CollectCancel, stream: stream}, nil
+	return &greeterCollectCGONativeClientStreamingClient{send: a.collectSend, finish: a.collectFinish, cancel: a.collectCancel, stream: stream}, nil
 }
 
 type greeterCollectCGONativeClientStreamingClient struct {
@@ -274,11 +274,11 @@ func (s *greeterCollectCGONativeClientStreamingClient) Cancel(ctx context.Contex
 	return nil
 }
 
-func (a *greeterCGONativeAdapter) StartBroadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (rpcruntime.ServerStreamingClient[proto.GreeterBroadcastNativeStreamResponse], error) {
+func (a *greeterCGONativeAdapter) BroadcastStart(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString) (rpcruntime.ServerStreamingClient[proto.GreeterBroadcastNativeStreamResponse], error) {
 	if a == nil {
 		return nil, greeterCGONativeServerCallbacksNil
 	}
-	if a.BroadcastStart == nil || a.BroadcastRecv == nil || a.BroadcastFinish == nil || a.BroadcastCancel == nil {
+	if a.broadcastStart == nil || a.broadcastRecv == nil || a.broadcastFinish == nil || a.broadcastCancel == nil {
 		return nil, errors.New("rpccgo: Greeter.Broadcast native server method is not implemented")
 	}
 	greeterBroadcastCGONativeServerStreamRequest, err := encodeGreeterBroadcastCGONativeServerStreamRequest(name, city)
@@ -287,11 +287,11 @@ func (a *greeterCGONativeAdapter) StartBroadcast(ctx context.Context, name *rpcr
 	}
 	defer greeterBroadcastCGONativeServerStreamRequest.Release()
 	var stream C.int32_t
-	errID := int32(C.callGreeterBroadcastCGONativeServerStreamStartCallback(a.BroadcastStart, greeterBroadcastCGONativeServerStreamRequest.namePtr, greeterBroadcastCGONativeServerStreamRequest.nameLen, greeterBroadcastCGONativeServerStreamRequest.nameOwnership, greeterBroadcastCGONativeServerStreamRequest.cityPtr, greeterBroadcastCGONativeServerStreamRequest.cityLen, greeterBroadcastCGONativeServerStreamRequest.cityOwnership, &stream))
+	errID := int32(C.callGreeterBroadcastCGONativeServerStreamStartCallback(a.broadcastStart, greeterBroadcastCGONativeServerStreamRequest.namePtr, greeterBroadcastCGONativeServerStreamRequest.nameLen, greeterBroadcastCGONativeServerStreamRequest.nameOwnership, greeterBroadcastCGONativeServerStreamRequest.cityPtr, greeterBroadcastCGONativeServerStreamRequest.cityLen, greeterBroadcastCGONativeServerStreamRequest.cityOwnership, &stream))
 	if errID != 0 {
 		return nil, greeterCGONativeServerErrorFromID(errID)
 	}
-	return &greeterBroadcastCGONativeServerStreamingClient{recv: a.BroadcastRecv, finish: a.BroadcastFinish, cancel: a.BroadcastCancel, stream: stream}, nil
+	return &greeterBroadcastCGONativeServerStreamingClient{recv: a.broadcastRecv, finish: a.broadcastFinish, cancel: a.broadcastCancel, stream: stream}, nil
 }
 
 type greeterBroadcastCGONativeServerStreamingClient struct {
@@ -344,19 +344,19 @@ func (s *greeterBroadcastCGONativeServerStreamingClient) Cancel(ctx context.Cont
 	return nil
 }
 
-func (a *greeterCGONativeAdapter) StartChat(ctx context.Context) (rpcruntime.BidiStreamingClient[proto.GreeterChatNativeStreamRequest, proto.GreeterChatNativeStreamResponse], error) {
+func (a *greeterCGONativeAdapter) ChatStart(ctx context.Context) (rpcruntime.BidiStreamingClient[proto.GreeterChatNativeStreamRequest, proto.GreeterChatNativeStreamResponse], error) {
 	if a == nil {
 		return nil, greeterCGONativeServerCallbacksNil
 	}
-	if a.ChatStart == nil || a.ChatSend == nil || a.ChatRecv == nil || a.ChatCloseSend == nil || a.ChatFinish == nil || a.ChatCancel == nil {
+	if a.chatStart == nil || a.chatSend == nil || a.chatRecv == nil || a.chatCloseSend == nil || a.chatFinish == nil || a.chatCancel == nil {
 		return nil, errors.New("rpccgo: Greeter.Chat native server method is not implemented")
 	}
 	var stream C.int32_t
-	errID := int32(C.callGreeterChatCGONativeBidiStreamStartCallback(a.ChatStart, &stream))
+	errID := int32(C.callGreeterChatCGONativeBidiStreamStartCallback(a.chatStart, &stream))
 	if errID != 0 {
 		return nil, greeterCGONativeServerErrorFromID(errID)
 	}
-	return &greeterChatCGONativeBidiStreamingClient{send: a.ChatSend, recv: a.ChatRecv, closeSend: a.ChatCloseSend, finish: a.ChatFinish, cancel: a.ChatCancel, stream: stream}, nil
+	return &greeterChatCGONativeBidiStreamingClient{send: a.chatSend, recv: a.chatRecv, closeSend: a.chatCloseSend, finish: a.chatFinish, cancel: a.chatCancel, stream: stream}, nil
 }
 
 type greeterChatCGONativeBidiStreamingClient struct {
@@ -433,7 +433,7 @@ func (s *greeterChatCGONativeBidiStreamingClient) Cancel(ctx context.Context) er
 }
 
 func (a *greeterCGONativeAdapter) Collect(ctx context.Context, stream proto.GreeterCollectNativeClientStream) (string, error) {
-	session, err := a.StartCollect(ctx)
+	session, err := a.CollectStart(ctx)
 	if err != nil {
 		return "", err
 	}
@@ -458,7 +458,7 @@ func (a *greeterCGONativeAdapter) Collect(ctx context.Context, stream proto.Gree
 }
 
 func (a *greeterCGONativeAdapter) Broadcast(ctx context.Context, name *rpcruntime.RpcString, city *rpcruntime.RpcString, stream proto.GreeterBroadcastNativeServerStream) error {
-	session, err := a.StartBroadcast(ctx, name, city)
+	session, err := a.BroadcastStart(ctx, name, city)
 	if err != nil {
 		return err
 	}
@@ -485,7 +485,7 @@ func (a *greeterCGONativeAdapter) Broadcast(ctx context.Context, name *rpcruntim
 }
 
 func (a *greeterCGONativeAdapter) Chat(ctx context.Context, stream proto.GreeterChatNativeBidiStream) error {
-	session, err := a.StartChat(ctx)
+	session, err := a.ChatStart(ctx)
 	if err != nil {
 		return err
 	}
@@ -932,47 +932,47 @@ func rpccgoNativeGreeterv1GreeterRegister(sayHelloCallback C.GreeterSayHelloCGON
 	if collectStart == nil && collectSend == nil && collectFinish == nil && collectCancel == nil {
 		// Preserve existing callbacks for methods omitted from a service-level update.
 	} else if collectStart != nil && collectSend != nil && collectFinish != nil && collectCancel != nil {
-		next.CollectStart = collectStart
-		next.CollectSend = collectSend
-		next.CollectFinish = collectFinish
-		next.CollectCancel = collectCancel
+		next.collectStart = collectStart
+		next.collectSend = collectSend
+		next.collectFinish = collectFinish
+		next.collectCancel = collectCancel
 	} else {
-		next.CollectStart = nil
-		next.CollectSend = nil
-		next.CollectFinish = nil
-		next.CollectCancel = nil
+		next.collectStart = nil
+		next.collectSend = nil
+		next.collectFinish = nil
+		next.collectCancel = nil
 		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", greeterCGONativeServerStreamPartiallyRegistered, "examples.connect.greeter.v1.Greeter.Collect"))
 	}
 	if broadcastStart == nil && broadcastRecv == nil && broadcastFinish == nil && broadcastCancel == nil {
 		// Preserve existing callbacks for methods omitted from a service-level update.
 	} else if broadcastStart != nil && broadcastRecv != nil && broadcastFinish != nil && broadcastCancel != nil {
-		next.BroadcastStart = broadcastStart
-		next.BroadcastRecv = broadcastRecv
-		next.BroadcastFinish = broadcastFinish
-		next.BroadcastCancel = broadcastCancel
+		next.broadcastStart = broadcastStart
+		next.broadcastRecv = broadcastRecv
+		next.broadcastFinish = broadcastFinish
+		next.broadcastCancel = broadcastCancel
 	} else {
-		next.BroadcastStart = nil
-		next.BroadcastRecv = nil
-		next.BroadcastFinish = nil
-		next.BroadcastCancel = nil
+		next.broadcastStart = nil
+		next.broadcastRecv = nil
+		next.broadcastFinish = nil
+		next.broadcastCancel = nil
 		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", greeterCGONativeServerStreamPartiallyRegistered, "examples.connect.greeter.v1.Greeter.Broadcast"))
 	}
 	if chatStart == nil && chatSend == nil && chatRecv == nil && chatCloseSend == nil && chatFinish == nil && chatCancel == nil {
 		// Preserve existing callbacks for methods omitted from a service-level update.
 	} else if chatStart != nil && chatSend != nil && chatRecv != nil && chatCloseSend != nil && chatFinish != nil && chatCancel != nil {
-		next.ChatStart = chatStart
-		next.ChatSend = chatSend
-		next.ChatRecv = chatRecv
-		next.ChatCloseSend = chatCloseSend
-		next.ChatFinish = chatFinish
-		next.ChatCancel = chatCancel
+		next.chatStart = chatStart
+		next.chatSend = chatSend
+		next.chatRecv = chatRecv
+		next.chatCloseSend = chatCloseSend
+		next.chatFinish = chatFinish
+		next.chatCancel = chatCancel
 	} else {
-		next.ChatStart = nil
-		next.ChatSend = nil
-		next.ChatRecv = nil
-		next.ChatCloseSend = nil
-		next.ChatFinish = nil
-		next.ChatCancel = nil
+		next.chatStart = nil
+		next.chatSend = nil
+		next.chatRecv = nil
+		next.chatCloseSend = nil
+		next.chatFinish = nil
+		next.chatCancel = nil
 		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", greeterCGONativeServerStreamPartiallyRegistered, "examples.connect.greeter.v1.Greeter.Chat"))
 	}
 	if err := proto.RegisterGreeterCGONativeServer(next); err != nil {
@@ -1013,20 +1013,20 @@ func rpccgoNativeGreeterv1GreeterRegisterCollect(collectStart C.GreeterCollectCG
 	next := greeterCGONativeServerAdapterForRegister()
 	var registerErr error
 	if collectStart == nil && collectSend == nil && collectFinish == nil && collectCancel == nil {
-		next.CollectStart = nil
-		next.CollectSend = nil
-		next.CollectFinish = nil
-		next.CollectCancel = nil
+		next.collectStart = nil
+		next.collectSend = nil
+		next.collectFinish = nil
+		next.collectCancel = nil
 	} else if collectStart != nil && collectSend != nil && collectFinish != nil && collectCancel != nil {
-		next.CollectStart = collectStart
-		next.CollectSend = collectSend
-		next.CollectFinish = collectFinish
-		next.CollectCancel = collectCancel
+		next.collectStart = collectStart
+		next.collectSend = collectSend
+		next.collectFinish = collectFinish
+		next.collectCancel = collectCancel
 	} else {
-		next.CollectStart = nil
-		next.CollectSend = nil
-		next.CollectFinish = nil
-		next.CollectCancel = nil
+		next.collectStart = nil
+		next.collectSend = nil
+		next.collectFinish = nil
+		next.collectCancel = nil
 		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", greeterCGONativeServerStreamPartiallyRegistered, "examples.connect.greeter.v1.Greeter.Collect"))
 	}
 	if err := proto.RegisterGreeterCGONativeServer(next); err != nil {
@@ -1048,20 +1048,20 @@ func rpccgoNativeGreeterv1GreeterRegisterBroadcast(broadcastStart C.GreeterBroad
 	next := greeterCGONativeServerAdapterForRegister()
 	var registerErr error
 	if broadcastStart == nil && broadcastRecv == nil && broadcastFinish == nil && broadcastCancel == nil {
-		next.BroadcastStart = nil
-		next.BroadcastRecv = nil
-		next.BroadcastFinish = nil
-		next.BroadcastCancel = nil
+		next.broadcastStart = nil
+		next.broadcastRecv = nil
+		next.broadcastFinish = nil
+		next.broadcastCancel = nil
 	} else if broadcastStart != nil && broadcastRecv != nil && broadcastFinish != nil && broadcastCancel != nil {
-		next.BroadcastStart = broadcastStart
-		next.BroadcastRecv = broadcastRecv
-		next.BroadcastFinish = broadcastFinish
-		next.BroadcastCancel = broadcastCancel
+		next.broadcastStart = broadcastStart
+		next.broadcastRecv = broadcastRecv
+		next.broadcastFinish = broadcastFinish
+		next.broadcastCancel = broadcastCancel
 	} else {
-		next.BroadcastStart = nil
-		next.BroadcastRecv = nil
-		next.BroadcastFinish = nil
-		next.BroadcastCancel = nil
+		next.broadcastStart = nil
+		next.broadcastRecv = nil
+		next.broadcastFinish = nil
+		next.broadcastCancel = nil
 		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", greeterCGONativeServerStreamPartiallyRegistered, "examples.connect.greeter.v1.Greeter.Broadcast"))
 	}
 	if err := proto.RegisterGreeterCGONativeServer(next); err != nil {
@@ -1083,26 +1083,26 @@ func rpccgoNativeGreeterv1GreeterRegisterChat(chatStart C.GreeterChatCGONativeBi
 	next := greeterCGONativeServerAdapterForRegister()
 	var registerErr error
 	if chatStart == nil && chatSend == nil && chatRecv == nil && chatCloseSend == nil && chatFinish == nil && chatCancel == nil {
-		next.ChatStart = nil
-		next.ChatSend = nil
-		next.ChatRecv = nil
-		next.ChatCloseSend = nil
-		next.ChatFinish = nil
-		next.ChatCancel = nil
+		next.chatStart = nil
+		next.chatSend = nil
+		next.chatRecv = nil
+		next.chatCloseSend = nil
+		next.chatFinish = nil
+		next.chatCancel = nil
 	} else if chatStart != nil && chatSend != nil && chatRecv != nil && chatCloseSend != nil && chatFinish != nil && chatCancel != nil {
-		next.ChatStart = chatStart
-		next.ChatSend = chatSend
-		next.ChatRecv = chatRecv
-		next.ChatCloseSend = chatCloseSend
-		next.ChatFinish = chatFinish
-		next.ChatCancel = chatCancel
+		next.chatStart = chatStart
+		next.chatSend = chatSend
+		next.chatRecv = chatRecv
+		next.chatCloseSend = chatCloseSend
+		next.chatFinish = chatFinish
+		next.chatCancel = chatCancel
 	} else {
-		next.ChatStart = nil
-		next.ChatSend = nil
-		next.ChatRecv = nil
-		next.ChatCloseSend = nil
-		next.ChatFinish = nil
-		next.ChatCancel = nil
+		next.chatStart = nil
+		next.chatSend = nil
+		next.chatRecv = nil
+		next.chatCloseSend = nil
+		next.chatFinish = nil
+		next.chatCancel = nil
 		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", greeterCGONativeServerStreamPartiallyRegistered, "examples.connect.greeter.v1.Greeter.Chat"))
 	}
 	if err := proto.RegisterGreeterCGONativeServer(next); err != nil {

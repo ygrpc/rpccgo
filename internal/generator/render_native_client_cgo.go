@@ -202,16 +202,16 @@ func nativeClientOutputLenSymbol(field FieldPlan) string {
 }
 
 func renderNativeClientStreamFacadeCall(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, operation, args string) {
-	g.P("err = ", servicePackage, operation, service.GoName, "Native", method.GoName, "(", nativeClientStreamOperationArgs(args), ")")
+	g.P("err = ", servicePackage, runtimeNativeStreamOperationCallName(service, method, operation), "(", nativeClientStreamOperationArgs(args), ")")
 }
 
 func renderNativeClientStreamFacadeResultCall(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, result, operation, args string) {
-	g.P(result, ", err = ", servicePackage, operation, service.GoName, "Native", method.GoName, "(", nativeClientStreamOperationArgs(args), ")")
+	g.P(result, ", err = ", servicePackage, runtimeNativeStreamOperationCallName(service, method, operation), "(", nativeClientStreamOperationArgs(args), ")")
 }
 
 func renderNativeClientStreamResultCall(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, result, operation string) {
 	if result == "" {
-		g.P("err = ", servicePackage, operation, service.GoName, "Native", method.GoName, "(ctx, rpcruntime.StreamHandle(handle))")
+		g.P("err = ", servicePackage, runtimeNativeStreamOperationCallName(service, method, operation), "(ctx, rpcruntime.StreamHandle(handle))")
 		return
 	}
 	renderNativeClientStreamFacadeResultCall(g, service, method, servicePackage, result, operation, "ctx")
@@ -219,6 +219,10 @@ func renderNativeClientStreamResultCall(g *protogen.GeneratedFile, service Servi
 
 func nativeClientStreamOperationArgs(args string) string {
 	return strings.Replace(args, "ctx", "ctx, rpcruntime.StreamHandle(handle)", 1)
+}
+
+func runtimeNativeStreamOperationCallName(service ServicePlan, method MethodPlan, operation string) string {
+	return service.GoName + "Native" + method.GoName + operation
 }
 
 func renderNativeClientRequestDecoder(g *protogen.GeneratedFile, name string, fields []FieldPlan, unsupportedError string) {
@@ -453,7 +457,7 @@ func renderNativeUnaryClientCallBody(g *protogen.GeneratedFile, service ServiceP
 }
 
 func renderNativeClientStreamingStartBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, outHandle string) {
-	g.P("handle, err := ", servicePackage, "Start", service.GoName, "Native", method.GoName, "(", ctx, ")")
+	g.P("handle, err := ", servicePackage, runtimeNativeStreamOperationCallName(service, method, "Start"), "(", ctx, ")")
 	g.P("if err != nil {")
 	g.P("return C.int32_t(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -520,7 +524,7 @@ func renderNativeServerStreamingStartBody(g *protogen.GeneratedFile, service Ser
 		g.P("return C.int32_t(rpcruntime.StoreError(err))")
 		g.P("}")
 	}
-	g.P("handle, err := ", servicePackage, "Start", service.GoName, "Native", method.GoName, "(", ctx, nativeGoCallSuffix(requestNames), ")")
+	g.P("handle, err := ", servicePackage, runtimeNativeStreamOperationCallName(service, method, "Start"), "(", ctx, nativeGoCallSuffix(requestNames), ")")
 	g.P("if cleanupErr := errors.Join(", nativeClientRequestCleanupError(method.Contract.Native.RequestFields), "); cleanupErr != nil {")
 	g.P("err = errors.Join(err, cleanupErr)")
 	g.P("}")
@@ -531,7 +535,7 @@ func renderNativeServerStreamingStartBody(g *protogen.GeneratedFile, service Ser
 	g.P("return 0")
 }
 
-func renderNativeServerStreamingReadBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, handle, responseArgs string) {
+func renderNativeServerStreamingRecvBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, handle, responseArgs string) {
 	responseNames := nativeClientResponseValueNames(method.Contract.Native.ResponseFields)
 	g.P("handle := int32(", handle, ")")
 	if responseArgs != "" {
@@ -564,7 +568,7 @@ func renderNativeStreamNoResultBody(g *protogen.GeneratedFile, service ServicePl
 }
 
 func renderNativeBidiStreamingStartBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, outHandle string) {
-	g.P("handle, err := ", servicePackage, "Start", service.GoName, "Native", method.GoName, "(", ctx, ")")
+	g.P("handle, err := ", servicePackage, runtimeNativeStreamOperationCallName(service, method, "Start"), "(", ctx, ")")
 	g.P("if err != nil {")
 	g.P("return C.int32_t(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -596,7 +600,7 @@ func renderNativeBidiStreamingSendBody(g *protogen.GeneratedFile, service Servic
 	g.P("return 0")
 }
 
-func renderNativeBidiStreamingReadBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, handle, responseArgs string) {
+func renderNativeBidiStreamingRecvBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, handle, responseArgs string) {
 	responseNames := nativeClientResponseValueNames(method.Contract.Native.ResponseFields)
 	g.P("handle := int32(", handle, ")")
 	if responseArgs != "" {
@@ -699,13 +703,13 @@ func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, servi
 	g.P("}")
 	g.P()
 
-	readABI := methodABI[NativeCOperationRecv]
-	renderCGOExportDoc(g, readABI.Symbol, "reads native response values from the server-streaming client entrypoint for "+method.FullName+".")
-	g.P("//export ", readABI.Symbol)
-	g.P("func ", readABI.Symbol, "(", nativeCExportParams(readABI.Params), ") ", readABI.Return.CGoType, " {")
+	recvABI := methodABI[NativeCOperationRecv]
+	renderCGOExportDoc(g, recvABI.Symbol, "receives native response values from the server-streaming client entrypoint for "+method.FullName+".")
+	g.P("//export ", recvABI.Symbol)
+	g.P("func ", recvABI.Symbol, "(", nativeCExportParams(recvABI.Params), ") ", recvABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")
-	renderNativeCExportOutputValidation(g, method.Contract.Native.ResponseFields, readABI.Params)
-	renderNativeServerStreamingReadBody(g, service, method, servicePackage, "ctx", "stream", nativeCExportOutputGoArgs(service, method))
+	renderNativeCExportOutputValidation(g, method.Contract.Native.ResponseFields, recvABI.Params)
+	renderNativeServerStreamingRecvBody(g, service, method, servicePackage, "ctx", "stream", nativeCExportOutputGoArgs(service, method))
 	g.P("}")
 	g.P()
 
@@ -748,13 +752,13 @@ func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, service
 	g.P("}")
 	g.P()
 
-	readABI := methodABI[NativeCOperationRecv]
-	renderCGOExportDoc(g, readABI.Symbol, "reads native response values from the bidi-streaming client entrypoint for "+method.FullName+".")
-	g.P("//export ", readABI.Symbol)
-	g.P("func ", readABI.Symbol, "(", nativeCExportParams(readABI.Params), ") ", readABI.Return.CGoType, " {")
+	recvABI := methodABI[NativeCOperationRecv]
+	renderCGOExportDoc(g, recvABI.Symbol, "receives native response values from the bidi-streaming client entrypoint for "+method.FullName+".")
+	g.P("//export ", recvABI.Symbol)
+	g.P("func ", recvABI.Symbol, "(", nativeCExportParams(recvABI.Params), ") ", recvABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")
-	renderNativeCExportOutputValidation(g, method.Contract.Native.ResponseFields, readABI.Params)
-	renderNativeBidiStreamingReadBody(g, service, method, servicePackage, "ctx", "stream", nativeCExportOutputGoArgs(service, method))
+	renderNativeCExportOutputValidation(g, method.Contract.Native.ResponseFields, recvABI.Params)
+	renderNativeBidiStreamingRecvBody(g, service, method, servicePackage, "ctx", "stream", nativeCExportOutputGoArgs(service, method))
 	g.P("}")
 	g.P()
 
@@ -1160,22 +1164,6 @@ func nativeClientStreamingOutputName(service ServicePlan, method MethodPlan) str
 	return service.GoName + method.GoName + "NativeClientStreamOutput"
 }
 
-func nativeClientStreamingStartFuncName(service ServicePlan, method MethodPlan) string {
-	return "Start" + service.GoName + method.GoName + "NativeClientStream"
-}
-
-func nativeClientStreamingSendFuncName(service ServicePlan, method MethodPlan) string {
-	return "Send" + service.GoName + method.GoName + "NativeClientStream"
-}
-
-func nativeClientStreamingFinishFuncName(service ServicePlan, method MethodPlan) string {
-	return "Finish" + service.GoName + method.GoName + "NativeClientStream"
-}
-
-func nativeClientStreamingCancelFuncName(service ServicePlan, method MethodPlan) string {
-	return "Cancel" + service.GoName + method.GoName + "NativeClientStream"
-}
-
 func nativeClientStreamingDecoderName(service ServicePlan, method MethodPlan) string {
 	return "decode" + service.GoName + method.GoName + "NativeClientStreamRequest"
 }
@@ -1196,22 +1184,6 @@ func nativeServerStreamingOutputName(service ServicePlan, method MethodPlan) str
 	return service.GoName + method.GoName + "NativeServerStreamOutput"
 }
 
-func nativeServerStreamingStartFuncName(service ServicePlan, method MethodPlan) string {
-	return "Start" + service.GoName + method.GoName + "NativeServerStream"
-}
-
-func nativeServerStreamingReadFuncName(service ServicePlan, method MethodPlan) string {
-	return "Read" + service.GoName + method.GoName + "NativeServerStream"
-}
-
-func nativeServerStreamingFinishFuncName(service ServicePlan, method MethodPlan) string {
-	return "Finish" + service.GoName + method.GoName + "NativeServerStream"
-}
-
-func nativeServerStreamingCancelFuncName(service ServicePlan, method MethodPlan) string {
-	return "Cancel" + service.GoName + method.GoName + "NativeServerStream"
-}
-
 func nativeServerStreamingDecoderName(service ServicePlan, method MethodPlan) string {
 	return "decode" + service.GoName + method.GoName + "NativeServerStreamRequest"
 }
@@ -1230,30 +1202,6 @@ func nativeBidiStreamingInputName(service ServicePlan, method MethodPlan) string
 
 func nativeBidiStreamingOutputName(service ServicePlan, method MethodPlan) string {
 	return service.GoName + method.GoName + "NativeBidiStreamOutput"
-}
-
-func nativeBidiStreamingStartFuncName(service ServicePlan, method MethodPlan) string {
-	return "Start" + service.GoName + method.GoName + "NativeBidiStream"
-}
-
-func nativeBidiStreamingSendFuncName(service ServicePlan, method MethodPlan) string {
-	return "Send" + service.GoName + method.GoName + "NativeBidiStream"
-}
-
-func nativeBidiStreamingReadFuncName(service ServicePlan, method MethodPlan) string {
-	return "Read" + service.GoName + method.GoName + "NativeBidiStream"
-}
-
-func nativeBidiStreamingCloseSendFuncName(service ServicePlan, method MethodPlan) string {
-	return "CloseSend" + service.GoName + method.GoName + "NativeBidiStream"
-}
-
-func nativeBidiStreamingFinishFuncName(service ServicePlan, method MethodPlan) string {
-	return "Finish" + service.GoName + method.GoName + "NativeBidiStream"
-}
-
-func nativeBidiStreamingCancelFuncName(service ServicePlan, method MethodPlan) string {
-	return "Cancel" + service.GoName + method.GoName + "NativeBidiStream"
 }
 
 func nativeBidiStreamingDecoderName(service ServicePlan, method MethodPlan) string {

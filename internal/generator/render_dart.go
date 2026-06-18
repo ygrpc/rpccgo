@@ -105,7 +105,7 @@ func renderDartSharedTypedefs(g *protogen.GeneratedFile) {
 	g.P("typedef _RpccgoStreamStartCAbi = ffi.Int32 Function(ffi.Pointer<ffi.Int32> handle);")
 	g.P("typedef _RpccgoServerStreamStartCAbi = ffi.Int32 Function(ffi.UintPtr requestPtr, ffi.Int32 requestLen, ffi.Pointer<ffi.Int32> handle);")
 	g.P("typedef _RpccgoStreamSendCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.UintPtr requestPtr, ffi.Int32 requestLen);")
-	g.P("typedef _RpccgoStreamReadCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);")
+	g.P("typedef _RpccgoStreamRecvCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);")
 	g.P("typedef _RpccgoStreamFinishCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);")
 	g.P("typedef _RpccgoStreamFinishVoidCAbi = ffi.Int32 Function(ffi.Int32 handle);")
 	g.P("typedef _RpccgoStreamCancelCAbi = ffi.Int32 Function(ffi.Int32 handle);")
@@ -132,13 +132,13 @@ func renderDartNativeBinding(g *protogen.GeneratedFile, file FilePlan, service S
 		renderDartNativeBindingOperation(g, file, service, method, "cancel", "_RpccgoStreamCancelCAbi", dartNativeBindingName(method, "cancel"))
 	case StreamingKindServerStreaming:
 		renderDartNativeBindingOperation(g, file, service, method, "start", "_RpccgoServerStreamStartCAbi", dartNativeBindingName(method, "start"))
-		renderDartNativeBindingOperation(g, file, service, method, "read", "_RpccgoStreamReadCAbi", dartNativeBindingName(method, "read"))
+		renderDartNativeBindingOperation(g, file, service, method, "recv", "_RpccgoStreamRecvCAbi", dartNativeBindingName(method, "recv"))
 		renderDartNativeBindingOperation(g, file, service, method, "finish", "_RpccgoStreamFinishVoidCAbi", dartNativeBindingName(method, "finish"))
 		renderDartNativeBindingOperation(g, file, service, method, "cancel", "_RpccgoStreamCancelCAbi", dartNativeBindingName(method, "cancel"))
 	case StreamingKindBidiStreaming:
 		renderDartNativeBindingOperation(g, file, service, method, "start", "_RpccgoStreamStartCAbi", dartNativeBindingName(method, "start"))
 		renderDartNativeBindingOperation(g, file, service, method, "send", "_RpccgoStreamSendCAbi", dartNativeBindingName(method, "send"))
-		renderDartNativeBindingOperation(g, file, service, method, "read", "_RpccgoStreamReadCAbi", dartNativeBindingName(method, "read"))
+		renderDartNativeBindingOperation(g, file, service, method, "recv", "_RpccgoStreamRecvCAbi", dartNativeBindingName(method, "recv"))
 		renderDartNativeBindingOperation(g, file, service, method, "close_send", "_RpccgoStreamFinishVoidCAbi", dartNativeBindingName(method, "close_send"))
 		renderDartNativeBindingOperation(g, file, service, method, "finish", "_RpccgoStreamFinishVoidCAbi", dartNativeBindingName(method, "finish"))
 		renderDartNativeBindingOperation(g, file, service, method, "cancel", "_RpccgoStreamCancelCAbi", dartNativeBindingName(method, "cancel"))
@@ -165,7 +165,7 @@ func renderDartNativeBindingOperation(g *protogen.GeneratedFile, file FilePlan, 
 		switch operation {
 		case "start":
 			g.P("external int ", bindingName, "(int requestPtr, int requestLen, ffi.Pointer<ffi.Int32> handle);")
-		case "read":
+		case "recv":
 			g.P("external int ", bindingName, "(int handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);")
 		case "finish", "cancel":
 			g.P("external int ", bindingName, "(int handle);")
@@ -176,7 +176,7 @@ func renderDartNativeBindingOperation(g *protogen.GeneratedFile, file FilePlan, 
 			g.P("external int ", bindingName, "(ffi.Pointer<ffi.Int32> handle);")
 		case "send":
 			g.P("external int ", bindingName, "(int handle, int requestPtr, int requestLen);")
-		case "read":
+		case "recv":
 			g.P("external int ", bindingName, "(int handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);")
 		case "close_send", "finish", "cancel":
 			g.P("external int ", bindingName, "(int handle);")
@@ -226,7 +226,7 @@ func renderDartUnaryMethod(g *protogen.GeneratedFile, method MethodPlan) {
 
 func renderDartClientStreamingMethods(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	className := dartStreamClassName(service, method)
-	g.P("({", className, "? value, String? error}) ", dartMethodName(method), "() {")
+	g.P("({", className, "? value, String? error}) ", dartStartMethodName(method), "() {")
 	g.P("final handlePtr = pkg_ffi.calloc<ffi.Int32>();")
 	g.P("try {")
 	g.P("final errID = ", dartNativeBindingName(method, "start"), "(handlePtr);")
@@ -244,7 +244,7 @@ func renderDartClientStreamingMethods(g *protogen.GeneratedFile, service Service
 
 func renderDartServerStreamingMethods(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	className := dartStreamClassName(service, method)
-	g.P("({", className, "? value, String? error}) ", dartMethodName(method), "(pb.", method.Request.GoName, " request) {")
+	g.P("({", className, "? value, String? error}) ", dartStartMethodName(method), "(pb.", method.Request.GoName, " request) {")
 	g.P("final handlePtr = pkg_ffi.calloc<ffi.Int32>();")
 	g.P("final requestBytes = request.writeToBuffer();")
 	g.P("final requestPtr = _allocateBytes(requestBytes);")
@@ -265,7 +265,7 @@ func renderDartServerStreamingMethods(g *protogen.GeneratedFile, service Service
 
 func renderDartBidiStreamingMethods(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
 	className := dartStreamClassName(service, method)
-	g.P("({", className, "? value, String? error}) ", dartMethodName(method), "() {")
+	g.P("({", className, "? value, String? error}) ", dartStartMethodName(method), "() {")
 	g.P("final handlePtr = pkg_ffi.calloc<ffi.Int32>();")
 	g.P("try {")
 	g.P("final errID = ", dartNativeBindingName(method, "start"), "(handlePtr);")
@@ -292,13 +292,13 @@ func renderDartStreamHandleClass(g *protogen.GeneratedFile, service ServicePlan,
 	}
 }
 
-func renderDartStreamClass(g *protogen.GeneratedFile, clientClassName, className string, method MethodPlan, canSend, canRead, finishReturnsResponse, canCloseSend bool) {
+func renderDartStreamClass(g *protogen.GeneratedFile, clientClassName, className string, method MethodPlan, canSend, canRecv, finishReturnsResponse, canCloseSend bool) {
 	g.P("class ", className, " {")
 	g.P(className, "._(this._client, this._handle);")
 	g.P("final ", clientClassName, " _client;")
 	g.P("final int _handle;")
 	if canSend {
-		g.P("String? send(pb.", method.Request.GoName, " request) {")
+		g.P("String? Send(pb.", method.Request.GoName, " request) {")
 		g.P("final requestBytes = request.writeToBuffer();")
 		g.P("final requestPtr = _client._allocateBytes(requestBytes);")
 		g.P("try {")
@@ -309,12 +309,12 @@ func renderDartStreamClass(g *protogen.GeneratedFile, clientClassName, className
 		g.P("}")
 		g.P("}")
 	}
-	if canRead {
-		g.P("({pb.", method.Response.GoName, "? value, String? error}) read() {")
+	if canRecv {
+		g.P("({pb.", method.Response.GoName, "? value, String? error}) Recv() {")
 		g.P("final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();")
 		g.P("final responseLen = pkg_ffi.calloc<ffi.Int32>();")
 		g.P("try {")
-		g.P("final errID = ", dartNativeBindingName(method, "read"), "(_handle, responsePtr, responseLen);")
+		g.P("final errID = ", dartNativeBindingName(method, "recv"), "(_handle, responsePtr, responseLen);")
 		g.P("final error = _client._takeErrorResult(errID);")
 		g.P("if (error != null) {")
 		g.P("return (value: null, error: error);")
@@ -331,13 +331,13 @@ func renderDartStreamClass(g *protogen.GeneratedFile, clientClassName, className
 		g.P("}")
 	}
 	if canCloseSend {
-		g.P("String? closeSend() {")
+		g.P("String? CloseSend() {")
 		g.P("final errID = ", dartNativeBindingName(method, "close_send"), "(_handle);")
 		g.P("return _client._takeErrorResult(errID);")
 		g.P("}")
 	}
 	if finishReturnsResponse {
-		g.P("({pb.", method.Response.GoName, "? value, String? error}) finish() {")
+		g.P("({pb.", method.Response.GoName, "? value, String? error}) Finish() {")
 		g.P("final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();")
 		g.P("final responseLen = pkg_ffi.calloc<ffi.Int32>();")
 		g.P("try {")
@@ -357,12 +357,12 @@ func renderDartStreamClass(g *protogen.GeneratedFile, clientClassName, className
 		g.P("}")
 		g.P("}")
 	} else {
-		g.P("String? finish() {")
+		g.P("String? Finish() {")
 		g.P("final errID = ", dartNativeBindingName(method, "finish"), "(_handle);")
 		g.P("return _client._takeErrorResult(errID);")
 		g.P("}")
 	}
-	g.P("String? cancel() {")
+	g.P("String? Cancel() {")
 	g.P("final errID = ", dartNativeBindingName(method, "cancel"), "(_handle);")
 	g.P("return _client._takeErrorResult(errID);")
 	g.P("}")
@@ -441,6 +441,10 @@ func dartStreamClassName(service ServicePlan, method MethodPlan) string {
 
 func dartMethodName(method MethodPlan) string {
 	return method.Name
+}
+
+func dartStartMethodName(method MethodPlan) string {
+	return method.GoName + "Start"
 }
 
 func dartNativeAssetID(config DartGeneratorConfig) string {

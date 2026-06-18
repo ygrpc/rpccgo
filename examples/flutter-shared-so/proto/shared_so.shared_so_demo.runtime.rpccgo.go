@@ -617,8 +617,8 @@ func InvokeSharedSoDemoMessageReadRuntimeState(ctx context.Context, req *ReadRun
 	}
 }
 
-// StartSharedSoDemoMessageWatchRuntimeState starts a message contract stream for WatchRuntimeState on the current registered server.
-func StartSharedSoDemoMessageWatchRuntimeState(ctx context.Context, req *ReadRuntimeStateRequest) (rpcruntime.StreamHandle, error) {
+// SharedSoDemoMessageWatchRuntimeStateStart starts a message contract stream for WatchRuntimeState on the current registered server.
+func SharedSoDemoMessageWatchRuntimeStateStart(ctx context.Context, req *ReadRuntimeStateRequest) (rpcruntime.StreamHandle, error) {
 	if req == nil {
 		return 0, errors.New("rpccgo: message request is nil")
 	}
@@ -632,7 +632,7 @@ func StartSharedSoDemoMessageWatchRuntimeState(ctx context.Context, req *ReadRun
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: SharedSoDemo cgo message registered server has invalid type")
 		}
-		source, err := startSharedSoDemoCGOMessageWatchRuntimeState(ctx, server, req)
+		source, err := sharedSoDemoWatchRuntimeStateCGOMessageStart(ctx, server, req)
 		if err != nil {
 			return 0, err
 		}
@@ -662,8 +662,8 @@ func StartSharedSoDemoMessageWatchRuntimeState(ctx context.Context, req *ReadRun
 	}
 }
 
-// StartSharedSoDemoMessageCollectRuntimeState starts a message contract stream for CollectRuntimeState on the current registered server.
-func StartSharedSoDemoMessageCollectRuntimeState(ctx context.Context) (rpcruntime.StreamHandle, error) {
+// SharedSoDemoMessageCollectRuntimeStateStart starts a message contract stream for CollectRuntimeState on the current registered server.
+func SharedSoDemoMessageCollectRuntimeStateStart(ctx context.Context) (rpcruntime.StreamHandle, error) {
 	registered, err := rpcruntime.LoadServer(sharedSoDemoServiceID)
 	if err != nil {
 		return 0, err
@@ -674,7 +674,7 @@ func StartSharedSoDemoMessageCollectRuntimeState(ctx context.Context) (rpcruntim
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: SharedSoDemo cgo message registered server has invalid type")
 		}
-		source, err := startSharedSoDemoCGOMessageCollectRuntimeState(ctx, server)
+		source, err := sharedSoDemoCollectRuntimeStateCGOMessageStart(ctx, server)
 		if err != nil {
 			return 0, err
 		}
@@ -701,8 +701,8 @@ func StartSharedSoDemoMessageCollectRuntimeState(ctx context.Context) (rpcruntim
 	}
 }
 
-// StartSharedSoDemoMessageStreamRuntimeState starts a message contract stream for StreamRuntimeState on the current registered server.
-func StartSharedSoDemoMessageStreamRuntimeState(ctx context.Context, req *ReadRuntimeStateRequest) (rpcruntime.StreamHandle, error) {
+// SharedSoDemoMessageStreamRuntimeStateStart starts a message contract stream for StreamRuntimeState on the current registered server.
+func SharedSoDemoMessageStreamRuntimeStateStart(ctx context.Context, req *ReadRuntimeStateRequest) (rpcruntime.StreamHandle, error) {
 	if req == nil {
 		return 0, errors.New("rpccgo: message request is nil")
 	}
@@ -716,7 +716,7 @@ func StartSharedSoDemoMessageStreamRuntimeState(ctx context.Context, req *ReadRu
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: SharedSoDemo cgo message registered server has invalid type")
 		}
-		source, err := startSharedSoDemoCGOMessageStreamRuntimeState(ctx, server, req)
+		source, err := sharedSoDemoStreamRuntimeStateCGOMessageStart(ctx, server, req)
 		if err != nil {
 			return 0, err
 		}
@@ -746,8 +746,8 @@ func StartSharedSoDemoMessageStreamRuntimeState(ctx context.Context, req *ReadRu
 	}
 }
 
-// StartSharedSoDemoMessageChatRuntimeState starts a message contract stream for ChatRuntimeState on the current registered server.
-func StartSharedSoDemoMessageChatRuntimeState(ctx context.Context) (rpcruntime.StreamHandle, error) {
+// SharedSoDemoMessageChatRuntimeStateStart starts a message contract stream for ChatRuntimeState on the current registered server.
+func SharedSoDemoMessageChatRuntimeStateStart(ctx context.Context) (rpcruntime.StreamHandle, error) {
 	registered, err := rpcruntime.LoadServer(sharedSoDemoServiceID)
 	if err != nil {
 		return 0, err
@@ -758,7 +758,7 @@ func StartSharedSoDemoMessageChatRuntimeState(ctx context.Context) (rpcruntime.S
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: SharedSoDemo cgo message registered server has invalid type")
 		}
-		source, err := startSharedSoDemoCGOMessageChatRuntimeState(ctx, server)
+		source, err := sharedSoDemoChatRuntimeStateCGOMessageStart(ctx, server)
 		if err != nil {
 			return 0, err
 		}

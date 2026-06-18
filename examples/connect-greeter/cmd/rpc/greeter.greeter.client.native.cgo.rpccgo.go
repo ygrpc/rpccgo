@@ -201,7 +201,7 @@ func rpccgoNativeGreeterv1GreeterCollectStart(stream *C.int32_t) C.int32_t {
 	if stream == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: native client handle pointer is nil")))
 	}
-	handle, err := proto.StartGreeterNativeCollect(ctx)
+	handle, err := proto.GreeterNativeCollectStart(ctx)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -220,7 +220,7 @@ func rpccgoNativeGreeterv1GreeterCollectSend(stream C.int32_t, NamePtr C.uintptr
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
-	err = proto.SendGreeterNativeCollect(ctx, rpcruntime.StreamHandle(handle), nameValue, cityValue)
+	err = proto.GreeterNativeCollectSend(ctx, rpcruntime.StreamHandle(handle), nameValue, cityValue)
 	if cleanupErr := errors.Join(nameValue.Release(), cityValue.Release()); cleanupErr != nil {
 		err = errors.Join(err, cleanupErr)
 	}
@@ -256,7 +256,7 @@ func rpccgoNativeGreeterv1GreeterCollectFinish(stream C.int32_t, outMessagePtr *
 	}
 	var err error
 	var messageResult string
-	messageResult, err = proto.FinishGreeterNativeCollect(ctx, rpcruntime.StreamHandle(handle))
+	messageResult, err = proto.GreeterNativeCollectFinish(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -273,7 +273,7 @@ func rpccgoNativeGreeterv1GreeterCollectCancel(stream C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handle := int32(stream)
 	var err error
-	err = proto.CancelGreeterNativeCollect(ctx, rpcruntime.StreamHandle(handle))
+	err = proto.GreeterNativeCollectCancel(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -358,7 +358,7 @@ func rpccgoNativeGreeterv1GreeterBroadcastStart(NamePtr C.uintptr_t, NameLen C.i
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
-	handle, err := proto.StartGreeterNativeBroadcast(ctx, nameValue, cityValue)
+	handle, err := proto.GreeterNativeBroadcastStart(ctx, nameValue, cityValue)
 	if cleanupErr := errors.Join(nameValue.Release(), cityValue.Release()); cleanupErr != nil {
 		err = errors.Join(err, cleanupErr)
 	}
@@ -369,10 +369,10 @@ func rpccgoNativeGreeterv1GreeterBroadcastStart(NamePtr C.uintptr_t, NameLen C.i
 	return 0
 }
 
-// rpccgoNativeGreeterv1GreeterBroadcastRead reads native response values from the server-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Broadcast.
+// rpccgoNativeGreeterv1GreeterBroadcastRecv receives native response values from the server-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Broadcast.
 //
-//export rpccgoNativeGreeterv1GreeterBroadcastRead
-func rpccgoNativeGreeterv1GreeterBroadcastRead(stream C.int32_t, outMessagePtr *C.uintptr_t, outMessageLen *C.int32_t, outMessageOwnership *C.int32_t) C.int32_t {
+//export rpccgoNativeGreeterv1GreeterBroadcastRecv
+func rpccgoNativeGreeterv1GreeterBroadcastRecv(stream C.int32_t, outMessagePtr *C.uintptr_t, outMessageLen *C.int32_t, outMessageOwnership *C.int32_t) C.int32_t {
 	ctx := context.Background()
 	if outMessagePtr != nil {
 		*outMessagePtr = 0
@@ -395,7 +395,7 @@ func rpccgoNativeGreeterv1GreeterBroadcastRead(stream C.int32_t, outMessagePtr *
 	}
 	var err error
 	var messageResult string
-	messageResult, err = proto.RecvGreeterNativeBroadcast(ctx, rpcruntime.StreamHandle(handle))
+	messageResult, err = proto.GreeterNativeBroadcastRecv(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -412,7 +412,7 @@ func rpccgoNativeGreeterv1GreeterBroadcastFinish(stream C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handle := int32(stream)
 	var err error
-	err = proto.FinishGreeterNativeBroadcast(ctx, rpcruntime.StreamHandle(handle))
+	err = proto.GreeterNativeBroadcastFinish(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -426,7 +426,7 @@ func rpccgoNativeGreeterv1GreeterBroadcastCancel(stream C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handle := int32(stream)
 	var err error
-	err = proto.CancelGreeterNativeBroadcast(ctx, rpcruntime.StreamHandle(handle))
+	err = proto.GreeterNativeBroadcastCancel(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -506,7 +506,7 @@ func rpccgoNativeGreeterv1GreeterChatStart(stream *C.int32_t) C.int32_t {
 	if stream == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: native client handle pointer is nil")))
 	}
-	handle, err := proto.StartGreeterNativeChat(ctx)
+	handle, err := proto.GreeterNativeChatStart(ctx)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -525,7 +525,7 @@ func rpccgoNativeGreeterv1GreeterChatSend(stream C.int32_t, NamePtr C.uintptr_t,
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
-	err = proto.SendGreeterNativeChat(ctx, rpcruntime.StreamHandle(handle), nameValue, cityValue)
+	err = proto.GreeterNativeChatSend(ctx, rpcruntime.StreamHandle(handle), nameValue, cityValue)
 	if cleanupErr := errors.Join(nameValue.Release(), cityValue.Release()); cleanupErr != nil {
 		err = errors.Join(err, cleanupErr)
 	}
@@ -535,10 +535,10 @@ func rpccgoNativeGreeterv1GreeterChatSend(stream C.int32_t, NamePtr C.uintptr_t,
 	return 0
 }
 
-// rpccgoNativeGreeterv1GreeterChatRead reads native response values from the bidi-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Chat.
+// rpccgoNativeGreeterv1GreeterChatRecv receives native response values from the bidi-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Chat.
 //
-//export rpccgoNativeGreeterv1GreeterChatRead
-func rpccgoNativeGreeterv1GreeterChatRead(stream C.int32_t, outMessagePtr *C.uintptr_t, outMessageLen *C.int32_t, outMessageOwnership *C.int32_t) C.int32_t {
+//export rpccgoNativeGreeterv1GreeterChatRecv
+func rpccgoNativeGreeterv1GreeterChatRecv(stream C.int32_t, outMessagePtr *C.uintptr_t, outMessageLen *C.int32_t, outMessageOwnership *C.int32_t) C.int32_t {
 	ctx := context.Background()
 	if outMessagePtr != nil {
 		*outMessagePtr = 0
@@ -561,7 +561,7 @@ func rpccgoNativeGreeterv1GreeterChatRead(stream C.int32_t, outMessagePtr *C.uin
 	}
 	var err error
 	var messageResult string
-	messageResult, err = proto.RecvGreeterNativeChat(ctx, rpcruntime.StreamHandle(handle))
+	messageResult, err = proto.GreeterNativeChatRecv(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -578,7 +578,7 @@ func rpccgoNativeGreeterv1GreeterChatCloseSend(stream C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handle := int32(stream)
 	var err error
-	err = proto.CloseSendGreeterNativeChat(ctx, rpcruntime.StreamHandle(handle))
+	err = proto.GreeterNativeChatCloseSend(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -592,7 +592,7 @@ func rpccgoNativeGreeterv1GreeterChatFinish(stream C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handle := int32(stream)
 	var err error
-	err = proto.FinishGreeterNativeChat(ctx, rpcruntime.StreamHandle(handle))
+	err = proto.GreeterNativeChatFinish(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -606,7 +606,7 @@ func rpccgoNativeGreeterv1GreeterChatCancel(stream C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handle := int32(stream)
 	var err error
-	err = proto.CancelGreeterNativeChat(ctx, rpcruntime.StreamHandle(handle))
+	err = proto.GreeterNativeChatCancel(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}

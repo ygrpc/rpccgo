@@ -374,21 +374,21 @@ func (greeterEntryHandler) Unary(ctx context.Context, req *emptypb.Empty) (*empt
 }
 
 func (greeterEntryHandler) Upload(ctx context.Context, stream *connect.ClientStream[emptypb.Empty]) (*emptypb.Empty, error) {
-	handle, err := StartGreeterMessageUpload(ctx)
+	handle, err := GreeterMessageUploadStart(ctx)
 	if err != nil {
 		return nil, err
 	}
 	for stream.Receive() {
-		if err := SendGreeterMessageUpload(ctx, handle, &emptypb.Empty{}); err != nil {
-			_ = CancelGreeterMessageUpload(ctx, handle)
+		if err := GreeterMessageUploadSend(ctx, handle, &emptypb.Empty{}); err != nil {
+			_ = GreeterMessageUploadCancel(ctx, handle)
 			return nil, err
 		}
 	}
 	if err := stream.Err(); err != nil {
-		_ = CancelGreeterMessageUpload(ctx, handle)
+		_ = GreeterMessageUploadCancel(ctx, handle)
 		return nil, err
 	}
-	resp, err := FinishGreeterMessageUpload(ctx, handle)
+	resp, err := GreeterMessageUploadFinish(ctx, handle)
 	if err != nil {
 		return nil, err
 	}
@@ -396,28 +396,28 @@ func (greeterEntryHandler) Upload(ctx context.Context, stream *connect.ClientStr
 }
 
 func (greeterEntryHandler) List(ctx context.Context, req *emptypb.Empty, stream *connect.ServerStream[emptypb.Empty]) error {
-	handle, err := StartGreeterMessageList(ctx, req)
+	handle, err := GreeterMessageListStart(ctx, req)
 	if err != nil {
 		return err
 	}
 	for {
-		resp, err := RecvGreeterMessageList(ctx, handle)
+		resp, err := GreeterMessageListRecv(ctx, handle)
 		if err == io.EOF {
-			return FinishGreeterMessageList(ctx, handle)
+			return GreeterMessageListFinish(ctx, handle)
 		}
 		if err != nil {
-			_ = CancelGreeterMessageList(ctx, handle)
+			_ = GreeterMessageListCancel(ctx, handle)
 			return err
 		}
 		if err := stream.Send(resp); err != nil {
-			_ = CancelGreeterMessageList(ctx, handle)
+			_ = GreeterMessageListCancel(ctx, handle)
 			return err
 		}
 	}
 }
 
 func (greeterEntryHandler) Chat(ctx context.Context, stream *connect.BidiStream[emptypb.Empty, emptypb.Empty]) error {
-	handle, err := StartGreeterMessageChat(ctx)
+	handle, err := GreeterMessageChatStart(ctx)
 	if err != nil {
 		return err
 	}
@@ -431,14 +431,14 @@ func (greeterEntryHandler) Chat(ctx context.Context, stream *connect.BidiStream[
 		for {
 			_, err := stream.Receive()
 			if errors.Is(err, io.EOF) || err != nil && strings.Contains(err.Error(), "EOF") {
-				requestErr <- CloseSendGreeterMessageChat(ctx, handle)
+				requestErr <- GreeterMessageChatCloseSend(ctx, handle)
 				return
 			}
 			if err != nil {
 				requestErr <- err
 				return
 			}
-			if err := SendGreeterMessageChat(ctx, handle, &emptypb.Empty{}); err != nil {
+			if err := GreeterMessageChatSend(ctx, handle, &emptypb.Empty{}); err != nil {
 				requestErr <- err
 				return
 			}
@@ -446,7 +446,7 @@ func (greeterEntryHandler) Chat(ctx context.Context, stream *connect.BidiStream[
 	}()
 	go func() {
 		for {
-			resp, err := RecvGreeterMessageChat(ctx, handle)
+			resp, err := GreeterMessageChatRecv(ctx, handle)
 			if err != nil {
 				response <- chatResponse{err: err}
 				return
@@ -460,27 +460,27 @@ func (greeterEntryHandler) Chat(ctx context.Context, stream *connect.BidiStream[
 			requestErr = nil
 			if err != nil {
 				if strings.Contains(err.Error(), "EOF") {
-					if err := FinishGreeterMessageChat(ctx, handle); err != nil && !strings.Contains(err.Error(), "EOF") {
+					if err := GreeterMessageChatFinish(ctx, handle); err != nil && !strings.Contains(err.Error(), "EOF") {
 						return err
 					}
 					return nil
 				}
-				_ = CancelGreeterMessageChat(ctx, handle)
+				_ = GreeterMessageChatCancel(ctx, handle)
 				return err
 			}
 		case resp := <-response:
 			if errors.Is(resp.err, io.EOF) || resp.err != nil && strings.Contains(resp.err.Error(), "EOF") {
-				if err := FinishGreeterMessageChat(ctx, handle); err != nil && !strings.Contains(err.Error(), "EOF") {
+				if err := GreeterMessageChatFinish(ctx, handle); err != nil && !strings.Contains(err.Error(), "EOF") {
 					return err
 				}
 				return nil
 			}
 			if resp.err != nil {
-				_ = CancelGreeterMessageChat(ctx, handle)
+				_ = GreeterMessageChatCancel(ctx, handle)
 				return resp.err
 			}
 			if err := stream.Send(resp.msg); err != nil {
-				_ = CancelGreeterMessageChat(ctx, handle)
+				_ = GreeterMessageChatCancel(ctx, handle)
 				return err
 			}
 		}
@@ -553,17 +553,17 @@ func TestDirectConnectHandlerRegistration(t *testing.T) {
 	if _, err := InvokeGreeterMessageUnary(context.Background(), &emptypb.Empty{}); err != nil {
 		t.Fatalf("InvokeGreeterMessageUnary() error = %v", err)
 	}
-	uploadHandle, err := StartGreeterMessageUpload(context.Background())
+	uploadHandle, err := GreeterMessageUploadStart(context.Background())
 	if err != nil {
-		t.Fatalf("StartGreeterMessageUpload() error = %v", err)
+		t.Fatalf("GreeterMessageUploadStart() error = %v", err)
 	}
 	if err := RegisterGreeterConnectHandler(directConnectGreeter{label: "B"}); err != nil {
 		t.Fatalf("RegisterGreeterConnectHandler(B) error = %v", err)
 	}
-	if err := SendGreeterMessageUpload(context.Background(), uploadHandle, &emptypb.Empty{}); err != nil {
+	if err := GreeterMessageUploadSend(context.Background(), uploadHandle, &emptypb.Empty{}); err != nil {
 		t.Fatalf("upload Send() error = %v", err)
 	}
-	if _, err := FinishGreeterMessageUpload(context.Background(), uploadHandle); err != nil {
+	if _, err := GreeterMessageUploadFinish(context.Background(), uploadHandle); err != nil {
 		t.Fatalf("upload Finish() error = %v", err)
 	}
 	if directConnectUploadLabel != "A" {
@@ -572,34 +572,34 @@ func TestDirectConnectHandlerRegistration(t *testing.T) {
 	if err := RegisterGreeterConnectHandler(directConnectGreeter{label: "cancel"}); err != nil {
 		t.Fatalf("RegisterGreeterConnectHandler(cancel) error = %v", err)
 	}
-	cancelHandle, err := StartGreeterMessageUpload(context.Background())
+	cancelHandle, err := GreeterMessageUploadStart(context.Background())
 	if err != nil {
-		t.Fatalf("StartGreeterMessageUpload(cancel) error = %v", err)
+		t.Fatalf("GreeterMessageUploadStart(cancel) error = %v", err)
 	}
-	if err := CancelGreeterMessageUpload(context.Background(), cancelHandle); err != nil {
+	if err := GreeterMessageUploadCancel(context.Background(), cancelHandle); err != nil {
 		t.Fatalf("upload Cancel() error = %v", err)
 	}
-	listHandle, err := StartGreeterMessageList(context.Background(), &emptypb.Empty{})
+	listHandle, err := GreeterMessageListStart(context.Background(), &emptypb.Empty{})
 	if err != nil {
-		t.Fatalf("StartGreeterMessageList() error = %v", err)
+		t.Fatalf("GreeterMessageListStart() error = %v", err)
 	}
-	if _, err := RecvGreeterMessageList(context.Background(), listHandle); err != io.EOF {
+	if _, err := GreeterMessageListRecv(context.Background(), listHandle); err != io.EOF {
 		t.Fatalf("list Recv() error = %v, want EOF", err)
 	}
-	if err := FinishGreeterMessageList(context.Background(), listHandle); err != nil {
+	if err := GreeterMessageListFinish(context.Background(), listHandle); err != nil {
 		t.Fatalf("list Finish() error = %v", err)
 	}
-	chatHandle, err := StartGreeterMessageChat(context.Background())
+	chatHandle, err := GreeterMessageChatStart(context.Background())
 	if err != nil {
-		t.Fatalf("StartGreeterMessageChat() error = %v", err)
+		t.Fatalf("GreeterMessageChatStart() error = %v", err)
 	}
-	if err := CloseSendGreeterMessageChat(context.Background(), chatHandle); err != nil {
+	if err := GreeterMessageChatCloseSend(context.Background(), chatHandle); err != nil {
 		t.Fatalf("chat CloseSend() error = %v", err)
 	}
-	if _, err := RecvGreeterMessageChat(context.Background(), chatHandle); err != io.EOF {
+	if _, err := GreeterMessageChatRecv(context.Background(), chatHandle); err != io.EOF {
 		t.Fatalf("chat Recv() error = %v, want EOF", err)
 	}
-	if err := FinishGreeterMessageChat(context.Background(), chatHandle); err != nil {
+	if err := GreeterMessageChatFinish(context.Background(), chatHandle); err != nil {
 		t.Fatalf("chat Finish() error = %v", err)
 	}
 }
@@ -647,17 +647,17 @@ func TestDirectGRPCServerRegistration(t *testing.T) {
 	if _, err := InvokeGreeterMessageUnary(context.Background(), &emptypb.Empty{}); err != nil {
 		t.Fatalf("InvokeGreeterMessageUnary() error = %v", err)
 	}
-	uploadHandle, err := StartGreeterMessageUpload(context.Background())
+	uploadHandle, err := GreeterMessageUploadStart(context.Background())
 	if err != nil {
-		t.Fatalf("StartGreeterMessageUpload() error = %v", err)
+		t.Fatalf("GreeterMessageUploadStart() error = %v", err)
 	}
 	if err := RegisterGreeterGRPCServer(directGRPCGreeter{label: "B"}); err != nil {
 		t.Fatalf("RegisterGreeterGRPCServer(B) error = %v", err)
 	}
-	if err := SendGreeterMessageUpload(context.Background(), uploadHandle, &emptypb.Empty{}); err != nil {
+	if err := GreeterMessageUploadSend(context.Background(), uploadHandle, &emptypb.Empty{}); err != nil {
 		t.Fatalf("upload Send() error = %v", err)
 	}
-	if _, err := FinishGreeterMessageUpload(context.Background(), uploadHandle); err != nil {
+	if _, err := GreeterMessageUploadFinish(context.Background(), uploadHandle); err != nil {
 		t.Fatalf("upload Finish() error = %v", err)
 	}
 	if directGRPCUploadLabel != "A" {
@@ -666,34 +666,34 @@ func TestDirectGRPCServerRegistration(t *testing.T) {
 	if err := RegisterGreeterGRPCServer(directGRPCGreeter{label: "cancel"}); err != nil {
 		t.Fatalf("RegisterGreeterGRPCServer(cancel) error = %v", err)
 	}
-	cancelHandle, err := StartGreeterMessageUpload(context.Background())
+	cancelHandle, err := GreeterMessageUploadStart(context.Background())
 	if err != nil {
-		t.Fatalf("StartGreeterMessageUpload(cancel) error = %v", err)
+		t.Fatalf("GreeterMessageUploadStart(cancel) error = %v", err)
 	}
-	if err := CancelGreeterMessageUpload(context.Background(), cancelHandle); err != nil {
+	if err := GreeterMessageUploadCancel(context.Background(), cancelHandle); err != nil {
 		t.Fatalf("upload Cancel() error = %v", err)
 	}
-	listHandle, err := StartGreeterMessageList(context.Background(), &emptypb.Empty{})
+	listHandle, err := GreeterMessageListStart(context.Background(), &emptypb.Empty{})
 	if err != nil {
-		t.Fatalf("StartGreeterMessageList() error = %v", err)
+		t.Fatalf("GreeterMessageListStart() error = %v", err)
 	}
-	if _, err := RecvGreeterMessageList(context.Background(), listHandle); err != io.EOF {
+	if _, err := GreeterMessageListRecv(context.Background(), listHandle); err != io.EOF {
 		t.Fatalf("list Recv() error = %v, want EOF", err)
 	}
-	if err := FinishGreeterMessageList(context.Background(), listHandle); err != nil {
+	if err := GreeterMessageListFinish(context.Background(), listHandle); err != nil {
 		t.Fatalf("list Finish() error = %v", err)
 	}
-	chatHandle, err := StartGreeterMessageChat(context.Background())
+	chatHandle, err := GreeterMessageChatStart(context.Background())
 	if err != nil {
-		t.Fatalf("StartGreeterMessageChat() error = %v", err)
+		t.Fatalf("GreeterMessageChatStart() error = %v", err)
 	}
-	if err := CloseSendGreeterMessageChat(context.Background(), chatHandle); err != nil {
+	if err := GreeterMessageChatCloseSend(context.Background(), chatHandle); err != nil {
 		t.Fatalf("chat CloseSend() error = %v", err)
 	}
-	if _, err := RecvGreeterMessageChat(context.Background(), chatHandle); err != io.EOF {
+	if _, err := GreeterMessageChatRecv(context.Background(), chatHandle); err != io.EOF {
 		t.Fatalf("chat Recv() error = %v, want EOF", err)
 	}
-	if err := FinishGreeterMessageChat(context.Background(), chatHandle); err != nil {
+	if err := GreeterMessageChatFinish(context.Background(), chatHandle); err != nil {
 		t.Fatalf("chat Finish() error = %v", err)
 	}
 }
@@ -1441,7 +1441,7 @@ func readGreeterListMessageServerStream(ctx context.Context, handle int32, outpu
 	}
 	var responsePtr C.uintptr_t
 	var responseLen C.int32_t
-	errID := rpccgoMsgTestv1GreeterListRead(C.int32_t(handle), &responsePtr, &responseLen)
+	errID := rpccgoMsgTestv1GreeterListRecv(C.int32_t(handle), &responsePtr, &responseLen)
 	output.DataPtr = uintptr(responsePtr)
 	output.DataLen = int32(responseLen)
 	return int32(errID)
@@ -1476,7 +1476,7 @@ func readGreeterChatMessageBidiStream(ctx context.Context, handle int32, output 
 	}
 	var responsePtr C.uintptr_t
 	var responseLen C.int32_t
-	errID := rpccgoMsgTestv1GreeterChatRead(C.int32_t(handle), &responsePtr, &responseLen)
+	errID := rpccgoMsgTestv1GreeterChatRecv(C.int32_t(handle), &responsePtr, &responseLen)
 	output.DataPtr = uintptr(responsePtr)
 	output.DataLen = int32(responseLen)
 	return int32(errID)

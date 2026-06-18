@@ -143,8 +143,8 @@ flutter run
 ### 4. 验证 streaming RPC
 点击 **"Run streams"** 按钮。Flutter FFI 和 Kotlin/JNI 会分别调用：
 
-- `CollectRuntimeState`：client streaming。
-- `StreamRuntimeState`：server streaming。
-- `ChatRuntimeState`：bidi streaming。
+- `CollectRuntimeStateStart` + `Send`/`Finish`：client streaming。
+- `StreamRuntimeStateStart` + `Recv`/`Finish`：server streaming。
+- `ChatRuntimeStateStart` + `Send`/`Recv`/`CloseSend`/`Finish`：bidi streaming。
 
 Android C++ JNI shim 在 `JNI_OnLoad` 保存 `JavaVM*`，stream operation 入口会通过它解析当前线程的 `JNIEnv`。

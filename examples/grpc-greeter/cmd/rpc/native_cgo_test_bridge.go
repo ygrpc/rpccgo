@@ -16,17 +16,17 @@ func callGreeterSayHelloNativeUnary(namePtr uintptr, nameLen int32, nameOwnershi
 	return int32(errID)
 }
 
-func startGreeterCollectNativeClientStream() (int32, int32) {
+func greeterNativeCollectStart() (int32, int32) {
 	var stream C.int32_t
 	errID := rpccgoNativeGreeterv1GreeterCollectStart(&stream)
 	return int32(stream), int32(errID)
 }
 
-func sendGreeterCollectNativeClientStream(stream int32, namePtr uintptr, nameLen int32, nameOwnership int32, cityPtr uintptr, cityLen int32, cityOwnership int32) int32 {
+func greeterNativeCollectSend(stream int32, namePtr uintptr, nameLen int32, nameOwnership int32, cityPtr uintptr, cityLen int32, cityOwnership int32) int32 {
 	return int32(rpccgoNativeGreeterv1GreeterCollectSend(C.int32_t(stream), C.uintptr_t(namePtr), C.int32_t(nameLen), C.int32_t(nameOwnership), C.uintptr_t(cityPtr), C.int32_t(cityLen), C.int32_t(cityOwnership)))
 }
 
-func finishGreeterCollectNativeClientStream(stream int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
+func greeterNativeCollectFinish(stream int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
 	var messagePtr C.uintptr_t
 	var messageLen C.int32_t
 	var messageOwnership C.int32_t
@@ -36,51 +36,51 @@ func finishGreeterCollectNativeClientStream(stream int32, outMessagePtr *uintptr
 	return int32(errID)
 }
 
-func startGreeterBroadcastNativeServerStream(namePtr uintptr, nameLen int32, nameOwnership int32, cityPtr uintptr, cityLen int32, cityOwnership int32) (int32, int32) {
+func greeterNativeBroadcastStart(namePtr uintptr, nameLen int32, nameOwnership int32, cityPtr uintptr, cityLen int32, cityOwnership int32) (int32, int32) {
 	var stream C.int32_t
 	errID := rpccgoNativeGreeterv1GreeterBroadcastStart(C.uintptr_t(namePtr), C.int32_t(nameLen), C.int32_t(nameOwnership), C.uintptr_t(cityPtr), C.int32_t(cityLen), C.int32_t(cityOwnership), &stream)
 	return int32(stream), int32(errID)
 }
 
-func readGreeterBroadcastNativeServerStream(stream int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
+func greeterNativeBroadcastRecv(stream int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
 	var messagePtr C.uintptr_t
 	var messageLen C.int32_t
 	var messageOwnership C.int32_t
-	errID := rpccgoNativeGreeterv1GreeterBroadcastRead(C.int32_t(stream), &messagePtr, &messageLen, &messageOwnership)
+	errID := rpccgoNativeGreeterv1GreeterBroadcastRecv(C.int32_t(stream), &messagePtr, &messageLen, &messageOwnership)
 	*outMessagePtr = uintptr(messagePtr)
 	*outMessageLen = int32(messageLen)
 	return int32(errID)
 }
 
-func finishGreeterBroadcastNativeServerStream(stream int32) int32 {
+func greeterNativeBroadcastFinish(stream int32) int32 {
 	return int32(rpccgoNativeGreeterv1GreeterBroadcastFinish(C.int32_t(stream)))
 }
 
-func startGreeterChatNativeBidiStream() (int32, int32) {
+func greeterNativeChatStart() (int32, int32) {
 	var stream C.int32_t
 	errID := rpccgoNativeGreeterv1GreeterChatStart(&stream)
 	return int32(stream), int32(errID)
 }
 
-func sendGreeterChatNativeBidiStream(stream int32, namePtr uintptr, nameLen int32, nameOwnership int32, cityPtr uintptr, cityLen int32, cityOwnership int32) int32 {
+func greeterNativeChatSend(stream int32, namePtr uintptr, nameLen int32, nameOwnership int32, cityPtr uintptr, cityLen int32, cityOwnership int32) int32 {
 	return int32(rpccgoNativeGreeterv1GreeterChatSend(C.int32_t(stream), C.uintptr_t(namePtr), C.int32_t(nameLen), C.int32_t(nameOwnership), C.uintptr_t(cityPtr), C.int32_t(cityLen), C.int32_t(cityOwnership)))
 }
 
-func readGreeterChatNativeBidiStream(stream int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
+func greeterNativeChatRecv(stream int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
 	var messagePtr C.uintptr_t
 	var messageLen C.int32_t
 	var messageOwnership C.int32_t
-	errID := rpccgoNativeGreeterv1GreeterChatRead(C.int32_t(stream), &messagePtr, &messageLen, &messageOwnership)
+	errID := rpccgoNativeGreeterv1GreeterChatRecv(C.int32_t(stream), &messagePtr, &messageLen, &messageOwnership)
 	*outMessagePtr = uintptr(messagePtr)
 	*outMessageLen = int32(messageLen)
 	return int32(errID)
 }
 
-func closeSendGreeterChatNativeBidiStream(stream int32) int32 {
+func greeterNativeChatCloseSend(stream int32) int32 {
 	return int32(rpccgoNativeGreeterv1GreeterChatCloseSend(C.int32_t(stream)))
 }
 
-func finishGreeterChatNativeBidiStream(stream int32) int32 {
+func greeterNativeChatFinish(stream int32) int32 {
 	return int32(rpccgoNativeGreeterv1GreeterChatFinish(C.int32_t(stream)))
 }
 
@@ -93,17 +93,17 @@ func callGreeterSayHelloMessageUnary(requestPtr uintptr, requestLen int32, outMe
 	return int32(errID)
 }
 
-func startGreeterCollectMessageClientStream() (int32, int32) {
+func greeterMessageCollectStart() (int32, int32) {
 	var stream C.int32_t
 	errID := rpccgoMsgGreeterv1GreeterCollectStart(&stream)
 	return int32(stream), int32(errID)
 }
 
-func sendGreeterCollectMessageClientStream(stream int32, requestPtr uintptr, requestLen int32) int32 {
+func greeterMessageCollectSend(stream int32, requestPtr uintptr, requestLen int32) int32 {
 	return int32(rpccgoMsgGreeterv1GreeterCollectSend(C.int32_t(stream), C.uintptr_t(requestPtr), C.int32_t(requestLen)))
 }
 
-func finishGreeterCollectMessageClientStream(stream int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
+func greeterMessageCollectFinish(stream int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
 	var messagePtr C.uintptr_t
 	var messageLen C.int32_t
 	errID := rpccgoMsgGreeterv1GreeterCollectFinish(C.int32_t(stream), &messagePtr, &messageLen)
@@ -112,48 +112,48 @@ func finishGreeterCollectMessageClientStream(stream int32, outMessagePtr *uintpt
 	return int32(errID)
 }
 
-func startGreeterBroadcastMessageServerStream(requestPtr uintptr, requestLen int32) (int32, int32) {
+func greeterMessageBroadcastStart(requestPtr uintptr, requestLen int32) (int32, int32) {
 	var stream C.int32_t
 	errID := rpccgoMsgGreeterv1GreeterBroadcastStart(C.uintptr_t(requestPtr), C.int32_t(requestLen), &stream)
 	return int32(stream), int32(errID)
 }
 
-func readGreeterBroadcastMessageServerStream(stream int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
+func greeterMessageBroadcastRecv(stream int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
 	var messagePtr C.uintptr_t
 	var messageLen C.int32_t
-	errID := rpccgoMsgGreeterv1GreeterBroadcastRead(C.int32_t(stream), &messagePtr, &messageLen)
+	errID := rpccgoMsgGreeterv1GreeterBroadcastRecv(C.int32_t(stream), &messagePtr, &messageLen)
 	*outMessagePtr = uintptr(messagePtr)
 	*outMessageLen = int32(messageLen)
 	return int32(errID)
 }
 
-func finishGreeterBroadcastMessageServerStream(stream int32) int32 {
+func greeterMessageBroadcastFinish(stream int32) int32 {
 	return int32(rpccgoMsgGreeterv1GreeterBroadcastFinish(C.int32_t(stream)))
 }
 
-func startGreeterChatMessageBidiStream() (int32, int32) {
+func greeterMessageChatStart() (int32, int32) {
 	var stream C.int32_t
 	errID := rpccgoMsgGreeterv1GreeterChatStart(&stream)
 	return int32(stream), int32(errID)
 }
 
-func sendGreeterChatMessageBidiStream(stream int32, requestPtr uintptr, requestLen int32) int32 {
+func greeterMessageChatSend(stream int32, requestPtr uintptr, requestLen int32) int32 {
 	return int32(rpccgoMsgGreeterv1GreeterChatSend(C.int32_t(stream), C.uintptr_t(requestPtr), C.int32_t(requestLen)))
 }
 
-func readGreeterChatMessageBidiStream(stream int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
+func greeterMessageChatRecv(stream int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
 	var messagePtr C.uintptr_t
 	var messageLen C.int32_t
-	errID := rpccgoMsgGreeterv1GreeterChatRead(C.int32_t(stream), &messagePtr, &messageLen)
+	errID := rpccgoMsgGreeterv1GreeterChatRecv(C.int32_t(stream), &messagePtr, &messageLen)
 	*outMessagePtr = uintptr(messagePtr)
 	*outMessageLen = int32(messageLen)
 	return int32(errID)
 }
 
-func closeSendGreeterChatMessageBidiStream(stream int32) int32 {
+func greeterMessageChatCloseSend(stream int32) int32 {
 	return int32(rpccgoMsgGreeterv1GreeterChatCloseSend(C.int32_t(stream)))
 }
 
-func finishGreeterChatMessageBidiStream(stream int32) int32 {
+func greeterMessageChatFinish(stream int32) int32 {
 	return int32(rpccgoMsgGreeterv1GreeterChatFinish(C.int32_t(stream)))
 }

@@ -37,7 +37,7 @@ func BuildMethodRenderPlan(method MethodPlan, serviceName string) (MethodRenderP
 
 	nativeEntryMethod := method.GoName
 	if method.Streaming != StreamingKindUnary {
-		nativeEntryMethod = "Start" + method.GoName
+		nativeEntryMethod = method.GoName + "Start"
 	}
 	messageEntryMethod := nativeEntryMethod
 	nativeStreamRequestType := ""

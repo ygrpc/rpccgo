@@ -66,11 +66,11 @@ func TestConnectGreeterCSharedClientExample(t *testing.T) {
 		"rpccgoNativeGreeterv1GreeterSayHello",
 		"rpccgoNativeGreeterv1GreeterCollectStart",
 		"rpccgoNativeGreeterv1GreeterBroadcastStart",
-		"rpccgoNativeGreeterv1GreeterBroadcastRead",
+		"rpccgoNativeGreeterv1GreeterBroadcastRecv",
 		"rpccgoNativeGreeterv1GreeterBroadcastFinish",
 		"rpccgoNativeGreeterv1GreeterChatStart",
 		"rpccgoNativeGreeterv1GreeterChatSend",
-		"rpccgoNativeGreeterv1GreeterChatRead",
+		"rpccgoNativeGreeterv1GreeterChatRecv",
 		"rpccgoNativeGreeterv1GreeterChatCloseSend",
 		"rpccgoNativeGreeterv1GreeterChatFinish",
 		"rpccgoMsgGreeterv1GreeterSayHello",
@@ -137,11 +137,15 @@ func installProtocPlugins(t *testing.T) string {
 		"connectrpc.com/connect/cmd/protoc-gen-connect-go",
 		"../../cmd/protoc-gen-rpc-cgo",
 	} {
-		cmd := exec.Command("go", "install", pkg)
+		args := []string{"install", pkg}
+		if pkg == "../../cmd/protoc-gen-rpc-cgo" {
+			args = []string{"build", "-o", filepath.Join(binDir, "protoc-gen-rpc-cgo"), pkg}
+		}
+		cmd := exec.Command("go", args...)
 		cmd.Env = append(os.Environ(), "GOBIN="+binDir, "GOFLAGS=-mod=mod")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			t.Fatalf("go install %s failed: %v\n%s", pkg, err, out)
+			t.Fatalf("go %s %s failed: %v\n%s", args[0], pkg, err, out)
 		}
 	}
 	return binDir
@@ -150,11 +154,28 @@ func installProtocPlugins(t *testing.T) string {
 func generateConnectGreeter(t *testing.T, binDir string) {
 	t.Helper()
 
-	cmd := exec.Command("go", "generate", "./...")
+	args := []string{
+		"--unsafe_allow_out_dir_escape",
+		"-I", "proto",
+		"--plugin=protoc-gen-go=" + filepath.Join(binDir, "protoc-gen-go"),
+		"--plugin=protoc-gen-connect-go=" + filepath.Join(binDir, "protoc-gen-connect-go"),
+		"--plugin=protoc-gen-rpc-cgo=" + filepath.Join(binDir, "protoc-gen-rpc-cgo"),
+		"--go_out=proto",
+		"--go_opt=paths=source_relative",
+		"--connect-go_out=proto",
+		"--connect-go_opt=paths=source_relative",
+		"--connect-go_opt=package_suffix=",
+		"--connect-go_opt=simple=true",
+		"--rpc-cgo_out=proto",
+		"--rpc-cgo_opt=paths=source_relative",
+		"--rpc-cgo_opt=cgo_dir=../cmd/rpc",
+		"proto/greeter.proto",
+	}
+	cmd := exec.Command("protoc", args...)
 	cmd.Env = testEnvWithBinDir(binDir)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("go generate failed: %v\n%s", err, out)
+		t.Fatalf("protoc generate failed: %v\n%s", err, out)
 	}
 }
 

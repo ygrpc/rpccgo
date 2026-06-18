@@ -187,37 +187,37 @@ import "C"
 
 import context "context"
 
-func StartGreeterChatNativeBidiStream(ctx context.Context) (int32, int32) {
+func GreeterChatNativeBidiStreamStart(ctx context.Context) (int32, int32) {
 	var stream C.int32_t
 	errID := rpccgoNativeTestv1GreeterChatStart(&stream)
 	return int32(stream), int32(errID)
 }
 
-func SendGreeterChatNativeBidiStream(ctx context.Context, stream int32, NamePtr uintptr, NameLen int32, NameOwnership int32, Seq int32) int32 {
+func GreeterChatNativeBidiStreamSend(ctx context.Context, stream int32, NamePtr uintptr, NameLen int32, NameOwnership int32, Seq int32) int32 {
 	return int32(rpccgoNativeTestv1GreeterChatSend(C.int32_t(stream), C.uintptr_t(NamePtr), C.int32_t(NameLen), C.int32_t(NameOwnership), C.int32_t(Seq)))
 }
 
-func ReadGreeterChatNativeBidiStream(ctx context.Context, stream int32, outAck *int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
+func GreeterChatNativeBidiStreamRecv(ctx context.Context, stream int32, outAck *int32, outMessagePtr *uintptr, outMessageLen *int32) int32 {
 	var ack C.int32_t
 	var messagePtr C.uintptr_t
 	var messageLen C.int32_t
 	var messageOwnership C.int32_t
-	errID := rpccgoNativeTestv1GreeterChatRead(C.int32_t(stream), &ack, &messagePtr, &messageLen, &messageOwnership)
+	errID := rpccgoNativeTestv1GreeterChatRecv(C.int32_t(stream), &ack, &messagePtr, &messageLen, &messageOwnership)
 	*outAck = int32(ack)
 	*outMessagePtr = uintptr(messagePtr)
 	*outMessageLen = int32(messageLen)
 	return int32(errID)
 }
 
-func CloseSendGreeterChatNativeBidiStream(ctx context.Context, stream int32) int32 {
+func GreeterChatNativeBidiStreamCloseSend(ctx context.Context, stream int32) int32 {
 	return int32(rpccgoNativeTestv1GreeterChatCloseSend(C.int32_t(stream)))
 }
 
-func FinishGreeterChatNativeBidiStream(ctx context.Context, stream int32) int32 {
+func GreeterChatNativeBidiStreamFinish(ctx context.Context, stream int32) int32 {
 	return int32(rpccgoNativeTestv1GreeterChatFinish(C.int32_t(stream)))
 }
 
-func CancelGreeterChatNativeBidiStream(ctx context.Context, stream int32) int32 {
+func GreeterChatNativeBidiStreamCancel(ctx context.Context, stream int32) int32 {
 	return int32(rpccgoNativeTestv1GreeterChatCancel(C.int32_t(stream)))
 }
 `
@@ -314,14 +314,14 @@ func sendChatErr(ctx context.Context, handle int32, input *chatInputABI) int32 {
 	if input == nil {
 		input = &chatInputABI{}
 	}
-	return SendGreeterChatNativeBidiStream(ctx, handle, input.NamePtr, input.NameLen, input.NameOwnership, input.Seq)
+	return GreeterChatNativeBidiStreamSend(ctx, handle, input.NamePtr, input.NameLen, input.NameOwnership, input.Seq)
 }
 
 func readChat(ctx context.Context, handle int32, output *chatOutput) int32 {
 	if output == nil {
 		output = &chatOutput{}
 	}
-	return ReadGreeterChatNativeBidiStream(ctx, handle, &output.Ack, &output.MessagePtr, &output.MessageLen)
+	return GreeterChatNativeBidiStreamRecv(ctx, handle, &output.Ack, &output.MessagePtr, &output.MessageLen)
 }
 
 func TestNativeBidiStreamingGoServerCloseSendSemantics(t *testing.T) {
@@ -331,21 +331,21 @@ func TestNativeBidiStreamingGoServerCloseSendSemantics(t *testing.T) {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
 
-	handle, errID := StartGreeterChatNativeBidiStream(context.Background())
+	handle, errID := GreeterChatNativeBidiStreamStart(context.Background())
 	if errID != 0 {
-		t.Fatalf("StartGreeterChatNativeBidiStream() errID = %d", errID)
+		t.Fatalf("GreeterChatNativeBidiStreamStart() errID = %d", errID)
 	}
 	sendChat(t, handle, "first", 1)
 	sendChat(t, handle, "second", 2)
-	assertChatRead(t, handle, 1, "first")
-	if errID := CloseSendGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
-		t.Fatalf("CloseSendGreeterChatNativeBidiStream() errID = %d", errID)
+	assertChatRecv(t, handle, 1, "first")
+	if errID := GreeterChatNativeBidiStreamCloseSend(context.Background(), handle); errID != 0 {
+		t.Fatalf("GreeterChatNativeBidiStreamCloseSend() errID = %d", errID)
 	}
 	assertErrorTextContainsBidi(t, sendChatErr(context.Background(), handle, chatInput("third", 3)), "native stream is closed")
-	assertChatRead(t, handle, 2, "second")
-	if errID := FinishGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
+	assertChatRecv(t, handle, 2, "second")
+	if errID := GreeterChatNativeBidiStreamFinish(context.Background(), handle); errID != 0 {
 		text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
-		t.Fatalf("FinishGreeterChatNativeBidiStream() errID = %d, text = %q, ok = %v", errID, text, ok)
+		t.Fatalf("GreeterChatNativeBidiStreamFinish() errID = %d, text = %q, ok = %v", errID, text, ok)
 	}
 	if errID := readChat(context.Background(), handle, &chatOutput{}); errID == 0 {
 		t.Fatal("Read after Finish returned errID 0")
@@ -358,17 +358,17 @@ func TestNativeBidiStreamingGoServerCancelFinalizesOnce(t *testing.T) {
 	if err := v1.RegisterGreeterGoNativeServer(server); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer() error = %v", err)
 	}
-	handle, errID := StartGreeterChatNativeBidiStream(context.Background())
+	handle, errID := GreeterChatNativeBidiStreamStart(context.Background())
 	if errID != 0 {
-		t.Fatalf("StartGreeterChatNativeBidiStream() errID = %d", errID)
+		t.Fatalf("GreeterChatNativeBidiStreamStart() errID = %d", errID)
 	}
-	if errID := CancelGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
-		t.Fatalf("CancelGreeterChatNativeBidiStream() errID = %d", errID)
+	if errID := GreeterChatNativeBidiStreamCancel(context.Background(), handle); errID != 0 {
+		t.Fatalf("GreeterChatNativeBidiStreamCancel() errID = %d", errID)
 	}
 	if server.stream == nil || !server.stream.canceled {
 		t.Fatal("Cancel did not propagate to Go native stream")
 	}
-	if errID := CancelGreeterChatNativeBidiStream(context.Background(), handle); errID == 0 {
+	if errID := GreeterChatNativeBidiStreamCancel(context.Background(), handle); errID == 0 {
 		t.Fatal("second Cancel returned errID 0")
 	}
 }
@@ -376,7 +376,7 @@ func TestNativeBidiStreamingGoServerCancelFinalizesOnce(t *testing.T) {
 func sendChat(t *testing.T, handle int32, name string, seq int32) {
 	t.Helper()
 	if errID := sendChatErr(context.Background(), handle, chatInput(name, seq)); errID != 0 {
-		t.Fatalf("SendGreeterChatNativeBidiStream() errID = %d", errID)
+		t.Fatalf("GreeterChatNativeBidiStreamSend() errID = %d", errID)
 	}
 }
 
@@ -389,12 +389,12 @@ func chatInput(name string, seq int32) *chatInputABI {
 	}
 }
 
-func assertChatRead(t *testing.T, handle int32, wantAck int32, wantMessage string) {
+func assertChatRecv(t *testing.T, handle int32, wantAck int32, wantMessage string) {
 	t.Helper()
 	output := &chatOutput{}
 	if errID := readChat(context.Background(), handle, output); errID != 0 {
 		text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
-		t.Fatalf("ReadGreeterChatNativeBidiStream() errID = %d, text = %q, ok = %v", errID, text, ok)
+		t.Fatalf("GreeterChatNativeBidiStreamRecv() errID = %d, text = %q, ok = %v", errID, text, ok)
 	}
 	if output.Ack != wantAck {
 		t.Fatalf("Ack = %d, want %d", output.Ack, wantAck)
@@ -447,14 +447,14 @@ func sendChatErr(ctx context.Context, handle int32, input *chatInputABI) int32 {
 	if input == nil {
 		input = &chatInputABI{}
 	}
-	return SendGreeterChatNativeBidiStream(ctx, handle, input.NamePtr, input.NameLen, input.NameOwnership, input.Seq)
+	return GreeterChatNativeBidiStreamSend(ctx, handle, input.NamePtr, input.NameLen, input.NameOwnership, input.Seq)
 }
 
 func readChat(ctx context.Context, handle int32, output *chatOutput) int32 {
 	if output == nil {
 		output = &chatOutput{}
 	}
-	return ReadGreeterChatNativeBidiStream(ctx, handle, &output.Ack, &output.MessagePtr, &output.MessageLen)
+	return GreeterChatNativeBidiStreamRecv(ctx, handle, &output.Ack, &output.MessagePtr, &output.MessageLen)
 }
 
 func TestNativeBidiStreamingCGOServerCloseSendSemantics(t *testing.T) {
@@ -466,29 +466,29 @@ func TestNativeBidiStreamingCGOServerCloseSendSemantics(t *testing.T) {
 		t.Fatalf("registerGreeterBidiCGONativeServerCallbacks() error = %v", err)
 	}
 
-	handle, errID := StartGreeterChatNativeBidiStream(context.Background())
+	handle, errID := GreeterChatNativeBidiStreamStart(context.Background())
 	if errID != 0 {
-		t.Fatalf("StartGreeterChatNativeBidiStream() errID = %d", errID)
+		t.Fatalf("GreeterChatNativeBidiStreamStart() errID = %d", errID)
 	}
 	sendChatCGO(t, handle, "one", 1)
 	sendChatCGO(t, handle, "two", 2)
-	assertChatReadCGO(t, handle, 1, "one")
+	assertChatRecvCGO(t, handle, 1, "one")
 	if got := frees(); got != 2 {
 		t.Fatalf("free count after first read = %d, want 2", got)
 	}
-	if errID := CloseSendGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
-		t.Fatalf("CloseSendGreeterChatNativeBidiStream() errID = %d", errID)
+	if errID := GreeterChatNativeBidiStreamCloseSend(context.Background(), handle); errID != 0 {
+		t.Fatalf("GreeterChatNativeBidiStreamCloseSend() errID = %d", errID)
 	}
 	assertErrorTextContainsBidiCGO(t, sendChatErr(context.Background(), handle, chatInputCGO("three", 3)), "native stream is closed")
-	assertChatReadCGO(t, handle, 2, "two")
-	if errID := FinishGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
+	assertChatRecvCGO(t, handle, 2, "two")
+	if errID := GreeterChatNativeBidiStreamFinish(context.Background(), handle); errID != 0 {
 		text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
-		t.Fatalf("FinishGreeterChatNativeBidiStream() errID = %d, text = %q, ok = %v", errID, text, ok)
+		t.Fatalf("GreeterChatNativeBidiStreamFinish() errID = %d, text = %q, ok = %v", errID, text, ok)
 	}
 	if got := greeterBidiFinishCount(); got != 1 {
 		t.Fatalf("finish count = %d, want 1", got)
 	}
-	if errID := FinishGreeterChatNativeBidiStream(context.Background(), handle); errID == 0 {
+	if errID := GreeterChatNativeBidiStreamFinish(context.Background(), handle); errID == 0 {
 		t.Fatal("second Finish returned errID 0")
 	}
 }
@@ -498,17 +498,17 @@ func TestNativeBidiStreamingCGOServerCancelFinalizesOnce(t *testing.T) {
 	if err := registerGreeterBidiCGONativeServerCallbacks(); err != nil {
 		t.Fatalf("registerGreeterBidiCGONativeServerCallbacks() error = %v", err)
 	}
-	handle, errID := StartGreeterChatNativeBidiStream(context.Background())
+	handle, errID := GreeterChatNativeBidiStreamStart(context.Background())
 	if errID != 0 {
-		t.Fatalf("StartGreeterChatNativeBidiStream() errID = %d", errID)
+		t.Fatalf("GreeterChatNativeBidiStreamStart() errID = %d", errID)
 	}
-	if errID := CancelGreeterChatNativeBidiStream(context.Background(), handle); errID != 0 {
-		t.Fatalf("CancelGreeterChatNativeBidiStream() errID = %d", errID)
+	if errID := GreeterChatNativeBidiStreamCancel(context.Background(), handle); errID != 0 {
+		t.Fatalf("GreeterChatNativeBidiStreamCancel() errID = %d", errID)
 	}
 	if got := greeterBidiCancelCount(); got != 1 {
 		t.Fatalf("cancel count = %d, want 1", got)
 	}
-	if errID := CancelGreeterChatNativeBidiStream(context.Background(), handle); errID == 0 {
+	if errID := GreeterChatNativeBidiStreamCancel(context.Background(), handle); errID == 0 {
 		t.Fatal("second Cancel returned errID 0")
 	}
 	if got := greeterBidiCancelCount(); got != 1 {
@@ -520,7 +520,7 @@ func sendChatCGO(t *testing.T, handle int32, name string, seq int32) {
 	t.Helper()
 	if errID := sendChatErr(context.Background(), handle, chatInputCGO(name, seq)); errID != 0 {
 		text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
-		t.Fatalf("SendGreeterChatNativeBidiStream() errID = %d, text = %q, ok = %v", errID, text, ok)
+		t.Fatalf("GreeterChatNativeBidiStreamSend() errID = %d, text = %q, ok = %v", errID, text, ok)
 	}
 }
 
@@ -533,12 +533,12 @@ func chatInputCGO(name string, seq int32) *chatInputABI {
 	}
 }
 
-func assertChatReadCGO(t *testing.T, handle int32, wantAck int32, wantMessage string) {
+func assertChatRecvCGO(t *testing.T, handle int32, wantAck int32, wantMessage string) {
 	t.Helper()
 	output := &chatOutput{}
 	if errID := readChat(context.Background(), handle, output); errID != 0 {
 		text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
-		t.Fatalf("ReadGreeterChatNativeBidiStream() errID = %d, text = %q, ok = %v", errID, text, ok)
+		t.Fatalf("GreeterChatNativeBidiStreamRecv() errID = %d, text = %q, ok = %v", errID, text, ok)
 	}
 	if output.Ack != wantAck {
 		t.Fatalf("Ack = %d, want %d", output.Ack, wantAck)

@@ -211,24 +211,24 @@ func assertNativeUnary(t *testing.T, ctx context.Context, name, city, want strin
 func assertNativeCollect(t *testing.T, ctx context.Context, names []string, want string) {
 	t.Helper()
 
-	handle, errID := startGreeterCollectNativeClientStream()
+	handle, errID := greeterNativeCollectStart()
 	if errID != 0 {
-		t.Fatalf("StartGreeterCollectNativeClientStream() error id = %d", errID)
+		t.Fatalf("greeterNativeCollectStart() error id = %d", errID)
 	}
 	for _, name := range names {
 		input := nativeInput(name, "local")
-		if errID := sendGreeterCollectNativeClientStream(
+		if errID := greeterNativeCollectSend(
 			handle,
 			input.namePtr(), input.nameLen(), 0,
 			input.cityPtr(), input.cityLen(), 0,
 		); errID != 0 {
-			t.Fatalf("SendGreeterCollectNativeClientStream() error id = %d", errID)
+			t.Fatalf("greeterNativeCollectSend() error id = %d", errID)
 		}
 	}
 	var messagePtr uintptr
 	var messageLen int32
-	if errID := finishGreeterCollectNativeClientStream(handle, &messagePtr, &messageLen); errID != 0 {
-		t.Fatalf("FinishGreeterCollectNativeClientStream() error id = %d", errID)
+	if errID := greeterNativeCollectFinish(handle, &messagePtr, &messageLen); errID != 0 {
+		t.Fatalf("greeterNativeCollectFinish() error id = %d", errID)
 	}
 	assertNativeOutput(t, messagePtr, messageLen, want)
 }
@@ -237,52 +237,52 @@ func assertNativeBroadcast(t *testing.T, ctx context.Context, name string, wants
 	t.Helper()
 
 	input := nativeInput(name, "local")
-	handle, errID := startGreeterBroadcastNativeServerStream(
+	handle, errID := greeterNativeBroadcastStart(
 		input.namePtr(), input.nameLen(), 0,
 		input.cityPtr(), input.cityLen(), 0,
 	)
 	if errID != 0 {
-		t.Fatalf("StartGreeterBroadcastNativeServerStream() error id = %d", errID)
+		t.Fatalf("greeterNativeBroadcastStart() error id = %d", errID)
 	}
 	for _, want := range wants {
 		var messagePtr uintptr
 		var messageLen int32
-		if errID := readGreeterBroadcastNativeServerStream(handle, &messagePtr, &messageLen); errID != 0 {
-			t.Fatalf("ReadGreeterBroadcastNativeServerStream() error id = %d", errID)
+		if errID := greeterNativeBroadcastRecv(handle, &messagePtr, &messageLen); errID != 0 {
+			t.Fatalf("greeterNativeBroadcastRecv() error id = %d", errID)
 		}
 		assertNativeOutput(t, messagePtr, messageLen, want)
 	}
-	if errID := finishGreeterBroadcastNativeServerStream(handle); errID != 0 {
-		t.Fatalf("FinishGreeterBroadcastNativeServerStream() error id = %d", errID)
+	if errID := greeterNativeBroadcastFinish(handle); errID != 0 {
+		t.Fatalf("greeterNativeBroadcastFinish() error id = %d", errID)
 	}
 }
 
 func assertNativeChat(t *testing.T, ctx context.Context, name, want string) {
 	t.Helper()
 
-	handle, errID := startGreeterChatNativeBidiStream()
+	handle, errID := greeterNativeChatStart()
 	if errID != 0 {
-		t.Fatalf("StartGreeterChatNativeBidiStream() error id = %d", errID)
+		t.Fatalf("greeterNativeChatStart() error id = %d", errID)
 	}
 	input := nativeInput(name, "local")
-	if errID := sendGreeterChatNativeBidiStream(
+	if errID := greeterNativeChatSend(
 		handle,
 		input.namePtr(), input.nameLen(), 0,
 		input.cityPtr(), input.cityLen(), 0,
 	); errID != 0 {
-		t.Fatalf("SendGreeterChatNativeBidiStream() error id = %d", errID)
+		t.Fatalf("greeterNativeChatSend() error id = %d", errID)
 	}
 	var messagePtr uintptr
 	var messageLen int32
-	if errID := readGreeterChatNativeBidiStream(handle, &messagePtr, &messageLen); errID != 0 {
-		t.Fatalf("ReadGreeterChatNativeBidiStream() error id = %d", errID)
+	if errID := greeterNativeChatRecv(handle, &messagePtr, &messageLen); errID != 0 {
+		t.Fatalf("greeterNativeChatRecv() error id = %d", errID)
 	}
 	assertNativeOutput(t, messagePtr, messageLen, want)
-	if errID := closeSendGreeterChatNativeBidiStream(handle); errID != 0 {
-		t.Fatalf("CloseSendGreeterChatNativeBidiStream() error id = %d", errID)
+	if errID := greeterNativeChatCloseSend(handle); errID != 0 {
+		t.Fatalf("greeterNativeChatCloseSend() error id = %d", errID)
 	}
-	if errID := finishGreeterChatNativeBidiStream(handle); errID != 0 {
-		t.Fatalf("FinishGreeterChatNativeBidiStream() error id = %d", errID)
+	if errID := greeterNativeChatFinish(handle); errID != 0 {
+		t.Fatalf("greeterNativeChatFinish() error id = %d", errID)
 	}
 }
 
@@ -296,31 +296,31 @@ func assertNativeChatConversation(t *testing.T, ctx context.Context, names []str
 	defer cancel()
 	_ = streamCtx
 
-	handle, errID := startGreeterChatNativeBidiStream()
+	handle, errID := greeterNativeChatStart()
 	if errID != 0 {
-		t.Fatalf("StartGreeterChatNativeBidiStream() error id = %d", errID)
+		t.Fatalf("greeterNativeChatStart() error id = %d", errID)
 	}
 	for index, name := range names {
 		input := nativeInput(name, "local")
-		if errID := sendGreeterChatNativeBidiStream(
+		if errID := greeterNativeChatSend(
 			handle,
 			input.namePtr(), input.nameLen(), 0,
 			input.cityPtr(), input.cityLen(), 0,
 		); errID != 0 {
-			t.Fatalf("SendGreeterChatNativeBidiStream(%q) error id = %d: %s", name, errID, cgoErrorText(errID))
+			t.Fatalf("greeterNativeChatSend(%q) error id = %d: %s", name, errID, cgoErrorText(errID))
 		}
 		var messagePtr uintptr
 		var messageLen int32
-		if errID := readGreeterChatNativeBidiStream(handle, &messagePtr, &messageLen); errID != 0 {
-			t.Fatalf("ReadGreeterChatNativeBidiStream(%q) error id = %d: %s", name, errID, cgoErrorText(errID))
+		if errID := greeterNativeChatRecv(handle, &messagePtr, &messageLen); errID != 0 {
+			t.Fatalf("greeterNativeChatRecv(%q) error id = %d: %s", name, errID, cgoErrorText(errID))
 		}
 		assertNativeOutput(t, messagePtr, messageLen, wants[index])
 	}
-	if errID := closeSendGreeterChatNativeBidiStream(handle); errID != 0 {
-		t.Fatalf("CloseSendGreeterChatNativeBidiStream() error id = %d", errID)
+	if errID := greeterNativeChatCloseSend(handle); errID != 0 {
+		t.Fatalf("greeterNativeChatCloseSend() error id = %d", errID)
 	}
-	if errID := finishGreeterChatNativeBidiStream(handle); errID != 0 {
-		t.Fatalf("FinishGreeterChatNativeBidiStream() error id = %d", errID)
+	if errID := greeterNativeChatFinish(handle); errID != 0 {
+		t.Fatalf("greeterNativeChatFinish() error id = %d", errID)
 	}
 }
 
@@ -339,20 +339,20 @@ func assertMessageUnary(t *testing.T, ctx context.Context, name, city, want stri
 func assertMessageCollect(t *testing.T, ctx context.Context, names []string, want string) {
 	t.Helper()
 
-	handle, errID := startGreeterCollectMessageClientStream()
+	handle, errID := greeterMessageCollectStart()
 	if errID != 0 {
-		t.Fatalf("StartGreeterCollectMessageClientStream() error id = %d", errID)
+		t.Fatalf("greeterMessageCollectStart() error id = %d", errID)
 	}
 	for _, name := range names {
 		request := messageRequestBytes(t, name, "remote")
-		if errID := sendGreeterCollectMessageClientStream(handle, bytesPtr(request), int32(len(request))); errID != 0 {
-			t.Fatalf("SendGreeterCollectMessageClientStream() error id = %d", errID)
+		if errID := greeterMessageCollectSend(handle, bytesPtr(request), int32(len(request))); errID != 0 {
+			t.Fatalf("greeterMessageCollectSend() error id = %d", errID)
 		}
 	}
 	var messagePtr uintptr
 	var messageLen int32
-	if errID := finishGreeterCollectMessageClientStream(handle, &messagePtr, &messageLen); errID != 0 {
-		t.Fatalf("FinishGreeterCollectMessageClientStream() error id = %d", errID)
+	if errID := greeterMessageCollectFinish(handle, &messagePtr, &messageLen); errID != 0 {
+		t.Fatalf("greeterMessageCollectFinish() error id = %d", errID)
 	}
 	assertMessageOutput(t, messagePtr, messageLen, want)
 }
@@ -361,42 +361,42 @@ func assertMessageBroadcast(t *testing.T, ctx context.Context, name string, want
 	t.Helper()
 
 	request := messageRequestBytes(t, name, "remote")
-	handle, errID := startGreeterBroadcastMessageServerStream(bytesPtr(request), int32(len(request)))
+	handle, errID := greeterMessageBroadcastStart(bytesPtr(request), int32(len(request)))
 	if errID != 0 {
-		t.Fatalf("StartGreeterBroadcastMessageServerStream() error id = %d", errID)
+		t.Fatalf("greeterMessageBroadcastStart() error id = %d", errID)
 	}
 	for _, want := range wants {
 		var messagePtr uintptr
 		var messageLen int32
-		if errID := readGreeterBroadcastMessageServerStream(handle, &messagePtr, &messageLen); errID != 0 {
-			t.Fatalf("ReadGreeterBroadcastMessageServerStream() error id = %d", errID)
+		if errID := greeterMessageBroadcastRecv(handle, &messagePtr, &messageLen); errID != 0 {
+			t.Fatalf("greeterMessageBroadcastRecv() error id = %d", errID)
 		}
 		assertMessageOutput(t, messagePtr, messageLen, want)
 	}
-	if errID := finishGreeterBroadcastMessageServerStream(handle); errID != 0 {
-		t.Fatalf("FinishGreeterBroadcastMessageServerStream() error id = %d", errID)
+	if errID := greeterMessageBroadcastFinish(handle); errID != 0 {
+		t.Fatalf("greeterMessageBroadcastFinish() error id = %d", errID)
 	}
 }
 
 func assertMessageChat(t *testing.T, ctx context.Context, name, want string) {
 	t.Helper()
 
-	handle, errID := startGreeterChatMessageBidiStream()
+	handle, errID := greeterMessageChatStart()
 	if errID != 0 {
-		t.Fatalf("StartGreeterChatMessageBidiStream() error id = %d", errID)
+		t.Fatalf("greeterMessageChatStart() error id = %d", errID)
 	}
 	request := messageRequestBytes(t, name, "remote")
-	if errID := sendGreeterChatMessageBidiStream(handle, bytesPtr(request), int32(len(request))); errID != 0 {
-		t.Fatalf("SendGreeterChatMessageBidiStream() error id = %d", errID)
+	if errID := greeterMessageChatSend(handle, bytesPtr(request), int32(len(request))); errID != 0 {
+		t.Fatalf("greeterMessageChatSend() error id = %d", errID)
 	}
 	var messagePtr uintptr
 	var messageLen int32
-	if errID := readGreeterChatMessageBidiStream(handle, &messagePtr, &messageLen); errID != 0 {
-		t.Fatalf("ReadGreeterChatMessageBidiStream() error id = %d: %s", errID, cgoErrorText(errID))
+	if errID := greeterMessageChatRecv(handle, &messagePtr, &messageLen); errID != 0 {
+		t.Fatalf("greeterMessageChatRecv() error id = %d: %s", errID, cgoErrorText(errID))
 	}
 	assertMessageOutput(t, messagePtr, messageLen, want)
-	if errID := finishGreeterChatMessageBidiStream(handle); errID != 0 {
-		t.Fatalf("FinishGreeterChatMessageBidiStream() error id = %d", errID)
+	if errID := greeterMessageChatFinish(handle); errID != 0 {
+		t.Fatalf("greeterMessageChatFinish() error id = %d", errID)
 	}
 }
 
@@ -410,27 +410,27 @@ func assertMessageChatConversation(t *testing.T, ctx context.Context, names []st
 	defer cancel()
 	_ = streamCtx
 
-	handle, errID := startGreeterChatMessageBidiStream()
+	handle, errID := greeterMessageChatStart()
 	if errID != 0 {
-		t.Fatalf("StartGreeterChatMessageBidiStream() error id = %d", errID)
+		t.Fatalf("greeterMessageChatStart() error id = %d", errID)
 	}
 	for index, name := range names {
 		request := messageRequestBytes(t, name, "remote")
-		if errID := sendGreeterChatMessageBidiStream(handle, bytesPtr(request), int32(len(request))); errID != 0 {
-			t.Fatalf("SendGreeterChatMessageBidiStream(%q) error id = %d: %s", name, errID, cgoErrorText(errID))
+		if errID := greeterMessageChatSend(handle, bytesPtr(request), int32(len(request))); errID != 0 {
+			t.Fatalf("greeterMessageChatSend(%q) error id = %d: %s", name, errID, cgoErrorText(errID))
 		}
 		var messagePtr uintptr
 		var messageLen int32
-		if errID := readGreeterChatMessageBidiStream(handle, &messagePtr, &messageLen); errID != 0 {
-			t.Fatalf("ReadGreeterChatMessageBidiStream(%q) error id = %d: %s", name, errID, cgoErrorText(errID))
+		if errID := greeterMessageChatRecv(handle, &messagePtr, &messageLen); errID != 0 {
+			t.Fatalf("greeterMessageChatRecv(%q) error id = %d: %s", name, errID, cgoErrorText(errID))
 		}
 		assertMessageOutput(t, messagePtr, messageLen, wants[index])
 	}
-	if errID := closeSendGreeterChatMessageBidiStream(handle); errID != 0 {
-		t.Fatalf("CloseSendGreeterChatMessageBidiStream() error id = %d", errID)
+	if errID := greeterMessageChatCloseSend(handle); errID != 0 {
+		t.Fatalf("greeterMessageChatCloseSend() error id = %d", errID)
 	}
-	if errID := finishGreeterChatMessageBidiStream(handle); errID != 0 {
-		t.Fatalf("FinishGreeterChatMessageBidiStream() error id = %d", errID)
+	if errID := greeterMessageChatFinish(handle); errID != 0 {
+		t.Fatalf("greeterMessageChatFinish() error id = %d", errID)
 	}
 }
 

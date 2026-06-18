@@ -31,8 +31,8 @@ type SharedSoDemoCGOMessageServer interface {
 	ChatRuntimeState(ctx context.Context, stream rpcruntime.BidiStreamingServer[*IncrementRuntimeStateRequest, *RuntimeStateResponse]) error
 }
 
-// RecvSharedSoDemoMessageWatchRuntimeState receives a message response from an active WatchRuntimeState stream.
-func RecvSharedSoDemoMessageWatchRuntimeState(ctx context.Context, handle rpcruntime.StreamHandle) (*RuntimeStateResponse, error) {
+// SharedSoDemoMessageWatchRuntimeStateRecv receives a message response from an active WatchRuntimeState stream.
+func SharedSoDemoMessageWatchRuntimeStateRecv(ctx context.Context, handle rpcruntime.StreamHandle) (*RuntimeStateResponse, error) {
 	entry, err := rpcruntime.RecvStreamSession(handle)
 	if err != nil {
 		return nil, err
@@ -108,8 +108,8 @@ func RecvSharedSoDemoMessageWatchRuntimeState(ctx context.Context, handle rpcrun
 	}
 }
 
-// FinishSharedSoDemoMessageWatchRuntimeState finishes an active message WatchRuntimeState stream and releases its handle.
-func FinishSharedSoDemoMessageWatchRuntimeState(ctx context.Context, handle rpcruntime.StreamHandle) error {
+// SharedSoDemoMessageWatchRuntimeStateFinish finishes an active message WatchRuntimeState stream and releases its handle.
+func SharedSoDemoMessageWatchRuntimeStateFinish(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.LoadStreamSession(handle)
 	if err != nil {
 		return err
@@ -165,8 +165,8 @@ func FinishSharedSoDemoMessageWatchRuntimeState(ctx context.Context, handle rpcr
 	}
 }
 
-// CancelSharedSoDemoMessageWatchRuntimeState cancels an active message WatchRuntimeState stream and releases its handle.
-func CancelSharedSoDemoMessageWatchRuntimeState(ctx context.Context, handle rpcruntime.StreamHandle) error {
+// SharedSoDemoMessageWatchRuntimeStateCancel cancels an active message WatchRuntimeState stream and releases its handle.
+func SharedSoDemoMessageWatchRuntimeStateCancel(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.LoadStreamSession(handle)
 	if err != nil {
 		return err
@@ -222,8 +222,8 @@ func CancelSharedSoDemoMessageWatchRuntimeState(ctx context.Context, handle rpcr
 	}
 }
 
-// SendSharedSoDemoMessageCollectRuntimeState sends a message request on an active CollectRuntimeState stream.
-func SendSharedSoDemoMessageCollectRuntimeState(ctx context.Context, handle rpcruntime.StreamHandle, req *IncrementRuntimeStateRequest) error {
+// SharedSoDemoMessageCollectRuntimeStateSend sends a message request on an active CollectRuntimeState stream.
+func SharedSoDemoMessageCollectRuntimeStateSend(ctx context.Context, handle rpcruntime.StreamHandle, req *IncrementRuntimeStateRequest) error {
 	if req == nil {
 		return errors.New("rpccgo: message request is nil")
 	}
@@ -267,8 +267,8 @@ func SendSharedSoDemoMessageCollectRuntimeState(ctx context.Context, handle rpcr
 	}
 }
 
-// FinishSharedSoDemoMessageCollectRuntimeState finishes an active message CollectRuntimeState stream and releases its handle.
-func FinishSharedSoDemoMessageCollectRuntimeState(ctx context.Context, handle rpcruntime.StreamHandle) (*RuntimeStateResponse, error) {
+// SharedSoDemoMessageCollectRuntimeStateFinish finishes an active message CollectRuntimeState stream and releases its handle.
+func SharedSoDemoMessageCollectRuntimeStateFinish(ctx context.Context, handle rpcruntime.StreamHandle) (*RuntimeStateResponse, error) {
 	entry, err := rpcruntime.LoadStreamSession(handle)
 	if err != nil {
 		return nil, err
@@ -359,8 +359,8 @@ func FinishSharedSoDemoMessageCollectRuntimeState(ctx context.Context, handle rp
 	}
 }
 
-// CancelSharedSoDemoMessageCollectRuntimeState cancels an active message CollectRuntimeState stream and releases its handle.
-func CancelSharedSoDemoMessageCollectRuntimeState(ctx context.Context, handle rpcruntime.StreamHandle) error {
+// SharedSoDemoMessageCollectRuntimeStateCancel cancels an active message CollectRuntimeState stream and releases its handle.
+func SharedSoDemoMessageCollectRuntimeStateCancel(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.LoadStreamSession(handle)
 	if err != nil {
 		return err
@@ -416,8 +416,8 @@ func CancelSharedSoDemoMessageCollectRuntimeState(ctx context.Context, handle rp
 	}
 }
 
-// RecvSharedSoDemoMessageStreamRuntimeState receives a message response from an active StreamRuntimeState stream.
-func RecvSharedSoDemoMessageStreamRuntimeState(ctx context.Context, handle rpcruntime.StreamHandle) (*RuntimeStateResponse, error) {
+// SharedSoDemoMessageStreamRuntimeStateRecv receives a message response from an active StreamRuntimeState stream.
+func SharedSoDemoMessageStreamRuntimeStateRecv(ctx context.Context, handle rpcruntime.StreamHandle) (*RuntimeStateResponse, error) {
 	entry, err := rpcruntime.RecvStreamSession(handle)
 	if err != nil {
 		return nil, err
@@ -493,8 +493,8 @@ func RecvSharedSoDemoMessageStreamRuntimeState(ctx context.Context, handle rpcru
 	}
 }
 
-// FinishSharedSoDemoMessageStreamRuntimeState finishes an active message StreamRuntimeState stream and releases its handle.
-func FinishSharedSoDemoMessageStreamRuntimeState(ctx context.Context, handle rpcruntime.StreamHandle) error {
+// SharedSoDemoMessageStreamRuntimeStateFinish finishes an active message StreamRuntimeState stream and releases its handle.
+func SharedSoDemoMessageStreamRuntimeStateFinish(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.LoadStreamSession(handle)
 	if err != nil {
 		return err
@@ -550,8 +550,8 @@ func FinishSharedSoDemoMessageStreamRuntimeState(ctx context.Context, handle rpc
 	}
 }
 
-// CancelSharedSoDemoMessageStreamRuntimeState cancels an active message StreamRuntimeState stream and releases its handle.
-func CancelSharedSoDemoMessageStreamRuntimeState(ctx context.Context, handle rpcruntime.StreamHandle) error {
+// SharedSoDemoMessageStreamRuntimeStateCancel cancels an active message StreamRuntimeState stream and releases its handle.
+func SharedSoDemoMessageStreamRuntimeStateCancel(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.LoadStreamSession(handle)
 	if err != nil {
 		return err
@@ -607,8 +607,8 @@ func CancelSharedSoDemoMessageStreamRuntimeState(ctx context.Context, handle rpc
 	}
 }
 
-// SendSharedSoDemoMessageChatRuntimeState sends a message request on an active ChatRuntimeState stream.
-func SendSharedSoDemoMessageChatRuntimeState(ctx context.Context, handle rpcruntime.StreamHandle, req *IncrementRuntimeStateRequest) error {
+// SharedSoDemoMessageChatRuntimeStateSend sends a message request on an active ChatRuntimeState stream.
+func SharedSoDemoMessageChatRuntimeStateSend(ctx context.Context, handle rpcruntime.StreamHandle, req *IncrementRuntimeStateRequest) error {
 	if req == nil {
 		return errors.New("rpccgo: message request is nil")
 	}
@@ -652,8 +652,8 @@ func SendSharedSoDemoMessageChatRuntimeState(ctx context.Context, handle rpcrunt
 	}
 }
 
-// RecvSharedSoDemoMessageChatRuntimeState receives a message response from an active ChatRuntimeState stream.
-func RecvSharedSoDemoMessageChatRuntimeState(ctx context.Context, handle rpcruntime.StreamHandle) (*RuntimeStateResponse, error) {
+// SharedSoDemoMessageChatRuntimeStateRecv receives a message response from an active ChatRuntimeState stream.
+func SharedSoDemoMessageChatRuntimeStateRecv(ctx context.Context, handle rpcruntime.StreamHandle) (*RuntimeStateResponse, error) {
 	entry, err := rpcruntime.RecvStreamSession(handle)
 	if err != nil {
 		return nil, err
@@ -729,8 +729,8 @@ func RecvSharedSoDemoMessageChatRuntimeState(ctx context.Context, handle rpcrunt
 	}
 }
 
-// CloseSendSharedSoDemoMessageChatRuntimeState closes the message send side of an active ChatRuntimeState stream.
-func CloseSendSharedSoDemoMessageChatRuntimeState(ctx context.Context, handle rpcruntime.StreamHandle) error {
+// SharedSoDemoMessageChatRuntimeStateCloseSend closes the message send side of an active ChatRuntimeState stream.
+func SharedSoDemoMessageChatRuntimeStateCloseSend(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.CloseSendStreamSession(handle)
 	if err != nil {
 		return err
@@ -771,8 +771,8 @@ func CloseSendSharedSoDemoMessageChatRuntimeState(ctx context.Context, handle rp
 	}
 }
 
-// FinishSharedSoDemoMessageChatRuntimeState finishes an active message ChatRuntimeState stream and releases its handle.
-func FinishSharedSoDemoMessageChatRuntimeState(ctx context.Context, handle rpcruntime.StreamHandle) error {
+// SharedSoDemoMessageChatRuntimeStateFinish finishes an active message ChatRuntimeState stream and releases its handle.
+func SharedSoDemoMessageChatRuntimeStateFinish(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.LoadStreamSession(handle)
 	if err != nil {
 		return err
@@ -828,8 +828,8 @@ func FinishSharedSoDemoMessageChatRuntimeState(ctx context.Context, handle rpcru
 	}
 }
 
-// CancelSharedSoDemoMessageChatRuntimeState cancels an active message ChatRuntimeState stream and releases its handle.
-func CancelSharedSoDemoMessageChatRuntimeState(ctx context.Context, handle rpcruntime.StreamHandle) error {
+// SharedSoDemoMessageChatRuntimeStateCancel cancels an active message ChatRuntimeState stream and releases its handle.
+func SharedSoDemoMessageChatRuntimeStateCancel(ctx context.Context, handle rpcruntime.StreamHandle) error {
 	entry, err := rpcruntime.LoadStreamSession(handle)
 	if err != nil {
 		return err
@@ -949,7 +949,7 @@ func registerSharedSoDemoCGOMessageServer(server SharedSoDemoCGOMessageServer) e
 	return nil
 }
 
-func startSharedSoDemoCGOMessageWatchRuntimeState(ctx context.Context, server SharedSoDemoCGOMessageServer, req *ReadRuntimeStateRequest) (rpcruntime.ServerStreamingClient[*RuntimeStateResponse], error) {
+func sharedSoDemoWatchRuntimeStateCGOMessageStart(ctx context.Context, server SharedSoDemoCGOMessageServer, req *ReadRuntimeStateRequest) (rpcruntime.ServerStreamingClient[*RuntimeStateResponse], error) {
 	if req == nil {
 		return nil, errors.New("rpccgo: message request is nil")
 	}
@@ -965,7 +965,7 @@ func startSharedSoDemoCGOMessageWatchRuntimeState(ctx context.Context, server Sh
 	return client, nil
 }
 
-func startSharedSoDemoCGOMessageCollectRuntimeState(ctx context.Context, server SharedSoDemoCGOMessageServer) (rpcruntime.ClientStreamingClient[*IncrementRuntimeStateRequest, *RuntimeStateResponse], error) {
+func sharedSoDemoCollectRuntimeStateCGOMessageStart(ctx context.Context, server SharedSoDemoCGOMessageServer) (rpcruntime.ClientStreamingClient[*IncrementRuntimeStateRequest, *RuntimeStateResponse], error) {
 	client, stream, streamCtx := rpcruntime.NewClientStreaming[*IncrementRuntimeStateRequest, *RuntimeStateResponse](ctx, rpcruntime.LocalStreamOptions{
 		RequestBuffer: 16,
 		StreamClosed:  errors.New("rpccgo: message stream is closed"),
@@ -978,7 +978,7 @@ func startSharedSoDemoCGOMessageCollectRuntimeState(ctx context.Context, server 
 	return client, nil
 }
 
-func startSharedSoDemoCGOMessageStreamRuntimeState(ctx context.Context, server SharedSoDemoCGOMessageServer, req *ReadRuntimeStateRequest) (rpcruntime.ServerStreamingClient[*RuntimeStateResponse], error) {
+func sharedSoDemoStreamRuntimeStateCGOMessageStart(ctx context.Context, server SharedSoDemoCGOMessageServer, req *ReadRuntimeStateRequest) (rpcruntime.ServerStreamingClient[*RuntimeStateResponse], error) {
 	if req == nil {
 		return nil, errors.New("rpccgo: message request is nil")
 	}
@@ -994,7 +994,7 @@ func startSharedSoDemoCGOMessageStreamRuntimeState(ctx context.Context, server S
 	return client, nil
 }
 
-func startSharedSoDemoCGOMessageChatRuntimeState(ctx context.Context, server SharedSoDemoCGOMessageServer) (rpcruntime.BidiStreamingClient[*IncrementRuntimeStateRequest, *RuntimeStateResponse], error) {
+func sharedSoDemoChatRuntimeStateCGOMessageStart(ctx context.Context, server SharedSoDemoCGOMessageServer) (rpcruntime.BidiStreamingClient[*IncrementRuntimeStateRequest, *RuntimeStateResponse], error) {
 	client, stream, streamCtx := rpcruntime.NewBidiStreaming[*IncrementRuntimeStateRequest, *RuntimeStateResponse](ctx, rpcruntime.LocalStreamOptions{
 		RequestBuffer:  16,
 		ResponseBuffer: 1,

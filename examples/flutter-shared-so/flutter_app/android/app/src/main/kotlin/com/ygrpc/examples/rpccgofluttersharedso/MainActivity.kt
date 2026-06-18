@@ -74,7 +74,7 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun runJniStreams(): String {
-        val collect = SharedSoDemoJni.StartCollectRuntimeState()
+        val collect = SharedSoDemoJni.CollectRuntimeStateStart()
         val collectStream = collect.value ?: return "jni client stream start error: ${collect.error}"
         collectStream.Send(
             IncrementRuntimeStateRequest.newBuilder()
@@ -91,7 +91,7 @@ class MainActivity : FlutterActivity() {
         val collected = collectStream.Finish()
         val collectedValue = collected.value ?: return "jni client stream finish error: ${collected.error}"
 
-        val stream = SharedSoDemoJni.StartStreamRuntimeState(
+        val stream = SharedSoDemoJni.StreamRuntimeStateStart(
             ReadRuntimeStateRequest.newBuilder()
                 .setCaller("kotlin-jni-server-stream")
                 .build(),
@@ -105,7 +105,7 @@ class MainActivity : FlutterActivity() {
         }
         serverStream.Finish().let { if (!it.ok) return "jni server stream finish error: ${it.error}" }
 
-        val chat = SharedSoDemoJni.StartChatRuntimeState()
+        val chat = SharedSoDemoJni.ChatRuntimeStateStart()
         val bidi = chat.value ?: return "jni bidi stream start error: ${chat.error}"
         val bidiValues = mutableListOf<Long>()
         listOf(

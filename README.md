@@ -287,6 +287,7 @@ protoc \
    );
    print(response.message);
    ```
+   Streaming API 显式使用 cgo operation 语义：先调用 `Start<Method>()` 获取 stream，再调用 `Send()`、`Recv()`、`Finish()`、`CloseSend()` 或 `Cancel()`。
 
 *注：关于如何在 Android 下使 Flutter 和 Kotlin JNI 共享同一个 Go `.so` 运行时和内存状态，请参考 [examples/flutter-shared-so](examples/flutter-shared-so/README.md) 示例。*
 

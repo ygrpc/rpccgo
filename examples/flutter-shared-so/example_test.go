@@ -91,14 +91,14 @@ func TestSharedSoDemoMessageStreamContract(t *testing.T) {
 		}
 	}()
 
-	handle, err := fluttersharedv1.StartSharedSoDemoMessageWatchRuntimeState(context.Background(), &fluttersharedv1.ReadRuntimeStateRequest{
+	handle, err := fluttersharedv1.SharedSoDemoMessageWatchRuntimeStateStart(context.Background(), &fluttersharedv1.ReadRuntimeStateRequest{
 		Caller: "kotlin-jni-stream-test",
 	})
 	if err != nil {
 		t.Fatalf("start runtime state stream: %v", err)
 	}
 	for i := 0; i < 2; i++ {
-		resp, err := fluttersharedv1.RecvSharedSoDemoMessageWatchRuntimeState(context.Background(), handle)
+		resp, err := fluttersharedv1.SharedSoDemoMessageWatchRuntimeStateRecv(context.Background(), handle)
 		if err != nil {
 			t.Fatalf("recv runtime state stream response %d: %v", i, err)
 		}
@@ -109,11 +109,11 @@ func TestSharedSoDemoMessageStreamContract(t *testing.T) {
 			t.Fatalf("stream instance address is empty")
 		}
 	}
-	if err := fluttersharedv1.FinishSharedSoDemoMessageWatchRuntimeState(context.Background(), handle); err != nil {
+	if err := fluttersharedv1.SharedSoDemoMessageWatchRuntimeStateFinish(context.Background(), handle); err != nil {
 		t.Fatalf("finish runtime state stream: %v", err)
 	}
 
-	collect, err := fluttersharedv1.StartSharedSoDemoMessageCollectRuntimeState(context.Background())
+	collect, err := fluttersharedv1.SharedSoDemoMessageCollectRuntimeStateStart(context.Background())
 	if err != nil {
 		t.Fatalf("start collect runtime state stream: %v", err)
 	}
@@ -121,11 +121,11 @@ func TestSharedSoDemoMessageStreamContract(t *testing.T) {
 		{Delta: 2, Caller: "client-stream-a"},
 		{Delta: 3, Caller: "client-stream-b"},
 	} {
-		if err := fluttersharedv1.SendSharedSoDemoMessageCollectRuntimeState(context.Background(), collect, req); err != nil {
+		if err := fluttersharedv1.SharedSoDemoMessageCollectRuntimeStateSend(context.Background(), collect, req); err != nil {
 			t.Fatalf("send collect runtime state request: %v", err)
 		}
 	}
-	collected, err := fluttersharedv1.FinishSharedSoDemoMessageCollectRuntimeState(context.Background(), collect)
+	collected, err := fluttersharedv1.SharedSoDemoMessageCollectRuntimeStateFinish(context.Background(), collect)
 	if err != nil {
 		t.Fatalf("finish collect runtime state stream: %v", err)
 	}
@@ -136,14 +136,14 @@ func TestSharedSoDemoMessageStreamContract(t *testing.T) {
 		t.Fatalf("collected caller = %q, want %q", got, want)
 	}
 
-	stream, err := fluttersharedv1.StartSharedSoDemoMessageStreamRuntimeState(context.Background(), &fluttersharedv1.ReadRuntimeStateRequest{
+	stream, err := fluttersharedv1.SharedSoDemoMessageStreamRuntimeStateStart(context.Background(), &fluttersharedv1.ReadRuntimeStateRequest{
 		Caller: "server-stream-test",
 	})
 	if err != nil {
 		t.Fatalf("start stream runtime state: %v", err)
 	}
 	for i := 0; i < 3; i++ {
-		resp, err := fluttersharedv1.RecvSharedSoDemoMessageStreamRuntimeState(context.Background(), stream)
+		resp, err := fluttersharedv1.SharedSoDemoMessageStreamRuntimeStateRecv(context.Background(), stream)
 		if err != nil {
 			t.Fatalf("recv stream runtime state response %d: %v", i, err)
 		}
@@ -151,11 +151,11 @@ func TestSharedSoDemoMessageStreamContract(t *testing.T) {
 			t.Fatalf("server stream caller = %q, want %q", got, want)
 		}
 	}
-	if err := fluttersharedv1.FinishSharedSoDemoMessageStreamRuntimeState(context.Background(), stream); err != nil {
+	if err := fluttersharedv1.SharedSoDemoMessageStreamRuntimeStateFinish(context.Background(), stream); err != nil {
 		t.Fatalf("finish stream runtime state: %v", err)
 	}
 
-	chat, err := fluttersharedv1.StartSharedSoDemoMessageChatRuntimeState(context.Background())
+	chat, err := fluttersharedv1.SharedSoDemoMessageChatRuntimeStateStart(context.Background())
 	if err != nil {
 		t.Fatalf("start chat runtime state stream: %v", err)
 	}
@@ -163,10 +163,10 @@ func TestSharedSoDemoMessageStreamContract(t *testing.T) {
 		{Delta: 4, Caller: "bidi-stream-a"},
 		{Delta: 5, Caller: "bidi-stream-b"},
 	} {
-		if err := fluttersharedv1.SendSharedSoDemoMessageChatRuntimeState(context.Background(), chat, req); err != nil {
+		if err := fluttersharedv1.SharedSoDemoMessageChatRuntimeStateSend(context.Background(), chat, req); err != nil {
 			t.Fatalf("send chat runtime state request %d: %v", i, err)
 		}
-		resp, err := fluttersharedv1.RecvSharedSoDemoMessageChatRuntimeState(context.Background(), chat)
+		resp, err := fluttersharedv1.SharedSoDemoMessageChatRuntimeStateRecv(context.Background(), chat)
 		if err != nil {
 			t.Fatalf("recv chat runtime state response %d: %v", i, err)
 		}
@@ -174,10 +174,10 @@ func TestSharedSoDemoMessageStreamContract(t *testing.T) {
 			t.Fatalf("bidi caller = %q, want %q", got, want)
 		}
 	}
-	if err := fluttersharedv1.CloseSendSharedSoDemoMessageChatRuntimeState(context.Background(), chat); err != nil {
+	if err := fluttersharedv1.SharedSoDemoMessageChatRuntimeStateCloseSend(context.Background(), chat); err != nil {
 		t.Fatalf("close send chat runtime state stream: %v", err)
 	}
-	if err := fluttersharedv1.FinishSharedSoDemoMessageChatRuntimeState(context.Background(), chat); err != nil {
+	if err := fluttersharedv1.SharedSoDemoMessageChatRuntimeStateFinish(context.Background(), chat); err != nil {
 		t.Fatalf("finish chat runtime state stream: %v", err)
 	}
 }
@@ -189,10 +189,10 @@ func TestSharedSoDemoFlutterProjectContracts(t *testing.T) {
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "System.loadLibrary(\"rpccgo_flutter_shared_jni\")")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "SharedSoDemoJni.ComposeGreeting")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "SharedSoDemoJni.ReadRuntimeState")
-	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun StartWatchRuntimeState")
-	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun StartCollectRuntimeState")
-	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun StartStreamRuntimeState")
-	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun StartChatRuntimeState")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun WatchRuntimeStateStart")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun CollectRuntimeStateStart")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun StreamRuntimeStateStart")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun ChatRuntimeStateStart")
 	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart")
 	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "rpccgoMsgFluttersharedv1SharedSoDemoCollectRuntimeStateFinish")
 	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateCloseSend")
@@ -243,7 +243,7 @@ func TestSharedSoDemoCSharedBuild(t *testing.T) {
 		"rpccgoMsgFluttersharedv1SharedSoDemoComposeGreeting",
 		"rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart",
 		"rpccgoMsgFluttersharedv1SharedSoDemoCollectRuntimeStateStart",
-		"rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateRead",
+		"rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateRecv",
 		"rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateCloseSend",
 		"rpccgoTakeErrorText",
 		"rpccgoRelease",

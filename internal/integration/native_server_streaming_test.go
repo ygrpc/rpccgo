@@ -185,29 +185,29 @@ import "C"
 
 import context "context"
 
-func StartGreeterListNativeServerStream(ctx context.Context, PrefixPtr uintptr, PrefixLen int32, PrefixOwnership int32, Limit int32) (int32, int32) {
+func GreeterListNativeServerStreamStart(ctx context.Context, PrefixPtr uintptr, PrefixLen int32, PrefixOwnership int32, Limit int32) (int32, int32) {
 	var stream C.int32_t
 	errID := rpccgoNativeTestv1GreeterListStart(C.uintptr_t(PrefixPtr), C.int32_t(PrefixLen), C.int32_t(PrefixOwnership), C.int32_t(Limit), &stream)
 	return int32(stream), int32(errID)
 }
 
-func ReadGreeterListNativeServerStream(ctx context.Context, stream int32, outIndex *int32, outNamePtr *uintptr, outNameLen *int32) int32 {
+func GreeterListNativeServerStreamRecv(ctx context.Context, stream int32, outIndex *int32, outNamePtr *uintptr, outNameLen *int32) int32 {
 	var index C.int32_t
 	var namePtr C.uintptr_t
 	var nameLen C.int32_t
 	var nameOwnership C.int32_t
-	errID := rpccgoNativeTestv1GreeterListRead(C.int32_t(stream), &index, &namePtr, &nameLen, &nameOwnership)
+	errID := rpccgoNativeTestv1GreeterListRecv(C.int32_t(stream), &index, &namePtr, &nameLen, &nameOwnership)
 	*outIndex = int32(index)
 	*outNamePtr = uintptr(namePtr)
 	*outNameLen = int32(nameLen)
 	return int32(errID)
 }
 
-func FinishGreeterListNativeServerStream(ctx context.Context, stream int32) int32 {
+func GreeterListNativeServerStreamFinish(ctx context.Context, stream int32) int32 {
 	return int32(rpccgoNativeTestv1GreeterListFinish(C.int32_t(stream)))
 }
 
-func CancelGreeterListNativeServerStream(ctx context.Context, stream int32) int32 {
+func GreeterListNativeServerStreamCancel(ctx context.Context, stream int32) int32 {
 	return int32(rpccgoNativeTestv1GreeterListCancel(C.int32_t(stream)))
 }
 `
@@ -280,14 +280,14 @@ func startList(ctx context.Context, input *listInputABI) (int32, int32) {
 	if input == nil {
 		input = &listInputABI{}
 	}
-	return StartGreeterListNativeServerStream(ctx, input.PrefixPtr, input.PrefixLen, input.PrefixOwnership, input.Limit)
+	return GreeterListNativeServerStreamStart(ctx, input.PrefixPtr, input.PrefixLen, input.PrefixOwnership, input.Limit)
 }
 
 func readList(ctx context.Context, handle int32, output *listOutput) int32 {
 	if output == nil {
 		output = &listOutput{}
 	}
-	return ReadGreeterListNativeServerStream(ctx, handle, &output.Index, &output.NamePtr, &output.NameLen)
+	return GreeterListNativeServerStreamRecv(ctx, handle, &output.Index, &output.NamePtr, &output.NameLen)
 }
 
 func TestNativeServerStreamingGoServerFinishFinalizesHandle(t *testing.T) {
@@ -300,12 +300,12 @@ func TestNativeServerStreamingGoServerFinishFinalizesHandle(t *testing.T) {
 	input := listInput("go", 2)
 	handle, errID := startList(context.Background(), input)
 	if errID != 0 {
-		t.Fatalf("StartGreeterListNativeServerStream() errID = %d", errID)
+		t.Fatalf("GreeterListNativeServerStreamStart() errID = %d", errID)
 	}
-	assertListRead(t, handle, 1, "go:1")
-	assertListRead(t, handle, 2, "go:2")
-	if errID := FinishGreeterListNativeServerStream(context.Background(), handle); errID != 0 {
-		t.Fatalf("FinishGreeterListNativeServerStream() errID = %d", errID)
+	assertListRecv(t, handle, 1, "go:1")
+	assertListRecv(t, handle, 2, "go:2")
+	if errID := GreeterListNativeServerStreamFinish(context.Background(), handle); errID != 0 {
+		t.Fatalf("GreeterListNativeServerStreamFinish() errID = %d", errID)
 	}
 	if errID := readList(context.Background(), handle, &listOutput{}); errID == 0 {
 		t.Fatal("Read after Finish returned errID 0")
@@ -320,13 +320,13 @@ func TestNativeServerStreamingGoServerStartCapturesActiveServerSnapshot(t *testi
 	}
 	handle, errID := startList(context.Background(), listInput("x", 1))
 	if errID != 0 {
-		t.Fatalf("StartGreeterListNativeServerStream() errID = %d", errID)
+		t.Fatalf("GreeterListNativeServerStreamStart() errID = %d", errID)
 	}
 	serverB := &listGoServer{label: "B:"}
 	if err := v1.RegisterGreeterGoNativeServer(serverB); err != nil {
 		t.Fatalf("RegisterGreeterGoNativeServer(B) error = %v", err)
 	}
-	assertListRead(t, handle, 1, "A:x:1")
+	assertListRecv(t, handle, 1, "A:x:1")
 	if serverB.stream != nil {
 		t.Fatalf("server B unexpectedly received stream: %#v", serverB.stream)
 	}
@@ -340,15 +340,15 @@ func TestNativeServerStreamingGoServerCancelFinalizesHandle(t *testing.T) {
 	}
 	handle, errID := startList(context.Background(), listInput("go", 32))
 	if errID != 0 {
-		t.Fatalf("StartGreeterListNativeServerStream() errID = %d", errID)
+		t.Fatalf("GreeterListNativeServerStreamStart() errID = %d", errID)
 	}
-	if errID := CancelGreeterListNativeServerStream(context.Background(), handle); errID != 0 {
-		t.Fatalf("CancelGreeterListNativeServerStream() errID = %d", errID)
+	if errID := GreeterListNativeServerStreamCancel(context.Background(), handle); errID != 0 {
+		t.Fatalf("GreeterListNativeServerStreamCancel() errID = %d", errID)
 	}
 	if server.stream == nil || !server.stream.canceled {
 		t.Fatal("Cancel did not propagate to Go native stream")
 	}
-	if errID := CancelGreeterListNativeServerStream(context.Background(), handle); errID == 0 {
+	if errID := GreeterListNativeServerStreamCancel(context.Background(), handle); errID == 0 {
 		t.Fatal("second Cancel returned errID 0")
 	}
 }
@@ -371,12 +371,12 @@ func listInput(prefix string, limit int32) *listInputABI {
 	}
 }
 
-func assertListRead(t *testing.T, handle int32, wantIndex int32, wantName string) {
+func assertListRecv(t *testing.T, handle int32, wantIndex int32, wantName string) {
 	t.Helper()
 	output := &listOutput{}
 	if errID := readList(context.Background(), handle, output); errID != 0 {
 		text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
-		t.Fatalf("ReadGreeterListNativeServerStream() errID = %d, text = %q, ok = %v", errID, text, ok)
+		t.Fatalf("GreeterListNativeServerStreamRecv() errID = %d, text = %q, ok = %v", errID, text, ok)
 	}
 	if output.Index != wantIndex {
 		t.Fatalf("Index = %d, want %d", output.Index, wantIndex)
@@ -429,14 +429,14 @@ func startList(ctx context.Context, input *listInputABI) (int32, int32) {
 	if input == nil {
 		input = &listInputABI{}
 	}
-	return StartGreeterListNativeServerStream(ctx, input.PrefixPtr, input.PrefixLen, input.PrefixOwnership, input.Limit)
+	return GreeterListNativeServerStreamStart(ctx, input.PrefixPtr, input.PrefixLen, input.PrefixOwnership, input.Limit)
 }
 
 func readList(ctx context.Context, handle int32, output *listOutput) int32 {
 	if output == nil {
 		output = &listOutput{}
 	}
-	return ReadGreeterListNativeServerStream(ctx, handle, &output.Index, &output.NamePtr, &output.NameLen)
+	return GreeterListNativeServerStreamRecv(ctx, handle, &output.Index, &output.NamePtr, &output.NameLen)
 }
 
 func TestNativeServerStreamingCGOServerFinishFinalizesHandle(t *testing.T) {
@@ -450,21 +450,21 @@ func TestNativeServerStreamingCGOServerFinishFinalizesHandle(t *testing.T) {
 
 	handle, errID := startList(context.Background(), listInputCGO("cgo", 2))
 	if errID != 0 {
-		t.Fatalf("StartGreeterListNativeServerStream() errID = %d", errID)
+		t.Fatalf("GreeterListNativeServerStreamStart() errID = %d", errID)
 	}
-	assertListReadCGO(t, handle, 1, "cgo:1")
-	assertListReadCGO(t, handle, 2, "cgo:2")
+	assertListRecvCGO(t, handle, 1, "cgo:1")
+	assertListRecvCGO(t, handle, 2, "cgo:2")
 	if got := frees(); got != 2 {
 		t.Fatalf("free count after reads = %d, want 2", got)
 	}
-	if errID := FinishGreeterListNativeServerStream(context.Background(), handle); errID != 0 {
+	if errID := GreeterListNativeServerStreamFinish(context.Background(), handle); errID != 0 {
 		text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
-		t.Fatalf("FinishGreeterListNativeServerStream() errID = %d, text = %q, ok = %v", errID, text, ok)
+		t.Fatalf("GreeterListNativeServerStreamFinish() errID = %d, text = %q, ok = %v", errID, text, ok)
 	}
 	if got := greeterServerStreamFinishCount(); got != 1 {
 		t.Fatalf("finish count = %d, want 1", got)
 	}
-	if errID := FinishGreeterListNativeServerStream(context.Background(), handle); errID == 0 {
+	if errID := GreeterListNativeServerStreamFinish(context.Background(), handle); errID == 0 {
 		t.Fatal("second Finish returned errID 0")
 	}
 }
@@ -476,10 +476,10 @@ func TestNativeServerStreamingCGOServerCancelFinalizesHandle(t *testing.T) {
 	}
 	handle, errID := startList(context.Background(), listInputCGO("cgo", 1))
 	if errID != 0 {
-		t.Fatalf("StartGreeterListNativeServerStream() errID = %d", errID)
+		t.Fatalf("GreeterListNativeServerStreamStart() errID = %d", errID)
 	}
-	if errID := CancelGreeterListNativeServerStream(context.Background(), handle); errID != 0 {
-		t.Fatalf("CancelGreeterListNativeServerStream() errID = %d", errID)
+	if errID := GreeterListNativeServerStreamCancel(context.Background(), handle); errID != 0 {
+		t.Fatalf("GreeterListNativeServerStreamCancel() errID = %d", errID)
 	}
 	if got := greeterServerStreamCancelCount(); got != 1 {
 		t.Fatalf("cancel count = %d, want 1", got)
@@ -498,11 +498,11 @@ func listInputCGO(prefix string, limit int32) *listInputABI {
 	}
 }
 
-func assertListReadCGO(t *testing.T, handle int32, wantIndex int32, wantName string) {
+func assertListRecvCGO(t *testing.T, handle int32, wantIndex int32, wantName string) {
 	t.Helper()
 	output := &listOutput{}
 	if errID := readList(context.Background(), handle, output); errID != 0 {
-		t.Fatalf("ReadGreeterListNativeServerStream() errID = %d", errID)
+		t.Fatalf("GreeterListNativeServerStreamRecv() errID = %d", errID)
 	}
 	if output.Index != wantIndex {
 		t.Fatalf("Index = %d, want %d", output.Index, wantIndex)

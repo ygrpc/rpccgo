@@ -19,7 +19,7 @@ func renderMessageStartHelpers(g *protogen.GeneratedFile, service ServicePlan, m
 }
 
 func cgoMessageStartHelperName(serviceName, methodName string) string {
-	return "start" + serviceName + "CGOMessage" + methodName
+	return lowerInitial(serviceName) + methodName + "CGOMessageStart"
 }
 
 func renderMessageServerClientStreamStartHelper(g *protogen.GeneratedFile, serviceName, serverName string, method runtimeMethodProjection) {

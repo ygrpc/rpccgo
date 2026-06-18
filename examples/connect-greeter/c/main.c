@@ -489,7 +489,7 @@ static void read_native_stream_message(int32_t handle, const char *want,
   int32_t message_len = 0;
   int32_t message_ownership = 0;
 
-  assert_status_ok(rpccgoNativeGreeterv1GreeterBroadcastRead(
+  assert_status_ok(rpccgoNativeGreeterv1GreeterBroadcastRecv(
                        handle, &message_ptr, &message_len, &message_ownership),
                    error_prefix);
   assert_string_equals("native stream", (const char *)message_ptr, message_len, want);
@@ -546,7 +546,7 @@ static void send_native_chat_message(int32_t handle, const char *name, const cha
                    "native chat send error:");
   printf("native chat c->server: %s\n", name);
   fflush(stdout);
-  assert_status_ok(rpccgoNativeGreeterv1GreeterChatRead(
+  assert_status_ok(rpccgoNativeGreeterv1GreeterChatRecv(
                        handle, &message_ptr, &message_len, &message_ownership),
                    "native chat read error:");
   assert_string_equals("native chat", (const char *)message_ptr, message_len, want);
