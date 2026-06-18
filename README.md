@@ -47,11 +47,17 @@ Streaming 在 `Start` 时读取一次 current registered server，并创建 `{Se
 - cgo 可用的 C toolchain
 - `protoc`
 
-rpccgo 是一个 protoc 插件。在本仓库内安装：
+本仓库提供三个 protoc 插件。发布版安装：
 
 ```bash
-go install ./cmd/protoc-gen-rpc-cgo
+go install github.com/ygrpc/rpccgo/cmd/protoc-gen-rpc-cgo@latest
+go install github.com/ygrpc/rpccgo/cmd/protoc-gen-rpc-cgo-dart@latest
+go install github.com/ygrpc/rpccgo/cmd/protoc-gen-rpc-cgo-jni@latest
 ```
+
+- `protoc-gen-rpc-cgo`：生成 Go runtime、server contracts、cgo native/message client/server ABI。
+- `protoc-gen-rpc-cgo-dart`：生成 Dart/Flutter message FFI client，只覆盖平台侧客户端绑定。
+- `protoc-gen-rpc-cgo-jni`：生成 Android Kotlin typed shim 和 C++ JNI shim，只覆盖 Android 侧 message client adapter。
 
 通常还需要安装 protobuf 的 Go 插件，以及你选择的 transport 插件：
 
@@ -66,6 +72,8 @@ go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 ```bash
 which protoc-gen-go
 which protoc-gen-rpc-cgo
+which protoc-gen-rpc-cgo-dart
+which protoc-gen-rpc-cgo-jni
 which protoc-gen-connect-go
 which protoc-gen-go-grpc
 ```
@@ -244,10 +252,12 @@ Streaming 的关键点是 `Start` 决定方向：`Start` 时捕获当前 registe
 
 `protoc-gen-rpc-cgo-dart` 是一个独立的 protoc 插件，专门用于为 Dart/Flutter 平台生成符合 Native Assets 规范的 FFI 客户端。它与 Go 端的 `protoc-gen-rpc-cgo` 配合工作，允许 Dart 侧直接调用由 Go 编译出的 C-shared 动态库（`.so`/`.dylib`/`.dll`）。
 
+它不是完整 rpccgo 生成器的替代品：当前只生成基于 `rpccgoMsg...` C ABI 的 message client 绑定，不生成 Go runtime、server contract、cgo server、native ABI 或 registration helper。这些仍由 `protoc-gen-rpc-cgo` 生成。
+
 ### 安装 Dart 插件
 
 ```bash
-go install ./cmd/protoc-gen-rpc-cgo-dart
+go install github.com/ygrpc/rpccgo/cmd/protoc-gen-rpc-cgo-dart@latest
 ```
 
 确保 `protoc-gen-rpc-cgo-dart` 和官方的 `protoc-gen-dart` 插件均在系统的 `PATH` 路径中。
@@ -282,10 +292,13 @@ protoc \
 3. **调用 API**：
    ```dart
    final client = GreeterRpccgoClient();
-   final response = client.SayHello(
+   final result = client.SayHello(
      SayHelloRequest(name: 'World'),
    );
-   print(response.message);
+   if (result.error != null) {
+     throw Exception(result.error);
+   }
+   print(result.value!.message);
    ```
    Streaming API 显式使用 cgo operation 语义：先调用 `Start<Method>()` 获取 stream，再调用 `Send()`、`Recv()`、`Finish()`、`CloseSend()` 或 `Cancel()`。
 
@@ -294,6 +307,14 @@ protoc \
 ## Android JNI 接入 (protoc-gen-rpc-cgo-jni)
 
 `protoc-gen-rpc-cgo-jni` 是面向 Android 的 JNI adapter 生成器。它生成 Kotlin typed shim 和 C++ JNI shim；C++ shim 通过 Go `-buildmode=c-shared` 产出的 C ABI 调用 `rpccgoMsg...` 符号，不在 Go 文件中直接生成 `Java_...` JNI export。
+
+它不是完整 rpccgo 生成器的替代品：当前只生成 Android 侧 message client adapter，不生成 Go runtime、server contract、cgo server、native ABI 或 registration helper。这些仍由 `protoc-gen-rpc-cgo` 生成。
+
+安装 JNI 插件：
+
+```bash
+go install github.com/ygrpc/rpccgo/cmd/protoc-gen-rpc-cgo-jni@latest
+```
 
 调用形态：
 

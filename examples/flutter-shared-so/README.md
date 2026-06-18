@@ -5,6 +5,8 @@
 - Flutter 通过 `protoc-gen-rpc-cgo-dart` 生成的 Dart FFI client 调用 rpccgo message cgo exports。
 - Kotlin 通过 `System.loadLibrary(...)` 和 JNI 调用同一个 Go `c-shared` runtime。
 
+Dart/JNI 插件只生成平台侧 message client 绑定；Go runtime、server contract、cgo exports 和注册 helper 仍由 `protoc-gen-rpc-cgo` 生成。
+
 两条路径最终都进入同一个 Go service：`SharedSoDemo.ComposeGreeting`。
 
 ## 目录
@@ -51,6 +53,7 @@ Android 已加载该 SONAME 后，再次 `dlopen` 会返回同一个已加载 EL
 - `protoc-gen-connect-go`
 - `protoc-gen-rpc-cgo`
 - `protoc-gen-rpc-cgo-dart`
+- `protoc-gen-rpc-cgo-jni`
 - `protoc-gen-dart`
 
 然后在当前目录执行：
@@ -63,6 +66,7 @@ go generate ./...
 
 - Go protobuf / Connect / rpccgo 文件到 `proto/` 和 `cmd/rpc/`
 - Dart protobuf / rpccgo 文件到 `flutter_app/lib/gen/`
+- Android Kotlin / C++ JNI shim 到 `flutter_app/android/app/src/main/`
 
 ## 构建 Android `.so`
 
