@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"errors"
 	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
@@ -383,8 +384,4 @@ func transportProjectionForKind(service ServicePlan, kind string) (registrationS
 	return registrationSourceProjection{}, errUnknownTransportKind
 }
 
-var errUnknownTransportKind = generatorStringError("unknown transport server kind")
-
-type generatorStringError string
-
-func (e generatorStringError) Error() string { return string(e) }
+var errUnknownTransportKind = errors.New("unknown transport server kind")
