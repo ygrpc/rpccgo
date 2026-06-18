@@ -2,11 +2,10 @@ package generator
 
 import "fmt"
 
-// MethodRenderPlan records renderer-facing stream operations, symbols, and errors for one method.
+// MethodRenderPlan records renderer-facing stream operations and symbols for one method.
 type MethodRenderPlan struct {
 	Stream  StreamCapabilityProjectionPlan
 	Symbols RenderSymbolsPlan
-	Errors  RenderErrorsPlan
 }
 
 // RenderSymbolsPlan records generated symbol names derived for one method.
@@ -19,18 +18,9 @@ type RenderSymbolsPlan struct {
 	NativeStreamResponseType string
 }
 
-// RenderErrorsPlan records generated error symbol names and error context labels.
-type RenderErrorsPlan struct {
-	NativeServerUnavailableErr  string
-	MessageServerUnavailableErr string
-	UnknownActiveContractErr    string
-	Role                        string
-	Category                    string
-}
-
 // BuildMethodRenderPlan projects a method contract plan into renderer-facing stream operations and symbols.
 func BuildMethodRenderPlan(method MethodPlan, serviceName string) (MethodRenderPlan, error) {
-	capability, err := ProjectStreamCapability(method.Contract.Stream, true)
+	capability, err := ProjectStreamCapability(method.Contract.Stream)
 	if err != nil {
 		return MethodRenderPlan{}, err
 	}
@@ -55,13 +45,6 @@ func BuildMethodRenderPlan(method MethodPlan, serviceName string) (MethodRenderP
 			MessageAdapterMethod:     messageEntryMethod,
 			NativeStreamRequestType:  nativeStreamRequestType,
 			NativeStreamResponseType: nativeStreamResponseType,
-		},
-		Errors: RenderErrorsPlan{
-			NativeServerUnavailableErr:  serviceName + "NativeServerUnavailableErr",
-			MessageServerUnavailableErr: serviceName + "MessageServerUnavailableErr",
-			UnknownActiveContractErr:    serviceName + "UnknownActiveContractErr",
-			Role:                        "entry",
-			Category:                    "routing",
 		},
 	}
 	method.RenderPlan = shape
@@ -100,7 +83,7 @@ func ValidateMethodRenderPlan(method MethodPlan) error {
 
 func validateMethodRenderPlan(method MethodPlan) error {
 	shape := method.RenderPlan
-	expectedStreamCapability, err := ProjectStreamCapability(method.Contract.Stream, true)
+	expectedStreamCapability, err := ProjectStreamCapability(method.Contract.Stream)
 	if err != nil {
 		return fmt.Errorf("method %s render capability is invalid: %w", methodPlanName(method), err)
 	}
@@ -121,9 +104,6 @@ func validateMethodRenderPlan(method MethodPlan) error {
 	}
 	if method.Streaming != StreamingKindUnary && (shape.Symbols.NativeStreamRequestType == "" || shape.Symbols.NativeStreamResponseType == "") {
 		return fmt.Errorf("method %s native stream envelope symbols are incomplete", methodPlanName(method))
-	}
-	if shape.Errors.NativeServerUnavailableErr == "" || shape.Errors.MessageServerUnavailableErr == "" || shape.Errors.UnknownActiveContractErr == "" {
-		return fmt.Errorf("method %s render errors are incomplete", methodPlanName(method))
 	}
 	return nil
 }

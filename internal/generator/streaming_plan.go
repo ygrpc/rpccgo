@@ -2,26 +2,6 @@ package generator
 
 import "fmt"
 
-// BuildStreamingPlan attaches stream contract and render projections for one method.
-func BuildStreamingPlan(method MethodPlan, serviceName string) (MethodPlan, error) {
-	method, err := AttachMethodStreamCapabilityPlan(method)
-	if err != nil {
-		return MethodPlan{}, err
-	}
-	renderPlan, err := BuildMethodRenderPlan(method, serviceName)
-	if err != nil {
-		return MethodPlan{}, err
-	}
-	method.RenderPlan = renderPlan
-	if err := ValidateMethodContractPlan(method); err != nil {
-		return MethodPlan{}, err
-	}
-	if err := ValidateMethodRenderPlan(method); err != nil {
-		return MethodPlan{}, err
-	}
-	return method, nil
-}
-
 // AttachMethodStreamCapabilityPlan fills the stream capability contract derived from the method kind.
 func AttachMethodStreamCapabilityPlan(method MethodPlan) (MethodPlan, error) {
 	capability, err := expectedStreamCapabilityPlan(method.Streaming)

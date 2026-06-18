@@ -35,7 +35,7 @@ func TestValidateGenerationPlanRejectsMethodRenderPlanMismatch(t *testing.T) {
 		t.Fatalf("Generate() error = %v", err)
 	}
 
-	plan.Packages[0].Files[0].Services[0].Methods[0].RenderPlan.Stream.RequiresCodec = false
+	plan.Packages[0].Files[0].Services[0].Methods[1].RenderPlan.Stream.CanSend = false
 
 	err = ValidateGenerationPlan(plan)
 	if err == nil {

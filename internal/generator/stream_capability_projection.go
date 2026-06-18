@@ -2,25 +2,23 @@ package generator
 
 import "fmt"
 
-// StreamCapabilityProjectionPlan records renderer-facing stream operations and codec requirements.
+// StreamCapabilityProjectionPlan records renderer-facing stream operations.
 type StreamCapabilityProjectionPlan struct {
 	Streaming             bool
 	CanSend               bool
 	CanRecv               bool
 	CanCloseSend          bool
 	FinishReturnsResponse bool
-	RequiresCodec         bool
 }
 
 // ProjectStreamCapability validates contract stream capabilities and projects them for renderers.
-func ProjectStreamCapability(capability StreamCapabilityContractPlan, needsCodec bool) (StreamCapabilityProjectionPlan, error) {
+func ProjectStreamCapability(capability StreamCapabilityContractPlan) (StreamCapabilityProjectionPlan, error) {
 	plan := StreamCapabilityProjectionPlan{
 		Streaming:             !capability.IsZero(),
 		CanSend:               capability.CanSend,
 		CanRecv:               capability.CanRecv,
 		CanCloseSend:          capability.CanCloseSend,
 		FinishReturnsResponse: capability.FinishReturnsResponse,
-		RequiresCodec:         needsCodec,
 	}
 	if err := validateStreamCapabilities(capability); err != nil {
 		return StreamCapabilityProjectionPlan{}, err

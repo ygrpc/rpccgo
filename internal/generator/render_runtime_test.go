@@ -460,7 +460,7 @@ func TestRenderRuntimeRejectsUnknownStreamingKind(t *testing.T) {
 	if err == nil {
 		t.Fatal("renderRuntimeFile() error = nil, want unknown streaming kind error")
 	}
-	if got := err.Error(); !strings.Contains(got, "Mystery") || !strings.Contains(got, "render capability does not match contract capabilities") {
+	if got := err.Error(); !strings.Contains(got, "Mystery") || !strings.Contains(got, "streaming render capability is missing") {
 		t.Fatalf("renderRuntimeFile() error = %q, want method name and render-shape validation error", got)
 	}
 }
@@ -502,11 +502,6 @@ func runtimeTestMethod(name string, streaming StreamingKind, nativeEntryMethod s
 			NativeAdapterMethod:  nativeEntryMethod,
 			MessageAdapterMethod: messageEntryMethod,
 		},
-		Errors: RenderErrorsPlan{
-			NativeServerUnavailableErr:  "GreeterNativeServerUnavailableErr",
-			MessageServerUnavailableErr: "GreeterMessageServerUnavailableErr",
-			UnknownActiveContractErr:    "GreeterUnknownActiveContractErr",
-		},
 	}
 	if streamShape != runtimeStreamUnary {
 		method.Contract.Stream = runtimeTestStreamCapability(streamShape)
@@ -519,13 +514,13 @@ func runtimeTestMethod(name string, streaming StreamingKind, nativeEntryMethod s
 func runtimeTestStreamCapabilityProjection(streamShape runtimeStreamShape) StreamCapabilityProjectionPlan {
 	switch streamShape {
 	case runtimeStreamClient:
-		return StreamCapabilityProjectionPlan{Streaming: true, CanSend: true, FinishReturnsResponse: true, RequiresCodec: true}
+		return StreamCapabilityProjectionPlan{Streaming: true, CanSend: true, FinishReturnsResponse: true}
 	case runtimeStreamServer:
-		return StreamCapabilityProjectionPlan{Streaming: true, CanRecv: true, RequiresCodec: true}
+		return StreamCapabilityProjectionPlan{Streaming: true, CanRecv: true}
 	case runtimeStreamBidi:
-		return StreamCapabilityProjectionPlan{Streaming: true, CanSend: true, CanRecv: true, CanCloseSend: true, RequiresCodec: true}
+		return StreamCapabilityProjectionPlan{Streaming: true, CanSend: true, CanRecv: true, CanCloseSend: true}
 	default:
-		return StreamCapabilityProjectionPlan{RequiresCodec: true}
+		return StreamCapabilityProjectionPlan{}
 	}
 }
 

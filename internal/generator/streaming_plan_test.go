@@ -2,7 +2,7 @@ package generator
 
 import "testing"
 
-func TestBuildStreamingPlanAttachesCapabilityProjectionFromDescriptor(t *testing.T) {
+func TestBuildDescriptorPlanAttachesCapabilityProjectionFromDescriptor(t *testing.T) {
 	plugin := newTestPlugin(t, "paths=source_relative", streamingPlanTestFile())
 
 	plan, err := BuildDescriptorPlan(plugin.Files[0])
@@ -44,27 +44,11 @@ func TestValidateMethodRenderPlanRejectsCapabilityMismatch(t *testing.T) {
 	}
 }
 
-func TestBuildStreamingPlanRejectsUnknownStreamingKind(t *testing.T) {
+func TestAttachMethodStreamCapabilityPlanRejectsUnknownStreamingKind(t *testing.T) {
 	method := MethodPlan{Name: "Mystery", FullName: "test.v1.Streamer.Mystery", Streaming: StreamingKind(99)}
-	_, err := BuildStreamingPlan(method, "Streamer")
+	_, err := AttachMethodStreamCapabilityPlan(method)
 	if err == nil {
-		t.Fatal("BuildStreamingPlan() error = nil, want unknown streaming kind error")
-	}
-}
-
-func TestValidateMethodRenderPlanRequiresCodec(t *testing.T) {
-	method := minimalStreamingMethod(StreamingKindClientStreaming)
-	method.Contract.Stream = StreamCapabilityContractPlan{
-		CanSend:               true,
-		FinishReturnsResponse: true,
-	}
-
-	renderPlan, err := BuildMethodRenderPlan(method, "Streamer")
-	if err != nil {
-		t.Fatalf("BuildMethodRenderPlan() error = %v", err)
-	}
-	if !renderPlan.Stream.RequiresCodec {
-		t.Fatal("render capability RequiresCodec = false, want true")
+		t.Fatal("AttachMethodStreamCapabilityPlan() error = nil, want unknown streaming kind error")
 	}
 }
 
@@ -118,7 +102,6 @@ func assertStreamCapabilities(t *testing.T, method MethodPlan, want StreamCapabi
 		CanRecv:               want.CanRecv,
 		CanCloseSend:          want.CanCloseSend,
 		FinishReturnsResponse: want.FinishReturnsResponse,
-		RequiresCodec:         true,
 	}
 	if method.RenderPlan.Stream != wantProjection {
 		t.Fatalf("%s render capability = %+v, want %+v", method.Name, method.RenderPlan.Stream, wantProjection)

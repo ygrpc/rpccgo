@@ -212,5 +212,14 @@ func runtimeProjectionTestMethod(serviceName, methodName string, streaming Strea
 			},
 		},
 	}
-	return BuildStreamingPlan(method, serviceName)
+	method, err := AttachMethodStreamCapabilityPlan(method)
+	if err != nil {
+		return MethodPlan{}, err
+	}
+	renderPlan, err := BuildMethodRenderPlan(method, serviceName)
+	if err != nil {
+		return MethodPlan{}, err
+	}
+	method.RenderPlan = renderPlan
+	return method, nil
 }

@@ -6,7 +6,6 @@ func TestProjectStreamCapability(t *testing.T) {
 	tests := []struct {
 		name       string
 		capability StreamCapabilityContractPlan
-		needsCodec bool
 	}{
 		{name: "unary"},
 		{
@@ -15,7 +14,6 @@ func TestProjectStreamCapability(t *testing.T) {
 				CanSend:               true,
 				FinishReturnsResponse: true,
 			},
-			needsCodec: true,
 		},
 		{
 			name:       "server streaming",
@@ -33,7 +31,7 @@ func TestProjectStreamCapability(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ProjectStreamCapability(tt.capability, tt.needsCodec)
+			got, err := ProjectStreamCapability(tt.capability)
 			if err != nil {
 				t.Fatalf("ProjectStreamCapability() error = %v", err)
 			}
@@ -43,7 +41,6 @@ func TestProjectStreamCapability(t *testing.T) {
 				CanRecv:               tt.capability.CanRecv,
 				CanCloseSend:          tt.capability.CanCloseSend,
 				FinishReturnsResponse: tt.capability.FinishReturnsResponse,
-				RequiresCodec:         tt.needsCodec,
 			}
 			if got != want {
 				t.Fatalf("ProjectStreamCapability() = %+v, want %+v", got, want)
@@ -78,7 +75,7 @@ func TestProjectStreamCapabilityRejectsInvalidCapabilities(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, err := ProjectStreamCapability(tt.capability, false); err == nil {
+			if _, err := ProjectStreamCapability(tt.capability); err == nil {
 				t.Fatal("ProjectStreamCapability() error = nil, want invalid capabilities error")
 			}
 		})

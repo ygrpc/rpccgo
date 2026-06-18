@@ -64,17 +64,6 @@ func BuildSharedArtifactPlans(pkg PackagePlan) []GeneratedArtifactPlan {
 	}
 }
 
-// BuildCodecFilePlan returns the codec artifact for a service, deriving the default filename if needed.
-func BuildCodecFilePlan(file FilePlan, service ServicePlan) GeneratedArtifactPlan {
-	if artifact, ok := service.Artifact(GeneratedArtifactKindCodec); ok {
-		return artifact
-	}
-	return GeneratedArtifactPlan{
-		Kind:     GeneratedArtifactKindCodec,
-		Filename: fmt.Sprintf("%s.%s.codec.rpccgo.go", file.GeneratedFilenamePrefix, lowerSnakeCase(service.GoName)),
-	}
-}
-
 func packageHasCGOArtifacts(pkg PackagePlan) bool {
 	for _, file := range pkg.Files {
 		for _, service := range file.Services {
