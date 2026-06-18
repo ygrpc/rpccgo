@@ -53,6 +53,28 @@ func TestBuildRuntimeMethodProjectionsProjectUnaryMethod(t *testing.T) {
 	if got.Message.ResponseType != "HelloReply" {
 		t.Fatalf("projection response type = %q, want same-package response type", got.Message.ResponseType)
 	}
+	assertRuntimeRouteKinds(t, got.Routes.NativeServers, []string{"rpcruntime.ServerKindGoNative", "rpcruntime.ServerKindCGONative"})
+	assertRuntimeRouteKinds(t, got.Routes.MessageServers, []string{"rpcruntime.ServerKindCGOMessage", "rpcruntime.ServerKindConnect", "rpcruntime.ServerKindConnectRemote"})
+	assertRuntimeRouteKinds(t, got.Routes.TransportServers, []string{"rpcruntime.ServerKindConnect", "rpcruntime.ServerKindConnectRemote"})
+}
+
+func TestBuildRuntimeMethodProjectionsRoutesFollowGenerationSelection(t *testing.T) {
+	service, g := runtimeProjectionTestContext(t)
+	service.Generation = ServiceGenerationSelection{MessageTransport: MessageTransportGRPC}
+	method, err := runtimeProjectionTestMethod(service.GoName, "Unary", StreamingKindUnary)
+	if err != nil {
+		t.Fatalf("runtimeProjectionTestMethod() error = %v", err)
+	}
+	service.Methods = []MethodPlan{method}
+
+	projections, err := buildRuntimeMethodProjections(g, service)
+	if err != nil {
+		t.Fatalf("buildRuntimeMethodProjections() error = %v", err)
+	}
+	got := projections[0]
+	assertRuntimeRouteKinds(t, got.Routes.NativeServers, nil)
+	assertRuntimeRouteKinds(t, got.Routes.MessageServers, []string{"rpcruntime.ServerKindCGOMessage", "rpcruntime.ServerKindGRPC", "rpcruntime.ServerKindGRPCRemote"})
+	assertRuntimeRouteKinds(t, got.Routes.TransportServers, []string{"rpcruntime.ServerKindGRPC", "rpcruntime.ServerKindGRPCRemote"})
 }
 
 func TestBuildRuntimeMethodProjectionsProjectStreamingShapes(t *testing.T) {
@@ -156,6 +178,18 @@ func runtimeProjectionTestContext(t *testing.T) (ServicePlan, *protogen.Generate
 		Generation: ServiceGenerationSelection{MessageTransport: MessageTransportConnect, NativeEnabled: true},
 	}
 	return service, g
+}
+
+func assertRuntimeRouteKinds(t *testing.T, routes []runtimeServerRouteProjection, want []string) {
+	t.Helper()
+	if len(routes) != len(want) {
+		t.Fatalf("route count = %d, want %d: %#v", len(routes), len(want), routes)
+	}
+	for i := range want {
+		if string(routes[i].Kind) != want[i] {
+			t.Fatalf("route[%d] kind = %q, want %q", i, routes[i].Kind, want[i])
+		}
+	}
 }
 
 func runtimeProjectionTestMethod(serviceName, methodName string, streaming StreamingKind) (MethodPlan, error) {

@@ -14,6 +14,7 @@ type runtimeMethodProjection struct {
 	Stream   runtimeStreamProjection
 	Symbols  runtimeMethodSymbolsProjection
 	Codec    runtimeCodecProjection
+	Routes   runtimeRouteProjection
 }
 
 type runtimeMethodIdentityProjection struct {
@@ -67,6 +68,18 @@ type runtimeCodecProjection struct {
 	NativeRequestToMessage            string
 	MessageToNativeResponse           string
 	NativeResponseToMessage           string
+}
+
+type runtimeRouteProjection struct {
+	NativeServers    []runtimeServerRouteProjection
+	MessageServers   []runtimeServerRouteProjection
+	TransportServers []runtimeServerRouteProjection
+}
+
+type runtimeServerRouteProjection struct {
+	Kind       runtimeServerKindExpr
+	Label      string
+	ServerType string
 }
 
 func buildRuntimeMethodProjections(g *protogen.GeneratedFile, service ServicePlan) ([]runtimeMethodProjection, error) {
@@ -197,6 +210,7 @@ func projectRuntimeMethod(g *protogen.GeneratedFile, service ServicePlan, method
 			MessageToNativeResponse:           codecMessageToNativeResponseName(service, method),
 			NativeResponseToMessage:           codecNativeResponseToMessageName(service, method),
 		},
+		Routes: runtimeRoutesForService(service),
 	}
 	if !stream.Streaming {
 		projected.Native.EntryArgs = nativeArgs
@@ -208,6 +222,46 @@ func projectRuntimeMethod(g *protogen.GeneratedFile, service ServicePlan, method
 		projected.Native.EntryArgs = nativeArgs
 	}
 	return projected, nil
+}
+
+func runtimeRoutesForService(service ServicePlan) runtimeRouteProjection {
+	routes := runtimeRouteProjection{
+		MessageServers: []runtimeServerRouteProjection{
+			{
+				Kind:       runtimeServerKindCGOMessage,
+				Label:      "cgo message",
+				ServerType: service.GoName + "CGOMessageServer",
+			},
+		},
+	}
+	if service.Generation.NativeEnabled {
+		routes.NativeServers = []runtimeServerRouteProjection{
+			{
+				Kind:       runtimeServerKindGoNative,
+				Label:      "go native",
+				ServerType: service.GoName + "NativeServer",
+			},
+			{
+				Kind:       runtimeServerKindCGONative,
+				Label:      "cgo native",
+				ServerType: service.GoName + "NativeServer",
+			},
+		}
+	}
+	for _, source := range registrationSourcesForService(service) {
+		projection, err := ProjectRegistrationSource(service, source)
+		if err != nil || projection.registrationKind != runtimeRegistrationKindTransportMessage {
+			continue
+		}
+		route := runtimeServerRouteProjection{
+			Kind:       projection.serverKind,
+			Label:      projection.label,
+			ServerType: projection.inputType,
+		}
+		routes.MessageServers = append(routes.MessageServers, route)
+		routes.TransportServers = append(routes.TransportServers, route)
+	}
+	return routes
 }
 
 type runtimeStreamShape int

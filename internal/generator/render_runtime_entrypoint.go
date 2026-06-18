@@ -38,12 +38,13 @@ func renderRuntimeUnaryNativeEntrypoint(g *protogen.GeneratedFile, service Servi
 	g.P("registered, err := rpcruntime.LoadServer(", serviceIDName, ")")
 	g.P("if err != nil { return ", method.Native.ErrZero, " }")
 	g.P("switch registered.Kind {")
-	if service.Generation.NativeEnabled {
-		renderRuntimeUnaryNativeToNativeCase(g, service, method, "rpcruntime.ServerKindGoNative", "go native")
-		renderRuntimeUnaryNativeToNativeCase(g, service, method, "rpcruntime.ServerKindCGONative", "cgo native")
+	for _, route := range method.Routes.NativeServers {
+		renderRuntimeUnaryNativeToNativeCase(g, service, method, route)
 	}
 	renderRuntimeUnaryNativeToCGOMessageCase(g, service, method)
-	renderRuntimeUnaryNativeToTransportCases(g, service, method)
+	for _, route := range method.Routes.TransportServers {
+		renderRuntimeUnaryNativeToTransportCase(g, service, method, route)
+	}
 	g.P("default:")
 	g.P("return ", method.Native.ErrZero)
 	g.P("}")
@@ -51,10 +52,10 @@ func renderRuntimeUnaryNativeEntrypoint(g *protogen.GeneratedFile, service Servi
 	g.P()
 }
 
-func renderRuntimeUnaryNativeToNativeCase(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection, kind, label string) {
-	g.P("case ", kind, ":")
-	g.P("server, ok := registered.Server.(", service.GoName, "NativeServer)")
-	g.P("if !ok { return ", nativeGoZeroReturnsForError(method, "fmt.Errorf(\"rpccgo: "+service.GoName+" "+label+" registered server has invalid type\")"), " }")
+func renderRuntimeUnaryNativeToNativeCase(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection, route runtimeServerRouteProjection) {
+	g.P("case ", route.Kind, ":")
+	g.P("server, ok := registered.Server.(", route.ServerType, ")")
+	g.P("if !ok { return ", nativeGoZeroReturnsForError(method, "fmt.Errorf(\"rpccgo: "+service.GoName+" "+route.Label+" registered server has invalid type\")"), " }")
 	g.P("return server.", method.Identity.GoName, "(ctx", nativeGoCallSuffix(method.Native.ArgNames), ")")
 }
 
@@ -69,21 +70,10 @@ func renderRuntimeUnaryNativeToCGOMessageCase(g *protogen.GeneratedFile, service
 	g.P("return ", method.Codec.MessageToNativeResponse, "(messageResp)")
 }
 
-func renderRuntimeUnaryNativeToTransportCases(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection) {
-	switch service.Generation.MessageTransport {
-	case MessageTransportConnect:
-		renderRuntimeUnaryNativeToTransportCase(g, service, method, "rpcruntime.ServerKindConnect", service.GoName+"Handler", "connect handler")
-		renderRuntimeUnaryNativeToTransportCase(g, service, method, "rpcruntime.ServerKindConnectRemote", service.GoName+"Client", "connect remote")
-	case MessageTransportGRPC:
-		renderRuntimeUnaryNativeToTransportCase(g, service, method, "rpcruntime.ServerKindGRPC", service.GoName+"Server", "grpc server")
-		renderRuntimeUnaryNativeToTransportCase(g, service, method, "rpcruntime.ServerKindGRPCRemote", service.GoName+"Client", "grpc remote")
-	}
-}
-
-func renderRuntimeUnaryNativeToTransportCase(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection, kind, serverType, label string) {
-	g.P("case ", kind, ":")
-	g.P("server, ok := registered.Server.(", serverType, ")")
-	g.P("if !ok { return ", nativeGoZeroReturnsForError(method, "fmt.Errorf(\"rpccgo: "+service.GoName+" "+label+" registered server has invalid type\")"), " }")
+func renderRuntimeUnaryNativeToTransportCase(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection, route runtimeServerRouteProjection) {
+	g.P("case ", route.Kind, ":")
+	g.P("server, ok := registered.Server.(", route.ServerType, ")")
+	g.P("if !ok { return ", nativeGoZeroReturnsForError(method, "fmt.Errorf(\"rpccgo: "+service.GoName+" "+route.Label+" registered server has invalid type\")"), " }")
 	g.P("messageReq, err := ", method.Codec.NativeRequestToMessage, "(", method.Native.ArgNames, ")")
 	g.P("if err != nil { return ", method.Native.ErrZero, " }")
 	g.P("var messageResp ", runtimeMessageResponseType(method))
@@ -102,12 +92,13 @@ func renderRuntimeUnaryMessageEntrypoint(g *protogen.GeneratedFile, service Serv
 	g.P("registered, err := rpcruntime.LoadServer(", serviceIDName, ")")
 	g.P("if err != nil { return nil, err }")
 	g.P("switch registered.Kind {")
-	if service.Generation.NativeEnabled {
-		renderRuntimeUnaryMessageToNativeCase(g, service, method, "rpcruntime.ServerKindGoNative", "go native")
-		renderRuntimeUnaryMessageToNativeCase(g, service, method, "rpcruntime.ServerKindCGONative", "cgo native")
+	for _, route := range method.Routes.NativeServers {
+		renderRuntimeUnaryMessageToNativeCase(g, service, method, route)
 	}
 	renderRuntimeUnaryMessageToCGOMessageCase(g, service, method)
-	renderRuntimeUnaryMessageToTransportCases(g, service, method)
+	for _, route := range method.Routes.TransportServers {
+		renderRuntimeUnaryMessageToTransportCase(g, service, method, route)
+	}
 	g.P("default:")
 	g.P(`return nil, fmt.Errorf("rpccgo: `, service.GoName, ` registered server kind %d is unsupported for message calls", registered.Kind)`)
 	g.P("}")
@@ -115,10 +106,10 @@ func renderRuntimeUnaryMessageEntrypoint(g *protogen.GeneratedFile, service Serv
 	g.P()
 }
 
-func renderRuntimeUnaryMessageToNativeCase(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection, kind, label string) {
-	g.P("case ", kind, ":")
-	g.P("server, ok := registered.Server.(", service.GoName, "NativeServer)")
-	g.P(`if !ok { return nil, fmt.Errorf("rpccgo: `, service.GoName, " ", label, ` registered server has invalid type") }`)
+func renderRuntimeUnaryMessageToNativeCase(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection, route runtimeServerRouteProjection) {
+	g.P("case ", route.Kind, ":")
+	g.P("server, ok := registered.Server.(", route.ServerType, ")")
+	g.P(`if !ok { return nil, fmt.Errorf("rpccgo: `, service.GoName, " ", route.Label, ` registered server has invalid type") }`)
 	g.P(method.Codec.MessageToNativeRequestAssignNames, " := ", method.Codec.MessageToNativeRequest, "(req)")
 	g.P("if err != nil { return nil, err }")
 	if method.Native.ResultNames == "" {
@@ -146,21 +137,10 @@ func renderRuntimeUnaryMessageToCGOMessageCase(g *protogen.GeneratedFile, servic
 	g.P("return resp, nil")
 }
 
-func renderRuntimeUnaryMessageToTransportCases(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection) {
-	switch service.Generation.MessageTransport {
-	case MessageTransportConnect:
-		renderRuntimeUnaryMessageToTransportCase(g, service, method, "rpcruntime.ServerKindConnect", service.GoName+"Handler", "connect handler")
-		renderRuntimeUnaryMessageToTransportCase(g, service, method, "rpcruntime.ServerKindConnectRemote", service.GoName+"Client", "connect remote")
-	case MessageTransportGRPC:
-		renderRuntimeUnaryMessageToTransportCase(g, service, method, "rpcruntime.ServerKindGRPC", service.GoName+"Server", "grpc server")
-		renderRuntimeUnaryMessageToTransportCase(g, service, method, "rpcruntime.ServerKindGRPCRemote", service.GoName+"Client", "grpc remote")
-	}
-}
-
-func renderRuntimeUnaryMessageToTransportCase(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection, kind, serverType, label string) {
-	g.P("case ", kind, ":")
-	g.P("server, ok := registered.Server.(", serverType, ")")
-	g.P(`if !ok { return nil, fmt.Errorf("rpccgo: `, service.GoName, " ", label, ` registered server has invalid type") }`)
+func renderRuntimeUnaryMessageToTransportCase(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection, route runtimeServerRouteProjection) {
+	g.P("case ", route.Kind, ":")
+	g.P("server, ok := registered.Server.(", route.ServerType, ")")
+	g.P(`if !ok { return nil, fmt.Errorf("rpccgo: `, service.GoName, " ", route.Label, ` registered server has invalid type") }`)
 	renderRuntimeTransportUnaryMessageCall(g, method, "server", "req")
 }
 
@@ -175,12 +155,13 @@ func renderRuntimeNativeStartEntrypoint(g *protogen.GeneratedFile, service Servi
 	g.P("registered, err := rpcruntime.LoadServer(", serviceIDName, ")")
 	g.P("if err != nil { return 0, err }")
 	g.P("switch registered.Kind {")
-	if service.Generation.NativeEnabled {
-		renderRuntimeNativeStartNativeCase(g, service, method, "rpcruntime.ServerKindGoNative", "go native")
-		renderRuntimeNativeStartNativeCase(g, service, method, "rpcruntime.ServerKindCGONative", "cgo native")
+	for _, route := range method.Routes.NativeServers {
+		renderRuntimeNativeStartNativeCase(g, service, method, route)
 	}
 	renderRuntimeNativeStartMessageCase(g, service, method)
-	renderRuntimeNativeStartTransportCases(g, service, method)
+	for _, route := range method.Routes.TransportServers {
+		renderRuntimeNativeStartTransportCase(g, service, method, route)
+	}
 	g.P("default:")
 	g.P(`return 0, fmt.Errorf("rpccgo: `, service.GoName, ` registered server kind %d is unsupported for native stream starts", registered.Kind)`)
 	g.P("}")
@@ -188,16 +169,16 @@ func renderRuntimeNativeStartEntrypoint(g *protogen.GeneratedFile, service Servi
 	g.P()
 }
 
-func renderRuntimeNativeStartNativeCase(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection, kind, label string) {
-	g.P("case ", kind, ":")
-	g.P("server, ok := registered.Server.(", service.GoName, "NativeServer)")
-	g.P(`if !ok { return 0, fmt.Errorf("rpccgo: `, service.GoName, " ", label, ` registered server has invalid type") }`)
+func renderRuntimeNativeStartNativeCase(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection, route runtimeServerRouteProjection) {
+	g.P("case ", route.Kind, ":")
+	g.P("server, ok := registered.Server.(", route.ServerType, ")")
+	g.P(`if !ok { return 0, fmt.Errorf("rpccgo: `, service.GoName, " ", route.Label, ` registered server has invalid type") }`)
 	if method.Stream.StartAcceptsRequest {
 		renderRuntimeStartSourceWithArgs(g, goNativeStartHelperName(service.GoName, method.Identity.GoName), runtimeStartArgs("ctx, server", method.Native.ArgNames), true)
 	} else {
 		renderRuntimeStartSourceWithArgs(g, goNativeStartHelperName(service.GoName, method.Identity.GoName), "ctx, server", true)
 	}
-	renderRuntimeCreateNativeStreamHandle(g, kind, "source")
+	renderRuntimeCreateNativeStreamHandle(g, route.Kind, "source")
 }
 
 func renderRuntimeNativeStartMessageCase(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection) {
@@ -211,30 +192,19 @@ func renderRuntimeNativeStartMessageCase(g *protogen.GeneratedFile, service Serv
 	} else {
 		renderRuntimeStartSourceWithArgs(g, cgoMessageStartHelperName(service.GoName, method.Identity.GoName), "ctx, server", true)
 	}
-	renderRuntimeCreateNativeStreamHandle(g, "rpcruntime.ServerKindCGOMessage", "source")
+	renderRuntimeCreateNativeStreamHandle(g, runtimeServerKindCGOMessage, "source")
 }
 
-func renderRuntimeNativeStartTransportCases(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection) {
-	switch service.Generation.MessageTransport {
-	case MessageTransportConnect:
-		renderRuntimeNativeStartTransportCase(g, service, method, "rpcruntime.ServerKindConnect", service.GoName+"Handler", "connect handler")
-		renderRuntimeNativeStartTransportCase(g, service, method, "rpcruntime.ServerKindConnectRemote", service.GoName+"Client", "connect remote")
-	case MessageTransportGRPC:
-		renderRuntimeNativeStartTransportCase(g, service, method, "rpcruntime.ServerKindGRPC", service.GoName+"Server", "grpc server")
-		renderRuntimeNativeStartTransportCase(g, service, method, "rpcruntime.ServerKindGRPCRemote", service.GoName+"Client", "grpc remote")
-	}
-}
-
-func renderRuntimeNativeStartTransportCase(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection, kind, serverType, label string) {
-	projection, err := transportProjectionForKind(service, kind)
+func renderRuntimeNativeStartTransportCase(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection, route runtimeServerRouteProjection) {
+	projection, err := transportProjectionForKind(service, route.Kind)
 	if err != nil {
-		g.P("case ", kind, ":")
+		g.P("case ", route.Kind, ":")
 		g.P("return 0, ", err.Error())
 		return
 	}
-	g.P("case ", kind, ":")
-	g.P("server, ok := registered.Server.(", serverType, ")")
-	g.P(`if !ok { return 0, fmt.Errorf("rpccgo: `, service.GoName, " ", label, ` registered server has invalid type") }`)
+	g.P("case ", route.Kind, ":")
+	g.P("server, ok := registered.Server.(", route.ServerType, ")")
+	g.P(`if !ok { return 0, fmt.Errorf("rpccgo: `, service.GoName, " ", route.Label, ` registered server has invalid type") }`)
 	if method.Stream.StartAcceptsRequest {
 		g.P("messageReq, err := ", method.Codec.NativeRequestToMessage, "(", method.Native.ArgNames, ")")
 		g.P("if err != nil { return 0, err }")
@@ -242,7 +212,7 @@ func renderRuntimeNativeStartTransportCase(g *protogen.GeneratedFile, service Se
 	} else {
 		renderRuntimeTransportStreamSource(g, service, method, "server", projection, "ctx", "")
 	}
-	renderRuntimeCreateNativeStreamHandle(g, kind, "source")
+	renderRuntimeCreateNativeStreamHandle(g, route.Kind, "source")
 }
 
 func renderRuntimeMessageStartEntrypoint(g *protogen.GeneratedFile, service ServicePlan, serviceIDName string, method runtimeMethodProjection) error {
@@ -259,12 +229,13 @@ func renderRuntimeMessageStartEntrypoint(g *protogen.GeneratedFile, service Serv
 	g.P("registered, err := rpcruntime.LoadServer(", serviceIDName, ")")
 	g.P("if err != nil { return 0, err }")
 	g.P("switch registered.Kind {")
-	if service.Generation.NativeEnabled {
-		renderRuntimeMessageStartNativeCase(g, service, method, "rpcruntime.ServerKindGoNative", "go native")
-		renderRuntimeMessageStartNativeCase(g, service, method, "rpcruntime.ServerKindCGONative", "cgo native")
+	for _, route := range method.Routes.NativeServers {
+		renderRuntimeMessageStartNativeCase(g, service, method, route)
 	}
 	renderRuntimeMessageStartMessageCase(g, service, method)
-	renderRuntimeMessageStartTransportCases(g, service, method)
+	for _, route := range method.Routes.TransportServers {
+		renderRuntimeMessageStartTransportCase(g, service, method, route)
+	}
 	g.P("default:")
 	g.P(`return 0, fmt.Errorf("rpccgo: `, service.GoName, ` registered server kind %d is unsupported for message stream starts", registered.Kind)`)
 	g.P("}")
@@ -273,10 +244,10 @@ func renderRuntimeMessageStartEntrypoint(g *protogen.GeneratedFile, service Serv
 	return nil
 }
 
-func renderRuntimeMessageStartNativeCase(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection, kind, label string) {
-	g.P("case ", kind, ":")
-	g.P("server, ok := registered.Server.(", service.GoName, "NativeServer)")
-	g.P(`if !ok { return 0, fmt.Errorf("rpccgo: `, service.GoName, " ", label, ` registered server has invalid type") }`)
+func renderRuntimeMessageStartNativeCase(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection, route runtimeServerRouteProjection) {
+	g.P("case ", route.Kind, ":")
+	g.P("server, ok := registered.Server.(", route.ServerType, ")")
+	g.P(`if !ok { return 0, fmt.Errorf("rpccgo: `, service.GoName, " ", route.Label, ` registered server has invalid type") }`)
 	if method.Stream.StartAcceptsRequest {
 		g.P(method.Codec.MessageToNativeRequestAssignNames, " := ", method.Codec.MessageToNativeRequest, "(req)")
 		g.P("if err != nil { return 0, err }")
@@ -285,7 +256,7 @@ func renderRuntimeMessageStartNativeCase(g *protogen.GeneratedFile, service Serv
 	} else {
 		renderRuntimeStartSourceWithArgs(g, goNativeStartHelperName(service.GoName, method.Identity.GoName), "ctx, server", true)
 	}
-	renderRuntimeCreateMessageStreamHandle(g, kind, "source")
+	renderRuntimeCreateMessageStreamHandle(g, route.Kind, "source")
 }
 
 func renderRuntimeMessageStartMessageCase(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection) {
@@ -297,36 +268,25 @@ func renderRuntimeMessageStartMessageCase(g *protogen.GeneratedFile, service Ser
 	} else {
 		renderRuntimeStartSourceWithArgs(g, cgoMessageStartHelperName(service.GoName, method.Identity.GoName), "ctx, server", true)
 	}
-	renderRuntimeCreateMessageStreamHandle(g, "rpcruntime.ServerKindCGOMessage", "source")
+	renderRuntimeCreateMessageStreamHandle(g, runtimeServerKindCGOMessage, "source")
 }
 
-func renderRuntimeMessageStartTransportCases(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection) {
-	switch service.Generation.MessageTransport {
-	case MessageTransportConnect:
-		renderRuntimeMessageStartTransportCase(g, service, method, "rpcruntime.ServerKindConnect", service.GoName+"Handler", "connect handler")
-		renderRuntimeMessageStartTransportCase(g, service, method, "rpcruntime.ServerKindConnectRemote", service.GoName+"Client", "connect remote")
-	case MessageTransportGRPC:
-		renderRuntimeMessageStartTransportCase(g, service, method, "rpcruntime.ServerKindGRPC", service.GoName+"Server", "grpc server")
-		renderRuntimeMessageStartTransportCase(g, service, method, "rpcruntime.ServerKindGRPCRemote", service.GoName+"Client", "grpc remote")
-	}
-}
-
-func renderRuntimeMessageStartTransportCase(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection, kind, serverType, label string) {
-	projection, err := transportProjectionForKind(service, kind)
+func renderRuntimeMessageStartTransportCase(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection, route runtimeServerRouteProjection) {
+	projection, err := transportProjectionForKind(service, route.Kind)
 	if err != nil {
-		g.P("case ", kind, ":")
+		g.P("case ", route.Kind, ":")
 		g.P("return 0, ", err.Error())
 		return
 	}
-	g.P("case ", kind, ":")
-	g.P("server, ok := registered.Server.(", serverType, ")")
-	g.P(`if !ok { return 0, fmt.Errorf("rpccgo: `, service.GoName, " ", label, ` registered server has invalid type") }`)
+	g.P("case ", route.Kind, ":")
+	g.P("server, ok := registered.Server.(", route.ServerType, ")")
+	g.P(`if !ok { return 0, fmt.Errorf("rpccgo: `, service.GoName, " ", route.Label, ` registered server has invalid type") }`)
 	if method.Stream.StartAcceptsRequest {
 		renderRuntimeTransportStreamSource(g, service, method, "server", projection, "ctx", "req")
 	} else {
 		renderRuntimeTransportStreamSource(g, service, method, "server", projection, "ctx", "")
 	}
-	renderRuntimeCreateMessageStreamHandle(g, kind, "source")
+	renderRuntimeCreateMessageStreamHandle(g, route.Kind, "source")
 }
 
 func runtimeStartArgs(prefix, nativeArgNames string) string {
@@ -356,11 +316,11 @@ func renderRuntimeTransportStreamSource(g *protogen.GeneratedFile, service Servi
 	}
 }
 
-func renderRuntimeCreateNativeStreamHandle(g *protogen.GeneratedFile, kind, sourceExpr string) {
+func renderRuntimeCreateNativeStreamHandle(g *protogen.GeneratedFile, kind runtimeServerKindExpr, sourceExpr string) {
 	g.P("return rpcruntime.CreateStreamSession(", kind, ", ", sourceExpr, ")")
 }
 
-func renderRuntimeCreateMessageStreamHandle(g *protogen.GeneratedFile, kind, sourceExpr string) {
+func renderRuntimeCreateMessageStreamHandle(g *protogen.GeneratedFile, kind runtimeServerKindExpr, sourceExpr string) {
 	g.P("return rpcruntime.CreateStreamSession(", kind, ", ", sourceExpr, ")")
 }
 
@@ -371,7 +331,7 @@ func nativeGoZeroReturnsForError(method runtimeMethodProjection, errExpr string)
 	return strings.TrimSuffix(method.Native.ErrZero, "err") + errExpr
 }
 
-func transportProjectionForKind(service ServicePlan, kind string) (registrationSourceProjection, error) {
+func transportProjectionForKind(service ServicePlan, kind runtimeServerKindExpr) (registrationSourceProjection, error) {
 	for _, source := range registrationSourcesForService(service) {
 		projection, err := ProjectRegistrationSource(service, source)
 		if err != nil {

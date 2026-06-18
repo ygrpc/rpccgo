@@ -78,18 +78,6 @@ func GreeterMessageCollectSend(ctx context.Context, handle rpcruntime.StreamHand
 			return rpcruntime.ErrStreamInvalidHandle
 		}
 		return source.Send(ctx, req)
-	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		return source.Send(ctx, req)
-	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		return source.Send(ctx, req)
 	default:
 		return fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.Kind)
 	}
@@ -176,38 +164,6 @@ func GreeterMessageCollectFinish(ctx context.Context, handle rpcruntime.StreamHa
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
 		return resp, nil
-	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
-		if !ok {
-			return nil, rpcruntime.ErrStreamInvalidHandle
-		}
-		resp, err := source.Finish(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if resp == nil {
-			return nil, errors.New("rpccgo: message response is nil")
-		}
-		if _, err = rpcruntime.RemoveStreamSession(handle); err != nil {
-			return nil, rpcruntime.ErrStreamInvalidHandle
-		}
-		return resp, nil
-	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
-		if !ok {
-			return nil, rpcruntime.ErrStreamInvalidHandle
-		}
-		resp, err := source.Finish(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if resp == nil {
-			return nil, errors.New("rpccgo: message response is nil")
-		}
-		if _, err = rpcruntime.RemoveStreamSession(handle); err != nil {
-			return nil, rpcruntime.ErrStreamInvalidHandle
-		}
-		return resp, nil
 	default:
 		return nil, fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.Kind)
 	}
@@ -261,26 +217,6 @@ func GreeterMessageCollectCancel(ctx context.Context, handle rpcruntime.StreamHa
 		_, err = rpcruntime.RemoveStreamSession(handle)
 		return err
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		if err := source.Cancel(ctx); err != nil {
-			return err
-		}
-		_, err = rpcruntime.RemoveStreamSession(handle)
-		return err
-	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		if err := source.Cancel(ctx); err != nil {
-			return err
-		}
-		_, err = rpcruntime.RemoveStreamSession(handle)
-		return err
-	case rpcruntime.ServerKindGRPCRemote:
 		source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
@@ -361,32 +297,6 @@ func GreeterMessageBroadcastRecv(ctx context.Context, handle rpcruntime.StreamHa
 			return nil, errors.New("rpccgo: message response is nil")
 		}
 		return resp, nil
-	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
-		if !ok {
-			return nil, rpcruntime.ErrStreamInvalidHandle
-		}
-		resp, err := source.Recv(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if resp == nil {
-			return nil, errors.New("rpccgo: message response is nil")
-		}
-		return resp, nil
-	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
-		if !ok {
-			return nil, rpcruntime.ErrStreamInvalidHandle
-		}
-		resp, err := source.Recv(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if resp == nil {
-			return nil, errors.New("rpccgo: message response is nil")
-		}
-		return resp, nil
 	default:
 		return nil, fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.Kind)
 	}
@@ -440,26 +350,6 @@ func GreeterMessageBroadcastFinish(ctx context.Context, handle rpcruntime.Stream
 		_, err = rpcruntime.RemoveStreamSession(handle)
 		return err
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		if err := source.Finish(ctx); err != nil {
-			return err
-		}
-		_, err = rpcruntime.RemoveStreamSession(handle)
-		return err
-	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		if err := source.Finish(ctx); err != nil {
-			return err
-		}
-		_, err = rpcruntime.RemoveStreamSession(handle)
-		return err
-	case rpcruntime.ServerKindGRPCRemote:
 		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
@@ -531,26 +421,6 @@ func GreeterMessageBroadcastCancel(ctx context.Context, handle rpcruntime.Stream
 		}
 		_, err = rpcruntime.RemoveStreamSession(handle)
 		return err
-	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		if err := source.Cancel(ctx); err != nil {
-			return err
-		}
-		_, err = rpcruntime.RemoveStreamSession(handle)
-		return err
-	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*SayHelloResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		if err := source.Cancel(ctx); err != nil {
-			return err
-		}
-		_, err = rpcruntime.RemoveStreamSession(handle)
-		return err
 	default:
 		return fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.Kind)
 	}
@@ -603,18 +473,6 @@ func GreeterMessageChatSend(ctx context.Context, handle rpcruntime.StreamHandle,
 		}
 		return source.Send(ctx, req)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		return source.Send(ctx, req)
-	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		return source.Send(ctx, req)
-	case rpcruntime.ServerKindGRPCRemote:
 		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
@@ -691,32 +549,6 @@ func GreeterMessageChatRecv(ctx context.Context, handle rpcruntime.StreamHandle)
 			return nil, errors.New("rpccgo: message response is nil")
 		}
 		return resp, nil
-	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
-		if !ok {
-			return nil, rpcruntime.ErrStreamInvalidHandle
-		}
-		resp, err := source.Recv(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if resp == nil {
-			return nil, errors.New("rpccgo: message response is nil")
-		}
-		return resp, nil
-	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
-		if !ok {
-			return nil, rpcruntime.ErrStreamInvalidHandle
-		}
-		resp, err := source.Recv(ctx)
-		if err != nil {
-			return nil, err
-		}
-		if resp == nil {
-			return nil, errors.New("rpccgo: message response is nil")
-		}
-		return resp, nil
 	default:
 		return nil, fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.Kind)
 	}
@@ -754,18 +586,6 @@ func GreeterMessageChatCloseSend(ctx context.Context, handle rpcruntime.StreamHa
 		}
 		return source.CloseSend(ctx)
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		return source.CloseSend(ctx)
-	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		return source.CloseSend(ctx)
-	case rpcruntime.ServerKindGRPCRemote:
 		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
@@ -833,26 +653,6 @@ func GreeterMessageChatFinish(ctx context.Context, handle rpcruntime.StreamHandl
 		}
 		_, err = rpcruntime.RemoveStreamSession(handle)
 		return err
-	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		if err := source.Finish(ctx); err != nil {
-			return err
-		}
-		_, err = rpcruntime.RemoveStreamSession(handle)
-		return err
-	case rpcruntime.ServerKindGRPCRemote:
-		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		if err := source.Finish(ctx); err != nil {
-			return err
-		}
-		_, err = rpcruntime.RemoveStreamSession(handle)
-		return err
 	default:
 		return fmt.Errorf("rpccgo: Greeter message stream session kind %d is unsupported", entry.Kind)
 	}
@@ -906,26 +706,6 @@ func GreeterMessageChatCancel(ctx context.Context, handle rpcruntime.StreamHandl
 		_, err = rpcruntime.RemoveStreamSession(handle)
 		return err
 	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		if err := source.Cancel(ctx); err != nil {
-			return err
-		}
-		_, err = rpcruntime.RemoveStreamSession(handle)
-		return err
-	case rpcruntime.ServerKindGRPC:
-		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		if err := source.Cancel(ctx); err != nil {
-			return err
-		}
-		_, err = rpcruntime.RemoveStreamSession(handle)
-		return err
-	case rpcruntime.ServerKindGRPCRemote:
 		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*SayHelloRequest, *SayHelloResponse])
 		if !ok {
 			return rpcruntime.ErrStreamInvalidHandle
