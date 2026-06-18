@@ -2,9 +2,7 @@ package generator
 
 import "google.golang.org/protobuf/compiler/protogen"
 
-func renderRuntimeTransportUnaryMessageCall(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection, transportExpr, label, reqExpr string) {
-	_ = service
-	_ = label
+func renderRuntimeTransportUnaryMessageCall(g *protogen.GeneratedFile, method runtimeMethodProjection, transportExpr, reqExpr string) {
 	g.P("messageResp, err := ", transportExpr, ".", method.Identity.MessageMethodRef, "(ctx, ", reqExpr, ")")
 	g.P("if err != nil { return nil, err }")
 	g.P("if messageResp == nil {")
@@ -13,9 +11,7 @@ func renderRuntimeTransportUnaryMessageCall(g *protogen.GeneratedFile, service S
 	g.P("return messageResp, nil")
 }
 
-func renderRuntimeTransportUnaryNativeMessageCall(g *protogen.GeneratedFile, service ServicePlan, method runtimeMethodProjection, transportExpr, label, reqExpr string) {
-	_ = service
-	_ = label
+func renderRuntimeTransportUnaryNativeMessageCall(g *protogen.GeneratedFile, method runtimeMethodProjection, transportExpr, reqExpr string) {
 	g.P("messageResp, err = ", transportExpr, ".", method.Identity.MessageMethodRef, "(ctx, ", reqExpr, ")")
 	g.P("if err != nil { return ", method.Native.ErrZero, " }")
 	g.P("if messageResp == nil {")

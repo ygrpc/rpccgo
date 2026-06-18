@@ -87,7 +87,7 @@ func renderRuntimeUnaryNativeToTransportCase(g *protogen.GeneratedFile, service 
 	g.P("messageReq, err := ", method.Codec.NativeRequestToMessage, "(", method.Native.ArgNames, ")")
 	g.P("if err != nil { return ", method.Native.ErrZero, " }")
 	g.P("var messageResp ", runtimeMessageResponseType(method))
-	renderRuntimeTransportUnaryNativeMessageCall(g, service, method, "server", label, "messageReq")
+	renderRuntimeTransportUnaryNativeMessageCall(g, method, "server", "messageReq")
 	g.P("if err != nil { return ", method.Native.ErrZero, " }")
 	g.P("return ", method.Codec.MessageToNativeResponse, "(messageResp)")
 }
@@ -161,7 +161,7 @@ func renderRuntimeUnaryMessageToTransportCase(g *protogen.GeneratedFile, service
 	g.P("case ", kind, ":")
 	g.P("server, ok := registered.Server.(", serverType, ")")
 	g.P(`if !ok { return nil, fmt.Errorf("rpccgo: `, service.GoName, " ", label, ` registered server has invalid type") }`)
-	renderRuntimeTransportUnaryMessageCall(g, service, method, "server", label, "req")
+	renderRuntimeTransportUnaryMessageCall(g, method, "server", "req")
 }
 
 func renderRuntimeNativeStartEntrypoint(g *protogen.GeneratedFile, service ServicePlan, serviceIDName string, method runtimeMethodProjection) {

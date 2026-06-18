@@ -97,7 +97,7 @@ func renderCGONativeServerPreamble(g *protogen.GeneratedFile, service ServicePla
 			current := abi.Methods[method.FullName][operation]
 			if operation == NativeCOperationUnary {
 				unaryABI := current
-				g.P("static inline ", unaryABI.Return.CType, " ", nativeCGOServerTrampolineName(service, method), "(", unaryABI.TypeName, " callback", nativeCGOServerTypedParamSuffix(nativeCABIParamListValues(unaryABI.Params)), ") {")
+				g.P("static inline ", unaryABI.Return.CType, " ", nativeCGOServerTrampolineName(service, method), "(", unaryABI.TypeName, " callback", nativeCGOServerArgSuffix(nativeCABIParamListValues(unaryABI.Params)), ") {")
 				g.P("\treturn callback(", nativeCABIArgNames(unaryABI.Params), ");")
 				g.P("}")
 				g.P()
@@ -110,7 +110,7 @@ func renderCGONativeServerPreamble(g *protogen.GeneratedFile, service ServicePla
 }
 
 func renderCGONativeServerCallbackTrampoline(g *protogen.GeneratedFile, name string, abi COperationABI) {
-	g.P("static inline ", abi.Return.CType, " ", name, "(", abi.TypeName, " callback", nativeCGOServerTypedParamSuffix(nativeCABIParamListValues(abi.Params)), ") {")
+	g.P("static inline ", abi.Return.CType, " ", name, "(", abi.TypeName, " callback", nativeCGOServerArgSuffix(nativeCABIParamListValues(abi.Params)), ") {")
 	g.P("\treturn callback(", nativeCABIArgNames(abi.Params), ");")
 	g.P("}")
 	g.P()
@@ -149,13 +149,6 @@ func nativeCABIRegisterParamList(params []CABISlot) string {
 		values = append(values, param.Name+" "+param.CGoType)
 	}
 	return strings.Join(values, ", ")
-}
-
-func nativeCGOServerTypedParamSuffix(params []string) string {
-	if len(params) == 0 {
-		return ""
-	}
-	return ", " + strings.Join(params, ", ")
 }
 
 func nativeCGOServerArgSuffix(args []string) string {

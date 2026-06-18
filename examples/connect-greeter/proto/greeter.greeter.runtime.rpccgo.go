@@ -116,10 +116,7 @@ func (s *greeterCollectConnectRemoteMessageStreamSession) Send(ctx context.Conte
 	if req == nil {
 		return errors.New("rpccgo: message request is nil")
 	}
-	if s == nil {
-		return errors.New("rpccgo: connect remote client stream is nil")
-	}
-	if s.stream == nil {
+	if s == nil || s.stream == nil {
 		return errors.New("rpccgo: connect remote client stream is nil")
 	}
 	return s.stream.Send(req)
@@ -320,10 +317,7 @@ func (s *greeterChatConnectRemoteMessageStreamSession) Send(ctx context.Context,
 	if req == nil {
 		return errors.New("rpccgo: message request is nil")
 	}
-	if s == nil {
-		return errors.New("rpccgo: connect remote bidi stream is nil")
-	}
-	if s.stream == nil {
+	if s == nil || s.stream == nil {
 		return errors.New("rpccgo: connect remote bidi stream is nil")
 	}
 	return s.stream.Send(req)

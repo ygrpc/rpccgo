@@ -6,17 +6,15 @@ func TestProjectRegistrationSourceCoversValidSources(t *testing.T) {
 	service := registrationSourceTestService("Greeter", ServiceGenerationSelection{MessageTransport: MessageTransportConnect, NativeEnabled: true})
 
 	tests := []struct {
-		name                               string
-		source                             RegistrationSourcePlan
-		wantRegistrationKind               runtimeRegistrationKind
-		wantRegisterName                   string
-		wantInputName                      string
-		wantInputType                      string
-		wantNilErr                         string
-		wantSourceExpr                     string
-		wantLabel                          string
-		wantTransportConstructorShape      transportMessageStreamConstructorShape
-		wantTransportConstructorReturnsErr bool
+		name                 string
+		source               RegistrationSourcePlan
+		wantRegistrationKind runtimeRegistrationKind
+		wantRegisterName     string
+		wantInputName        string
+		wantInputType        string
+		wantNilErr           string
+		wantSourceExpr       string
+		wantLabel            string
 	}{
 		{
 			name:                 "go native",
@@ -52,54 +50,48 @@ func TestProjectRegistrationSourceCoversValidSources(t *testing.T) {
 			wantLabel:            "cgo message",
 		},
 		{
-			name:                          "connect local",
-			source:                        registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportConnect, RegistrationModeLocal),
-			wantRegistrationKind:          runtimeRegistrationKindTransportMessage,
-			wantRegisterName:              "RegisterGreeterConnectHandler",
-			wantInputName:                 "handler",
-			wantInputType:                 "GreeterHandler",
-			wantNilErr:                    "GreeterMessageServerUnavailableErr",
-			wantSourceExpr:                "handler",
-			wantLabel:                     "connect handler",
-			wantTransportConstructorShape: transportMessageStreamConstructorShapeConnectLocal,
+			name:                 "connect local",
+			source:               registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportConnect, RegistrationModeLocal),
+			wantRegistrationKind: runtimeRegistrationKindTransportMessage,
+			wantRegisterName:     "RegisterGreeterConnectHandler",
+			wantInputName:        "handler",
+			wantInputType:        "GreeterHandler",
+			wantNilErr:           "GreeterMessageServerUnavailableErr",
+			wantSourceExpr:       "handler",
+			wantLabel:            "connect handler",
 		},
 		{
-			name:                               "connect remote",
-			source:                             registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportConnect, RegistrationModeRemote),
-			wantRegistrationKind:               runtimeRegistrationKindTransportMessage,
-			wantRegisterName:                   "RegisterGreeterConnectRemoteServer",
-			wantInputName:                      "client",
-			wantInputType:                      "GreeterClient",
-			wantNilErr:                         "GreeterMessageServerUnavailableErr",
-			wantSourceExpr:                     "client",
-			wantLabel:                          "connect remote",
-			wantTransportConstructorShape:      transportMessageStreamConstructorShapeConnectRemote,
-			wantTransportConstructorReturnsErr: true,
+			name:                 "connect remote",
+			source:               registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportConnect, RegistrationModeRemote),
+			wantRegistrationKind: runtimeRegistrationKindTransportMessage,
+			wantRegisterName:     "RegisterGreeterConnectRemoteServer",
+			wantInputName:        "client",
+			wantInputType:        "GreeterClient",
+			wantNilErr:           "GreeterMessageServerUnavailableErr",
+			wantSourceExpr:       "client",
+			wantLabel:            "connect remote",
 		},
 		{
-			name:                          "grpc local",
-			source:                        registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportGRPC, RegistrationModeLocal),
-			wantRegistrationKind:          runtimeRegistrationKindTransportMessage,
-			wantRegisterName:              "RegisterGreeterGRPCServer",
-			wantInputName:                 "server",
-			wantInputType:                 "GreeterServer",
-			wantNilErr:                    "GreeterMessageServerUnavailableErr",
-			wantSourceExpr:                "server",
-			wantLabel:                     "grpc server",
-			wantTransportConstructorShape: transportMessageStreamConstructorShapeGRPCLocal,
+			name:                 "grpc local",
+			source:               registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportGRPC, RegistrationModeLocal),
+			wantRegistrationKind: runtimeRegistrationKindTransportMessage,
+			wantRegisterName:     "RegisterGreeterGRPCServer",
+			wantInputName:        "server",
+			wantInputType:        "GreeterServer",
+			wantNilErr:           "GreeterMessageServerUnavailableErr",
+			wantSourceExpr:       "server",
+			wantLabel:            "grpc server",
 		},
 		{
-			name:                               "grpc remote",
-			source:                             registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportGRPC, RegistrationModeRemote),
-			wantRegistrationKind:               runtimeRegistrationKindTransportMessage,
-			wantRegisterName:                   "RegisterGreeterGRPCRemoteServer",
-			wantInputName:                      "client",
-			wantInputType:                      "GreeterClient",
-			wantNilErr:                         "GreeterMessageServerUnavailableErr",
-			wantSourceExpr:                     "client",
-			wantLabel:                          "grpc remote",
-			wantTransportConstructorShape:      transportMessageStreamConstructorShapeGRPCRemote,
-			wantTransportConstructorReturnsErr: true,
+			name:                 "grpc remote",
+			source:               registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportGRPC, RegistrationModeRemote),
+			wantRegistrationKind: runtimeRegistrationKindTransportMessage,
+			wantRegisterName:     "RegisterGreeterGRPCRemoteServer",
+			wantInputName:        "client",
+			wantInputType:        "GreeterClient",
+			wantNilErr:           "GreeterMessageServerUnavailableErr",
+			wantSourceExpr:       "client",
+			wantLabel:            "grpc remote",
 		},
 	}
 
@@ -129,12 +121,6 @@ func TestProjectRegistrationSourceCoversValidSources(t *testing.T) {
 			}
 			if got.label != tt.wantLabel {
 				t.Fatalf("label = %q, want %q", got.label, tt.wantLabel)
-			}
-			if got.transportStreamConstructorShape != tt.wantTransportConstructorShape {
-				t.Fatalf("transportStreamConstructorShape = %q, want %q", got.transportStreamConstructorShape, tt.wantTransportConstructorShape)
-			}
-			if got.transportStreamConstructorReturnsErr != tt.wantTransportConstructorReturnsErr {
-				t.Fatalf("transportStreamConstructorReturnsErr = %v, want %v", got.transportStreamConstructorReturnsErr, tt.wantTransportConstructorReturnsErr)
 			}
 		})
 	}
