@@ -48,6 +48,10 @@ _Avoid_: direction-neutral stream, per-method facade
 generator 侧的 contract-to-render 投影，把 streaming method 的 operation capability、terminal policy 和 codec requirement 转换为 generated package-level stream operation 函数；不执行 runtime state machine，也不拥有 handle storage。
 _Avoid_: runtime stream lifecycle executor, stream registry helper plan
 
+**Callback receive stream**:
+C client export `Start` 时由用户同时传入 `onRecv` 与 `onDone` 后启用的自动接收 stream 模式；generated code 后台循环接收 server stream 或 bidi stream 的响应并回调 C 用户代码，而不是要求用户手动调用 `Recv`。
+_Avoid_: manual receive stream, C server callback
+
 **Generated service runtime**:
 每个 service 生成的 `*.runtime.rpccgo.go`，只应承载 proto/service/method-specific 的 package-level invoke/start facade、registry lookup glue、transport registration glue、stream `Start` glue 和 converter glue。
 _Avoid_: runtime core
@@ -91,6 +95,12 @@ _Avoid_: active server
 - C **Message contract** projection 的 request-side `ptr/len` 表达 borrowed bytes view，不引入 ownership slot；需要跨调用或跨 stream 持有请求内容时，由持有方自行复制。
 - C **Message contract** projection 读取 `ptr/len` bytes 时，`len == 0` 一律转换为非 nil 空 protobuf message 且不读取 `ptr`；`len < 0` 或 `len > 0 && ptr == 0` 必须返回显式错误。
 - C **Message contract** projection 写出 typed protobuf message 时，先拒绝 nil message，再序列化；序列化结果长度为 0 时输出 `ptr=0,len=0` 且不分配跨 C 边界 buffer。
+- C **Message contract** client projection 的 server stream / bidi stream `Start` 只有在 `onRecv` 与 `onDone` 同时非 nil 时才启用 **Callback receive stream**；否则保持手动 `Recv` 模式。
+- **Callback receive stream** 沿用现有 `Recv` export 的响应 buffer 释放语义；`onRecv` 收到的 `ptr/len` 由用户处理完后调用 generated shared release API 释放。
+- **Callback receive stream** 启用后不允许用户再手动调用该 stream 的 `Recv`；对应 export 必须返回显式错误。`Cancel` 仍然有效，并负责主动取消后台接收流程。bidi stream 的 `Send` 与 `CloseSend` 仍按原 stream handle 工作。
+- Server streaming client 侧没有 `Finish` 操作；server stream 由服务端自然结束或 client 侧 `Cancel` 终止。
+- **Callback receive stream** 对 registered server 透明；server 端继续按原 server stream / bidi stream contract 处理 `Send`、`Recv`、`CloseSend`、`Cancel` 和自然结束，不感知 client 是否用 callback receive。
+- Server streaming client 侧移除 `Finish` 不等于移除 C server callback ABI 的 server-stream `Finish`；后者是 C server implementation 的 stream cleanup / natural completion callback，仍属于 server callback operation set。
 - C message server streaming 方法属于 handler-style server contract：server endpoint 作为方法参数传入；`Start` 返回 client endpoint 只属于 generated runtime dispatch 与 C callback ABI 的内部投影。
 - C **Message contract** server callback 与 C **Native** server callback 一样支持按 method 局部注册；未注册 method 调用时返回 generated unimplemented error，streaming method 的 operation callbacks 不允许半注册。
 - **Native C ABI lowering** 必须从 **Native** / `NativeContractPlan` 派生，不能重新解释 proto descriptor 或形成独立 contract。
