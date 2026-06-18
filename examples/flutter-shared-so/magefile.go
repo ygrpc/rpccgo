@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 )
@@ -19,51 +20,69 @@ var protocPluginPackages = []string{
 	"../../cmd/protoc-gen-rpc-cgo-jni",
 }
 
+var dartVersionPattern = regexp.MustCompile(`Dart SDK version: ([0-9]+\.[0-9]+\.[0-9]+)`)
+
+type protocPluginInstall struct {
+	goBinDir string
+}
+
 // Generate refreshes all generated files for the flutter shared-so example.
 func Generate() error {
-	binDir, cleanup, err := installProtocPlugins()
+	plugins, cleanup, err := installProtocPlugins()
 	if err != nil {
 		return err
 	}
 	defer cleanup()
-	return generateWithBinDir(binDir)
+	return generateWithPlugins(plugins)
 }
 
 // Test verifies the shared-so E2E contracts and build process.
 func Test() error {
-	binDir, cleanup, err := installProtocPlugins()
+	plugins, cleanup, err := installProtocPlugins()
 	if err != nil {
 		return err
 	}
 	defer cleanup()
-	if err := generateWithBinDir(binDir); err != nil {
+	if err := generateWithPlugins(plugins); err != nil {
 		return err
 	}
 	return runWithEnv(map[string]string{"GOFLAGS": "-mod=mod"}, "go", "test", "./...", "-count=1", "-skip", "^TestSharedSoDemoMageTestNoPanic$")
 }
 
-func installProtocPlugins() (string, func(), error) {
-	binDir, err := os.MkdirTemp("", "rpccgo-flutter-example-bin-*")
+func installProtocPlugins() (protocPluginInstall, func(), error) {
+	root, err := os.MkdirTemp("", "rpccgo-flutter-example-tools-*")
 	if err != nil {
-		return "", nil, err
+		return protocPluginInstall{}, nil, err
 	}
-	cleanup := func() { _ = os.RemoveAll(binDir) }
+	cleanup := func() { _ = os.RemoveAll(root) }
+	plugins := protocPluginInstall{
+		goBinDir: filepath.Join(root, "go-bin"),
+	}
+	if err := os.MkdirAll(plugins.goBinDir, 0o755); err != nil {
+		cleanup()
+		return protocPluginInstall{}, nil, err
+	}
 	for _, pkg := range protocPluginPackages {
-		if err := runWithEnv(map[string]string{"GOBIN": binDir, "GOFLAGS": "-mod=mod"}, "go", "install", pkg); err != nil {
+		if err := runWithEnv(map[string]string{"GOBIN": plugins.goBinDir, "GOFLAGS": "-mod=mod"}, "go", "install", pkg); err != nil {
 			cleanup()
-			return "", nil, fmt.Errorf("install %s: %w", pkg, err)
+			return protocPluginInstall{}, nil, fmt.Errorf("install %s: %w", pkg, err)
 		}
 	}
-	return binDir, cleanup, nil
+	if err := installDartProtocPlugin(plugins.goBinDir); err != nil {
+		cleanup()
+		return protocPluginInstall{}, nil, err
+	}
+	return plugins, cleanup, nil
 }
 
-func generateWithBinDir(binDir string) error {
+func generateWithPlugins(plugins protocPluginInstall) error {
 	args := []string{
-		"--plugin=protoc-gen-go=" + pluginPath(binDir, "protoc-gen-go"),
-		"--plugin=protoc-gen-connect-go=" + pluginPath(binDir, "protoc-gen-connect-go"),
-		"--plugin=protoc-gen-rpc-cgo=" + pluginPath(binDir, "protoc-gen-rpc-cgo"),
-		"--plugin=protoc-gen-rpc-cgo-dart=" + pluginPath(binDir, "protoc-gen-rpc-cgo-dart"),
-		"--plugin=protoc-gen-rpc-cgo-jni=" + pluginPath(binDir, "protoc-gen-rpc-cgo-jni"),
+		"--plugin=protoc-gen-go=" + pluginPath(plugins.goBinDir, "protoc-gen-go"),
+		"--plugin=protoc-gen-connect-go=" + pluginPath(plugins.goBinDir, "protoc-gen-connect-go"),
+		"--plugin=protoc-gen-rpc-cgo=" + pluginPath(plugins.goBinDir, "protoc-gen-rpc-cgo"),
+		"--plugin=protoc-gen-rpc-cgo-dart=" + pluginPath(plugins.goBinDir, "protoc-gen-rpc-cgo-dart"),
+		"--plugin=protoc-gen-rpc-cgo-jni=" + pluginPath(plugins.goBinDir, "protoc-gen-rpc-cgo-jni"),
+		"--plugin=protoc-gen-dart=" + pluginPath(plugins.goBinDir, "protoc-gen-dart"),
 		"--unsafe_allow_out_dir_escape",
 		"-I", "proto",
 		"--go_out=proto",
@@ -86,7 +105,7 @@ func generateWithBinDir(binDir string) error {
 	}
 	return runWithEnv(map[string]string{
 		"GOFLAGS": "-mod=mod",
-		"PATH":    binDir + string(os.PathListSeparator) + os.Getenv("PATH"),
+		"PATH":    plugins.goBinDir + string(os.PathListSeparator) + os.Getenv("PATH"),
 	}, "protoc", args...)
 }
 
@@ -95,6 +114,57 @@ func pluginPath(binDir, name string) string {
 		name += ".exe"
 	}
 	return filepath.Join(binDir, name)
+}
+
+func installDartProtocPlugin(binDir string) error {
+	version, err := currentDartVersion()
+	if err != nil {
+		return err
+	}
+	snapshot := filepath.Join(pubCacheDir(), "global_packages", "protoc_plugin", "bin", "protoc_plugin.dart-"+version+".snapshot")
+	target := pluginPath(binDir, "protoc-gen-dart")
+	if runtime.GOOS == "windows" {
+		script := "@echo off\r\n" +
+			"if exist \"" + snapshot + "\" (\r\n" +
+			"  dart \"" + snapshot + "\" %*\r\n" +
+			") else (\r\n" +
+			"  dart pub global run protoc_plugin:protoc_plugin %*\r\n" +
+			")\r\n"
+		return os.WriteFile(target, []byte(script), 0o755)
+	}
+	script := "#!/usr/bin/env sh\n" +
+		"if [ -f " + shellQuote(snapshot) + " ]; then\n" +
+		"  exec dart " + shellQuote(snapshot) + " \"$@\"\n" +
+		"fi\n" +
+		"exec dart pub global run protoc_plugin:protoc_plugin \"$@\"\n"
+	return os.WriteFile(target, []byte(script), 0o755)
+}
+
+func currentDartVersion() (string, error) {
+	output, err := exec.Command("dart", "--version").CombinedOutput()
+	if err != nil {
+		return "", err
+	}
+	matches := dartVersionPattern.FindStringSubmatch(string(output))
+	if len(matches) != 2 {
+		return "", fmt.Errorf("could not parse dart version from %q", strings.TrimSpace(string(output)))
+	}
+	return matches[1], nil
+}
+
+func pubCacheDir() string {
+	if value := os.Getenv("PUB_CACHE"); value != "" {
+		return value
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return filepath.Join(".", ".pub-cache")
+	}
+	return filepath.Join(home, ".pub-cache")
+}
+
+func shellQuote(value string) string {
+	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
 }
 
 func runWithEnv(extra map[string]string, name string, args ...string) error {
