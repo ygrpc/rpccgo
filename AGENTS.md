@@ -60,9 +60,8 @@ connect client 和 grpc client 属于标准 RPC client，不进入 rpccgo client
 
 ## Protobuf 插件策略
 
-- 只实现一个 protobuf 插件：`protoc-gen-rpc-cgo`。
 - 插件内部拆分 parser、planner、renderer，不为不同 server 类型拆多个 protoc 插件。
-- 插件读取 service 上的 `@rpccgo` 注释，建立统一 `ServicePlan`，再按 plan 调用不同 renderer。
+- `protoc-gen-rpc-cgo` 插件读取 service 上的 `@rpccgo` 注释，建立统一 `ServicePlan`，再按 plan 调用不同 renderer。
 - 没有 `@rpccgo` 注释时默认等价于 `@rpccgo:msg-connect`。
 - 支持 token：`msg-connect`、`msg-grpc`、`native`。
 - `native` 单独出现时默认生成 `msg-connect|native`。
