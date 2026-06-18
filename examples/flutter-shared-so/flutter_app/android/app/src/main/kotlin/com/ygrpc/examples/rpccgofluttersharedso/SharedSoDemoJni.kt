@@ -6,6 +6,7 @@ package com.ygrpc.examples.rpccgofluttersharedso
 
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.atomic.AtomicBoolean
 
 data class RpccgoResult<T>(val value: T?, val error: String?) {
     val ok: Boolean get() = error == null
@@ -54,12 +55,44 @@ object SharedSoDemoJni {
     }
 
     class SharedSoDemoWatchRuntimeStateServerStream internal constructor(private val handle: Int) {
-        fun Recv(): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> =
+        private val receiving = AtomicBoolean(false)
+        private fun recvUnchecked(): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> =
             decodeResult(SharedSoDemoJni.sharedSoDemoWatchRuntimeStateRecv(handle)) { examples.flutter.sharedso.v1.RuntimeStateResponse.parseFrom(it) }
+        /** Receives one response. Do not call while RecvEach is running on this stream. */
+        fun Recv(): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> {
+            if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure("rpccgo: stream already has an active receiver")
+            return try {
+                recvUnchecked()
+            } finally {
+                receiving.set(false)
+            }
+        }
         fun Finish(): RpccgoResult<Unit> =
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoWatchRuntimeStateFinish(handle))
         fun Cancel(): RpccgoResult<Unit> =
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoWatchRuntimeStateCancel(handle))
+        /** Starts a background Recv loop. Do not mix with manual Recv calls on this stream. */
+        fun RecvEach(onMessage: (examples.flutter.sharedso.v1.RuntimeStateResponse) -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread> {
+            if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure("rpccgo: stream already has an active receiver")
+            val worker = Thread {
+                try {
+                    while (true) {
+                        val next = recvUnchecked()
+                        if (!next.ok) {
+                            onError(next.error ?: "rpccgo: stream recv failed")
+                            return@Thread
+                        }
+                        val value = next.value ?: return@Thread
+                        onMessage(value)
+                    }
+                } finally {
+                    receiving.set(false)
+                    Cancel()
+                }
+            }
+            worker.start()
+            return RpccgoResult.success(worker)
+        }
     }
 
     fun CollectRuntimeStateStart(): RpccgoResult<SharedSoDemoCollectRuntimeStateClientStream> {
@@ -84,12 +117,44 @@ object SharedSoDemoJni {
     }
 
     class SharedSoDemoStreamRuntimeStateServerStream internal constructor(private val handle: Int) {
-        fun Recv(): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> =
+        private val receiving = AtomicBoolean(false)
+        private fun recvUnchecked(): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> =
             decodeResult(SharedSoDemoJni.sharedSoDemoStreamRuntimeStateRecv(handle)) { examples.flutter.sharedso.v1.RuntimeStateResponse.parseFrom(it) }
+        /** Receives one response. Do not call while RecvEach is running on this stream. */
+        fun Recv(): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> {
+            if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure("rpccgo: stream already has an active receiver")
+            return try {
+                recvUnchecked()
+            } finally {
+                receiving.set(false)
+            }
+        }
         fun Finish(): RpccgoResult<Unit> =
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoStreamRuntimeStateFinish(handle))
         fun Cancel(): RpccgoResult<Unit> =
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoStreamRuntimeStateCancel(handle))
+        /** Starts a background Recv loop. Do not mix with manual Recv calls on this stream. */
+        fun RecvEach(onMessage: (examples.flutter.sharedso.v1.RuntimeStateResponse) -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread> {
+            if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure("rpccgo: stream already has an active receiver")
+            val worker = Thread {
+                try {
+                    while (true) {
+                        val next = recvUnchecked()
+                        if (!next.ok) {
+                            onError(next.error ?: "rpccgo: stream recv failed")
+                            return@Thread
+                        }
+                        val value = next.value ?: return@Thread
+                        onMessage(value)
+                    }
+                } finally {
+                    receiving.set(false)
+                    Cancel()
+                }
+            }
+            worker.start()
+            return RpccgoResult.success(worker)
+        }
     }
 
     fun ChatRuntimeStateStart(): RpccgoResult<SharedSoDemoChatRuntimeStateBidiStream> {
@@ -101,14 +166,46 @@ object SharedSoDemoJni {
     class SharedSoDemoChatRuntimeStateBidiStream internal constructor(private val handle: Int) {
         fun Send(req: examples.flutter.sharedso.v1.IncrementRuntimeStateRequest): RpccgoResult<Unit> =
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoChatRuntimeStateSend(handle, req.toByteArray()))
-        fun Recv(): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> =
+        private val receiving = AtomicBoolean(false)
+        private fun recvUnchecked(): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> =
             decodeResult(SharedSoDemoJni.sharedSoDemoChatRuntimeStateRecv(handle)) { examples.flutter.sharedso.v1.RuntimeStateResponse.parseFrom(it) }
+        /** Receives one response. Do not call while RecvEach is running on this stream. */
+        fun Recv(): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> {
+            if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure("rpccgo: stream already has an active receiver")
+            return try {
+                recvUnchecked()
+            } finally {
+                receiving.set(false)
+            }
+        }
         fun CloseSend(): RpccgoResult<Unit> =
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoChatRuntimeStateCloseSend(handle))
         fun Finish(): RpccgoResult<Unit> =
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoChatRuntimeStateFinish(handle))
         fun Cancel(): RpccgoResult<Unit> =
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoChatRuntimeStateCancel(handle))
+        /** Starts a background Recv loop. Do not mix with manual Recv calls on this stream. */
+        fun RecvEach(onMessage: (examples.flutter.sharedso.v1.RuntimeStateResponse) -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread> {
+            if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure("rpccgo: stream already has an active receiver")
+            val worker = Thread {
+                try {
+                    while (true) {
+                        val next = recvUnchecked()
+                        if (!next.ok) {
+                            onError(next.error ?: "rpccgo: stream recv failed")
+                            return@Thread
+                        }
+                        val value = next.value ?: return@Thread
+                        onMessage(value)
+                    }
+                } finally {
+                    receiving.set(false)
+                    Cancel()
+                }
+            }
+            worker.start()
+            return RpccgoResult.success(worker)
+        }
     }
 
     private fun decodeResultPayload(bytes: ByteArray?): RpccgoResult<ByteArray> {

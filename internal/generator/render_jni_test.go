@@ -60,10 +60,20 @@ func TestGenerateJNIEmitsStreamingOperations(t *testing.T) {
 		"rpccgoMsgTestv1GreeterChatRead",
 	)
 	for _, fragment := range []string{
+		"import java.util.concurrent.atomic.AtomicBoolean",
 		"fun UploadStart(): RpccgoResult<GreeterUploadClientStream>",
 		"fun ListStart(req: test.v1.MessageRequest): RpccgoResult<GreeterListServerStream>",
 		"fun ChatStart(): RpccgoResult<GreeterChatBidiStream>",
 		"fun CloseSend(): RpccgoResult<Unit>",
+		"private val receiving = AtomicBoolean(false)",
+		"/** Receives one response. Do not call while RecvEach is running on this stream. */",
+		"if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure(\"rpccgo: stream already has an active receiver\")",
+		"/** Starts a background Recv loop. Do not mix with manual Recv calls on this stream. */",
+		"fun RecvEach(onMessage: (test.v1.MessageReply) -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread>",
+		"val worker = Thread {",
+		"val next = recvUnchecked()",
+		"return RpccgoResult.success(worker)",
+		"Cancel()",
 	} {
 		assertGeneratedContentContains(t, plugin, ktFile, fragment)
 	}
@@ -71,6 +81,8 @@ func TestGenerateJNIEmitsStreamingOperations(t *testing.T) {
 		"fun StartUpload():",
 		"fun StartList(req:",
 		"fun StartChat():",
+		"kotlinx.coroutines",
+		"ReceiveEach",
 	)
 }
 

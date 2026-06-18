@@ -12,6 +12,9 @@ func renderJNIKotlinFile(plugin *protogen.Plugin, plan FilePlan, service Service
 	g.P()
 	g.P("import java.nio.ByteBuffer")
 	g.P("import java.nio.ByteOrder")
+	if serviceHasRecvStreamingMethod(service) {
+		g.P("import java.util.concurrent.atomic.AtomicBoolean")
+	}
 	g.P()
 	g.P("data class RpccgoResult<T>(val value: T?, val error: String?) {")
 	g.P("    val ok: Boolean get() = error == null")
@@ -141,12 +144,23 @@ func renderKotlinServerStreamingMethod(g *protogen.GeneratedFile, service Servic
 	g.P("    }")
 	g.P()
 	g.P("    class ", streamType, " internal constructor(private val handle: Int) {")
-	g.P("        fun Recv(): RpccgoResult<", respType, "> =")
+	g.P("        private val receiving = AtomicBoolean(false)")
+	g.P("        private fun recvUnchecked(): RpccgoResult<", respType, "> =")
 	g.P("            decodeResult(", className, ".", nativeName, "Recv(handle)) { ", respType, ".parseFrom(it) }")
+	g.P("        /** Receives one response. Do not call while RecvEach is running on this stream. */")
+	g.P("        fun Recv(): RpccgoResult<", respType, "> {")
+	g.P("            if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure(\"rpccgo: stream already has an active receiver\")")
+	g.P("            return try {")
+	g.P("                recvUnchecked()")
+	g.P("            } finally {")
+	g.P("                receiving.set(false)")
+	g.P("            }")
+	g.P("        }")
 	g.P("        fun Finish(): RpccgoResult<Unit> =")
 	g.P("            decodeUnitResult(", className, ".", nativeName, "Finish(handle))")
 	g.P("        fun Cancel(): RpccgoResult<Unit> =")
 	g.P("            decodeUnitResult(", className, ".", nativeName, "Cancel(handle))")
+	renderKotlinReceiveEachMethod(g, respType)
 	g.P("    }")
 	g.P()
 }
@@ -165,14 +179,59 @@ func renderKotlinBidiStreamingMethod(g *protogen.GeneratedFile, service ServiceP
 	g.P("    class ", streamType, " internal constructor(private val handle: Int) {")
 	g.P("        fun Send(req: ", reqType, "): RpccgoResult<Unit> =")
 	g.P("            decodeUnitResult(", className, ".", nativeName, "Send(handle, req.toByteArray()))")
-	g.P("        fun Recv(): RpccgoResult<", respType, "> =")
+	g.P("        private val receiving = AtomicBoolean(false)")
+	g.P("        private fun recvUnchecked(): RpccgoResult<", respType, "> =")
 	g.P("            decodeResult(", className, ".", nativeName, "Recv(handle)) { ", respType, ".parseFrom(it) }")
+	g.P("        /** Receives one response. Do not call while RecvEach is running on this stream. */")
+	g.P("        fun Recv(): RpccgoResult<", respType, "> {")
+	g.P("            if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure(\"rpccgo: stream already has an active receiver\")")
+	g.P("            return try {")
+	g.P("                recvUnchecked()")
+	g.P("            } finally {")
+	g.P("                receiving.set(false)")
+	g.P("            }")
+	g.P("        }")
 	g.P("        fun CloseSend(): RpccgoResult<Unit> =")
 	g.P("            decodeUnitResult(", className, ".", nativeName, "CloseSend(handle))")
 	g.P("        fun Finish(): RpccgoResult<Unit> =")
 	g.P("            decodeUnitResult(", className, ".", nativeName, "Finish(handle))")
 	g.P("        fun Cancel(): RpccgoResult<Unit> =")
 	g.P("            decodeUnitResult(", className, ".", nativeName, "Cancel(handle))")
+	renderKotlinReceiveEachMethod(g, respType)
 	g.P("    }")
 	g.P()
+}
+
+func serviceHasRecvStreamingMethod(service ServicePlan) bool {
+	for _, method := range service.Methods {
+		if method.Streaming == StreamingKindServerStreaming || method.Streaming == StreamingKindBidiStreaming {
+			return true
+		}
+	}
+	return false
+}
+
+func renderKotlinReceiveEachMethod(g *protogen.GeneratedFile, respType string) {
+	g.P("        /** Starts a background Recv loop. Do not mix with manual Recv calls on this stream. */")
+	g.P("        fun RecvEach(onMessage: (", respType, ") -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread> {")
+	g.P("            if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure(\"rpccgo: stream already has an active receiver\")")
+	g.P("            val worker = Thread {")
+	g.P("                try {")
+	g.P("                    while (true) {")
+	g.P("                        val next = recvUnchecked()")
+	g.P("                        if (!next.ok) {")
+	g.P("                            onError(next.error ?: \"rpccgo: stream recv failed\")")
+	g.P("                            return@Thread")
+	g.P("                        }")
+	g.P("                        val value = next.value ?: return@Thread")
+	g.P("                        onMessage(value)")
+	g.P("                    }")
+	g.P("                } finally {")
+	g.P("                    receiving.set(false)")
+	g.P("                    Cancel()")
+	g.P("                }")
+	g.P("            }")
+	g.P("            worker.start()")
+	g.P("            return RpccgoResult.success(worker)")
+	g.P("        }")
 }
