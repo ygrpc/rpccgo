@@ -220,37 +220,37 @@ func TestRenderRuntimeGlueDefinesPackageLevelStreamOperations(t *testing.T) {
 	const messageServerFile = "test/v1/complete_service_plan.all_service.server.message.rpccgo.go"
 	for _, fragment := range []string{
 		"func AllServiceNativeClientStreamSend(ctx context.Context, handle rpcruntime.StreamHandle, name *rpcruntime.RpcString, enabled bool, child *rpcruntime.RpcBytes) error {",
-		"entry, err := rpcruntime.SendStreamSession(handle)",
+		"entry, err := rpcruntime.LoadStreamSession(handle)",
 		"source, ok := entry.Session.(rpcruntime.ClientStreamingClient[AllServiceClientStreamNativeStreamRequest, AllServiceClientStreamNativeStreamResponse])",
 		"return source.Send(ctx, AllServiceClientStreamNativeStreamRequest{Name: name, Enabled: enabled, Child: child})",
 		"func AllServiceNativeClientStreamFinish(ctx context.Context, handle rpcruntime.StreamHandle) (bool, []byte, error) {",
 		"entry, err := rpcruntime.LoadStreamSession(handle)",
-		"_, err = rpcruntime.FinishStreamSession(handle)",
+		"_, err = rpcruntime.RemoveStreamSession(handle)",
 		"return resp.Accepted, resp.Payload, nil",
 		"func AllServiceNativeServerStreamRecv(ctx context.Context, handle rpcruntime.StreamHandle) (bool, []byte, error) {",
-		"entry, err := rpcruntime.RecvStreamSession(handle)",
+		"entry, err := rpcruntime.LoadStreamSession(handle)",
 		"func AllServiceNativeServerStreamFinish(ctx context.Context, handle rpcruntime.StreamHandle) error {",
 		"func AllServiceNativeBidiStreamCloseSend(ctx context.Context, handle rpcruntime.StreamHandle) error {",
-		"entry, err := rpcruntime.CloseSendStreamSession(handle)",
-		"_, err = rpcruntime.CancelStreamSession(handle)",
-		"return source.Cancel(ctx)",
+		"entry, err := rpcruntime.LoadStreamSession(handle)",
+		"_, err = rpcruntime.RemoveStreamSession(handle)",
+		"return err",
 	} {
 		assertGeneratedContentContains(t, plugin, nativeServerFile, fragment)
 	}
 	for _, fragment := range []string{
 		"func AllServiceMessageClientStreamSend(ctx context.Context, handle rpcruntime.StreamHandle, req *AllRequest) error {",
 		`return errors.New("rpccgo: message request is nil")`,
-		"entry, err := rpcruntime.SendStreamSession(handle)",
+		"entry, err := rpcruntime.LoadStreamSession(handle)",
 		"source, ok := entry.Session.(rpcruntime.ClientStreamingClient[*AllRequest, *AllReply])",
 		"func AllServiceMessageClientStreamFinish(ctx context.Context, handle rpcruntime.StreamHandle) (*AllReply, error) {",
 		"entry, err := rpcruntime.LoadStreamSession(handle)",
-		"_, err = rpcruntime.FinishStreamSession(handle)",
+		"_, err = rpcruntime.RemoveStreamSession(handle)",
 		"func AllServiceMessageServerStreamRecv(ctx context.Context, handle rpcruntime.StreamHandle) (*AllReply, error) {",
-		"entry, err := rpcruntime.RecvStreamSession(handle)",
+		"entry, err := rpcruntime.LoadStreamSession(handle)",
 		`return nil, errors.New("rpccgo: message response is nil")`,
 		"func AllServiceMessageBidiStreamCloseSend(ctx context.Context, handle rpcruntime.StreamHandle) error {",
-		"entry, err := rpcruntime.CloseSendStreamSession(handle)",
-		"_, err = rpcruntime.CancelStreamSession(handle)",
+		"entry, err := rpcruntime.LoadStreamSession(handle)",
+		"_, err = rpcruntime.RemoveStreamSession(handle)",
 	} {
 		assertGeneratedContentContains(t, plugin, messageServerFile, fragment)
 	}
@@ -485,10 +485,10 @@ func TestRenderRuntimeRejectsAdapterMethodSymbolCollision(t *testing.T) {
 
 	err := renderRuntimeFile(plugin, plan, plan.Services[0], plan.Services[0].Artifacts[0])
 	if err == nil {
-		t.Fatal("renderRuntimeFile() error = nil, want adapter method symbol collision error")
+		t.Fatal("renderRuntimeFile() error = nil, want entry method symbol collision error")
 	}
 	if got := err.Error(); !strings.Contains(got, "StartFoo") || !strings.Contains(got, "collides") {
-		t.Fatalf("renderRuntimeFile() error = %q, want colliding adapter method symbol", got)
+		t.Fatalf("renderRuntimeFile() error = %q, want colliding entry method symbol", got)
 	}
 }
 
@@ -497,10 +497,8 @@ func runtimeTestMethod(name string, streaming StreamingKind, nativeEntryMethod s
 	method.RenderPlan = MethodRenderPlan{
 		Stream: runtimeTestStreamCapabilityProjection(streamShape),
 		Symbols: RenderSymbolsPlan{
-			NativeEntryMethod:    nativeEntryMethod,
-			MessageEntryMethod:   messageEntryMethod,
-			NativeAdapterMethod:  nativeEntryMethod,
-			MessageAdapterMethod: messageEntryMethod,
+			NativeEntryMethod:  nativeEntryMethod,
+			MessageEntryMethod: messageEntryMethod,
 		},
 	}
 	if streamShape != runtimeStreamUnary {

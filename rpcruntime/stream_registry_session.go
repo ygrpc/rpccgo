@@ -20,35 +20,8 @@ func CreateStreamSession(kind ServerKind, session any) (StreamHandle, error) {
 	return streamSessions.Create(StreamSession{Kind: kind, Session: session})
 }
 
+// LoadStreamSession returns the active stream session without removing its handle.
 func LoadStreamSession(handle StreamHandle) (StreamSession, error) {
-	return loadStreamSession(handle)
-}
-
-func SendStreamSession(handle StreamHandle) (StreamSession, error) {
-	return loadStreamSession(handle)
-}
-
-func CloseSendStreamSession(handle StreamHandle) (StreamSession, error) {
-	return loadStreamSession(handle)
-}
-
-func RecvStreamSession(handle StreamHandle) (StreamSession, error) {
-	return loadStreamSession(handle)
-}
-
-func FinishStreamSession(handle StreamHandle) (StreamSession, error) {
-	return takeStreamSession(handle)
-}
-
-func CancelStreamSession(handle StreamHandle) (StreamSession, error) {
-	return takeStreamSession(handle)
-}
-
-func ResetStreamSessionsForTesting() {
-	streamSessions = StreamRegistry{}
-}
-
-func loadStreamSession(handle StreamHandle) (StreamSession, error) {
 	value, ok := streamSessions.Load(handle)
 	if !ok {
 		return StreamSession{}, ErrStreamInvalidHandle
@@ -60,7 +33,8 @@ func loadStreamSession(handle StreamHandle) (StreamSession, error) {
 	return session, nil
 }
 
-func takeStreamSession(handle StreamHandle) (StreamSession, error) {
+// RemoveStreamSession returns the active stream session and removes its handle.
+func RemoveStreamSession(handle StreamHandle) (StreamSession, error) {
 	value, ok := streamSessions.Take(handle)
 	if !ok {
 		return StreamSession{}, ErrStreamInvalidHandle
@@ -70,4 +44,8 @@ func takeStreamSession(handle StreamHandle) (StreamSession, error) {
 		return StreamSession{}, ErrStreamInvalidHandle
 	}
 	return session, nil
+}
+
+func ResetStreamSessionsForTesting() {
+	streamSessions = StreamRegistry{}
 }

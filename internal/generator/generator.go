@@ -10,7 +10,10 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-const defaultCGODir = "cgo"
+const (
+	defaultCGODir        = "cgo"
+	rpcruntimeImportPath = "github.com/ygrpc/rpccgo/rpcruntime"
+)
 
 // GeneratorConfig stores protoc-gen-rpc-cgo options after parameter parsing.
 type GeneratorConfig struct {

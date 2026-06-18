@@ -69,7 +69,6 @@ func ValidateFilePlan(file FilePlan) error {
 	if file.GeneratedFilenamePrefix == "" {
 		return fmt.Errorf("generated filename prefix is empty")
 	}
-	serviceKinds := make(map[string]map[GeneratedArtifactKind]bool)
 	for si, service := range file.Services {
 		if err := ValidateServicePlan(service); err != nil {
 			return fmt.Errorf("service[%d] %s: %w", si, service.FullName, err)
@@ -84,9 +83,7 @@ func ValidateFilePlan(file FilePlan) error {
 			}
 			kinds[artifact.Kind] = true
 		}
-		serviceKinds[service.FullName] = kinds
 	}
-	_ = serviceKinds
 	return nil
 }
 

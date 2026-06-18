@@ -46,7 +46,7 @@ func renderNativeServerFile(plugin *protogen.Plugin, plan FilePlan, service Serv
 	streamingMethods := runtimeStreamingMethodProjections(runtimeMethods)
 	renderGoNativeStreamTypes(g, service, errorNames)
 	for _, method := range streamingMethods {
-		renderRuntimeNativeStreamFacade(g, service.GoName, lowerInitial(service.GoName)+"StreamRegistry", method)
+		renderRuntimeNativeStreamFacade(g, service.GoName, method)
 	}
 	renderUnimplementedGoNativeServer(g, service)
 	renderGoNativeRegistration(g, service, service.GoName+"NativeServer", "")

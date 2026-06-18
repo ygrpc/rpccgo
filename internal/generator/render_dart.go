@@ -9,18 +9,6 @@ import (
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-// RenderDartGeneratedFiles writes every Dart FFI client artifact in a validated
-// generation plan into the plugin response.
-func RenderDartGeneratedFiles(plugin *protogen.Plugin, plan GenerationPlan, config DartGeneratorConfig) error {
-	if plugin == nil {
-		return fmt.Errorf("dart generator plugin is nil")
-	}
-	if err := ValidateGenerationPlan(plan); err != nil {
-		return err
-	}
-	return renderDartGeneratedFiles(plugin, plan, config)
-}
-
 func renderDartGeneratedFiles(plugin *protogen.Plugin, plan GenerationPlan, config DartGeneratorConfig) error {
 	renderDartEntryFile(plugin, plan)
 	for _, pkg := range plan.Packages {

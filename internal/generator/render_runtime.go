@@ -30,15 +30,10 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	if directFmt {
 		g.P(`fmt "fmt"`)
 	}
-	runtimeRendersNativeServer := service.Generation.NativeEnabled && !service.HasArtifact(GeneratedArtifactKindNativeServer)
-	runtimeNeedsIO := runtimeRendersNativeServer && nativeServerHasStreamingMethod(service) ||
-		directConnectStreaming && serviceHasServerStreamingMethod(service) ||
+	runtimeNeedsIO := directConnectStreaming && serviceHasServerStreamingMethod(service) ||
 		directGRPCStreaming && (serviceHasServerStreamingMethod(service) || serviceHasBidiStreamingMethod(service))
 	if runtimeNeedsIO {
 		g.P(`io "io"`)
-		if runtimeRendersNativeServer && (serviceHasClientStreamingMethod(service) || serviceHasBidiStreamingMethod(service)) {
-			g.P(`sync "sync"`)
-		}
 	}
 	if directConnectStreaming {
 		g.P(`connect "connectrpc.com/connect"`)
@@ -55,20 +50,7 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	g.P("// ", nativeStageMarker(service, file))
 	g.P()
 
-	adapterName := service.GoName + "NativeServer"
 	serviceIDName := lowerInitial(service.GoName) + "ServiceID"
-	streamRegistryName := lowerInitial(service.GoName) + "StreamRegistry"
-
-	if service.Generation.NativeEnabled && !service.HasArtifact(GeneratedArtifactKindNativeServer) {
-		renderGoNativeServerInterface(g, service, adapterName)
-		renderGoNativeStreamInterfaces(g, service)
-		renderNativeSourceSessionInterfaces(g, service)
-	}
-	for _, method := range streamingMethods {
-		if service.Generation.NativeEnabled && !service.HasArtifact(GeneratedArtifactKindNativeServer) {
-			renderRuntimeNativeStreamFacade(g, service.GoName, streamRegistryName, method)
-		}
-	}
 
 	g.P("const ", serviceIDName, " rpcruntime.ServiceID = ", strconv.Quote(service.FullName))
 	if service.Generation.NativeEnabled {
@@ -94,7 +76,7 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 		return err
 	}
 	renderRuntimeTransportMessageSessions(g, service, streamingMethods)
-	if err := renderRuntimeEntrypoints(g, service, serviceIDName, streamRegistryName, runtimeMethods); err != nil {
+	if err := renderRuntimeEntrypoints(g, service, serviceIDName, runtimeMethods); err != nil {
 		return err
 	}
 

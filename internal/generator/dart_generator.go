@@ -29,28 +29,32 @@ func GenerateDart(plugin *protogen.Plugin) (GenerationPlan, error) {
 	if _, err := dartGeneratorConfigFromPlugin(plugin); err != nil {
 		return GenerationPlan{}, err
 	}
-	plan, err := buildGenerationPlan(plugin, GeneratorConfig{CGODir: defaultCGODir})
-	if err != nil {
-		return GenerationPlan{}, err
-	}
-	if err := ValidateGenerationPlan(plan); err != nil {
-		return GenerationPlan{}, err
-	}
-	return plan, nil
+	return generateDartPlan(plugin)
 }
 
 // GenerateDartWithOptions builds a Dart generation plan and renders files into
 // the plugin response.
 func GenerateDartWithOptions(plugin *protogen.Plugin) (GenerationPlan, error) {
-	plan, err := GenerateDart(plugin)
-	if err != nil {
-		return GenerationPlan{}, err
-	}
 	config, err := dartGeneratorConfigFromPlugin(plugin)
 	if err != nil {
 		return GenerationPlan{}, err
 	}
+	plan, err := generateDartPlan(plugin)
+	if err != nil {
+		return GenerationPlan{}, err
+	}
 	if err := renderDartGeneratedFiles(plugin, plan, config); err != nil {
+		return GenerationPlan{}, err
+	}
+	return plan, nil
+}
+
+func generateDartPlan(plugin *protogen.Plugin) (GenerationPlan, error) {
+	plan, err := buildGenerationPlan(plugin, GeneratorConfig{CGODir: defaultCGODir})
+	if err != nil {
+		return GenerationPlan{}, err
+	}
+	if err := ValidateGenerationPlan(plan); err != nil {
 		return GenerationPlan{}, err
 	}
 	return plan, nil

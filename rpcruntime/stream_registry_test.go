@@ -156,7 +156,7 @@ func TestCreateStreamSessionRejectsInvalidRecord(t *testing.T) {
 
 type testOtherTypedStreamSession struct{}
 
-func TestFinishStreamSessionTakesSessionAndRejectsRepeatedFinish(t *testing.T) {
+func TestRemoveStreamSessionRemovesSessionAndRejectsRepeatedRemove(t *testing.T) {
 	streamSessions = StreamRegistry{}
 	session := &testTypedStreamSession{name: "finish"}
 	handle, err := CreateStreamSession(ServerKindCGOMessage, session)
@@ -164,39 +164,19 @@ func TestFinishStreamSessionTakesSessionAndRejectsRepeatedFinish(t *testing.T) {
 		t.Fatalf("CreateStreamSession returned error: %v", err)
 	}
 
-	finished, err := FinishStreamSession(handle)
+	finished, err := RemoveStreamSession(handle)
 	if err != nil {
-		t.Fatalf("FinishStreamSession returned error: %v", err)
+		t.Fatalf("RemoveStreamSession returned error: %v", err)
 	}
 	if finished.Kind != ServerKindCGOMessage || finished.Session != session {
-		t.Fatalf("FinishStreamSession returned %#v, want kind=%d session=%#v", finished, ServerKindCGOMessage, session)
+		t.Fatalf("RemoveStreamSession returned %#v, want kind=%d session=%#v", finished, ServerKindCGOMessage, session)
 	}
-	if _, err := FinishStreamSession(handle); err != ErrStreamInvalidHandle {
-		t.Fatalf("repeated FinishStreamSession returned %v, want ErrStreamInvalidHandle", err)
-	}
-}
-
-func TestCancelStreamSessionTakesSessionAndRejectsRepeatedCancel(t *testing.T) {
-	streamSessions = StreamRegistry{}
-	session := &testTypedStreamSession{name: "cancel"}
-	handle, err := CreateStreamSession(ServerKindConnect, session)
-	if err != nil {
-		t.Fatalf("CreateStreamSession returned error: %v", err)
-	}
-
-	canceled, err := CancelStreamSession(handle)
-	if err != nil {
-		t.Fatalf("CancelStreamSession returned error: %v", err)
-	}
-	if canceled.Kind != ServerKindConnect || canceled.Session != session {
-		t.Fatalf("CancelStreamSession returned %#v, want kind=%d session=%#v", canceled, ServerKindConnect, session)
-	}
-	if _, err := CancelStreamSession(handle); err != ErrStreamInvalidHandle {
-		t.Fatalf("repeated CancelStreamSession returned %v, want ErrStreamInvalidHandle", err)
+	if _, err := RemoveStreamSession(handle); err != ErrStreamInvalidHandle {
+		t.Fatalf("repeated RemoveStreamSession returned %v, want ErrStreamInvalidHandle", err)
 	}
 }
 
-func TestSendStreamSessionOnlyLoadsSession(t *testing.T) {
+func TestLoadStreamSessionKeepsSession(t *testing.T) {
 	streamSessions = StreamRegistry{}
 	session := &testTypedStreamSession{name: "send"}
 	handle, err := CreateStreamSession(ServerKindGRPC, session)
@@ -204,15 +184,15 @@ func TestSendStreamSessionOnlyLoadsSession(t *testing.T) {
 		t.Fatalf("CreateStreamSession returned error: %v", err)
 	}
 
-	loaded, err := SendStreamSession(handle)
+	loaded, err := LoadStreamSession(handle)
 	if err != nil {
-		t.Fatalf("SendStreamSession returned error: %v", err)
+		t.Fatalf("LoadStreamSession returned error: %v", err)
 	}
 	if loaded.Kind != ServerKindGRPC || loaded.Session != session {
-		t.Fatalf("SendStreamSession returned %#v, want kind=%d session=%#v", loaded, ServerKindGRPC, session)
+		t.Fatalf("LoadStreamSession returned %#v, want kind=%d session=%#v", loaded, ServerKindGRPC, session)
 	}
 	if _, ok := streamSessions.Load(handle); !ok {
-		t.Fatal("SendStreamSession removed the session")
+		t.Fatal("LoadStreamSession removed the session")
 	}
 }
 

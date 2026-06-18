@@ -57,8 +57,6 @@ type runtimeStreamProjection struct {
 type runtimeMethodSymbolsProjection struct {
 	NativeEntryMethod        string
 	MessageEntryMethod       string
-	NativeAdapterMethod      string
-	MessageAdapterMethod     string
 	NativeStreamRequestType  string
 	NativeStreamResponseType string
 }
@@ -113,8 +111,6 @@ func runtimePlaceholderMethodProjection(serviceName, methodName string, shape ru
 		Symbols: runtimeMethodSymbolsProjection{
 			NativeEntryMethod:        methodName,
 			MessageEntryMethod:       methodName,
-			NativeAdapterMethod:      methodName,
-			MessageAdapterMethod:     methodName,
 			NativeStreamRequestType:  serviceName + methodName + "NativeStreamRequest",
 			NativeStreamResponseType: serviceName + methodName + "NativeStreamResponse",
 		},
@@ -160,8 +156,6 @@ func projectRuntimeMethod(g *protogen.GeneratedFile, service ServicePlan, method
 	symbols := runtimeMethodSymbolsProjection{
 		NativeEntryMethod:        method.RenderPlan.Symbols.NativeEntryMethod,
 		MessageEntryMethod:       method.RenderPlan.Symbols.MessageEntryMethod,
-		NativeAdapterMethod:      method.RenderPlan.Symbols.NativeAdapterMethod,
-		MessageAdapterMethod:     method.RenderPlan.Symbols.MessageAdapterMethod,
 		NativeStreamRequestType:  method.RenderPlan.Symbols.NativeStreamRequestType,
 		NativeStreamResponseType: method.RenderPlan.Symbols.NativeStreamResponseType,
 	}

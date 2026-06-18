@@ -12,8 +12,6 @@ type MethodRenderPlan struct {
 type RenderSymbolsPlan struct {
 	NativeEntryMethod        string
 	MessageEntryMethod       string
-	NativeAdapterMethod      string
-	MessageAdapterMethod     string
 	NativeStreamRequestType  string
 	NativeStreamResponseType string
 }
@@ -41,8 +39,6 @@ func BuildMethodRenderPlan(method MethodPlan, serviceName string) (MethodRenderP
 		Symbols: RenderSymbolsPlan{
 			NativeEntryMethod:        nativeEntryMethod,
 			MessageEntryMethod:       messageEntryMethod,
-			NativeAdapterMethod:      nativeEntryMethod,
-			MessageAdapterMethod:     messageEntryMethod,
 			NativeStreamRequestType:  nativeStreamRequestType,
 			NativeStreamResponseType: nativeStreamResponseType,
 		},

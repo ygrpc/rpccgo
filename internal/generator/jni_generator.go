@@ -34,28 +34,32 @@ func GenerateJNI(plugin *protogen.Plugin) (GenerationPlan, error) {
 	if _, err := jniGeneratorConfigFromPlugin(plugin); err != nil {
 		return GenerationPlan{}, err
 	}
-	plan, err := buildGenerationPlan(plugin, GeneratorConfig{CGODir: defaultCGODir})
-	if err != nil {
-		return GenerationPlan{}, err
-	}
-	if err := ValidateGenerationPlan(plan); err != nil {
-		return GenerationPlan{}, err
-	}
-	return plan, nil
+	return generateJNIPlan(plugin)
 }
 
 // GenerateJNIWithOptions builds a JNI generation plan and renders files into
 // the plugin response.
 func GenerateJNIWithOptions(plugin *protogen.Plugin) (GenerationPlan, error) {
-	plan, err := GenerateJNI(plugin)
-	if err != nil {
-		return GenerationPlan{}, err
-	}
 	config, err := jniGeneratorConfigFromPlugin(plugin)
 	if err != nil {
 		return GenerationPlan{}, err
 	}
+	plan, err := generateJNIPlan(plugin)
+	if err != nil {
+		return GenerationPlan{}, err
+	}
 	if err := renderJNIGeneratedFiles(plugin, plan, config); err != nil {
+		return GenerationPlan{}, err
+	}
+	return plan, nil
+}
+
+func generateJNIPlan(plugin *protogen.Plugin) (GenerationPlan, error) {
+	plan, err := buildGenerationPlan(plugin, GeneratorConfig{CGODir: defaultCGODir})
+	if err != nil {
+		return GenerationPlan{}, err
+	}
+	if err := ValidateGenerationPlan(plan); err != nil {
 		return GenerationPlan{}, err
 	}
 	return plan, nil
