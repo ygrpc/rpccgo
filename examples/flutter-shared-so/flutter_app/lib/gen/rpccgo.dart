@@ -2,5 +2,6 @@
 
 library;
 
+export 'rpccgo.lifecycle.dart';
 export 'shared_so.pb.dart';
 export 'shared_so.shared_so_demo.rpccgo.dart';

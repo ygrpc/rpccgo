@@ -77,11 +77,6 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    override fun onDestroy() {
-        SharedSoDemoJni.StreamRuntimeStateCancelCallback()
-        super.onDestroy()
-    }
-
     private fun runJniStreams(): String {
         val collect = SharedSoDemoJni.CollectRuntimeStateStart()
         val collectStream = collect.value ?: return "jni client stream start error: ${collect.error}"

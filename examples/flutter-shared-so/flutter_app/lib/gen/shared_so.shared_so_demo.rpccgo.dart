@@ -11,6 +11,8 @@ import 'dart:typed_data' as typed_data;
 
 import 'package:ffi/ffi.dart' as pkg_ffi;
 
+import 'rpccgo.lifecycle.dart';
+
 import 'shared_so.pb.dart' as pb;
 
 // rpccgo Dart FFI message client generated file for SharedSoDemo
@@ -161,7 +163,12 @@ class SharedSoDemoRpccgoClient {
     }
   }
 
+  /// Starts the stream bound to the current stream lifecycle.
   ({SharedSoDemoWatchRuntimeStateStream? value, String? error}) WatchRuntimeStateStart(pb.ReadRuntimeStateRequest request) {
+    final lifecycle = Rpccgo.currentLifecycle;
+    if (lifecycle == null) {
+      return (value: null, error: 'rpccgo: no stream lifecycle is registered; use Rpccgo.withLifecycle(...) or Rpccgo.registerGlobalLifecycle(...) before starting a stream');
+    }
     final handlePtr = pkg_ffi.calloc<ffi.Int32>();
     final requestBytes = request.writeToBuffer();
     final requestPtr = _allocateBytes(requestBytes);
@@ -171,14 +178,25 @@ class SharedSoDemoRpccgoClient {
       if (error != null) {
         return (value: null, error: error);
       }
-      return (value: SharedSoDemoWatchRuntimeStateStream._(this, handlePtr.value), error: null);
+      final stream = SharedSoDemoWatchRuntimeStateStream._(this, lifecycle, handlePtr.value);
+      final lifecycleError = lifecycle.attach(stream);
+      if (lifecycleError != null) {
+        stream.cancelFromLifecycle();
+        return (value: null, error: lifecycleError);
+      }
+      return (value: stream, error: null);
     } finally {
       pkg_ffi.calloc.free(requestPtr);
       pkg_ffi.calloc.free(handlePtr);
     }
   }
 
+  /// Starts the stream bound to the current stream lifecycle.
   ({SharedSoDemoCollectRuntimeStateStream? value, String? error}) CollectRuntimeStateStart() {
+    final lifecycle = Rpccgo.currentLifecycle;
+    if (lifecycle == null) {
+      return (value: null, error: 'rpccgo: no stream lifecycle is registered; use Rpccgo.withLifecycle(...) or Rpccgo.registerGlobalLifecycle(...) before starting a stream');
+    }
     final handlePtr = pkg_ffi.calloc<ffi.Int32>();
     try {
       final errID = _collectRuntimeStateStartRaw(handlePtr);
@@ -186,13 +204,24 @@ class SharedSoDemoRpccgoClient {
       if (error != null) {
         return (value: null, error: error);
       }
-      return (value: SharedSoDemoCollectRuntimeStateStream._(this, handlePtr.value), error: null);
+      final stream = SharedSoDemoCollectRuntimeStateStream._(this, lifecycle, handlePtr.value);
+      final lifecycleError = lifecycle.attach(stream);
+      if (lifecycleError != null) {
+        stream.cancelFromLifecycle();
+        return (value: null, error: lifecycleError);
+      }
+      return (value: stream, error: null);
     } finally {
       pkg_ffi.calloc.free(handlePtr);
     }
   }
 
+  /// Starts the stream bound to the current stream lifecycle.
   ({SharedSoDemoStreamRuntimeStateStream? value, String? error}) StreamRuntimeStateStart(pb.ReadRuntimeStateRequest request) {
+    final lifecycle = Rpccgo.currentLifecycle;
+    if (lifecycle == null) {
+      return (value: null, error: 'rpccgo: no stream lifecycle is registered; use Rpccgo.withLifecycle(...) or Rpccgo.registerGlobalLifecycle(...) before starting a stream');
+    }
     final handlePtr = pkg_ffi.calloc<ffi.Int32>();
     final requestBytes = request.writeToBuffer();
     final requestPtr = _allocateBytes(requestBytes);
@@ -202,14 +231,25 @@ class SharedSoDemoRpccgoClient {
       if (error != null) {
         return (value: null, error: error);
       }
-      return (value: SharedSoDemoStreamRuntimeStateStream._(this, handlePtr.value), error: null);
+      final stream = SharedSoDemoStreamRuntimeStateStream._(this, lifecycle, handlePtr.value);
+      final lifecycleError = lifecycle.attach(stream);
+      if (lifecycleError != null) {
+        stream.cancelFromLifecycle();
+        return (value: null, error: lifecycleError);
+      }
+      return (value: stream, error: null);
     } finally {
       pkg_ffi.calloc.free(requestPtr);
       pkg_ffi.calloc.free(handlePtr);
     }
   }
 
+  /// Starts the stream bound to the current stream lifecycle.
   ({SharedSoDemoChatRuntimeStateStream? value, String? error}) ChatRuntimeStateStart() {
+    final lifecycle = Rpccgo.currentLifecycle;
+    if (lifecycle == null) {
+      return (value: null, error: 'rpccgo: no stream lifecycle is registered; use Rpccgo.withLifecycle(...) or Rpccgo.registerGlobalLifecycle(...) before starting a stream');
+    }
     final handlePtr = pkg_ffi.calloc<ffi.Int32>();
     try {
       final errID = _chatRuntimeStateStartRaw(handlePtr, ffi.nullptr, ffi.nullptr);
@@ -217,7 +257,13 @@ class SharedSoDemoRpccgoClient {
       if (error != null) {
         return (value: null, error: error);
       }
-      return (value: SharedSoDemoChatRuntimeStateStream._(this, handlePtr.value), error: null);
+      final stream = SharedSoDemoChatRuntimeStateStream._(this, lifecycle, handlePtr.value);
+      final lifecycleError = lifecycle.attach(stream);
+      if (lifecycleError != null) {
+        stream.cancelFromLifecycle();
+        return (value: null, error: lifecycleError);
+      }
+      return (value: stream, error: null);
     } finally {
       pkg_ffi.calloc.free(handlePtr);
     }
@@ -274,10 +320,27 @@ class SharedSoDemoRpccgoClient {
   }
 }
 
-class SharedSoDemoWatchRuntimeStateStream {
-  SharedSoDemoWatchRuntimeStateStream._(this._client, this._handle);
+class SharedSoDemoWatchRuntimeStateStream implements RpccgoLifecycleBoundStream {
+  SharedSoDemoWatchRuntimeStateStream._(this._client, this._lifecycle, this._handle);
   final SharedSoDemoRpccgoClient _client;
+  final RpccgoStreamLifecycle _lifecycle;
   final int _handle;
+  bool _releasedLifecycle = false;
+
+  /// Detaches this stream from its lifecycle after it reaches a terminal state.
+  void releaseLifecycle() {
+    if (_releasedLifecycle) {
+      return;
+    }
+    _releasedLifecycle = true;
+    _lifecycle.detach(this);
+  }
+
+  @override
+  /// Cancels this stream because its lifecycle has been disposed.
+  void cancelFromLifecycle() {
+    Cancel();
+  }
   ({pb.RuntimeStateResponse? value, String? error}) Recv() {
     final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
     final responseLen = pkg_ffi.calloc<ffi.Int32>();
@@ -285,10 +348,12 @@ class SharedSoDemoWatchRuntimeStateStream {
       final errID = _watchRuntimeStateRecvRaw(_handle, responsePtr, responseLen);
       final error = _client._takeErrorResult(errID);
       if (error != null) {
+        releaseLifecycle();
         return (value: null, error: error);
       }
       final responseBytes = _client._takeBytes(responsePtr.value, responseLen.value);
       if (responseBytes.error != null) {
+        releaseLifecycle();
         return (value: null, error: responseBytes.error);
       }
       return (value: pb.RuntimeStateResponse.fromBuffer(responseBytes.value!), error: null);
@@ -298,15 +363,36 @@ class SharedSoDemoWatchRuntimeStateStream {
     }
   }
   String? Cancel() {
+    if (_releasedLifecycle) {
+      return null;
+    }
     final errID = _watchRuntimeStateCancelRaw(_handle);
+    releaseLifecycle();
     return _client._takeErrorResult(errID);
   }
 }
 
-class SharedSoDemoCollectRuntimeStateStream {
-  SharedSoDemoCollectRuntimeStateStream._(this._client, this._handle);
+class SharedSoDemoCollectRuntimeStateStream implements RpccgoLifecycleBoundStream {
+  SharedSoDemoCollectRuntimeStateStream._(this._client, this._lifecycle, this._handle);
   final SharedSoDemoRpccgoClient _client;
+  final RpccgoStreamLifecycle _lifecycle;
   final int _handle;
+  bool _releasedLifecycle = false;
+
+  /// Detaches this stream from its lifecycle after it reaches a terminal state.
+  void releaseLifecycle() {
+    if (_releasedLifecycle) {
+      return;
+    }
+    _releasedLifecycle = true;
+    _lifecycle.detach(this);
+  }
+
+  @override
+  /// Cancels this stream because its lifecycle has been disposed.
+  void cancelFromLifecycle() {
+    Cancel();
+  }
   String? Send(pb.IncrementRuntimeStateRequest request) {
     final requestBytes = request.writeToBuffer();
     final requestPtr = _client._allocateBytes(requestBytes);
@@ -324,12 +410,15 @@ class SharedSoDemoCollectRuntimeStateStream {
       final errID = _collectRuntimeStateFinishRaw(_handle, responsePtr, responseLen);
       final error = _client._takeErrorResult(errID);
       if (error != null) {
+        releaseLifecycle();
         return (value: null, error: error);
       }
       final responseBytes = _client._takeBytes(responsePtr.value, responseLen.value);
       if (responseBytes.error != null) {
+        releaseLifecycle();
         return (value: null, error: responseBytes.error);
       }
+      releaseLifecycle();
       return (value: pb.RuntimeStateResponse.fromBuffer(responseBytes.value!), error: null);
     } finally {
       pkg_ffi.calloc.free(responsePtr);
@@ -337,15 +426,36 @@ class SharedSoDemoCollectRuntimeStateStream {
     }
   }
   String? Cancel() {
+    if (_releasedLifecycle) {
+      return null;
+    }
     final errID = _collectRuntimeStateCancelRaw(_handle);
+    releaseLifecycle();
     return _client._takeErrorResult(errID);
   }
 }
 
-class SharedSoDemoStreamRuntimeStateStream {
-  SharedSoDemoStreamRuntimeStateStream._(this._client, this._handle);
+class SharedSoDemoStreamRuntimeStateStream implements RpccgoLifecycleBoundStream {
+  SharedSoDemoStreamRuntimeStateStream._(this._client, this._lifecycle, this._handle);
   final SharedSoDemoRpccgoClient _client;
+  final RpccgoStreamLifecycle _lifecycle;
   final int _handle;
+  bool _releasedLifecycle = false;
+
+  /// Detaches this stream from its lifecycle after it reaches a terminal state.
+  void releaseLifecycle() {
+    if (_releasedLifecycle) {
+      return;
+    }
+    _releasedLifecycle = true;
+    _lifecycle.detach(this);
+  }
+
+  @override
+  /// Cancels this stream because its lifecycle has been disposed.
+  void cancelFromLifecycle() {
+    Cancel();
+  }
   ({pb.RuntimeStateResponse? value, String? error}) Recv() {
     final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
     final responseLen = pkg_ffi.calloc<ffi.Int32>();
@@ -353,10 +463,12 @@ class SharedSoDemoStreamRuntimeStateStream {
       final errID = _streamRuntimeStateRecvRaw(_handle, responsePtr, responseLen);
       final error = _client._takeErrorResult(errID);
       if (error != null) {
+        releaseLifecycle();
         return (value: null, error: error);
       }
       final responseBytes = _client._takeBytes(responsePtr.value, responseLen.value);
       if (responseBytes.error != null) {
+        releaseLifecycle();
         return (value: null, error: responseBytes.error);
       }
       return (value: pb.RuntimeStateResponse.fromBuffer(responseBytes.value!), error: null);
@@ -366,15 +478,36 @@ class SharedSoDemoStreamRuntimeStateStream {
     }
   }
   String? Cancel() {
+    if (_releasedLifecycle) {
+      return null;
+    }
     final errID = _streamRuntimeStateCancelRaw(_handle);
+    releaseLifecycle();
     return _client._takeErrorResult(errID);
   }
 }
 
-class SharedSoDemoChatRuntimeStateStream {
-  SharedSoDemoChatRuntimeStateStream._(this._client, this._handle);
+class SharedSoDemoChatRuntimeStateStream implements RpccgoLifecycleBoundStream {
+  SharedSoDemoChatRuntimeStateStream._(this._client, this._lifecycle, this._handle);
   final SharedSoDemoRpccgoClient _client;
+  final RpccgoStreamLifecycle _lifecycle;
   final int _handle;
+  bool _releasedLifecycle = false;
+
+  /// Detaches this stream from its lifecycle after it reaches a terminal state.
+  void releaseLifecycle() {
+    if (_releasedLifecycle) {
+      return;
+    }
+    _releasedLifecycle = true;
+    _lifecycle.detach(this);
+  }
+
+  @override
+  /// Cancels this stream because its lifecycle has been disposed.
+  void cancelFromLifecycle() {
+    Cancel();
+  }
   String? Send(pb.IncrementRuntimeStateRequest request) {
     final requestBytes = request.writeToBuffer();
     final requestPtr = _client._allocateBytes(requestBytes);
@@ -392,10 +525,12 @@ class SharedSoDemoChatRuntimeStateStream {
       final errID = _chatRuntimeStateRecvRaw(_handle, responsePtr, responseLen);
       final error = _client._takeErrorResult(errID);
       if (error != null) {
+        releaseLifecycle();
         return (value: null, error: error);
       }
       final responseBytes = _client._takeBytes(responsePtr.value, responseLen.value);
       if (responseBytes.error != null) {
+        releaseLifecycle();
         return (value: null, error: responseBytes.error);
       }
       return (value: pb.RuntimeStateResponse.fromBuffer(responseBytes.value!), error: null);
@@ -410,10 +545,15 @@ class SharedSoDemoChatRuntimeStateStream {
   }
   String? Finish() {
     final errID = _chatRuntimeStateFinishRaw(_handle);
+    releaseLifecycle();
     return _client._takeErrorResult(errID);
   }
   String? Cancel() {
+    if (_releasedLifecycle) {
+      return null;
+    }
     final errID = _chatRuntimeStateCancelRaw(_handle);
+    releaseLifecycle();
     return _client._takeErrorResult(errID);
   }
 }

@@ -195,6 +195,9 @@ func TestSharedSoDemoFlutterProjectContracts(t *testing.T) {
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun CollectRuntimeStateStart")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun StreamRuntimeStateStart")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun ChatRuntimeStateStart")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "currentActivity()?.let { lifecycleForActivity(it) }")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "override fun onActivityDestroyed(activity: Activity)")
+	assertFileDoesNotContain(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "registerGlobalLifecycle")
 	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart")
 	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "rpccgoMsgFluttersharedv1SharedSoDemoCollectRuntimeStateFinish")
 	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateCloseSend")
@@ -346,6 +349,18 @@ func assertFileContains(t *testing.T, path, fragment string) {
 	}
 	if !bytes.Contains(data, []byte(fragment)) {
 		t.Fatalf("%s missing %q", path, fragment)
+	}
+}
+
+func assertFileDoesNotContain(t *testing.T, path, fragment string) {
+	t.Helper()
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if bytes.Contains(data, []byte(fragment)) {
+		t.Fatalf("%s unexpectedly contains %q", path, fragment)
 	}
 }
 

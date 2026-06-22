@@ -34,6 +34,7 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
   static const _jniChannel = MethodChannel('rpccgo.shared.so/jni');
   static const _client = SharedSoDemoRpccgoClient();
 
+  final _streamLifecycle = RpccgoStreamLifecycle();
   final _nameController = TextEditingController(text: 'Ada');
   String _latestActivityTitle = 'Latest Result';
   String _latestActivityBody =
@@ -45,7 +46,15 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
   bool _streamBusy = false;
 
   @override
+  void initState() {
+    super.initState();
+    Rpccgo.registerGlobalLifecycle(_streamLifecycle);
+  }
+
+  @override
   void dispose() {
+    Rpccgo.registerGlobalLifecycle(null);
+    _streamLifecycle.dispose();
     _nameController.dispose();
     super.dispose();
   }
