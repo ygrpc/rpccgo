@@ -10,13 +10,12 @@
 - 遇到 bug 先写能复现的测试，再修复到测试通过。
 - 生成代码和 `internal/generator` 的 exported declarations 必须有说明功能和作用的注释；cgo `//export` wrapper 不能只依赖 `//export` directive 作为注释。
 - shell 命令默认加 `rtk` 前缀。
-- 文件编辑必须使用 `apply_patch`，不要用 shell 重定向或脚本直接写文件。
 
 ## 项目目标
 
 rpccgo 用于把 C/FFI 调用接入 Go、Connect 或 gRPC 服务，并在 native 字段 ABI 与 protobuf message ABI 之间做转换。
 
-新版架构通过 `rpcruntime` 的统一 server registry 保存每个 service 的 current registered server。Generated server contract artifact 暴露对应 contract 的注册 helper 并写入 runtime registry；generated service runtime 按 `ServiceID` 读取 registry，并在调用阶段根据 `rpcruntime.ServerKind` 执行 service-specific typed 调用和 native/message 转换。
+架构通过 `rpcruntime` 的统一 server registry 保存每个 service 的 current registered server。Generated server contract artifact 暴露对应 contract 的注册 helper 并写入 runtime registry；generated service runtime 按 `ServiceID` 读取 registry，并在调用阶段根据 `rpcruntime.ServerKind` 执行 service-specific typed 调用和 native/message 转换。
 
 核心决策见 `docs/adr/0009-use-runtime-server-registry-for-current-server.md`。
 
@@ -102,15 +101,6 @@ connect client 和 grpc client 属于标准 RPC client，不进入 rpccgo client
 - `runtime.Pinner`。
 - `runtime.AddCleanup`。
 - 标准库 `testing`。
-
-## 迁移规则
-
-- 旧项目路径：`/home/zenghp/github.com/ygrpc/rpccgo-old`。
-- 迁移旧代码前必须说明该代码的作用，以及为什么迁移比重写更合适。
-- 旧代码迁移应从 service 无关的 `rpcruntime` primitive 这类低耦合能力开始。
-- 不要提前迁移旧 `active_slot.go`、旧 generator、旧 integration 或旧 bootstrap 模型。
-- 不要把旧项目的 provider bootstrap、framework selector 或 go_role 能力注册带进新版架构。
-- 如果旧代码与新版 signed ABI、单 current registered server、runtime server registry 约束冲突，必须按新版约束调整。
 
 ## 验证
 
