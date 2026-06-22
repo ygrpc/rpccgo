@@ -79,9 +79,6 @@ static volatile int chat_ready = 0;
 static volatile int chat_closed = 0;
 static int32_t broadcast_index = 0;
 static volatile int native_broadcast_callback_done = 0;
-static int32_t native_broadcast_callback_count = 0;
-static int native_broadcast_callback_seen_0 = 0;
-static int native_broadcast_callback_seen_1 = 0;
 static int32_t next_stream = 1000;
 static int32_t native_free_count = 0;
 
@@ -516,62 +513,6 @@ static void run_native_broadcast_demo(void) {
                    "native broadcast start error:");
   read_native_stream_message(handle, "broadcast[0]:stream", "native broadcast read 0 error:");
   read_native_stream_message(handle, "broadcast[1]:stream", "native broadcast read 1 error:");
-}
-
-static int32_t on_native_broadcast_recv(int32_t handle, uintptr_t *message_ptr,
-                                        int32_t *message_len, int32_t *message_ownership) {
-  (void)handle;
-  (void)message_ownership;
-  const char *got = (const char *)(*message_ptr);
-  if ((size_t)(*message_len) == strlen("broadcast[0]:stream") &&
-      memcmp(got, "broadcast[0]:stream", strlen("broadcast[0]:stream")) == 0) {
-    native_broadcast_callback_seen_0 = 1;
-  } else if ((size_t)(*message_len) == strlen("broadcast[1]:stream") &&
-             memcmp(got, "broadcast[1]:stream", strlen("broadcast[1]:stream")) == 0) {
-    native_broadcast_callback_seen_1 = 1;
-  } else {
-    fprintf(stderr, "native callback broadcast mismatch: got %.*s\n", (int)(*message_len), got);
-    exit(1);
-  }
-  printf("native callback broadcast: %.*s\n", (int)(*message_len),
-         (const char *)(*message_ptr));
-  fflush(stdout);
-  if (rpccgoRelease(*message_ptr) != 0) {
-    fail_with_message("release native callback broadcast output failed");
-  }
-  native_broadcast_callback_count++;
-  return 0;
-}
-
-static int32_t on_native_broadcast_done(int32_t handle, int32_t err_id) {
-  (void)handle;
-  assert_status_ok(err_id, "native callback broadcast done error:");
-  native_broadcast_callback_done = 1;
-  return 0;
-}
-
-static void run_native_broadcast_callback_demo(void) {
-  int32_t handle = 0;
-  const char *name = "stream";
-  const char *city = "c";
-  native_broadcast_callback_done = 0;
-  native_broadcast_callback_count = 0;
-  native_broadcast_callback_seen_0 = 0;
-  native_broadcast_callback_seen_1 = 0;
-
-  assert_status_ok(rpccgoNativeGreeterv1GreeterBroadcastStart(
-                       (uintptr_t)name, 6, 0,
-                       (uintptr_t)city, 1, 0,
-                       &handle, on_native_broadcast_recv, on_native_broadcast_done),
-                   "native callback broadcast start error:");
-  for (int i = 0; i < 100 && !native_broadcast_callback_done; i++) {
-    struct timespec delay = {.tv_sec = 0, .tv_nsec = 10000000};
-    nanosleep(&delay, NULL);
-  }
-  if (!native_broadcast_callback_done || native_broadcast_callback_count != 2 ||
-      !native_broadcast_callback_seen_0 || !native_broadcast_callback_seen_1) {
-    fail_with_message("native callback broadcast did not complete");
-  }
 }
 
 static void send_native_chat_message(int32_t handle, const char *name, const char *city,
