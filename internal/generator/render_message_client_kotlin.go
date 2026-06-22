@@ -26,6 +26,7 @@ func renderJNIKotlinFile(plugin *protogen.Plugin, plan FilePlan, service Service
 	g.P()
 	g.P("object ", className, " {")
 	for _, method := range service.Methods {
+		renderKotlinCallbackListener(g, service, method)
 		renderKotlinNativeDeclarations(g, service, method)
 	}
 	g.P()
@@ -89,8 +90,9 @@ func renderKotlinNativeDeclarations(g *protogen.GeneratedFile, service ServicePl
 	case StreamingKindServerStreaming:
 		g.P("    private external fun ", prefix, "Start(request: ByteArray): ByteArray?")
 		g.P("    private external fun ", prefix, "Recv(handle: Int): ByteArray?")
-		g.P("    private external fun ", prefix, "Finish(handle: Int): ByteArray?")
 		g.P("    private external fun ", prefix, "Cancel(handle: Int): ByteArray?")
+		g.P("    private external fun ", prefix, "StartCallback(request: ByteArray, listener: ", jniKotlinListenerType(service, method), "): Boolean")
+		g.P("    private external fun ", prefix, "CancelCallback(): Boolean")
 	case StreamingKindBidiStreaming:
 		g.P("    private external fun ", prefix, "Start(): ByteArray?")
 		g.P("    private external fun ", prefix, "Send(handle: Int, request: ByteArray): ByteArray?")
@@ -98,7 +100,20 @@ func renderKotlinNativeDeclarations(g *protogen.GeneratedFile, service ServicePl
 		g.P("    private external fun ", prefix, "CloseSend(handle: Int): ByteArray?")
 		g.P("    private external fun ", prefix, "Finish(handle: Int): ByteArray?")
 		g.P("    private external fun ", prefix, "Cancel(handle: Int): ByteArray?")
+		g.P("    private external fun ", prefix, "StartCallback(listener: ", jniKotlinListenerType(service, method), "): Boolean")
+		g.P("    private external fun ", prefix, "CancelCallback(): Boolean")
 	}
+}
+
+func renderKotlinCallbackListener(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
+	if method.Streaming != StreamingKindServerStreaming && method.Streaming != StreamingKindBidiStreaming {
+		return
+	}
+	g.P("    interface ", jniKotlinListenerType(service, method), " {")
+	g.P("        fun onMessage(responseBytes: ByteArray)")
+	g.P("        fun onDone(error: String?)")
+	g.P("    }")
+	g.P()
 }
 
 func renderKotlinUnaryMethod(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
@@ -142,6 +157,9 @@ func renderKotlinServerStreamingMethod(g *protogen.GeneratedFile, service Servic
 	g.P("        if (!handle.ok) return RpccgoResult.failure(handle.error ?: \"rpccgo: stream start failed\")")
 	g.P("        return RpccgoResult.success(", streamType, "(handle.value ?: 0))")
 	g.P("    }")
+	g.P("    fun ", method.GoName, "StartCallback(req: ", reqType, ", listener: ", jniKotlinListenerType(service, method), "): Boolean =")
+	g.P("        ", nativeName, "StartCallback(req.toByteArray(), listener)")
+	g.P("    fun ", method.GoName, "CancelCallback(): Boolean = ", nativeName, "CancelCallback()")
 	g.P()
 	g.P("    class ", streamType, " internal constructor(private val handle: Int) {")
 	g.P("        private val receiving = AtomicBoolean(false)")
@@ -156,8 +174,6 @@ func renderKotlinServerStreamingMethod(g *protogen.GeneratedFile, service Servic
 	g.P("                receiving.set(false)")
 	g.P("            }")
 	g.P("        }")
-	g.P("        fun Finish(): RpccgoResult<Unit> =")
-	g.P("            decodeUnitResult(", className, ".", nativeName, "Finish(handle))")
 	g.P("        fun Cancel(): RpccgoResult<Unit> =")
 	g.P("            decodeUnitResult(", className, ".", nativeName, "Cancel(handle))")
 	renderKotlinReceiveEachMethod(g, respType)
@@ -175,6 +191,9 @@ func renderKotlinBidiStreamingMethod(g *protogen.GeneratedFile, service ServiceP
 	g.P("        if (!handle.ok) return RpccgoResult.failure(handle.error ?: \"rpccgo: stream start failed\")")
 	g.P("        return RpccgoResult.success(", streamType, "(handle.value ?: 0))")
 	g.P("    }")
+	g.P("    fun ", method.GoName, "StartCallback(listener: ", jniKotlinListenerType(service, method), "): Boolean =")
+	g.P("        ", nativeName, "StartCallback(listener)")
+	g.P("    fun ", method.GoName, "CancelCallback(): Boolean = ", nativeName, "CancelCallback()")
 	g.P()
 	g.P("    class ", streamType, " internal constructor(private val handle: Int) {")
 	g.P("        fun Send(req: ", reqType, "): RpccgoResult<Unit> =")
@@ -234,4 +253,8 @@ func renderKotlinReceiveEachMethod(g *protogen.GeneratedFile, respType string) {
 	g.P("            worker.start()")
 	g.P("            return RpccgoResult.success(worker)")
 	g.P("        }")
+}
+
+func jniKotlinListenerType(service ServicePlan, method MethodPlan) string {
+	return service.GoName + method.GoName + "Listener"
 }

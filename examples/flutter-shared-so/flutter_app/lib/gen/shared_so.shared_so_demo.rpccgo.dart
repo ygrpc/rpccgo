@@ -19,7 +19,8 @@ typedef _RpccgoReleaseCAbi = ffi.Int32 Function(ffi.UintPtr ptr);
 typedef _RpccgoTakeErrorTextCAbi = ffi.Int32 Function(ffi.Int32 errID, ffi.Pointer<ffi.UintPtr> textPtr, ffi.Pointer<ffi.Int32> textLen);
 typedef _RpccgoMessageUnaryCAbi = ffi.Int32 Function(ffi.UintPtr requestPtr, ffi.Int32 requestLen, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
 typedef _RpccgoStreamStartCAbi = ffi.Int32 Function(ffi.Pointer<ffi.Int32> handle);
-typedef _RpccgoServerStreamStartCAbi = ffi.Int32 Function(ffi.UintPtr requestPtr, ffi.Int32 requestLen, ffi.Pointer<ffi.Int32> handle);
+typedef _RpccgoCallbackStreamStartCAbi = ffi.Int32 Function(ffi.Pointer<ffi.Int32> handle, ffi.Pointer<ffi.Void> onRecv, ffi.Pointer<ffi.Void> onDone);
+typedef _RpccgoServerStreamStartCAbi = ffi.Int32 Function(ffi.UintPtr requestPtr, ffi.Int32 requestLen, ffi.Pointer<ffi.Int32> handle, ffi.Pointer<ffi.Void> onRecv, ffi.Pointer<ffi.Void> onDone);
 typedef _RpccgoStreamSendCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.UintPtr requestPtr, ffi.Int32 requestLen);
 typedef _RpccgoStreamRecvCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
 typedef _RpccgoStreamFinishCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
@@ -42,13 +43,10 @@ external int _incrementRuntimeStateRaw(int requestPtr, int requestLen, ffi.Point
 external int _readRuntimeStateRaw(int requestPtr, int requestLen, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
 
 @ffi.Native<_RpccgoServerStreamStartCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart')
-external int _watchRuntimeStateStartRaw(int requestPtr, int requestLen, ffi.Pointer<ffi.Int32> handle);
+external int _watchRuntimeStateStartRaw(int requestPtr, int requestLen, ffi.Pointer<ffi.Int32> handle, ffi.Pointer<ffi.Void> onRecv, ffi.Pointer<ffi.Void> onDone);
 
 @ffi.Native<_RpccgoStreamRecvCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateRecv')
 external int _watchRuntimeStateRecvRaw(int handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
-
-@ffi.Native<_RpccgoStreamFinishVoidCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateFinish')
-external int _watchRuntimeStateFinishRaw(int handle);
 
 @ffi.Native<_RpccgoStreamCancelCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateCancel')
 external int _watchRuntimeStateCancelRaw(int handle);
@@ -66,19 +64,16 @@ external int _collectRuntimeStateFinishRaw(int handle, ffi.Pointer<ffi.UintPtr> 
 external int _collectRuntimeStateCancelRaw(int handle);
 
 @ffi.Native<_RpccgoServerStreamStartCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateStart')
-external int _streamRuntimeStateStartRaw(int requestPtr, int requestLen, ffi.Pointer<ffi.Int32> handle);
+external int _streamRuntimeStateStartRaw(int requestPtr, int requestLen, ffi.Pointer<ffi.Int32> handle, ffi.Pointer<ffi.Void> onRecv, ffi.Pointer<ffi.Void> onDone);
 
 @ffi.Native<_RpccgoStreamRecvCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateRecv')
 external int _streamRuntimeStateRecvRaw(int handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
 
-@ffi.Native<_RpccgoStreamFinishVoidCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateFinish')
-external int _streamRuntimeStateFinishRaw(int handle);
-
 @ffi.Native<_RpccgoStreamCancelCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateCancel')
 external int _streamRuntimeStateCancelRaw(int handle);
 
-@ffi.Native<_RpccgoStreamStartCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateStart')
-external int _chatRuntimeStateStartRaw(ffi.Pointer<ffi.Int32> handle);
+@ffi.Native<_RpccgoCallbackStreamStartCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateStart')
+external int _chatRuntimeStateStartRaw(ffi.Pointer<ffi.Int32> handle, ffi.Pointer<ffi.Void> onRecv, ffi.Pointer<ffi.Void> onDone);
 
 @ffi.Native<_RpccgoStreamSendCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateSend')
 external int _chatRuntimeStateSendRaw(int handle, int requestPtr, int requestLen);
@@ -171,7 +166,7 @@ class SharedSoDemoRpccgoClient {
     final requestBytes = request.writeToBuffer();
     final requestPtr = _allocateBytes(requestBytes);
     try {
-      final errID = _watchRuntimeStateStartRaw(requestPtr.address, requestBytes.length, handlePtr);
+      final errID = _watchRuntimeStateStartRaw(requestPtr.address, requestBytes.length, handlePtr, ffi.nullptr, ffi.nullptr);
       final error = _takeErrorResult(errID);
       if (error != null) {
         return (value: null, error: error);
@@ -202,7 +197,7 @@ class SharedSoDemoRpccgoClient {
     final requestBytes = request.writeToBuffer();
     final requestPtr = _allocateBytes(requestBytes);
     try {
-      final errID = _streamRuntimeStateStartRaw(requestPtr.address, requestBytes.length, handlePtr);
+      final errID = _streamRuntimeStateStartRaw(requestPtr.address, requestBytes.length, handlePtr, ffi.nullptr, ffi.nullptr);
       final error = _takeErrorResult(errID);
       if (error != null) {
         return (value: null, error: error);
@@ -217,7 +212,7 @@ class SharedSoDemoRpccgoClient {
   ({SharedSoDemoChatRuntimeStateStream? value, String? error}) ChatRuntimeStateStart() {
     final handlePtr = pkg_ffi.calloc<ffi.Int32>();
     try {
-      final errID = _chatRuntimeStateStartRaw(handlePtr);
+      final errID = _chatRuntimeStateStartRaw(handlePtr, ffi.nullptr, ffi.nullptr);
       final error = _takeErrorResult(errID);
       if (error != null) {
         return (value: null, error: error);
@@ -302,10 +297,6 @@ class SharedSoDemoWatchRuntimeStateStream {
       pkg_ffi.calloc.free(responseLen);
     }
   }
-  String? Finish() {
-    final errID = _watchRuntimeStateFinishRaw(_handle);
-    return _client._takeErrorResult(errID);
-  }
   String? Cancel() {
     final errID = _watchRuntimeStateCancelRaw(_handle);
     return _client._takeErrorResult(errID);
@@ -373,10 +364,6 @@ class SharedSoDemoStreamRuntimeStateStream {
       pkg_ffi.calloc.free(responsePtr);
       pkg_ffi.calloc.free(responseLen);
     }
-  }
-  String? Finish() {
-    final errID = _streamRuntimeStateFinishRaw(_handle);
-    return _client._takeErrorResult(errID);
   }
   String? Cancel() {
     final errID = _streamRuntimeStateCancelRaw(_handle);

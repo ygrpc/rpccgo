@@ -15,10 +15,15 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	cgoImportPath := protogen.GoImportPath(cgoGoImportPath(plan))
 	g := newGeneratedFile(plugin, plan, file, cgoImportPath)
 	servicePackage := cgoServicePackageQualifier(g, plan.GoImportPath, lowerInitial(service.GoName)+"ServiceID")
+	nativeABI, err := nativeCServiceABIs(plan, service)
+	if err != nil {
+		return err
+	}
 	g.P("package main")
 	g.P()
 	g.P("/*")
 	g.P("#include <stdint.h>")
+	renderNativeClientCallbackReceivePreamble(g, service, nativeABI)
 	g.P("*/")
 	g.P(`import "C"`)
 	g.P()
@@ -27,6 +32,9 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 	g.P(`errors "errors"`)
 	if nativeClientNeedsFmt(service) {
 		g.P(`fmt "fmt"`)
+	}
+	if serviceHasRecvStreamingMethod(service) {
+		g.P(`io "io"`)
 	}
 	g.P(`rpcruntime "`, rpcruntimeImportPath, `"`)
 	if nativeClientNeedsUnsafe(service) {
@@ -62,6 +70,26 @@ func renderNativeClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service S
 		}
 	}
 	return nil
+}
+
+func renderNativeClientCallbackReceivePreamble(g *protogen.GeneratedFile, service ServicePlan, abi nativeCServiceABI) {
+	if !serviceHasRecvStreamingMethod(service) {
+		return
+	}
+	g.P("typedef int32_t (*RpccgoNativeOnDoneCallback)(int32_t stream, int32_t err_id);")
+	g.P("static inline int32_t callRpccgoNativeOnDoneCallback(RpccgoNativeOnDoneCallback callback, int32_t stream, int32_t err_id) { return callback(stream, err_id); }")
+	for _, method := range service.Methods {
+		if method.Streaming != StreamingKindServerStreaming && method.Streaming != StreamingKindBidiStreaming {
+			continue
+		}
+		recvABI := abi.Methods[method.FullName][NativeCOperationRecv]
+		typeName := nativeCallbackReceiveOnRecvTypeName(service, method)
+		trampolineName := nativeCallbackReceiveOnRecvTrampolineName(service, method)
+		g.P("typedef ", recvABI.Return.CType, " (*", typeName, ")(", nativeCABIParamList(recvABI.Params), ");")
+		g.P("static inline ", recvABI.Return.CType, " ", trampolineName, "(", typeName, " callback", nativeCGOServerArgSuffix(nativeCABIParamListValues(recvABI.Params)), ") {")
+		g.P("return callback(", nativeCABIArgNames(recvABI.Params), ");")
+		g.P("}")
+	}
 }
 
 func renderNativeUnaryClient(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, unsupportedError, servicePackage string) error {
@@ -511,7 +539,7 @@ func renderNativeClientStreamingFinishBody(g *protogen.GeneratedFile, service Se
 	g.P("return 0")
 }
 
-func renderNativeServerStreamingStartBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, outHandle, requestArgs string) {
+func renderNativeServerStreamingStartBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, outHandle, requestArgs string, callbackReceive bool, recvABI COperationABI) {
 	requestNames := nativeClientRequestValueNames(method.Contract.Native.RequestFields)
 	g.P("var err error")
 	if requestNames == "" {
@@ -532,6 +560,11 @@ func renderNativeServerStreamingStartBody(g *protogen.GeneratedFile, service Ser
 	g.P("return C.int32_t(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("*", outHandle, " = C.int32_t(int32(handle))")
+	if callbackReceive {
+		g.P("if onRecv != nil && onDone != nil {")
+		renderNativeCallbackReceiveStart(g, service, method, servicePackage, "rpcruntime.StreamHandle(handle)", "handle", "onRecv", "onDone", "rpcruntime.ServerStreamingClient["+servicePackage+method.RenderPlan.Symbols.NativeStreamResponseType+"]", recvABI, nativeServerStreamingEncoderName(service, method))
+		g.P("}")
+	}
 	g.P("return 0")
 }
 
@@ -547,6 +580,9 @@ func renderNativeServerStreamingRecvBody(g *protogen.GeneratedFile, service Serv
 	for _, decl := range nativeGoResponseResultVarDecls(g, method.Contract.Native.ResponseFields) {
 		g.P(decl)
 	}
+	g.P("if rpcruntime.StreamCallbackReceiveEnabled(rpcruntime.StreamHandle(handle)) {")
+	g.P(`return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: stream receive is owned by callback receive mode")))`)
+	g.P("}")
 	renderNativeClientStreamResultCall(g, service, method, servicePackage, responseNames, "Recv")
 	g.P("if err != nil {")
 	g.P("return C.int32_t(rpcruntime.StoreError(err))")
@@ -560,19 +596,31 @@ func renderNativeServerStreamingRecvBody(g *protogen.GeneratedFile, service Serv
 func renderNativeStreamNoResultBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, handle, operation string) {
 	g.P("handle := int32(", handle, ")")
 	g.P("var err error")
+	if (operation == "Cancel" || operation == "Finish") && (method.Streaming == StreamingKindServerStreaming || method.Streaming == StreamingKindBidiStreaming) {
+		g.P("callbackState, _ := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handle))")
+		g.P("if callbackState != nil { callbackState.MarkCanceled() }")
+	}
 	renderNativeClientStreamFacadeCall(g, service, method, servicePackage, operation, ctx)
+	if (operation == "Cancel" || operation == "Finish") && (method.Streaming == StreamingKindServerStreaming || method.Streaming == StreamingKindBidiStreaming) {
+		g.P("if callbackState != nil { callbackState.WaitDone() }")
+	}
 	g.P("if err != nil {")
 	g.P("return C.int32_t(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return 0")
 }
 
-func renderNativeBidiStreamingStartBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, outHandle string) {
+func renderNativeBidiStreamingStartBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, outHandle string, callbackReceive bool, recvABI COperationABI) {
 	g.P("handle, err := ", servicePackage, runtimeNativeStreamOperationCallName(service, method, "Start"), "(", ctx, ")")
 	g.P("if err != nil {")
 	g.P("return C.int32_t(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("*", outHandle, " = C.int32_t(int32(handle))")
+	if callbackReceive {
+		g.P("if onRecv != nil && onDone != nil {")
+		renderNativeCallbackReceiveStart(g, service, method, servicePackage, "rpcruntime.StreamHandle(handle)", "handle", "onRecv", "onDone", "rpcruntime.BidiStreamingClient["+servicePackage+method.RenderPlan.Symbols.NativeStreamRequestType+", "+servicePackage+method.RenderPlan.Symbols.NativeStreamResponseType+"]", recvABI, nativeBidiStreamingEncoderName(service, method))
+		g.P("}")
+	}
 	g.P("return 0")
 }
 
@@ -612,6 +660,9 @@ func renderNativeBidiStreamingRecvBody(g *protogen.GeneratedFile, service Servic
 	for _, decl := range nativeGoResponseResultVarDecls(g, method.Contract.Native.ResponseFields) {
 		g.P(decl)
 	}
+	g.P("if rpcruntime.StreamCallbackReceiveEnabled(rpcruntime.StreamHandle(handle)) {")
+	g.P(`return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: stream receive is owned by callback receive mode")))`)
+	g.P("}")
 	renderNativeClientStreamResultCall(g, service, method, servicePackage, responseNames, "Recv")
 	g.P("if err != nil {")
 	g.P("return C.int32_t(rpcruntime.StoreError(err))")
@@ -696,10 +747,10 @@ func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, servi
 	startABI := methodABI[NativeCOperationStart]
 	renderCGOExportDoc(g, startABI.Symbol, "starts the native server-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", startABI.Symbol)
-	g.P("func ", startABI.Symbol, "(", nativeCExportParams(startABI.Params), ") ", startABI.Return.CGoType, " {")
+	g.P("func ", startABI.Symbol, "(", nativeCExportParamJoin(nativeCExportParams(startABI.Params), "onRecv C."+nativeCallbackReceiveOnRecvTypeName(service, method), "onDone C.RpccgoNativeOnDoneCallback"), ") ", startABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")
 	renderNativeCExportHandleValidation(g, "stream")
-	renderNativeServerStreamingStartBody(g, service, method, servicePackage, "ctx", "stream", nativeCExportGoArgs(service, method))
+	renderNativeServerStreamingStartBody(g, service, method, servicePackage, "ctx", "stream", nativeCExportGoArgs(service, method), true, methodABI[NativeCOperationRecv])
 	g.P("}")
 	g.P()
 
@@ -712,16 +763,6 @@ func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, servi
 	renderNativeServerStreamingRecvBody(g, service, method, servicePackage, "ctx", "stream", nativeCExportOutputGoArgs(service, method))
 	g.P("}")
 	g.P()
-
-	finishABI := methodABI[NativeCOperationFinish]
-	renderCGOExportDoc(g, finishABI.Symbol, "finishes the native server-streaming client entrypoint for "+method.FullName+".")
-	g.P("//export ", finishABI.Symbol)
-	g.P("func ", finishABI.Symbol, "(", nativeCExportParams(finishABI.Params), ") ", finishABI.Return.CGoType, " {")
-	g.P("ctx := context.Background()")
-	renderNativeStreamNoResultBody(g, service, method, servicePackage, "ctx", "stream", "Finish")
-	g.P("}")
-	g.P()
-
 	cancelABI := methodABI[NativeCOperationCancel]
 	renderCGOExportDoc(g, cancelABI.Symbol, "cancels the native server-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", cancelABI.Symbol)
@@ -736,10 +777,10 @@ func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, service
 	startABI := methodABI[NativeCOperationStart]
 	renderCGOExportDoc(g, startABI.Symbol, "starts the native bidi-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", startABI.Symbol)
-	g.P("func ", startABI.Symbol, "(", nativeCExportParams(startABI.Params), ") ", startABI.Return.CGoType, " {")
+	g.P("func ", startABI.Symbol, "(", nativeCExportParamJoin(nativeCExportParams(startABI.Params), "onRecv C."+nativeCallbackReceiveOnRecvTypeName(service, method), "onDone C.RpccgoNativeOnDoneCallback"), ") ", startABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")
 	renderNativeCExportHandleValidation(g, "stream")
-	renderNativeBidiStreamingStartBody(g, service, method, servicePackage, "ctx", "stream")
+	renderNativeBidiStreamingStartBody(g, service, method, servicePackage, "ctx", "stream", true, methodABI[NativeCOperationRecv])
 	g.P("}")
 	g.P()
 
@@ -761,7 +802,6 @@ func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, service
 	renderNativeBidiStreamingRecvBody(g, service, method, servicePackage, "ctx", "stream", nativeCExportOutputGoArgs(service, method))
 	g.P("}")
 	g.P()
-
 	closeSendABI := methodABI[NativeCOperationCloseSend]
 	renderCGOExportDoc(g, closeSendABI.Symbol, "closes the native bidi-streaming client send side for "+method.FullName+".")
 	g.P("//export ", closeSendABI.Symbol)
@@ -788,6 +828,76 @@ func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, service
 	renderNativeStreamNoResultBody(g, service, method, servicePackage, "ctx", "stream", "Cancel")
 	g.P("}")
 	g.P()
+}
+
+func renderNativeCallbackReceiveStart(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, handle, handleValue, onRecv, onDone, sourceType string, recvABI COperationABI, encoderName string) {
+	g.P("entry, err := rpcruntime.LoadStreamSession(", handle, ")")
+	g.P("if err != nil {")
+	g.P("_ = ", servicePackage, runtimeNativeStreamOperationCallName(service, method, "Cancel"), "(ctx, ", handle, ")")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("source, ok := entry.Session.(", sourceType, ")")
+	g.P("if !ok {")
+	g.P("_ = ", servicePackage, runtimeNativeStreamOperationCallName(service, method, "Cancel"), "(ctx, ", handle, ")")
+	g.P("return C.int32_t(rpcruntime.StoreError(rpcruntime.ErrStreamInvalidHandle))")
+	g.P("}")
+	g.P("callbackState, err := rpcruntime.EnableStreamCallbackReceive(", handle, ")")
+	g.P("if err != nil {")
+	g.P("_ = ", servicePackage, runtimeNativeStreamOperationCallName(service, method, "Cancel"), "(ctx, ", handle, ")")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("go func() {")
+	g.P("releaseCallbackOutputs := func(", nativeCallbackReceiveReleaseParams(method.Contract.Native.ResponseFields), ") {")
+	for _, field := range method.Contract.Native.ResponseFields {
+		if nativeClientFieldPinsOutput(field) {
+			g.P("if ", nativeClientOutputPtrSymbol(field), " != 0 { rpcruntime.Release(", nativeClientOutputPtrSymbol(field), ") }")
+		}
+	}
+	g.P("}")
+	g.P("for {")
+	if len(method.Contract.Native.ResponseFields) == 0 {
+		g.P("_, err := source.Recv(context.Background())")
+	} else {
+		g.P("resp, err := source.Recv(context.Background())")
+	}
+	g.P("if err != nil {")
+	g.P("if errors.Is(err, io.EOF) {")
+	renderNativeCallbackReceiveFinish(g, handleValue, onDone, "0")
+	g.P("} else {")
+	renderNativeCallbackReceiveFinish(g, handleValue, onDone, "int32(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return")
+	g.P("}")
+	for _, decl := range nativeCallbackReceiveOutputVarDecls(method.Contract.Native.ResponseFields) {
+		g.P(decl)
+	}
+	responseArgs := nativeExportedEnvelopeFieldArgs("resp", method.Contract.Native.ResponseFields)
+	g.P("if err := ", encoderName, "(", nativeClientEncoderCallArgs(responseArgs), nativeCallbackReceiveOutputEncoderArgs(method.Contract.Native.ResponseFields), "); err != nil {")
+	g.P("releaseCallbackOutputs(", nativeCallbackReceiveOutputValueArgs(method.Contract.Native.ResponseFields), ")")
+	renderNativeCallbackReceiveFinish(g, handleValue, onDone, "int32(rpcruntime.StoreError(err))")
+	g.P("return")
+	g.P("}")
+	g.P("if !callbackState.BeginCallback() {")
+	g.P("releaseCallbackOutputs(", nativeCallbackReceiveOutputValueArgs(method.Contract.Native.ResponseFields), ")")
+	renderNativeCallbackReceiveFinish(g, handleValue, onDone, `int32(rpcruntime.StoreError(errors.New("rpccgo: stream callback receive canceled")))`)
+	g.P("return")
+	g.P("}")
+	g.P("errID := int32(C.", nativeCallbackReceiveOnRecvTrampolineName(service, method), "(", onRecv, nativeCallbackReceiveCallSuffix(recvABI.Params, method.Contract.Native.ResponseFields, handleValue), "))")
+	g.P("releaseCallbackOutputs(", nativeCallbackReceiveOutputValueArgs(method.Contract.Native.ResponseFields), ")")
+	g.P("callbackState.EndCallback()")
+	g.P("if errID != 0 {")
+	renderNativeCallbackReceiveFinish(g, handleValue, onDone, "errID")
+	g.P("return")
+	g.P("}")
+	g.P("}")
+	g.P("}()")
+}
+
+func renderNativeCallbackReceiveFinish(g *protogen.GeneratedFile, handleValue, onDone, errID string) {
+	g.P("if callbackState.BeginDoneCallback() {")
+	g.P("_ = C.callRpccgoNativeOnDoneCallback(", onDone, ", C.int32_t(int32(", handleValue, ")), C.int32_t(", errID, "))")
+	g.P("callbackState.EndDoneCallback()")
+	g.P("}")
 }
 
 func renderNativeCExportOutputValidation(g *protogen.GeneratedFile, fields []FieldPlan, slots []CABISlot) {
@@ -1275,6 +1385,78 @@ func nativeClientFieldPinsOutput(field FieldPlan) bool {
 		return true
 	}
 	return (field.Native.Shape == NativeABIShapeScalar || field.Native.Shape == NativeABIShapeMessageBytes) && (field.Kind == FieldKindString || field.Kind == FieldKindBytes || field.Kind == FieldKindMessage)
+}
+
+func nativeCallbackReceiveOutputVarDecls(fields []FieldPlan) []string {
+	decls := make([]string, 0)
+	for _, field := range fields {
+		for _, symbol := range nativeClientOutputFieldSymbols(field) {
+			decls = append(decls, "var "+symbol+" "+nativeClientOutputParamType(field, symbol))
+		}
+	}
+	return decls
+}
+
+func nativeCallbackReceiveOutputEncoderArgs(fields []FieldPlan) string {
+	args := make([]string, 0)
+	for _, field := range fields {
+		for _, symbol := range nativeClientOutputFieldSymbols(field) {
+			args = append(args, "&"+symbol)
+		}
+	}
+	return strings.Join(args, ", ")
+}
+
+func nativeCallbackReceiveOutputValueArgs(fields []FieldPlan) string {
+	args := make([]string, 0)
+	for _, field := range fields {
+		if nativeClientFieldPinsOutput(field) {
+			args = append(args, nativeClientOutputPtrSymbol(field))
+		}
+	}
+	return strings.Join(args, ", ")
+}
+
+func nativeCallbackReceiveReleaseParams(fields []FieldPlan) string {
+	params := make([]string, 0)
+	for _, field := range fields {
+		if nativeClientFieldPinsOutput(field) {
+			params = append(params, nativeClientOutputPtrSymbol(field)+" uintptr")
+		}
+	}
+	return strings.Join(params, ", ")
+}
+
+func nativeCallbackReceiveCallSuffix(params []CABISlot, fields []FieldPlan, handleValue string) string {
+	args := make([]string, 0, len(params))
+	for _, param := range params {
+		if param.Name == "stream" {
+			args = append(args, "C.int32_t(int32("+handleValue+"))")
+			continue
+		}
+		args = append(args, nativeCallbackReceiveCOutputArg(param, fields))
+	}
+	return nativeCExportCallSuffix(args...)
+}
+
+func nativeCallbackReceiveCOutputArg(param CABISlot, fields []FieldPlan) string {
+	cgoType := strings.TrimPrefix(param.CGoType, "*")
+	for _, field := range fields {
+		for _, symbol := range nativeClientOutputFieldSymbols(field) {
+			if symbol == param.Name {
+				return "(*" + cgoType + ")(unsafe.Pointer(&" + symbol + "))"
+			}
+		}
+	}
+	return "nil"
+}
+
+func nativeCallbackReceiveOnRecvTypeName(service ServicePlan, method MethodPlan) string {
+	return service.GoName + method.GoName + "CGONativeOnRecvCallback"
+}
+
+func nativeCallbackReceiveOnRecvTrampolineName(service ServicePlan, method MethodPlan) string {
+	return "call" + service.GoName + method.GoName + "CGONativeOnRecvCallback"
 }
 
 func nativeClientInputFieldSymbols(field FieldPlan) []string {

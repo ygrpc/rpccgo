@@ -4,9 +4,13 @@ import android.util.Log
 import examples.flutter.sharedso.v1.ComposeGreetingRequest
 import examples.flutter.sharedso.v1.IncrementRuntimeStateRequest
 import examples.flutter.sharedso.v1.ReadRuntimeStateRequest
+import examples.flutter.sharedso.v1.RuntimeStateResponse
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.embedding.android.FlutterActivity
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 class MainActivity : FlutterActivity() {
     companion object {
@@ -73,6 +77,11 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    override fun onDestroy() {
+        SharedSoDemoJni.StreamRuntimeStateCancelCallback()
+        super.onDestroy()
+    }
+
     private fun runJniStreams(): String {
         val collect = SharedSoDemoJni.CollectRuntimeStateStart()
         val collectStream = collect.value ?: return "jni client stream start error: ${collect.error}"
@@ -103,7 +112,36 @@ class MainActivity : FlutterActivity() {
             val value = next.value ?: return "jni server stream recv error: ${next.error}"
             serverValues.add(value.value)
         }
-        serverStream.Finish().let { if (!it.ok) return "jni server stream finish error: ${it.error}" }
+
+        val callbackValues = CopyOnWriteArrayList<Long>()
+        val callbackDone = CountDownLatch(1)
+        var callbackError: String? = null
+        val callbackStarted = SharedSoDemoJni.StreamRuntimeStateStartCallback(
+            ReadRuntimeStateRequest.newBuilder()
+                .setCaller("kotlin-jni-callback-server-stream")
+                .build(),
+            object : SharedSoDemoJni.StreamRuntimeStateListener {
+                override fun onMessage(responseBytes: ByteArray) {
+                    try {
+                        callbackValues.add(RuntimeStateResponse.parseFrom(responseBytes).value)
+                    } catch (err: Exception) {
+                        callbackError = err.message ?: "callback parse failed"
+                        SharedSoDemoJni.StreamRuntimeStateCancelCallback()
+                    }
+                }
+
+                override fun onDone(error: String?) {
+                    callbackError = callbackError ?: error
+                    callbackDone.countDown()
+                }
+            },
+        )
+        if (!callbackStarted) return "jni callback stream start error"
+        if (!callbackDone.await(3, TimeUnit.SECONDS)) {
+            SharedSoDemoJni.StreamRuntimeStateCancelCallback()
+            return "jni callback stream did not complete"
+        }
+        if (callbackError != null) return "jni callback stream error: $callbackError"
 
         val chat = SharedSoDemoJni.ChatRuntimeStateStart()
         val bidi = chat.value ?: return "jni bidi stream start error: ${chat.error}"
@@ -127,7 +165,7 @@ class MainActivity : FlutterActivity() {
         bidi.Finish().let { if (!it.ok) return "jni bidi stream finish error: ${it.error}" }
 
         return "Kotlin/JNI: +2+3 -> ${collectedValue.value} (rev ${collectedValue.revision}); " +
-            "read ${serverValues.joinToString(", ")}; +4+5 -> ${bidiValues.joinToString(" -> ")}; " +
+            "read ${serverValues.joinToString(", ")}; callback ${callbackValues.joinToString(", ")}; +4+5 -> ${bidiValues.joinToString(" -> ")}; " +
             "final ${bidiValues.lastOrNull() ?: collectedValue.value}"
     }
 }

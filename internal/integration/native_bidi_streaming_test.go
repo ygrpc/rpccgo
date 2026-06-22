@@ -189,7 +189,7 @@ import context "context"
 
 func GreeterChatNativeBidiStreamStart(ctx context.Context) (int32, int32) {
 	var stream C.int32_t
-	errID := rpccgoNativeTestv1GreeterChatStart(&stream)
+	errID := rpccgoNativeTestv1GreeterChatStart(&stream, nil, nil)
 	return int32(stream), int32(errID)
 }
 

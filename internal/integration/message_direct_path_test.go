@@ -65,8 +65,8 @@ func TestMessageClientStreamRejectsOperationsAfterFinish(t *testing.T) {
 	runMessageDirectPathFixture(t, "TestMessageClientStreamRejectsOperationsAfterFinish")
 }
 
-func TestMessageServerStreamRejectsReadAfterFinish(t *testing.T) {
-	runMessageDirectPathFixture(t, "TestMessageServerStreamRejectsReadAfterFinish")
+func TestMessageServerStreamRejectsReadAfterEOF(t *testing.T) {
+	runMessageDirectPathFixture(t, "TestMessageServerStreamRejectsReadAfterEOF")
 }
 
 func TestMessageBidiRejectsSendAfterCloseSendAndReadAfterCancel(t *testing.T) {
@@ -403,7 +403,7 @@ func (greeterEntryHandler) List(ctx context.Context, req *emptypb.Empty, stream 
 	for {
 		resp, err := GreeterMessageListRecv(ctx, handle)
 		if err == io.EOF {
-			return GreeterMessageListFinish(ctx, handle)
+			return nil
 		}
 		if err != nil {
 			_ = GreeterMessageListCancel(ctx, handle)
@@ -586,9 +586,6 @@ func TestDirectConnectHandlerRegistration(t *testing.T) {
 	if _, err := GreeterMessageListRecv(context.Background(), listHandle); err != io.EOF {
 		t.Fatalf("list Recv() error = %v, want EOF", err)
 	}
-	if err := GreeterMessageListFinish(context.Background(), listHandle); err != nil {
-		t.Fatalf("list Finish() error = %v", err)
-	}
 	chatHandle, err := GreeterMessageChatStart(context.Background())
 	if err != nil {
 		t.Fatalf("GreeterMessageChatStart() error = %v", err)
@@ -679,9 +676,6 @@ func TestDirectGRPCServerRegistration(t *testing.T) {
 	}
 	if _, err := GreeterMessageListRecv(context.Background(), listHandle); err != io.EOF {
 		t.Fatalf("list Recv() error = %v, want EOF", err)
-	}
-	if err := GreeterMessageListFinish(context.Background(), listHandle); err != nil {
-		t.Fatalf("list Finish() error = %v", err)
 	}
 	chatHandle, err := GreeterMessageChatStart(context.Background())
 	if err != nil {
@@ -1142,6 +1136,7 @@ import "C"
 
 import (
 	errors "errors"
+	io "io"
 
 	v1 "example.com/messagedirect/test/v1"
 	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
@@ -1149,7 +1144,7 @@ import (
 
 //export greeterMessageStreamEOFErrorIDForIntegration
 func greeterMessageStreamEOFErrorIDForIntegration() C.int32_t {
-	return C.int32_t(GreeterCGOMessageStreamEOFErrorID())
+	return C.int32_t(rpcruntime.StoreError(io.EOF))
 }
 
 //export greeterMessageStoredErrorIDForIntegration
@@ -1430,7 +1425,7 @@ func cancelGreeterUploadMessageClientStream(ctx context.Context, handle int32) i
 func startGreeterListMessageServerStream(ctx context.Context, requestPtr uintptr, requestLen int32) (int32, int32) {
 	_ = ctx
 	var handle C.int32_t
-	errID := rpccgoMsgTestv1GreeterListStart(C.uintptr_t(requestPtr), C.int32_t(requestLen), &handle)
+	errID := rpccgoMsgTestv1GreeterListStart(C.uintptr_t(requestPtr), C.int32_t(requestLen), &handle, nil, nil)
 	return int32(handle), int32(errID)
 }
 
@@ -1449,7 +1444,7 @@ func readGreeterListMessageServerStream(ctx context.Context, handle int32, outpu
 
 func finishGreeterListMessageServerStream(ctx context.Context, handle int32) int32 {
 	_ = ctx
-	return int32(rpccgoMsgTestv1GreeterListFinish(C.int32_t(handle)))
+	return int32(rpccgoMsgTestv1GreeterListCancel(C.int32_t(handle)))
 }
 
 func cancelGreeterListMessageServerStream(ctx context.Context, handle int32) int32 {
@@ -1460,7 +1455,7 @@ func cancelGreeterListMessageServerStream(ctx context.Context, handle int32) int
 func startGreeterChatMessageBidiStream(ctx context.Context) (int32, int32) {
 	_ = ctx
 	var handle C.int32_t
-	errID := rpccgoMsgTestv1GreeterChatStart(&handle)
+	errID := rpccgoMsgTestv1GreeterChatStart(&handle, nil, nil)
 	return int32(handle), int32(errID)
 }
 
@@ -1667,7 +1662,7 @@ func TestMessageClientStreamRejectsOperationsAfterFinish(t *testing.T) {
 	}
 }
 
-func TestMessageServerStreamRejectsReadAfterFinish(t *testing.T) {
+func TestMessageServerStreamRejectsReadAfterEOF(t *testing.T) {
 	registerMessageServer(t)
 	setGreeterMessageStreamEOFModeForIntegration(true)
 	handle, errID := startGreeterListMessageServerStream(context.Background(), 0, 0)
@@ -1675,7 +1670,6 @@ func TestMessageServerStreamRejectsReadAfterFinish(t *testing.T) {
 	assertMessageNoErr(t, readGreeterListMessageServerStream(context.Background(), handle, &greeterMessageOutput{}))
 	errID = readGreeterListMessageServerStream(context.Background(), handle, &greeterMessageOutput{})
 	assertMessageErrContains(t, errID, "EOF")
-	assertMessageNoErr(t, finishGreeterListMessageServerStream(context.Background(), handle))
 	errID = readGreeterListMessageServerStream(context.Background(), handle, &greeterMessageOutput{})
 	assertMessageErrContains(t, errID, "stream handle is invalid")
 	if got := greeterMessageListFinishsForIntegration(); got != 1 {
@@ -1901,6 +1895,7 @@ func TestMessageClientStreamingDirectPath(t *testing.T) {
 
 func TestMessageServerStreamingDirectPath(t *testing.T) {
 	registerMessageServer(t)
+	setGreeterMessageStreamEOFModeForIntegration(true)
 	handle, errID := startGreeterListMessageServerStream(context.Background(), 0, 0)
 	if errID != 0 {
 		t.Fatalf("startGreeterListMessageServerStream() errID = %d", errID)
@@ -1908,12 +1903,8 @@ func TestMessageServerStreamingDirectPath(t *testing.T) {
 	if errID := readGreeterListMessageServerStream(context.Background(), handle, &greeterMessageOutput{}); errID != 0 {
 		t.Fatalf("readGreeterListMessageServerStream() first errID = %d", errID)
 	}
-	if errID := readGreeterListMessageServerStream(context.Background(), handle, &greeterMessageOutput{}); errID != 0 {
-		t.Fatalf("readGreeterListMessageServerStream() second errID = %d", errID)
-	}
-	if errID := finishGreeterListMessageServerStream(context.Background(), handle); errID != 0 {
-		t.Fatalf("DoneGreeterListMessageServerStream() errID = %d", errID)
-	}
+	errID = readGreeterListMessageServerStream(context.Background(), handle, &greeterMessageOutput{})
+	assertMessageErrContains(t, errID, "EOF")
 	if got := greeterMessageListStartsForIntegration(); got != 1 {
 		t.Fatalf("list starts = %d, want 1", got)
 	}
@@ -1923,7 +1914,7 @@ func TestMessageServerStreamingDirectPath(t *testing.T) {
 	if got := greeterMessageListFinishsForIntegration(); got != 1 {
 		t.Fatalf("list finishes = %d, want 1", got)
 	}
-	errID = finishGreeterListMessageServerStream(context.Background(), handle)
+	errID = cancelGreeterListMessageServerStream(context.Background(), handle)
 	assertMessageErrContains(t, errID, "stream handle is invalid")
 }
 

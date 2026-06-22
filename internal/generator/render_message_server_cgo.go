@@ -62,7 +62,6 @@ func renderMessageServerCGOFile(plugin *protogen.Plugin, plan FilePlan, service 
 	renderCGOMessageServerRegistration(g, plan, service, adapterName, servicePackage)
 
 	renderCGOMessageErrorIDHelper(g, service)
-	renderCGOMessageStreamEOFHelper(g, service)
 	return nil
 }
 
@@ -369,15 +368,6 @@ func messageCServiceRegisterExportFuncName(plan FilePlan, service ServicePlan) s
 
 func messageCServiceMethodRegisterExportFuncName(plan FilePlan, service ServicePlan, method MethodPlan) string {
 	return cgoServiceExportName("msg", plan, service, "register", method.GoName)
-}
-
-func renderCGOMessageStreamEOFHelper(g *protogen.GeneratedFile, service ServicePlan) {
-	name := service.GoName + "CGOMessageStreamEOFErrorID"
-	renderDoc(g, name, "stores io.EOF and returns its error id for cgo message stream callbacks.")
-	g.P("func ", service.GoName, "CGOMessageStreamEOFErrorID() int32 {")
-	g.P("return int32(rpcruntime.StoreError(io.EOF))")
-	g.P("}")
-	g.P()
 }
 
 func renderCGOMessageErrorIDHelper(g *protogen.GeneratedFile, service ServicePlan) {

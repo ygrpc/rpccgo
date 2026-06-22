@@ -1022,8 +1022,3 @@ func sharedSoDemoCGOMessageServerError(errID int32) error {
 	}
 	return fmt.Errorf("rpccgo: cgo message server callback returned unknown error id %d", errID)
 }
-
-// SharedSoDemoCGOMessageStreamEOFErrorID stores io.EOF and returns its error id for cgo message stream callbacks.
-func SharedSoDemoCGOMessageStreamEOFErrorID() int32 {
-	return int32(rpcruntime.StoreError(io.EOF))
-}

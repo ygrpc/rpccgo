@@ -30,7 +30,8 @@ func renderRuntimeFile(plugin *protogen.Plugin, plan FilePlan, service ServicePl
 	if directFmt {
 		g.P(`fmt "fmt"`)
 	}
-	runtimeNeedsIO := directConnectStreaming && serviceHasServerStreamingMethod(service) ||
+	runtimeNeedsIO := serviceHasServerStreamingMethod(service) ||
+		directConnectStreaming && serviceHasServerStreamingMethod(service) ||
 		directGRPCStreaming && (serviceHasServerStreamingMethod(service) || serviceHasBidiStreamingMethod(service))
 	if runtimeNeedsIO {
 		g.P(`io "io"`)

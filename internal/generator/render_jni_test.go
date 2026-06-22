@@ -50,8 +50,16 @@ func TestGenerateJNIEmitsStreamingOperations(t *testing.T) {
 		"rpccgoMsgTestv1GreeterUploadSend",
 		"rpccgoMsgTestv1GreeterUploadFinish",
 		"rpccgoMsgTestv1GreeterListStart",
+		"rpccgoMsgTestv1GreeterListStart(rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()), &handle, onGreeterListListenerMessage, onGreeterListListenerDone)",
 		"rpccgoMsgTestv1GreeterListRecv",
 		"rpccgoMsgTestv1GreeterChatCloseSend",
+		"#include <mutex>",
+		"std::mutex greeterListCallbackMu;",
+		"bool cancelGreeterListListenerCallback(JNIEnv* env) {",
+		"Java_com_example_GreeterJni_greeterListStartCallback",
+		"Java_com_example_GreeterJni_greeterListCancelCallback",
+		"Java_com_example_GreeterJni_greeterChatStartCallback",
+		"Java_com_example_GreeterJni_greeterChatCancelCallback",
 	} {
 		assertGeneratedContentContains(t, plugin, cppFile, fragment)
 	}
@@ -62,8 +70,16 @@ func TestGenerateJNIEmitsStreamingOperations(t *testing.T) {
 	for _, fragment := range []string{
 		"import java.util.concurrent.atomic.AtomicBoolean",
 		"fun UploadStart(): RpccgoResult<GreeterUploadClientStream>",
+		"interface GreeterListListener {",
+		"private external fun greeterListStartCallback(request: ByteArray, listener: GreeterListListener): Boolean",
+		"private external fun greeterListCancelCallback(): Boolean",
 		"fun ListStart(req: test.v1.MessageRequest): RpccgoResult<GreeterListServerStream>",
+		"fun ListStartCallback(req: test.v1.MessageRequest, listener: GreeterListListener): Boolean =",
+		"fun ListCancelCallback(): Boolean = greeterListCancelCallback()",
 		"fun ChatStart(): RpccgoResult<GreeterChatBidiStream>",
+		"interface GreeterChatListener {",
+		"private external fun greeterChatStartCallback(listener: GreeterChatListener): Boolean",
+		"fun ChatStartCallback(listener: GreeterChatListener): Boolean =",
 		"fun CloseSend(): RpccgoResult<Unit>",
 		"private val receiving = AtomicBoolean(false)",
 		"/** Receives one response. Do not call while RecvEach is running on this stream. */",

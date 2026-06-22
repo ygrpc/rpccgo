@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	connect "connectrpc.com/connect"
 	fluttersharedv1 "example.com/rpccgo-flutter-shared-so/proto"
@@ -99,6 +100,9 @@ func (s *SharedSoDemoServer) WatchRuntimeState(ctx context.Context, req *flutter
 		s.mu.Unlock()
 		if err := stream.Send(resp); err != nil {
 			return err
+		}
+		if req.GetCaller() == "kotlin-jni-callback-server-stream" {
+			time.Sleep(750 * time.Millisecond)
 		}
 	}
 	return nil

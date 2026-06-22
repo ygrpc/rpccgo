@@ -244,10 +244,6 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
       }
       serverValues.add(value.value);
     }
-    final serverFinishError = serverStream.Finish();
-    if (serverFinishError != null) {
-      throw StateError('server stream finish: $serverFinishError');
-    }
 
     final chatResult = _client.ChatRuntimeStateStart();
     final chat = chatResult.value;

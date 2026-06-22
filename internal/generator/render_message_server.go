@@ -24,6 +24,9 @@ func renderMessageServerFile(plugin *protogen.Plugin, plan FilePlan, service Ser
 	g.P("import (")
 	g.P(`context "context"`)
 	g.P(`errors "errors"`)
+	if serviceHasServerStreamingMethod(service) {
+		g.P(`io "io"`)
+	}
 	if serviceHasStreamingMethod(service) {
 		g.P(`fmt "fmt"`)
 		if messageServerNeedsGoRuntime(service) {

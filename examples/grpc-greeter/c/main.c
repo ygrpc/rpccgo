@@ -144,12 +144,10 @@ static void run_native_broadcast_demo(void) {
   assert_status_ok(rpccgoNativeGreeterv1GreeterBroadcastStart(
                        (uintptr_t)name, 6, 0,
                        (uintptr_t)city, 1, 0,
-                       &handle),
+                       &handle, NULL, NULL),
                    "native broadcast start error:");
   read_native_stream_message(handle, "broadcast[0]:stream", "native broadcast read 0 error:");
   read_native_stream_message(handle, "broadcast[1]:stream", "native broadcast read 1 error:");
-  assert_status_ok(rpccgoNativeGreeterv1GreeterBroadcastFinish(handle),
-                   "native broadcast finish error:");
 }
 
 static void send_native_chat_message(int32_t handle, const char *name, const char *city,
@@ -159,7 +157,7 @@ static void run_native_chat_demo(void) {
   int32_t handle = 0;
   const char *city = "c";
 
-  assert_status_ok(rpccgoNativeGreeterv1GreeterChatStart(&handle),
+  assert_status_ok(rpccgoNativeGreeterv1GreeterChatStart(&handle, NULL, NULL),
                    "native chat start error:");
   send_native_chat_message(handle, "ada", city, "chat:ada");
   send_native_chat_message(handle, "grace", city, "chat:grace");

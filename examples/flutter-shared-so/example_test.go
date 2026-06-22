@@ -3,6 +3,8 @@ package fluttersharedso
 import (
 	"bytes"
 	"context"
+	"errors"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -109,8 +111,8 @@ func TestSharedSoDemoMessageStreamContract(t *testing.T) {
 			t.Fatalf("stream instance address is empty")
 		}
 	}
-	if err := fluttersharedv1.SharedSoDemoMessageWatchRuntimeStateFinish(context.Background(), handle); err != nil {
-		t.Fatalf("finish runtime state stream: %v", err)
+	if _, err := fluttersharedv1.SharedSoDemoMessageWatchRuntimeStateRecv(context.Background(), handle); !errors.Is(err, io.EOF) {
+		t.Fatalf("watch runtime state EOF = %v, want EOF", err)
 	}
 
 	collect, err := fluttersharedv1.SharedSoDemoMessageCollectRuntimeStateStart(context.Background())
@@ -151,8 +153,8 @@ func TestSharedSoDemoMessageStreamContract(t *testing.T) {
 			t.Fatalf("server stream caller = %q, want %q", got, want)
 		}
 	}
-	if err := fluttersharedv1.SharedSoDemoMessageStreamRuntimeStateFinish(context.Background(), stream); err != nil {
-		t.Fatalf("finish stream runtime state: %v", err)
+	if _, err := fluttersharedv1.SharedSoDemoMessageStreamRuntimeStateRecv(context.Background(), stream); !errors.Is(err, io.EOF) {
+		t.Fatalf("stream runtime state EOF = %v, want EOF", err)
 	}
 
 	chat, err := fluttersharedv1.SharedSoDemoMessageChatRuntimeStateStart(context.Background())

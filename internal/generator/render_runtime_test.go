@@ -229,7 +229,6 @@ func TestRenderRuntimeGlueDefinesPackageLevelStreamOperations(t *testing.T) {
 		"return resp.Accepted, resp.Payload, nil",
 		"func AllServiceNativeServerStreamRecv(ctx context.Context, handle rpcruntime.StreamHandle) (bool, []byte, error) {",
 		"entry, err := rpcruntime.LoadStreamSession(handle)",
-		"func AllServiceNativeServerStreamFinish(ctx context.Context, handle rpcruntime.StreamHandle) error {",
 		"func AllServiceNativeBidiStreamCloseSend(ctx context.Context, handle rpcruntime.StreamHandle) error {",
 		"entry, err := rpcruntime.LoadStreamSession(handle)",
 		"_, err = rpcruntime.RemoveStreamSession(handle)",

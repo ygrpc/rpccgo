@@ -7,6 +7,7 @@ package fluttersharedv1
 import (
 	context "context"
 	errors "errors"
+	io "io"
 	fmt "fmt"
 	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
@@ -44,6 +45,13 @@ func SharedSoDemoMessageWatchRuntimeStateRecv(ctx context.Context, handle rpcrun
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
 		resp, err := source.Recv(ctx)
+		if errors.Is(err, io.EOF) {
+			if finishErr := source.Finish(ctx); finishErr != nil {
+				_, _ = rpcruntime.RemoveStreamSession(handle)
+				return nil, finishErr
+			}
+			_, _ = rpcruntime.RemoveStreamSession(handle)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -57,6 +65,13 @@ func SharedSoDemoMessageWatchRuntimeStateRecv(ctx context.Context, handle rpcrun
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
 		resp, err := source.Recv(ctx)
+		if errors.Is(err, io.EOF) {
+			if finishErr := source.Finish(ctx); finishErr != nil {
+				_, _ = rpcruntime.RemoveStreamSession(handle)
+				return nil, finishErr
+			}
+			_, _ = rpcruntime.RemoveStreamSession(handle)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -70,6 +85,13 @@ func SharedSoDemoMessageWatchRuntimeStateRecv(ctx context.Context, handle rpcrun
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
 		resp, err := source.Recv(ctx)
+		if errors.Is(err, io.EOF) {
+			if finishErr := source.Finish(ctx); finishErr != nil {
+				_, _ = rpcruntime.RemoveStreamSession(handle)
+				return nil, finishErr
+			}
+			_, _ = rpcruntime.RemoveStreamSession(handle)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -79,48 +101,6 @@ func SharedSoDemoMessageWatchRuntimeStateRecv(ctx context.Context, handle rpcrun
 		return resp, nil
 	default:
 		return nil, fmt.Errorf("rpccgo: SharedSoDemo message stream session kind %d is unsupported", entry.Kind)
-	}
-}
-
-// SharedSoDemoMessageWatchRuntimeStateFinish finishes an active message WatchRuntimeState stream and releases its handle.
-func SharedSoDemoMessageWatchRuntimeStateFinish(ctx context.Context, handle rpcruntime.StreamHandle) error {
-	entry, err := rpcruntime.LoadStreamSession(handle)
-	if err != nil {
-		return err
-	}
-	switch entry.Kind {
-	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*RuntimeStateResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		if err := source.Finish(ctx); err != nil {
-			return err
-		}
-		_, err = rpcruntime.RemoveStreamSession(handle)
-		return err
-	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*RuntimeStateResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		if err := source.Finish(ctx); err != nil {
-			return err
-		}
-		_, err = rpcruntime.RemoveStreamSession(handle)
-		return err
-	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*RuntimeStateResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		if err := source.Finish(ctx); err != nil {
-			return err
-		}
-		_, err = rpcruntime.RemoveStreamSession(handle)
-		return err
-	default:
-		return fmt.Errorf("rpccgo: SharedSoDemo message stream session kind %d is unsupported", entry.Kind)
 	}
 }
 
@@ -314,6 +294,13 @@ func SharedSoDemoMessageStreamRuntimeStateRecv(ctx context.Context, handle rpcru
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
 		resp, err := source.Recv(ctx)
+		if errors.Is(err, io.EOF) {
+			if finishErr := source.Finish(ctx); finishErr != nil {
+				_, _ = rpcruntime.RemoveStreamSession(handle)
+				return nil, finishErr
+			}
+			_, _ = rpcruntime.RemoveStreamSession(handle)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -327,6 +314,13 @@ func SharedSoDemoMessageStreamRuntimeStateRecv(ctx context.Context, handle rpcru
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
 		resp, err := source.Recv(ctx)
+		if errors.Is(err, io.EOF) {
+			if finishErr := source.Finish(ctx); finishErr != nil {
+				_, _ = rpcruntime.RemoveStreamSession(handle)
+				return nil, finishErr
+			}
+			_, _ = rpcruntime.RemoveStreamSession(handle)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -340,6 +334,13 @@ func SharedSoDemoMessageStreamRuntimeStateRecv(ctx context.Context, handle rpcru
 			return nil, rpcruntime.ErrStreamInvalidHandle
 		}
 		resp, err := source.Recv(ctx)
+		if errors.Is(err, io.EOF) {
+			if finishErr := source.Finish(ctx); finishErr != nil {
+				_, _ = rpcruntime.RemoveStreamSession(handle)
+				return nil, finishErr
+			}
+			_, _ = rpcruntime.RemoveStreamSession(handle)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -349,48 +350,6 @@ func SharedSoDemoMessageStreamRuntimeStateRecv(ctx context.Context, handle rpcru
 		return resp, nil
 	default:
 		return nil, fmt.Errorf("rpccgo: SharedSoDemo message stream session kind %d is unsupported", entry.Kind)
-	}
-}
-
-// SharedSoDemoMessageStreamRuntimeStateFinish finishes an active message StreamRuntimeState stream and releases its handle.
-func SharedSoDemoMessageStreamRuntimeStateFinish(ctx context.Context, handle rpcruntime.StreamHandle) error {
-	entry, err := rpcruntime.LoadStreamSession(handle)
-	if err != nil {
-		return err
-	}
-	switch entry.Kind {
-	case rpcruntime.ServerKindCGOMessage:
-		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*RuntimeStateResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		if err := source.Finish(ctx); err != nil {
-			return err
-		}
-		_, err = rpcruntime.RemoveStreamSession(handle)
-		return err
-	case rpcruntime.ServerKindConnect:
-		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*RuntimeStateResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		if err := source.Finish(ctx); err != nil {
-			return err
-		}
-		_, err = rpcruntime.RemoveStreamSession(handle)
-		return err
-	case rpcruntime.ServerKindConnectRemote:
-		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*RuntimeStateResponse])
-		if !ok {
-			return rpcruntime.ErrStreamInvalidHandle
-		}
-		if err := source.Finish(ctx); err != nil {
-			return err
-		}
-		_, err = rpcruntime.RemoveStreamSession(handle)
-		return err
-	default:
-		return fmt.Errorf("rpccgo: SharedSoDemo message stream session kind %d is unsupported", entry.Kind)
 	}
 }
 

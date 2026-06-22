@@ -252,6 +252,18 @@ func (c *ServerStreamForClient[Resp]) Recv(ctx context.Context) (Resp, error) {
 	}
 }
 
+// Cancel aborts the RPC and waits for the server endpoint to complete.
+func (c *ServerStreamForClient[Resp]) Cancel(ctx context.Context) error {
+	s := c.state
+	s.cancel()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-s.done:
+		return nil
+	}
+}
+
 // Finish asks the server endpoint to stop producing responses and waits for completion.
 func (c *ServerStreamForClient[Resp]) Finish(ctx context.Context) error {
 	s := c.state
@@ -263,18 +275,6 @@ func (c *ServerStreamForClient[Resp]) Finish(ctx context.Context) error {
 		return ctx.Err()
 	case <-s.ctx.Done():
 		return s.ctx.Err()
-	case <-s.done:
-		return nil
-	}
-}
-
-// Cancel aborts the RPC and waits for the server endpoint to complete.
-func (c *ServerStreamForClient[Resp]) Cancel(ctx context.Context) error {
-	s := c.state
-	s.cancel()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
 	case <-s.done:
 		return nil
 	}

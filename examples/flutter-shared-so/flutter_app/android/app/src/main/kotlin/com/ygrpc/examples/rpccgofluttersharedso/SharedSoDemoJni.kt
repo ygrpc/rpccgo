@@ -20,24 +20,43 @@ object SharedSoDemoJni {
     private external fun sharedSoDemoComposeGreeting(request: ByteArray): ByteArray?
     private external fun sharedSoDemoIncrementRuntimeState(request: ByteArray): ByteArray?
     private external fun sharedSoDemoReadRuntimeState(request: ByteArray): ByteArray?
+    interface SharedSoDemoWatchRuntimeStateListener {
+        fun onMessage(responseBytes: ByteArray)
+        fun onDone(error: String?)
+    }
+
     private external fun sharedSoDemoWatchRuntimeStateStart(request: ByteArray): ByteArray?
     private external fun sharedSoDemoWatchRuntimeStateRecv(handle: Int): ByteArray?
-    private external fun sharedSoDemoWatchRuntimeStateFinish(handle: Int): ByteArray?
     private external fun sharedSoDemoWatchRuntimeStateCancel(handle: Int): ByteArray?
+    private external fun sharedSoDemoWatchRuntimeStateStartCallback(request: ByteArray, listener: SharedSoDemoWatchRuntimeStateListener): Boolean
+    private external fun sharedSoDemoWatchRuntimeStateCancelCallback(): Boolean
     private external fun sharedSoDemoCollectRuntimeStateStart(): ByteArray?
     private external fun sharedSoDemoCollectRuntimeStateSend(handle: Int, request: ByteArray): ByteArray?
     private external fun sharedSoDemoCollectRuntimeStateFinish(handle: Int): ByteArray?
     private external fun sharedSoDemoCollectRuntimeStateCancel(handle: Int): ByteArray?
+    interface SharedSoDemoStreamRuntimeStateListener {
+        fun onMessage(responseBytes: ByteArray)
+        fun onDone(error: String?)
+    }
+
     private external fun sharedSoDemoStreamRuntimeStateStart(request: ByteArray): ByteArray?
     private external fun sharedSoDemoStreamRuntimeStateRecv(handle: Int): ByteArray?
-    private external fun sharedSoDemoStreamRuntimeStateFinish(handle: Int): ByteArray?
     private external fun sharedSoDemoStreamRuntimeStateCancel(handle: Int): ByteArray?
+    private external fun sharedSoDemoStreamRuntimeStateStartCallback(request: ByteArray, listener: SharedSoDemoStreamRuntimeStateListener): Boolean
+    private external fun sharedSoDemoStreamRuntimeStateCancelCallback(): Boolean
+    interface SharedSoDemoChatRuntimeStateListener {
+        fun onMessage(responseBytes: ByteArray)
+        fun onDone(error: String?)
+    }
+
     private external fun sharedSoDemoChatRuntimeStateStart(): ByteArray?
     private external fun sharedSoDemoChatRuntimeStateSend(handle: Int, request: ByteArray): ByteArray?
     private external fun sharedSoDemoChatRuntimeStateRecv(handle: Int): ByteArray?
     private external fun sharedSoDemoChatRuntimeStateCloseSend(handle: Int): ByteArray?
     private external fun sharedSoDemoChatRuntimeStateFinish(handle: Int): ByteArray?
     private external fun sharedSoDemoChatRuntimeStateCancel(handle: Int): ByteArray?
+    private external fun sharedSoDemoChatRuntimeStateStartCallback(listener: SharedSoDemoChatRuntimeStateListener): Boolean
+    private external fun sharedSoDemoChatRuntimeStateCancelCallback(): Boolean
 
     fun ComposeGreeting(req: examples.flutter.sharedso.v1.ComposeGreetingRequest): RpccgoResult<examples.flutter.sharedso.v1.ComposeGreetingResponse> =
         decodeResult(sharedSoDemoComposeGreeting(req.toByteArray())) { examples.flutter.sharedso.v1.ComposeGreetingResponse.parseFrom(it) }
@@ -53,6 +72,9 @@ object SharedSoDemoJni {
         if (!handle.ok) return RpccgoResult.failure(handle.error ?: "rpccgo: stream start failed")
         return RpccgoResult.success(SharedSoDemoWatchRuntimeStateServerStream(handle.value ?: 0))
     }
+    fun WatchRuntimeStateStartCallback(req: examples.flutter.sharedso.v1.ReadRuntimeStateRequest, listener: SharedSoDemoWatchRuntimeStateListener): Boolean =
+        sharedSoDemoWatchRuntimeStateStartCallback(req.toByteArray(), listener)
+    fun WatchRuntimeStateCancelCallback(): Boolean = sharedSoDemoWatchRuntimeStateCancelCallback()
 
     class SharedSoDemoWatchRuntimeStateServerStream internal constructor(private val handle: Int) {
         private val receiving = AtomicBoolean(false)
@@ -67,8 +89,6 @@ object SharedSoDemoJni {
                 receiving.set(false)
             }
         }
-        fun Finish(): RpccgoResult<Unit> =
-            decodeUnitResult(SharedSoDemoJni.sharedSoDemoWatchRuntimeStateFinish(handle))
         fun Cancel(): RpccgoResult<Unit> =
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoWatchRuntimeStateCancel(handle))
         /** Starts a background Recv loop. Do not mix with manual Recv calls on this stream. */
@@ -115,6 +135,9 @@ object SharedSoDemoJni {
         if (!handle.ok) return RpccgoResult.failure(handle.error ?: "rpccgo: stream start failed")
         return RpccgoResult.success(SharedSoDemoStreamRuntimeStateServerStream(handle.value ?: 0))
     }
+    fun StreamRuntimeStateStartCallback(req: examples.flutter.sharedso.v1.ReadRuntimeStateRequest, listener: SharedSoDemoStreamRuntimeStateListener): Boolean =
+        sharedSoDemoStreamRuntimeStateStartCallback(req.toByteArray(), listener)
+    fun StreamRuntimeStateCancelCallback(): Boolean = sharedSoDemoStreamRuntimeStateCancelCallback()
 
     class SharedSoDemoStreamRuntimeStateServerStream internal constructor(private val handle: Int) {
         private val receiving = AtomicBoolean(false)
@@ -129,8 +152,6 @@ object SharedSoDemoJni {
                 receiving.set(false)
             }
         }
-        fun Finish(): RpccgoResult<Unit> =
-            decodeUnitResult(SharedSoDemoJni.sharedSoDemoStreamRuntimeStateFinish(handle))
         fun Cancel(): RpccgoResult<Unit> =
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoStreamRuntimeStateCancel(handle))
         /** Starts a background Recv loop. Do not mix with manual Recv calls on this stream. */
@@ -162,6 +183,9 @@ object SharedSoDemoJni {
         if (!handle.ok) return RpccgoResult.failure(handle.error ?: "rpccgo: stream start failed")
         return RpccgoResult.success(SharedSoDemoChatRuntimeStateBidiStream(handle.value ?: 0))
     }
+    fun ChatRuntimeStateStartCallback(listener: SharedSoDemoChatRuntimeStateListener): Boolean =
+        sharedSoDemoChatRuntimeStateStartCallback(listener)
+    fun ChatRuntimeStateCancelCallback(): Boolean = sharedSoDemoChatRuntimeStateCancelCallback()
 
     class SharedSoDemoChatRuntimeStateBidiStream internal constructor(private val handle: Int) {
         fun Send(req: examples.flutter.sharedso.v1.IncrementRuntimeStateRequest): RpccgoResult<Unit> =

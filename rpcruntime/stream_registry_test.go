@@ -3,6 +3,7 @@ package rpcruntime
 import (
 	"sync"
 	"testing"
+	"time"
 )
 
 type testStreamSession struct {
@@ -193,6 +194,102 @@ func TestLoadStreamSessionKeepsSession(t *testing.T) {
 	}
 	if _, ok := streamSessions.Load(handle); !ok {
 		t.Fatal("LoadStreamSession removed the session")
+	}
+}
+
+func TestEnableStreamCallbackReceiveUsesStreamSessionState(t *testing.T) {
+	streamSessions = StreamRegistry{}
+	session := &testTypedStreamSession{name: "callback"}
+	handle, err := CreateStreamSession(ServerKindGRPC, session)
+	if err != nil {
+		t.Fatalf("CreateStreamSession returned error: %v", err)
+	}
+
+	callbackState, err := EnableStreamCallbackReceive(handle)
+	if err != nil {
+		t.Fatalf("EnableStreamCallbackReceive returned error: %v", err)
+	}
+	if !callbackState.CallbackReceiveEnabled.Load() {
+		t.Fatal("EnableStreamCallbackReceive did not mark callback receive enabled")
+	}
+	if callbackState.Kind != ServerKindGRPC || callbackState.Session != session {
+		t.Fatalf("EnableStreamCallbackReceive returned %#v, want kind=%d session=%#v", callbackState, ServerKindGRPC, session)
+	}
+	if !callbackState.BeginCallback() {
+		t.Fatal("BeginCallback returned false before cancellation")
+	}
+	callbackState.EndCallback()
+	if !callbackState.BeginDoneCallback() {
+		t.Fatal("BeginDoneCallback returned false before completion")
+	}
+	callbackState.EndDoneCallback()
+
+	loaded, err := StreamCallbackReceiveState(handle)
+	if err != nil {
+		t.Fatalf("StreamCallbackReceiveState returned error: %v", err)
+	}
+	if loaded.Kind != ServerKindGRPC || loaded.Session != session {
+		t.Fatalf("StreamCallbackReceiveState returned %#v, want kind=%d session=%#v", loaded, ServerKindGRPC, session)
+	}
+	if loaded.BeginCallback() {
+		t.Fatal("BeginCallback returned true after done callback completed")
+	}
+	if _, err := EnableStreamCallbackReceive(handle); err != ErrStreamInvalidHandle {
+		t.Fatalf("repeated EnableStreamCallbackReceive returned %v, want ErrStreamInvalidHandle", err)
+	}
+}
+
+func TestStreamSessionMarkCanceledWaitsForActiveCallback(t *testing.T) {
+	streamSession := newStreamSession(ServerKindGRPC, &testTypedStreamSession{name: "callback"})
+	if !streamSession.BeginCallback() {
+		t.Fatal("BeginCallback returned false before cancellation")
+	}
+
+	done := make(chan struct{})
+	go func() {
+		streamSession.MarkCanceled()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		t.Fatal("MarkCanceled returned before EndCallback")
+	case <-time.After(10 * time.Millisecond):
+	}
+
+	streamSession.EndCallback()
+
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("MarkCanceled did not return after EndCallback")
+	}
+}
+
+func TestStreamSessionWaitDoneWaitsForDoneCallback(t *testing.T) {
+	streamSession := newStreamSession(ServerKindGRPC, &testTypedStreamSession{name: "callback"})
+	if !streamSession.BeginDoneCallback() {
+		t.Fatal("BeginDoneCallback returned false before completion")
+	}
+
+	done := make(chan struct{})
+	go func() {
+		streamSession.WaitDone()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		t.Fatal("WaitDone returned before EndDoneCallback")
+	case <-time.After(10 * time.Millisecond):
+	}
+
+	streamSession.EndDoneCallback()
+
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("WaitDone did not return after EndDoneCallback")
 	}
 }
 

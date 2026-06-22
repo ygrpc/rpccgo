@@ -187,7 +187,7 @@ import context "context"
 
 func GreeterListNativeServerStreamStart(ctx context.Context, PrefixPtr uintptr, PrefixLen int32, PrefixOwnership int32, Limit int32) (int32, int32) {
 	var stream C.int32_t
-	errID := rpccgoNativeTestv1GreeterListStart(C.uintptr_t(PrefixPtr), C.int32_t(PrefixLen), C.int32_t(PrefixOwnership), C.int32_t(Limit), &stream)
+	errID := rpccgoNativeTestv1GreeterListStart(C.uintptr_t(PrefixPtr), C.int32_t(PrefixLen), C.int32_t(PrefixOwnership), C.int32_t(Limit), &stream, nil, nil)
 	return int32(stream), int32(errID)
 }
 
@@ -204,7 +204,7 @@ func GreeterListNativeServerStreamRecv(ctx context.Context, stream int32, outInd
 }
 
 func GreeterListNativeServerStreamFinish(ctx context.Context, stream int32) int32 {
-	return int32(rpccgoNativeTestv1GreeterListFinish(C.int32_t(stream)))
+	return int32(rpccgoNativeTestv1GreeterListCancel(C.int32_t(stream)))
 }
 
 func GreeterListNativeServerStreamCancel(ctx context.Context, stream int32) int32 {
@@ -439,7 +439,7 @@ func readList(ctx context.Context, handle int32, output *listOutput) int32 {
 	return GreeterListNativeServerStreamRecv(ctx, handle, &output.Index, &output.NamePtr, &output.NameLen)
 }
 
-func TestNativeServerStreamingCGOServerFinishFinalizesHandle(t *testing.T) {
+func TestNativeServerStreamingCGOServerEOFFinalizesHandle(t *testing.T) {
 	v1.ResetGreeterServerForIntegrationTest()
 	rpcruntime.ResetFreeCallbackForTesting()
 	t.Cleanup(rpcruntime.ResetFreeCallbackForTesting)
@@ -457,15 +457,12 @@ func TestNativeServerStreamingCGOServerFinishFinalizesHandle(t *testing.T) {
 	if got := frees(); got != 2 {
 		t.Fatalf("free count after reads = %d, want 2", got)
 	}
-	if errID := GreeterListNativeServerStreamFinish(context.Background(), handle); errID != 0 {
-		text, _, ok := rpcruntime.TakeErrorText(rpcruntime.ErrorID(errID))
-		t.Fatalf("GreeterListNativeServerStreamFinish() errID = %d, text = %q, ok = %v", errID, text, ok)
-	}
+	assertErrorTextContainsCGOServerStream(t, readList(context.Background(), handle, &listOutput{}), "EOF")
 	if got := greeterServerStreamFinishCount(); got != 1 {
 		t.Fatalf("finish count = %d, want 1", got)
 	}
-	if errID := GreeterListNativeServerStreamFinish(context.Background(), handle); errID == 0 {
-		t.Fatal("second Finish returned errID 0")
+	if errID := readList(context.Background(), handle, &listOutput{}); errID == 0 {
+		t.Fatal("second read returned errID 0")
 	}
 }
 
@@ -534,6 +531,7 @@ const nativeServerStreamingCGOFixtureCallbackSource = `package main
 #include <string.h>
 
 extern int32_t rpccgoStoreErrorText(char* text, int32_t textLen);
+extern int32_t greeterNativeStreamEOFErrorIDForIntegration(void);
 
 typedef int32_t (*GreeterListCGONativeServerStreamStartCallback)(uintptr_t PrefixPtr, int32_t PrefixLen, int32_t PrefixOwnership, int32_t Limit, int32_t* stream);
 typedef int32_t (*GreeterListCGONativeServerStreamRecvCallback)(int32_t stream, int32_t* outIndex, uintptr_t* outNamePtr, int32_t* outNameLen, int32_t* outNameOwnership);
@@ -593,7 +591,7 @@ static int32_t greeterListRecv(int32_t stream, int32_t* outIndex, uintptr_t* out
 		return greeterServerStreamError("server stream recv did not reach cgo callback");
 	}
 	if (greeterServerStreamIndex >= greeterServerStreamLimit) {
-		return greeterServerStreamError("server stream finished");
+		return greeterNativeStreamEOFErrorIDForIntegration();
 	}
 	greeterServerStreamIndex += 1;
 	char buf[96];
@@ -683,11 +681,17 @@ import "C"
 
 import (
 	"errors"
+	"io"
 	"sync/atomic"
 	"unsafe"
 
 	rpcruntime "github.com/ygrpc/rpccgo/rpcruntime"
 )
+
+//export greeterNativeStreamEOFErrorIDForIntegration
+func greeterNativeStreamEOFErrorIDForIntegration() C.int32_t {
+	return C.int32_t(rpcruntime.StoreError(io.EOF))
+}
 
 func registerGreeterServerStreamCGONativeServerCallbacks() error {
 	callbacks := C.greeterServerStreamCallbacks()

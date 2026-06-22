@@ -25,6 +25,9 @@ func renderNativeServerFile(plugin *protogen.Plugin, plan FilePlan, service Serv
 		g.P(`context "context"`)
 	}
 	g.P(`errors "errors"`)
+	if serviceHasServerStreamingMethod(service) {
+		g.P(`io "io"`)
+	}
 	if nativeServerHasStreamingMethod(service) {
 		g.P(`fmt "fmt"`)
 	}

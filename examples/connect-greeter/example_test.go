@@ -67,7 +67,6 @@ func TestConnectGreeterCSharedClientExample(t *testing.T) {
 		"rpccgoNativeGreeterv1GreeterCollectStart",
 		"rpccgoNativeGreeterv1GreeterBroadcastStart",
 		"rpccgoNativeGreeterv1GreeterBroadcastRecv",
-		"rpccgoNativeGreeterv1GreeterBroadcastFinish",
 		"rpccgoNativeGreeterv1GreeterChatStart",
 		"rpccgoNativeGreeterv1GreeterChatSend",
 		"rpccgoNativeGreeterv1GreeterChatRecv",

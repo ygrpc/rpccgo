@@ -109,22 +109,3 @@ func TestRenderMessageServerCGODefinesFlatServiceRegistration(t *testing.T) {
 	}
 	t.Fatalf("generated file %q not found", cgoServerFile)
 }
-
-func TestRenderMessageServerCGOFileEmitsStreamEOFHelper(t *testing.T) {
-	file := simpleTestFile()
-	setSimpleServiceComment(t, file, "@rpccgo: msg-connect\n")
-	plugin := newTestPlugin(t, "paths=source_relative", file)
-
-	if _, err := GenerateWithOptions(plugin); err != nil {
-		t.Fatalf("GenerateWithOptions() error = %v", err)
-	}
-
-	const cgoServerFile = "test/v1/cgo/greeter.greeter.server.message.cgo.rpccgo.go"
-	for _, fragment := range []string{
-		`io "io"`,
-		"func GreeterCGOMessageStreamEOFErrorID() int32 {",
-		"return int32(rpcruntime.StoreError(io.EOF))",
-	} {
-		assertGeneratedContentContains(t, plugin, cgoServerFile, fragment)
-	}
-}

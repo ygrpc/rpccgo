@@ -38,7 +38,7 @@ func greeterNativeCollectFinish(stream int32, outMessagePtr *uintptr, outMessage
 
 func greeterNativeBroadcastStart(namePtr uintptr, nameLen int32, nameOwnership int32, cityPtr uintptr, cityLen int32, cityOwnership int32) (int32, int32) {
 	var stream C.int32_t
-	errID := rpccgoNativeGreeterv1GreeterBroadcastStart(C.uintptr_t(namePtr), C.int32_t(nameLen), C.int32_t(nameOwnership), C.uintptr_t(cityPtr), C.int32_t(cityLen), C.int32_t(cityOwnership), &stream)
+	errID := rpccgoNativeGreeterv1GreeterBroadcastStart(C.uintptr_t(namePtr), C.int32_t(nameLen), C.int32_t(nameOwnership), C.uintptr_t(cityPtr), C.int32_t(cityLen), C.int32_t(cityOwnership), &stream, nil, nil)
 	return int32(stream), int32(errID)
 }
 
@@ -53,12 +53,12 @@ func greeterNativeBroadcastRecv(stream int32, outMessagePtr *uintptr, outMessage
 }
 
 func greeterNativeBroadcastFinish(stream int32) int32 {
-	return int32(rpccgoNativeGreeterv1GreeterBroadcastFinish(C.int32_t(stream)))
+	return 0
 }
 
 func greeterNativeChatStart() (int32, int32) {
 	var stream C.int32_t
-	errID := rpccgoNativeGreeterv1GreeterChatStart(&stream)
+	errID := rpccgoNativeGreeterv1GreeterChatStart(&stream, nil, nil)
 	return int32(stream), int32(errID)
 }
 
@@ -114,7 +114,7 @@ func greeterMessageCollectFinish(stream int32, outMessagePtr *uintptr, outMessag
 
 func greeterMessageBroadcastStart(requestPtr uintptr, requestLen int32) (int32, int32) {
 	var stream C.int32_t
-	errID := rpccgoMsgGreeterv1GreeterBroadcastStart(C.uintptr_t(requestPtr), C.int32_t(requestLen), &stream)
+	errID := rpccgoMsgGreeterv1GreeterBroadcastStart(C.uintptr_t(requestPtr), C.int32_t(requestLen), &stream, nil, nil)
 	return int32(stream), int32(errID)
 }
 
@@ -128,12 +128,12 @@ func greeterMessageBroadcastRecv(stream int32, outMessagePtr *uintptr, outMessag
 }
 
 func greeterMessageBroadcastFinish(stream int32) int32 {
-	return int32(rpccgoMsgGreeterv1GreeterBroadcastFinish(C.int32_t(stream)))
+	return 0
 }
 
 func greeterMessageChatStart() (int32, int32) {
 	var stream C.int32_t
-	errID := rpccgoMsgGreeterv1GreeterChatStart(&stream)
+	errID := rpccgoMsgGreeterv1GreeterChatStart(&stream, nil, nil)
 	return int32(stream), int32(errID)
 }
 

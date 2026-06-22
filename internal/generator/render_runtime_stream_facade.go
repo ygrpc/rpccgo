@@ -16,7 +16,9 @@ func renderRuntimeNativeStreamFacade(g *protogen.GeneratedFile, serviceName stri
 	if method.Stream.CanCloseSend {
 		renderRuntimeNativeStreamCloseSend(g, serviceName, method)
 	}
-	renderRuntimeNativeStreamFinish(g, serviceName, method)
+	if method.Stream.CanSend {
+		renderRuntimeNativeStreamFinish(g, serviceName, method)
+	}
 	renderRuntimeNativeStreamCancel(g, serviceName, method)
 }
 
@@ -30,7 +32,9 @@ func renderRuntimeMessageStreamFacade(g *protogen.GeneratedFile, serviceName str
 	if method.Stream.CanCloseSend {
 		renderRuntimeMessageStreamCloseSend(g, serviceName, method, nativeEnabled)
 	}
-	renderRuntimeMessageStreamFinish(g, serviceName, method, nativeEnabled)
+	if method.Stream.CanSend {
+		renderRuntimeMessageStreamFinish(g, serviceName, method, nativeEnabled)
+	}
 	renderRuntimeMessageStreamCancel(g, serviceName, method, nativeEnabled)
 }
 
@@ -72,12 +76,24 @@ func renderRuntimeNativeStreamRecv(g *protogen.GeneratedFile, serviceName string
 			} else {
 				g.P("resp, err := source.Recv(ctx)")
 			}
+			if method.Stream.Shape == runtimeStreamServer {
+				g.P("if errors.Is(err, io.EOF) {")
+				g.P("if finishErr := source.Finish(ctx); finishErr != nil { _, _ = rpcruntime.RemoveStreamSession(handle); return ", method.Native.ErrZero, " }")
+				g.P("_, _ = rpcruntime.RemoveStreamSession(handle)")
+				g.P("}")
+			}
 			g.P("if err != nil { return ", method.Native.ErrZero, " }")
 			g.P("return ", runtimeNativeResponseReturn("resp", method))
 		})
 	}
 	renderRuntimeNativeStreamMessageSessionCases(g, method, "source", method.Native.InvalidZero, func() {
 		g.P("messageResp, err := source.Recv(ctx)")
+		if method.Stream.Shape == runtimeStreamServer {
+			g.P("if errors.Is(err, io.EOF) {")
+			g.P("if finishErr := source.Finish(ctx); finishErr != nil { _, _ = rpcruntime.RemoveStreamSession(handle); return ", method.Native.ErrZero, " }")
+			g.P("_, _ = rpcruntime.RemoveStreamSession(handle)")
+			g.P("}")
+		}
 		g.P("if err != nil { return ", method.Native.ErrZero, " }")
 		g.P("return ", method.Codec.MessageToNativeResponse, "(messageResp)")
 	})
@@ -239,12 +255,24 @@ func renderRuntimeMessageStreamRecv(g *protogen.GeneratedFile, serviceName strin
 			} else {
 				g.P("resp, err := source.Recv(ctx)")
 			}
+			if method.Stream.Shape == runtimeStreamServer {
+				g.P("if errors.Is(err, io.EOF) {")
+				g.P("if finishErr := source.Finish(ctx); finishErr != nil { _, _ = rpcruntime.RemoveStreamSession(handle); return nil, finishErr }")
+				g.P("_, _ = rpcruntime.RemoveStreamSession(handle)")
+				g.P("}")
+			}
 			g.P("if err != nil { return nil, err }")
 			g.P("return ", method.Codec.NativeResponseToMessage, "(", runtimeNativeResponseFieldArgs("resp", method), ")")
 		})
 	}
 	renderRuntimeMessageStreamMessageSessionCases(g, method, "source", "nil, rpcruntime.ErrStreamInvalidHandle", func() {
 		g.P("resp, err := source.Recv(ctx)")
+		if method.Stream.Shape == runtimeStreamServer {
+			g.P("if errors.Is(err, io.EOF) {")
+			g.P("if finishErr := source.Finish(ctx); finishErr != nil { _, _ = rpcruntime.RemoveStreamSession(handle); return nil, finishErr }")
+			g.P("_, _ = rpcruntime.RemoveStreamSession(handle)")
+			g.P("}")
+		}
 		g.P("if err != nil { return nil, err }")
 		g.P("if resp == nil {")
 		g.P(`return nil, errors.New("rpccgo: message response is nil")`)
