@@ -23,6 +23,12 @@ func TestRunEmitsDartFFIClient(t *testing.T) {
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "@ffi.DefaultAsset('package:rpccgo_test/gen/rpccgo.dart')")
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "const GreeterRpccgoClient();")
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "({pb.HelloReply? value, String? error}) SayHello(pb.HelloRequest request) {")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "({GreeterListStream? value, String? error}) ListStart(pb.HelloRequest request) {")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "({GreeterListStream? value, String? error}) ListStartCallback(pb.HelloRequest request, {required void Function(pb.HelloReply value) onRecv, required void Function(String? error) onDone}) {")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "({GreeterChatStream? value, String? error}) ChatStartCallback({required void Function(pb.HelloReply value) onRecv, required void Function(String? error) onDone}) {")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "ffi.NativeCallable<_RpccgoMessageOnRecvCAbi>.isolateGroupBound")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.isolateGroupBound")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "return (value: null, error: 'rpccgo: stream receive is owned by callback receive mode');")
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "symbol: 'rpccgoMsgTestv1GreeterSayHello'")
 }
 
@@ -61,6 +67,19 @@ func dartMainTestFile() *descriptorpb.FileDescriptorProto {
 						Name:       proto.String("SayHello"),
 						InputType:  proto.String(".test.v1.HelloRequest"),
 						OutputType: proto.String(".test.v1.HelloReply"),
+					},
+					{
+						Name:            proto.String("List"),
+						InputType:       proto.String(".test.v1.HelloRequest"),
+						OutputType:      proto.String(".test.v1.HelloReply"),
+						ServerStreaming: proto.Bool(true),
+					},
+					{
+						Name:            proto.String("Chat"),
+						InputType:       proto.String(".test.v1.HelloRequest"),
+						OutputType:      proto.String(".test.v1.HelloReply"),
+						ClientStreaming: proto.Bool(true),
+						ServerStreaming: proto.Bool(true),
 					},
 				},
 			},

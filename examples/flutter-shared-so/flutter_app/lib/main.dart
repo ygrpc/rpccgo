@@ -1,3 +1,5 @@
+import 'dart:async' as async;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:rpccgofluttersharedso/gen/rpccgo.dart';
@@ -178,7 +180,7 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
     });
     await _showBusyState();
     try {
-      final flutterSummary = _runFlutterStreams();
+      final flutterSummary = await _runFlutterStreams();
       final jniSummary = await _jniChannel.invokeMethod<String>('runStreams');
       setState(() {
         _latestActivityTitle = 'Latest Activity: Streaming';
@@ -201,7 +203,7 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
     }
   }
 
-  String _runFlutterStreams() {
+  Future<String> _runFlutterStreams() async {
     final collectResult = _client.CollectRuntimeStateStart();
     final collect = collectResult.value;
     if (collectResult.error != null || collect == null) {
@@ -228,22 +230,34 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
       throw StateError('client stream finish: ${collected.error}');
     }
 
-    final streamResult = _client.StreamRuntimeStateStart(
+    final serverValues = [];
+    final serverDone = async.Completer<void>();
+    final streamResult = _client.StreamRuntimeStateStartCallback(
       ReadRuntimeStateRequest(caller: 'flutter-ffi-server-stream'),
+      onRecv: (value) {
+        serverValues.add(value.value);
+      },
+      onDone: (error) {
+        if (error != null) {
+          serverDone.completeError(
+            StateError('server stream callback: $error'),
+          );
+          return;
+        }
+        serverDone.complete();
+      },
     );
     final serverStream = streamResult.value;
     if (streamResult.error != null || serverStream == null) {
       throw StateError('server stream start: ${streamResult.error}');
     }
-    final serverValues = [];
-    for (var i = 0; i < 3; i++) {
-      final next = serverStream.Recv();
-      final value = next.value;
-      if (next.error != null || value == null) {
-        throw StateError('server stream read: ${next.error}');
-      }
-      serverValues.add(value.value);
-    }
+    await serverDone.future.timeout(
+      const Duration(seconds: 3),
+      onTimeout: () {
+        serverStream.Cancel();
+        throw async.TimeoutException('server stream callback timed out');
+      },
+    );
 
     final chatResult = _client.ChatRuntimeStateStart();
     final chat = chatResult.value;

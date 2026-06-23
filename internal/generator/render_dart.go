@@ -59,6 +59,7 @@ func renderDartServiceClientFile(plugin *protogen.Plugin, file FilePlan, service
 	g.P("@ffi.DefaultAsset('", dartNativeAssetID(config), "')")
 	g.P("library;")
 	g.P()
+	g.P("import 'dart:async' as async;")
 	g.P("import 'dart:convert' as convert;")
 	g.P("import 'dart:ffi' as ffi;")
 	g.P("import 'dart:typed_data' as typed_data;")
@@ -105,6 +106,8 @@ func renderDartSharedTypedefs(g *protogen.GeneratedFile) {
 	g.P("typedef _RpccgoStreamStartCAbi = ffi.Int32 Function(ffi.Pointer<ffi.Int32> handle);")
 	g.P("typedef _RpccgoCallbackStreamStartCAbi = ffi.Int32 Function(ffi.Pointer<ffi.Int32> handle, ffi.Pointer<ffi.Void> onRecv, ffi.Pointer<ffi.Void> onDone);")
 	g.P("typedef _RpccgoServerStreamStartCAbi = ffi.Int32 Function(ffi.UintPtr requestPtr, ffi.Int32 requestLen, ffi.Pointer<ffi.Int32> handle, ffi.Pointer<ffi.Void> onRecv, ffi.Pointer<ffi.Void> onDone);")
+	g.P("typedef _RpccgoMessageOnRecvCAbi = ffi.Int32 Function(ffi.Int32 stream, ffi.UintPtr responsePtr, ffi.Int32 responseLen);")
+	g.P("typedef _RpccgoMessageOnDoneCAbi = ffi.Int32 Function(ffi.Int32 stream, ffi.Int32 errID);")
 	g.P("typedef _RpccgoStreamSendCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.UintPtr requestPtr, ffi.Int32 requestLen);")
 	g.P("typedef _RpccgoStreamRecvCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);")
 	g.P("typedef _RpccgoStreamFinishCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);")
@@ -261,6 +264,7 @@ func renderDartServerStreamingMethods(g *protogen.GeneratedFile, service Service
 	dartP(g, 2, "}")
 	dartP(g, 1, "}")
 	g.P()
+	renderDartServerStreamingCallbackMethod(g, className, method)
 }
 
 func renderDartBidiStreamingMethods(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
@@ -279,6 +283,74 @@ func renderDartBidiStreamingMethods(g *protogen.GeneratedFile, service ServicePl
 	dartP(g, 2, "}")
 	dartP(g, 1, "}")
 	g.P()
+	renderDartBidiStreamingCallbackMethod(g, className, method)
+}
+
+func renderDartServerStreamingCallbackMethod(g *protogen.GeneratedFile, className string, method MethodPlan) {
+	dartP(g, 1, "({", className, "? value, String? error}) ", dartStartMethodName(method), "Callback(pb.", method.Request.GoName, " request, {required void Function(pb.", method.Response.GoName, " value) onRecv, required void Function(String? error) onDone}) {")
+	dartP(g, 2, "final handlePtr = pkg_ffi.calloc<ffi.Int32>();")
+	dartP(g, 2, "final requestBytes = request.writeToBuffer();")
+	dartP(g, 2, "final requestPtr = _allocateBytes(requestBytes);")
+	renderDartCallbackCallableSetup(g, method)
+	dartP(g, 2, "try {")
+	dartP(g, 3, "final errID = ", dartNativeBindingName(method, "start"), "(requestPtr.address, requestBytes.length, handlePtr, onRecvNative.nativeFunction.cast<ffi.Void>(), onDoneNative.nativeFunction.cast<ffi.Void>());")
+	renderDartCallbackStartResult(g, className)
+	dartP(g, 2, "} finally {")
+	dartP(g, 3, "pkg_ffi.calloc.free(requestPtr);")
+	dartP(g, 3, "pkg_ffi.calloc.free(handlePtr);")
+	dartP(g, 2, "}")
+	dartP(g, 1, "}")
+	g.P()
+}
+
+func renderDartBidiStreamingCallbackMethod(g *protogen.GeneratedFile, className string, method MethodPlan) {
+	dartP(g, 1, "({", className, "? value, String? error}) ", dartStartMethodName(method), "Callback({required void Function(pb.", method.Response.GoName, " value) onRecv, required void Function(String? error) onDone}) {")
+	dartP(g, 2, "final handlePtr = pkg_ffi.calloc<ffi.Int32>();")
+	renderDartCallbackCallableSetup(g, method)
+	dartP(g, 2, "try {")
+	dartP(g, 3, "final errID = ", dartNativeBindingName(method, "start"), "(handlePtr, onRecvNative.nativeFunction.cast<ffi.Void>(), onDoneNative.nativeFunction.cast<ffi.Void>());")
+	renderDartCallbackStartResult(g, className)
+	dartP(g, 2, "} finally {")
+	dartP(g, 3, "pkg_ffi.calloc.free(handlePtr);")
+	dartP(g, 2, "}")
+	dartP(g, 1, "}")
+	g.P()
+}
+
+func renderDartCallbackCallableSetup(g *protogen.GeneratedFile, method MethodPlan) {
+	dartP(g, 2, "late final ffi.NativeCallable<_RpccgoMessageOnRecvCAbi> onRecvNative;")
+	dartP(g, 2, "late final ffi.NativeCallable<_RpccgoMessageOnDoneCAbi> onDoneNative;")
+	dartP(g, 2, "var callbacksClosed = false;")
+	dartP(g, 2, "void closeCallbacks() {")
+	dartP(g, 3, "if (callbacksClosed) {")
+	dartP(g, 4, "return;")
+	dartP(g, 3, "}")
+	dartP(g, 3, "callbacksClosed = true;")
+	dartP(g, 3, "onRecvNative.close();")
+	dartP(g, 3, "onDoneNative.close();")
+	dartP(g, 2, "}")
+	dartP(g, 2, "onRecvNative = ffi.NativeCallable<_RpccgoMessageOnRecvCAbi>.isolateGroupBound((stream, responsePtr, responseLen) {")
+	dartP(g, 3, "final responseBytes = _takeBytes(responsePtr, responseLen);")
+	dartP(g, 3, "if (responseBytes.error != null) {")
+	dartP(g, 4, "return -1;")
+	dartP(g, 3, "}")
+	dartP(g, 3, "onRecv(pb.", method.Response.GoName, ".fromBuffer(responseBytes.value!));")
+	dartP(g, 3, "return 0;")
+	dartP(g, 2, "}, exceptionalReturn: -1);")
+	dartP(g, 2, "onDoneNative = ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.isolateGroupBound((stream, errID) {")
+	dartP(g, 3, "onDone(_takeErrorResult(errID));")
+	dartP(g, 3, "async.scheduleMicrotask(closeCallbacks);")
+	dartP(g, 3, "return 0;")
+	dartP(g, 2, "}, exceptionalReturn: -1);")
+}
+
+func renderDartCallbackStartResult(g *protogen.GeneratedFile, className string) {
+	dartP(g, 3, "final error = _takeErrorResult(errID);")
+	dartP(g, 3, "if (error != null) {")
+	dartP(g, 4, "closeCallbacks();")
+	dartP(g, 4, "return (value: null, error: error);")
+	dartP(g, 3, "}")
+	dartP(g, 3, "return (value: ", className, "._(this, handlePtr.value, true, closeCallbacks), error: null);")
 }
 
 func renderDartStreamHandleClass(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
@@ -294,9 +366,18 @@ func renderDartStreamHandleClass(g *protogen.GeneratedFile, service ServicePlan,
 
 func renderDartStreamClass(g *protogen.GeneratedFile, clientClassName, className string, method MethodPlan, canSend, canRecv, finishReturnsResponse, canFinish, canCloseSend bool) {
 	g.P("class ", className, " {")
-	dartP(g, 1, className, "._(this._client, this._handle);")
+	if canRecv {
+		dartP(g, 1, className, "._(this._client, this._handle, [this._callbackReceive = false, this._closeCallbacks]);")
+	} else {
+		dartP(g, 1, className, "._(this._client, this._handle);")
+	}
 	dartP(g, 1, "final ", clientClassName, " _client;")
 	dartP(g, 1, "final int _handle;")
+	if canRecv {
+		dartP(g, 1, "final bool _callbackReceive;")
+		dartP(g, 1, "final void Function()? _closeCallbacks;")
+		dartP(g, 1, "var _callbacksClosed = false;")
+	}
 	if canSend {
 		dartP(g, 1, "String? Send(pb.", method.Request.GoName, " request) {")
 		dartP(g, 2, "final requestBytes = request.writeToBuffer();")
@@ -311,6 +392,9 @@ func renderDartStreamClass(g *protogen.GeneratedFile, clientClassName, className
 	}
 	if canRecv {
 		dartP(g, 1, "({pb.", method.Response.GoName, "? value, String? error}) Recv() {")
+		dartP(g, 2, "if (_callbackReceive) {")
+		dartP(g, 3, "return (value: null, error: 'rpccgo: stream receive is owned by callback receive mode');")
+		dartP(g, 2, "}")
 		dartP(g, 2, "final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();")
 		dartP(g, 2, "final responseLen = pkg_ffi.calloc<ffi.Int32>();")
 		dartP(g, 2, "try {")
@@ -359,13 +443,30 @@ func renderDartStreamClass(g *protogen.GeneratedFile, clientClassName, className
 	} else if canFinish {
 		dartP(g, 1, "String? Finish() {")
 		dartP(g, 2, "final errID = ", dartNativeBindingName(method, "finish"), "(_handle);")
-		dartP(g, 2, "return _client._takeErrorResult(errID);")
+		dartP(g, 2, "final error = _client._takeErrorResult(errID);")
+		if canRecv {
+			dartP(g, 2, "_closeCallbackReceive();")
+		}
+		dartP(g, 2, "return error;")
 		dartP(g, 1, "}")
 	}
 	dartP(g, 1, "String? Cancel() {")
 	dartP(g, 2, "final errID = ", dartNativeBindingName(method, "cancel"), "(_handle);")
-	dartP(g, 2, "return _client._takeErrorResult(errID);")
+	dartP(g, 2, "final error = _client._takeErrorResult(errID);")
+	if canRecv {
+		dartP(g, 2, "_closeCallbackReceive();")
+	}
+	dartP(g, 2, "return error;")
 	dartP(g, 1, "}")
+	if canRecv {
+		dartP(g, 1, "void _closeCallbackReceive() {")
+		dartP(g, 2, "if (_callbacksClosed) {")
+		dartP(g, 3, "return;")
+		dartP(g, 2, "}")
+		dartP(g, 2, "_callbacksClosed = true;")
+		dartP(g, 2, "_closeCallbacks?.call();")
+		dartP(g, 1, "}")
+	}
 	g.P("}")
 	g.P()
 }

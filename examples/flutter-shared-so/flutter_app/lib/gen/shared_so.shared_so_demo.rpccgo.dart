@@ -5,6 +5,7 @@
 @ffi.DefaultAsset('package:rpccgofluttersharedso/gen/rpccgo.dart')
 library;
 
+import 'dart:async' as async;
 import 'dart:convert' as convert;
 import 'dart:ffi' as ffi;
 import 'dart:typed_data' as typed_data;
@@ -21,6 +22,8 @@ typedef _RpccgoMessageUnaryCAbi = ffi.Int32 Function(ffi.UintPtr requestPtr, ffi
 typedef _RpccgoStreamStartCAbi = ffi.Int32 Function(ffi.Pointer<ffi.Int32> handle);
 typedef _RpccgoCallbackStreamStartCAbi = ffi.Int32 Function(ffi.Pointer<ffi.Int32> handle, ffi.Pointer<ffi.Void> onRecv, ffi.Pointer<ffi.Void> onDone);
 typedef _RpccgoServerStreamStartCAbi = ffi.Int32 Function(ffi.UintPtr requestPtr, ffi.Int32 requestLen, ffi.Pointer<ffi.Int32> handle, ffi.Pointer<ffi.Void> onRecv, ffi.Pointer<ffi.Void> onDone);
+typedef _RpccgoMessageOnRecvCAbi = ffi.Int32 Function(ffi.Int32 stream, ffi.UintPtr responsePtr, ffi.Int32 responseLen);
+typedef _RpccgoMessageOnDoneCAbi = ffi.Int32 Function(ffi.Int32 stream, ffi.Int32 errID);
 typedef _RpccgoStreamSendCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.UintPtr requestPtr, ffi.Int32 requestLen);
 typedef _RpccgoStreamRecvCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
 typedef _RpccgoStreamFinishCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
@@ -178,6 +181,48 @@ class SharedSoDemoRpccgoClient {
     }
   }
 
+  ({SharedSoDemoWatchRuntimeStateStream? value, String? error}) WatchRuntimeStateStartCallback(pb.ReadRuntimeStateRequest request, {required void Function(pb.RuntimeStateResponse value) onRecv, required void Function(String? error) onDone}) {
+    final handlePtr = pkg_ffi.calloc<ffi.Int32>();
+    final requestBytes = request.writeToBuffer();
+    final requestPtr = _allocateBytes(requestBytes);
+    late final ffi.NativeCallable<_RpccgoMessageOnRecvCAbi> onRecvNative;
+    late final ffi.NativeCallable<_RpccgoMessageOnDoneCAbi> onDoneNative;
+    var callbacksClosed = false;
+    void closeCallbacks() {
+      if (callbacksClosed) {
+        return;
+      }
+      callbacksClosed = true;
+      onRecvNative.close();
+      onDoneNative.close();
+    }
+    onRecvNative = ffi.NativeCallable<_RpccgoMessageOnRecvCAbi>.isolateGroupBound((stream, responsePtr, responseLen) {
+      final responseBytes = _takeBytes(responsePtr, responseLen);
+      if (responseBytes.error != null) {
+        return -1;
+      }
+      onRecv(pb.RuntimeStateResponse.fromBuffer(responseBytes.value!));
+      return 0;
+    }, exceptionalReturn: -1);
+    onDoneNative = ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.isolateGroupBound((stream, errID) {
+      onDone(_takeErrorResult(errID));
+      async.scheduleMicrotask(closeCallbacks);
+      return 0;
+    }, exceptionalReturn: -1);
+    try {
+      final errID = _watchRuntimeStateStartRaw(requestPtr.address, requestBytes.length, handlePtr, onRecvNative.nativeFunction.cast<ffi.Void>(), onDoneNative.nativeFunction.cast<ffi.Void>());
+      final error = _takeErrorResult(errID);
+      if (error != null) {
+        closeCallbacks();
+        return (value: null, error: error);
+      }
+      return (value: SharedSoDemoWatchRuntimeStateStream._(this, handlePtr.value, true, closeCallbacks), error: null);
+    } finally {
+      pkg_ffi.calloc.free(requestPtr);
+      pkg_ffi.calloc.free(handlePtr);
+    }
+  }
+
   ({SharedSoDemoCollectRuntimeStateStream? value, String? error}) CollectRuntimeStateStart() {
     final handlePtr = pkg_ffi.calloc<ffi.Int32>();
     try {
@@ -209,6 +254,48 @@ class SharedSoDemoRpccgoClient {
     }
   }
 
+  ({SharedSoDemoStreamRuntimeStateStream? value, String? error}) StreamRuntimeStateStartCallback(pb.ReadRuntimeStateRequest request, {required void Function(pb.RuntimeStateResponse value) onRecv, required void Function(String? error) onDone}) {
+    final handlePtr = pkg_ffi.calloc<ffi.Int32>();
+    final requestBytes = request.writeToBuffer();
+    final requestPtr = _allocateBytes(requestBytes);
+    late final ffi.NativeCallable<_RpccgoMessageOnRecvCAbi> onRecvNative;
+    late final ffi.NativeCallable<_RpccgoMessageOnDoneCAbi> onDoneNative;
+    var callbacksClosed = false;
+    void closeCallbacks() {
+      if (callbacksClosed) {
+        return;
+      }
+      callbacksClosed = true;
+      onRecvNative.close();
+      onDoneNative.close();
+    }
+    onRecvNative = ffi.NativeCallable<_RpccgoMessageOnRecvCAbi>.isolateGroupBound((stream, responsePtr, responseLen) {
+      final responseBytes = _takeBytes(responsePtr, responseLen);
+      if (responseBytes.error != null) {
+        return -1;
+      }
+      onRecv(pb.RuntimeStateResponse.fromBuffer(responseBytes.value!));
+      return 0;
+    }, exceptionalReturn: -1);
+    onDoneNative = ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.isolateGroupBound((stream, errID) {
+      onDone(_takeErrorResult(errID));
+      async.scheduleMicrotask(closeCallbacks);
+      return 0;
+    }, exceptionalReturn: -1);
+    try {
+      final errID = _streamRuntimeStateStartRaw(requestPtr.address, requestBytes.length, handlePtr, onRecvNative.nativeFunction.cast<ffi.Void>(), onDoneNative.nativeFunction.cast<ffi.Void>());
+      final error = _takeErrorResult(errID);
+      if (error != null) {
+        closeCallbacks();
+        return (value: null, error: error);
+      }
+      return (value: SharedSoDemoStreamRuntimeStateStream._(this, handlePtr.value, true, closeCallbacks), error: null);
+    } finally {
+      pkg_ffi.calloc.free(requestPtr);
+      pkg_ffi.calloc.free(handlePtr);
+    }
+  }
+
   ({SharedSoDemoChatRuntimeStateStream? value, String? error}) ChatRuntimeStateStart() {
     final handlePtr = pkg_ffi.calloc<ffi.Int32>();
     try {
@@ -218,6 +305,45 @@ class SharedSoDemoRpccgoClient {
         return (value: null, error: error);
       }
       return (value: SharedSoDemoChatRuntimeStateStream._(this, handlePtr.value), error: null);
+    } finally {
+      pkg_ffi.calloc.free(handlePtr);
+    }
+  }
+
+  ({SharedSoDemoChatRuntimeStateStream? value, String? error}) ChatRuntimeStateStartCallback({required void Function(pb.RuntimeStateResponse value) onRecv, required void Function(String? error) onDone}) {
+    final handlePtr = pkg_ffi.calloc<ffi.Int32>();
+    late final ffi.NativeCallable<_RpccgoMessageOnRecvCAbi> onRecvNative;
+    late final ffi.NativeCallable<_RpccgoMessageOnDoneCAbi> onDoneNative;
+    var callbacksClosed = false;
+    void closeCallbacks() {
+      if (callbacksClosed) {
+        return;
+      }
+      callbacksClosed = true;
+      onRecvNative.close();
+      onDoneNative.close();
+    }
+    onRecvNative = ffi.NativeCallable<_RpccgoMessageOnRecvCAbi>.isolateGroupBound((stream, responsePtr, responseLen) {
+      final responseBytes = _takeBytes(responsePtr, responseLen);
+      if (responseBytes.error != null) {
+        return -1;
+      }
+      onRecv(pb.RuntimeStateResponse.fromBuffer(responseBytes.value!));
+      return 0;
+    }, exceptionalReturn: -1);
+    onDoneNative = ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.isolateGroupBound((stream, errID) {
+      onDone(_takeErrorResult(errID));
+      async.scheduleMicrotask(closeCallbacks);
+      return 0;
+    }, exceptionalReturn: -1);
+    try {
+      final errID = _chatRuntimeStateStartRaw(handlePtr, onRecvNative.nativeFunction.cast<ffi.Void>(), onDoneNative.nativeFunction.cast<ffi.Void>());
+      final error = _takeErrorResult(errID);
+      if (error != null) {
+        closeCallbacks();
+        return (value: null, error: error);
+      }
+      return (value: SharedSoDemoChatRuntimeStateStream._(this, handlePtr.value, true, closeCallbacks), error: null);
     } finally {
       pkg_ffi.calloc.free(handlePtr);
     }
@@ -275,10 +401,16 @@ class SharedSoDemoRpccgoClient {
 }
 
 class SharedSoDemoWatchRuntimeStateStream {
-  SharedSoDemoWatchRuntimeStateStream._(this._client, this._handle);
+  SharedSoDemoWatchRuntimeStateStream._(this._client, this._handle, [this._callbackReceive = false, this._closeCallbacks]);
   final SharedSoDemoRpccgoClient _client;
   final int _handle;
+  final bool _callbackReceive;
+  final void Function()? _closeCallbacks;
+  var _callbacksClosed = false;
   ({pb.RuntimeStateResponse? value, String? error}) Recv() {
+    if (_callbackReceive) {
+      return (value: null, error: 'rpccgo: stream receive is owned by callback receive mode');
+    }
     final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
     final responseLen = pkg_ffi.calloc<ffi.Int32>();
     try {
@@ -299,7 +431,16 @@ class SharedSoDemoWatchRuntimeStateStream {
   }
   String? Cancel() {
     final errID = _watchRuntimeStateCancelRaw(_handle);
-    return _client._takeErrorResult(errID);
+    final error = _client._takeErrorResult(errID);
+    _closeCallbackReceive();
+    return error;
+  }
+  void _closeCallbackReceive() {
+    if (_callbacksClosed) {
+      return;
+    }
+    _callbacksClosed = true;
+    _closeCallbacks?.call();
   }
 }
 
@@ -338,15 +479,22 @@ class SharedSoDemoCollectRuntimeStateStream {
   }
   String? Cancel() {
     final errID = _collectRuntimeStateCancelRaw(_handle);
-    return _client._takeErrorResult(errID);
+    final error = _client._takeErrorResult(errID);
+    return error;
   }
 }
 
 class SharedSoDemoStreamRuntimeStateStream {
-  SharedSoDemoStreamRuntimeStateStream._(this._client, this._handle);
+  SharedSoDemoStreamRuntimeStateStream._(this._client, this._handle, [this._callbackReceive = false, this._closeCallbacks]);
   final SharedSoDemoRpccgoClient _client;
   final int _handle;
+  final bool _callbackReceive;
+  final void Function()? _closeCallbacks;
+  var _callbacksClosed = false;
   ({pb.RuntimeStateResponse? value, String? error}) Recv() {
+    if (_callbackReceive) {
+      return (value: null, error: 'rpccgo: stream receive is owned by callback receive mode');
+    }
     final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
     final responseLen = pkg_ffi.calloc<ffi.Int32>();
     try {
@@ -367,14 +515,26 @@ class SharedSoDemoStreamRuntimeStateStream {
   }
   String? Cancel() {
     final errID = _streamRuntimeStateCancelRaw(_handle);
-    return _client._takeErrorResult(errID);
+    final error = _client._takeErrorResult(errID);
+    _closeCallbackReceive();
+    return error;
+  }
+  void _closeCallbackReceive() {
+    if (_callbacksClosed) {
+      return;
+    }
+    _callbacksClosed = true;
+    _closeCallbacks?.call();
   }
 }
 
 class SharedSoDemoChatRuntimeStateStream {
-  SharedSoDemoChatRuntimeStateStream._(this._client, this._handle);
+  SharedSoDemoChatRuntimeStateStream._(this._client, this._handle, [this._callbackReceive = false, this._closeCallbacks]);
   final SharedSoDemoRpccgoClient _client;
   final int _handle;
+  final bool _callbackReceive;
+  final void Function()? _closeCallbacks;
+  var _callbacksClosed = false;
   String? Send(pb.IncrementRuntimeStateRequest request) {
     final requestBytes = request.writeToBuffer();
     final requestPtr = _client._allocateBytes(requestBytes);
@@ -386,6 +546,9 @@ class SharedSoDemoChatRuntimeStateStream {
     }
   }
   ({pb.RuntimeStateResponse? value, String? error}) Recv() {
+    if (_callbackReceive) {
+      return (value: null, error: 'rpccgo: stream receive is owned by callback receive mode');
+    }
     final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
     final responseLen = pkg_ffi.calloc<ffi.Int32>();
     try {
@@ -410,11 +573,22 @@ class SharedSoDemoChatRuntimeStateStream {
   }
   String? Finish() {
     final errID = _chatRuntimeStateFinishRaw(_handle);
-    return _client._takeErrorResult(errID);
+    final error = _client._takeErrorResult(errID);
+    _closeCallbackReceive();
+    return error;
   }
   String? Cancel() {
     final errID = _chatRuntimeStateCancelRaw(_handle);
-    return _client._takeErrorResult(errID);
+    final error = _client._takeErrorResult(errID);
+    _closeCallbackReceive();
+    return error;
+  }
+  void _closeCallbackReceive() {
+    if (_callbacksClosed) {
+      return;
+    }
+    _callbacksClosed = true;
+    _closeCallbacks?.call();
   }
 }
 
