@@ -100,7 +100,6 @@ _Avoid_: active server
 - **Callback receive stream** 启用后不允许用户再手动调用该 stream 的 `Recv`；对应 export 必须返回显式错误。`Cancel` 仍然有效，并负责主动取消后台接收流程。bidi stream 的 `Send` 与 `CloseSend` 仍按原 stream handle 工作。
 - Android/JNI 与 Flutter/Dart generated adapter 必须为 **Callback receive stream** 提供进程稳定的 callback trampoline；callback pointers、canceled/done 和 in-callback 状态由 Go stream session 持有。应用层不直接把 Activity、Flutter engine/isolate 或 plugin binding 生命周期绑定的 callback function pointer 传给 Go。
 - Go 侧不能可靠判断任意 C callback function pointer 是否仍可调用；它只能检查 nil、调用 generated trampoline，并处理 callback 返回的 error id。
-- Managed-language callback 依赖状态的释放边界是 generated `onDone` trampoline；Activity、Flutter engine/isolate、plugin binding 或 wrapper 销毁应触发 generated `Cancel`，由 Go stream session 阻止后续 `onRecv` 并等待已进入的 callback 返回，而不是直接释放 callback 依赖状态。
 - Server streaming client 侧没有 `Finish` 操作；server stream 由服务端自然结束或 client 侧 `Cancel` 终止。
 - **Callback receive stream** 对 registered server 透明；server 端继续按原 server stream / bidi stream contract 处理 `Send`、`Recv`、`CloseSend`、`Cancel` 和自然结束，不感知 client 是否用 callback receive。
 - Server streaming client 侧移除 `Finish` 不等于移除 C server callback ABI 的 server-stream `Finish`；后者是 C server implementation 的 stream cleanup / natural completion callback，仍属于 server callback operation set。
