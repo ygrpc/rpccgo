@@ -3,12 +3,15 @@ package com.ygrpc.examples.rpccgoandroidforegroundservice
 import android.Manifest
 import android.app.Activity
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.IBinder
 import android.util.Log
 import android.view.ViewGroup
 import android.widget.Button
@@ -22,6 +25,18 @@ class MainActivity : Activity() {
     }
 
     private val logView by lazy { TextView(this) }
+    private var service: StreamForegroundService? = null
+    private val connection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName, binder: IBinder) {
+            service = (binder as StreamForegroundService.LocalBinder).service
+            appendLog("service bound")
+        }
+
+        override fun onServiceDisconnected(name: ComponentName) {
+            service = null
+            appendLog("service disconnected")
+        }
+    }
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             appendLog(intent.getStringExtra(StreamForegroundService.EXTRA_LINE).orEmpty())
@@ -31,13 +46,21 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestNotificationPermission()
+        ActivityUiBridge.attach(this)
+        startForegroundService(Intent(this, StreamForegroundService::class.java))
+        bindService(Intent(this, StreamForegroundService::class.java), connection, BIND_AUTO_CREATE)
 
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(32, 300, 32, 32)
         }
-        layout.addView(button("Start foreground service") {
-            startForegroundService(Intent(this, StreamForegroundService::class.java))
+        layout.addView(button("Start normal request") {
+            try {
+                service?.startUiUpdatingStream(ActivityUiBridge.captureActivitySink())
+                    ?: appendLog("service is not bound yet")
+            } catch (err: Throwable) {
+                appendLog("start request failed: ${err.message}")
+            }
         })
         layout.addView(button("Finish activity") {
             Log.i(TAG, "activity finish requested")
@@ -77,7 +100,15 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         Log.i(TAG, "activity onDestroy")
+        ActivityUiBridge.detach(this)
+        runCatching { unbindService(connection) }
         super.onDestroy()
+    }
+
+    fun appendFromServiceCallback(line: String) {
+        runOnUiThread {
+            logView.append("bad-ui $line\n")
+        }
     }
 
     private fun button(text: String, onClick: () -> Unit): Button =
@@ -96,6 +127,29 @@ class MainActivity : Activity() {
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) {
             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1)
+        }
+    }
+}
+
+object ActivityUiBridge {
+    private var activity: MainActivity? = null
+
+    fun attach(value: MainActivity) {
+        activity = value
+    }
+
+    fun detach(value: MainActivity) {
+        if (activity === value) activity = null
+    }
+
+    fun captureActivitySink(): ActivitySink {
+        return ActivitySink(activity ?: error("activity is not alive"))
+    }
+
+    class ActivitySink(private val captured: MainActivity) {
+        fun appendFromServiceCallback(line: String) {
+            if (activity !== captured) error("captured activity is not alive")
+            captured.appendFromServiceCallback(line)
         }
     }
 }

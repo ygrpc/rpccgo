@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.os.Build
+import android.os.Binder
 import android.os.IBinder
 import android.util.Log
 import examples.android.foregroundservice.v1.Tick
@@ -29,8 +30,14 @@ class StreamForegroundService : Service() {
 
     private var started = false
     private var lastLine = "waiting for ticks"
+    private var activitySink: ActivityUiBridge.ActivitySink? = null
+    private val binder = LocalBinder()
 
-    override fun onBind(intent: Intent?): IBinder? = null
+    inner class LocalBinder : Binder() {
+        val service: StreamForegroundService get() = this@StreamForegroundService
+    }
+
+    override fun onBind(intent: Intent?): IBinder = binder
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
@@ -40,7 +47,6 @@ class StreamForegroundService : Service() {
         }
         createChannel()
         startForeground(NOTIFICATION_ID, notification(lastLine))
-        startStream()
         return START_STICKY
     }
 
@@ -55,6 +61,15 @@ class StreamForegroundService : Service() {
         super.onTaskRemoved(rootIntent)
     }
 
+    fun startUiUpdatingStream(sink: ActivityUiBridge.ActivitySink) {
+        activitySink = sink
+        if (started) {
+            publish("normal request attached to running stream")
+            return
+        }
+        startStream()
+    }
+
     private fun startStream() {
         if (started) return
         started = ForegroundServiceDemoJni.WatchTicksStartCallback(
@@ -65,7 +80,16 @@ class StreamForegroundService : Service() {
             object : ForegroundServiceDemoJni.ForegroundServiceDemoWatchTicksListener {
                 override fun onMessage(responseBytes: ByteArray) {
                     val tick = Tick.parseFrom(responseBytes)
-                    publish("tick seq=${tick.seq} pid=${tick.pid} instance=${tick.instanceAddress}")
+                    val line = "tick seq=${tick.seq} pid=${tick.pid} instance=${tick.instanceAddress}"
+                    publish(line)
+                    val sink = activitySink
+                    if (sink != null) {
+                        try {
+                            sink.appendFromServiceCallback(line)
+                        } catch (err: Throwable) {
+                            publish("bad ui callback failed: ${err.message}")
+                        }
+                    }
                 }
 
                 override fun onDone(error: String?) {
@@ -74,7 +98,7 @@ class StreamForegroundService : Service() {
                 }
             },
         )
-        publish("callback stream started=$started")
+        publish("callback stream started=$started viaServiceRequest=${activitySink != null}")
         if (!started) stopSelf()
     }
 
@@ -83,6 +107,7 @@ class StreamForegroundService : Service() {
         val canceled = ForegroundServiceDemoJni.WatchTicksCancelCallback()
         publish("cancel callback result=$canceled")
         started = false
+        activitySink = null
     }
 
     private fun publish(line: String) {

@@ -58,12 +58,27 @@ adb logcat | rg RpccgoForegroundService
 
 再操作 app：
 
-1. 点 `Start foreground service`。
-2. 确认 logcat 每秒出现 `tick seq=...`。
-3. 点 `Finish activity`，或从系统最近任务关闭 Activity。
-4. 继续观察 logcat 和通知；此时 listener 仍由 `StreamForegroundService` 持有。
-5. 重新打开 app，点 `Stop foreground service`，或点通知里的 `Stop`。
-6. 确认 logcat 出现 cancel/done，tick 停止。
+1. 打开 app；Activity 会启动并绑定 foreground service。
+2. 点 `Start normal request`。
+3. 确认 logcat 每秒出现 `tick seq=...`。
+4. 点 `Finish activity`，或从系统最近任务关闭 Activity。
+5. 继续观察 logcat 和通知；此时 stream 仍由 `StreamForegroundService` 持有。
+6. 重新打开 app，点 `Stop foreground service`，或点通知里的 `Stop`。
+7. 确认 logcat 出现 cancel/done，tick 停止。
+
+Activity 销毁后，logcat 应出现：
+
+```text
+bad ui callback failed: activity is not alive
+```
+
+或：
+
+```text
+bad ui callback failed: captured activity is not alive
+```
+
+这模拟正常使用中“所有请求都调用 Service，但一次长生命周期请求把 Activity UI callback 留在 Service 里”时会遇到的问题。即使之后系统或用户重新打开了新的 Activity，Service callback 仍在尝试更新旧 Activity。
 
 ## 验证
 
