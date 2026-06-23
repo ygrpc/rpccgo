@@ -18,17 +18,11 @@ func TestGenerateDartEmitsMessageFFIClient(t *testing.T) {
 
 	assertDartGeneratedFilenames(t, plugin, []string{
 		"rpccgo.dart",
-		"rpccgo.lifecycle.dart",
 		"test/v1/greeter.greeter.rpccgo.dart",
 	})
 	assertGeneratedContentContains(t, plugin, "rpccgo.dart", "export 'test/v1/greeter.greeter.rpccgo.dart';")
 	assertGeneratedContentContains(t, plugin, "rpccgo.dart", "export 'test/v1/greeter.pb.dart';")
-	assertGeneratedContentContains(t, plugin, "rpccgo.dart", "export 'rpccgo.lifecycle.dart';")
-	assertGeneratedContentContains(t, plugin, "rpccgo.lifecycle.dart", "class RpccgoStreamLifecycle {")
-	assertGeneratedContentContains(t, plugin, "rpccgo.lifecycle.dart", "static T withLifecycle<T>(RpccgoStreamLifecycle lifecycle, T Function() fn) => runZoned(")
-	assertGeneratedContentContains(t, plugin, "rpccgo.lifecycle.dart", "static void registerGlobalLifecycle(RpccgoStreamLifecycle? lifecycle) {")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "@ffi.DefaultAsset('package:rpccgo_test/gen/rpccgo.dart')")
-	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "import '../../rpccgo.lifecycle.dart';")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "class GreeterRpccgoClient {")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "const GreeterRpccgoClient();")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "class GreeterRpccgoClient {\n  const GreeterRpccgoClient();")
@@ -48,6 +42,7 @@ func TestGenerateDartEmitsMessageFFIClient(t *testing.T) {
 		"lookupFunction<",
 		"typedef _RpccgoMessageUnaryNative",
 		"typedef _RpccgoStreamSendNative",
+		"rpccgo.lifecycle.dart",
 		"int _sayHello(",
 		"int _release(",
 		"int _takeErrorText(",

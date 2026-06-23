@@ -10,7 +10,6 @@ import android.os.Bundle
 import java.util.WeakHashMap
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.util.Collections
 import java.util.concurrent.CopyOnWriteArraySet
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
@@ -52,7 +51,7 @@ class RpccgoStreamLifecycle {
 }
 
 object Rpccgo {
-    private val activityLifecycles = Collections.synchronizedMap(WeakHashMap<Activity, RpccgoStreamLifecycle>())
+    private val activityLifecycles = WeakHashMap<Activity, RpccgoStreamLifecycle>()
     private val scopedLifecycle = ThreadLocal<RpccgoStreamLifecycle?>()
     @Volatile private var globalLifecycle: RpccgoStreamLifecycle? = null
     @Volatile private var lifecycleCallbacksRegistered = false

@@ -12,17 +12,89 @@ func renderJNIKotlinFile(plugin *protogen.Plugin, plan FilePlan, service Service
 	pkg, className := jniClassPackageAndSimpleName(config.JNIClass)
 	g.P("package ", pkg)
 	g.P()
-	g.P("import android.app.Activity")
-	g.P("import android.app.Application")
-	g.P("import android.os.Bundle")
-	g.P("import java.util.WeakHashMap")
+	hasStreaming := serviceHasStreamingMethod(service)
+	if hasStreaming {
+		g.P("import android.app.Activity")
+		g.P("import android.app.Application")
+		g.P("import android.os.Bundle")
+		g.P("import java.util.WeakHashMap")
+	}
 	g.P("import java.nio.ByteBuffer")
 	g.P("import java.nio.ByteOrder")
-	g.P("import java.util.Collections")
-	g.P("import java.util.concurrent.CopyOnWriteArraySet")
-	g.P("import java.util.concurrent.atomic.AtomicBoolean")
-	g.P("import java.util.concurrent.atomic.AtomicReference")
+	if hasStreaming {
+		g.P("import java.util.concurrent.CopyOnWriteArraySet")
+		g.P("import java.util.concurrent.atomic.AtomicBoolean")
+		if serviceHasRecvStreamingMethod(service) {
+			g.P("import java.util.concurrent.atomic.AtomicReference")
+		}
+		g.P()
+		renderKotlinLifecycleSupport(g)
+	}
+	g.P("data class RpccgoResult<T>(val value: T?, val error: String?) {")
+	g.P("    val ok: Boolean get() = error == null")
+	g.P("    companion object {")
+	g.P("        fun <T> success(value: T): RpccgoResult<T> = RpccgoResult(value, null)")
+	g.P("        fun <T> failure(error: String): RpccgoResult<T> = RpccgoResult(null, error)")
+	g.P("    }")
+	g.P("}")
 	g.P()
+	g.P("object ", className, " {")
+	for _, method := range service.Methods {
+		renderKotlinCallbackListener(g, service, method)
+		renderKotlinNativeDeclarations(g, service, method)
+	}
+	g.P()
+	for _, method := range service.Methods {
+		renderKotlinCallbackBindingState(g, service, method, className)
+	}
+	for _, method := range service.Methods {
+		switch method.Streaming {
+		case StreamingKindUnary:
+			renderKotlinUnaryMethod(g, service, method)
+		case StreamingKindClientStreaming:
+			renderKotlinClientStreamingMethod(g, service, method, className)
+		case StreamingKindServerStreaming:
+			renderKotlinServerStreamingMethod(g, service, method, className)
+		case StreamingKindBidiStreaming:
+			renderKotlinBidiStreamingMethod(g, service, method, className)
+		}
+	}
+	g.P("    private fun decodeResultPayload(bytes: ByteArray?): RpccgoResult<ByteArray> {")
+	g.P(`        if (bytes == null) return RpccgoResult.failure("rpccgo: JNI returned null")`)
+	g.P(`        if (bytes.size < 5) return RpccgoResult.failure("rpccgo: JNI returned malformed result")`)
+	g.P("        val ok = bytes[0].toInt() != 0")
+	g.P("        val length = ByteBuffer.wrap(bytes, 1, 4).order(ByteOrder.BIG_ENDIAN).int")
+	g.P(`        if (length < 0 || length != bytes.size - 5) return RpccgoResult.failure("rpccgo: JNI returned invalid result length")`)
+	g.P("        val payload = bytes.copyOfRange(5, bytes.size)")
+	g.P("        if (!ok) return RpccgoResult.failure(payload.toString(Charsets.UTF_8))")
+	g.P("        return RpccgoResult.success(payload)")
+	g.P("    }")
+	g.P()
+	g.P("    private fun <T> decodeResult(bytes: ByteArray?, parser: (ByteArray) -> T): RpccgoResult<T> {")
+	g.P("        val payload = decodeResultPayload(bytes)")
+	g.P(`        if (!payload.ok) return RpccgoResult.failure(payload.error ?: "rpccgo: JNI call failed")`)
+	g.P("        return try {")
+	g.P("            RpccgoResult.success(parser(payload.value ?: ByteArray(0)))")
+	g.P("        } catch (e: Exception) {")
+	g.P(`            RpccgoResult.failure("rpccgo: JNI payload decode failed: ${e.message ?: e::class.java.name}")`)
+	g.P("        }")
+	g.P("    }")
+	g.P()
+	g.P("    private fun decodeUnitResult(bytes: ByteArray?): RpccgoResult<Unit> =")
+	g.P("        decodeResult(bytes) { Unit }")
+	g.P()
+	g.P("    private fun decodeHandleResult(bytes: ByteArray?): RpccgoResult<Int> {")
+	g.P("        val payload = decodeResultPayload(bytes)")
+	g.P(`        if (!payload.ok) return RpccgoResult.failure(payload.error ?: "rpccgo: stream start failed")`)
+	g.P("        val value = payload.value ?: ByteArray(0)")
+	g.P(`        if (value.size != 4) return RpccgoResult.failure("rpccgo: JNI returned invalid stream handle")`)
+	g.P("        return RpccgoResult.success(ByteBuffer.wrap(value).order(ByteOrder.BIG_ENDIAN).int)")
+	g.P("    }")
+	g.P("}")
+	g.P()
+}
+
+func renderKotlinLifecycleSupport(g *protogen.GeneratedFile) {
 	g.P("/** Implemented by generated streams that should be cancelled with a lifecycle. */")
 	g.P("private interface RpccgoLifecycleBoundStream {")
 	g.P("    /** Cancels the stream because its bound lifecycle has ended. */")
@@ -60,7 +132,7 @@ func renderJNIKotlinFile(plugin *protogen.Plugin, plan FilePlan, service Service
 	g.P("}")
 	g.P()
 	g.P("object Rpccgo {")
-	g.P("    private val activityLifecycles = Collections.synchronizedMap(WeakHashMap<Activity, RpccgoStreamLifecycle>())")
+	g.P("    private val activityLifecycles = WeakHashMap<Activity, RpccgoStreamLifecycle>()")
 	g.P("    private val scopedLifecycle = ThreadLocal<RpccgoStreamLifecycle?>()")
 	g.P("    @Volatile private var globalLifecycle: RpccgoStreamLifecycle? = null")
 	g.P("    @Volatile private var lifecycleCallbacksRegistered = false")
@@ -133,68 +205,6 @@ func renderJNIKotlinFile(plugin *protogen.Plugin, plan FilePlan, service Service
 	g.P("        null")
 	g.P("    } catch (_: Throwable) {")
 	g.P("        null")
-	g.P("    }")
-	g.P("}")
-	g.P()
-	g.P("data class RpccgoResult<T>(val value: T?, val error: String?) {")
-	g.P("    val ok: Boolean get() = error == null")
-	g.P("    companion object {")
-	g.P("        fun <T> success(value: T): RpccgoResult<T> = RpccgoResult(value, null)")
-	g.P("        fun <T> failure(error: String): RpccgoResult<T> = RpccgoResult(null, error)")
-	g.P("    }")
-	g.P("}")
-	g.P()
-	g.P("object ", className, " {")
-	for _, method := range service.Methods {
-		renderKotlinCallbackListener(g, service, method)
-		renderKotlinNativeDeclarations(g, service, method)
-	}
-	g.P()
-	for _, method := range service.Methods {
-		renderKotlinCallbackBindingState(g, service, method, className)
-	}
-	for _, method := range service.Methods {
-		switch method.Streaming {
-		case StreamingKindUnary:
-			renderKotlinUnaryMethod(g, service, method)
-		case StreamingKindClientStreaming:
-			renderKotlinClientStreamingMethod(g, service, method, className)
-		case StreamingKindServerStreaming:
-			renderKotlinServerStreamingMethod(g, service, method, className)
-		case StreamingKindBidiStreaming:
-			renderKotlinBidiStreamingMethod(g, service, method, className)
-		}
-	}
-	g.P("    private fun decodeResultPayload(bytes: ByteArray?): RpccgoResult<ByteArray> {")
-	g.P(`        if (bytes == null) return RpccgoResult.failure("rpccgo: JNI returned null")`)
-	g.P(`        if (bytes.size < 5) return RpccgoResult.failure("rpccgo: JNI returned malformed result")`)
-	g.P("        val ok = bytes[0].toInt() != 0")
-	g.P("        val length = ByteBuffer.wrap(bytes, 1, 4).order(ByteOrder.BIG_ENDIAN).int")
-	g.P(`        if (length < 0 || length != bytes.size - 5) return RpccgoResult.failure("rpccgo: JNI returned invalid result length")`)
-	g.P("        val payload = bytes.copyOfRange(5, bytes.size)")
-	g.P("        if (!ok) return RpccgoResult.failure(payload.toString(Charsets.UTF_8))")
-	g.P("        return RpccgoResult.success(payload)")
-	g.P("    }")
-	g.P()
-	g.P("    private fun <T> decodeResult(bytes: ByteArray?, parser: (ByteArray) -> T): RpccgoResult<T> {")
-	g.P("        val payload = decodeResultPayload(bytes)")
-	g.P(`        if (!payload.ok) return RpccgoResult.failure(payload.error ?: "rpccgo: JNI call failed")`)
-	g.P("        return try {")
-	g.P("            RpccgoResult.success(parser(payload.value ?: ByteArray(0)))")
-	g.P("        } catch (e: Exception) {")
-	g.P(`            RpccgoResult.failure("rpccgo: JNI payload decode failed: ${e.message ?: e::class.java.name}")`)
-	g.P("        }")
-	g.P("    }")
-	g.P()
-	g.P("    private fun decodeUnitResult(bytes: ByteArray?): RpccgoResult<Unit> =")
-	g.P("        decodeResult(bytes) { Unit }")
-	g.P()
-	g.P("    private fun decodeHandleResult(bytes: ByteArray?): RpccgoResult<Int> {")
-	g.P("        val payload = decodeResultPayload(bytes)")
-	g.P(`        if (!payload.ok) return RpccgoResult.failure(payload.error ?: "rpccgo: stream start failed")`)
-	g.P("        val value = payload.value ?: ByteArray(0)")
-	g.P(`        if (value.size != 4) return RpccgoResult.failure("rpccgo: JNI returned invalid stream handle")`)
-	g.P("        return RpccgoResult.success(ByteBuffer.wrap(value).order(ByteOrder.BIG_ENDIAN).int)")
 	g.P("    }")
 	g.P("}")
 	g.P()
