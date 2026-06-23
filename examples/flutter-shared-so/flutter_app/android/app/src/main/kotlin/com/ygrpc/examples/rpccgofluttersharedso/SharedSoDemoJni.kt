@@ -4,128 +4,10 @@
 
 package com.ygrpc.examples.rpccgofluttersharedso
 
-import android.app.Activity
-import android.app.Application
-import android.os.Bundle
-import java.util.WeakHashMap
+import androidx.annotation.Keep
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.util.concurrent.CopyOnWriteArraySet
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicReference
-
-/** Implemented by generated streams that should be cancelled with a lifecycle. */
-private interface RpccgoLifecycleBoundStream {
-    /** Cancels the stream because its bound lifecycle has ended. */
-    fun cancelFromLifecycle()
-}
-
-/** Tracks generated streams that should be cancelled together. */
-class RpccgoStreamLifecycle {
-    private val streams = CopyOnWriteArraySet<RpccgoLifecycleBoundStream>()
-    private val disposed = AtomicBoolean(false)
-
-    /** Attaches a stream to this lifecycle. */
-    fun attach(stream: RpccgoLifecycleBoundStream): String? {
-        if (disposed.get()) return "rpccgo: stream lifecycle is disposed"
-        streams.add(stream)
-        if (disposed.get() && streams.remove(stream)) {
-            stream.cancelFromLifecycle()
-            return "rpccgo: stream lifecycle is disposed"
-        }
-        return null
-    }
-
-    /** Detaches a stream that has already finished or been cancelled. */
-    fun detach(stream: RpccgoLifecycleBoundStream) {
-        streams.remove(stream)
-    }
-
-    /** Cancels every attached stream and prevents future attachments. */
-    fun dispose() {
-        if (!disposed.compareAndSet(false, true)) return
-        val active = streams.toList()
-        streams.clear()
-        active.forEach { it.cancelFromLifecycle() }
-    }
-}
-
-object Rpccgo {
-    private val activityLifecycles = WeakHashMap<Activity, RpccgoStreamLifecycle>()
-    private val scopedLifecycle = ThreadLocal<RpccgoStreamLifecycle?>()
-    @Volatile private var globalLifecycle: RpccgoStreamLifecycle? = null
-    @Volatile private var lifecycleCallbacksRegistered = false
-
-    /** Returns the scoped, global, or current Android Activity stream lifecycle. */
-    fun currentLifecycle(): RpccgoStreamLifecycle? =
-        scopedLifecycle.get() ?: globalLifecycle ?: currentActivity()?.let { lifecycleForActivity(it) }
-
-    /** Registers the fallback lifecycle used when no scoped lifecycle exists. */
-    fun registerGlobalLifecycle(lifecycle: RpccgoStreamLifecycle?) {
-        globalLifecycle = lifecycle
-    }
-
-    /** Runs [block] with [lifecycle] bound as the current stream lifecycle. */
-    fun <T> withLifecycle(lifecycle: RpccgoStreamLifecycle, block: () -> T): T {
-        val previous = scopedLifecycle.get()
-        scopedLifecycle.set(lifecycle)
-        return try {
-            block()
-        } finally {
-            if (previous == null) {
-                scopedLifecycle.remove()
-            } else {
-                scopedLifecycle.set(previous)
-            }
-        }
-    }
-
-    private fun lifecycleForActivity(activity: Activity): RpccgoStreamLifecycle {
-        registerActivityCallbacks(activity.application)
-        synchronized(activityLifecycles) {
-            return activityLifecycles.getOrPut(activity) { RpccgoStreamLifecycle() }
-        }
-    }
-
-    private fun registerActivityCallbacks(application: Application) {
-        if (lifecycleCallbacksRegistered) return
-        synchronized(activityLifecycles) {
-            if (lifecycleCallbacksRegistered) return
-            application.registerActivityLifecycleCallbacks(object : Application.ActivityLifecycleCallbacks {
-                override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {}
-                override fun onActivityStarted(activity: Activity) {}
-                override fun onActivityResumed(activity: Activity) {}
-                override fun onActivityPaused(activity: Activity) {}
-                override fun onActivityStopped(activity: Activity) {}
-                override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
-                override fun onActivityDestroyed(activity: Activity) {
-                    synchronized(activityLifecycles) { activityLifecycles.remove(activity) }?.dispose()
-                }
-            })
-            lifecycleCallbacksRegistered = true
-        }
-    }
-
-    private fun currentActivity(): Activity? = try {
-        val threadClass = Class.forName("android.app.ActivityThread")
-        val currentThread = threadClass.getMethod("currentActivityThread").invoke(null)
-        val activitiesField = threadClass.getDeclaredField("mActivities")
-        activitiesField.isAccessible = true
-        val activities = activitiesField.get(currentThread) as? Map<*, *> ?: return null
-        for (record in activities.values) {
-            val recordClass = record?.javaClass ?: continue
-            val pausedField = recordClass.getDeclaredField("paused")
-            pausedField.isAccessible = true
-            if (pausedField.getBoolean(record)) continue
-            val activityField = recordClass.getDeclaredField("activity")
-            activityField.isAccessible = true
-            return activityField.get(record) as? Activity
-        }
-        null
-    } catch (_: Throwable) {
-        null
-    }
-}
 
 data class RpccgoResult<T>(val value: T?, val error: String?) {
     val ok: Boolean get() = error == null
@@ -139,8 +21,11 @@ object SharedSoDemoJni {
     private external fun sharedSoDemoComposeGreeting(request: ByteArray): ByteArray?
     private external fun sharedSoDemoIncrementRuntimeState(request: ByteArray): ByteArray?
     private external fun sharedSoDemoReadRuntimeState(request: ByteArray): ByteArray?
+    @Keep
     interface SharedSoDemoWatchRuntimeStateListener {
+        @Keep
         fun onMessage(responseBytes: ByteArray)
+        @Keep
         fun onDone(error: String?)
     }
 
@@ -153,8 +38,11 @@ object SharedSoDemoJni {
     private external fun sharedSoDemoCollectRuntimeStateSend(handle: Int, request: ByteArray): ByteArray?
     private external fun sharedSoDemoCollectRuntimeStateFinish(handle: Int): ByteArray?
     private external fun sharedSoDemoCollectRuntimeStateCancel(handle: Int): ByteArray?
+    @Keep
     interface SharedSoDemoStreamRuntimeStateListener {
+        @Keep
         fun onMessage(responseBytes: ByteArray)
+        @Keep
         fun onDone(error: String?)
     }
 
@@ -163,8 +51,11 @@ object SharedSoDemoJni {
     private external fun sharedSoDemoStreamRuntimeStateCancel(handle: Int): ByteArray?
     private external fun sharedSoDemoStreamRuntimeStateStartCallback(request: ByteArray, listener: SharedSoDemoStreamRuntimeStateListener): Boolean
     private external fun sharedSoDemoStreamRuntimeStateCancelCallback(): Boolean
+    @Keep
     interface SharedSoDemoChatRuntimeStateListener {
+        @Keep
         fun onMessage(responseBytes: ByteArray)
+        @Keep
         fun onDone(error: String?)
     }
 
@@ -177,108 +68,6 @@ object SharedSoDemoJni {
     private external fun sharedSoDemoChatRuntimeStateStartCallback(listener: SharedSoDemoChatRuntimeStateListener): Boolean
     private external fun sharedSoDemoChatRuntimeStateCancelCallback(): Boolean
 
-    private val watchRuntimeStateCallbackBinding = AtomicReference<SharedSoDemoWatchRuntimeStateCallbackBinding?>()
-
-    private class SharedSoDemoWatchRuntimeStateCallbackBinding(private val lifecycle: RpccgoStreamLifecycle) : RpccgoLifecycleBoundStream {
-        private val releasedLifecycle = AtomicBoolean(false)
-
-        fun attach(): String? = lifecycle.attach(this)
-
-        fun releaseLifecycle() {
-            if (!releasedLifecycle.compareAndSet(false, true)) return
-            lifecycle.detach(this)
-            watchRuntimeStateCallbackBinding.compareAndSet(this, null)
-        }
-
-        fun wrap(listener: SharedSoDemoWatchRuntimeStateListener): SharedSoDemoWatchRuntimeStateListener = object : SharedSoDemoWatchRuntimeStateListener {
-            override fun onMessage(responseBytes: ByteArray) {
-                listener.onMessage(responseBytes)
-            }
-
-            override fun onDone(error: String?) {
-                releaseLifecycle()
-                listener.onDone(error)
-            }
-        }
-
-        override fun cancelFromLifecycle() {
-            watchRuntimeStateCallbackBinding.compareAndSet(this, null)
-            try {
-                SharedSoDemoJni.sharedSoDemoWatchRuntimeStateCancelCallback()
-            } finally {
-                releaseLifecycle()
-            }
-        }
-    }
-
-    private val streamRuntimeStateCallbackBinding = AtomicReference<SharedSoDemoStreamRuntimeStateCallbackBinding?>()
-
-    private class SharedSoDemoStreamRuntimeStateCallbackBinding(private val lifecycle: RpccgoStreamLifecycle) : RpccgoLifecycleBoundStream {
-        private val releasedLifecycle = AtomicBoolean(false)
-
-        fun attach(): String? = lifecycle.attach(this)
-
-        fun releaseLifecycle() {
-            if (!releasedLifecycle.compareAndSet(false, true)) return
-            lifecycle.detach(this)
-            streamRuntimeStateCallbackBinding.compareAndSet(this, null)
-        }
-
-        fun wrap(listener: SharedSoDemoStreamRuntimeStateListener): SharedSoDemoStreamRuntimeStateListener = object : SharedSoDemoStreamRuntimeStateListener {
-            override fun onMessage(responseBytes: ByteArray) {
-                listener.onMessage(responseBytes)
-            }
-
-            override fun onDone(error: String?) {
-                releaseLifecycle()
-                listener.onDone(error)
-            }
-        }
-
-        override fun cancelFromLifecycle() {
-            streamRuntimeStateCallbackBinding.compareAndSet(this, null)
-            try {
-                SharedSoDemoJni.sharedSoDemoStreamRuntimeStateCancelCallback()
-            } finally {
-                releaseLifecycle()
-            }
-        }
-    }
-
-    private val chatRuntimeStateCallbackBinding = AtomicReference<SharedSoDemoChatRuntimeStateCallbackBinding?>()
-
-    private class SharedSoDemoChatRuntimeStateCallbackBinding(private val lifecycle: RpccgoStreamLifecycle) : RpccgoLifecycleBoundStream {
-        private val releasedLifecycle = AtomicBoolean(false)
-
-        fun attach(): String? = lifecycle.attach(this)
-
-        fun releaseLifecycle() {
-            if (!releasedLifecycle.compareAndSet(false, true)) return
-            lifecycle.detach(this)
-            chatRuntimeStateCallbackBinding.compareAndSet(this, null)
-        }
-
-        fun wrap(listener: SharedSoDemoChatRuntimeStateListener): SharedSoDemoChatRuntimeStateListener = object : SharedSoDemoChatRuntimeStateListener {
-            override fun onMessage(responseBytes: ByteArray) {
-                listener.onMessage(responseBytes)
-            }
-
-            override fun onDone(error: String?) {
-                releaseLifecycle()
-                listener.onDone(error)
-            }
-        }
-
-        override fun cancelFromLifecycle() {
-            chatRuntimeStateCallbackBinding.compareAndSet(this, null)
-            try {
-                SharedSoDemoJni.sharedSoDemoChatRuntimeStateCancelCallback()
-            } finally {
-                releaseLifecycle()
-            }
-        }
-    }
-
     fun ComposeGreeting(req: examples.flutter.sharedso.v1.ComposeGreetingRequest): RpccgoResult<examples.flutter.sharedso.v1.ComposeGreetingResponse> =
         decodeResult(sharedSoDemoComposeGreeting(req.toByteArray())) { examples.flutter.sharedso.v1.ComposeGreetingResponse.parseFrom(it) }
 
@@ -288,78 +77,30 @@ object SharedSoDemoJni {
     fun ReadRuntimeState(req: examples.flutter.sharedso.v1.ReadRuntimeStateRequest): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> =
         decodeResult(sharedSoDemoReadRuntimeState(req.toByteArray())) { examples.flutter.sharedso.v1.RuntimeStateResponse.parseFrom(it) }
 
-    /** Starts the stream bound to the current stream lifecycle. */
     fun WatchRuntimeStateStart(req: examples.flutter.sharedso.v1.ReadRuntimeStateRequest): RpccgoResult<SharedSoDemoWatchRuntimeStateServerStream> {
-        val lifecycle = Rpccgo.currentLifecycle()
-        if (lifecycle == null) return RpccgoResult.failure("rpccgo: no stream lifecycle is registered; use Rpccgo.withLifecycle(...) or Rpccgo.registerGlobalLifecycle(...) before starting a stream")
         val handle = decodeHandleResult(sharedSoDemoWatchRuntimeStateStart(req.toByteArray()))
         if (!handle.ok) return RpccgoResult.failure(handle.error ?: "rpccgo: stream start failed")
-        val stream = SharedSoDemoWatchRuntimeStateServerStream(lifecycle, handle.value ?: 0)
-        val lifecycleError = lifecycle.attach(stream)
-        if (lifecycleError != null) {
-            stream.cancelFromLifecycle()
-            return RpccgoResult.failure(lifecycleError)
-        }
-        return RpccgoResult.success(stream)
+        return RpccgoResult.success(SharedSoDemoWatchRuntimeStateServerStream(handle.value ?: 0))
     }
-    /** Starts callback delivery bound to the current stream lifecycle. */
-    fun WatchRuntimeStateStartCallback(req: examples.flutter.sharedso.v1.ReadRuntimeStateRequest, listener: SharedSoDemoWatchRuntimeStateListener): Boolean {
-        val lifecycle = Rpccgo.currentLifecycle() ?: return false
-        val binding = SharedSoDemoWatchRuntimeStateCallbackBinding(lifecycle)
-        val lifecycleError = binding.attach()
-        if (lifecycleError != null) return false
-        val previous = watchRuntimeStateCallbackBinding.getAndSet(binding)
-        previous?.releaseLifecycle()
-        if (!sharedSoDemoWatchRuntimeStateStartCallback(req.toByteArray(), binding.wrap(listener))) {
-            watchRuntimeStateCallbackBinding.compareAndSet(binding, null)
-            binding.releaseLifecycle()
-            return false
-        }
-        return true
-    }
-    fun WatchRuntimeStateCancelCallback(): Boolean {
-        val binding = watchRuntimeStateCallbackBinding.getAndSet(null)
-        if (binding == null) return true
-        return try {
-            sharedSoDemoWatchRuntimeStateCancelCallback()
-        } finally {
-            binding?.releaseLifecycle()
-        }
-    }
+    fun WatchRuntimeStateStartCallback(req: examples.flutter.sharedso.v1.ReadRuntimeStateRequest, listener: SharedSoDemoWatchRuntimeStateListener): Boolean =
+        sharedSoDemoWatchRuntimeStateStartCallback(req.toByteArray(), listener)
+    fun WatchRuntimeStateCancelCallback(): Boolean = sharedSoDemoWatchRuntimeStateCancelCallback()
 
-    class SharedSoDemoWatchRuntimeStateServerStream internal constructor(private val lifecycle: RpccgoStreamLifecycle, private val handle: Int) : RpccgoLifecycleBoundStream {
-        private val releasedLifecycle = AtomicBoolean(false)
+    class SharedSoDemoWatchRuntimeStateServerStream internal constructor(private val handle: Int) {
         private val receiving = AtomicBoolean(false)
-
-        fun releaseLifecycle() {
-            if (!releasedLifecycle.compareAndSet(false, true)) return
-            lifecycle.detach(this)
-        }
-
-        override fun cancelFromLifecycle() {
-            Cancel()
-        }
-
         private fun recvUnchecked(): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> =
             decodeResult(SharedSoDemoJni.sharedSoDemoWatchRuntimeStateRecv(handle)) { examples.flutter.sharedso.v1.RuntimeStateResponse.parseFrom(it) }
         /** Receives one response. Do not call while RecvEach is running on this stream. */
         fun Recv(): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> {
             if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure("rpccgo: stream already has an active receiver")
-            val next = try {
+            return try {
                 recvUnchecked()
             } finally {
                 receiving.set(false)
             }
-            if (!next.ok) releaseLifecycle()
-            return next
         }
         fun Cancel(): RpccgoResult<Unit> =
-            if (releasedLifecycle.get()) RpccgoResult.success(Unit) else
-                try {
-                    decodeUnitResult(SharedSoDemoJni.sharedSoDemoWatchRuntimeStateCancel(handle))
-                } finally {
-                    releaseLifecycle()
-                }
+            decodeUnitResult(SharedSoDemoJni.sharedSoDemoWatchRuntimeStateCancel(handle))
         /** Starts a background Recv loop. Do not mix with manual Recv calls on this stream. */
         fun RecvEach(onMessage: (examples.flutter.sharedso.v1.RuntimeStateResponse) -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread> {
             if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure("rpccgo: stream already has an active receiver")
@@ -368,7 +109,6 @@ object SharedSoDemoJni {
                     while (true) {
                         val next = recvUnchecked()
                         if (!next.ok) {
-                            releaseLifecycle()
                             onError(next.error ?: "rpccgo: stream recv failed")
                             return@Thread
                         }
@@ -385,122 +125,45 @@ object SharedSoDemoJni {
         }
     }
 
-    /** Starts the stream bound to the current stream lifecycle. */
     fun CollectRuntimeStateStart(): RpccgoResult<SharedSoDemoCollectRuntimeStateClientStream> {
-        val lifecycle = Rpccgo.currentLifecycle()
-        if (lifecycle == null) return RpccgoResult.failure("rpccgo: no stream lifecycle is registered; use Rpccgo.withLifecycle(...) or Rpccgo.registerGlobalLifecycle(...) before starting a stream")
         val handle = decodeHandleResult(sharedSoDemoCollectRuntimeStateStart())
         if (!handle.ok) return RpccgoResult.failure(handle.error ?: "rpccgo: stream start failed")
-        val stream = SharedSoDemoCollectRuntimeStateClientStream(lifecycle, handle.value ?: 0)
-        val lifecycleError = lifecycle.attach(stream)
-        if (lifecycleError != null) {
-            stream.cancelFromLifecycle()
-            return RpccgoResult.failure(lifecycleError)
-        }
-        return RpccgoResult.success(stream)
+        return RpccgoResult.success(SharedSoDemoCollectRuntimeStateClientStream(handle.value ?: 0))
     }
 
-    class SharedSoDemoCollectRuntimeStateClientStream internal constructor(private val lifecycle: RpccgoStreamLifecycle, private val handle: Int) : RpccgoLifecycleBoundStream {
-        private val releasedLifecycle = AtomicBoolean(false)
-
-        fun releaseLifecycle() {
-            if (!releasedLifecycle.compareAndSet(false, true)) return
-            lifecycle.detach(this)
-        }
-
-        override fun cancelFromLifecycle() {
-            Cancel()
-        }
-
+    class SharedSoDemoCollectRuntimeStateClientStream internal constructor(private val handle: Int) {
         fun Send(req: examples.flutter.sharedso.v1.IncrementRuntimeStateRequest): RpccgoResult<Unit> =
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoCollectRuntimeStateSend(handle, req.toByteArray()))
         fun Finish(): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> =
-            try {
-                decodeResult(SharedSoDemoJni.sharedSoDemoCollectRuntimeStateFinish(handle)) { examples.flutter.sharedso.v1.RuntimeStateResponse.parseFrom(it) }
-            } finally {
-                releaseLifecycle()
-            }
+            decodeResult(SharedSoDemoJni.sharedSoDemoCollectRuntimeStateFinish(handle)) { examples.flutter.sharedso.v1.RuntimeStateResponse.parseFrom(it) }
         fun Cancel(): RpccgoResult<Unit> =
-            if (releasedLifecycle.get()) RpccgoResult.success(Unit) else
-                try {
-                    decodeUnitResult(SharedSoDemoJni.sharedSoDemoCollectRuntimeStateCancel(handle))
-                } finally {
-                    releaseLifecycle()
-                }
+            decodeUnitResult(SharedSoDemoJni.sharedSoDemoCollectRuntimeStateCancel(handle))
     }
 
-    /** Starts the stream bound to the current stream lifecycle. */
     fun StreamRuntimeStateStart(req: examples.flutter.sharedso.v1.ReadRuntimeStateRequest): RpccgoResult<SharedSoDemoStreamRuntimeStateServerStream> {
-        val lifecycle = Rpccgo.currentLifecycle()
-        if (lifecycle == null) return RpccgoResult.failure("rpccgo: no stream lifecycle is registered; use Rpccgo.withLifecycle(...) or Rpccgo.registerGlobalLifecycle(...) before starting a stream")
         val handle = decodeHandleResult(sharedSoDemoStreamRuntimeStateStart(req.toByteArray()))
         if (!handle.ok) return RpccgoResult.failure(handle.error ?: "rpccgo: stream start failed")
-        val stream = SharedSoDemoStreamRuntimeStateServerStream(lifecycle, handle.value ?: 0)
-        val lifecycleError = lifecycle.attach(stream)
-        if (lifecycleError != null) {
-            stream.cancelFromLifecycle()
-            return RpccgoResult.failure(lifecycleError)
-        }
-        return RpccgoResult.success(stream)
+        return RpccgoResult.success(SharedSoDemoStreamRuntimeStateServerStream(handle.value ?: 0))
     }
-    /** Starts callback delivery bound to the current stream lifecycle. */
-    fun StreamRuntimeStateStartCallback(req: examples.flutter.sharedso.v1.ReadRuntimeStateRequest, listener: SharedSoDemoStreamRuntimeStateListener): Boolean {
-        val lifecycle = Rpccgo.currentLifecycle() ?: return false
-        val binding = SharedSoDemoStreamRuntimeStateCallbackBinding(lifecycle)
-        val lifecycleError = binding.attach()
-        if (lifecycleError != null) return false
-        val previous = streamRuntimeStateCallbackBinding.getAndSet(binding)
-        previous?.releaseLifecycle()
-        if (!sharedSoDemoStreamRuntimeStateStartCallback(req.toByteArray(), binding.wrap(listener))) {
-            streamRuntimeStateCallbackBinding.compareAndSet(binding, null)
-            binding.releaseLifecycle()
-            return false
-        }
-        return true
-    }
-    fun StreamRuntimeStateCancelCallback(): Boolean {
-        val binding = streamRuntimeStateCallbackBinding.getAndSet(null)
-        if (binding == null) return true
-        return try {
-            sharedSoDemoStreamRuntimeStateCancelCallback()
-        } finally {
-            binding?.releaseLifecycle()
-        }
-    }
+    fun StreamRuntimeStateStartCallback(req: examples.flutter.sharedso.v1.ReadRuntimeStateRequest, listener: SharedSoDemoStreamRuntimeStateListener): Boolean =
+        sharedSoDemoStreamRuntimeStateStartCallback(req.toByteArray(), listener)
+    fun StreamRuntimeStateCancelCallback(): Boolean = sharedSoDemoStreamRuntimeStateCancelCallback()
 
-    class SharedSoDemoStreamRuntimeStateServerStream internal constructor(private val lifecycle: RpccgoStreamLifecycle, private val handle: Int) : RpccgoLifecycleBoundStream {
-        private val releasedLifecycle = AtomicBoolean(false)
+    class SharedSoDemoStreamRuntimeStateServerStream internal constructor(private val handle: Int) {
         private val receiving = AtomicBoolean(false)
-
-        fun releaseLifecycle() {
-            if (!releasedLifecycle.compareAndSet(false, true)) return
-            lifecycle.detach(this)
-        }
-
-        override fun cancelFromLifecycle() {
-            Cancel()
-        }
-
         private fun recvUnchecked(): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> =
             decodeResult(SharedSoDemoJni.sharedSoDemoStreamRuntimeStateRecv(handle)) { examples.flutter.sharedso.v1.RuntimeStateResponse.parseFrom(it) }
         /** Receives one response. Do not call while RecvEach is running on this stream. */
         fun Recv(): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> {
             if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure("rpccgo: stream already has an active receiver")
-            val next = try {
+            return try {
                 recvUnchecked()
             } finally {
                 receiving.set(false)
             }
-            if (!next.ok) releaseLifecycle()
-            return next
         }
         fun Cancel(): RpccgoResult<Unit> =
-            if (releasedLifecycle.get()) RpccgoResult.success(Unit) else
-                try {
-                    decodeUnitResult(SharedSoDemoJni.sharedSoDemoStreamRuntimeStateCancel(handle))
-                } finally {
-                    releaseLifecycle()
-                }
+            decodeUnitResult(SharedSoDemoJni.sharedSoDemoStreamRuntimeStateCancel(handle))
         /** Starts a background Recv loop. Do not mix with manual Recv calls on this stream. */
         fun RecvEach(onMessage: (examples.flutter.sharedso.v1.RuntimeStateResponse) -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread> {
             if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure("rpccgo: stream already has an active receiver")
@@ -509,7 +172,6 @@ object SharedSoDemoJni {
                     while (true) {
                         val next = recvUnchecked()
                         if (!next.ok) {
-                            releaseLifecycle()
                             onError(next.error ?: "rpccgo: stream recv failed")
                             return@Thread
                         }
@@ -526,88 +188,36 @@ object SharedSoDemoJni {
         }
     }
 
-    /** Starts the stream bound to the current stream lifecycle. */
     fun ChatRuntimeStateStart(): RpccgoResult<SharedSoDemoChatRuntimeStateBidiStream> {
-        val lifecycle = Rpccgo.currentLifecycle()
-        if (lifecycle == null) return RpccgoResult.failure("rpccgo: no stream lifecycle is registered; use Rpccgo.withLifecycle(...) or Rpccgo.registerGlobalLifecycle(...) before starting a stream")
         val handle = decodeHandleResult(sharedSoDemoChatRuntimeStateStart())
         if (!handle.ok) return RpccgoResult.failure(handle.error ?: "rpccgo: stream start failed")
-        val stream = SharedSoDemoChatRuntimeStateBidiStream(lifecycle, handle.value ?: 0)
-        val lifecycleError = lifecycle.attach(stream)
-        if (lifecycleError != null) {
-            stream.cancelFromLifecycle()
-            return RpccgoResult.failure(lifecycleError)
-        }
-        return RpccgoResult.success(stream)
+        return RpccgoResult.success(SharedSoDemoChatRuntimeStateBidiStream(handle.value ?: 0))
     }
-    /** Starts callback delivery bound to the current stream lifecycle. */
-    fun ChatRuntimeStateStartCallback(listener: SharedSoDemoChatRuntimeStateListener): Boolean {
-        val lifecycle = Rpccgo.currentLifecycle() ?: return false
-        val binding = SharedSoDemoChatRuntimeStateCallbackBinding(lifecycle)
-        val lifecycleError = binding.attach()
-        if (lifecycleError != null) return false
-        val previous = chatRuntimeStateCallbackBinding.getAndSet(binding)
-        previous?.releaseLifecycle()
-        if (!sharedSoDemoChatRuntimeStateStartCallback(binding.wrap(listener))) {
-            chatRuntimeStateCallbackBinding.compareAndSet(binding, null)
-            binding.releaseLifecycle()
-            return false
-        }
-        return true
-    }
-    fun ChatRuntimeStateCancelCallback(): Boolean {
-        val binding = chatRuntimeStateCallbackBinding.getAndSet(null)
-        if (binding == null) return true
-        return try {
-            sharedSoDemoChatRuntimeStateCancelCallback()
-        } finally {
-            binding?.releaseLifecycle()
-        }
-    }
+    fun ChatRuntimeStateStartCallback(listener: SharedSoDemoChatRuntimeStateListener): Boolean =
+        sharedSoDemoChatRuntimeStateStartCallback(listener)
+    fun ChatRuntimeStateCancelCallback(): Boolean = sharedSoDemoChatRuntimeStateCancelCallback()
 
-    class SharedSoDemoChatRuntimeStateBidiStream internal constructor(private val lifecycle: RpccgoStreamLifecycle, private val handle: Int) : RpccgoLifecycleBoundStream {
-        private val releasedLifecycle = AtomicBoolean(false)
-        private val receiving = AtomicBoolean(false)
-
-        fun releaseLifecycle() {
-            if (!releasedLifecycle.compareAndSet(false, true)) return
-            lifecycle.detach(this)
-        }
-
-        override fun cancelFromLifecycle() {
-            Cancel()
-        }
-
+    class SharedSoDemoChatRuntimeStateBidiStream internal constructor(private val handle: Int) {
         fun Send(req: examples.flutter.sharedso.v1.IncrementRuntimeStateRequest): RpccgoResult<Unit> =
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoChatRuntimeStateSend(handle, req.toByteArray()))
+        private val receiving = AtomicBoolean(false)
         private fun recvUnchecked(): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> =
             decodeResult(SharedSoDemoJni.sharedSoDemoChatRuntimeStateRecv(handle)) { examples.flutter.sharedso.v1.RuntimeStateResponse.parseFrom(it) }
         /** Receives one response. Do not call while RecvEach is running on this stream. */
         fun Recv(): RpccgoResult<examples.flutter.sharedso.v1.RuntimeStateResponse> {
             if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure("rpccgo: stream already has an active receiver")
-            val next = try {
+            return try {
                 recvUnchecked()
             } finally {
                 receiving.set(false)
             }
-            if (!next.ok) releaseLifecycle()
-            return next
         }
         fun CloseSend(): RpccgoResult<Unit> =
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoChatRuntimeStateCloseSend(handle))
         fun Finish(): RpccgoResult<Unit> =
-            try {
-                decodeUnitResult(SharedSoDemoJni.sharedSoDemoChatRuntimeStateFinish(handle))
-            } finally {
-                releaseLifecycle()
-            }
+            decodeUnitResult(SharedSoDemoJni.sharedSoDemoChatRuntimeStateFinish(handle))
         fun Cancel(): RpccgoResult<Unit> =
-            if (releasedLifecycle.get()) RpccgoResult.success(Unit) else
-                try {
-                    decodeUnitResult(SharedSoDemoJni.sharedSoDemoChatRuntimeStateCancel(handle))
-                } finally {
-                    releaseLifecycle()
-                }
+            decodeUnitResult(SharedSoDemoJni.sharedSoDemoChatRuntimeStateCancel(handle))
         /** Starts a background Recv loop. Do not mix with manual Recv calls on this stream. */
         fun RecvEach(onMessage: (examples.flutter.sharedso.v1.RuntimeStateResponse) -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread> {
             if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure("rpccgo: stream already has an active receiver")
@@ -616,7 +226,6 @@ object SharedSoDemoJni {
                     while (true) {
                         val next = recvUnchecked()
                         if (!next.ok) {
-                            releaseLifecycle()
                             onError(next.error ?: "rpccgo: stream recv failed")
                             return@Thread
                         }

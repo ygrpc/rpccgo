@@ -179,8 +179,8 @@ func renderJNICPPUnary(g *protogen.GeneratedFile, file FilePlan, service Service
 	cgoName := messageCExportFuncName(file, service, method, "")
 	renderJNICPPExportComment(g, name, method)
 	g.P("extern \"C\" JNIEXPORT jbyteArray JNICALL ", name, "(JNIEnv* env, jobject, jbyteArray request) {")
-	renderJNICPPEnvScope(g)
-	renderJNICPPRequestDecode(g)
+	renderJNICPPEnvScope(g, "nullptr")
+	renderJNICPPRequestDecode(g, `rpccgoErrorResult(env, "rpccgo: JNI request bytes are null or unreadable")`)
 	g.P("    uintptr_t responsePtr = 0;")
 	g.P("    int32_t responseLen = 0;")
 	g.P("    int32_t errID = ", cgoName, "(rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()), &responsePtr, &responseLen);")
@@ -238,7 +238,7 @@ func renderJNICPPStartNoRequest(g *protogen.GeneratedFile, file FilePlan, servic
 	cgoName := messageCExportFuncName(file, service, method, "start")
 	renderJNICPPExportComment(g, name, method)
 	g.P("extern \"C\" JNIEXPORT jbyteArray JNICALL ", name, "(JNIEnv* env, jobject) {")
-	renderJNICPPEnvScope(g)
+	renderJNICPPEnvScope(g, "nullptr")
 	g.P("    int32_t handle = 0;")
 	if method.Streaming == StreamingKindBidiStreaming {
 		g.P("    int32_t errID = ", cgoName, "(&handle, nullptr, nullptr);")
@@ -255,8 +255,8 @@ func renderJNICPPStartWithRequest(g *protogen.GeneratedFile, file FilePlan, serv
 	cgoName := messageCExportFuncName(file, service, method, "start")
 	renderJNICPPExportComment(g, name, method)
 	g.P("extern \"C\" JNIEXPORT jbyteArray JNICALL ", name, "(JNIEnv* env, jobject, jbyteArray request) {")
-	renderJNICPPEnvScope(g)
-	renderJNICPPRequestDecode(g)
+	renderJNICPPEnvScope(g, "nullptr")
+	renderJNICPPRequestDecode(g, `rpccgoErrorResult(env, "rpccgo: JNI request bytes are null or unreadable")`)
 	g.P("    int32_t handle = 0;")
 	g.P("    int32_t errID = ", cgoName, "(rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()), &handle, nullptr, nullptr);")
 	g.P("    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }")
@@ -269,8 +269,8 @@ func renderJNICALLWithRequest(g *protogen.GeneratedFile, file FilePlan, service 
 	cgoName := messageCExportFuncName(file, service, method, cgoOperation)
 	renderJNICPPExportComment(g, name, method)
 	g.P("extern \"C\" JNIEXPORT jbyteArray JNICALL ", name, "(JNIEnv* env, jobject, jint handle, jbyteArray request) {")
-	renderJNICPPEnvScope(g)
-	renderJNICPPRequestDecode(g)
+	renderJNICPPEnvScope(g, "nullptr")
+	renderJNICPPRequestDecode(g, `rpccgoErrorResult(env, "rpccgo: JNI request bytes are null or unreadable")`)
 	g.P("    int32_t errID = ", cgoName, "(static_cast<int32_t>(handle), rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()));")
 	g.P("    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }")
 	g.P("    return rpccgoSuccessUnit(env);")
@@ -282,7 +282,7 @@ func renderJNICALLResponseByHandle(g *protogen.GeneratedFile, file FilePlan, ser
 	cgoName := messageCExportFuncName(file, service, method, cgoOperation)
 	renderJNICPPExportComment(g, name, method)
 	g.P("extern \"C\" JNIEXPORT jbyteArray JNICALL ", name, "(JNIEnv* env, jobject, jint handle) {")
-	renderJNICPPEnvScope(g)
+	renderJNICPPEnvScope(g, "nullptr")
 	g.P("    uintptr_t responsePtr = 0;")
 	g.P("    int32_t responseLen = 0;")
 	g.P("    int32_t errID = ", cgoName, "(static_cast<int32_t>(handle), &responsePtr, &responseLen);")
@@ -296,7 +296,7 @@ func renderJNICALLUnitByHandle(g *protogen.GeneratedFile, file FilePlan, service
 	cgoName := messageCExportFuncName(file, service, method, cgoOperation)
 	renderJNICPPExportComment(g, name, method)
 	g.P("extern \"C\" JNIEXPORT jbyteArray JNICALL ", name, "(JNIEnv* env, jobject, jint handle) {")
-	renderJNICPPEnvScope(g)
+	renderJNICPPEnvScope(g, "nullptr")
 	g.P("    int32_t errID = ", cgoName, "(static_cast<int32_t>(handle));")
 	g.P("    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }")
 	g.P("    return rpccgoSuccessUnit(env);")
@@ -399,7 +399,7 @@ func renderJNICALLStartCallbackWithRequest(g *protogen.GeneratedFile, file FileP
 	prefix := jniCPPCallbackPrefix(service, method)
 	renderJNICPPExportComment(g, name, method)
 	g.P("extern \"C\" JNIEXPORT jboolean JNICALL ", name, "(JNIEnv* env, jobject, jbyteArray request, jobject listener) {")
-	renderJNICPPEnvScope(g)
+	renderJNICPPEnvScope(g, "JNI_FALSE")
 	g.P("    if (request == nullptr || listener == nullptr) { return JNI_FALSE; }")
 	g.P("    cancel", listenerType, "Callback(env);")
 	g.P("    jclass listenerClass = env->GetObjectClass(listener);")
@@ -407,7 +407,7 @@ func renderJNICALLStartCallbackWithRequest(g *protogen.GeneratedFile, file FileP
 	g.P("    jmethodID onDone = env->GetMethodID(listenerClass, \"onDone\", \"(Ljava/lang/String;)V\");")
 	g.P("    env->DeleteLocalRef(listenerClass);")
 	g.P("    if (onMessage == nullptr || onDone == nullptr) { return JNI_FALSE; }")
-	renderJNICPPRequestDecode(g)
+	renderJNICPPRequestDecode(g, "JNI_FALSE")
 	g.P("    jobject globalListener = env->NewGlobalRef(listener);")
 	g.P("    if (globalListener == nullptr) { return JNI_FALSE; }")
 	g.P("    {")
@@ -437,7 +437,7 @@ func renderJNICALLStartCallbackNoRequest(g *protogen.GeneratedFile, file FilePla
 	prefix := jniCPPCallbackPrefix(service, method)
 	renderJNICPPExportComment(g, name, method)
 	g.P("extern \"C\" JNIEXPORT jboolean JNICALL ", name, "(JNIEnv* env, jobject, jobject listener) {")
-	renderJNICPPEnvScope(g)
+	renderJNICPPEnvScope(g, "JNI_FALSE")
 	g.P("    if (listener == nullptr) { return JNI_FALSE; }")
 	g.P("    cancel", listenerType, "Callback(env);")
 	g.P("    jclass listenerClass = env->GetObjectClass(listener);")
@@ -472,21 +472,21 @@ func renderJNICALLCancelCallback(g *protogen.GeneratedFile, file FilePlan, servi
 	listenerType := jniKotlinListenerType(service, method)
 	renderJNICPPExportComment(g, name, method)
 	g.P("extern \"C\" JNIEXPORT jboolean JNICALL ", name, "(JNIEnv* env, jobject) {")
-	renderJNICPPEnvScope(g)
+	renderJNICPPEnvScope(g, "JNI_FALSE")
 	g.P("    return cancel", listenerType, "Callback(env) ? JNI_TRUE : JNI_FALSE;")
 	g.P("}")
 }
 
-func renderJNICPPEnvScope(g *protogen.GeneratedFile) {
+func renderJNICPPEnvScope(g *protogen.GeneratedFile, failReturn string) {
 	g.P("    rpccgoJNIEnvScope envScope(env);")
 	g.P("    env = envScope.env;")
-	g.P("    if (env == nullptr) { return nullptr; }")
+	g.P("    if (env == nullptr) { return ", failReturn, "; }")
 }
 
-func renderJNICPPRequestDecode(g *protogen.GeneratedFile) {
+func renderJNICPPRequestDecode(g *protogen.GeneratedFile, failReturn string) {
 	g.P("    bool requestOK = false;")
 	g.P("    std::vector<uint8_t> requestBytes = rpccgoJNIBytes(env, request, &requestOK);")
-	g.P("    if (!requestOK) { return rpccgoErrorResult(env, \"rpccgo: JNI request bytes are null or unreadable\"); }")
+	g.P("    if (!requestOK) { return ", failReturn, "; }")
 }
 
 func renderJNICPPExportComment(g *protogen.GeneratedFile, name string, method MethodPlan) {

@@ -77,6 +77,11 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    override fun onDestroy() {
+        SharedSoDemoJni.StreamRuntimeStateCancelCallback()
+        super.onDestroy()
+    }
+
     private fun runJniStreams(): String {
         val collect = SharedSoDemoJni.CollectRuntimeStateStart()
         val collectStream = collect.value ?: return "jni client stream start error: ${collect.error}"
@@ -115,7 +120,7 @@ class MainActivity : FlutterActivity() {
             ReadRuntimeStateRequest.newBuilder()
                 .setCaller("kotlin-jni-callback-server-stream")
                 .build(),
-            object : SharedSoDemoJni.StreamRuntimeStateListener {
+            object : SharedSoDemoJni.SharedSoDemoStreamRuntimeStateListener {
                 override fun onMessage(responseBytes: ByteArray) {
                     try {
                         callbackValues.add(RuntimeStateResponse.parseFrom(responseBytes).value)

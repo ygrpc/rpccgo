@@ -42,7 +42,6 @@ func TestGenerateDartEmitsMessageFFIClient(t *testing.T) {
 		"lookupFunction<",
 		"typedef _RpccgoMessageUnaryNative",
 		"typedef _RpccgoStreamSendNative",
-		"rpccgo.lifecycle.dart",
 		"int _sayHello(",
 		"int _release(",
 		"int _takeErrorText(",
@@ -57,13 +56,9 @@ func TestGenerateDartEmitsStreamingMessageFFIClient(t *testing.T) {
 	}
 
 	const file = "test/v1/message_contract.greeter.rpccgo.dart"
-	assertDartGeneratedFilenames(t, plugin, []string{"rpccgo.dart", "rpccgo.lifecycle.dart", file})
-	assertGeneratedContentContains(t, plugin, "rpccgo.lifecycle.dart", "void dispose() {")
+	assertDartGeneratedFilenames(t, plugin, []string{"rpccgo.dart", file})
 	for _, fragment := range []string{
 		"({GreeterUploadStream? value, String? error}) UploadStart() {",
-		"final lifecycle = Rpccgo.currentLifecycle;",
-		"if (lifecycle == null) {",
-		"return (value: null, error: 'rpccgo: no stream lifecycle is registered; use Rpccgo.withLifecycle(...) or Rpccgo.registerGlobalLifecycle(...) before starting a stream');",
 		"String? Send(pb.MessageRequest request) {",
 		"({pb.MessageReply? value, String? error}) Finish() {",
 		"ListStart(",
@@ -71,14 +66,9 @@ func TestGenerateDartEmitsStreamingMessageFFIClient(t *testing.T) {
 		"({pb.MessageReply? value, String? error}) Recv() {",
 		"String? Finish() {",
 		"({GreeterChatStream? value, String? error}) ChatStart() {",
-		"class GreeterUploadStream implements RpccgoLifecycleBoundStream {\n  GreeterUploadStream._(this._client, this._lifecycle, this._handle);",
+		"class GreeterUploadStream {\n  GreeterUploadStream._(this._client, this._handle);",
 		"  String? Send(pb.MessageRequest request) {\n    final requestBytes = request.writeToBuffer();",
 		"    try {\n      final errID = _uploadSendRaw(",
-		"  final RpccgoStreamLifecycle _lifecycle;",
-		"  bool _releasedLifecycle = false;",
-		"  void releaseLifecycle() {",
-		"  @override\n  /// Cancels this stream because its lifecycle has been disposed.\n  void cancelFromLifecycle() {",
-		"    if (_releasedLifecycle) {\n      return null;\n    }",
 		"String? CloseSend() {",
 		"typedef _RpccgoStreamRecvCAbi = ffi.Int32 Function(",
 		"symbol: 'rpccgoMsgTestv1GreeterUploadStart'",
@@ -110,18 +100,6 @@ func TestGenerateDartEmitsStreamingMessageFFIClient(t *testing.T) {
 		"throw StateError",
 		"_throwIfError",
 	)
-}
-
-func TestGenerateDartLifecycleAttachFailureCancelsOnce(t *testing.T) {
-	plugin := newTestDartPlugin(t, "paths=source_relative,dart_package=rpccgo_test", messageContractTestFile())
-
-	if _, err := GenerateDartWithOptions(plugin); err != nil {
-		t.Fatalf("GenerateDartWithOptions() error = %v", err)
-	}
-
-	const file = "test/v1/message_contract.greeter.rpccgo.dart"
-	assertGeneratedContentContains(t, plugin, file, "final lifecycleError = lifecycle.attach(stream);\n      if (lifecycleError != null) {\n        stream.cancelFromLifecycle();\n        return (value: null, error: lifecycleError);\n      }")
-	assertGeneratedContentContains(t, plugin, file, "String? Cancel() {\n    if (_releasedLifecycle) {\n      return null;\n    }\n    final errID = _uploadCancelRaw(_handle);")
 }
 
 func TestGenerateDartRequiresDartPackage(t *testing.T) {

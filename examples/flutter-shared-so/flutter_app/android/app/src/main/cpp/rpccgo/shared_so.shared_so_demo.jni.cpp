@@ -313,7 +313,7 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersha
 extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoWatchRuntimeStateStartCallback(JNIEnv* env, jobject, jbyteArray request, jobject listener) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
-    if (env == nullptr) { return nullptr; }
+    if (env == nullptr) { return JNI_FALSE; }
     if (request == nullptr || listener == nullptr) { return JNI_FALSE; }
     cancelSharedSoDemoWatchRuntimeStateListenerCallback(env);
     jclass listenerClass = env->GetObjectClass(listener);
@@ -323,7 +323,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttershare
     if (onMessage == nullptr || onDone == nullptr) { return JNI_FALSE; }
     bool requestOK = false;
     std::vector<uint8_t> requestBytes = rpccgoJNIBytes(env, request, &requestOK);
-    if (!requestOK) { return rpccgoErrorResult(env, "rpccgo: JNI request bytes are null or unreadable"); }
+    if (!requestOK) { return JNI_FALSE; }
     jobject globalListener = env->NewGlobalRef(listener);
     if (globalListener == nullptr) { return JNI_FALSE; }
     {
@@ -349,7 +349,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttershare
 extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoWatchRuntimeStateCancelCallback(JNIEnv* env, jobject) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
-    if (env == nullptr) { return nullptr; }
+    if (env == nullptr) { return JNI_FALSE; }
     return cancelSharedSoDemoWatchRuntimeStateListenerCallback(env) ? JNI_TRUE : JNI_FALSE;
 }
 
@@ -523,7 +523,7 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersha
 extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoStreamRuntimeStateStartCallback(JNIEnv* env, jobject, jbyteArray request, jobject listener) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
-    if (env == nullptr) { return nullptr; }
+    if (env == nullptr) { return JNI_FALSE; }
     if (request == nullptr || listener == nullptr) { return JNI_FALSE; }
     cancelSharedSoDemoStreamRuntimeStateListenerCallback(env);
     jclass listenerClass = env->GetObjectClass(listener);
@@ -533,7 +533,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttershare
     if (onMessage == nullptr || onDone == nullptr) { return JNI_FALSE; }
     bool requestOK = false;
     std::vector<uint8_t> requestBytes = rpccgoJNIBytes(env, request, &requestOK);
-    if (!requestOK) { return rpccgoErrorResult(env, "rpccgo: JNI request bytes are null or unreadable"); }
+    if (!requestOK) { return JNI_FALSE; }
     jobject globalListener = env->NewGlobalRef(listener);
     if (globalListener == nullptr) { return JNI_FALSE; }
     {
@@ -559,7 +559,7 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttershare
 extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoStreamRuntimeStateCancelCallback(JNIEnv* env, jobject) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
-    if (env == nullptr) { return nullptr; }
+    if (env == nullptr) { return JNI_FALSE; }
     return cancelSharedSoDemoStreamRuntimeStateListenerCallback(env) ? JNI_TRUE : JNI_FALSE;
 }
 
@@ -717,7 +717,7 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersha
 extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoChatRuntimeStateStartCallback(JNIEnv* env, jobject, jobject listener) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
-    if (env == nullptr) { return nullptr; }
+    if (env == nullptr) { return JNI_FALSE; }
     if (listener == nullptr) { return JNI_FALSE; }
     cancelSharedSoDemoChatRuntimeStateListenerCallback(env);
     jclass listenerClass = env->GetObjectClass(listener);
@@ -750,6 +750,6 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttershare
 extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoChatRuntimeStateCancelCallback(JNIEnv* env, jobject) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
-    if (env == nullptr) { return nullptr; }
+    if (env == nullptr) { return JNI_FALSE; }
     return cancelSharedSoDemoChatRuntimeStateListenerCallback(env) ? JNI_TRUE : JNI_FALSE;
 }
