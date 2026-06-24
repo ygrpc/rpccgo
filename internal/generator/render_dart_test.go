@@ -58,7 +58,8 @@ func TestGenerateDartEmitsStreamingMessageFFIClient(t *testing.T) {
 	const file = "test/v1/message_contract.greeter.rpccgo.dart"
 	assertDartGeneratedFilenames(t, plugin, []string{"rpccgo.dart", file})
 	for _, fragment := range []string{
-		"({GreeterUploadStream? value, String? error}) UploadStart() {",
+			"({GreeterUploadStream? value, String? error}) UploadStart() {",
+			"// ignore_for_file: non_constant_identifier_names",
 		"String? Send(pb.MessageRequest request) {",
 		"({pb.MessageReply? value, String? error}) Finish() {",
 		"ListStart(",
@@ -67,8 +68,8 @@ func TestGenerateDartEmitsStreamingMessageFFIClient(t *testing.T) {
 		"({GreeterListStream? value, String? error}) ListStartCallback(pb.MessageRequest request, {required void Function(pb.MessageReply value) onRecv, required void Function(String? error) onDone}) {",
 		"typedef _RpccgoMessageOnRecvCAbi = ffi.Void Function(ffi.Int32 stream, ffi.UintPtr responsePtr, ffi.Int32 responseLen);",
 		"typedef _RpccgoMessageOnDoneCAbi = ffi.Void Function(ffi.Int32 stream, ffi.Int32 errID);",
-		"ffi.NativeCallable<_RpccgoMessageOnRecvCAbi>.listener",
-		"ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.listener",
+			"ffi.NativeCallable<_RpccgoMessageOnRecvCAbi>.listener((int stream, int responsePtr, int responseLen)",
+			"ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.listener((int stream, int errID)",
 		"void cancelFromCallback(int stream, String error) {",
 		"return (value: null, error: 'rpccgo: stream receive is owned by callback receive mode');",
 		"String? Finish() {",

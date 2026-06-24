@@ -1,16 +1,3 @@
-buildscript {
-    val kotlinVersion = "2.2.20"
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
-    }
-}
-
-extra["kotlin_version"] = "2.2.20"
-
 allprojects {
     repositories {
         google()

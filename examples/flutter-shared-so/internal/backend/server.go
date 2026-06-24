@@ -81,7 +81,7 @@ func (s *SharedSoDemoServer) ReadRuntimeState(_ context.Context, req *fluttersha
 	return resp, nil
 }
 
-// WatchRuntimeState streams two snapshots of the current runtime state.
+// WatchRuntimeState streams snapshots of the current runtime state.
 func (s *SharedSoDemoServer) WatchRuntimeState(ctx context.Context, req *fluttersharedv1.ReadRuntimeStateRequest, stream *connect.ServerStream[fluttersharedv1.RuntimeStateResponse]) error {
 	if req == nil {
 		return fmt.Errorf("watch runtime state request is nil")
@@ -89,23 +89,26 @@ func (s *SharedSoDemoServer) WatchRuntimeState(ctx context.Context, req *flutter
 	if stream == nil {
 		return fmt.Errorf("watch runtime state stream is nil")
 	}
-	for i := 0; i < 2; i++ {
+	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		default:
 		}
 		s.mu.Lock()
+		s.value++
+		s.revision++
 		resp := s.runtimeStateResponse(req.GetCaller())
 		s.mu.Unlock()
 		if err := stream.Send(resp); err != nil {
 			return err
 		}
-		if req.GetCaller() == "kotlin-jni-callback-server-stream" {
-			time.Sleep(750 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Second):
 		}
 	}
-	return nil
 }
 
 // CollectRuntimeState receives a client stream of state changes and returns the

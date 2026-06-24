@@ -5,16 +5,7 @@ const _assetName = 'gen/rpccgo.dart';
 
 void main(List<String> args) async {
   await build(args, (input, output) async {
-    if (!input.config.buildCodeAssets) {
-      return;
-    }
-
-    if (input.config.code.targetOS != OS.android) {
-      throw UnsupportedError(
-        'This example loads the Android rpccgo shared library by SONAME. '
-        'Current target: ${input.config.code.targetOS.name}.',
-      );
-    }
+    if (!input.config.buildCodeAssets) return;
 
     output.assets.code.add(
       CodeAsset(

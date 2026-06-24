@@ -335,7 +335,6 @@ func renderJNICPPCallbackState(g *protogen.GeneratedFile, file FilePlan, service
 	g.P("        return true;")
 	g.P("    }")
 	g.P("    int32_t errID = ", cancelName, "(handle);")
-	g.P("    clear", listenerType, "Callback(env);")
 	g.P("    return errID == 0;")
 	g.P("}")
 	g.P()

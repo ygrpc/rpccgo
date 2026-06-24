@@ -21,6 +21,7 @@ func TestRunEmitsDartFFIClient(t *testing.T) {
 
 	assertDartMainGeneratedContentContains(t, plugin, "rpccgo.dart", "export 'test/v1/greeter.greeter.rpccgo.dart';")
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "@ffi.DefaultAsset('package:rpccgo_test/gen/rpccgo.dart')")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "// ignore_for_file: non_constant_identifier_names")
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "const GreeterRpccgoClient();")
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "({pb.HelloReply? value, String? error}) SayHello(pb.HelloRequest request) {")
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "({GreeterListStream? value, String? error}) ListStart(pb.HelloRequest request) {")
@@ -28,8 +29,8 @@ func TestRunEmitsDartFFIClient(t *testing.T) {
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "({GreeterChatStream? value, String? error}) ChatStartCallback({required void Function(pb.HelloReply value) onRecv, required void Function(String? error) onDone}) {")
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "typedef _RpccgoMessageOnRecvCAbi = ffi.Void Function(ffi.Int32 stream, ffi.UintPtr responsePtr, ffi.Int32 responseLen);")
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "typedef _RpccgoMessageOnDoneCAbi = ffi.Void Function(ffi.Int32 stream, ffi.Int32 errID);")
-	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "ffi.NativeCallable<_RpccgoMessageOnRecvCAbi>.listener")
-	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.listener")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "ffi.NativeCallable<_RpccgoMessageOnRecvCAbi>.listener((int stream, int responsePtr, int responseLen)")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.listener((int stream, int errID)")
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "return (value: null, error: 'rpccgo: stream receive is owned by callback receive mode');")
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "symbol: 'rpccgoMsgTestv1GreeterSayHello'")
 	assertDartMainGeneratedContentDoesNotContain(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "isolateGroupBound")

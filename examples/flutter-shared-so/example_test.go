@@ -99,6 +99,7 @@ func TestSharedSoDemoMessageStreamContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("start runtime state stream: %v", err)
 	}
+	var prev *fluttersharedv1.RuntimeStateResponse
 	for i := 0; i < 2; i++ {
 		resp, err := fluttersharedv1.SharedSoDemoMessageWatchRuntimeStateRecv(context.Background(), handle)
 		if err != nil {
@@ -110,9 +111,18 @@ func TestSharedSoDemoMessageStreamContract(t *testing.T) {
 		if resp.GetInstanceAddress() == "" {
 			t.Fatalf("stream instance address is empty")
 		}
+		if prev != nil {
+			if got, want := resp.GetValue(), prev.GetValue()+1; got != want {
+				t.Fatalf("stream value = %d, want %d", got, want)
+			}
+			if got, want := resp.GetRevision(), prev.GetRevision()+1; got != want {
+				t.Fatalf("stream revision = %d, want %d", got, want)
+			}
+		}
+		prev = resp
 	}
-	if _, err := fluttersharedv1.SharedSoDemoMessageWatchRuntimeStateRecv(context.Background(), handle); !errors.Is(err, io.EOF) {
-		t.Fatalf("watch runtime state EOF = %v, want EOF", err)
+	if err := fluttersharedv1.SharedSoDemoMessageWatchRuntimeStateCancel(context.Background(), handle); err != nil {
+		t.Fatalf("cancel watch runtime state stream: %v", err)
 	}
 
 	collect, err := fluttersharedv1.SharedSoDemoMessageCollectRuntimeStateStart(context.Background())
@@ -131,7 +141,10 @@ func TestSharedSoDemoMessageStreamContract(t *testing.T) {
 	if err != nil {
 		t.Fatalf("finish collect runtime state stream: %v", err)
 	}
-	if got, want := collected.GetValue(), int64(5); got != want {
+	if prev == nil {
+		t.Fatalf("watch runtime state stream did not produce a response")
+	}
+	if got, want := collected.GetValue(), prev.GetValue()+5; got != want {
 		t.Fatalf("collected value = %d, want %d", got, want)
 	}
 	if got, want := collected.GetCaller(), "client-stream-b"; got != want {
@@ -187,11 +200,14 @@ func TestSharedSoDemoMessageStreamContract(t *testing.T) {
 func TestSharedSoDemoFlutterProjectContracts(t *testing.T) {
 	assertFileContains(t, "flutter_app/hook/build.dart", "DynamicLoadingSystem(")
 	assertFileContains(t, "flutter_app/hook/build.dart", "Uri.file('librpccgo_flutter_shared.so')")
-	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "System.loadLibrary(\"rpccgo_flutter_shared\")")
-	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "System.loadLibrary(\"rpccgo_flutter_shared_jni\")")
-	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "SharedSoDemoJni.ComposeGreeting")
-	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "SharedSoDemoJni.ReadRuntimeState")
-	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "object : SharedSoDemoJni.SharedSoDemoStreamRuntimeStateListener")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "requestNotificationPermission")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "startRuntimeService")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "MethodChannel")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "EventChannel")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoRuntimeService.kt", "SharedSoDemoJni.ReadRuntimeState")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoRuntimeService.kt", "SharedSoDemoJni.IncrementRuntimeState")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoRuntimeService.kt", "START_STICKY")
+	assertFileContains(t, "flutter_app/android/app/src/main/AndroidManifest.xml", "android:stopWithTask=\"false\"")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun WatchRuntimeStateStart")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun CollectRuntimeStateStart")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun StreamRuntimeStateStart")
@@ -206,19 +222,14 @@ func TestSharedSoDemoFlutterProjectContracts(t *testing.T) {
 	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "JNIEnv* attachedEnv = nullptr;")
 	assertFileContains(t, "flutter_app/android/app/src/main/cpp/CMakeLists.txt", "rpccgo_flutter_shared_jni")
 	assertFileContains(t, "flutter_app/android/app/src/main/cpp/CMakeLists.txt", "-l:librpccgo_flutter_shared.so")
-	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "ComposeGreetingRequest.newBuilder()")
-	assertFileContains(t, "flutter_app/lib/main.dart", "IncrementRuntimeState")
-	assertFileContains(t, "flutter_app/lib/main.dart", "CollectRuntimeState")
-	assertFileContains(t, "flutter_app/lib/main.dart", "StreamRuntimeStateStartCallback")
-	assertFileContains(t, "flutter_app/lib/main.dart", "onRecv:")
-	assertFileContains(t, "flutter_app/lib/main.dart", "onDone:")
-	assertFileContains(t, "flutter_app/lib/main.dart", "ChatRuntimeState")
-	assertFileContains(t, "flutter_app/lib/main.dart", "Latest Activity")
-	assertFileContains(t, "flutter_app/lib/main.dart", "_latestActivityBody")
-	assertFileContains(t, "flutter_app/lib/main.dart", "Same Go counter")
-	assertFileContains(t, "flutter_app/lib/main.dart", "continues after Flutter FFI")
-	assertFileContains(t, "flutter_app/lib/main.dart", "+2+3 ->")
-	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "+4+5 ->")
+	assertFileContains(t, "flutter_app/lib/main.dart", "SharedSoDemoRpccgoClient")
+	assertFileContains(t, "flutter_app/lib/main.dart", "WatchRuntimeStateStartCallback")
+	assertFileContains(t, "flutter_app/lib/main.dart", "ReadRuntimeState")
+	assertFileContains(t, "flutter_app/lib/main.dart", "Start Count Stream")
+	assertFileContains(t, "flutter_app/lib/main.dart", "Close Activity")
+	assertFileContains(t, "flutter_app/lib/main.dart", "Stop Count Stream")
+	assertFileContains(t, "flutter_app/lib/main.dart", "kotlinIncrement")
+	assertFileContains(t, "flutter_app/lib/main.dart", "SystemNavigator.pop")
 	assertFileContains(t, "flutter_app/android/app/build.gradle.kts", "dependsOn(buildSharedSoForAndroid)")
 	assertFileContains(t, "flutter_app/android/app/build.gradle.kts", "externalNativeBuild")
 	assertFileContains(t, "flutter_app/android/app/build.gradle.kts", "abiFilters.addAll(listOf(\"arm64-v8a\", \"armeabi-v7a\", \"x86_64\"))")

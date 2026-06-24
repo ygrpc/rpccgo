@@ -236,7 +236,14 @@ func rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateRecv(handle C.int32_t,
 func rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateCancel(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
+	callbackState, _ := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))
+	if callbackState != nil {
+		callbackState.MarkCallbackReceiveClosed()
+	}
 	err := proto.SharedSoDemoMessageWatchRuntimeStateCancel(ctx, rpcruntime.StreamHandle(handleValue))
+	if callbackState != nil {
+		callbackState.WaitDone()
+	}
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -435,7 +442,14 @@ func rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateRecv(handle C.int32_t
 func rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateCancel(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
+	callbackState, _ := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))
+	if callbackState != nil {
+		callbackState.MarkCallbackReceiveClosed()
+	}
 	err := proto.SharedSoDemoMessageStreamRuntimeStateCancel(ctx, rpcruntime.StreamHandle(handleValue))
+	if callbackState != nil {
+		callbackState.WaitDone()
+	}
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -585,7 +599,7 @@ func rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateFinish(handle C.int32_t
 	handleValue := int32(handle)
 	callbackState, _ := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))
 	if callbackState != nil {
-		callbackState.MarkCanceled()
+		callbackState.MarkCallbackReceiveClosed()
 	}
 	err := proto.SharedSoDemoMessageChatRuntimeStateFinish(ctx, rpcruntime.StreamHandle(handleValue))
 	if callbackState != nil {
@@ -605,7 +619,7 @@ func rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateCancel(handle C.int32_t
 	handleValue := int32(handle)
 	callbackState, _ := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))
 	if callbackState != nil {
-		callbackState.MarkCanceled()
+		callbackState.MarkCallbackReceiveClosed()
 	}
 	err := proto.SharedSoDemoMessageChatRuntimeStateCancel(ctx, rpcruntime.StreamHandle(handleValue))
 	if callbackState != nil {

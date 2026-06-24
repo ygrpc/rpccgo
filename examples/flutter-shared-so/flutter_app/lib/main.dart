@@ -1,8 +1,9 @@
-import 'dart:async' as async;
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:rpccgofluttersharedso/gen/rpccgo.dart';
+
+import 'gen/rpccgo.dart';
 
 void main() {
   runApp(const SharedSoApp());
@@ -18,7 +19,7 @@ class SharedSoApp extends StatelessWidget {
       title: 'rpccgo Shared .so',
       theme: ThemeData(
         useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF0B7285)),
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF006C67)),
       ),
       home: const SharedSoHomePage(),
     );
@@ -33,407 +34,221 @@ class SharedSoHomePage extends StatefulWidget {
 }
 
 class _SharedSoHomePageState extends State<SharedSoHomePage> {
-  static const _jniChannel = MethodChannel('rpccgo.shared.so/jni');
-  static const _client = SharedSoDemoRpccgoClient();
+  static const _command = MethodChannel('rpccgo.shared.so/command');
+  static const _events = EventChannel('rpccgo.shared.so/events');
 
-  final _nameController = TextEditingController(text: 'Ada');
-  String _latestActivityTitle = 'Latest Result';
-  String _latestActivityBody =
-      'Choose a call path to see which runtime handled the request and how the shared state changed.';
-  Color _latestActivityColor = Colors.grey;
-  bool _flutterBusy = false;
-  bool _jniBusy = false;
-  bool _runtimeBusy = false;
-  bool _streamBusy = false;
+  final _client = const SharedSoDemoRpccgoClient();
+  final _logs = <String>['app opened'];
+  RuntimeStateResponse? _dartState;
+  String? _kotlinLine;
+  SharedSoDemoWatchRuntimeStateStream? _countStream;
+  StreamSubscription<dynamic>? _serviceEvents;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _serviceEvents = _events.receiveBroadcastStream().listen((value) {
+      final line = value?.toString() ?? '';
+      if (line.isEmpty) return;
+      setState(() => _kotlinLine = line);
+      _append(line);
+    }, onError: (error) => _append('service event error=$error'));
+  }
 
   @override
   void dispose() {
-    _nameController.dispose();
+    _serviceEvents?.cancel();
     super.dispose();
   }
 
-  Future<void> _callViaFlutter() async {
-    setState(() {
-      _flutterBusy = true;
-    });
-    await _showBusyState();
-    final response = _client.ComposeGreeting(
-      ComposeGreetingRequest(name: _effectiveName, caller: 'flutter-ffi'),
-    );
-    final error = response.error;
-    final value = response.value;
-    if (error != null || value == null) {
-      setState(() {
-        _latestActivityTitle = 'Latest Activity: Flutter FFI (Error)';
-        _latestActivityBody =
-            'flutter ffi error: ${error ?? 'missing response'}';
-        _latestActivityColor = Colors.red;
-      });
-    } else {
-      setState(() {
-        _latestActivityTitle = 'Latest Activity: Flutter FFI';
-        _latestActivityBody = _formatGreetingResult('Flutter FFI', value);
-        _latestActivityColor = const Color(0xFF0B7285);
-      });
-    }
-    setState(() {
-      _flutterBusy = false;
+  Future<void> _callKotlin(String method) async {
+    await _run(method, () async {
+      await _command.invokeMethod<void>(method);
+      _append('$method requested');
     });
   }
 
-  Future<void> _callViaJNI() async {
-    setState(() {
-      _jniBusy = true;
-    });
-    await _showBusyState();
-    try {
-      final response = await _jniChannel.invokeMethod<String>(
-        'composeGreeting',
-        <String, Object?>{'name': _effectiveName},
+  Future<void> _dartRead() async {
+    await _run('dart read', () async {
+      final result = _client.ReadRuntimeState(
+        ReadRuntimeStateRequest(caller: 'dart-ffi-read'),
       );
-      setState(() {
-        final result = response ?? 'jni returned null';
-        _latestActivityTitle = 'Latest Activity: Kotlin/JNI';
-        _latestActivityBody = result;
-        _latestActivityColor = const Color(0xFF2B8A3E);
-      });
-    } on PlatformException catch (error) {
-      setState(() {
-        final errMsg = 'jni platform error: ${error.message ?? error.code}';
-        _latestActivityTitle = 'Latest Activity: Kotlin/JNI (Error)';
-        _latestActivityBody = errMsg;
-        _latestActivityColor = Colors.red;
-      });
-    } catch (error) {
-      setState(() {
-        final errMsg = 'jni error: $error';
-        _latestActivityTitle = 'Latest Activity: Kotlin/JNI (Error)';
-        _latestActivityBody = errMsg;
-        _latestActivityColor = Colors.red;
-      });
-    } finally {
-      setState(() {
-        _jniBusy = false;
-      });
-    }
-  }
-
-  Future<void> _verifySharedRuntime() async {
-    setState(() {
-      _runtimeBusy = true;
+      final value = result.value;
+      if (result.error != null || value == null) {
+        _append('dart read error=${result.error ?? "missing response"}');
+        return;
+      }
+      setState(() => _dartState = value);
+      _append(_formatState('dart read', value));
     });
-    await _showBusyState();
-    final writtenResult = _client.IncrementRuntimeState(
-      IncrementRuntimeStateRequest(delta: 1, caller: 'flutter-ffi'),
-    );
-    final writtenError = writtenResult.error;
-    final written = writtenResult.value;
-    if (writtenError != null || written == null) {
-      setState(() {
-        _latestActivityTitle =
-            'Latest Activity: Shared Go runtime state (Error)';
-        _latestActivityBody =
-            'shared runtime verification error: ${writtenError ?? 'missing response'}';
-        _latestActivityColor = Colors.red;
-        _runtimeBusy = false;
-      });
-      return;
-    }
-    try {
-      debugPrint(
-        'Flutter FFI wrote instance_address=${written.instanceAddress} pid=${written.pid} '
-        'value=${written.value} revision=${written.revision}',
-      );
-      final observed = await _jniChannel.invokeMethod<String>(
-        'readRuntimeState',
-      );
-      debugPrint('Kotlin/JNI observed $observed');
-      setState(() {
-        _latestActivityTitle = 'Latest Activity: Shared Go runtime state';
-        _latestActivityBody =
-            'Flutter FFI wrote shared state\n'
-            'Value: ${written.value}\n'
-            'Revision: ${written.revision}\n'
-            'Go instance: ${written.instanceAddress}\n'
-            'Process ID: ${written.pid}\n\n'
-            'Kotlin/JNI then read the same state\n'
-            '${observed ?? 'jni returned null'}';
-        _latestActivityColor = const Color(0xFFE67700);
-      });
-    } catch (error) {
-      setState(() {
-        _latestActivityTitle =
-            'Latest Activity: Shared Go runtime state (Error)';
-        _latestActivityBody = 'shared runtime verification error: $error';
-        _latestActivityColor = Colors.red;
-      });
-    } finally {
-      setState(() {
-        _runtimeBusy = false;
-      });
-    }
   }
 
-  Future<void> _runStreams() async {
-    setState(() {
-      _streamBusy = true;
+  Future<void> _dartIncrement() async {
+    await _run('dart increment', () async {
+      final result = _client.IncrementRuntimeState(
+        IncrementRuntimeStateRequest(delta: 1, caller: 'dart-ffi-increment'),
+      );
+      final value = result.value;
+      if (result.error != null || value == null) {
+        _append('dart increment error=${result.error ?? "missing response"}');
+        return;
+      }
+      setState(() => _dartState = value);
+      _append(_formatState('dart increment', value));
     });
-    await _showBusyState();
+  }
+
+  Future<void> _startCountStream() async {
+    await _run('start count stream', () async {
+      if (_countStream != null) {
+        _append('count stream already running');
+        return;
+      }
+      final result = _client.WatchRuntimeStateStartCallback(
+        ReadRuntimeStateRequest(caller: 'dart-ffi-count-stream'),
+        onRecv: (value) {
+          setState(() => _dartState = value);
+          _append(_formatState('dart count', value));
+        },
+        onDone: (error) {
+          _countStream = null;
+          _append('dart count done error=${error ?? "none"}');
+        },
+      );
+      if (result.error != null || result.value == null) {
+        _append('start count error=${result.error ?? "missing stream"}');
+        return;
+      }
+      setState(() => _countStream = result.value);
+      _append('dart count stream started');
+    });
+  }
+
+  Future<void> _stopCountStream() async {
+    await _run('stop count stream', () async {
+      final stream = _countStream;
+      if (stream == null) {
+        _append('count stream not running');
+        return;
+      }
+      final error = stream.Cancel();
+      setState(() => _countStream = null);
+      _append('dart count cancel error=${error ?? "none"}');
+    });
+  }
+
+  Future<void> _run(String label, Future<void> Function() action) async {
+    if (_busy) return;
+    setState(() => _busy = true);
     try {
-      final flutterSummary = await _runFlutterStreams();
-      final jniSummary = await _jniChannel.invokeMethod<String>('runStreams');
-      setState(() {
-        _latestActivityTitle = 'Latest Activity: Streaming';
-        _latestActivityBody =
-            'Same Go counter. Kotlin/JNI continues after Flutter FFI.\n'
-            '$flutterSummary\n'
-            '${jniSummary ?? 'Kotlin/JNI: no result'}';
-        _latestActivityColor = const Color(0xFF7048E8);
-      });
+      await action();
     } catch (error) {
-      setState(() {
-        _latestActivityTitle = 'Latest Activity: Streaming (Error)';
-        _latestActivityBody = 'streaming error: $error';
-        _latestActivityColor = Colors.red;
-      });
+      _append('$label failed: $error');
     } finally {
-      setState(() {
-        _streamBusy = false;
-      });
+      if (mounted) setState(() => _busy = false);
     }
   }
 
-  Future<String> _runFlutterStreams() async {
-    final collectResult = _client.CollectRuntimeStateStart();
-    final collect = collectResult.value;
-    if (collectResult.error != null || collect == null) {
-      throw StateError('client stream start: ${collectResult.error}');
-    }
-    for (final request in [
-      IncrementRuntimeStateRequest(
-        delta: 2,
-        caller: 'flutter-ffi-client-stream-a',
-      ),
-      IncrementRuntimeStateRequest(
-        delta: 3,
-        caller: 'flutter-ffi-client-stream-b',
-      ),
-    ]) {
-      final error = collect.Send(request);
-      if (error != null) {
-        throw StateError('client stream send: $error');
-      }
-    }
-    final collected = collect.Finish();
-    final collectedValue = collected.value;
-    if (collected.error != null || collectedValue == null) {
-      throw StateError('client stream finish: ${collected.error}');
-    }
-
-    final serverValues = [];
-    final serverDone = async.Completer<void>();
-    final streamResult = _client.StreamRuntimeStateStartCallback(
-      ReadRuntimeStateRequest(caller: 'flutter-ffi-server-stream'),
-      onRecv: (value) {
-        serverValues.add(value.value);
-      },
-      onDone: (error) {
-        if (error != null) {
-          serverDone.completeError(
-            StateError('server stream callback: $error'),
-          );
-          return;
-        }
-        serverDone.complete();
-      },
-    );
-    final serverStream = streamResult.value;
-    if (streamResult.error != null || serverStream == null) {
-      throw StateError('server stream start: ${streamResult.error}');
-    }
-    await serverDone.future.timeout(
-      const Duration(seconds: 3),
-      onTimeout: () {
-        serverStream.Cancel();
-        throw async.TimeoutException('server stream callback timed out');
-      },
-    );
-
-    final chatResult = _client.ChatRuntimeStateStart();
-    final chat = chatResult.value;
-    if (chatResult.error != null || chat == null) {
-      throw StateError('bidi stream start: ${chatResult.error}');
-    }
-    final bidiValues = [];
-    for (final request in [
-      IncrementRuntimeStateRequest(delta: 4, caller: 'flutter-ffi-bidi-a'),
-      IncrementRuntimeStateRequest(delta: 5, caller: 'flutter-ffi-bidi-b'),
-    ]) {
-      final sendError = chat.Send(request);
-      if (sendError != null) {
-        throw StateError('bidi stream send: $sendError');
-      }
-      final next = chat.Recv();
-      final value = next.value;
-      if (next.error != null || value == null) {
-        throw StateError('bidi stream read: ${next.error}');
-      }
-      bidiValues.add(value.value);
-    }
-    final closeSendError = chat.CloseSend();
-    if (closeSendError != null) {
-      throw StateError('bidi stream close-send: $closeSendError');
-    }
-    final finishError = chat.Finish();
-    if (finishError != null) {
-      throw StateError('bidi stream finish: $finishError');
-    }
-
-    return _formatStreamResult(
-      'Flutter FFI',
-      collectedValue.value,
-      collectedValue.revision,
-      serverValues,
-      bidiValues,
-    );
+  String _formatState(String label, RuntimeStateResponse value) {
+    return '$label value=${value.value} rev=${value.revision} pid=${value.pid} instance=${value.instanceAddress}';
   }
 
-  String _formatGreetingResult(String path, ComposeGreetingResponse value) {
-    return '$path unary call\n'
-        'Message: ${value.message}\n'
-        'Go handler: ${value.servedBy}\n'
-        'Shared library: ${value.library}';
-  }
-
-  String _formatStreamResult(
-    String path,
-    Object? finalValue,
-    Object? revision,
-    List<Object?> serverValues,
-    List<Object?> bidiValues,
-  ) {
-    final lastValue = bidiValues.isEmpty ? finalValue : bidiValues.last;
-    return '$path: +2+3 -> $finalValue (rev $revision); '
-        'read ${serverValues.join(', ')}; +4+5 -> ${bidiValues.join(' -> ')}; '
-        'final $lastValue';
-  }
-
-  Future<void> _showBusyState() async {
-    await WidgetsBinding.instance.endOfFrame;
-  }
-
-  String get _effectiveName {
-    final value = _nameController.text.trim();
-    if (value.isEmpty) {
-      return 'Ada';
-    }
-    return value;
+  void _append(String line) {
+    if (!mounted) return;
+    setState(() {
+      _logs.insert(
+        0,
+        '${DateTime.now().toIso8601String().substring(11, 19)}  $line',
+      );
+      if (_logs.length > 80) _logs.removeLast();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      body: DecoratedBox(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFFF3FBFD), Color(0xFFE6F4EA), Color(0xFFFFF7E6)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 760),
-              child: ListView(
-                padding: const EdgeInsets.all(24),
+      appBar: AppBar(title: const Text('Shared .so Runtime')),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _StatePanel(
+                kotlinLine: _kotlinLine,
+                dartState: _dartState,
+                streamRunning: _countStream != null,
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  Text(
-                    'Shared .so',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+                  FilledButton.icon(
+                    onPressed: _busy ? null : () => _callKotlin('kotlinRead'),
+                    icon: const Icon(Icons.android),
+                    label: const Text('Kotlin Read'),
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Flutter FFI and Kotlin/JNI call the same Go runtime in one shared library.',
-                    style: Theme.of(context).textTheme.bodyLarge,
+                  FilledButton.icon(
+                    onPressed: _busy
+                        ? null
+                        : () => _callKotlin('kotlinIncrement'),
+                    icon: const Icon(Icons.add_circle_outline),
+                    label: const Text('Kotlin Increment'),
                   ),
-                  const SizedBox(height: 24),
-                  Card(
-                    elevation: 0,
-                    color: Colors.white.withValues(alpha: 0.88),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextField(
-                            controller: _nameController,
-                            decoration: const InputDecoration(
-                              labelText: 'Greeting Target',
-                              hintText: 'Ada',
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Wrap(
-                            spacing: 12,
-                            runSpacing: 12,
-                            children: [
-                              FilledButton.tonalIcon(
-                                onPressed: _flutterBusy
-                                    ? null
-                                    : _callViaFlutter,
-                                icon: const Icon(Icons.flutter_dash),
-                                label: Text(
-                                  _flutterBusy
-                                      ? 'Calling...'
-                                      : 'Flutter FFI unary',
-                                ),
-                              ),
-                              FilledButton.icon(
-                                onPressed: _jniBusy ? null : _callViaJNI,
-                                icon: const Icon(Icons.android),
-                                label: Text(
-                                  _jniBusy ? 'Calling...' : 'Kotlin/JNI unary',
-                                ),
-                              ),
-                              FilledButton.tonalIcon(
-                                onPressed: _runtimeBusy
-                                    ? null
-                                    : _verifySharedRuntime,
-                                icon: const Icon(Icons.sync_alt),
-                                label: Text(
-                                  _runtimeBusy
-                                      ? 'Verifying...'
-                                      : 'Verify shared state',
-                                ),
-                              ),
-                              FilledButton.icon(
-                                onPressed: _streamBusy ? null : _runStreams,
-                                icon: const Icon(Icons.sync),
-                                label: Text(
-                                  _streamBusy
-                                      ? 'Streaming...'
-                                      : 'Compare stream RPCs',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+                  FilledButton.tonalIcon(
+                    onPressed: _busy ? null : _dartRead,
+                    icon: const Icon(Icons.memory),
+                    label: const Text('Dart Read'),
                   ),
-                  const SizedBox(height: 20),
-                  _ResultCard(
-                    title: _latestActivityTitle,
-                    body: _latestActivityBody,
-                    stripeColor: _latestActivityColor,
+                  FilledButton.tonalIcon(
+                    onPressed: _busy ? null : _dartIncrement,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Dart Increment'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _startCountStream,
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text('Start Count Stream'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _stopCountStream,
+                    icon: const Icon(Icons.stop),
+                    label: const Text('Stop Count Stream'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : SystemNavigator.pop,
+                    icon: const Icon(Icons.close_fullscreen),
+                    label: const Text('Close Activity'),
                   ),
                 ],
               ),
-            ),
+              const SizedBox(height: 12),
+              Text('Log', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 8),
+              Expanded(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: theme.dividerColor),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: ListView.separated(
+                    reverse: true,
+                    padding: const EdgeInsets.all(12),
+                    itemCount: _logs.length,
+                    separatorBuilder: (_, _) => const Divider(height: 12),
+                    itemBuilder: (_, index) => SelectableText(
+                      _logs[index],
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontFamily: 'monospace',
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -441,68 +256,44 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
   }
 }
 
-class _ResultCard extends StatelessWidget {
-  const _ResultCard({
-    required this.title,
-    required this.body,
-    required this.stripeColor,
+class _StatePanel extends StatelessWidget {
+  const _StatePanel({
+    required this.kotlinLine,
+    required this.dartState,
+    required this.streamRunning,
   });
 
-  final String title;
-  final String body;
-  final Color stripeColor;
+  final String? kotlinLine;
+  final RuntimeStateResponse? dartState;
+  final bool streamRunning;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final theme = Theme.of(context);
+    return DecoratedBox(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 24,
-            offset: const Offset(0, 12),
-          ),
-        ],
+        border: Border.all(color: theme.dividerColor),
+        borderRadius: BorderRadius.circular(8),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Container(
-            width: 10,
-            decoration: BoxDecoration(
-              color: stripeColor,
-              borderRadius: const BorderRadius.horizontal(
-                left: Radius.circular(20),
-              ),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Service: ${kotlinLine == null ? "waiting" : "running"}'),
+            Text('Count stream: ${streamRunning ? "running" : "stopped"}'),
+            const SizedBox(height: 8),
+            SelectableText('Kotlin/JNI: ${kotlinLine ?? "no state yet"}'),
+            SelectableText(
+              'Dart/FFI: ${dartState == null ? "no state yet" : _dartSummary(dartState!)}',
             ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  SelectableText(
-                    body,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(height: 1.35),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  String _dartSummary(RuntimeStateResponse value) {
+    return 'value=${value.value} rev=${value.revision} pid=${value.pid} instance=${value.instanceAddress}';
   }
 }

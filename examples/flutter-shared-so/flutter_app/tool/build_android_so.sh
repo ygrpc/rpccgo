@@ -20,17 +20,11 @@ if [[ -z "${NDK_ROOT}" || ! -d "${NDK_ROOT}" ]]; then
 fi
 
 case "$(uname -s)" in
-  Linux)
-    host_tag="linux-x86_64"
-    ;;
+  Linux) host_tag="linux-x86_64" ;;
   Darwin)
     case "$(uname -m)" in
-      arm64)
-        host_tag="darwin-arm64"
-        ;;
-      x86_64)
-        host_tag="darwin-x86_64"
-        ;;
+      arm64) host_tag="darwin-arm64" ;;
+      x86_64) host_tag="darwin-x86_64" ;;
       *)
         echo "Unsupported macOS host architecture: $(uname -m)" >&2
         exit 1

@@ -217,7 +217,6 @@ bool cancelSharedSoDemoWatchRuntimeStateListenerCallback(JNIEnv* env) {
         return true;
     }
     int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateCancel(handle);
-    clearSharedSoDemoWatchRuntimeStateListenerCallback(env);
     return errID == 0;
 }
 
@@ -425,7 +424,6 @@ bool cancelSharedSoDemoStreamRuntimeStateListenerCallback(JNIEnv* env) {
         return true;
     }
     int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateCancel(handle);
-    clearSharedSoDemoStreamRuntimeStateListenerCallback(env);
     return errID == 0;
 }
 
@@ -587,7 +585,6 @@ bool cancelSharedSoDemoChatRuntimeStateListenerCallback(JNIEnv* env) {
         return true;
     }
     int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateCancel(handle);
-    clearSharedSoDemoChatRuntimeStateListenerCallback(env);
     return errID == 0;
 }
 

@@ -598,7 +598,7 @@ func renderNativeStreamNoResultBody(g *protogen.GeneratedFile, service ServicePl
 	g.P("var err error")
 	if (operation == "Cancel" || operation == "Finish") && (method.Streaming == StreamingKindServerStreaming || method.Streaming == StreamingKindBidiStreaming) {
 		g.P("callbackState, _ := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handle))")
-		g.P("if callbackState != nil { callbackState.MarkCanceled() }")
+			g.P("if callbackState != nil { callbackState.MarkCanceled() }")
 	}
 	renderNativeClientStreamFacadeCall(g, service, method, servicePackage, operation, ctx)
 	if (operation == "Cancel" || operation == "Finish") && (method.Streaming == StreamingKindServerStreaming || method.Streaming == StreamingKindBidiStreaming) {
