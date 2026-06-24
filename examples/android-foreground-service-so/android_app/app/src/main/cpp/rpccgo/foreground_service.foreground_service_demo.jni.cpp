@@ -161,7 +161,7 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgoandroidfor
 
 std::mutex foregroundServiceDemoWatchTicksCallbackMu;
 jobject foregroundServiceDemoWatchTicksCallbackListener = nullptr;
-jmethodID foregroundServiceDemoWatchTicksCallbackOnMessage = nullptr;
+jmethodID foregroundServiceDemoWatchTicksCallbackOnRecv = nullptr;
 jmethodID foregroundServiceDemoWatchTicksCallbackOnDone = nullptr;
 int32_t foregroundServiceDemoWatchTicksCallbackHandle = 0;
 
@@ -171,7 +171,7 @@ void clearForegroundServiceDemoWatchTicksListenerCallback(JNIEnv* env) {
         env->DeleteGlobalRef(foregroundServiceDemoWatchTicksCallbackListener);
     }
     foregroundServiceDemoWatchTicksCallbackListener = nullptr;
-    foregroundServiceDemoWatchTicksCallbackOnMessage = nullptr;
+    foregroundServiceDemoWatchTicksCallbackOnRecv = nullptr;
     foregroundServiceDemoWatchTicksCallbackOnDone = nullptr;
     foregroundServiceDemoWatchTicksCallbackHandle = 0;
 }
@@ -191,7 +191,7 @@ bool cancelForegroundServiceDemoWatchTicksListenerCallback(JNIEnv* env) {
     return errID == 0;
 }
 
-int32_t onForegroundServiceDemoWatchTicksListenerMessage(int32_t, uintptr_t responsePtr, int32_t responseLen) {
+int32_t onForegroundServiceDemoWatchTicksListenerRecv(int32_t, uintptr_t responsePtr, int32_t responseLen) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) {
@@ -199,7 +199,7 @@ int32_t onForegroundServiceDemoWatchTicksListenerMessage(int32_t, uintptr_t resp
         return 0;
     }
     std::lock_guard<std::mutex> lock(foregroundServiceDemoWatchTicksCallbackMu);
-    if (foregroundServiceDemoWatchTicksCallbackListener == nullptr || foregroundServiceDemoWatchTicksCallbackOnMessage == nullptr) {
+    if (foregroundServiceDemoWatchTicksCallbackListener == nullptr || foregroundServiceDemoWatchTicksCallbackOnRecv == nullptr) {
         if (responsePtr != 0) { rpccgoRelease(responsePtr); }
         return 0;
     }
@@ -212,7 +212,7 @@ int32_t onForegroundServiceDemoWatchTicksListenerMessage(int32_t, uintptr_t resp
         env->SetByteArrayRegion(payload, 0, responseLen, reinterpret_cast<const jbyte*>(responsePtr));
     }
     if (responsePtr != 0) { rpccgoRelease(responsePtr); }
-    env->CallVoidMethod(foregroundServiceDemoWatchTicksCallbackListener, foregroundServiceDemoWatchTicksCallbackOnMessage, payload);
+    env->CallVoidMethod(foregroundServiceDemoWatchTicksCallbackListener, foregroundServiceDemoWatchTicksCallbackOnRecv, payload);
     env->DeleteLocalRef(payload);
     if (env->ExceptionCheck()) { env->ExceptionClear(); }
     return 0;
@@ -287,10 +287,10 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgoandroidforeg
     if (request == nullptr || listener == nullptr) { return JNI_FALSE; }
     cancelForegroundServiceDemoWatchTicksListenerCallback(env);
     jclass listenerClass = env->GetObjectClass(listener);
-    jmethodID onMessage = env->GetMethodID(listenerClass, "onMessage", "([B)V");
+    jmethodID onRecv = env->GetMethodID(listenerClass, "onRecv", "([B)V");
     jmethodID onDone = env->GetMethodID(listenerClass, "onDone", "(Ljava/lang/String;)V");
     env->DeleteLocalRef(listenerClass);
-    if (onMessage == nullptr || onDone == nullptr) { return JNI_FALSE; }
+    if (onRecv == nullptr || onDone == nullptr) { return JNI_FALSE; }
     bool requestOK = false;
     std::vector<uint8_t> requestBytes = rpccgoJNIBytes(env, request, &requestOK);
     if (!requestOK) { return JNI_FALSE; }
@@ -299,11 +299,11 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgoandroidforeg
     {
         std::lock_guard<std::mutex> lock(foregroundServiceDemoWatchTicksCallbackMu);
         foregroundServiceDemoWatchTicksCallbackListener = globalListener;
-        foregroundServiceDemoWatchTicksCallbackOnMessage = onMessage;
+        foregroundServiceDemoWatchTicksCallbackOnRecv = onRecv;
         foregroundServiceDemoWatchTicksCallbackOnDone = onDone;
     }
     int32_t handle = 0;
-    int32_t errID = rpccgoMsgForegroundservicev1ForegroundServiceDemoWatchTicksStart(rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()), &handle, onForegroundServiceDemoWatchTicksListenerMessage, onForegroundServiceDemoWatchTicksListenerDone);
+    int32_t errID = rpccgoMsgForegroundservicev1ForegroundServiceDemoWatchTicksStart(rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()), &handle, onForegroundServiceDemoWatchTicksListenerRecv, onForegroundServiceDemoWatchTicksListenerDone);
     if (errID != 0) {
         clearForegroundServiceDemoWatchTicksListenerCallback(env);
         return JNI_FALSE;

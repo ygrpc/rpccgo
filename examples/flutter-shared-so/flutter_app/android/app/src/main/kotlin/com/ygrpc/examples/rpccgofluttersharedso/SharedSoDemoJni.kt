@@ -24,7 +24,7 @@ object SharedSoDemoJni {
     @Keep
     interface SharedSoDemoWatchRuntimeStateListener {
         @Keep
-        fun onMessage(responseBytes: ByteArray)
+        fun onRecv(responseBytes: ByteArray)
         @Keep
         fun onDone(error: String?)
     }
@@ -41,7 +41,7 @@ object SharedSoDemoJni {
     @Keep
     interface SharedSoDemoStreamRuntimeStateListener {
         @Keep
-        fun onMessage(responseBytes: ByteArray)
+        fun onRecv(responseBytes: ByteArray)
         @Keep
         fun onDone(error: String?)
     }
@@ -54,7 +54,7 @@ object SharedSoDemoJni {
     @Keep
     interface SharedSoDemoChatRuntimeStateListener {
         @Keep
-        fun onMessage(responseBytes: ByteArray)
+        fun onRecv(responseBytes: ByteArray)
         @Keep
         fun onDone(error: String?)
     }
@@ -102,7 +102,7 @@ object SharedSoDemoJni {
         fun Cancel(): RpccgoResult<Unit> =
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoWatchRuntimeStateCancel(handle))
         /** Starts a background Recv loop. Do not mix with manual Recv calls on this stream. */
-        fun RecvEach(onMessage: (examples.flutter.sharedso.v1.RuntimeStateResponse) -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread> {
+        fun RecvEach(onRecv: (examples.flutter.sharedso.v1.RuntimeStateResponse) -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread> {
             if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure("rpccgo: stream already has an active receiver")
             val worker = Thread {
                 try {
@@ -113,7 +113,7 @@ object SharedSoDemoJni {
                             return@Thread
                         }
                         val value = next.value ?: return@Thread
-                        onMessage(value)
+                        onRecv(value)
                     }
                 } finally {
                     receiving.set(false)
@@ -165,7 +165,7 @@ object SharedSoDemoJni {
         fun Cancel(): RpccgoResult<Unit> =
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoStreamRuntimeStateCancel(handle))
         /** Starts a background Recv loop. Do not mix with manual Recv calls on this stream. */
-        fun RecvEach(onMessage: (examples.flutter.sharedso.v1.RuntimeStateResponse) -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread> {
+        fun RecvEach(onRecv: (examples.flutter.sharedso.v1.RuntimeStateResponse) -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread> {
             if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure("rpccgo: stream already has an active receiver")
             val worker = Thread {
                 try {
@@ -176,7 +176,7 @@ object SharedSoDemoJni {
                             return@Thread
                         }
                         val value = next.value ?: return@Thread
-                        onMessage(value)
+                        onRecv(value)
                     }
                 } finally {
                     receiving.set(false)
@@ -219,7 +219,7 @@ object SharedSoDemoJni {
         fun Cancel(): RpccgoResult<Unit> =
             decodeUnitResult(SharedSoDemoJni.sharedSoDemoChatRuntimeStateCancel(handle))
         /** Starts a background Recv loop. Do not mix with manual Recv calls on this stream. */
-        fun RecvEach(onMessage: (examples.flutter.sharedso.v1.RuntimeStateResponse) -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread> {
+        fun RecvEach(onRecv: (examples.flutter.sharedso.v1.RuntimeStateResponse) -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread> {
             if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure("rpccgo: stream already has an active receiver")
             val worker = Thread {
                 try {
@@ -230,7 +230,7 @@ object SharedSoDemoJni {
                             return@Thread
                         }
                         val value = next.value ?: return@Thread
-                        onMessage(value)
+                        onRecv(value)
                     }
                 } finally {
                     receiving.set(false)

@@ -50,7 +50,7 @@ func TestGenerateJNIEmitsStreamingOperations(t *testing.T) {
 		"rpccgoMsgTestv1GreeterUploadSend",
 		"rpccgoMsgTestv1GreeterUploadFinish",
 		"rpccgoMsgTestv1GreeterListStart",
-		"rpccgoMsgTestv1GreeterListStart(rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()), &handle, onGreeterListListenerMessage, onGreeterListListenerDone)",
+		"rpccgoMsgTestv1GreeterListStart(rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()), &handle, onGreeterListListenerRecv, onGreeterListListenerDone)",
 		"rpccgoMsgTestv1GreeterListRecv",
 		"rpccgoMsgTestv1GreeterChatCloseSend",
 		"#include <mutex>",
@@ -72,7 +72,7 @@ func TestGenerateJNIEmitsStreamingOperations(t *testing.T) {
 		"import java.util.concurrent.atomic.AtomicBoolean",
 		"fun UploadStart(): RpccgoResult<GreeterUploadClientStream>",
 		"@Keep\n    interface GreeterListListener {",
-		"@Keep\n        fun onMessage(responseBytes: ByteArray)",
+		"@Keep\n        fun onRecv(responseBytes: ByteArray)",
 		"@Keep\n        fun onDone(error: String?)",
 		"private external fun greeterListStartCallback(request: ByteArray, listener: GreeterListListener): Boolean",
 		"private external fun greeterListCancelCallback(): Boolean",
@@ -88,7 +88,7 @@ func TestGenerateJNIEmitsStreamingOperations(t *testing.T) {
 		"/** Receives one response. Do not call while RecvEach is running on this stream. */",
 		"if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure(\"rpccgo: stream already has an active receiver\")",
 		"/** Starts a background Recv loop. Do not mix with manual Recv calls on this stream. */",
-		"fun RecvEach(onMessage: (test.v1.MessageReply) -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread>",
+		"fun RecvEach(onRecv: (test.v1.MessageReply) -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread>",
 		"val worker = Thread {",
 		"val next = recvUnchecked()",
 		"return RpccgoResult.success(worker)",
@@ -102,6 +102,7 @@ func TestGenerateJNIEmitsStreamingOperations(t *testing.T) {
 		"fun StartChat():",
 		"kotlinx.coroutines",
 		"ReceiveEach",
+		"fun onMessage(responseBytes: ByteArray)",
 	)
 }
 

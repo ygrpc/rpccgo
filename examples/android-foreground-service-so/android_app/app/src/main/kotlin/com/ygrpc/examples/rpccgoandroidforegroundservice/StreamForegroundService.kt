@@ -78,7 +78,7 @@ class StreamForegroundService : Service() {
                 .setIntervalMillis(1000)
                 .build(),
             object : ForegroundServiceDemoJni.ForegroundServiceDemoWatchTicksListener {
-                override fun onMessage(responseBytes: ByteArray) {
+                override fun onRecv(responseBytes: ByteArray) {
                     val tick = Tick.parseFrom(responseBytes)
                     val line = "tick seq=${tick.seq} pid=${tick.pid} instance=${tick.instanceAddress}"
                     publish(line)

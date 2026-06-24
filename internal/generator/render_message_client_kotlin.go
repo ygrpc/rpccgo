@@ -115,7 +115,7 @@ func renderKotlinCallbackListener(g *protogen.GeneratedFile, service ServicePlan
 	g.P("    @Keep")
 	g.P("    interface ", jniKotlinListenerType(service, method), " {")
 	g.P("        @Keep")
-	g.P("        fun onMessage(responseBytes: ByteArray)")
+	g.P("        fun onRecv(responseBytes: ByteArray)")
 	g.P("        @Keep")
 	g.P("        fun onDone(error: String?)")
 	g.P("    }")
@@ -238,7 +238,7 @@ func serviceHasRecvStreamingMethod(service ServicePlan) bool {
 
 func renderKotlinReceiveEachMethod(g *protogen.GeneratedFile, respType string) {
 	g.P("        /** Starts a background Recv loop. Do not mix with manual Recv calls on this stream. */")
-	g.P("        fun RecvEach(onMessage: (", respType, ") -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread> {")
+	g.P("        fun RecvEach(onRecv: (", respType, ") -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread> {")
 	g.P("            if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure(\"rpccgo: stream already has an active receiver\")")
 	g.P("            val worker = Thread {")
 	g.P("                try {")
@@ -249,7 +249,7 @@ func renderKotlinReceiveEachMethod(g *protogen.GeneratedFile, respType string) {
 	g.P("                            return@Thread")
 	g.P("                        }")
 	g.P("                        val value = next.value ?: return@Thread")
-	g.P("                        onMessage(value)")
+	g.P("                        onRecv(value)")
 	g.P("                    }")
 	g.P("                } finally {")
 	g.P("                    receiving.set(false)")

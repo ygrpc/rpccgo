@@ -22,7 +22,7 @@ object ForegroundServiceDemoJni {
     @Keep
     interface ForegroundServiceDemoWatchTicksListener {
         @Keep
-        fun onMessage(responseBytes: ByteArray)
+        fun onRecv(responseBytes: ByteArray)
         @Keep
         fun onDone(error: String?)
     }
@@ -61,7 +61,7 @@ object ForegroundServiceDemoJni {
         fun Cancel(): RpccgoResult<Unit> =
             decodeUnitResult(ForegroundServiceDemoJni.foregroundServiceDemoWatchTicksCancel(handle))
         /** Starts a background Recv loop. Do not mix with manual Recv calls on this stream. */
-        fun RecvEach(onMessage: (examples.android.foregroundservice.v1.Tick) -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread> {
+        fun RecvEach(onRecv: (examples.android.foregroundservice.v1.Tick) -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread> {
             if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure("rpccgo: stream already has an active receiver")
             val worker = Thread {
                 try {
@@ -72,7 +72,7 @@ object ForegroundServiceDemoJni {
                             return@Thread
                         }
                         val value = next.value ?: return@Thread
-                        onMessage(value)
+                        onRecv(value)
                     }
                 } finally {
                     receiving.set(false)

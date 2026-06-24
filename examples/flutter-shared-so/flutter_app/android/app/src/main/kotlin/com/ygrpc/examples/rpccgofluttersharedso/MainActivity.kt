@@ -121,7 +121,7 @@ class MainActivity : FlutterActivity() {
                 .setCaller("kotlin-jni-callback-server-stream")
                 .build(),
             object : SharedSoDemoJni.SharedSoDemoStreamRuntimeStateListener {
-                override fun onMessage(responseBytes: ByteArray) {
+                override fun onRecv(responseBytes: ByteArray) {
                     try {
                         callbackValues.add(RuntimeStateResponse.parseFrom(responseBytes).value)
                     } catch (err: Exception) {
