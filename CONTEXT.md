@@ -49,11 +49,10 @@ generator 侧的 contract-to-render 投影，把 streaming method 的 operation 
 _Avoid_: runtime stream lifecycle executor, stream registry helper plan
 
 **Callback receive stream**:
-C client export `Start` 时由用户同时传入 `onRecv` 与 `onDone` 后启用的自动接收 stream 模式；generated code 后台循环接收 server stream 或 bidi stream 的响应并回调 C 用户代码，而不是要求用户手动调用 `Recv`。
-_Avoid_: manual receive stream, C server callback
+C client export `Start` 时由用户同时传入 `onRecv` 与 `onDone` 后启用的自动接收 stream 模式；generated code 后台循环接收 server stream 或 bidi stream 的响应并回调用户代码，而不是要求用户手动调用 `Recv`。
 
 **Generated service runtime**:
-每个 service 生成的 `*.runtime.rpccgo.go`，只应承载 proto/service/method-specific 的 package-level invoke/start facade、registry lookup glue、transport registration glue、stream `Start` glue 和 converter glue。
+每个 service 生成的 service runtime artifact，只应承载 proto/service/method-specific 的 package-level invoke/start facade、registry lookup glue、transport registration glue、stream `Start` glue 和 converter glue。
 _Avoid_: runtime core
 
 **Remote registered server**:
@@ -80,13 +79,61 @@ _Avoid_: separate native contract, incompatible Go/C native ABI
 旧项目通过 provider/registry/bootstrap 组装服务能力的架构模型；新版 registry 不回迁该模型中的 provider 分层、bootstrap 入口或 go_role 能力注册。
 _Avoid_: active server
 
+## Naming Rules
+
+本节是 rpccgo 当前命名规则的唯一真相；其它文档可以引用本节，但不应重复定义同一规则。
+
+### 通用规则
+
+- Generated name 使用 protobuf descriptor 的 Go name 作为 service、method 和 message 的 Go-visible segment；文件名中的 service segment 使用 `lower_snake_case(service.GoName)`。
+- 当一个 generated symbol 同时包含 protobuf method 和 stream operation 时，operation 必须作为 method 后缀出现；允许在 method 前添加 contract、namespace、service、language runtime 或 binding qualifier，但不允许把 operation 移到 method 前。
+- Stream operation token 固定为 `Start`、`Send`、`Recv`、`Finish`、`CloseSend`、`Cancel`。接收操作统一使用 `Recv`，不使用 `Read`、`Receive` 或 `onMessage` 作为同义替代；创建 stream session 的入口必须显式保留 `Start`。
+- Server streaming client 侧没有 `Finish` 操作；server stream 由服务端自然结束或 client 侧 `Cancel` 终止。C server callback ABI 的 server-stream `Finish` 是 server implementation cleanup / natural completion callback，仍属于 server callback operation set。
+
+### Go generated symbols
+
+- Service ID helper 使用 `<lowerService>ServiceID`；current registered server load helper 使用 `Load<Service>RegisteredServer`。
+- Unary runtime entrypoint 使用 `Invoke<Service><Contract><Method>`，其中 `<Contract>` 为 `Native` 或 `Message`。
+- Package-level stream operation function 使用 `<Service><Contract><Method><Operation>`，例如 `GreeterMessageChatRecv`。
+- Go native server contract 使用 `<Service>NativeServer`；cgo message server contract 使用 `<Service>CGOMessageServer`；默认 unimplemented helper 使用 `Unimplemented<Service>NativeServer` 或 `Unimplemented<Service>CGOMessageServer`。
+- Go native handler stream interface 使用 `<Service><Method>Native{Client|Server|Bidi}Stream`，方法名只使用 `Send`、`Recv`、`Finish`、`CloseSend`、`Cancel`。
+- Registration helper 使用 `Register<Service>GoNativeServer`、`Register<Service>CGONativeServer`、`Register<Service>CGOMessageServer`、`Register<Service>ConnectHandler`、`Register<Service>GRPCServer`、`Register<Service>ConnectRemoteServer`、`Register<Service>GRPCRemoteServer`。内部 lower-case register helper 只用于 generated glue，不是 public API。
+- C message server 的 Go 侧方法名使用 service method Go name，不追加 `Message` 或 `Start` 前缀；message contract 由 server contract 名称表达。
+
+### C ABI symbols
+
+- C export symbol 使用 `rpccgo<Contract><Namespace><Service><Method><Operation>` 的 Go-style CamelCase segment 形式；`Contract` 为 `Native` 或 `Msg`，`Namespace` 默认取 Go package name，冲突时由用户显式覆盖。Unary call 没有 operation suffix。
+- C service-level register export 使用 `rpccgo<Contract><Namespace><Service>Register`；per-method register export 使用 `rpccgo<Contract><Namespace><Service>Register<Method>`。
+- Shared cgo exports 使用 `rpccgo<Operation>`，例如 `rpccgoRelease`、`rpccgoTakeErrorText`、`rpccgoStoreErrorText` 和 `rpccgoRegisterFree`。
+- C callback typedef 使用 `<Service><Method>CGO<Contract><Shape><Operation>Callback`，其中 `<Shape>` 为 `Unary`、`ClientStream`、`ServerStream` 或 `BidiStream`，operation token 仍为后缀。
+- C ABI field slot names 使用 protobuf field Go name 的 lower-initial form，并用 `Ptr`、`Len`、`Ownership`、`Result`、`Raw` 等后缀表达 ABI role；proto 无关辅助 slot 不使用 unsigned 32/64 类型。
+
+### Generated files
+
+- Go service artifacts 使用 `<proto-prefix>.<service>.runtime.rpccgo.go`、`<proto-prefix>.<service>.codec.rpccgo.go`、`<proto-prefix>.<service>.server.message.rpccgo.go` 和 `<proto-prefix>.<service>.server.native.rpccgo.go`。
+- cgo artifacts 输出到 `cgo_dir`，文件名使用 `<proto-prefix>.<service>.client.native.cgo.rpccgo.go`、`<proto-prefix>.<service>.server.native.cgo.rpccgo.go`、`<proto-prefix>.<service>.client.message.cgo.rpccgo.go` 和 `<proto-prefix>.<service>.server.message.cgo.rpccgo.go`。
+- Package-level shared cgo artifacts 按 cgo Go package 只生成一次：`rpccgo.exports.cgo.rpccgo.go` 和 `main.go`。
+- Dart service client file 使用 `<proto-prefix>.<service>.rpccgo.dart`；Dart shared entry file 使用 `rpccgo.dart`。
+- Dart native asset ID 使用 `package:<dart_package>/gen/rpccgo.dart`。
+- JNI C++ file 使用 `<proto-base>.<service>.jni.cpp` 并输出到 `cpp_dir`；Kotlin file 使用 `<JniClass>.kt` 并输出到 `kotlin_dir/<jni_class package>/`。
+- 不生成独立 `remote.connect.rpccgo.go` 或 `remote.grpc.rpccgo.go` adapter 文件；remote registered server glue 属于 service runtime。
+
+### Dart and JNI/Kotlin APIs
+
+- Dart client class 使用 `<Service>RpccgoClient`；Dart stream class 使用 `<Service><Method>Stream`。
+- Dart unary public method 使用 protobuf method name；stream public start method 使用 `<Method>Start`；callback receive start method 使用 `<Method>StartCallback`。Returned stream object exposes `Send`、`Recv`、`Finish`、`CloseSend`、`Cancel` as applicable.
+- Dart private/raw binding 使用 host-language casing，但必须保留 operation suffix，例如 `_<lowerMethod><Operation>Raw`。
+- JNI/Kotlin native method prefix 使用 `<lowerService><Method>`，stream operation 作为后缀，例如 `sharedSoDemoCollectRuntimeStateRecv`。
+- JNI/Kotlin listener surface 必须使用 `fun onRecv(responseBytes: ByteArray)` 与 `fun onDone(error: String?)`；C++ JNI trampoline、cached `jmethodID` 字段和传给 C ABI `Start` 的函数名也使用 `Recv` / `Done` 后缀。
+- **Callback receive stream** 的跨语言 public callback pair 统一命名为 `onRecv` / `onDone`：`onRecv` 表示收到一个响应 payload，`onDone` 表示后台接收循环自然结束、取消或错误结束。不要在 JNI/Kotlin、Dart/Flutter、C/C++ adapter 或测试期望中使用 `onMessage` 表达同一接收回调。
+- 手动 stream receive operation 仍命名为 `Recv`；`RecvEach` 这类 convenience loop 的用户回调参数也使用 `onRecv`，避免与 **Callback receive stream** 的 public callback pair 分叉。
+
 ## Relationships
 
 - **Native** 与 **Message contract** 是不同 contract；**Native** 不应退化成 request/response struct 或 message 指针边界。
 - **Native** 的字段级函数边界必须覆盖 Go server interface、Go native client API、C callback ABI，以及 streaming 的 start/send/recv/finish/close/cancel 相关边界。
 - Go native 与 C native 是同一个 **Native** contract 的不同 **Native projection**；它们不应被建模为两套独立 native contract。
-- Go native server 与 C native server 都实现同一个 **Native** server contract；C message server 属于 **Message contract**，不应被混入 native server 命名。
-- C message server 应有独立的 generated server contract，例如 `GreeterCGOMessageServer`；其方法名使用 service method Go name，不额外追加 `Message` 或 `Start` 前缀，message contract 由 server contract 名称表达。
+- Go native server 与 C native server 都实现同一个 **Native** server contract；C message server 属于 **Message contract**，不应被归入 native server contract。
 - C message server 的 Go 侧 server contract 使用 typed protobuf request/response message；跨 C ABI 的 `ptr/len` bytes 只是 **Message contract** 的 C projection，不是 Go 侧 contract surface。
 - Native 与 Message contract 共用按 shape 和 side 区分的 generic **Stream endpoint** surface：`ClientStreamingClient/Server`、`ServerStreamingClient/Server` 和 `BidiStreamingClient/Server`。Contract 差异由 endpoint 的 `Req` / `Resp` 类型表达，不使用 `Native`、`CGOMessage` 或 `Session` 前缀复制接口。
 - 本地 Go server 调用使用成对的 generic client/server endpoint；两端通过私有 shared state 协调 queue、ack、cancel、close-send 和 finish。Generated code 不生成 per-method state、client facade 或重复 lifecycle methods。
@@ -109,7 +156,6 @@ _Avoid_: active server
 - 跨 runtime 的 C **Native** ABI 不能以 `struct` 或 `struct*` 作为调用边界参数；service-level callback 注册也必须使用 flat callback 参数。
 - C **Native** server callback 支持按 method 局部注册；未注册的 method 仍属于同一个 **Registered server**，调用时返回 generated unimplemented error。每个 method 内部必须原子校验：unary callback nil 表示该 method 未实现，streaming method 的 operation callbacks 要么全 nil、要么全非 nil，不允许半注册。全部 method 都未注册时仍可注册为全 unimplemented server。
 - C per-method register 在 current server 为同一 **Server kind** 时累积到现有 cgo adapter；current server 为空或不是同一 **Server kind** 时创建新的 cgo adapter 并替换当前 **Registered server**。C message per-method register 只累积到 cgo message adapter，C native per-method register 只累积到 cgo native adapter。
-- C 导出符号命名以 `<contract> + <namespace> + <service> + <method> + <operation>` 组成；`namespace` 默认取 Go package name，冲突时由用户显式覆盖，不使用调用端/实现端语言前缀区分方向。
 - Go **Native** server 输入字段类型沿用旧 wrapper：`string -> *rpcruntime.RpcString`、`bytes/message -> *rpcruntime.RpcBytes`、`repeated scalar -> *rpcruntime.RpcRepeat[T]`、`repeated bool -> *rpcruntime.RpcBoolRepeat`。
 - 由 **Message contract** 适配到 **Native** 时，请求侧 wrapper 只应作为 **Call-scoped borrowed view** 存在；其底层数据只保证在该次 generated 同步 native operation 调用期间有效。
 - typed **Message contract** surface 不改变 **Call-scoped borrowed view** 规则；message 到 native 的 wrapper 每个 unary 或 stream operation 单独创建，不得跨 stream session 保存。
@@ -120,7 +166,7 @@ _Avoid_: active server
 - **Native C ABI lowering** 可表达 ownership / cleanup / transfer；它不应新增现有 ABI 之外的 ownership 参数，但若现有 C boundary 已包含 ownership slot，lowering 应把它作为 ABI slot 结构化表达。
 - **Native C ABI lowering** 位于 `NativeContract` 之后、renderer 之前；client/server renderer 共享同一套按需 lowering，不持久化独立的 service-level 或 method-level C ABI plan。
 - generator 不保留 `NativeCABIPlan`、`MethodNativeCABIPlan`、`MethodContractPlan.NativeCABI` 或 method C ABI attach/finalize 阶段；service-level callback 注册 ABI 由各 method 的按需 lowering 结果直接组装。Renderer 可以在渲染单个 artifact 时使用临时 service-level ABI 聚合值，但该值不得存入 `GenerationPlan`、`ServicePlan` 或 `MethodPlan`。
-- **Native C ABI lowering** 应返回 slot role、最终 C type spelling、cleanup capability、export symbol naming 和 callback typedef naming，使 renderer 不再重复推断 ABI 语义。
+- **Native C ABI lowering** 应返回 slot role、最终 C type spelling、cleanup capability 和 C boundary identity metadata，使 renderer 不再重复推断 ABI 语义。
 - **Native C ABI lowering** 拥有 method-level C boundary operation inventory；renderer 不重复维护 unary、client streaming、server streaming 和 bidi streaming 的 operation 列表。
 - lowered ABI slot 只保留 renderer 实际消费的最小字段：name、C type、cgo Go type、role 和可选 field Go name；不保留只用于解释旧 plan 的 source metadata 或未被 renderer 消费的 cleanup metadata。
 - **Native C ABI lowering** 对未知 streaming kind、非法 operation 和无法组装的 service-level callback 注册 ABI 返回显式 `error`；renderer 逐层传递错误，不使用空 ABI slot 兜底，也不允许 `panic`。
@@ -145,14 +191,14 @@ _Avoid_: active server
 - **Registration source** 必须经过 validation：四轴字段非空、组合属于 7 类白名单、renderer projection 可完整派生。projection 与 renderer 对未知组合显式返回 `error`，不允许 `panic`。
 - `Origin + Contract + Transport + Mode` 只描述 **Registration source**，不复用于 generated artifact planning。service-shared runtime、codec 和 cgo client artifact 不是 registration source，应使用独立 artifact plan 表达。
 - generator plan 使用 `GenerationPlan -> PackagePlan -> FilePlan -> ServicePlan` 层级：package-level symbols、cgo import path 和 shared cgo exports 属于 `PackagePlan`，proto descriptor 与 service artifact 属于 `FilePlan` / `ServicePlan`。
-- generated artifact planner 使用 `PackagePlan.SharedArtifacts` 与 `ServicePlan.Artifacts` 两级白名单列表；两者共用同一个 `GeneratedArtifactPlan` item 类型，每项只保存 artifact kind 和 filename。不保留重复表达 runtime 的 native/message file family，也不保留 `Enabled` 字段。未启用 artifact 不进入列表。
+- generated artifact planner 使用 `PackagePlan.SharedArtifacts` 与 `ServicePlan.Artifacts` 两级白名单列表；两者共用同一个 `GeneratedArtifactPlan` item 类型，每项只保存 artifact kind 和 output path。不保留重复表达 runtime 的 native/message file family，也不保留 `Enabled` 字段。未启用 artifact 不进入列表。
 - generator 只保留完整 artifact list renderer，不保留 native/message 分阶段生成 API 或 options。测试通过 artifact kind 定向筛选或验证完整生成结果。
 - generated artifact enabled 规则固定：service runtime、codec 和 shared cgo exports 始终生成；`native` 启用 Go native server contract、cgo native server artifact 和 cgo native client artifact；`msg-connect` 或 `msg-grpc` 启用 Go message server contract、cgo message server artifact 和 cgo message client artifact。没有 `native` token 时不得生成 native artifact。
 - native/message codec 是 **Generated service runtime** 的无条件能力；planner 不保留 `NeedsCodec` 或 `CodecEnabled` 这类总为真的选择字段。
 - native/message converter 不可用不是调用期状态；生成器 validation 或 renderer projection 必须在生成阶段返回显式 `error`，generated runtime 不保留 `NativeMessageConverterUnavailableErr` 这类不可达 sentinel。
-- generated artifact plan 必须经过 validation：artifact kind 属于白名单、filename 非空、同一 service kind 不重复、输出路径不重复。renderer 对未知 kind 显式返回 `error`。shared cgo exports 由 generation-level artifact planner 按 cgo Go package 生成一次，不参与 service-level 合并去重补丁。
+- generated artifact plan 必须经过 validation：artifact kind 属于白名单、output path 非空、同一 service kind 不重复、输出路径不重复。renderer 对未知 kind 显式返回 `error`。shared cgo exports 由 generation-level artifact planner 按 cgo Go package 生成一次，不参与 service-level 合并去重补丁。
 - 完整 `GenerationPlan` 构建后、render 前必须通过 `ValidateGenerationPlan`；它向下校验 package、file、service、method、registration source 与 artifact invariant。renderer 只保留未知 kind/source 的防御性 `error`，不承担主 validation。
-- `@rpccgo` token 表达 service generation selection，不是 adapter selection 或纯 server registration selection。generator 使用 `ServiceGenerationToken`、`ServiceGenerationSelection` 和 `ServicePlan.Generation` 命名，不保留 `AdapterToken`、`AdapterSelection` 或 `ServicePlan.Adapters`。
+- `@rpccgo` token 表达 service generation selection，不是 adapter selection 或纯 server registration selection。generator 使用 `ServiceGenerationToken`、`ServiceGenerationSelection` 和 `ServicePlan.Generation` 表达该概念，不保留 `AdapterToken`、`AdapterSelection` 或 `ServicePlan.Adapters`。
 - `@rpccgo` token 只停留在 parser 层；planner 中的 `ServiceGenerationSelection` 收敛为结构化能力：一个 message transport 与 `NativeEnabled`。后续 planner 和 renderer 不重复扫描 token 列表。
 - `ServiceGenerationSelection.MessageTransport` 必须是 `connect` 或 `grpc`；zero value 只表示未初始化并由 validation 拒绝，不引入具有业务含义的 `none`，因为当前没有 native-only generation 模式。
 - **Server registry** 在注册阶段保存具体 server 与 **Server kind**；调用阶段从 registry 取得 server，并按调用 contract 与 server kind 选择直接调用或 Native/Message 转换。
@@ -167,8 +213,8 @@ _Avoid_: active server
 - 无 registered server 使用 `rpcruntime.ErrNoRegisteredServer`。错误必须显式传递。
 - **Remote registered server** 使用标准 transport client 作为注册输入；rpccgo generated code 不应构造 per-method client。
 - **Remote registered server** 只转发 protobuf message payload 和 error；metadata/header/trailer 不属于当前 contract。
-- `Register<Service>ConnectRemoteServer` 与 `Register<Service>GRPCRemoteServer` 命名可以保留，但它们应直接接收标准 transport client 并返回 `error`，不应构造 service-specific wrapper adapter。
-- **Remote registered server** 的 direct invocation 与 final session glue 属于 **Generated service runtime**；不应再生成独立 `remote.connect.rpccgo.go` 或 `remote.grpc.rpccgo.go` adapter 文件。
+- Connect/gRPC remote registration helper 应直接接收标准 transport client 并返回 `error`，不应构造 service-specific wrapper adapter。
+- **Remote registered server** 的 direct invocation 与 final session glue 属于 **Generated service runtime**；不应再生成独立 remote adapter artifact。
 - 一个 service 的 generated output 只能选择一个 message transport（connect 或 gRPC），避免标准 transport client API 在同包内重名。
 - 每个 service 不应生成 native/message active binding slot；当前 registered server 应保存在 `rpcruntime` 的 **Server registry** 中。
 - 新版架构保留 **Server registry** 调用模型；只恢复旧项目的 **Native** flat function boundary，不回迁旧 **Provider bootstrap**。

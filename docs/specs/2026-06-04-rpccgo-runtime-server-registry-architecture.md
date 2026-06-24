@@ -15,16 +15,7 @@
 
 ## 注册
 
-用户通过 generated registration helper 注册 server，不直接手写 `ServiceID` 或 `ServerKind` 调用 runtime primitive。
-
-```go
-greeterv1.RegisterGreeterGoNativeServer(server)
-greeterv1.RegisterGreeterCGOMessageServer(server)
-greeterv1.RegisterGreeterConnectHandler(handler)
-greeterv1.RegisterGreeterGRPCServer(server)
-greeterv1.RegisterGreeterConnectRemoteServer(client)
-greeterv1.RegisterGreeterGRPCRemoteServer(client)
-```
+用户通过 generated registration helper 注册 server，不直接手写 `ServiceID` 或 `ServerKind` 调用 runtime primitive。具体 helper 命名统一记录在 `CONTEXT.md` 的 `Naming Rules`。
 
 非 C callback generated helper 完成 nil check 和 service contract validation 后，把 `{Kind, Server}` 写入 `rpcruntime` server registry；这类 service-level registration helper 失败时清空该 `ServiceID` 当前 registered server 并返回错误，后续调用应返回 `rpcruntime.ErrNoRegisteredServer`，而不是继续使用旧 server。
 
@@ -62,37 +53,17 @@ Stream session record 不保存 operation closure，也不维护 registry-level 
 
 `Finish` 是 graceful terminal，`CloseSend` 是 bidi/client-streaming half-close，`Cancel` 是 abort terminal。具体 method operation、native/message conversion 和 flat ABI 编解码留在 generated service runtime。
 
-### Stream operation semantics and naming
+### Stream operation semantics
 
-Generated stream code uses one canonical operation vocabulary across runtime, Go, C ABI, Dart, Kotlin, JNI C++ and examples:
-
-- `Start` creates a stream session, captures the current registered server, and returns a stream handle or host-language stream object.
-- `Send` sends one request payload on a client-streaming or bidi stream.
-- `Recv` receives one response payload on a server-streaming or bidi stream.
-- `Finish` performs graceful terminal completion and releases the stream handle where that layer owns a handle.
-- `CloseSend` half-closes the send side on client-streaming or bidi streams.
-- `Cancel` aborts the stream and releases the stream handle where that layer owns a handle.
-
-Generated stream operation names must preserve these exact operation tokens when the operation is user-visible, ABI-visible, or used as a cross-language bridge symbol. `Recv` is the canonical receive operation because gRPC-Go exposes receive as `RecvMsg` and generated gRPC stream clients commonly expose `Recv`; Connect-Go exposes the same direction as `Receive`. Do not use synonyms such as `Read` for `Recv`, and do not hide `Start` behind a method-only name such as `CollectRuntimeState` when the call creates a stream session.
-
-Every generated layer uses one global operation position rule: when a generated stream symbol name contains both the protobuf method name and the stream operation, the operation is always the suffix after the method name. The symbol may include contract, namespace, service, language-runtime, or binding qualifiers, but those qualifiers must not move the operation before the method.
-
-- C exports: `rpccgo<Contract><Namespace><Service><Method><Operation>`, for example `rpccgoMsgDemoGreeterChatRecv`.
-- Go package-level stream operation functions: `<Service><Contract><Method><Operation>`, for example `GreeterMessageChatRecv`.
-- Go server contract stream objects and host-language stream objects: operation methods are exactly `Send`, `Recv`, `Finish`, `CloseSend` and `Cancel`.
-- Dart and Kotlin public stream entry methods: `<Method>Start`, for example `CollectRuntimeStateStart`; the returned stream object exposes `Send`, `Recv`, `Finish`, `CloseSend` and `Cancel`.
-- JNI C++ bridge helpers follow the Java/Kotlin native method shape but keep the canonical operation as the final method segment, for example `sharedSoDemoCollectRuntimeStateRecv`.
-- Private/raw bindings may use the host language's casing convention, but they must keep the same operation token and the same operation position as their layer, for example `_collectRuntimeStateRecvRaw` instead of `_collectRuntimeStateReadRaw`.
-
-Generated code must not mix operation-first and method-first naming across layers or within a layer. This avoids inconsistent pairs such as `collectRuntimeStateStart` and `startCollectRuntimeState`; only the method-first, operation-suffix form is valid for combined method-operation symbols.
+`Finish` 是 graceful terminal，`CloseSend` 是 bidi/client-streaming half-close，`Cancel` 是 abort terminal。具体 method operation、native/message conversion 和 flat ABI 编解码留在 generated service runtime。Generated stream naming rules live only in `CONTEXT.md` under `Naming Rules`.
 
 ## Server Types
 
 支持注册的 server 类型：
 
-- Go native server：实现 generated `<Service>NativeServer`。
-- cgo native server：由 C native callbacks 组装成 `<Service>NativeServer`，支持 method-level partial implementation。
-- cgo message server：实现 generated `<Service>CGOMessageServer`。
+- Go native server：实现 generated Go native server contract。
+- cgo native server：由 C native callbacks 组装成 Go native server contract，支持 method-level partial implementation。
+- cgo message server：实现 generated cgo message server contract。
 - connect handler：标准 connect-go handler。
 - gRPC server：标准 grpc-go server。
 - connect remote server：标准 connect-go client。
@@ -102,25 +73,9 @@ Generated code must not mix operation-first and method-first naming across layer
 
 ## Generated Artifacts
 
-生成文件按 service 拆分为 `<proto-prefix>.<service>.<role>[.<contract|transport>].rpccgo.go`。cgo 文件输出到 `cgo_dir`，使用 `package main`，并在文件名中显式写出 native/message contract token：
+Generated artifact naming rules live only in `CONTEXT.md` under `Naming Rules`.
 
-- `.server.native.cgo.rpccgo.go`
-- `.client.native.cgo.rpccgo.go`
-- `.server.message.cgo.rpccgo.go`
-- `.client.message.cgo.rpccgo.go`
-
-Shared cgo exports 按 cgo Go package 只生成一次，文件名固定为 `rpccgo.exports.cgo.rpccgo.go`。
-
-Go native server contracts 位于 protobuf Go package 的 generated native server file，包含 `<Service>NativeServer`、flat native handler stream interfaces、method-local native stream envelope、native package-level stream operation functions 和 `Unimplemented<Service>NativeServer` helper。Native 与 message active dispatch 共用 `rpcruntime.ClientStreamingClient[Req, Resp]`、`rpcruntime.ServerStreamingClient[Resp]` 和 `rpcruntime.BidiStreamingClient[Req, Resp]`；handler 侧对应使用 `ClientStreamingServer`、`ServerStreamingServer` 和 `BidiStreamingServer`。本地 Go server 调用由 reusable generic client/server endpoint structs 和 private shared state 管理 queue、acknowledgement、cancellation、close-send 和 completion；generated code 不生成 per-method state、session 或 thin facade。Go native 只生成 flat native fields 与 server endpoint envelope 之间的 mapper，C message server 则直接使用 typed protobuf message endpoint。
-
-Package-level stream operation functions use the service, contract, method and operation in the function name, and accept `rpcruntime.StreamHandle` directly, for example:
-
-```go
-GreeterMessageCollectSend(ctx, handle, req)
-GreeterMessageCollectFinish(ctx, handle)
-GreeterNativeBroadcastRecv(ctx, handle)
-GreeterNativeChatCloseSend(ctx, handle)
-```
+Go native server contracts 位于 protobuf Go package 的 generated native server artifact，包含 native server contract、flat native handler stream interfaces、method-local native stream envelope、native package-level stream operation functions 和 unimplemented helper。Native 与 message active dispatch 共用 `rpcruntime.ClientStreamingClient[Req, Resp]`、`rpcruntime.ServerStreamingClient[Resp]` 和 `rpcruntime.BidiStreamingClient[Req, Resp]`；handler 侧对应使用 `ClientStreamingServer`、`ServerStreamingServer` 和 `BidiStreamingServer`。本地 Go server 调用由 reusable generic client/server endpoint structs 和 private shared state 管理 queue、acknowledgement、cancellation、close-send 和 completion；generated code 不生成 per-method state、session 或 thin facade。Go native 只生成 flat native fields 与 server endpoint envelope 之间的 mapper，C message server 则直接使用 typed protobuf message endpoint。
 
 ## 不生成的结构
 

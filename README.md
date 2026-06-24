@@ -123,7 +123,7 @@ protoc \
 Connect 生成要求：
 
 - 使用 `protoc-gen-connect-go` `v1.19.1`，这是当前验证版本。
-- 必须设置 `--connect-go_opt=package_suffix=`，让 Connect generated code 与 protobuf Go package 保持同一个 package。rpccgo 生成的 `Register<Service>ConnectHandler` 会直接引用该 package 内的 `<Service>Handler` 和 `<Service>Client`。
+- 必须设置 `--connect-go_opt=package_suffix=`，让 Connect generated code 与 protobuf Go package 保持同一个 package。rpccgo 生成的 Connect registration helper 会直接引用该 package 内的 standard Connect handler 和 client 类型；具体命名统一记录在 [CONTEXT.md](CONTEXT.md) 的 `Naming Rules`。
 - 必须设置 `--connect-go_opt=simple=true`，让 Connect generated code 使用 simple handler/client stream API。rpccgo 的 Connect direct path 按这个签名生成 typed dispatch。
 
 gRPC service 示例：
@@ -140,31 +140,11 @@ protoc \
 
 `cgo_dir` 用于设置 cgo生成文件目录，路径相对 protobuf Go package 的生成目录解析。cgo 文件会生成到 `package main`，通常放在用于构建 `-buildmode=c-shared` 的 Go package 中。
 
-生成文件按 service 和能力拆分，常见文件包括：
-
-- `<proto>.<service>.runtime.rpccgo.go`
-- `<proto>.<service>.server.native.rpccgo.go`
-- `<proto>.<service>.server.message.rpccgo.go`
-- `<proto>.<service>.codec.rpccgo.go`
-- `<proto>.<service>.client.native.cgo.rpccgo.go`
-- `<proto>.<service>.client.message.cgo.rpccgo.go`
-- `<proto>.<service>.server.native.cgo.rpccgo.go`
-- `<proto>.<service>.server.message.cgo.rpccgo.go`
-- `rpccgo.exports.cgo.rpccgo.go`
+生成文件和 symbol 的命名规则统一记录在 [CONTEXT.md](CONTEXT.md) 的 `Naming Rules`。
 
 ## 注册 Server
 
-生成代码暴露 service-specific registration helper。以 `Greeter` 为例：
-
-```go
-err := greeterv1.RegisterGreeterGoNativeServer(server)
-err := greeterv1.RegisterGreeterCGONativeServer(server)
-err := greeterv1.RegisterGreeterCGOMessageServer(server)
-err := greeterv1.RegisterGreeterConnectHandler(handler)
-err := greeterv1.RegisterGreeterGRPCServer(server)
-err := greeterv1.RegisterGreeterConnectRemoteServer(client)
-err := greeterv1.RegisterGreeterGRPCRemoteServer(client)
-```
+生成代码暴露 service-specific registration helper；具体 helper 命名统一记录在 [CONTEXT.md](CONTEXT.md) 的 `Naming Rules`。
 
 注册成功会替换该 service 的 current registered server。注册失败会清空该 service 的 current registered server 并返回错误。
 
@@ -276,19 +256,17 @@ protoc \
 ```
 
 #### 生成参数说明
-- `dart_package` (必填)：目标 Dart/Flutter Package 的名字。生成器会为生成的类绑定 native asset ID，格式为 `package:<dart_package>/gen/rpccgo.dart`。
+- `dart_package` (必填)：目标 Dart/Flutter Package 的名字。生成器会为生成的类绑定 native asset ID；命名规则统一记录在 [CONTEXT.md](CONTEXT.md) 的 `Naming Rules`。
 - `paths=source_relative`：控制生成文件的目录结构与输入 proto 一致。
 
 #### 生成产物
-在指定的 `--rpc-cgo-dart_out` 目录下，除了标准的 `.pb.dart` 文件外，还会生成：
-- `<proto>.<service>.rpccgo.dart`：包含生成的 Dart FFI 客户端类（例如 `GreeterRpccgoClient`），内部使用 `@ffi.DefaultAsset` 和 `@ffi.Native` 绑定 rpccgo 导出的 cgo 符号。
-- `rpccgo.dart`：共享的入口与库文件定义。
+在指定的 `--rpc-cgo-dart_out` 目录下，除了标准的 `.pb.dart` 文件外，还会生成 Dart FFI 客户端和共享入口文件；命名规则统一记录在 [CONTEXT.md](CONTEXT.md) 的 `Naming Rules`。
 
 ### 使用方法与动态库绑定
 
 生成的 Dart 代码使用了 Dart 2.19+ 的 Native Assets 规范。在使用时：
 1. **基础依赖**：项目 `pubspec.yaml` 至少需要依赖 `ffi` 库。
-2. **动态库路径映射**：您需要在 Flutter/Dart 的构建生命周期中（例如通过 build hook 的 `build.dart` 脚本或 `code_assets` 库），将库对应的 asset ID（如 `package:<dart_package>/gen/rpccgo.dart`）映射到您通过 Go 编译的动态库（如 `librpccgo_service.so`）。
+2. **动态库路径映射**：您需要在 Flutter/Dart 的构建生命周期中（例如通过 build hook 的 `build.dart` 脚本或 `code_assets` 库），将生成的 native asset ID 映射到您通过 Go 编译的动态库（如 `librpccgo_service.so`）。
 3. **调用 API**：
    ```dart
    final client = GreeterRpccgoClient();
@@ -300,7 +278,7 @@ protoc \
    }
    print(result.value!.message);
    ```
-   Streaming API 显式使用 cgo operation 语义：先调用 `Start<Method>()` 获取 stream，再调用 `Send()`、`Recv()`、`Finish()`、`CloseSend()` 或 `Cancel()`。
+   Streaming API 显式使用 cgo operation 语义：先调用 stream start method 获取 stream，再调用 `Send()`、`Recv()`、`Finish()`、`CloseSend()` 或 `Cancel()`；命名规则统一记录在 [CONTEXT.md](CONTEXT.md) 的 `Naming Rules`。
 
 *注：关于如何在 Android 下使 Flutter 和 Kotlin JNI 共享同一个 Go `.so` 运行时和内存状态，请参考 [examples/flutter-shared-so](examples/flutter-shared-so/README.md) 示例。*
 
@@ -344,10 +322,7 @@ protoc \
 - `kotlin_dir` (默认 `kotlin`)：相对 `--rpc-cgo-jni_out` 的 Kotlin source 根目录。例如默认输出到 `android/app/src/main/kotlin/<jni_class package>/`。
 - `paths=source_relative`：沿用 protoc 常规路径语义，控制按 proto source path 组织生成文件。
 
-生成产物：
-
-- `<proto>.<service>.jni.cpp`：Android C++ JNI shim。它负责 `jbyteArray` 与 C ABI buffer 转换、调用 Go c-shared message ABI、释放 Go 返回内存，并把结果 envelope 返回 Kotlin。
-- `<JniClass>.kt`：Kotlin typed shim。它声明 external native 方法，并暴露 protobuf JVM message 类型的 public API。
+生成产物包括 Android C++ JNI shim 和 Kotlin typed shim；命名规则统一记录在 [CONTEXT.md](CONTEXT.md) 的 `Naming Rules`。
 
 生成器不会生成或覆盖 `CMakeLists.txt`。Android 工程应自行维护 CMake 配置，把生成的 C++ 文件编译成独立 JNI `.so`，并动态链接 Go c-shared `.so`。典型运行时会有两个 `.so`：
 
