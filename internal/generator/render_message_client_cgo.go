@@ -12,10 +12,10 @@ func renderMessageClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service 
 	g.P("/*")
 	g.P("#include <stdint.h>")
 	if serviceHasRecvStreamingMethod(service) {
-		g.P("typedef int32_t (*RpccgoMessageOnRecvCallback)(int32_t stream, uintptr_t response_ptr, int32_t response_len);")
-		g.P("typedef int32_t (*RpccgoMessageOnDoneCallback)(int32_t stream, int32_t err_id);")
-		g.P("static inline int32_t callRpccgoMessageOnRecvCallback(RpccgoMessageOnRecvCallback callback, int32_t stream, uintptr_t response_ptr, int32_t response_len) { return callback(stream, response_ptr, response_len); }")
-		g.P("static inline int32_t callRpccgoMessageOnDoneCallback(RpccgoMessageOnDoneCallback callback, int32_t stream, int32_t err_id) { return callback(stream, err_id); }")
+		g.P("typedef void (*RpccgoMessageOnRecvCallback)(int32_t stream, uintptr_t response_ptr, int32_t response_len);")
+		g.P("typedef void (*RpccgoMessageOnDoneCallback)(int32_t stream, int32_t err_id);")
+		g.P("static inline void callRpccgoMessageOnRecvCallback(RpccgoMessageOnRecvCallback callback, int32_t stream, uintptr_t response_ptr, int32_t response_len) { callback(stream, response_ptr, response_len); }")
+		g.P("static inline void callRpccgoMessageOnDoneCallback(RpccgoMessageOnDoneCallback callback, int32_t stream, int32_t err_id) { callback(stream, err_id); }")
 	}
 	g.P("*/")
 	g.P(`import "C"`)
@@ -403,19 +403,15 @@ func renderMessageCallbackReceiveStart(g *protogen.GeneratedFile, service Servic
 	renderMessageCallbackReceiveFinish(g, handleValue, onDone, `int32(rpcruntime.StoreError(errors.New("rpccgo: stream callback receive canceled")))`)
 	g.P("return")
 	g.P("}")
-	g.P("errID := int32(C.callRpccgoMessageOnRecvCallback(", onRecv, ", C.int32_t(int32(", handleValue, ")), C.uintptr_t(ptr), C.int32_t(length)))")
+	g.P("C.callRpccgoMessageOnRecvCallback(", onRecv, ", C.int32_t(int32(", handleValue, ")), C.uintptr_t(ptr), C.int32_t(length))")
 	g.P("callbackState.EndCallback()")
-	g.P("if errID != 0 {")
-	renderMessageCallbackReceiveFinish(g, handleValue, onDone, "errID")
-	g.P("return")
-	g.P("}")
 	g.P("}")
 	g.P("}()")
 }
 
 func renderMessageCallbackReceiveFinish(g *protogen.GeneratedFile, handleValue, onDone, errID string) {
 	g.P("if callbackState.BeginDoneCallback() {")
-	g.P("_ = C.callRpccgoMessageOnDoneCallback(", onDone, ", C.int32_t(int32(", handleValue, ")), C.int32_t(", errID, "))")
+	g.P("C.callRpccgoMessageOnDoneCallback(", onDone, ", C.int32_t(int32(", handleValue, ")), C.int32_t(", errID, "))")
 	g.P("callbackState.EndDoneCallback()")
 	g.P("}")
 }

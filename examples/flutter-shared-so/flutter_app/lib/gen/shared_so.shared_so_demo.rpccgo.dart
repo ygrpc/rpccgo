@@ -22,8 +22,8 @@ typedef _RpccgoMessageUnaryCAbi = ffi.Int32 Function(ffi.UintPtr requestPtr, ffi
 typedef _RpccgoStreamStartCAbi = ffi.Int32 Function(ffi.Pointer<ffi.Int32> handle);
 typedef _RpccgoCallbackStreamStartCAbi = ffi.Int32 Function(ffi.Pointer<ffi.Int32> handle, ffi.Pointer<ffi.Void> onRecv, ffi.Pointer<ffi.Void> onDone);
 typedef _RpccgoServerStreamStartCAbi = ffi.Int32 Function(ffi.UintPtr requestPtr, ffi.Int32 requestLen, ffi.Pointer<ffi.Int32> handle, ffi.Pointer<ffi.Void> onRecv, ffi.Pointer<ffi.Void> onDone);
-typedef _RpccgoMessageOnRecvCAbi = ffi.Int32 Function(ffi.Int32 stream, ffi.UintPtr responsePtr, ffi.Int32 responseLen);
-typedef _RpccgoMessageOnDoneCAbi = ffi.Int32 Function(ffi.Int32 stream, ffi.Int32 errID);
+typedef _RpccgoMessageOnRecvCAbi = ffi.Void Function(ffi.Int32 stream, ffi.UintPtr responsePtr, ffi.Int32 responseLen);
+typedef _RpccgoMessageOnDoneCAbi = ffi.Void Function(ffi.Int32 stream, ffi.Int32 errID);
 typedef _RpccgoStreamSendCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.UintPtr requestPtr, ffi.Int32 requestLen);
 typedef _RpccgoStreamRecvCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
 typedef _RpccgoStreamFinishCAbi = ffi.Int32 Function(ffi.Int32 handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
@@ -188,6 +188,7 @@ class SharedSoDemoRpccgoClient {
     late final ffi.NativeCallable<_RpccgoMessageOnRecvCAbi> onRecvNative;
     late final ffi.NativeCallable<_RpccgoMessageOnDoneCAbi> onDoneNative;
     var callbacksClosed = false;
+    String? localError;
     void closeCallbacks() {
       if (callbacksClosed) {
         return;
@@ -196,19 +197,28 @@ class SharedSoDemoRpccgoClient {
       onRecvNative.close();
       onDoneNative.close();
     }
-    onRecvNative = ffi.NativeCallable<_RpccgoMessageOnRecvCAbi>.isolateGroupBound((stream, responsePtr, responseLen) {
+    void cancelFromCallback(int stream, String error) {
+      localError ??= error;
+      if (stream != 0) {
+        _takeErrorResult(_watchRuntimeStateCancelRaw(stream));
+      }
+    }
+    onRecvNative = ffi.NativeCallable<_RpccgoMessageOnRecvCAbi>.listener((stream, responsePtr, responseLen) {
       final responseBytes = _takeBytes(responsePtr, responseLen);
       if (responseBytes.error != null) {
-        return -1;
+        cancelFromCallback(stream, responseBytes.error!);
+        return;
       }
-      onRecv(pb.RuntimeStateResponse.fromBuffer(responseBytes.value!));
-      return 0;
-    }, exceptionalReturn: -1);
-    onDoneNative = ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.isolateGroupBound((stream, errID) {
-      onDone(_takeErrorResult(errID));
+      try {
+        onRecv(pb.RuntimeStateResponse.fromBuffer(responseBytes.value!));
+      } catch (err) {
+        cancelFromCallback(stream, err.toString());
+      }
+    });
+    onDoneNative = ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.listener((stream, errID) {
+      onDone(localError ?? _takeErrorResult(errID));
       async.scheduleMicrotask(closeCallbacks);
-      return 0;
-    }, exceptionalReturn: -1);
+    });
     try {
       final errID = _watchRuntimeStateStartRaw(requestPtr.address, requestBytes.length, handlePtr, onRecvNative.nativeFunction.cast<ffi.Void>(), onDoneNative.nativeFunction.cast<ffi.Void>());
       final error = _takeErrorResult(errID);
@@ -261,6 +271,7 @@ class SharedSoDemoRpccgoClient {
     late final ffi.NativeCallable<_RpccgoMessageOnRecvCAbi> onRecvNative;
     late final ffi.NativeCallable<_RpccgoMessageOnDoneCAbi> onDoneNative;
     var callbacksClosed = false;
+    String? localError;
     void closeCallbacks() {
       if (callbacksClosed) {
         return;
@@ -269,19 +280,28 @@ class SharedSoDemoRpccgoClient {
       onRecvNative.close();
       onDoneNative.close();
     }
-    onRecvNative = ffi.NativeCallable<_RpccgoMessageOnRecvCAbi>.isolateGroupBound((stream, responsePtr, responseLen) {
+    void cancelFromCallback(int stream, String error) {
+      localError ??= error;
+      if (stream != 0) {
+        _takeErrorResult(_streamRuntimeStateCancelRaw(stream));
+      }
+    }
+    onRecvNative = ffi.NativeCallable<_RpccgoMessageOnRecvCAbi>.listener((stream, responsePtr, responseLen) {
       final responseBytes = _takeBytes(responsePtr, responseLen);
       if (responseBytes.error != null) {
-        return -1;
+        cancelFromCallback(stream, responseBytes.error!);
+        return;
       }
-      onRecv(pb.RuntimeStateResponse.fromBuffer(responseBytes.value!));
-      return 0;
-    }, exceptionalReturn: -1);
-    onDoneNative = ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.isolateGroupBound((stream, errID) {
-      onDone(_takeErrorResult(errID));
+      try {
+        onRecv(pb.RuntimeStateResponse.fromBuffer(responseBytes.value!));
+      } catch (err) {
+        cancelFromCallback(stream, err.toString());
+      }
+    });
+    onDoneNative = ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.listener((stream, errID) {
+      onDone(localError ?? _takeErrorResult(errID));
       async.scheduleMicrotask(closeCallbacks);
-      return 0;
-    }, exceptionalReturn: -1);
+    });
     try {
       final errID = _streamRuntimeStateStartRaw(requestPtr.address, requestBytes.length, handlePtr, onRecvNative.nativeFunction.cast<ffi.Void>(), onDoneNative.nativeFunction.cast<ffi.Void>());
       final error = _takeErrorResult(errID);
@@ -315,6 +335,7 @@ class SharedSoDemoRpccgoClient {
     late final ffi.NativeCallable<_RpccgoMessageOnRecvCAbi> onRecvNative;
     late final ffi.NativeCallable<_RpccgoMessageOnDoneCAbi> onDoneNative;
     var callbacksClosed = false;
+    String? localError;
     void closeCallbacks() {
       if (callbacksClosed) {
         return;
@@ -323,19 +344,28 @@ class SharedSoDemoRpccgoClient {
       onRecvNative.close();
       onDoneNative.close();
     }
-    onRecvNative = ffi.NativeCallable<_RpccgoMessageOnRecvCAbi>.isolateGroupBound((stream, responsePtr, responseLen) {
+    void cancelFromCallback(int stream, String error) {
+      localError ??= error;
+      if (stream != 0) {
+        _takeErrorResult(_chatRuntimeStateCancelRaw(stream));
+      }
+    }
+    onRecvNative = ffi.NativeCallable<_RpccgoMessageOnRecvCAbi>.listener((stream, responsePtr, responseLen) {
       final responseBytes = _takeBytes(responsePtr, responseLen);
       if (responseBytes.error != null) {
-        return -1;
+        cancelFromCallback(stream, responseBytes.error!);
+        return;
       }
-      onRecv(pb.RuntimeStateResponse.fromBuffer(responseBytes.value!));
-      return 0;
-    }, exceptionalReturn: -1);
-    onDoneNative = ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.isolateGroupBound((stream, errID) {
-      onDone(_takeErrorResult(errID));
+      try {
+        onRecv(pb.RuntimeStateResponse.fromBuffer(responseBytes.value!));
+      } catch (err) {
+        cancelFromCallback(stream, err.toString());
+      }
+    });
+    onDoneNative = ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.listener((stream, errID) {
+      onDone(localError ?? _takeErrorResult(errID));
       async.scheduleMicrotask(closeCallbacks);
-      return 0;
-    }, exceptionalReturn: -1);
+    });
     try {
       final errID = _chatRuntimeStateStartRaw(handlePtr, onRecvNative.nativeFunction.cast<ffi.Void>(), onDoneNative.nativeFunction.cast<ffi.Void>());
       final error = _takeErrorResult(errID);

@@ -26,6 +26,10 @@ func TestRenderMessageClientCGODefinesUnaryExportSurface(t *testing.T) {
 		"//export rpccgoMsgTestv1GreeterUploadFinish",
 		"func rpccgoMsgTestv1GreeterUploadFinish(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {",
 		"//export rpccgoMsgTestv1GreeterListStart",
+		"typedef void (*RpccgoMessageOnRecvCallback)(int32_t stream, uintptr_t response_ptr, int32_t response_len);",
+		"typedef void (*RpccgoMessageOnDoneCallback)(int32_t stream, int32_t err_id);",
+		"static inline void callRpccgoMessageOnRecvCallback",
+		"static inline void callRpccgoMessageOnDoneCallback",
 		"func rpccgoMsgTestv1GreeterListStart(requestPtr C.uintptr_t, requestLen C.int32_t, handle *C.int32_t, onRecv C.RpccgoMessageOnRecvCallback, onDone C.RpccgoMessageOnDoneCallback) C.int32_t {",
 		"//export rpccgoMsgTestv1GreeterListRecv",
 		"func rpccgoMsgTestv1GreeterListRecv(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {",
@@ -93,5 +97,9 @@ func TestRenderMessageClientCGODefinesUnaryExportSurface(t *testing.T) {
 		"DoneGreeterChatMessageBidiStream",
 		"rpccgoMsgTestv1GreeterListRead",
 		"rpccgoMsgTestv1GreeterChatRead",
+		"typedef int32_t (*RpccgoMessageOnRecvCallback)",
+		"typedef int32_t (*RpccgoMessageOnDoneCallback)",
+		"errID := int32(C.callRpccgoMessageOnRecvCallback",
+		"_ = C.callRpccgoMessageOnDoneCallback",
 	)
 }

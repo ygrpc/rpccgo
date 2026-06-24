@@ -56,6 +56,8 @@ func TestGenerateJNIEmitsStreamingOperations(t *testing.T) {
 		"#include <mutex>",
 		"std::mutex greeterListCallbackMu;",
 		"bool cancelGreeterListListenerCallback(JNIEnv* env) {",
+		"void onGreeterListListenerRecv(int32_t, uintptr_t responsePtr, int32_t responseLen) {",
+		"void onGreeterListListenerDone(int32_t, int32_t errID) {",
 		"Java_com_example_GreeterJni_greeterListStartCallback",
 		"Java_com_example_GreeterJni_greeterListCancelCallback",
 		"Java_com_example_GreeterJni_greeterChatStartCallback",
@@ -66,6 +68,8 @@ func TestGenerateJNIEmitsStreamingOperations(t *testing.T) {
 	assertGeneratedFileContentDoesNotContain(t, plugin, cppFile,
 		"rpccgoMsgTestv1GreeterListRead",
 		"rpccgoMsgTestv1GreeterChatRead",
+		"int32_t onGreeterListListenerRecv",
+		"int32_t onGreeterListListenerDone",
 	)
 	for _, fragment := range []string{
 		"import androidx.annotation.Keep",

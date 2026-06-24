@@ -221,22 +221,22 @@ bool cancelSharedSoDemoWatchRuntimeStateListenerCallback(JNIEnv* env) {
     return errID == 0;
 }
 
-int32_t onSharedSoDemoWatchRuntimeStateListenerRecv(int32_t, uintptr_t responsePtr, int32_t responseLen) {
+void onSharedSoDemoWatchRuntimeStateListenerRecv(int32_t, uintptr_t responsePtr, int32_t responseLen) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) {
         if (responsePtr != 0) { rpccgoRelease(responsePtr); }
-        return 0;
+        return;
     }
     std::lock_guard<std::mutex> lock(sharedSoDemoWatchRuntimeStateCallbackMu);
     if (sharedSoDemoWatchRuntimeStateCallbackListener == nullptr || sharedSoDemoWatchRuntimeStateCallbackOnRecv == nullptr) {
         if (responsePtr != 0) { rpccgoRelease(responsePtr); }
-        return 0;
+        return;
     }
     jbyteArray payload = env->NewByteArray(responseLen);
     if (payload == nullptr) {
         if (responsePtr != 0) { rpccgoRelease(responsePtr); }
-        return 0;
+        return;
     }
     if (responseLen > 0) {
         env->SetByteArrayRegion(payload, 0, responseLen, reinterpret_cast<const jbyte*>(responsePtr));
@@ -245,13 +245,12 @@ int32_t onSharedSoDemoWatchRuntimeStateListenerRecv(int32_t, uintptr_t responseP
     env->CallVoidMethod(sharedSoDemoWatchRuntimeStateCallbackListener, sharedSoDemoWatchRuntimeStateCallbackOnRecv, payload);
     env->DeleteLocalRef(payload);
     if (env->ExceptionCheck()) { env->ExceptionClear(); }
-    return 0;
 }
 
-int32_t onSharedSoDemoWatchRuntimeStateListenerDone(int32_t, int32_t errID) {
+void onSharedSoDemoWatchRuntimeStateListenerDone(int32_t, int32_t errID) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
-    if (env == nullptr) { return 0; }
+    if (env == nullptr) { return; }
     jobject listener = nullptr;
     jmethodID onDone = nullptr;
     {
@@ -270,7 +269,6 @@ int32_t onSharedSoDemoWatchRuntimeStateListenerDone(int32_t, int32_t errID) {
         if (env->ExceptionCheck()) { env->ExceptionClear(); }
     }
     clearSharedSoDemoWatchRuntimeStateListenerCallback(env);
-    return 0;
 }
 
 // Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoWatchRuntimeStateStart invokes examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState through the Android C++ JNI adapter.
@@ -431,22 +429,22 @@ bool cancelSharedSoDemoStreamRuntimeStateListenerCallback(JNIEnv* env) {
     return errID == 0;
 }
 
-int32_t onSharedSoDemoStreamRuntimeStateListenerRecv(int32_t, uintptr_t responsePtr, int32_t responseLen) {
+void onSharedSoDemoStreamRuntimeStateListenerRecv(int32_t, uintptr_t responsePtr, int32_t responseLen) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) {
         if (responsePtr != 0) { rpccgoRelease(responsePtr); }
-        return 0;
+        return;
     }
     std::lock_guard<std::mutex> lock(sharedSoDemoStreamRuntimeStateCallbackMu);
     if (sharedSoDemoStreamRuntimeStateCallbackListener == nullptr || sharedSoDemoStreamRuntimeStateCallbackOnRecv == nullptr) {
         if (responsePtr != 0) { rpccgoRelease(responsePtr); }
-        return 0;
+        return;
     }
     jbyteArray payload = env->NewByteArray(responseLen);
     if (payload == nullptr) {
         if (responsePtr != 0) { rpccgoRelease(responsePtr); }
-        return 0;
+        return;
     }
     if (responseLen > 0) {
         env->SetByteArrayRegion(payload, 0, responseLen, reinterpret_cast<const jbyte*>(responsePtr));
@@ -455,13 +453,12 @@ int32_t onSharedSoDemoStreamRuntimeStateListenerRecv(int32_t, uintptr_t response
     env->CallVoidMethod(sharedSoDemoStreamRuntimeStateCallbackListener, sharedSoDemoStreamRuntimeStateCallbackOnRecv, payload);
     env->DeleteLocalRef(payload);
     if (env->ExceptionCheck()) { env->ExceptionClear(); }
-    return 0;
 }
 
-int32_t onSharedSoDemoStreamRuntimeStateListenerDone(int32_t, int32_t errID) {
+void onSharedSoDemoStreamRuntimeStateListenerDone(int32_t, int32_t errID) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
-    if (env == nullptr) { return 0; }
+    if (env == nullptr) { return; }
     jobject listener = nullptr;
     jmethodID onDone = nullptr;
     {
@@ -480,7 +477,6 @@ int32_t onSharedSoDemoStreamRuntimeStateListenerDone(int32_t, int32_t errID) {
         if (env->ExceptionCheck()) { env->ExceptionClear(); }
     }
     clearSharedSoDemoStreamRuntimeStateListenerCallback(env);
-    return 0;
 }
 
 // Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoStreamRuntimeStateStart invokes examples.flutter.sharedso.v1.SharedSoDemo.StreamRuntimeState through the Android C++ JNI adapter.
@@ -595,22 +591,22 @@ bool cancelSharedSoDemoChatRuntimeStateListenerCallback(JNIEnv* env) {
     return errID == 0;
 }
 
-int32_t onSharedSoDemoChatRuntimeStateListenerRecv(int32_t, uintptr_t responsePtr, int32_t responseLen) {
+void onSharedSoDemoChatRuntimeStateListenerRecv(int32_t, uintptr_t responsePtr, int32_t responseLen) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) {
         if (responsePtr != 0) { rpccgoRelease(responsePtr); }
-        return 0;
+        return;
     }
     std::lock_guard<std::mutex> lock(sharedSoDemoChatRuntimeStateCallbackMu);
     if (sharedSoDemoChatRuntimeStateCallbackListener == nullptr || sharedSoDemoChatRuntimeStateCallbackOnRecv == nullptr) {
         if (responsePtr != 0) { rpccgoRelease(responsePtr); }
-        return 0;
+        return;
     }
     jbyteArray payload = env->NewByteArray(responseLen);
     if (payload == nullptr) {
         if (responsePtr != 0) { rpccgoRelease(responsePtr); }
-        return 0;
+        return;
     }
     if (responseLen > 0) {
         env->SetByteArrayRegion(payload, 0, responseLen, reinterpret_cast<const jbyte*>(responsePtr));
@@ -619,13 +615,12 @@ int32_t onSharedSoDemoChatRuntimeStateListenerRecv(int32_t, uintptr_t responsePt
     env->CallVoidMethod(sharedSoDemoChatRuntimeStateCallbackListener, sharedSoDemoChatRuntimeStateCallbackOnRecv, payload);
     env->DeleteLocalRef(payload);
     if (env->ExceptionCheck()) { env->ExceptionClear(); }
-    return 0;
 }
 
-int32_t onSharedSoDemoChatRuntimeStateListenerDone(int32_t, int32_t errID) {
+void onSharedSoDemoChatRuntimeStateListenerDone(int32_t, int32_t errID) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
-    if (env == nullptr) { return 0; }
+    if (env == nullptr) { return; }
     jobject listener = nullptr;
     jmethodID onDone = nullptr;
     {
@@ -644,7 +639,6 @@ int32_t onSharedSoDemoChatRuntimeStateListenerDone(int32_t, int32_t errID) {
         if (env->ExceptionCheck()) { env->ExceptionClear(); }
     }
     clearSharedSoDemoChatRuntimeStateListenerCallback(env);
-    return 0;
 }
 
 // Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoChatRuntimeStateStart invokes examples.flutter.sharedso.v1.SharedSoDemo.ChatRuntimeState through the Android C++ JNI adapter.

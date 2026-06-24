@@ -49,7 +49,7 @@ generator 侧的 contract-to-render 投影，把 streaming method 的 operation 
 _Avoid_: runtime stream lifecycle executor, stream registry helper plan
 
 **Callback receive stream**:
-C client export `Start` 时由用户同时传入 `onRecv` 与 `onDone` 后启用的自动接收 stream 模式；generated code 后台循环接收 server stream 或 bidi stream 的响应并回调用户代码，而不是要求用户手动调用 `Recv`。
+C client export `Start` 时由用户同时传入 `onRecv` 与 `onDone` 后启用的自动接收 stream 模式；generated code 后台循环接收 server stream 或 bidi stream 的响应并回调用户代码，而不是要求用户手动调用 `Recv`。`onRecv` 与 `onDone` 是通知型 `void` callback；callback 用户代码失败时由 client 调用 `Cancel` 终止 stream，不通过 callback 返回值同步传回 Go。
 
 **Generated service runtime**:
 每个 service 生成的 service runtime artifact，只应承载 proto/service/method-specific 的 package-level invoke/start facade、registry lookup glue、transport registration glue、stream `Start` glue 和 converter glue。
@@ -145,7 +145,7 @@ _Avoid_: active server
 - C **Message contract** client projection 的 server stream / bidi stream `Start` 只有在 `onRecv` 与 `onDone` 同时非 nil 时才启用 **Callback receive stream**；否则保持手动 `Recv` 模式。
 - **Callback receive stream** 沿用现有 `Recv` export 的响应 buffer 释放语义；裸 C callback 收到的 `ptr/len` 由调用方处理完后调用 generated shared release API 释放，Android/JNI 与 Flutter/Dart generated adapter 则由 generated trampoline 负责释放。
 - **Callback receive stream** 启用后不允许用户再手动调用该 stream 的 `Recv`；对应 export 必须返回显式错误。`Cancel` 仍然有效，并负责主动取消后台接收流程。bidi stream 的 `Send` 与 `CloseSend` 仍按原 stream handle 工作。
-- Go 侧不能可靠判断任意 C callback function pointer 是否仍可调用；它只能检查 nil、调用 generated trampoline，并处理 callback 返回的 error id。
+- Go 侧不能可靠判断任意 C callback function pointer 是否仍可调用；它只能检查 nil、调用 generated trampoline，并通过 `onDone` 传递后台接收循环的终态 error id。
 - Server streaming client 侧没有 `Finish` 操作；server stream 由服务端自然结束或 client 侧 `Cancel` 终止。
 - **Callback receive stream** 对 registered server 透明；server 端继续按原 server stream / bidi stream contract 处理 `Send`、`Recv`、`CloseSend`、`Cancel` 和自然结束，不感知 client 是否用 callback receive。
 - Server streaming client 侧移除 `Finish` 不等于移除 C server callback ABI 的 server-stream `Finish`；后者是 C server implementation 的 stream cleanup / natural completion callback，仍属于 server callback operation set。

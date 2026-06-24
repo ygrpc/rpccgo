@@ -74,8 +74,10 @@ func TestRenderNativeClientCGOStreamsUseRuntimeStreamOperations(t *testing.T) {
 		"//export rpccgoNativeTestv1GreeterUploadSend",
 		"//export rpccgoNativeTestv1GreeterListRecv",
 		"//export rpccgoNativeTestv1GreeterChatCloseSend",
-		"typedef int32_t (*GreeterListCGONativeOnRecvCallback)",
-		"typedef int32_t (*RpccgoNativeOnDoneCallback)(int32_t stream, int32_t err_id);",
+		"typedef void (*GreeterListCGONativeOnRecvCallback)",
+		"typedef void (*RpccgoNativeOnDoneCallback)(int32_t stream, int32_t err_id);",
+		"static inline void callGreeterListCGONativeOnRecvCallback",
+		"static inline void callRpccgoNativeOnDoneCallback",
 		"func rpccgoNativeTestv1GreeterListStart(",
 		"onRecv C.GreeterListCGONativeOnRecvCallback, onDone C.RpccgoNativeOnDoneCallback",
 		"func rpccgoNativeTestv1GreeterChatStart(stream *C.int32_t, onRecv C.GreeterChatCGONativeOnRecvCallback, onDone C.RpccgoNativeOnDoneCallback) C.int32_t {",
@@ -112,6 +114,10 @@ func TestRenderNativeClientCGOStreamsUseRuntimeStreamOperations(t *testing.T) {
 		"rpcruntime.DispatcherStreamCloseSend[",
 		"DoneGreeterListNativeServerStream",
 		"DoneGreeterChatNativeBidiStream",
+		"typedef int32_t (*GreeterListCGONativeOnRecvCallback)",
+		"typedef int32_t (*RpccgoNativeOnDoneCallback)",
+		"errID := int32(C.callGreeterListCGONativeOnRecvCallback",
+		"_ = C.callRpccgoNativeOnDoneCallback",
 	)
 }
 

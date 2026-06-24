@@ -76,8 +76,8 @@ func renderNativeClientCallbackReceivePreamble(g *protogen.GeneratedFile, servic
 	if !serviceHasRecvStreamingMethod(service) {
 		return
 	}
-	g.P("typedef int32_t (*RpccgoNativeOnDoneCallback)(int32_t stream, int32_t err_id);")
-	g.P("static inline int32_t callRpccgoNativeOnDoneCallback(RpccgoNativeOnDoneCallback callback, int32_t stream, int32_t err_id) { return callback(stream, err_id); }")
+	g.P("typedef void (*RpccgoNativeOnDoneCallback)(int32_t stream, int32_t err_id);")
+	g.P("static inline void callRpccgoNativeOnDoneCallback(RpccgoNativeOnDoneCallback callback, int32_t stream, int32_t err_id) { callback(stream, err_id); }")
 	for _, method := range service.Methods {
 		if method.Streaming != StreamingKindServerStreaming && method.Streaming != StreamingKindBidiStreaming {
 			continue
@@ -85,9 +85,9 @@ func renderNativeClientCallbackReceivePreamble(g *protogen.GeneratedFile, servic
 		recvABI := abi.Methods[method.FullName][NativeCOperationRecv]
 		typeName := nativeCallbackReceiveOnRecvTypeName(service, method)
 		trampolineName := nativeCallbackReceiveOnRecvTrampolineName(service, method)
-		g.P("typedef ", recvABI.Return.CType, " (*", typeName, ")(", nativeCABIParamList(recvABI.Params), ");")
-		g.P("static inline ", recvABI.Return.CType, " ", trampolineName, "(", typeName, " callback", nativeCGOServerArgSuffix(nativeCABIParamListValues(recvABI.Params)), ") {")
-		g.P("return callback(", nativeCABIArgNames(recvABI.Params), ");")
+		g.P("typedef void (*", typeName, ")(", nativeCABIParamList(recvABI.Params), ");")
+		g.P("static inline void ", trampolineName, "(", typeName, " callback", nativeCGOServerArgSuffix(nativeCABIParamListValues(recvABI.Params)), ") {")
+		g.P("callback(", nativeCABIArgNames(recvABI.Params), ");")
 		g.P("}")
 	}
 }
@@ -882,20 +882,16 @@ func renderNativeCallbackReceiveStart(g *protogen.GeneratedFile, service Service
 	renderNativeCallbackReceiveFinish(g, handleValue, onDone, `int32(rpcruntime.StoreError(errors.New("rpccgo: stream callback receive canceled")))`)
 	g.P("return")
 	g.P("}")
-	g.P("errID := int32(C.", nativeCallbackReceiveOnRecvTrampolineName(service, method), "(", onRecv, nativeCallbackReceiveCallSuffix(recvABI.Params, method.Contract.Native.ResponseFields, handleValue), "))")
+	g.P("C.", nativeCallbackReceiveOnRecvTrampolineName(service, method), "(", onRecv, nativeCallbackReceiveCallSuffix(recvABI.Params, method.Contract.Native.ResponseFields, handleValue), ")")
 	g.P("releaseCallbackOutputs(", nativeCallbackReceiveOutputValueArgs(method.Contract.Native.ResponseFields), ")")
 	g.P("callbackState.EndCallback()")
-	g.P("if errID != 0 {")
-	renderNativeCallbackReceiveFinish(g, handleValue, onDone, "errID")
-	g.P("return")
-	g.P("}")
 	g.P("}")
 	g.P("}()")
 }
 
 func renderNativeCallbackReceiveFinish(g *protogen.GeneratedFile, handleValue, onDone, errID string) {
 	g.P("if callbackState.BeginDoneCallback() {")
-	g.P("_ = C.callRpccgoNativeOnDoneCallback(", onDone, ", C.int32_t(int32(", handleValue, ")), C.int32_t(", errID, "))")
+	g.P("C.callRpccgoNativeOnDoneCallback(", onDone, ", C.int32_t(int32(", handleValue, ")), C.int32_t(", errID, "))")
 	g.P("callbackState.EndDoneCallback()")
 	g.P("}")
 }

@@ -10,10 +10,10 @@ import (
 
 /*
 #include <stdint.h>
-typedef int32_t (*RpccgoMessageOnRecvCallback)(int32_t stream, uintptr_t response_ptr, int32_t response_len);
-typedef int32_t (*RpccgoMessageOnDoneCallback)(int32_t stream, int32_t err_id);
-static inline int32_t callRpccgoMessageOnRecvCallback(RpccgoMessageOnRecvCallback callback, int32_t stream, uintptr_t response_ptr, int32_t response_len) { return callback(stream, response_ptr, response_len); }
-static inline int32_t callRpccgoMessageOnDoneCallback(RpccgoMessageOnDoneCallback callback, int32_t stream, int32_t err_id) { return callback(stream, err_id); }
+typedef void (*RpccgoMessageOnRecvCallback)(int32_t stream, uintptr_t response_ptr, int32_t response_len);
+typedef void (*RpccgoMessageOnDoneCallback)(int32_t stream, int32_t err_id);
+static inline void callRpccgoMessageOnRecvCallback(RpccgoMessageOnRecvCallback callback, int32_t stream, uintptr_t response_ptr, int32_t response_len) { callback(stream, response_ptr, response_len); }
+static inline void callRpccgoMessageOnDoneCallback(RpccgoMessageOnDoneCallback callback, int32_t stream, int32_t err_id) { callback(stream, err_id); }
 */
 import "C"
 
@@ -100,12 +100,12 @@ func rpccgoMsgForegroundservicev1ForegroundServiceDemoWatchTicksStart(requestPtr
 				if err != nil {
 					if errors.Is(err, io.EOF) {
 						if callbackState.BeginDoneCallback() {
-							_ = C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(0))
+							C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(0))
 							callbackState.EndDoneCallback()
 						}
 					} else {
 						if callbackState.BeginDoneCallback() {
-							_ = C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(err))))
+							C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(err))))
 							callbackState.EndDoneCallback()
 						}
 					}
@@ -114,7 +114,7 @@ func rpccgoMsgForegroundservicev1ForegroundServiceDemoWatchTicksStart(requestPtr
 				ptr, length, err := rpcruntime.EncodeMessage(resp)
 				if err != nil {
 					if callbackState.BeginDoneCallback() {
-						_ = C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))))
+						C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))))
 						callbackState.EndDoneCallback()
 					}
 					return
@@ -124,20 +124,13 @@ func rpccgoMsgForegroundservicev1ForegroundServiceDemoWatchTicksStart(requestPtr
 						rpcruntime.Release(ptr)
 					}
 					if callbackState.BeginDoneCallback() {
-						_ = C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(errors.New("rpccgo: stream callback receive canceled")))))
+						C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(errors.New("rpccgo: stream callback receive canceled")))))
 						callbackState.EndDoneCallback()
 					}
 					return
 				}
-				errID := int32(C.callRpccgoMessageOnRecvCallback(onRecv, C.int32_t(int32(handleValue)), C.uintptr_t(ptr), C.int32_t(length)))
+				C.callRpccgoMessageOnRecvCallback(onRecv, C.int32_t(int32(handleValue)), C.uintptr_t(ptr), C.int32_t(length))
 				callbackState.EndCallback()
-				if errID != 0 {
-					if callbackState.BeginDoneCallback() {
-						_ = C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(errID))
-						callbackState.EndDoneCallback()
-					}
-					return
-				}
 			}
 		}()
 	}

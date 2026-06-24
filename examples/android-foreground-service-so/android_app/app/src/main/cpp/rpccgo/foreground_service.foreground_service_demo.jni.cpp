@@ -191,22 +191,22 @@ bool cancelForegroundServiceDemoWatchTicksListenerCallback(JNIEnv* env) {
     return errID == 0;
 }
 
-int32_t onForegroundServiceDemoWatchTicksListenerRecv(int32_t, uintptr_t responsePtr, int32_t responseLen) {
+void onForegroundServiceDemoWatchTicksListenerRecv(int32_t, uintptr_t responsePtr, int32_t responseLen) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) {
         if (responsePtr != 0) { rpccgoRelease(responsePtr); }
-        return 0;
+        return;
     }
     std::lock_guard<std::mutex> lock(foregroundServiceDemoWatchTicksCallbackMu);
     if (foregroundServiceDemoWatchTicksCallbackListener == nullptr || foregroundServiceDemoWatchTicksCallbackOnRecv == nullptr) {
         if (responsePtr != 0) { rpccgoRelease(responsePtr); }
-        return 0;
+        return;
     }
     jbyteArray payload = env->NewByteArray(responseLen);
     if (payload == nullptr) {
         if (responsePtr != 0) { rpccgoRelease(responsePtr); }
-        return 0;
+        return;
     }
     if (responseLen > 0) {
         env->SetByteArrayRegion(payload, 0, responseLen, reinterpret_cast<const jbyte*>(responsePtr));
@@ -215,13 +215,12 @@ int32_t onForegroundServiceDemoWatchTicksListenerRecv(int32_t, uintptr_t respons
     env->CallVoidMethod(foregroundServiceDemoWatchTicksCallbackListener, foregroundServiceDemoWatchTicksCallbackOnRecv, payload);
     env->DeleteLocalRef(payload);
     if (env->ExceptionCheck()) { env->ExceptionClear(); }
-    return 0;
 }
 
-int32_t onForegroundServiceDemoWatchTicksListenerDone(int32_t, int32_t errID) {
+void onForegroundServiceDemoWatchTicksListenerDone(int32_t, int32_t errID) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
-    if (env == nullptr) { return 0; }
+    if (env == nullptr) { return; }
     jobject listener = nullptr;
     jmethodID onDone = nullptr;
     {
@@ -240,7 +239,6 @@ int32_t onForegroundServiceDemoWatchTicksListenerDone(int32_t, int32_t errID) {
         if (env->ExceptionCheck()) { env->ExceptionClear(); }
     }
     clearForegroundServiceDemoWatchTicksListenerCallback(env);
-    return 0;
 }
 
 // Java_com_ygrpc_examples_rpccgoandroidforegroundservice_ForegroundServiceDemoJni_foregroundServiceDemoWatchTicksStart invokes examples.android.foregroundservice.v1.ForegroundServiceDemo.WatchTicks through the Android C++ JNI adapter.
