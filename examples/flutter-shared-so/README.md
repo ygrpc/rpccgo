@@ -43,6 +43,28 @@ Generated callback stream 会自动注册到 `RpccgoStreamRegistry`。`RpccgoLif
 
 这个 scope 是 Dart lifecycle cleanup，不是 native watchdog；如果 Dart isolate 已经没有机会执行 lifecycle hook，仍需要 native 侧兜底方案。
 
+## Kotlin/JNI callback lifecycle
+
+`protoc-gen-rpc-cgo-jni` 会为 server-streaming 和 bidi-streaming callback API 生成 Activity-owned overload。Activity 里的 callback stream 应把 Activity 作为 owner 传给 generated Kotlin API：
+
+```kotlin
+val stream = SharedSoDemoJni.WatchRuntimeStateStartCallback(
+    this,
+    ReadRuntimeStateRequest.newBuilder()
+        .setCaller("kotlin-activity-count-stream")
+        .build(),
+    listener,
+)
+```
+
+返回的 `RpccgoResult<RpccgoCallbackStream>` 可用于手动停止：
+
+```kotlin
+stream.value?.cancel()
+```
+
+如果 Activity 被关闭但用户没有手动 stop，generated wrapper 会在 owner Activity destroyed 时自动 cancel native callback stream，并屏蔽 cancel 后可能到达的 terminal callback，避免继续回调已销毁的 Activity owner。后台业务 stream 应归属 Android `Service`；这类非 Activity owner 需要在 owner 的结束逻辑中保存并 cancel 返回的 `RpccgoCallbackStream`。
+
 ## 运行
 
 ```bash
@@ -58,6 +80,15 @@ flutter run -d <android-device>
 flutter_app/android/app/src/main/jniLibs/<abi>/librpccgo_flutter_shared.so
 ```
 
+也可以构建并安装 debug APK：
+
+```bash
+cd flutter_app
+flutter build apk --debug
+adb install -r build/app/outputs/flutter-apk/app-debug.apk
+adb shell am start -n com.ygrpc.examples.rpccgofluttersharedso/.MainActivity
+```
+
 ## UI 验证
 
 - `Kotlin Read`：Flutter 发 command 给 Android Service，Service 通过 Kotlin/JNI 读 state。
@@ -68,8 +99,30 @@ flutter_app/android/app/src/main/jniLibs/<abi>/librpccgo_flutter_shared.so
 - `Dart Stop Stream`：Flutter 通过 Dart FFI cancel stream。
 - `Kotlin Start Stream`：Activity 通过 Kotlin/JNI 启动 callback server stream，每秒把 count/state 回传给 Flutter UI。
 - `Kotlin Stop Stream`：Activity 通过 Kotlin/JNI cancel callback server stream。
-- `Close Activity`：关闭 Activity，不主动 cancel Dart/Kotlin stream，用来观察重开后的异常。
+- `Close Activity`：关闭 Activity。按钮本身不调用 stream stop；Dart stream 由 `RpccgoLifecycleScope` cleanup，Kotlin Activity-owned stream 由 generated owner-aware JNI wrapper cleanup。
 
 `Kotlin Start Stream` 故意让 callback listener 归属 Activity，用来验证 generated Kotlin/JNI Activity-owned callback stream 会在 Activity 销毁时自动 cancel，不继续回调已销毁的 UI owner。后台业务 stream 应该归属 Service，而不是 Activity。
 
 两边结果中的 `pid` 和 `instance_address` 一致，且 `value` / `revision` 连续变化，即表示 Kotlin/JNI 和 Dart FFI 进入了同一个 Go runtime/service 实例。
+
+### 验证 Dart stream cleanup
+
+1. 点击 `Dart Start Stream`，确认 `Dart stream: running` 且日志出现 `dart count value=...`。
+2. 点击 `Close Activity`。
+3. 等待几秒后重新打开 Activity。
+4. 预期进程和 foreground service 仍在，UI 显示 `Dart stream: stopped`，logcat 不应出现 `Callback invoked after it has been deleted`、`FfiCallbackMetadata` 或 `SIGABRT`。
+
+### 验证 Kotlin stream cleanup
+
+1. 点击 `Kotlin Start Stream`，确认 `Kotlin stream: running` 且日志出现 `kotlin stream value=...`。
+2. 点击 `Close Activity`，不要点击 `Kotlin Stop Stream`。
+3. 等待几秒后检查 logcat。
+4. 预期进程和 foreground service 仍在，关闭 Activity 后不再持续出现新的 `kotlin stream value=...`，也不应出现 `FlutterJNI was detached from native C++`、`FATAL EXCEPTION`、`JNI DETECTED ERROR` 或 `SIGABRT`。
+
+可用的 adb 检查命令：
+
+```bash
+adb shell pidof com.ygrpc.examples.rpccgofluttersharedso
+adb shell dumpsys activity services com.ygrpc.examples.rpccgofluttersharedso
+adb logcat -d | rg 'Callback invoked|FfiCallback|FlutterJNI was detached|FATAL EXCEPTION|JNI DETECTED ERROR|SIGABRT|data_app_native_crash|kotlin stream'
+```

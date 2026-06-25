@@ -250,7 +250,32 @@ func rpccgoMsgGreeterv1GreeterBroadcastRecv(handle C.int32_t, responsePtr *C.uin
 func rpccgoMsgGreeterv1GreeterBroadcastCancel(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
+	callbackState, _ := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))
+	if callbackState != nil {
+		callbackState.MarkCanceled()
+	}
 	err := proto.GreeterMessageBroadcastCancel(ctx, rpcruntime.StreamHandle(handleValue))
+	if callbackState != nil {
+		callbackState.WaitDone()
+	}
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	return 0
+}
+
+// rpccgoMsgGreeterv1GreeterBroadcastClose closes callback receive ownership for the message server-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Broadcast without delivering further callbacks.
+//
+//export rpccgoMsgGreeterv1GreeterBroadcastClose
+func rpccgoMsgGreeterv1GreeterBroadcastClose(handle C.int32_t) C.int32_t {
+	ctx := context.Background()
+	handleValue := int32(handle)
+	callbackState, err := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	callbackState.MarkCallbackReceiveClosed()
+	err = proto.GreeterMessageBroadcastCancel(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -426,6 +451,24 @@ func rpccgoMsgGreeterv1GreeterChatCancel(handle C.int32_t) C.int32_t {
 	if callbackState != nil {
 		callbackState.WaitDone()
 	}
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	return 0
+}
+
+// rpccgoMsgGreeterv1GreeterChatClose closes callback receive ownership for the message bidi-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Chat without delivering further callbacks.
+//
+//export rpccgoMsgGreeterv1GreeterChatClose
+func rpccgoMsgGreeterv1GreeterChatClose(handle C.int32_t) C.int32_t {
+	ctx := context.Background()
+	handleValue := int32(handle)
+	callbackState, err := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	callbackState.MarkCallbackReceiveClosed()
+	err = proto.GreeterMessageChatCancel(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}

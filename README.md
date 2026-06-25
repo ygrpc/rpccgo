@@ -226,7 +226,7 @@ rpccgo 支持四类 RPC：
 - server streaming
 - bidi streaming
 
-Streaming 的关键点是 `Start` 决定方向：`Start` 时捕获当前 registered server，后续同一个 stream handle 的 `Send`、`Recv`、`Finish`、`CloseSend` 和 `Cancel` 都继续进入这个 server。重新注册 server 只影响新的 unary 调用 and 新的 stream `Start`。
+Streaming 的关键点是 `Start` 决定方向：`Start` 时捕获当前 registered server，后续同一个 stream handle 的 `Send`、`Recv`、`Finish`、`CloseSend` 和 `Cancel` 都继续进入这个 server。重新注册 server 只影响新的 unary 调用和新的 stream `Start`。
 
 ## Dart/Flutter 接入 (protoc-gen-rpc-cgo-dart)
 
@@ -279,6 +279,18 @@ protoc \
    print(result.value!.message);
    ```
    Streaming API 显式使用 cgo operation 语义：先调用 stream start method 获取 stream，再调用 `Send()`、`Recv()`、`Finish()`、`CloseSend()` 或 `Cancel()`；命名规则统一记录在 [CONTEXT.md](CONTEXT.md) 的 `Naming Rules`。
+
+#### Flutter callback stream 生命周期
+
+server-streaming 和 bidi-streaming 的 Dart callback receive API 会持有 Dart callback。Flutter app 应把生成的 `RpccgoLifecycleScope` 放在 `runApp` 最外层，让生成代码在 Flutter tree dispose 或 app lifecycle `detached` 时自动 cancel 仍注册的 callback stream：
+
+```dart
+void main() {
+  runApp(const RpccgoLifecycleScope(child: MyApp()));
+}
+```
+
+用户仍可手动调用 stream 的 `Cancel()`；手动 cancel 后 stream 会从 generated registry 移除，后续 lifecycle cleanup 不会再次 cancel 同一个 stream。
 
 *注：关于如何在 Android 下使 Flutter 和 Kotlin JNI 共享同一个 Go `.so` 运行时和内存状态，请参考 [examples/flutter-shared-so](examples/flutter-shared-so/README.md) 示例。*
 
@@ -336,6 +348,29 @@ System.loadLibrary("rpccgo_service")
 System.loadLibrary("greeter_jni")
 ```
 
+### Kotlin callback stream 生命周期
+
+server-streaming 和 bidi-streaming 的 Kotlin `StartCallback` API 会让 JNI 持有 listener 的 global reference。若 listener 归属 Activity，应使用 generated owner-aware overload，把 Activity 传给生成代码：
+
+```kotlin
+val stream = GreeterJni.ListStartCallback(
+    this,
+    ListRequest.newBuilder().build(),
+    listener,
+)
+if (!stream.ok) {
+    // handle stream.error
+}
+```
+
+生成代码会注册 `Application.ActivityLifecycleCallbacks`。当 owner Activity destroyed 时，它会自动 cancel native callback stream，并屏蔽 cancel 之后可能到达的 terminal callback，避免继续回调已销毁的 Activity owner。返回的 `RpccgoCallbackStream` 也可用于手动停止：
+
+```kotlin
+stream.value?.cancel()
+```
+
+如果 callback stream 归属 Android `Service` 或其他非 Activity owner，应保存返回的 stream handle，并在 owner 的结束逻辑中调用 `cancel()`。
+
 维护 `CMakeLists.txt` 时，不要用 `IMPORTED_LOCATION` 直接链接 Go 生成的 `.so`。Go `-buildmode=c-shared` 产物通常没有 `SONAME`，Android linker 可能会把构建机绝对路径写入 JNI adapter 的 `DT_NEEDED`，导致安装到设备后 `dlopen` 失败。应通过 link search path 加文件名链接：
 
 ```cmake
@@ -374,6 +409,7 @@ JNIEXPORT void JNICALL JNI_OnUnload(JavaVM*, void*) {
 
 - [Connect Greeter](examples/connect-greeter/README.md)
 - [gRPC Greeter](examples/grpc-greeter/README.md)
+- [Flutter + Kotlin/JNI Shared .so](examples/flutter-shared-so/README.md)
 
 ## 开发与验证
 

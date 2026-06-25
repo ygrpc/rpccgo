@@ -502,6 +502,24 @@ func rpccgoNativeGreeterv1GreeterBroadcastCancel(stream C.int32_t) C.int32_t {
 	return 0
 }
 
+// rpccgoNativeGreeterv1GreeterBroadcastClose closes callback receive ownership for the native server-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Broadcast without delivering further callbacks.
+//
+//export rpccgoNativeGreeterv1GreeterBroadcastClose
+func rpccgoNativeGreeterv1GreeterBroadcastClose(stream C.int32_t) C.int32_t {
+	ctx := context.Background()
+	handle := int32(stream)
+	callbackState, err := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handle))
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	callbackState.MarkCallbackReceiveClosed()
+	err = proto.GreeterNativeBroadcastCancel(ctx, rpcruntime.StreamHandle(handle))
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	return 0
+}
+
 func decodeGreeterChatNativeBidiStreamRequest(NamePtr uintptr, NameLen int32, NameOwnership int32, CityPtr uintptr, CityLen int32, CityOwnership int32) (*rpcruntime.RpcString, *rpcruntime.RpcString, error) {
 	var decoded rpcruntime.NativeReleaseStack
 	if _, err := rpcruntime.LengthFromInt32(NameLen); err != nil {
@@ -755,6 +773,24 @@ func rpccgoNativeGreeterv1GreeterChatCancel(stream C.int32_t) C.int32_t {
 	if callbackState != nil {
 		callbackState.WaitDone()
 	}
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	return 0
+}
+
+// rpccgoNativeGreeterv1GreeterChatClose closes callback receive ownership for the native bidi-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Chat without delivering further callbacks.
+//
+//export rpccgoNativeGreeterv1GreeterChatClose
+func rpccgoNativeGreeterv1GreeterChatClose(stream C.int32_t) C.int32_t {
+	ctx := context.Background()
+	handle := int32(stream)
+	callbackState, err := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handle))
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	callbackState.MarkCallbackReceiveClosed()
+	err = proto.GreeterNativeChatCancel(ctx, rpcruntime.StreamHandle(handle))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
