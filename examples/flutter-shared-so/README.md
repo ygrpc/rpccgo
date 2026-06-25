@@ -5,7 +5,7 @@
 - Flutter 通过生成的 Dart FFI client 直接调用 Go `c-shared` runtime。
 - Android `Service` 通过 Kotlin/JNI 调用同一个 Go `c-shared` runtime。
 
-App 启动时会自动启动 `SharedSoRuntimeService`。UI 里的 `Start Count Stream` / `Stop Count Stream` 只走 Dart FFI server stream，用来验证关闭 Activity、重新打开后 Dart FFI stream 和后续调用是否还能正常工作。
+App 启动时会自动启动 `SharedSoRuntimeService`。UI 里的 Dart/Kotlin stream 按钮分别验证 Dart FFI callback stream 和 Activity-owned Kotlin/JNI callback stream 在关闭 Activity、重新打开后的行为。
 
 ## 目录
 
@@ -64,8 +64,12 @@ flutter_app/android/app/src/main/jniLibs/<abi>/librpccgo_flutter_shared.so
 - `Kotlin Increment`：Service 通过 Kotlin/JNI 修改 state。
 - `Dart Read`：Flutter 通过 Dart FFI 读 state。
 - `Dart Increment`：Flutter 通过 Dart FFI 修改 state。
-- `Start Count Stream`：Flutter 通过 Dart FFI 启动 server stream，每秒接收 count/state。
-- `Stop Count Stream`：Flutter 通过 Dart FFI cancel stream。
-- `Close Activity`：关闭 Activity，不主动 cancel Dart stream，用来观察重开后的异常。
+- `Dart Start Stream`：Flutter 通过 Dart FFI 启动 server stream，每秒接收 count/state。
+- `Dart Stop Stream`：Flutter 通过 Dart FFI cancel stream。
+- `Kotlin Start Stream`：Activity 通过 Kotlin/JNI 启动 callback server stream，每秒把 count/state 回传给 Flutter UI。
+- `Kotlin Stop Stream`：Activity 通过 Kotlin/JNI cancel callback server stream。
+- `Close Activity`：关闭 Activity，不主动 cancel Dart/Kotlin stream，用来观察重开后的异常。
+
+`Kotlin Start Stream` 故意让 callback listener 归属 Activity，用来验证 generated Kotlin/JNI Activity-owned callback stream 会在 Activity 销毁时自动 cancel，不继续回调已销毁的 UI owner。后台业务 stream 应该归属 Service，而不是 Activity。
 
 两边结果中的 `pid` 和 `instance_address` 一致，且 `value` / `revision` 连续变化，即表示 Kotlin/JNI 和 Dart FFI 进入了同一个 Go runtime/service 实例。

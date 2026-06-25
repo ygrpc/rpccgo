@@ -11,3 +11,5 @@ runApp(const RpccgoLifecycleScope(child: SharedSoApp()));
 ```
 
 The scope lives in `lib/gen/rpccgo.dart` and cancels registered generated Dart FFI streams when the Flutter tree is disposed or the app lifecycle reaches `detached`.
+
+`Kotlin Start Stream` starts an Activity-owned JNI callback stream through the generated owner-aware API. Use it with `Close Activity` to verify the generated Kotlin/JNI wrapper cancels the callback stream when the Activity is destroyed.

@@ -43,6 +43,7 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
   String? _kotlinLine;
   SharedSoDemoWatchRuntimeStateStream? _countStream;
   StreamSubscription<dynamic>? _serviceEvents;
+  bool _kotlinStreamRunning = false;
   bool _busy = false;
 
   @override
@@ -51,7 +52,12 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
     _serviceEvents = _events.receiveBroadcastStream().listen((value) {
       final line = value?.toString() ?? '';
       if (line.isEmpty) return;
-      setState(() => _kotlinLine = line);
+      setState(() {
+        _kotlinLine = line;
+        if (line.startsWith('kotlin stream done')) {
+          _kotlinStreamRunning = false;
+        }
+      });
       _append(line);
     }, onError: (error) => _append('service event error=$error'));
   }
@@ -140,6 +146,26 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
     });
   }
 
+  Future<void> _startKotlinStream() async {
+    await _run('kotlin start stream', () async {
+      final started = await _command.invokeMethod<bool>('kotlinStartStream');
+      if (started != true) {
+        _append('kotlin stream start failed');
+        return;
+      }
+      setState(() => _kotlinStreamRunning = true);
+      _append('kotlin stream started');
+    });
+  }
+
+  Future<void> _stopKotlinStream() async {
+    await _run('kotlin stop stream', () async {
+      final stopped = await _command.invokeMethod<bool>('kotlinStopStream');
+      setState(() => _kotlinStreamRunning = false);
+      _append('kotlin stream stop result=${stopped == true}');
+    });
+  }
+
   Future<void> _run(String label, Future<void> Function() action) async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -181,7 +207,8 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
               _StatePanel(
                 kotlinLine: _kotlinLine,
                 dartState: _dartState,
-                streamRunning: _countStream != null,
+                dartStreamRunning: _countStream != null,
+                kotlinStreamRunning: _kotlinStreamRunning,
               ),
               const SizedBox(height: 12),
               Wrap(
@@ -213,12 +240,22 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
                   OutlinedButton.icon(
                     onPressed: _busy ? null : _startCountStream,
                     icon: const Icon(Icons.play_arrow),
-                    label: const Text('Start Count Stream'),
+                    label: const Text('Dart Start Stream'),
                   ),
                   OutlinedButton.icon(
                     onPressed: _busy ? null : _stopCountStream,
                     icon: const Icon(Icons.stop),
-                    label: const Text('Stop Count Stream'),
+                    label: const Text('Dart Stop Stream'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _startKotlinStream,
+                    icon: const Icon(Icons.play_circle_outline),
+                    label: const Text('Kotlin Start Stream'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _stopKotlinStream,
+                    icon: const Icon(Icons.stop_circle_outlined),
+                    label: const Text('Kotlin Stop Stream'),
                   ),
                   OutlinedButton.icon(
                     onPressed: _busy ? null : SystemNavigator.pop,
@@ -262,12 +299,14 @@ class _StatePanel extends StatelessWidget {
   const _StatePanel({
     required this.kotlinLine,
     required this.dartState,
-    required this.streamRunning,
+    required this.dartStreamRunning,
+    required this.kotlinStreamRunning,
   });
 
   final String? kotlinLine;
   final RuntimeStateResponse? dartState;
-  final bool streamRunning;
+  final bool dartStreamRunning;
+  final bool kotlinStreamRunning;
 
   @override
   Widget build(BuildContext context) {
@@ -283,7 +322,10 @@ class _StatePanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Service: ${kotlinLine == null ? "waiting" : "running"}'),
-            Text('Count stream: ${streamRunning ? "running" : "stopped"}'),
+            Text('Dart stream: ${dartStreamRunning ? "running" : "stopped"}'),
+            Text(
+              'Kotlin stream: ${kotlinStreamRunning ? "running" : "stopped"}',
+            ),
             const SizedBox(height: 8),
             SelectableText('Kotlin/JNI: ${kotlinLine ?? "no state yet"}'),
             SelectableText(

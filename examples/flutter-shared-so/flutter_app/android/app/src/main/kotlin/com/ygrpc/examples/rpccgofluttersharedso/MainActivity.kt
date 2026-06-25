@@ -8,6 +8,9 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
+import examples.flutter.sharedso.v1.ReadRuntimeStateRequest
+import examples.flutter.sharedso.v1.RuntimeStateResponse
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
@@ -15,6 +18,7 @@ import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private var events: EventChannel.EventSink? = null
+    private var kotlinStream: SharedSoDemoJni.RpccgoCallbackStream? = null
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action != SharedSoRuntimeService.ACTION_STATE) return
@@ -40,6 +44,8 @@ class MainActivity : FlutterActivity() {
                     sendServiceAction(SharedSoRuntimeService.ACTION_INCREMENT)
                     result.success(null)
                 }
+                "kotlinStartStream" -> result.success(startKotlinStream())
+                "kotlinStopStream" -> result.success(stopKotlinStream())
                 else -> result.notImplemented()
             }
         }
@@ -76,6 +82,55 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    private fun startKotlinStream(): Boolean {
+        if (kotlinStream != null) return true
+        val listener = object : SharedSoDemoJni.SharedSoDemoWatchRuntimeStateListener {
+            override fun onRecv(responseBytes: ByteArray) {
+                val line = try {
+                    formatState("kotlin stream", RuntimeStateResponse.parseFrom(responseBytes))
+                } catch (error: Exception) {
+                    "kotlin stream decode error=${error.message ?: error::class.java.name}"
+                }
+                sendEvent(line)
+            }
+
+            override fun onDone(error: String?) {
+                sendEvent("kotlin stream done error=${error ?: "none"}")
+                kotlinStream = null
+            }
+        }
+        val result = SharedSoDemoJni.WatchRuntimeStateStartCallback(
+            this,
+            ReadRuntimeStateRequest.newBuilder()
+                .setCaller("kotlin-activity-count-stream")
+                .build(),
+            listener,
+        )
+        val stream = result.value
+        if (!result.ok || stream == null) {
+            sendEvent("kotlin stream start error=${result.error ?: "missing stream"}")
+            return false
+        }
+        kotlinStream = stream
+        return true
+    }
+
+    private fun stopKotlinStream(): Boolean {
+        val stream = kotlinStream
+        kotlinStream = null
+        return stream?.cancel() ?: true
+    }
+
+    private fun sendEvent(line: String) {
+        Log.i(TAG, line)
+        runOnUiThread {
+            events?.success(line)
+        }
+    }
+
+    private fun formatState(label: String, value: RuntimeStateResponse): String =
+        "$label value=${value.value} rev=${value.revision} pid=${value.pid} instance=${value.instanceAddress}"
+
     private fun registerReceiverCompat() {
         val filter = IntentFilter(SharedSoRuntimeService.ACTION_STATE)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -97,5 +152,6 @@ class MainActivity : FlutterActivity() {
     companion object {
         private const val CHANNEL_COMMAND = "rpccgo.shared.so/command"
         private const val CHANNEL_EVENTS = "rpccgo.shared.so/events"
+        private const val TAG = "RpccgoSharedActivity"
     }
 }

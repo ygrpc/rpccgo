@@ -18,6 +18,47 @@ data class RpccgoResult<T>(val value: T?, val error: String?) {
 }
 
 object SharedSoDemoJni {
+    /** Handle for a generated JNI callback stream. */
+    class RpccgoCallbackStream internal constructor(
+        private val cancelCallback: () -> Boolean,
+        private val unregisterLifecycle: () -> Unit = {},
+    ) : AutoCloseable {
+        private val active = AtomicBoolean(true)
+
+        /** Cancels the native stream and unregisters any generated lifecycle callback. */
+        fun cancel(): Boolean {
+            if (!active.compareAndSet(true, false)) return true
+            unregisterLifecycle()
+            return cancelCallback()
+        }
+
+        internal fun complete() {
+            if (active.compareAndSet(true, false)) unregisterLifecycle()
+        }
+
+        override fun close() {
+            cancel()
+        }
+    }
+
+    private fun activityOwnedCallbackStream(owner: android.app.Activity, cancel: () -> Boolean): RpccgoCallbackStream {
+        var stream: RpccgoCallbackStream? = null
+        val callbacks = object : android.app.Application.ActivityLifecycleCallbacks {
+            override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: android.os.Bundle?) {}
+            override fun onActivityStarted(activity: android.app.Activity) {}
+            override fun onActivityResumed(activity: android.app.Activity) {}
+            override fun onActivityPaused(activity: android.app.Activity) {}
+            override fun onActivityStopped(activity: android.app.Activity) {}
+            override fun onActivitySaveInstanceState(activity: android.app.Activity, outState: android.os.Bundle) {}
+            override fun onActivityDestroyed(activity: android.app.Activity) {
+                if (activity === owner) stream?.cancel()
+            }
+        }
+        owner.application.registerActivityLifecycleCallbacks(callbacks)
+        stream = RpccgoCallbackStream(cancel) { owner.application.unregisterActivityLifecycleCallbacks(callbacks) }
+        return stream
+    }
+
     private external fun sharedSoDemoComposeGreeting(request: ByteArray): ByteArray?
     private external fun sharedSoDemoIncrementRuntimeState(request: ByteArray): ByteArray?
     private external fun sharedSoDemoReadRuntimeState(request: ByteArray): ByteArray?
@@ -84,6 +125,32 @@ object SharedSoDemoJni {
     }
     fun WatchRuntimeStateStartCallback(req: examples.flutter.sharedso.v1.ReadRuntimeStateRequest, listener: SharedSoDemoWatchRuntimeStateListener): Boolean =
         sharedSoDemoWatchRuntimeStateStartCallback(req.toByteArray(), listener)
+    fun WatchRuntimeStateStartCallback(owner: android.app.Activity, req: examples.flutter.sharedso.v1.ReadRuntimeStateRequest, listener: SharedSoDemoWatchRuntimeStateListener): RpccgoResult<RpccgoCallbackStream> {
+        if (owner.isDestroyed) return RpccgoResult.failure("rpccgo: callback stream owner is destroyed")
+        val callbackOpen = AtomicBoolean(true)
+        var stream: RpccgoCallbackStream? = null
+        val ownerListener = object : SharedSoDemoWatchRuntimeStateListener {
+            override fun onRecv(responseBytes: ByteArray) {
+                if (callbackOpen.get()) listener.onRecv(responseBytes)
+            }
+
+            override fun onDone(error: String?) {
+                if (!callbackOpen.compareAndSet(true, false)) return
+                stream?.complete()
+                listener.onDone(error)
+            }
+        }
+        stream = activityOwnedCallbackStream(owner) {
+            callbackOpen.set(false)
+            WatchRuntimeStateCancelCallback()
+        }
+        val activeStream = stream ?: return RpccgoResult.failure("rpccgo: callback stream owner registration failed")
+        if (!WatchRuntimeStateStartCallback(req, ownerListener)) {
+            activeStream.cancel()
+            return RpccgoResult.failure("rpccgo: callback stream start failed")
+        }
+        return RpccgoResult.success(activeStream)
+    }
     fun WatchRuntimeStateCancelCallback(): Boolean = sharedSoDemoWatchRuntimeStateCancelCallback()
 
     class SharedSoDemoWatchRuntimeStateServerStream internal constructor(private val handle: Int) {
@@ -147,6 +214,32 @@ object SharedSoDemoJni {
     }
     fun StreamRuntimeStateStartCallback(req: examples.flutter.sharedso.v1.ReadRuntimeStateRequest, listener: SharedSoDemoStreamRuntimeStateListener): Boolean =
         sharedSoDemoStreamRuntimeStateStartCallback(req.toByteArray(), listener)
+    fun StreamRuntimeStateStartCallback(owner: android.app.Activity, req: examples.flutter.sharedso.v1.ReadRuntimeStateRequest, listener: SharedSoDemoStreamRuntimeStateListener): RpccgoResult<RpccgoCallbackStream> {
+        if (owner.isDestroyed) return RpccgoResult.failure("rpccgo: callback stream owner is destroyed")
+        val callbackOpen = AtomicBoolean(true)
+        var stream: RpccgoCallbackStream? = null
+        val ownerListener = object : SharedSoDemoStreamRuntimeStateListener {
+            override fun onRecv(responseBytes: ByteArray) {
+                if (callbackOpen.get()) listener.onRecv(responseBytes)
+            }
+
+            override fun onDone(error: String?) {
+                if (!callbackOpen.compareAndSet(true, false)) return
+                stream?.complete()
+                listener.onDone(error)
+            }
+        }
+        stream = activityOwnedCallbackStream(owner) {
+            callbackOpen.set(false)
+            StreamRuntimeStateCancelCallback()
+        }
+        val activeStream = stream ?: return RpccgoResult.failure("rpccgo: callback stream owner registration failed")
+        if (!StreamRuntimeStateStartCallback(req, ownerListener)) {
+            activeStream.cancel()
+            return RpccgoResult.failure("rpccgo: callback stream start failed")
+        }
+        return RpccgoResult.success(activeStream)
+    }
     fun StreamRuntimeStateCancelCallback(): Boolean = sharedSoDemoStreamRuntimeStateCancelCallback()
 
     class SharedSoDemoStreamRuntimeStateServerStream internal constructor(private val handle: Int) {
@@ -195,6 +288,32 @@ object SharedSoDemoJni {
     }
     fun ChatRuntimeStateStartCallback(listener: SharedSoDemoChatRuntimeStateListener): Boolean =
         sharedSoDemoChatRuntimeStateStartCallback(listener)
+    fun ChatRuntimeStateStartCallback(owner: android.app.Activity, listener: SharedSoDemoChatRuntimeStateListener): RpccgoResult<RpccgoCallbackStream> {
+        if (owner.isDestroyed) return RpccgoResult.failure("rpccgo: callback stream owner is destroyed")
+        val callbackOpen = AtomicBoolean(true)
+        var stream: RpccgoCallbackStream? = null
+        val ownerListener = object : SharedSoDemoChatRuntimeStateListener {
+            override fun onRecv(responseBytes: ByteArray) {
+                if (callbackOpen.get()) listener.onRecv(responseBytes)
+            }
+
+            override fun onDone(error: String?) {
+                if (!callbackOpen.compareAndSet(true, false)) return
+                stream?.complete()
+                listener.onDone(error)
+            }
+        }
+        stream = activityOwnedCallbackStream(owner) {
+            callbackOpen.set(false)
+            ChatRuntimeStateCancelCallback()
+        }
+        val activeStream = stream ?: return RpccgoResult.failure("rpccgo: callback stream owner registration failed")
+        if (!ChatRuntimeStateStartCallback(ownerListener)) {
+            activeStream.cancel()
+            return RpccgoResult.failure("rpccgo: callback stream start failed")
+        }
+        return RpccgoResult.success(activeStream)
+    }
     fun ChatRuntimeStateCancelCallback(): Boolean = sharedSoDemoChatRuntimeStateCancelCallback()
 
     class SharedSoDemoChatRuntimeStateBidiStream internal constructor(private val handle: Int) {
