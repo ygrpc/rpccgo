@@ -27,8 +27,10 @@ func renderDartEntryFile(plugin *protogen.Plugin, plan GenerationPlan) {
 	g.P()
 	g.P("library;")
 	g.P()
-	g.P("import 'package:flutter/widgets.dart' as widgets;")
-	g.P()
+	if planHasRecvStreamingMethod(plan) {
+		g.P("import 'package:flutter/widgets.dart' as widgets;")
+		g.P()
+	}
 
 	exports := make(map[string]struct{})
 	for _, pkg := range plan.Packages {
@@ -48,8 +50,23 @@ func renderDartEntryFile(plugin *protogen.Plugin, plan GenerationPlan) {
 	for _, export := range paths {
 		g.P("export '", export, "';")
 	}
-	g.P()
-	renderDartLifecycleSupport(g)
+	if planHasRecvStreamingMethod(plan) {
+		g.P()
+		renderDartLifecycleSupport(g)
+	}
+}
+
+func planHasRecvStreamingMethod(plan GenerationPlan) bool {
+	for _, pkg := range plan.Packages {
+		for _, file := range pkg.Files {
+			for _, service := range file.Services {
+				if serviceHasRecvStreamingMethod(service) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 func renderDartServiceClientFile(plugin *protogen.Plugin, file FilePlan, service ServicePlan, config DartGeneratorConfig) {
@@ -71,7 +88,9 @@ func renderDartServiceClientFile(plugin *protogen.Plugin, file FilePlan, service
 	g.P()
 	g.P("import 'package:ffi/ffi.dart' as pkg_ffi;")
 	g.P()
-	g.P("import '", path.Base(defaultDartNativeAssetName), "' as rpccgo;")
+	if serviceHasRecvStreamingMethod(service) {
+		g.P("import '", path.Base(defaultDartNativeAssetName), "' as rpccgo;")
+	}
 	g.P("import '", dartPBImport(file), "' as pb;")
 	g.P()
 	g.P("// rpccgo Dart FFI message client generated file for ", service.GoName)
@@ -460,7 +479,11 @@ func renderDartStreamHandleClass(g *protogen.GeneratedFile, service ServicePlan,
 }
 
 func renderDartStreamClass(g *protogen.GeneratedFile, clientClassName, className string, method MethodPlan, canSend, canRecv, finishReturnsResponse, canFinish, canCloseSend bool) {
-	g.P("class ", className, " implements rpccgo.RpccgoDisposableStream {")
+	if canRecv {
+		g.P("class ", className, " implements rpccgo.RpccgoDisposableStream {")
+	} else {
+		g.P("class ", className, " {")
+	}
 	if canRecv {
 		dartP(g, 1, className, "._(this._client, this._handle, [this._callbackReceive = false, this._closeCallbacks]);")
 	} else {
@@ -598,11 +621,6 @@ func renderDartStreamClass(g *protogen.GeneratedFile, clientClassName, className
 		dartP(g, 2, "_callbacksClosed = true;")
 		dartP(g, 2, "_closeCallbacks?.call();")
 		dartP(g, 2, "_unregisterCallbackReceive();")
-		dartP(g, 1, "}")
-	} else {
-		dartP(g, 1, "@override")
-		dartP(g, 1, "void rpccgoDispose() {")
-		dartP(g, 2, "Cancel();")
 		dartP(g, 1, "}")
 	}
 	g.P("}")

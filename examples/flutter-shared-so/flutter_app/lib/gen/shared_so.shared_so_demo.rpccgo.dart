@@ -542,7 +542,7 @@ class SharedSoDemoWatchRuntimeStateStream implements rpccgo.RpccgoDisposableStre
   }
 }
 
-class SharedSoDemoCollectRuntimeStateStream implements rpccgo.RpccgoDisposableStream {
+class SharedSoDemoCollectRuntimeStateStream {
   SharedSoDemoCollectRuntimeStateStream._(this._client, this._handle);
   final SharedSoDemoRpccgoClient _client;
   final int _handle;
@@ -579,10 +579,6 @@ class SharedSoDemoCollectRuntimeStateStream implements rpccgo.RpccgoDisposableSt
     final errID = _collectRuntimeStateCancelRaw(_handle);
     final error = _client._takeErrorResult(errID);
     return error;
-  }
-  @override
-  void rpccgoDispose() {
-    Cancel();
   }
 }
 

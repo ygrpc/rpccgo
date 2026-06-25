@@ -22,9 +22,12 @@ func TestGenerateDartEmitsMessageFFIClient(t *testing.T) {
 	})
 	assertGeneratedContentContains(t, plugin, "rpccgo.dart", "export 'test/v1/greeter.greeter.rpccgo.dart';")
 	assertGeneratedContentContains(t, plugin, "rpccgo.dart", "export 'test/v1/greeter.pb.dart';")
-	assertGeneratedContentContains(t, plugin, "rpccgo.dart", "class RpccgoLifecycleScope extends widgets.StatefulWidget {")
-	assertGeneratedContentContains(t, plugin, "rpccgo.dart", "abstract interface class RpccgoDisposableStream {")
-	assertGeneratedContentContains(t, plugin, "rpccgo.dart", "final class RpccgoStreamRegistry {")
+	assertGeneratedFileContentDoesNotContain(t, plugin, "rpccgo.dart",
+		"import 'package:flutter/widgets.dart' as widgets;",
+		"class RpccgoLifecycleScope extends widgets.StatefulWidget {",
+		"abstract interface class RpccgoDisposableStream {",
+		"final class RpccgoStreamRegistry {",
+	)
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "@ffi.DefaultAsset('package:rpccgo_test/gen/rpccgo.dart')")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "class GreeterRpccgoClient {")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "const GreeterRpccgoClient();")
@@ -60,6 +63,9 @@ func TestGenerateDartEmitsStreamingMessageFFIClient(t *testing.T) {
 
 	const file = "test/v1/message_contract.greeter.rpccgo.dart"
 	assertDartGeneratedFilenames(t, plugin, []string{"rpccgo.dart", file})
+	assertGeneratedContentContains(t, plugin, "rpccgo.dart", "class RpccgoLifecycleScope extends widgets.StatefulWidget {")
+	assertGeneratedContentContains(t, plugin, "rpccgo.dart", "abstract interface class RpccgoDisposableStream {")
+	assertGeneratedContentContains(t, plugin, "rpccgo.dart", "final class RpccgoStreamRegistry {")
 	for _, fragment := range []string{
 		"({GreeterUploadStream? value, String? error}) UploadStart() {",
 		"// ignore_for_file: non_constant_identifier_names",
@@ -90,7 +96,7 @@ func TestGenerateDartEmitsStreamingMessageFFIClient(t *testing.T) {
 		"String? Finish() {",
 		"({GreeterChatStream? value, String? error}) ChatStartCallback({required void Function(pb.MessageReply value) onRecv, required void Function(String? error) onDone}) {",
 		"({GreeterChatStream? value, String? error}) ChatStart() {",
-		"class GreeterUploadStream implements rpccgo.RpccgoDisposableStream {\n  GreeterUploadStream._(this._client, this._handle);",
+		"class GreeterUploadStream {\n  GreeterUploadStream._(this._client, this._handle);",
 		"  String? Send(pb.MessageRequest request) {\n    final requestBytes = request.writeToBuffer();",
 		"    try {\n      final errID = _uploadSendRaw(",
 		"String? CloseSend() {",
@@ -118,6 +124,7 @@ func TestGenerateDartEmitsStreamingMessageFFIClient(t *testing.T) {
 		"symbol: 'rpccgoMsgTestv1GreeterListRead'",
 		"symbol: 'rpccgoMsgTestv1GreeterChatRead'",
 		"symbol: 'rpccgoMsgTestv1GreeterUploadClose'",
+		"class GreeterUploadStream implements rpccgo.RpccgoDisposableStream",
 		"_uploadCloseRaw",
 		"final _RpccgoStreamFinishVoid _uploadCloseSend;",
 		"final _RpccgoStreamFinishVoid _listCloseSend;",
