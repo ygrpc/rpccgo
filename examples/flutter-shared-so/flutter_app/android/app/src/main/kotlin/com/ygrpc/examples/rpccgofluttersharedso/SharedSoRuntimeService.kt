@@ -29,13 +29,11 @@ class SharedSoRuntimeService : Service() {
         }
     }
 
-    private var lastLine = "service starting"
-
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         createChannel()
-        startForeground(NOTIFICATION_ID, notification(lastLine))
+        startForeground(NOTIFICATION_ID, notification())
         when (intent?.action) {
             ACTION_INCREMENT -> increment()
             ACTION_READ -> read()
@@ -69,13 +67,12 @@ class SharedSoRuntimeService : Service() {
         } else {
             "$label value=${value.value} rev=${value.revision} pid=${value.pid} instance=${value.instanceAddress}"
         }
-        lastLine = line
         Log.i(TAG, line)
         sendBroadcast(Intent(ACTION_STATE).setPackage(packageName).putExtra(EXTRA_LINE, line))
-        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(line))
+        getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification())
     }
 
-    private fun notification(text: String): Notification {
+    private fun notification(): Notification {
         val activity = PendingIntent.getActivity(
             this,
             0,
@@ -91,7 +88,7 @@ class SharedSoRuntimeService : Service() {
         return builder
             .setSmallIcon(android.R.drawable.stat_sys_upload)
             .setContentTitle("rpccgo shared .so")
-            .setContentText(text)
+            .setContentText("Runtime service is running")
             .setContentIntent(activity)
             .setOngoing(true)
             .build()

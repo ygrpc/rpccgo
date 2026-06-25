@@ -49,7 +49,7 @@ generator 侧的 contract-to-render 投影，把 streaming method 的 operation 
 _Avoid_: runtime stream lifecycle executor, stream registry helper plan
 
 **Callback receive stream**:
-C client export `Start` 时由用户同时传入 `onRecv` 与 `onDone` 后启用的自动接收 stream 模式；generated code 后台循环接收 server stream 或 bidi stream 的响应并回调用户代码，而不是要求用户手动调用 `Recv`。`onRecv` 与 `onDone` 是通知型 `void` callback；callback 用户代码失败时由 client 调用 `Cancel` 终止 stream，不通过 callback 返回值同步传回 Go。
+C client export `Start` 时由用户同时传入 `onRecv` 与 `onDone` 后启用的自动接收 stream 模式；generated code 后台循环接收 server stream 或 bidi stream 的响应并回调用户代码，而不是要求用户手动调用 `Recv`。`onRecv` 与 `onDone` 是通知型 `void` callback；callback 用户代码失败时由 client 调用 `Cancel` 终止 stream，不通过 callback 返回值同步传回 Go。Callback receive stream 区分 application cancellation 与 callback owner close：`Cancel` 是业务取消并允许投递 `onDone`，`Close` 是 Dart isolate、Flutter engine 或 Activity 等 callback owner 生命周期关闭并禁止后续投递 `onRecv` / `onDone`。
 
 **Generated service runtime**:
 每个 service 生成的 service runtime artifact，只应承载 proto/service/method-specific 的 package-level invoke/start facade、registry lookup glue、transport registration glue、stream `Start` glue 和 converter glue。
@@ -87,7 +87,7 @@ _Avoid_: active server
 
 - Generated name 使用 protobuf descriptor 的 Go name 作为 service、method 和 message 的 Go-visible segment；文件名中的 service segment 使用 `lower_snake_case(service.GoName)`。
 - 当一个 generated symbol 同时包含 protobuf method 和 stream operation 时，operation 必须作为 method 后缀出现；允许在 method 前添加 contract、namespace、service、language runtime 或 binding qualifier，但不允许把 operation 移到 method 前。
-- Stream operation token 固定为 `Start`、`Send`、`Recv`、`Finish`、`CloseSend`、`Cancel`。接收操作统一使用 `Recv`，不使用 `Read`、`Receive` 或 `onMessage` 作为同义替代；创建 stream session 的入口必须显式保留 `Start`。
+- Stream operation token 固定为 `Start`、`Send`、`Recv`、`Finish`、`CloseSend`、`Cancel`；callback receive stream 额外使用 `Close` 表达 callback owner 生命周期关闭。接收操作统一使用 `Recv`，不使用 `Read`、`Receive` 或 `onMessage` 作为同义替代；创建 stream session 的入口必须显式保留 `Start`。`Close` 不表示 RPC half-close，也不替代 bidi stream 的 `CloseSend`。
 - Server streaming client 侧没有 `Finish` 操作；server stream 由服务端自然结束或 client 侧 `Cancel` 终止。C server callback ABI 的 server-stream `Finish` 是 server implementation cleanup / natural completion callback，仍属于 server callback operation set。
 
 ### Go generated symbols
@@ -121,7 +121,7 @@ _Avoid_: active server
 ### Dart and JNI/Kotlin APIs
 
 - Dart client class 使用 `<Service>RpccgoClient`；Dart stream class 使用 `<Service><Method>Stream`。
-- Dart unary public method 使用 protobuf method name；stream public start method 使用 `<Method>Start`；callback receive start method 使用 `<Method>StartCallback`。Returned stream object exposes `Send`、`Recv`、`Finish`、`CloseSend`、`Cancel` as applicable.
+- Dart unary public method 使用 protobuf method name；stream public start method 使用 `<Method>Start`；callback receive start method 使用 `<Method>StartCallback`。Returned stream object exposes `Send`、`Recv`、`Finish`、`CloseSend`、`Cancel` as applicable；callback receive stream object additionally exposes `Close` for callback owner teardown.
 - Dart private/raw binding 使用 host-language casing，但必须保留 operation suffix，例如 `_<lowerMethod><Operation>Raw`。
 - JNI/Kotlin native method prefix 使用 `<lowerService><Method>`，stream operation 作为后缀，例如 `sharedSoDemoCollectRuntimeStateRecv`。
 - JNI/Kotlin listener surface 必须使用 `fun onRecv(responseBytes: ByteArray)` 与 `fun onDone(error: String?)`；C++ JNI trampoline、cached `jmethodID` 字段和传给 C ABI `Start` 的函数名也使用 `Recv` / `Done` 后缀。
@@ -144,8 +144,9 @@ _Avoid_: active server
 - C **Message contract** projection 写出 typed protobuf message 时，先拒绝 nil message，再序列化；序列化结果长度为 0 时输出 `ptr=0,len=0` 且不分配跨 C 边界 buffer。
 - C **Message contract** client projection 的 server stream / bidi stream `Start` 只有在 `onRecv` 与 `onDone` 同时非 nil 时才启用 **Callback receive stream**；否则保持手动 `Recv` 模式。
 - **Callback receive stream** 沿用现有 `Recv` export 的响应 buffer 释放语义；裸 C callback 收到的 `ptr/len` 由调用方处理完后调用 generated shared release API 释放，Android/JNI 与 Flutter/Dart generated adapter 则由 generated trampoline 负责释放。
-- **Callback receive stream** 启用后不允许用户再手动调用该 stream 的 `Recv`；对应 export 必须返回显式错误。`Cancel` 仍然有效，并负责主动取消后台接收流程。bidi stream 的 `Send` 与 `CloseSend` 仍按原 stream handle 工作。
-- Go 侧不能可靠判断任意 C callback function pointer 是否仍可调用；它只能检查 nil、调用 generated trampoline，并通过 `onDone` 传递后台接收循环的终态 error id。
+- **Callback receive stream** 启用后不允许用户再手动调用该 stream 的 `Recv`；对应 export 必须返回显式错误。`Cancel` 仍然有效，并负责主动取消后台接收流程，且允许后台接收循环投递 `onDone`。bidi stream 的 `Send` 与 `CloseSend` 仍按原 stream handle 工作。
+- **Callback receive stream** 的 `Close` 只表达 callback owner 生命周期关闭；`Close` 后不得再投递 `onRecv` 或 `onDone`。Dart-only callback close 不足以阻止 native 后台接收循环调用旧 callback，因此 generated cgo client projection 必须提供对应 `Close` export。
+- Go 侧不能可靠判断任意 C callback function pointer 是否仍可调用；它只能检查 nil、调用 generated trampoline，并通过 `onDone` 传递后台接收循环的终态 error id，或在 `Close` 后停止投递任何 callback。
 - Server streaming client 侧没有 `Finish` 操作；server stream 由服务端自然结束或 client 侧 `Cancel` 终止。
 - **Callback receive stream** 对 registered server 透明；server 端继续按原 server stream / bidi stream contract 处理 `Send`、`Recv`、`CloseSend`、`Cancel` 和自然结束，不感知 client 是否用 callback receive。
 - Server streaming client 侧移除 `Finish` 不等于移除 C server callback ABI 的 server-stream `Finish`；后者是 C server implementation 的 stream cleanup / natural completion callback，仍属于 server callback operation set。

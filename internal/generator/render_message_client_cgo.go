@@ -238,6 +238,14 @@ func renderMessageServerStreamingCExportWrappers(g *protogen.GeneratedFile, plan
 	g.P("return 0")
 	g.P("}")
 	g.P()
+	closeName := messageCExportFuncName(plan, service, method, "close")
+	renderCGOExportDoc(g, closeName, "closes callback receive ownership for the message server-streaming client entrypoint for "+method.FullName+" without delivering further callbacks.")
+	g.P("//export ", closeName)
+	g.P("func ", closeName, "(handle C.int32_t) C.int32_t {")
+	g.P("ctx := context.Background()")
+	renderMessageCallbackReceiveCloseBody(g, service, method, servicePackage)
+	g.P("}")
+	g.P()
 }
 
 func renderMessageBidiStreamingCExportWrappers(g *protogen.GeneratedFile, plan FilePlan, service ServicePlan, method MethodPlan, servicePackage string) {
@@ -346,6 +354,14 @@ func renderMessageBidiStreamingCExportWrappers(g *protogen.GeneratedFile, plan F
 	g.P("return 0")
 	g.P("}")
 	g.P()
+	closeName := messageCExportFuncName(plan, service, method, "close")
+	renderCGOExportDoc(g, closeName, "closes callback receive ownership for the message bidi-streaming client entrypoint for "+method.FullName+" without delivering further callbacks.")
+	g.P("//export ", closeName)
+	g.P("func ", closeName, "(handle C.int32_t) C.int32_t {")
+	g.P("ctx := context.Background()")
+	renderMessageCallbackReceiveCloseBody(g, service, method, servicePackage)
+	g.P("}")
+	g.P()
 }
 
 func renderMessageCExportOutputValidation(g *protogen.GeneratedFile) {
@@ -367,6 +383,20 @@ func renderMessageCExportHandleValidation(g *protogen.GeneratedFile) {
 	g.P("if handle == nil {")
 	g.P(`return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client handle pointer is nil")))`)
 	g.P("}")
+}
+
+func renderMessageCallbackReceiveCloseBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage string) {
+	g.P("handleValue := int32(handle)")
+	g.P("callbackState, err := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))")
+	g.P("if err != nil {")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("callbackState.MarkCallbackReceiveClosed()")
+	g.P("err = ", servicePackage, runtimeMessageStreamOperationCallName(service, method, "Cancel"), "(ctx, rpcruntime.StreamHandle(handleValue))")
+	g.P("if err != nil {")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return 0")
 }
 
 func renderMessageCallbackReceiveStart(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, handle, onRecv, onDone, sourceType, servicePackage, handleValue string) {

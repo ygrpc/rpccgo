@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'gen/rpccgo.dart';
 
 void main() {
-  runApp(const SharedSoApp());
+  runApp(const RpccgoLifecycleScope(child: SharedSoApp()));
 }
 
 class SharedSoApp extends StatelessWidget {
@@ -58,6 +58,8 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
 
   @override
   void dispose() {
+    _countStream?.Close();
+    _countStream = null;
     _serviceEvents?.cancel();
     super.dispose();
   }

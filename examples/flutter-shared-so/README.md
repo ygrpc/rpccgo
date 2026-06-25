@@ -29,6 +29,20 @@ DynamicLoadingSystem(Uri.file('librpccgo_flutter_shared.so'))
 
 因此 Dart FFI 按 SONAME 使用 Android 进程里已加载的同一个 `.so`，不会打包第二份 native asset。
 
+## Flutter lifecycle
+
+`protoc-gen-rpc-cgo-dart` 会在 `flutter_app/lib/gen/rpccgo.dart` 里生成通用的 `RpccgoLifecycleScope`。Flutter app 应该把它放在 `runApp` 最外层：
+
+```dart
+void main() {
+  runApp(const RpccgoLifecycleScope(child: SharedSoApp()));
+}
+```
+
+Generated callback stream 会自动注册到 `RpccgoStreamRegistry`。`RpccgoLifecycleScope` 在 Flutter tree dispose 或 app lifecycle `detached` 时调用 `Cancel()` 清理仍注册的 Dart FFI stream，避免 Activity 正常关闭时由用户逐个手动 cancel。
+
+这个 scope 是 Dart lifecycle cleanup，不是 native watchdog；如果 Dart isolate 已经没有机会执行 lifecycle hook，仍需要 native 侧兜底方案。
+
 ## 运行
 
 ```bash

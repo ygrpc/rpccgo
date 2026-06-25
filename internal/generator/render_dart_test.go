@@ -22,6 +22,9 @@ func TestGenerateDartEmitsMessageFFIClient(t *testing.T) {
 	})
 	assertGeneratedContentContains(t, plugin, "rpccgo.dart", "export 'test/v1/greeter.greeter.rpccgo.dart';")
 	assertGeneratedContentContains(t, plugin, "rpccgo.dart", "export 'test/v1/greeter.pb.dart';")
+	assertGeneratedContentContains(t, plugin, "rpccgo.dart", "class RpccgoLifecycleScope extends widgets.StatefulWidget {")
+	assertGeneratedContentContains(t, plugin, "rpccgo.dart", "abstract interface class RpccgoDisposableStream {")
+	assertGeneratedContentContains(t, plugin, "rpccgo.dart", "final class RpccgoStreamRegistry {")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "@ffi.DefaultAsset('package:rpccgo_test/gen/rpccgo.dart')")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "class GreeterRpccgoClient {")
 	assertGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "const GreeterRpccgoClient();")
@@ -58,8 +61,9 @@ func TestGenerateDartEmitsStreamingMessageFFIClient(t *testing.T) {
 	const file = "test/v1/message_contract.greeter.rpccgo.dart"
 	assertDartGeneratedFilenames(t, plugin, []string{"rpccgo.dart", file})
 	for _, fragment := range []string{
-			"({GreeterUploadStream? value, String? error}) UploadStart() {",
-			"// ignore_for_file: non_constant_identifier_names",
+		"({GreeterUploadStream? value, String? error}) UploadStart() {",
+		"// ignore_for_file: non_constant_identifier_names",
+		"import 'rpccgo.dart' as rpccgo;",
 		"String? Send(pb.MessageRequest request) {",
 		"({pb.MessageReply? value, String? error}) Finish() {",
 		"ListStart(",
@@ -68,21 +72,34 @@ func TestGenerateDartEmitsStreamingMessageFFIClient(t *testing.T) {
 		"({GreeterListStream? value, String? error}) ListStartCallback(pb.MessageRequest request, {required void Function(pb.MessageReply value) onRecv, required void Function(String? error) onDone}) {",
 		"typedef _RpccgoMessageOnRecvCAbi = ffi.Void Function(ffi.Int32 stream, ffi.UintPtr responsePtr, ffi.Int32 responseLen);",
 		"typedef _RpccgoMessageOnDoneCAbi = ffi.Void Function(ffi.Int32 stream, ffi.Int32 errID);",
-			"ffi.NativeCallable<_RpccgoMessageOnRecvCAbi>.listener((int stream, int responsePtr, int responseLen)",
-			"ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.listener((int stream, int errID)",
+		"ffi.NativeCallable<_RpccgoMessageOnRecvCAbi>.listener((int stream, int responsePtr, int responseLen)",
+		"ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.listener((int stream, int errID)",
+		"stream._registerCallbackReceive();",
+		"void rpccgoDispose() {\n    Cancel();\n  }",
+		"rpccgo.RpccgoStreamRegistry.register(this);",
+		"rpccgo.RpccgoStreamRegistry.unregister(this);",
 		"void cancelFromCallback(int stream, String error) {",
 		"return (value: null, error: 'rpccgo: stream receive is owned by callback receive mode');",
+		"/// Cancels the stream as an application operation.",
+		"/// Cancel may deliver onDone. Use Close when the callback owner is going away.",
+		"/// Closes callback receive ownership without delivering any more callbacks.",
+		"String? Close() {",
+		"final errID = _listCloseRaw(_handle);",
+		"final errID = _chatCloseRaw(_handle);",
+		"return 'rpccgo: stream close is only available in callback receive mode';",
 		"String? Finish() {",
 		"({GreeterChatStream? value, String? error}) ChatStartCallback({required void Function(pb.MessageReply value) onRecv, required void Function(String? error) onDone}) {",
 		"({GreeterChatStream? value, String? error}) ChatStart() {",
-		"class GreeterUploadStream {\n  GreeterUploadStream._(this._client, this._handle);",
+		"class GreeterUploadStream implements rpccgo.RpccgoDisposableStream {\n  GreeterUploadStream._(this._client, this._handle);",
 		"  String? Send(pb.MessageRequest request) {\n    final requestBytes = request.writeToBuffer();",
 		"    try {\n      final errID = _uploadSendRaw(",
 		"String? CloseSend() {",
 		"typedef _RpccgoStreamRecvCAbi = ffi.Int32 Function(",
 		"symbol: 'rpccgoMsgTestv1GreeterUploadStart'",
 		"symbol: 'rpccgoMsgTestv1GreeterListRecv'",
+		"symbol: 'rpccgoMsgTestv1GreeterListClose'",
 		"symbol: 'rpccgoMsgTestv1GreeterChatCloseSend'",
+		"symbol: 'rpccgoMsgTestv1GreeterChatClose'",
 	} {
 		assertGeneratedContentContains(t, plugin, file, fragment)
 	}
@@ -100,6 +117,8 @@ func TestGenerateDartEmitsStreamingMessageFFIClient(t *testing.T) {
 		"typedef _RpccgoStreamReadCAbi",
 		"symbol: 'rpccgoMsgTestv1GreeterListRead'",
 		"symbol: 'rpccgoMsgTestv1GreeterChatRead'",
+		"symbol: 'rpccgoMsgTestv1GreeterUploadClose'",
+		"_uploadCloseRaw",
 		"final _RpccgoStreamFinishVoid _uploadCloseSend;",
 		"final _RpccgoStreamFinishVoid _listCloseSend;",
 		"int _uploadStart(",

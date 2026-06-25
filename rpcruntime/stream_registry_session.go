@@ -124,6 +124,22 @@ func (s *StreamSession) MarkCanceled() {
 	}
 }
 
+// MarkCallbackReceiveClosed prevents future callback receive delivery.
+//
+// It is used when the external callback owner is being torn down. After this
+// returns, callback receive loops must not deliver onRecv or onDone to the
+// external callback. It waits for any in-flight callback to leave before
+// returning.
+func (s *StreamSession) MarkCallbackReceiveClosed() {
+	s.canceled.Store(true)
+	s.doneCallbackStarted.Store(true)
+	s.done.Store(true)
+	s.signalStateChange()
+	for s.activeCallbacks.Load() > 0 {
+		<-s.stateChanged
+	}
+}
+
 // WaitDone waits until the callback receive loop has delivered onDone.
 func (s *StreamSession) WaitDone() {
 	for !s.done.Load() {

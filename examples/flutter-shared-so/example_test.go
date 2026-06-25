@@ -224,6 +224,7 @@ func TestSharedSoDemoFlutterProjectContracts(t *testing.T) {
 	assertFileContains(t, "flutter_app/android/app/src/main/cpp/CMakeLists.txt", "-l:librpccgo_flutter_shared.so")
 	assertFileContains(t, "flutter_app/lib/main.dart", "SharedSoDemoRpccgoClient")
 	assertFileContains(t, "flutter_app/lib/main.dart", "WatchRuntimeStateStartCallback")
+	assertFileContains(t, "flutter_app/lib/main.dart", "_countStream?.Close()")
 	assertFileContains(t, "flutter_app/lib/main.dart", "ReadRuntimeState")
 	assertFileContains(t, "flutter_app/lib/main.dart", "Start Count Stream")
 	assertFileContains(t, "flutter_app/lib/main.dart", "Close Activity")
@@ -238,6 +239,8 @@ func TestSharedSoDemoFlutterProjectContracts(t *testing.T) {
 	assertFileContains(t, "flutter_app/android/app/proguard-rules.pro", "GeneratedMessageLite")
 	assertFileContains(t, "flutter_app/android/app/proguard-rules.pro", "<fields>")
 	assertFileContains(t, "flutter_app/lib/gen/shared_so.shared_so_demo.rpccgo.dart", "@ffi.DefaultAsset('package:rpccgofluttersharedso/gen/rpccgo.dart')")
+	assertFileContains(t, "flutter_app/lib/gen/shared_so.shared_so_demo.rpccgo.dart", "String? Close()")
+	assertFileContains(t, "flutter_app/lib/gen/shared_so.shared_so_demo.rpccgo.dart", "rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateClose")
 }
 
 func TestSharedSoDemoCSharedBuild(t *testing.T) {
@@ -258,6 +261,7 @@ func TestSharedSoDemoCSharedBuild(t *testing.T) {
 	for _, fragment := range []string{
 		"rpccgoMsgFluttersharedv1SharedSoDemoComposeGreeting",
 		"rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart",
+		"rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateClose",
 		"rpccgoMsgFluttersharedv1SharedSoDemoCollectRuntimeStateStart",
 		"rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateRecv",
 		"rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateCloseSend",

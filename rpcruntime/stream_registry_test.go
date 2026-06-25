@@ -293,6 +293,58 @@ func TestStreamSessionWaitDoneWaitsForDoneCallback(t *testing.T) {
 	}
 }
 
+func TestStreamSessionMarkCallbackReceiveClosedSuppressesCallbacksAndDone(t *testing.T) {
+	streamSession := newStreamSession(ServerKindGRPC, &testTypedStreamSession{name: "callback"})
+
+	streamSession.MarkCallbackReceiveClosed()
+
+	if streamSession.BeginCallback() {
+		t.Fatal("BeginCallback returned true after callback receive close")
+	}
+	if streamSession.BeginDoneCallback() {
+		t.Fatal("BeginDoneCallback returned true after callback receive close")
+	}
+
+	done := make(chan struct{})
+	go func() {
+		streamSession.WaitDone()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("WaitDone did not return after callback receive close")
+	}
+}
+
+func TestStreamSessionMarkCallbackReceiveClosedWaitsForActiveCallback(t *testing.T) {
+	streamSession := newStreamSession(ServerKindGRPC, &testTypedStreamSession{name: "callback"})
+	if !streamSession.BeginCallback() {
+		t.Fatal("BeginCallback returned false before callback receive close")
+	}
+
+	done := make(chan struct{})
+	go func() {
+		streamSession.MarkCallbackReceiveClosed()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		t.Fatal("MarkCallbackReceiveClosed returned before EndCallback")
+	case <-time.After(10 * time.Millisecond):
+	}
+
+	streamSession.EndCallback()
+
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("MarkCallbackReceiveClosed did not return after EndCallback")
+	}
+}
+
 func TestStreamHandleWrapSkipsZeroAndFindsOpenSlot(t *testing.T) {
 	registry := StreamRegistry{
 		next:    maxStreamHandle,

@@ -2,5 +2,75 @@
 
 library;
 
+import 'package:flutter/widgets.dart' as widgets;
+
 export 'shared_so.pb.dart';
 export 'shared_so.shared_so_demo.rpccgo.dart';
+
+/// Stream type that can be cancelled by the shared rpccgo lifecycle scope.
+abstract interface class RpccgoDisposableStream {
+  /// Cancels or otherwise releases the native stream owned by this Dart object.
+  void rpccgoDispose();
+}
+
+/// Process-local registry for active generated rpccgo Dart streams.
+///
+/// Generated stream objects register themselves when they own Dart callback
+/// receive callbacks. Apps normally do not call this directly; use
+/// [RpccgoLifecycleScope] at the root of the Flutter app.
+final class RpccgoStreamRegistry {
+  RpccgoStreamRegistry._();
+
+  static final _activeStreams = <RpccgoDisposableStream>{};
+
+  /// Adds a stream to the lifecycle cleanup set.
+  static void register(RpccgoDisposableStream stream) {
+    _activeStreams.add(stream);
+  }
+
+  /// Removes a stream from the lifecycle cleanup set.
+  static void unregister(RpccgoDisposableStream stream) {
+    _activeStreams.remove(stream);
+  }
+
+  /// Cancels all streams still registered with the current Dart isolate.
+  static void cancelAll() {
+    for (final stream in List<RpccgoDisposableStream>.of(_activeStreams)) {
+      stream.rpccgoDispose();
+    }
+  }
+}
+
+/// Flutter lifecycle owner for generated rpccgo Dart FFI streams.
+///
+/// Place this widget outside the app root passed to `runApp`. It cancels
+/// registered generated streams when the Flutter tree is disposed or the
+/// app lifecycle reaches `detached`.
+class RpccgoLifecycleScope extends widgets.StatefulWidget {
+  const RpccgoLifecycleScope({required this.child, super.key});
+
+  final widgets.Widget child;
+
+  @override
+  widgets.State<RpccgoLifecycleScope> createState() => _RpccgoLifecycleScopeState();
+}
+
+class _RpccgoLifecycleScopeState extends widgets.State<RpccgoLifecycleScope> {
+  late final widgets.AppLifecycleListener _listener;
+
+  @override
+  void initState() {
+    super.initState();
+    _listener = widgets.AppLifecycleListener(onDetach: RpccgoStreamRegistry.cancelAll);
+  }
+
+  @override
+  void dispose() {
+    _listener.dispose();
+    RpccgoStreamRegistry.cancelAll();
+    super.dispose();
+  }
+
+  @override
+  widgets.Widget build(widgets.BuildContext context) => widget.child;
+}

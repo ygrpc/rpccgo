@@ -598,12 +598,26 @@ func renderNativeStreamNoResultBody(g *protogen.GeneratedFile, service ServicePl
 	g.P("var err error")
 	if (operation == "Cancel" || operation == "Finish") && (method.Streaming == StreamingKindServerStreaming || method.Streaming == StreamingKindBidiStreaming) {
 		g.P("callbackState, _ := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handle))")
-			g.P("if callbackState != nil { callbackState.MarkCanceled() }")
+		g.P("if callbackState != nil { callbackState.MarkCanceled() }")
 	}
 	renderNativeClientStreamFacadeCall(g, service, method, servicePackage, operation, ctx)
 	if (operation == "Cancel" || operation == "Finish") && (method.Streaming == StreamingKindServerStreaming || method.Streaming == StreamingKindBidiStreaming) {
 		g.P("if callbackState != nil { callbackState.WaitDone() }")
 	}
+	g.P("if err != nil {")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("return 0")
+}
+
+func renderNativeCallbackReceiveCloseBody(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage, ctx, handle string) {
+	g.P("handle := int32(", handle, ")")
+	g.P("callbackState, err := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handle))")
+	g.P("if err != nil {")
+	g.P("return C.int32_t(rpcruntime.StoreError(err))")
+	g.P("}")
+	g.P("callbackState.MarkCallbackReceiveClosed()")
+	renderNativeClientStreamFacadeCall(g, service, method, servicePackage, "Cancel", ctx)
 	g.P("if err != nil {")
 	g.P("return C.int32_t(rpcruntime.StoreError(err))")
 	g.P("}")
@@ -771,6 +785,14 @@ func renderNativeServerStreamingCExportWrappers(g *protogen.GeneratedFile, servi
 	renderNativeStreamNoResultBody(g, service, method, servicePackage, "ctx", "stream", "Cancel")
 	g.P("}")
 	g.P()
+	closeName := strings.TrimSuffix(cancelABI.Symbol, "Cancel") + "Close"
+	renderCGOExportDoc(g, closeName, "closes callback receive ownership for the native server-streaming client entrypoint for "+method.FullName+" without delivering further callbacks.")
+	g.P("//export ", closeName)
+	g.P("func ", closeName, "(stream C.int32_t) C.int32_t {")
+	g.P("ctx := context.Background()")
+	renderNativeCallbackReceiveCloseBody(g, service, method, servicePackage, "ctx", "stream")
+	g.P("}")
+	g.P()
 }
 
 func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, servicePackage string, methodABI map[NativeCOperation]COperationABI) {
@@ -826,6 +848,14 @@ func renderNativeBidiStreamingCExportWrappers(g *protogen.GeneratedFile, service
 	g.P("func ", cancelABI.Symbol, "(", nativeCExportParams(cancelABI.Params), ") ", cancelABI.Return.CGoType, " {")
 	g.P("ctx := context.Background()")
 	renderNativeStreamNoResultBody(g, service, method, servicePackage, "ctx", "stream", "Cancel")
+	g.P("}")
+	g.P()
+	closeName := strings.TrimSuffix(cancelABI.Symbol, "Cancel") + "Close"
+	renderCGOExportDoc(g, closeName, "closes callback receive ownership for the native bidi-streaming client entrypoint for "+method.FullName+" without delivering further callbacks.")
+	g.P("//export ", closeName)
+	g.P("func ", closeName, "(stream C.int32_t) C.int32_t {")
+	g.P("ctx := context.Background()")
+	renderNativeCallbackReceiveCloseBody(g, service, method, servicePackage, "ctx", "stream")
 	g.P("}")
 	g.P()
 }

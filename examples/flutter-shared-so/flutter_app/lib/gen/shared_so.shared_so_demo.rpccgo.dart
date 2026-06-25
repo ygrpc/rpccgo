@@ -13,6 +13,7 @@ import 'dart:typed_data' as typed_data;
 
 import 'package:ffi/ffi.dart' as pkg_ffi;
 
+import 'rpccgo.dart' as rpccgo;
 import 'shared_so.pb.dart' as pb;
 
 // rpccgo Dart FFI message client generated file for SharedSoDemo
@@ -55,6 +56,9 @@ external int _watchRuntimeStateRecvRaw(int handle, ffi.Pointer<ffi.UintPtr> resp
 @ffi.Native<_RpccgoStreamCancelCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateCancel')
 external int _watchRuntimeStateCancelRaw(int handle);
 
+@ffi.Native<_RpccgoStreamCancelCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateClose')
+external int _watchRuntimeStateCloseRaw(int handle);
+
 @ffi.Native<_RpccgoStreamStartCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoCollectRuntimeStateStart')
 external int _collectRuntimeStateStartRaw(ffi.Pointer<ffi.Int32> handle);
 
@@ -76,6 +80,9 @@ external int _streamRuntimeStateRecvRaw(int handle, ffi.Pointer<ffi.UintPtr> res
 @ffi.Native<_RpccgoStreamCancelCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateCancel')
 external int _streamRuntimeStateCancelRaw(int handle);
 
+@ffi.Native<_RpccgoStreamCancelCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateClose')
+external int _streamRuntimeStateCloseRaw(int handle);
+
 @ffi.Native<_RpccgoCallbackStreamStartCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateStart')
 external int _chatRuntimeStateStartRaw(ffi.Pointer<ffi.Int32> handle, ffi.Pointer<ffi.Void> onRecv, ffi.Pointer<ffi.Void> onDone);
 
@@ -93,6 +100,9 @@ external int _chatRuntimeStateFinishRaw(int handle);
 
 @ffi.Native<_RpccgoStreamCancelCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateCancel')
 external int _chatRuntimeStateCancelRaw(int handle);
+
+@ffi.Native<_RpccgoStreamCancelCAbi>(symbol: 'rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateClose')
+external int _chatRuntimeStateCloseRaw(int handle);
 
 class SharedSoDemoRpccgoClient {
   const SharedSoDemoRpccgoClient();
@@ -188,6 +198,7 @@ class SharedSoDemoRpccgoClient {
     final requestPtr = _allocateBytes(requestBytes);
     late final ffi.NativeCallable<_RpccgoMessageOnRecvCAbi> onRecvNative;
     late final ffi.NativeCallable<_RpccgoMessageOnDoneCAbi> onDoneNative;
+    void Function()? unregisterStream;
     var callbacksClosed = false;
     String? localError;
     void closeCallbacks() {
@@ -218,7 +229,10 @@ class SharedSoDemoRpccgoClient {
     });
     onDoneNative = ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.listener((int stream, int errID) {
       onDone(localError ?? _takeErrorResult(errID));
-      async.scheduleMicrotask(closeCallbacks);
+      async.scheduleMicrotask(() {
+        closeCallbacks();
+        unregisterStream?.call();
+      });
     });
     try {
       final errID = _watchRuntimeStateStartRaw(requestPtr.address, requestBytes.length, handlePtr, onRecvNative.nativeFunction.cast<ffi.Void>(), onDoneNative.nativeFunction.cast<ffi.Void>());
@@ -227,7 +241,10 @@ class SharedSoDemoRpccgoClient {
         closeCallbacks();
         return (value: null, error: error);
       }
-      return (value: SharedSoDemoWatchRuntimeStateStream._(this, handlePtr.value, true, closeCallbacks), error: null);
+      final stream = SharedSoDemoWatchRuntimeStateStream._(this, handlePtr.value, true, closeCallbacks);
+      unregisterStream = stream._unregisterCallbackReceive;
+      stream._registerCallbackReceive();
+      return (value: stream, error: null);
     } finally {
       pkg_ffi.calloc.free(requestPtr);
       pkg_ffi.calloc.free(handlePtr);
@@ -271,6 +288,7 @@ class SharedSoDemoRpccgoClient {
     final requestPtr = _allocateBytes(requestBytes);
     late final ffi.NativeCallable<_RpccgoMessageOnRecvCAbi> onRecvNative;
     late final ffi.NativeCallable<_RpccgoMessageOnDoneCAbi> onDoneNative;
+    void Function()? unregisterStream;
     var callbacksClosed = false;
     String? localError;
     void closeCallbacks() {
@@ -301,7 +319,10 @@ class SharedSoDemoRpccgoClient {
     });
     onDoneNative = ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.listener((int stream, int errID) {
       onDone(localError ?? _takeErrorResult(errID));
-      async.scheduleMicrotask(closeCallbacks);
+      async.scheduleMicrotask(() {
+        closeCallbacks();
+        unregisterStream?.call();
+      });
     });
     try {
       final errID = _streamRuntimeStateStartRaw(requestPtr.address, requestBytes.length, handlePtr, onRecvNative.nativeFunction.cast<ffi.Void>(), onDoneNative.nativeFunction.cast<ffi.Void>());
@@ -310,7 +331,10 @@ class SharedSoDemoRpccgoClient {
         closeCallbacks();
         return (value: null, error: error);
       }
-      return (value: SharedSoDemoStreamRuntimeStateStream._(this, handlePtr.value, true, closeCallbacks), error: null);
+      final stream = SharedSoDemoStreamRuntimeStateStream._(this, handlePtr.value, true, closeCallbacks);
+      unregisterStream = stream._unregisterCallbackReceive;
+      stream._registerCallbackReceive();
+      return (value: stream, error: null);
     } finally {
       pkg_ffi.calloc.free(requestPtr);
       pkg_ffi.calloc.free(handlePtr);
@@ -335,6 +359,7 @@ class SharedSoDemoRpccgoClient {
     final handlePtr = pkg_ffi.calloc<ffi.Int32>();
     late final ffi.NativeCallable<_RpccgoMessageOnRecvCAbi> onRecvNative;
     late final ffi.NativeCallable<_RpccgoMessageOnDoneCAbi> onDoneNative;
+    void Function()? unregisterStream;
     var callbacksClosed = false;
     String? localError;
     void closeCallbacks() {
@@ -365,7 +390,10 @@ class SharedSoDemoRpccgoClient {
     });
     onDoneNative = ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.listener((int stream, int errID) {
       onDone(localError ?? _takeErrorResult(errID));
-      async.scheduleMicrotask(closeCallbacks);
+      async.scheduleMicrotask(() {
+        closeCallbacks();
+        unregisterStream?.call();
+      });
     });
     try {
       final errID = _chatRuntimeStateStartRaw(handlePtr, onRecvNative.nativeFunction.cast<ffi.Void>(), onDoneNative.nativeFunction.cast<ffi.Void>());
@@ -374,7 +402,10 @@ class SharedSoDemoRpccgoClient {
         closeCallbacks();
         return (value: null, error: error);
       }
-      return (value: SharedSoDemoChatRuntimeStateStream._(this, handlePtr.value, true, closeCallbacks), error: null);
+      final stream = SharedSoDemoChatRuntimeStateStream._(this, handlePtr.value, true, closeCallbacks);
+      unregisterStream = stream._unregisterCallbackReceive;
+      stream._registerCallbackReceive();
+      return (value: stream, error: null);
     } finally {
       pkg_ffi.calloc.free(handlePtr);
     }
@@ -431,13 +462,14 @@ class SharedSoDemoRpccgoClient {
   }
 }
 
-class SharedSoDemoWatchRuntimeStateStream {
+class SharedSoDemoWatchRuntimeStateStream implements rpccgo.RpccgoDisposableStream {
   SharedSoDemoWatchRuntimeStateStream._(this._client, this._handle, [this._callbackReceive = false, this._closeCallbacks]);
   final SharedSoDemoRpccgoClient _client;
   final int _handle;
   final bool _callbackReceive;
   final void Function()? _closeCallbacks;
   var _callbacksClosed = false;
+  var _registeredCallbackReceive = false;
   ({pb.RuntimeStateResponse? value, String? error}) Recv() {
     if (_callbackReceive) {
       return (value: null, error: 'rpccgo: stream receive is owned by callback receive mode');
@@ -460,8 +492,42 @@ class SharedSoDemoWatchRuntimeStateStream {
       pkg_ffi.calloc.free(responseLen);
     }
   }
+  /// Cancels the stream as an application operation.
+  ///
+  /// Cancel may deliver onDone. Use Close when the callback owner is going away.
   String? Cancel() {
     final errID = _watchRuntimeStateCancelRaw(_handle);
+    final error = _client._takeErrorResult(errID);
+    _closeCallbackReceive();
+    return error;
+  }
+  @override
+  void rpccgoDispose() {
+    Cancel();
+  }
+  void _registerCallbackReceive() {
+    if (!_callbackReceive || _registeredCallbackReceive) {
+      return;
+    }
+    _registeredCallbackReceive = true;
+    rpccgo.RpccgoStreamRegistry.register(this);
+  }
+  void _unregisterCallbackReceive() {
+    if (!_registeredCallbackReceive) {
+      return;
+    }
+    _registeredCallbackReceive = false;
+    rpccgo.RpccgoStreamRegistry.unregister(this);
+  }
+  /// Closes callback receive ownership without delivering any more callbacks.
+  ///
+  /// Use Close when the Dart callback owner is going away, for example widget
+  /// dispose, Activity finish, or Flutter engine/isolate shutdown.
+  String? Close() {
+    if (!_callbackReceive) {
+      return 'rpccgo: stream close is only available in callback receive mode';
+    }
+    final errID = _watchRuntimeStateCloseRaw(_handle);
     final error = _client._takeErrorResult(errID);
     _closeCallbackReceive();
     return error;
@@ -472,10 +538,11 @@ class SharedSoDemoWatchRuntimeStateStream {
     }
     _callbacksClosed = true;
     _closeCallbacks?.call();
+    _unregisterCallbackReceive();
   }
 }
 
-class SharedSoDemoCollectRuntimeStateStream {
+class SharedSoDemoCollectRuntimeStateStream implements rpccgo.RpccgoDisposableStream {
   SharedSoDemoCollectRuntimeStateStream._(this._client, this._handle);
   final SharedSoDemoRpccgoClient _client;
   final int _handle;
@@ -513,15 +580,20 @@ class SharedSoDemoCollectRuntimeStateStream {
     final error = _client._takeErrorResult(errID);
     return error;
   }
+  @override
+  void rpccgoDispose() {
+    Cancel();
+  }
 }
 
-class SharedSoDemoStreamRuntimeStateStream {
+class SharedSoDemoStreamRuntimeStateStream implements rpccgo.RpccgoDisposableStream {
   SharedSoDemoStreamRuntimeStateStream._(this._client, this._handle, [this._callbackReceive = false, this._closeCallbacks]);
   final SharedSoDemoRpccgoClient _client;
   final int _handle;
   final bool _callbackReceive;
   final void Function()? _closeCallbacks;
   var _callbacksClosed = false;
+  var _registeredCallbackReceive = false;
   ({pb.RuntimeStateResponse? value, String? error}) Recv() {
     if (_callbackReceive) {
       return (value: null, error: 'rpccgo: stream receive is owned by callback receive mode');
@@ -544,8 +616,42 @@ class SharedSoDemoStreamRuntimeStateStream {
       pkg_ffi.calloc.free(responseLen);
     }
   }
+  /// Cancels the stream as an application operation.
+  ///
+  /// Cancel may deliver onDone. Use Close when the callback owner is going away.
   String? Cancel() {
     final errID = _streamRuntimeStateCancelRaw(_handle);
+    final error = _client._takeErrorResult(errID);
+    _closeCallbackReceive();
+    return error;
+  }
+  @override
+  void rpccgoDispose() {
+    Cancel();
+  }
+  void _registerCallbackReceive() {
+    if (!_callbackReceive || _registeredCallbackReceive) {
+      return;
+    }
+    _registeredCallbackReceive = true;
+    rpccgo.RpccgoStreamRegistry.register(this);
+  }
+  void _unregisterCallbackReceive() {
+    if (!_registeredCallbackReceive) {
+      return;
+    }
+    _registeredCallbackReceive = false;
+    rpccgo.RpccgoStreamRegistry.unregister(this);
+  }
+  /// Closes callback receive ownership without delivering any more callbacks.
+  ///
+  /// Use Close when the Dart callback owner is going away, for example widget
+  /// dispose, Activity finish, or Flutter engine/isolate shutdown.
+  String? Close() {
+    if (!_callbackReceive) {
+      return 'rpccgo: stream close is only available in callback receive mode';
+    }
+    final errID = _streamRuntimeStateCloseRaw(_handle);
     final error = _client._takeErrorResult(errID);
     _closeCallbackReceive();
     return error;
@@ -556,16 +662,18 @@ class SharedSoDemoStreamRuntimeStateStream {
     }
     _callbacksClosed = true;
     _closeCallbacks?.call();
+    _unregisterCallbackReceive();
   }
 }
 
-class SharedSoDemoChatRuntimeStateStream {
+class SharedSoDemoChatRuntimeStateStream implements rpccgo.RpccgoDisposableStream {
   SharedSoDemoChatRuntimeStateStream._(this._client, this._handle, [this._callbackReceive = false, this._closeCallbacks]);
   final SharedSoDemoRpccgoClient _client;
   final int _handle;
   final bool _callbackReceive;
   final void Function()? _closeCallbacks;
   var _callbacksClosed = false;
+  var _registeredCallbackReceive = false;
   String? Send(pb.IncrementRuntimeStateRequest request) {
     final requestBytes = request.writeToBuffer();
     final requestPtr = _client._allocateBytes(requestBytes);
@@ -608,8 +716,42 @@ class SharedSoDemoChatRuntimeStateStream {
     _closeCallbackReceive();
     return error;
   }
+  /// Cancels the stream as an application operation.
+  ///
+  /// Cancel may deliver onDone. Use Close when the callback owner is going away.
   String? Cancel() {
     final errID = _chatRuntimeStateCancelRaw(_handle);
+    final error = _client._takeErrorResult(errID);
+    _closeCallbackReceive();
+    return error;
+  }
+  @override
+  void rpccgoDispose() {
+    Cancel();
+  }
+  void _registerCallbackReceive() {
+    if (!_callbackReceive || _registeredCallbackReceive) {
+      return;
+    }
+    _registeredCallbackReceive = true;
+    rpccgo.RpccgoStreamRegistry.register(this);
+  }
+  void _unregisterCallbackReceive() {
+    if (!_registeredCallbackReceive) {
+      return;
+    }
+    _registeredCallbackReceive = false;
+    rpccgo.RpccgoStreamRegistry.unregister(this);
+  }
+  /// Closes callback receive ownership without delivering any more callbacks.
+  ///
+  /// Use Close when the Dart callback owner is going away, for example widget
+  /// dispose, Activity finish, or Flutter engine/isolate shutdown.
+  String? Close() {
+    if (!_callbackReceive) {
+      return 'rpccgo: stream close is only available in callback receive mode';
+    }
+    final errID = _chatRuntimeStateCloseRaw(_handle);
     final error = _client._takeErrorResult(errID);
     _closeCallbackReceive();
     return error;
@@ -620,6 +762,7 @@ class SharedSoDemoChatRuntimeStateStream {
     }
     _callbacksClosed = true;
     _closeCallbacks?.call();
+    _unregisterCallbackReceive();
   }
 }
 

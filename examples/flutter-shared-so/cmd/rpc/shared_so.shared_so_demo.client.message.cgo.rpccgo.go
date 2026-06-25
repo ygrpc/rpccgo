@@ -238,12 +238,30 @@ func rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateCancel(handle C.int32_
 	handleValue := int32(handle)
 	callbackState, _ := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))
 	if callbackState != nil {
-		callbackState.MarkCallbackReceiveClosed()
+		callbackState.MarkCanceled()
 	}
 	err := proto.SharedSoDemoMessageWatchRuntimeStateCancel(ctx, rpcruntime.StreamHandle(handleValue))
 	if callbackState != nil {
 		callbackState.WaitDone()
 	}
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	return 0
+}
+
+// rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateClose closes callback receive ownership for the message server-streaming client entrypoint for examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState without delivering further callbacks.
+//
+//export rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateClose
+func rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateClose(handle C.int32_t) C.int32_t {
+	ctx := context.Background()
+	handleValue := int32(handle)
+	callbackState, err := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	callbackState.MarkCallbackReceiveClosed()
+	err = proto.SharedSoDemoMessageWatchRuntimeStateCancel(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -444,12 +462,30 @@ func rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateCancel(handle C.int32
 	handleValue := int32(handle)
 	callbackState, _ := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))
 	if callbackState != nil {
-		callbackState.MarkCallbackReceiveClosed()
+		callbackState.MarkCanceled()
 	}
 	err := proto.SharedSoDemoMessageStreamRuntimeStateCancel(ctx, rpcruntime.StreamHandle(handleValue))
 	if callbackState != nil {
 		callbackState.WaitDone()
 	}
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	return 0
+}
+
+// rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateClose closes callback receive ownership for the message server-streaming client entrypoint for examples.flutter.sharedso.v1.SharedSoDemo.StreamRuntimeState without delivering further callbacks.
+//
+//export rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateClose
+func rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateClose(handle C.int32_t) C.int32_t {
+	ctx := context.Background()
+	handleValue := int32(handle)
+	callbackState, err := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	callbackState.MarkCallbackReceiveClosed()
+	err = proto.SharedSoDemoMessageStreamRuntimeStateCancel(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -599,7 +635,7 @@ func rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateFinish(handle C.int32_t
 	handleValue := int32(handle)
 	callbackState, _ := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))
 	if callbackState != nil {
-		callbackState.MarkCallbackReceiveClosed()
+		callbackState.MarkCanceled()
 	}
 	err := proto.SharedSoDemoMessageChatRuntimeStateFinish(ctx, rpcruntime.StreamHandle(handleValue))
 	if callbackState != nil {
@@ -619,12 +655,30 @@ func rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateCancel(handle C.int32_t
 	handleValue := int32(handle)
 	callbackState, _ := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))
 	if callbackState != nil {
-		callbackState.MarkCallbackReceiveClosed()
+		callbackState.MarkCanceled()
 	}
 	err := proto.SharedSoDemoMessageChatRuntimeStateCancel(ctx, rpcruntime.StreamHandle(handleValue))
 	if callbackState != nil {
 		callbackState.WaitDone()
 	}
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	return 0
+}
+
+// rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateClose closes callback receive ownership for the message bidi-streaming client entrypoint for examples.flutter.sharedso.v1.SharedSoDemo.ChatRuntimeState without delivering further callbacks.
+//
+//export rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateClose
+func rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateClose(handle C.int32_t) C.int32_t {
+	ctx := context.Background()
+	handleValue := int32(handle)
+	callbackState, err := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))
+	if err != nil {
+		return C.int32_t(rpcruntime.StoreError(err))
+	}
+	callbackState.MarkCallbackReceiveClosed()
+	err = proto.SharedSoDemoMessageChatRuntimeStateCancel(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}

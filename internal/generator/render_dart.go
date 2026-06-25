@@ -27,6 +27,8 @@ func renderDartEntryFile(plugin *protogen.Plugin, plan GenerationPlan) {
 	g.P()
 	g.P("library;")
 	g.P()
+	g.P("import 'package:flutter/widgets.dart' as widgets;")
+	g.P()
 
 	exports := make(map[string]struct{})
 	for _, pkg := range plan.Packages {
@@ -46,6 +48,8 @@ func renderDartEntryFile(plugin *protogen.Plugin, plan GenerationPlan) {
 	for _, export := range paths {
 		g.P("export '", export, "';")
 	}
+	g.P()
+	renderDartLifecycleSupport(g)
 }
 
 func renderDartServiceClientFile(plugin *protogen.Plugin, file FilePlan, service ServicePlan, config DartGeneratorConfig) {
@@ -67,6 +71,7 @@ func renderDartServiceClientFile(plugin *protogen.Plugin, file FilePlan, service
 	g.P()
 	g.P("import 'package:ffi/ffi.dart' as pkg_ffi;")
 	g.P()
+	g.P("import '", path.Base(defaultDartNativeAssetName), "' as rpccgo;")
 	g.P("import '", dartPBImport(file), "' as pb;")
 	g.P()
 	g.P("// rpccgo Dart FFI message client generated file for ", service.GoName)
@@ -87,6 +92,76 @@ func renderDartServiceClientFile(plugin *protogen.Plugin, file FilePlan, service
 	for _, method := range service.Methods {
 		renderDartStreamHandleClass(g, service, method)
 	}
+}
+
+func renderDartLifecycleSupport(g *protogen.GeneratedFile) {
+	g.P("/// Stream type that can be cancelled by the shared rpccgo lifecycle scope.")
+	g.P("abstract interface class RpccgoDisposableStream {")
+	dartP(g, 1, "/// Cancels or otherwise releases the native stream owned by this Dart object.")
+	dartP(g, 1, "void rpccgoDispose();")
+	g.P("}")
+	g.P()
+	g.P("/// Process-local registry for active generated rpccgo Dart streams.")
+	g.P("///")
+	g.P("/// Generated stream objects register themselves when they own Dart callback")
+	g.P("/// receive callbacks. Apps normally do not call this directly; use")
+	g.P("/// [RpccgoLifecycleScope] at the root of the Flutter app.")
+	g.P("final class RpccgoStreamRegistry {")
+	dartP(g, 1, "RpccgoStreamRegistry._();")
+	g.P()
+	dartP(g, 1, "static final _activeStreams = <RpccgoDisposableStream>{};")
+	g.P()
+	dartP(g, 1, "/// Adds a stream to the lifecycle cleanup set.")
+	dartP(g, 1, "static void register(RpccgoDisposableStream stream) {")
+	dartP(g, 2, "_activeStreams.add(stream);")
+	dartP(g, 1, "}")
+	g.P()
+	dartP(g, 1, "/// Removes a stream from the lifecycle cleanup set.")
+	dartP(g, 1, "static void unregister(RpccgoDisposableStream stream) {")
+	dartP(g, 2, "_activeStreams.remove(stream);")
+	dartP(g, 1, "}")
+	g.P()
+	dartP(g, 1, "/// Cancels all streams still registered with the current Dart isolate.")
+	dartP(g, 1, "static void cancelAll() {")
+	dartP(g, 2, "for (final stream in List<RpccgoDisposableStream>.of(_activeStreams)) {")
+	dartP(g, 3, "stream.rpccgoDispose();")
+	dartP(g, 2, "}")
+	dartP(g, 1, "}")
+	g.P("}")
+	g.P()
+	g.P("/// Flutter lifecycle owner for generated rpccgo Dart FFI streams.")
+	g.P("///")
+	g.P("/// Place this widget outside the app root passed to `runApp`. It cancels")
+	g.P("/// registered generated streams when the Flutter tree is disposed or the")
+	g.P("/// app lifecycle reaches `detached`.")
+	g.P("class RpccgoLifecycleScope extends widgets.StatefulWidget {")
+	dartP(g, 1, "const RpccgoLifecycleScope({required this.child, super.key});")
+	g.P()
+	dartP(g, 1, "final widgets.Widget child;")
+	g.P()
+	dartP(g, 1, "@override")
+	dartP(g, 1, "widgets.State<RpccgoLifecycleScope> createState() => _RpccgoLifecycleScopeState();")
+	g.P("}")
+	g.P()
+	g.P("class _RpccgoLifecycleScopeState extends widgets.State<RpccgoLifecycleScope> {")
+	dartP(g, 1, "late final widgets.AppLifecycleListener _listener;")
+	g.P()
+	dartP(g, 1, "@override")
+	dartP(g, 1, "void initState() {")
+	dartP(g, 2, "super.initState();")
+	dartP(g, 2, "_listener = widgets.AppLifecycleListener(onDetach: RpccgoStreamRegistry.cancelAll);")
+	dartP(g, 1, "}")
+	g.P()
+	dartP(g, 1, "@override")
+	dartP(g, 1, "void dispose() {")
+	dartP(g, 2, "_listener.dispose();")
+	dartP(g, 2, "RpccgoStreamRegistry.cancelAll();")
+	dartP(g, 2, "super.dispose();")
+	dartP(g, 1, "}")
+	g.P()
+	dartP(g, 1, "@override")
+	dartP(g, 1, "widgets.Widget build(widgets.BuildContext context) => widget.child;")
+	g.P("}")
 }
 
 func dartP(g *protogen.GeneratedFile, indent int, v ...any) {
@@ -139,6 +214,7 @@ func renderDartNativeBinding(g *protogen.GeneratedFile, file FilePlan, service S
 		renderDartNativeBindingOperation(g, file, service, method, "start", "_RpccgoServerStreamStartCAbi", dartNativeBindingName(method, "start"))
 		renderDartNativeBindingOperation(g, file, service, method, "recv", "_RpccgoStreamRecvCAbi", dartNativeBindingName(method, "recv"))
 		renderDartNativeBindingOperation(g, file, service, method, "cancel", "_RpccgoStreamCancelCAbi", dartNativeBindingName(method, "cancel"))
+		renderDartNativeBindingOperation(g, file, service, method, "close", "_RpccgoStreamCancelCAbi", dartNativeBindingName(method, "close"))
 	case StreamingKindBidiStreaming:
 		renderDartNativeBindingOperation(g, file, service, method, "start", "_RpccgoCallbackStreamStartCAbi", dartNativeBindingName(method, "start"))
 		renderDartNativeBindingOperation(g, file, service, method, "send", "_RpccgoStreamSendCAbi", dartNativeBindingName(method, "send"))
@@ -146,6 +222,7 @@ func renderDartNativeBinding(g *protogen.GeneratedFile, file FilePlan, service S
 		renderDartNativeBindingOperation(g, file, service, method, "close_send", "_RpccgoStreamFinishVoidCAbi", dartNativeBindingName(method, "close_send"))
 		renderDartNativeBindingOperation(g, file, service, method, "finish", "_RpccgoStreamFinishVoidCAbi", dartNativeBindingName(method, "finish"))
 		renderDartNativeBindingOperation(g, file, service, method, "cancel", "_RpccgoStreamCancelCAbi", dartNativeBindingName(method, "cancel"))
+		renderDartNativeBindingOperation(g, file, service, method, "close", "_RpccgoStreamCancelCAbi", dartNativeBindingName(method, "close"))
 	}
 }
 
@@ -171,7 +248,7 @@ func renderDartNativeBindingOperation(g *protogen.GeneratedFile, file FilePlan, 
 			g.P("external int ", bindingName, "(int requestPtr, int requestLen, ffi.Pointer<ffi.Int32> handle, ffi.Pointer<ffi.Void> onRecv, ffi.Pointer<ffi.Void> onDone);")
 		case "recv":
 			g.P("external int ", bindingName, "(int handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);")
-		case "finish", "cancel":
+		case "finish", "cancel", "close":
 			g.P("external int ", bindingName, "(int handle);")
 		}
 	case StreamingKindBidiStreaming:
@@ -182,7 +259,7 @@ func renderDartNativeBindingOperation(g *protogen.GeneratedFile, file FilePlan, 
 			g.P("external int ", bindingName, "(int handle, int requestPtr, int requestLen);")
 		case "recv":
 			g.P("external int ", bindingName, "(int handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);")
-		case "close_send", "finish", "cancel":
+		case "close_send", "finish", "cancel", "close":
 			g.P("external int ", bindingName, "(int handle);")
 		}
 	}
@@ -321,6 +398,7 @@ func renderDartBidiStreamingCallbackMethod(g *protogen.GeneratedFile, className 
 func renderDartCallbackCallableSetup(g *protogen.GeneratedFile, method MethodPlan) {
 	dartP(g, 2, "late final ffi.NativeCallable<_RpccgoMessageOnRecvCAbi> onRecvNative;")
 	dartP(g, 2, "late final ffi.NativeCallable<_RpccgoMessageOnDoneCAbi> onDoneNative;")
+	dartP(g, 2, "void Function()? unregisterStream;")
 	dartP(g, 2, "var callbacksClosed = false;")
 	dartP(g, 2, "String? localError;")
 	dartP(g, 2, "void closeCallbacks() {")
@@ -351,7 +429,10 @@ func renderDartCallbackCallableSetup(g *protogen.GeneratedFile, method MethodPla
 	dartP(g, 2, "});")
 	dartP(g, 2, "onDoneNative = ffi.NativeCallable<_RpccgoMessageOnDoneCAbi>.listener((int stream, int errID) {")
 	dartP(g, 3, "onDone(localError ?? _takeErrorResult(errID));")
-	dartP(g, 3, "async.scheduleMicrotask(closeCallbacks);")
+	dartP(g, 3, "async.scheduleMicrotask(() {")
+	dartP(g, 4, "closeCallbacks();")
+	dartP(g, 4, "unregisterStream?.call();")
+	dartP(g, 3, "});")
 	dartP(g, 2, "});")
 }
 
@@ -361,7 +442,10 @@ func renderDartCallbackStartResult(g *protogen.GeneratedFile, className string) 
 	dartP(g, 4, "closeCallbacks();")
 	dartP(g, 4, "return (value: null, error: error);")
 	dartP(g, 3, "}")
-	dartP(g, 3, "return (value: ", className, "._(this, handlePtr.value, true, closeCallbacks), error: null);")
+	dartP(g, 3, "final stream = ", className, "._(this, handlePtr.value, true, closeCallbacks);")
+	dartP(g, 3, "unregisterStream = stream._unregisterCallbackReceive;")
+	dartP(g, 3, "stream._registerCallbackReceive();")
+	dartP(g, 3, "return (value: stream, error: null);")
 }
 
 func renderDartStreamHandleClass(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
@@ -376,7 +460,7 @@ func renderDartStreamHandleClass(g *protogen.GeneratedFile, service ServicePlan,
 }
 
 func renderDartStreamClass(g *protogen.GeneratedFile, clientClassName, className string, method MethodPlan, canSend, canRecv, finishReturnsResponse, canFinish, canCloseSend bool) {
-	g.P("class ", className, " {")
+	g.P("class ", className, " implements rpccgo.RpccgoDisposableStream {")
 	if canRecv {
 		dartP(g, 1, className, "._(this._client, this._handle, [this._callbackReceive = false, this._closeCallbacks]);")
 	} else {
@@ -388,6 +472,7 @@ func renderDartStreamClass(g *protogen.GeneratedFile, clientClassName, className
 		dartP(g, 1, "final bool _callbackReceive;")
 		dartP(g, 1, "final void Function()? _closeCallbacks;")
 		dartP(g, 1, "var _callbacksClosed = false;")
+		dartP(g, 1, "var _registeredCallbackReceive = false;")
 	}
 	if canSend {
 		dartP(g, 1, "String? Send(pb.", method.Request.GoName, " request) {")
@@ -461,6 +546,11 @@ func renderDartStreamClass(g *protogen.GeneratedFile, clientClassName, className
 		dartP(g, 2, "return error;")
 		dartP(g, 1, "}")
 	}
+	if canRecv {
+		dartP(g, 1, "/// Cancels the stream as an application operation.")
+		dartP(g, 1, "///")
+		dartP(g, 1, "/// Cancel may deliver onDone. Use Close when the callback owner is going away.")
+	}
 	dartP(g, 1, "String? Cancel() {")
 	dartP(g, 2, "final errID = ", dartNativeBindingName(method, "cancel"), "(_handle);")
 	dartP(g, 2, "final error = _client._takeErrorResult(errID);")
@@ -470,12 +560,49 @@ func renderDartStreamClass(g *protogen.GeneratedFile, clientClassName, className
 	dartP(g, 2, "return error;")
 	dartP(g, 1, "}")
 	if canRecv {
+		dartP(g, 1, "@override")
+		dartP(g, 1, "void rpccgoDispose() {")
+		dartP(g, 2, "Cancel();")
+		dartP(g, 1, "}")
+		dartP(g, 1, "void _registerCallbackReceive() {")
+		dartP(g, 2, "if (!_callbackReceive || _registeredCallbackReceive) {")
+		dartP(g, 3, "return;")
+		dartP(g, 2, "}")
+		dartP(g, 2, "_registeredCallbackReceive = true;")
+		dartP(g, 2, "rpccgo.RpccgoStreamRegistry.register(this);")
+		dartP(g, 1, "}")
+		dartP(g, 1, "void _unregisterCallbackReceive() {")
+		dartP(g, 2, "if (!_registeredCallbackReceive) {")
+		dartP(g, 3, "return;")
+		dartP(g, 2, "}")
+		dartP(g, 2, "_registeredCallbackReceive = false;")
+		dartP(g, 2, "rpccgo.RpccgoStreamRegistry.unregister(this);")
+		dartP(g, 1, "}")
+		dartP(g, 1, "/// Closes callback receive ownership without delivering any more callbacks.")
+		dartP(g, 1, "///")
+		dartP(g, 1, "/// Use Close when the Dart callback owner is going away, for example widget")
+		dartP(g, 1, "/// dispose, Activity finish, or Flutter engine/isolate shutdown.")
+		dartP(g, 1, "String? Close() {")
+		dartP(g, 2, "if (!_callbackReceive) {")
+		dartP(g, 3, "return 'rpccgo: stream close is only available in callback receive mode';")
+		dartP(g, 2, "}")
+		dartP(g, 2, "final errID = ", dartNativeBindingName(method, "close"), "(_handle);")
+		dartP(g, 2, "final error = _client._takeErrorResult(errID);")
+		dartP(g, 2, "_closeCallbackReceive();")
+		dartP(g, 2, "return error;")
+		dartP(g, 1, "}")
 		dartP(g, 1, "void _closeCallbackReceive() {")
 		dartP(g, 2, "if (_callbacksClosed) {")
 		dartP(g, 3, "return;")
 		dartP(g, 2, "}")
 		dartP(g, 2, "_callbacksClosed = true;")
 		dartP(g, 2, "_closeCallbacks?.call();")
+		dartP(g, 2, "_unregisterCallbackReceive();")
+		dartP(g, 1, "}")
+	} else {
+		dartP(g, 1, "@override")
+		dartP(g, 1, "void rpccgoDispose() {")
+		dartP(g, 2, "Cancel();")
 		dartP(g, 1, "}")
 	}
 	g.P("}")
