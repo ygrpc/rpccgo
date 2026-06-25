@@ -1,3 +1,0 @@
-package androidforegroundserviceso
-
-//go:generate protoc --unsafe_allow_out_dir_escape -I proto --go_out=proto --go_opt=paths=source_relative --connect-go_out=proto --connect-go_opt=paths=source_relative --connect-go_opt=package_suffix= --connect-go_opt=simple=true --java_out=lite:android_app/app/src/main/java --rpc-cgo_out=proto --rpc-cgo_opt=paths=source_relative --rpc-cgo_opt=cgo_dir=../cmd/rpc --rpc-cgo-jni_out=android_app/app/src/main --rpc-cgo-jni_opt=paths=source_relative --rpc-cgo-jni_opt=jni_class=com.ygrpc.examples.rpccgoandroidforegroundservice.ForegroundServiceDemoJni --rpc-cgo-jni_opt=rpccgo_header=librpccgo_android_foreground_service.h proto/foreground_service.proto
