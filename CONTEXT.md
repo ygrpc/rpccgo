@@ -33,11 +33,11 @@ generated registration function 接受的具体服务来源；使用 `Origin + C
 _Avoid_: Active record source, RecordRenderer as contract
 
 **Runtime core**:
-手写的 `rpcruntime` 包，承载跨 service 复用的 server registry、server kind、全局 stream session registry 和 connect stream unsafe shim 等通用机制。
+手写的 `rpcruntime` 包，承载跨 service 复用的 server registry、server kind、Go runtime-visible 全局 stream session registry、callback receive ownership state 和 connect stream unsafe shim 等通用机制。它不要求把所有 foreign embedded server runtime 的 stream 对象都持有到 Go 侧。
 _Avoid_: generated service runtime
 
 **Stream session**:
-一次 streaming call 在 `Start` 后保存到 **Runtime core** 的 `{ServerKind, session}` record；其中 `session` 是该 call 的 typed client endpoint。后续 stream operation 通过 handle 找回 record，并由 generated code 按 kind 转回对应 endpoint 直接调用。
+一次 Go runtime-visible streaming call 在 `Start` 后保存到 **Runtime core** 的 `{ServerKind, session}` record；其中 `session` 是该 call 的 typed client endpoint。后续 stream operation 通过 handle 找回 record，并由 generated code 按 kind 转回对应 endpoint 直接调用。若 foreign embedded server runtime 通过 C ABI 仅以本地 `int32 stream handle` 续接后续操作，则 foreign side 可额外维护自己的 `handle -> handler/session` 映射；该 foreign-owned session 不属于 **Runtime core** record。
 _Avoid_: stream lifecycle state machine, operation closure session
 
 **Stream endpoint**:
@@ -52,7 +52,7 @@ _Avoid_: runtime stream lifecycle executor, stream registry helper plan
 C client export `Start` 时由用户同时传入 `onRecv` 与 `onDone` 后启用的自动接收 stream 模式；generated code 后台循环接收 server stream 或 bidi stream 的响应并回调用户代码，而不是要求用户手动调用 `Recv`。`onRecv` 与 `onDone` 是通知型 `void` callback；callback 用户代码失败时由 client 调用 `Cancel` 终止 stream，不通过 callback 返回值同步传回 Go。Callback receive stream 区分 application cancellation 与 callback owner close：`Cancel` 是业务取消并允许投递 `onDone`，`Close` 是 Dart isolate、Flutter engine 或 Activity 等 callback owner 生命周期关闭并禁止后续投递 `onRecv` / `onDone`。
 
 **Generated service runtime**:
-每个 service 生成的 service runtime artifact，只应承载 proto/service/method-specific 的 package-level invoke/start facade、registry lookup glue、transport registration glue、stream `Start` glue 和 converter glue。
+每个 service 生成的 service runtime artifact，只应承载 proto/service/method-specific 的 package-level invoke/start facade、registry lookup glue、transport registration glue、Go runtime-visible stream `Start` glue 和 converter glue。Dart/JNI/Flutter 等 foreign embedded server runtime 若因其 C ABI contract 需要本地 stream registry，属于平台 binding/runtime 层，不视为这里的 generated service runtime 禁止项。
 _Avoid_: runtime core
 
 **Remote registered server**:
@@ -176,10 +176,10 @@ _Avoid_: active server
 - protobuf schema 中的 unsigned 字段可进入 **Native C ABI lowering** 的 field value slot；proto 无关的 length/count/handle/error id 等辅助 slot 不应使用 unsigned 32/64 类型。
 - 修改 ABI / runtime type mapping 后，必须使用 `docs/release/verification-checklist.md` 验证测试命令和合同扫描。
 - **Registered server** 是新版调用模型的一部分；它不能改变 **Native** 的字段级函数边界语义。
-- **Runtime core** 负责通用 server registry、server kind、全局 stream session registry 和 connect stream unsafe shim；**Generated service runtime** 负责 service-specific typed glue、registry lookup、native/message 转换和 flat ABI 编解码。
+- **Runtime core** 负责通用 server registry、server kind、Go runtime-visible 全局 stream session registry、callback receive ownership state 和 connect stream unsafe shim；**Generated service runtime** 负责 service-specific typed glue、registry lookup、native/message 转换和 flat ABI 编解码。
 - Stream 终态操作通过从 stream registry 移除 handle 来表达；移除后的 handle 再操作返回 invalid-handle 错误，不维护额外通用 lifecycle state machine。
-- **Runtime core** 统一持有 stream session registry，并直接保存 `{ServerKind, session}` record。Generated `Start` 负责取得 typed client endpoint 后写入 **Runtime core**；generated stream operation 函数通过 handle 取回 record 后执行 service-specific typed dispatch 与 Native/Message 转换。
-- Generated code 不应生成 service-local stream registry、method-specific final session record、只包一层 handle 的 stream handle facade，或把 `Send`、`Recv`、`Finish`、`CloseSend`、`Cancel` 实现为 handle wrapper 的成员方法。
+- **Runtime core** 统一持有 Go runtime-visible stream session registry，并直接保存 `{ServerKind, session}` record。Generated `Start` 负责取得 typed client endpoint 后写入 **Runtime core**；generated stream operation 函数通过 handle 取回 record 后执行 service-specific typed dispatch 与 Native/Message 转换。
+- Generated Go runtime code 不应生成 service-local stream registry、method-specific final session record、只包一层 `rpcruntime.StreamHandle` 的 stream handle facade，或把 `Send`、`Recv`、`Finish`、`CloseSend`、`Cancel` 实现为 handle wrapper 的成员方法。若 Dart/JNI/Flutter 等 foreign embedded server runtime 的 C ABI contract 以本地 `int32 stream handle` 续接 server-side stream 操作，则该 foreign runtime 可以维护本地 stream registry。
 - Native handler stream interface 仍生成在 native server contract artifact 中并保持 flat field-level boundary；Native active stream dispatch 使用 generic client endpoint 和 generated method-local envelope。`{ServerKind, session}` record type 属于 **Runtime core**，不在 generated artifact 中重复生成。
 - Server contract registration helper 应生成在定义该 server contract 的 artifact 中；standard transport registration helper 可以留在 **Generated service runtime** 中。所有 helper 都必须把具体 server 注册到 **Server registry**；用户不直接手写 **Service ID** 或 **Server kind** 调用 runtime primitive。
 - **Generated service runtime** 不应生成 native/message active closure 字段；native/message 差异应由 server contract、registry lookup 和转换逻辑表达。
@@ -209,7 +209,7 @@ _Avoid_: active server
 - C callback registration 以 method 为原子校验边界；service-level 和 per-method register 遇到半注册 streaming method 时清空该 method callbacks、保留其他有效 method callbacks、写入 cgo adapter，并返回错误报告被拒绝的 method。
 - Generated service runtime 暴露 service-specific clear helper 来清空当前 **Registered server**，也暴露 service-specific load helper 供 generated cgo register 累积 current cgo adapter；用户不直接手写 **Service ID** 调用 runtime clear primitive。
 - Unary 调用每次从 **Server registry** 读取 current **Registered server**；重新注册只影响后续 unary 调用和后续 stream `Start`。
-- Streaming `Start` 捕获当前 **Registered server** record，取得 typed client endpoint 并创建 **Stream session**；后续 stream 操作只通过 stream handle 从 **Runtime core** 找回该 endpoint，不重新读取 **Server registry**，也不通过 operation closure 调用。
+- Go runtime-visible Streaming `Start` 捕获当前 **Registered server** record，取得 typed client endpoint 并创建 **Stream session**；后续 stream 操作只通过 stream handle 从 **Runtime core** 找回该 endpoint，不重新读取 **Server registry**，也不通过 operation closure 调用。foreign embedded server runtime 自己持有的 server-side stream session 不在这条规则里。
 - 外部包只能通过 generated package-level entry 函数进入；不应再生成只转发到内部对象的 public client object，也不应保留 runtime forwarding struct。
 - 无 registered server 使用 `rpcruntime.ErrNoRegisteredServer`。错误必须显式传递。
 - **Remote registered server** 使用标准 transport client 作为注册输入；rpccgo generated code 不应构造 per-method client。

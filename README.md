@@ -35,7 +35,7 @@ rpccgo 适合这些场景：
 
 Unary 调用每次从 `rpcruntime` server registry 读取当前 registered server。重新注册 server 后，后续 unary 调用会进入新的 server。
 
-Streaming 在 `Start` 时读取一次 current registered server，并创建 `{ServerKind, session}` stream session。后续 `Send`、`Recv`、`Finish`、`CloseSend` 和 `Cancel` 都固定路由到这个 session，不会因为后续重新注册 server 而改变方向。
+Go runtime-visible streaming 在 `Start` 时读取一次 current registered server，并创建 `{ServerKind, session}` stream session。后续 `Send`、`Recv`、`Finish`、`CloseSend` 和 `Cancel` 都固定路由到这个 session，不会因为后续重新注册 server 而改变方向。Dart/JNI/Flutter 这类 foreign embedded server runtime 如果其 server-side C ABI 通过本地 `int32 stream handle` 续接后续操作，则会在 foreign runtime 本地维护 `handle -> handler/session` 映射；这不改变 Go runtime 的 registered server / stream session 路由规则。
 
 更完整的架构说明见 [Runtime Server Registry Architecture](docs/specs/2026-06-04-rpccgo-runtime-server-registry-architecture.md)。
 
@@ -226,7 +226,7 @@ rpccgo 支持四类 RPC：
 - server streaming
 - bidi streaming
 
-Streaming 的关键点是 `Start` 决定方向：`Start` 时捕获当前 registered server，后续同一个 stream handle 的 `Send`、`Recv`、`Finish`、`CloseSend` 和 `Cancel` 都继续进入这个 server。重新注册 server 只影响新的 unary 调用和新的 stream `Start`。
+Streaming 的关键点是 `Start` 决定方向：Go runtime-visible `Start` 时捕获当前 registered server，后续同一个 stream handle 的 `Send`、`Recv`、`Finish`、`CloseSend` 和 `Cancel` 都继续进入这个 server。重新注册 server 只影响新的 unary 调用和新的 stream `Start`。如果 stream 是由 Dart/JNI/Flutter 这类 foreign embedded server runtime 作为 cgo server implementation 启动，foreign side 仍可能为自己的 server-side handler 维护本地 handle 映射；那层映射只负责找回 foreign handler，不改变 Go runtime 的路由方向。
 
 ## Dart/Flutter 接入 (protoc-gen-rpc-cgo-dart)
 
@@ -291,7 +291,7 @@ server.RegisterSayHello((req) {
 });
 ```
 
-注册后，Go runtime 的 current registered server 会变成对应 service 的 `ServerKindCGOMessage` server。后续 message client 调用会经 Go runtime 路由到 Dart handler。
+注册后，Go runtime 的 current registered server 会变成对应 service 的 `ServerKindCGOMessage` server。后续 message client 调用会经 Go runtime 路由到 Dart handler。若该 Dart server handler 是 streaming 形态，生成的 Dart server binding 会在 Dart 本地维护 `int handle -> handler/session` 映射，因为 server-side C ABI 的后续操作只能通过该本地 handle 续接。
 
 streaming server handler 按 RPC shape 生成 `Send`、`Recv`、`Finish`、`CloseSend`、`Cancel` 等接口。Dart server callback 使用 Dart isolate-local FFI callback，适合从同一个 Dart isolate 发起的 FFI 调用链；不要把它当成 Kotlin/JNI 那种可由任意 Android 线程同步反调的 callback。
 
@@ -404,7 +404,7 @@ if (!stream.ok) {
 stream.value?.cancel()
 ```
 
-如果 callback stream 归属 Android `Service` 或其他非 Activity owner，应保存返回的 stream handle，并在 owner 的结束逻辑中调用 `cancel()`。
+如果 callback stream 归属 Android `Service` 或其他非 Activity owner，应保存返回的 stream handle，并在 owner 的结束逻辑中调用 `cancel()`。Kotlin/JNI message server 的 streaming handler 也会在 Kotlin 本地维护 `int handle -> handler/session` 映射，因为 server-side C ABI 的后续操作只能通过该本地 handle 续接。
 
 维护 `CMakeLists.txt` 时，不要用 `IMPORTED_LOCATION` 直接链接 Go 生成的 `.so`。Go `-buildmode=c-shared` 产物通常没有 `SONAME`，Android linker 可能会把构建机绝对路径写入 JNI adapter 的 `DT_NEEDED`，导致安装到设备后 `dlopen` 失败。应通过 link search path 加文件名链接：
 
