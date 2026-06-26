@@ -5,7 +5,7 @@
 - Flutter 通过生成的 Dart FFI client 直接调用 Go `c-shared` runtime。
 - Android `Service` 通过 Kotlin/JNI 调用同一个 Go `c-shared` runtime。
 - Flutter 通过 Dart FFI 进入 Go `c-shared` runtime，再路由到 Kotlin message server 调用 Android 本机能力。
-- Android Activity 通过 Kotlin/JNI 进入 Go `c-shared` runtime，再路由到 Flutter Dart message server。
+- Flutter 通过 generated Dart FFI client 进入 Go `c-shared` runtime，再路由到 Flutter Dart message server。
 
 App 启动时会自动启动 `SharedSoRuntimeService`。UI 里的 Dart/Kotlin stream 按钮分别验证 Dart FFI callback stream 和 Activity-owned Kotlin/JNI callback stream 在关闭 Activity、重新打开后的行为。
 
@@ -22,7 +22,7 @@ App 启动时会自动启动 `SharedSoRuntimeService`。UI 里的 Dart/Kotlin st
 Dart UI -> generated Dart FFI client -> librpccgo_flutter_shared.so -> Go service
 Android Service -> generated Kotlin shim -> C++ JNI shim -> librpccgo_flutter_shared.so -> Go service
 Dart UI -> generated Dart FFI client -> librpccgo_flutter_shared.so -> generated Kotlin message server -> Android CameraManager
-Android Activity -> generated Kotlin shim -> C++ JNI shim -> librpccgo_flutter_shared.so -> generated Dart message server -> Flutter handler
+Dart UI -> generated Dart FFI client -> librpccgo_flutter_shared.so -> generated Dart message server -> Flutter handler
 ```
 
 Flutter 侧通过 `flutter_app/hook/build.dart` 注册：
@@ -115,7 +115,9 @@ FlutterDeviceRpccgoMessageServer().RegisterWatchFlutterEcho((req) {
 });
 ```
 
-`Dart Server Ping` 和 `Dart Server Start Stream` 按钮通过 Android `MethodChannel` 让 Activity 调 generated Kotlin/JNI client，再进入 Go shared runtime 并路由到 Dart registered server。它验证的是 `Kotlin/JNI -> Go shared .so -> Dart message server -> Flutter handler`。
+`Dart Server Ping` 和 `Dart Server Start Stream` 按钮通过 generated Dart FFI client 进入 Go shared runtime，并路由到 Dart registered server。它验证的是 `Dart -> Go shared .so -> Dart message server -> Flutter handler`。
+
+Dart message server callback 是 Dart isolate-local FFI callback；这个 example 不用 Kotlin/JNI 同步反调 Dart server。跨 Android/JNI 线程反调 Dart 需要另外设计异步边界，不和 Kotlin message server 使用同一套线程假设。
 
 ## 运行
 
@@ -152,14 +154,14 @@ adb shell am start -n com.ygrpc.examples.rpccgofluttersharedso/.MainActivity
 - `Kotlin Start Stream`：Activity 通过 Kotlin/JNI 启动 callback server stream，每秒把 count/state 回传给 Flutter UI。
 - `Kotlin Stop Stream`：Activity 通过 Kotlin/JNI cancel callback server stream。
 - `Torch On/Off`：Flutter 通过 Dart FFI 调 `AndroidDevice.SetTorch`，Go runtime 路由到 Kotlin message server，再调用 Android `CameraManager`。
-- `Dart Server Ping`：Activity 通过 Kotlin/JNI 调 `FlutterDevice.DescribeFlutter`，Go runtime 路由到 Dart message server。
-- `Dart Server Start Stream`：Activity 通过 Kotlin/JNI 启动 `FlutterDevice.WatchFlutterEcho` callback server stream，每次回调来自 Dart message server。
-- `Dart Server Stop Stream`：Activity 通过 Kotlin/JNI cancel Dart-owned callback server stream。
+- `Dart Server Ping`：Flutter 通过 Dart FFI 调 `FlutterDevice.DescribeFlutter`，Go runtime 路由到 Dart message server。
+- `Dart Server Start Stream`：Flutter 通过 Dart FFI 启动 `FlutterDevice.WatchFlutterEcho` server stream，每次 `Recv` 来自 Dart message server。
+- `Dart Server Stop Stream`：Flutter 通过 Dart FFI cancel Dart-owned server stream。
 - `Android Server Start Stream`：Activity 通过 Kotlin/JNI 启动 `AndroidDevice.WatchAndroidEcho` callback server stream，用来验证 Android-owned server stream 在 Activity 关闭时的 cleanup。
 - `Android Server Stop Stream`：Activity 通过 Kotlin/JNI cancel Android-owned callback server stream。
 - `Close Activity`：关闭 Activity。按钮本身不调用 stream stop；Dart stream 由 `RpccgoLifecycleScope` cleanup，Kotlin Activity-owned stream 由 generated owner-aware JNI wrapper cleanup。
 
-`Kotlin Start Stream`、`Android Server Start Stream` 和 `Dart Server Start Stream` 故意让 callback listener 归属 Activity，用来验证 generated Kotlin/JNI Activity-owned callback stream 会在 Activity 销毁时自动 cancel，不继续回调已销毁的 UI owner。后台业务 stream 应该归属 Service，而不是 Activity。
+`Kotlin Start Stream` 和 `Android Server Start Stream` 故意让 callback listener 归属 Activity，用来验证 generated Kotlin/JNI Activity-owned callback stream 会在 Activity 销毁时自动 cancel，不继续回调已销毁的 UI owner。后台业务 stream 应该归属 Service，而不是 Activity。
 
 两边结果中的 `pid` 和 `instance_address` 一致，且 `value` / `revision` 连续变化，即表示 Kotlin/JNI 和 Dart FFI 进入了同一个 Go runtime/service 实例。
 

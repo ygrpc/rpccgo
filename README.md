@@ -56,8 +56,8 @@ go install github.com/ygrpc/rpccgo/cmd/protoc-gen-rpc-cgo-jni@latest
 ```
 
 - `protoc-gen-rpc-cgo`：生成 Go runtime、server contracts、cgo native/message client/server ABI。
-- `protoc-gen-rpc-cgo-dart`：生成 Dart/Flutter message FFI client，只覆盖平台侧客户端绑定。
-- `protoc-gen-rpc-cgo-jni`：生成 Android Kotlin typed shim 和 C++ JNI shim，只覆盖 Android 侧 message client adapter。
+- `protoc-gen-rpc-cgo-dart`：生成 Dart/Flutter message FFI client 和 Dart message server callback 绑定。
+- `protoc-gen-rpc-cgo-jni`：生成 Android Kotlin typed shim、C++ JNI shim，以及 Kotlin message server callback adapter。
 
 通常还需要安装 protobuf 的 Go 插件，以及你选择的 transport 插件：
 
@@ -230,9 +230,9 @@ Streaming 的关键点是 `Start` 决定方向：`Start` 时捕获当前 registe
 
 ## Dart/Flutter 接入 (protoc-gen-rpc-cgo-dart)
 
-`protoc-gen-rpc-cgo-dart` 是一个独立的 protoc 插件，专门用于为 Dart/Flutter 平台生成符合 Native Assets 规范的 FFI 客户端。它与 Go 端的 `protoc-gen-rpc-cgo` 配合工作，允许 Dart 侧直接调用由 Go 编译出的 C-shared 动态库（`.so`/`.dylib`/`.dll`）。
+`protoc-gen-rpc-cgo-dart` 是一个独立的 protoc 插件，专门用于为 Dart/Flutter 平台生成符合 Native Assets 规范的 FFI message client 和 Dart message server callback 绑定。它与 Go 端的 `protoc-gen-rpc-cgo` 配合工作，允许 Dart 侧直接调用由 Go 编译出的 C-shared 动态库（`.so`/`.dylib`/`.dll`），也允许 Flutter/Dart 把 handler 注册成当前 message server。
 
-它不是完整 rpccgo 生成器的替代品：当前只生成基于 `rpccgoMsg...` C ABI 的 message client 绑定，不生成 Go runtime、server contract、cgo server、native ABI 或 registration helper。这些仍由 `protoc-gen-rpc-cgo` 生成。
+它不是完整 rpccgo 生成器的替代品：Go runtime、server contract、cgo server、native ABI 和底层 C registration helper 仍由 `protoc-gen-rpc-cgo` 生成。
 
 ### 安装 Dart 插件
 
@@ -244,7 +244,7 @@ go install github.com/ygrpc/rpccgo/cmd/protoc-gen-rpc-cgo-dart@latest
 
 ### 生成 Dart 代码
 
-运行以下命令以同时生成 Dart protobuf 协议类与 rpccgo Dart FFI 客户端（目前只有message模式）：
+运行以下命令以同时生成 Dart protobuf 协议类、rpccgo Dart FFI message client 和 Dart message server 绑定：
 
 ```bash
 protoc \
@@ -278,7 +278,22 @@ protoc \
    }
    print(result.value!.message);
    ```
-   Streaming API 显式使用 cgo operation 语义：先调用 stream start method 获取 stream，再调用 `Send()`、`Recv()`、`Finish()`、`CloseSend()` 或 `Cancel()`；命名规则统一记录在 [CONTEXT.md](CONTEXT.md) 的 `Naming Rules`。
+   Streaming client API 显式使用 cgo operation 语义：先调用 stream start method 获取 stream，再调用 `Send()`、`Recv()`、`Finish()`、`CloseSend()` 或 `Cancel()`；命名规则统一记录在 [CONTEXT.md](CONTEXT.md) 的 `Naming Rules`。
+
+### Dart message server
+
+生成的 Dart server 以 method 为单位注册 handler，例如：
+
+```dart
+final server = GreeterRpccgoMessageServer();
+server.RegisterSayHello((req) {
+  return (value: SayHelloResponse(message: 'hello ${req.name}'), error: null);
+});
+```
+
+注册后，Go runtime 的 current registered server 会变成对应 service 的 `ServerKindCGOMessage` server。后续 message client 调用会经 Go runtime 路由到 Dart handler。
+
+streaming server handler 按 RPC shape 生成 `Send`、`Recv`、`Finish`、`CloseSend`、`Cancel` 等接口。Dart server callback 使用 Dart isolate-local FFI callback，适合从同一个 Dart isolate 发起的 FFI 调用链；不要把它当成 Kotlin/JNI 那种可由任意 Android 线程同步反调的 callback。
 
 #### Flutter callback stream 生命周期
 
@@ -296,9 +311,9 @@ void main() {
 
 ## Android JNI 接入 (protoc-gen-rpc-cgo-jni)
 
-`protoc-gen-rpc-cgo-jni` 是面向 Android 的 JNI adapter 生成器。它生成 Kotlin typed shim 和 C++ JNI shim；C++ shim 通过 Go `-buildmode=c-shared` 产出的 C ABI 调用 `rpccgoMsg...` 符号，不在 Go 文件中直接生成 `Java_...` JNI export。
+`protoc-gen-rpc-cgo-jni` 是面向 Android 的 JNI adapter 生成器。它生成 Kotlin typed shim、C++ JNI shim 和 Kotlin message server callback adapter；C++ shim 通过 Go `-buildmode=c-shared` 产出的 C ABI 调用 `rpccgoMsg...` 符号，不在 Go 文件中直接生成 `Java_...` JNI export。
 
-它不是完整 rpccgo 生成器的替代品：当前只生成 Android 侧 message client adapter，不生成 Go runtime、server contract、cgo server、native ABI 或 registration helper。这些仍由 `protoc-gen-rpc-cgo` 生成。
+它不是完整 rpccgo 生成器的替代品：Go runtime、server contract、cgo server、native ABI 和底层 C registration helper 仍由 `protoc-gen-rpc-cgo` 生成。
 
 安装 JNI 插件：
 
@@ -310,6 +325,12 @@ go install github.com/ygrpc/rpccgo/cmd/protoc-gen-rpc-cgo-jni@latest
 
 ```text
 Kotlin -> Android C++ JNI shim -> Go c-shared rpccgo C ABI -> Go runtime
+```
+
+Kotlin message server 的调用形态：
+
+```text
+Dart/Go client -> Go runtime -> cgo message server callback -> C++ JNI shim -> Kotlin handler
 ```
 
 生成示例：
@@ -335,6 +356,20 @@ protoc \
 - `paths=source_relative`：沿用 protoc 常规路径语义，控制按 proto source path 组织生成文件。
 
 生成产物包括 Android C++ JNI shim 和 Kotlin typed shim；命名规则统一记录在 [CONTEXT.md](CONTEXT.md) 的 `Naming Rules`。
+
+### Kotlin message server
+
+生成的 Kotlin API 支持按 method 注册 Android/Kotlin-owned message server handler：
+
+```kotlin
+GreeterJni.RegisterSayHello { req ->
+    RpccgoResult.success(SayHelloResponse.newBuilder()
+        .setMessage("hello ${req.name}")
+        .build())
+}
+```
+
+server-streaming、client-streaming 和 bidi-streaming 会生成对应 handler interface。Kotlin handler 经 C++ JNI shim 注册到底层 cgo message server adapter，Go runtime 仍只看到该 service 的 `ServerKindCGOMessage` current server。
 
 生成器不会生成或覆盖 `CMakeLists.txt`。Android 工程应自行维护 CMake 配置，把生成的 C++ 文件编译成独立 JNI `.so`，并动态链接 Go c-shared `.so`。典型运行时会有两个 `.so`：
 
