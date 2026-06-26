@@ -91,23 +91,23 @@ abstract class SharedSoDemoServiceBase extends $pb.GeneratedService {
 abstract class AndroidDeviceServiceBase extends $pb.GeneratedService {
   $async.Future<$0.SetTorchResponse> setTorch(
       $pb.ServerContext ctx, $0.SetTorchRequest request);
-  $async.Future<$0.SetTorchResponse> watchTorch(
-      $pb.ServerContext ctx, $0.SetTorchRequest request);
-  $async.Future<$0.SetTorchResponse> collectTorch(
-      $pb.ServerContext ctx, $0.SetTorchRequest request);
-  $async.Future<$0.SetTorchResponse> chatTorch(
-      $pb.ServerContext ctx, $0.SetTorchRequest request);
+  $async.Future<$0.AndroidEchoResponse> watchAndroidEcho(
+      $pb.ServerContext ctx, $0.AndroidEchoRequest request);
+  $async.Future<$0.AndroidEchoResponse> collectAndroidEcho(
+      $pb.ServerContext ctx, $0.AndroidEchoRequest request);
+  $async.Future<$0.AndroidEchoResponse> chatAndroidEcho(
+      $pb.ServerContext ctx, $0.AndroidEchoRequest request);
 
   $pb.GeneratedMessage createRequest($core.String methodName) {
     switch (methodName) {
       case 'SetTorch':
         return $0.SetTorchRequest();
-      case 'WatchTorch':
-        return $0.SetTorchRequest();
-      case 'CollectTorch':
-        return $0.SetTorchRequest();
-      case 'ChatTorch':
-        return $0.SetTorchRequest();
+      case 'WatchAndroidEcho':
+        return $0.AndroidEchoRequest();
+      case 'CollectAndroidEcho':
+        return $0.AndroidEchoRequest();
+      case 'ChatAndroidEcho':
+        return $0.AndroidEchoRequest();
       default:
         throw $core.ArgumentError('Unknown method: $methodName');
     }
@@ -118,12 +118,12 @@ abstract class AndroidDeviceServiceBase extends $pb.GeneratedService {
     switch (methodName) {
       case 'SetTorch':
         return setTorch(ctx, request as $0.SetTorchRequest);
-      case 'WatchTorch':
-        return watchTorch(ctx, request as $0.SetTorchRequest);
-      case 'CollectTorch':
-        return collectTorch(ctx, request as $0.SetTorchRequest);
-      case 'ChatTorch':
-        return chatTorch(ctx, request as $0.SetTorchRequest);
+      case 'WatchAndroidEcho':
+        return watchAndroidEcho(ctx, request as $0.AndroidEchoRequest);
+      case 'CollectAndroidEcho':
+        return collectAndroidEcho(ctx, request as $0.AndroidEchoRequest);
+      case 'ChatAndroidEcho':
+        return chatAndroidEcho(ctx, request as $0.AndroidEchoRequest);
       default:
         throw $core.ArgumentError('Unknown method: $methodName');
     }

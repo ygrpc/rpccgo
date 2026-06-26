@@ -560,6 +560,166 @@ class SetTorchResponse extends $pb.GeneratedMessage {
   void clearStatus() => $_clearField(4);
 }
 
+/// AndroidEchoRequest carries hardware-independent Android-owned stream input.
+class AndroidEchoRequest extends $pb.GeneratedMessage {
+  factory AndroidEchoRequest({
+    $core.int? value,
+    $core.String? caller,
+  }) {
+    final result = create();
+    if (value != null) result.value = value;
+    if (caller != null) result.caller = caller;
+    return result;
+  }
+
+  AndroidEchoRequest._();
+
+  factory AndroidEchoRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AndroidEchoRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AndroidEchoRequest',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'examples.flutter.sharedso.v1'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'value')
+    ..aOS(2, _omitFieldNames ? '' : 'caller')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AndroidEchoRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AndroidEchoRequest copyWith(void Function(AndroidEchoRequest) updates) =>
+      super.copyWith((message) => updates(message as AndroidEchoRequest))
+          as AndroidEchoRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AndroidEchoRequest create() => AndroidEchoRequest._();
+  @$core.override
+  AndroidEchoRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AndroidEchoRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AndroidEchoRequest>(create);
+  static AndroidEchoRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get value => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set value($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasValue() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearValue() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get caller => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set caller($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCaller() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCaller() => $_clearField(2);
+}
+
+/// AndroidEchoResponse carries Android-owned stream output.
+class AndroidEchoResponse extends $pb.GeneratedMessage {
+  factory AndroidEchoResponse({
+    $core.int? value,
+    $core.int? sequence,
+    $core.String? caller,
+    $core.String? servedBy,
+  }) {
+    final result = create();
+    if (value != null) result.value = value;
+    if (sequence != null) result.sequence = sequence;
+    if (caller != null) result.caller = caller;
+    if (servedBy != null) result.servedBy = servedBy;
+    return result;
+  }
+
+  AndroidEchoResponse._();
+
+  factory AndroidEchoResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory AndroidEchoResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'AndroidEchoResponse',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'examples.flutter.sharedso.v1'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'value')
+    ..aI(2, _omitFieldNames ? '' : 'sequence')
+    ..aOS(3, _omitFieldNames ? '' : 'caller')
+    ..aOS(4, _omitFieldNames ? '' : 'servedBy')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AndroidEchoResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  AndroidEchoResponse copyWith(void Function(AndroidEchoResponse) updates) =>
+      super.copyWith((message) => updates(message as AndroidEchoResponse))
+          as AndroidEchoResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static AndroidEchoResponse create() => AndroidEchoResponse._();
+  @$core.override
+  AndroidEchoResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static AndroidEchoResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<AndroidEchoResponse>(create);
+  static AndroidEchoResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.int get value => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set value($core.int value) => $_setSignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasValue() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearValue() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.int get sequence => $_getIZ(1);
+  @$pb.TagNumber(2)
+  set sequence($core.int value) => $_setSignedInt32(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSequence() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSequence() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get caller => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set caller($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasCaller() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearCaller() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get servedBy => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set servedBy($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasServedBy() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearServedBy() => $_clearField(4);
+}
+
 /// SharedSoDemo exposes one unary RPC for the shared-library validation example.
 /// @rpccgo: msg-connect
 class SharedSoDemoApi {
@@ -623,23 +783,23 @@ class AndroidDeviceApi {
       _client.invoke<SetTorchResponse>(
           ctx, 'AndroidDevice', 'SetTorch', request, SetTorchResponse());
 
-  /// WatchTorch streams Android-owned torch state observations.
-  $async.Future<SetTorchResponse> watchTorch(
-          $pb.ClientContext? ctx, SetTorchRequest request) =>
-      _client.invoke<SetTorchResponse>(
-          ctx, 'AndroidDevice', 'WatchTorch', request, SetTorchResponse());
+  /// WatchAndroidEcho streams Android-owned echo responses without hardware dependencies.
+  $async.Future<AndroidEchoResponse> watchAndroidEcho(
+          $pb.ClientContext? ctx, AndroidEchoRequest request) =>
+      _client.invoke<AndroidEchoResponse>(ctx, 'AndroidDevice',
+          'WatchAndroidEcho', request, AndroidEchoResponse());
 
-  /// CollectTorch applies a client stream of torch requests and returns the last state.
-  $async.Future<SetTorchResponse> collectTorch(
-          $pb.ClientContext? ctx, SetTorchRequest request) =>
-      _client.invoke<SetTorchResponse>(
-          ctx, 'AndroidDevice', 'CollectTorch', request, SetTorchResponse());
+  /// CollectAndroidEcho collects Android-owned echo requests without hardware dependencies.
+  $async.Future<AndroidEchoResponse> collectAndroidEcho(
+          $pb.ClientContext? ctx, AndroidEchoRequest request) =>
+      _client.invoke<AndroidEchoResponse>(ctx, 'AndroidDevice',
+          'CollectAndroidEcho', request, AndroidEchoResponse());
 
-  /// ChatTorch applies each torch request and streams each resulting state back.
-  $async.Future<SetTorchResponse> chatTorch(
-          $pb.ClientContext? ctx, SetTorchRequest request) =>
-      _client.invoke<SetTorchResponse>(
-          ctx, 'AndroidDevice', 'ChatTorch', request, SetTorchResponse());
+  /// ChatAndroidEcho echoes each Android-owned request without hardware dependencies.
+  $async.Future<AndroidEchoResponse> chatAndroidEcho(
+          $pb.ClientContext? ctx, AndroidEchoRequest request) =>
+      _client.invoke<AndroidEchoResponse>(ctx, 'AndroidDevice',
+          'ChatAndroidEcho', request, AndroidEchoResponse());
 }
 
 const $core.bool _omitFieldNames =

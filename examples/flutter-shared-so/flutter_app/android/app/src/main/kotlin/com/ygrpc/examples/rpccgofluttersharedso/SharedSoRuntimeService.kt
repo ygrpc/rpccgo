@@ -14,6 +14,8 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
+import examples.flutter.sharedso.v1.AndroidEchoRequest
+import examples.flutter.sharedso.v1.AndroidEchoResponse
 import examples.flutter.sharedso.v1.IncrementRuntimeStateRequest
 import examples.flutter.sharedso.v1.ReadRuntimeStateRequest
 import examples.flutter.sharedso.v1.RuntimeStateResponse
@@ -58,9 +60,9 @@ class SharedSoRuntimeService : Service() {
         if (androidDeviceRegistered) return
         for (result in listOf(
             SharedSoDemoJni.RegisterSetTorch(::setTorch),
-            SharedSoDemoJni.RegisterWatchTorch(::watchTorch),
-            SharedSoDemoJni.RegisterCollectTorch(::collectTorch),
-            SharedSoDemoJni.RegisterChatTorch(::chatTorch),
+            SharedSoDemoJni.RegisterWatchAndroidEcho(::watchAndroidEcho),
+            SharedSoDemoJni.RegisterCollectAndroidEcho(::collectAndroidEcho),
+            SharedSoDemoJni.RegisterChatAndroidEcho(::chatAndroidEcho),
         )) {
             if (!result.ok) {
                 publishLine("android device register error=${result.error ?: "unknown"}")
@@ -101,74 +103,65 @@ class SharedSoRuntimeService : Service() {
         }
     }
 
-    private fun watchTorch(req: SetTorchRequest): RpccgoResult<SharedSoDemoJni.AndroidDeviceWatchTorchServerHandler> {
-        val base = SetTorchResponse.newBuilder()
-            .setEnabled(req.enabled)
-            .setCameraId(torchCameraId() ?: "unknown-camera")
-            .setCaller(req.caller.ifBlank { "unknown-caller" })
-            .setStatus(if (req.enabled) "torch-watch-enabled" else "torch-watch-disabled")
-            .build()
-        return RpccgoResult.success(object : SharedSoDemoJni.AndroidDeviceWatchTorchServerHandler {
+    private fun watchAndroidEcho(req: AndroidEchoRequest): RpccgoResult<SharedSoDemoJni.AndroidDeviceWatchAndroidEchoServerHandler> =
+        RpccgoResult.success(object : SharedSoDemoJni.AndroidDeviceWatchAndroidEchoServerHandler {
             private var next = 0
 
-            override fun Recv(): RpccgoResult<SetTorchResponse> {
-                if (next >= 3) return RpccgoResult.failure("EOF")
+            override fun Recv(): RpccgoResult<AndroidEchoResponse> {
+                if (next >= 30) return RpccgoResult.failure("EOF")
+                try {
+                    Thread.sleep(250)
+                } catch (error: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    return RpccgoResult.failure("android echo watch interrupted")
+                }
                 next += 1
-                return RpccgoResult.success(base.toBuilder().setStatus("torch-watch-$next").build())
+                return RpccgoResult.success(androidEchoResponse(req, next))
             }
 
             override fun Finish(): RpccgoResult<Unit> = RpccgoResult.success(Unit)
             override fun Cancel(): RpccgoResult<Unit> = RpccgoResult.success(Unit)
         })
-    }
 
-    private fun collectTorch(): RpccgoResult<SharedSoDemoJni.AndroidDeviceCollectTorchServerHandler> =
-        RpccgoResult.success(object : SharedSoDemoJni.AndroidDeviceCollectTorchServerHandler {
-            private var last: SetTorchResponse? = null
+    private fun collectAndroidEcho(): RpccgoResult<SharedSoDemoJni.AndroidDeviceCollectAndroidEchoServerHandler> =
+        RpccgoResult.success(object : SharedSoDemoJni.AndroidDeviceCollectAndroidEchoServerHandler {
+            private var last: AndroidEchoRequest? = null
+            private var count = 0
 
-            override fun Send(req: SetTorchRequest): RpccgoResult<Unit> {
-                last = SetTorchResponse.newBuilder()
-                    .setEnabled(req.enabled)
-                    .setCameraId(torchCameraId() ?: "unknown-camera")
-                    .setCaller(req.caller.ifBlank { "unknown-caller" })
-                    .setStatus(if (req.enabled) "torch-collect-enabled" else "torch-collect-disabled")
-                    .build()
+            override fun Send(req: AndroidEchoRequest): RpccgoResult<Unit> {
+                last = req
+                count += 1
                 return RpccgoResult.success(Unit)
             }
 
-            override fun Finish(): RpccgoResult<SetTorchResponse> =
-                last?.let { RpccgoResult.success(it.toBuilder().setStatus("torch-collect-finished").build()) }
-                    ?: RpccgoResult.failure("torch collect received no requests")
+            override fun Finish(): RpccgoResult<AndroidEchoResponse> =
+                last?.let { RpccgoResult.success(androidEchoResponse(it, count)) }
+                    ?: RpccgoResult.failure("android echo collect received no requests")
 
             override fun Cancel(): RpccgoResult<Unit> = RpccgoResult.success(Unit)
         })
 
-    private fun chatTorch(): RpccgoResult<SharedSoDemoJni.AndroidDeviceChatTorchServerHandler> =
-        RpccgoResult.success(object : SharedSoDemoJni.AndroidDeviceChatTorchServerHandler {
-            private val responses = LinkedBlockingQueue<SetTorchResponse>()
+    private fun chatAndroidEcho(): RpccgoResult<SharedSoDemoJni.AndroidDeviceChatAndroidEchoServerHandler> =
+        RpccgoResult.success(object : SharedSoDemoJni.AndroidDeviceChatAndroidEchoServerHandler {
+            private val responses = LinkedBlockingQueue<AndroidEchoResponse>()
             @Volatile private var closed = false
+            private var sequence = 0
 
-            override fun Send(req: SetTorchRequest): RpccgoResult<Unit> {
-                if (closed) return RpccgoResult.failure("torch chat is closed")
-                responses.put(
-                    SetTorchResponse.newBuilder()
-                        .setEnabled(req.enabled)
-                        .setCameraId(torchCameraId() ?: "unknown-camera")
-                        .setCaller(req.caller.ifBlank { "unknown-caller" })
-                        .setStatus("torch-chat")
-                        .build(),
-                )
+            override fun Send(req: AndroidEchoRequest): RpccgoResult<Unit> {
+                if (closed) return RpccgoResult.failure("android echo chat is closed")
+                sequence += 1
+                responses.put(androidEchoResponse(req, sequence))
                 return RpccgoResult.success(Unit)
             }
 
-            override fun Recv(): RpccgoResult<SetTorchResponse> {
+            override fun Recv(): RpccgoResult<AndroidEchoResponse> {
                 while (true) {
                     try {
                         responses.poll(100, TimeUnit.MILLISECONDS)
                             ?.let { return RpccgoResult.success(it) }
                     } catch (error: InterruptedException) {
                         Thread.currentThread().interrupt()
-                        return RpccgoResult.failure("torch chat recv interrupted")
+                        return RpccgoResult.failure("android echo chat recv interrupted")
                     }
                     if (closed) return RpccgoResult.failure("EOF")
                 }
@@ -187,6 +180,14 @@ class SharedSoRuntimeService : Service() {
                 return RpccgoResult.success(Unit)
             }
         })
+
+    private fun androidEchoResponse(req: AndroidEchoRequest, sequence: Int): AndroidEchoResponse =
+        AndroidEchoResponse.newBuilder()
+            .setValue(req.value)
+            .setSequence(sequence)
+            .setCaller(req.caller.ifBlank { "unknown-caller" })
+            .setServedBy("kotlin-android-device")
+            .build()
 
     private fun torchCameraId(): String? {
         val cameraManager = getSystemService(CameraManager::class.java)

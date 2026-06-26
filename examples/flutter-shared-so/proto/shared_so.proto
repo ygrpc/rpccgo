@@ -53,6 +53,20 @@ message SetTorchResponse {
   string status = 4;
 }
 
+// AndroidEchoRequest carries hardware-independent Android-owned stream input.
+message AndroidEchoRequest {
+  int32 value = 1;
+  string caller = 2;
+}
+
+// AndroidEchoResponse carries Android-owned stream output.
+message AndroidEchoResponse {
+  int32 value = 1;
+  int32 sequence = 2;
+  string caller = 3;
+  string served_by = 4;
+}
+
 // SharedSoDemo exposes one unary RPC for the shared-library validation example.
 // @rpccgo: msg-connect
 service SharedSoDemo {
@@ -84,12 +98,12 @@ service AndroidDevice {
   // SetTorch enables or disables the Android camera torch.
   rpc SetTorch(SetTorchRequest) returns (SetTorchResponse);
 
-  // WatchTorch streams Android-owned torch state observations.
-  rpc WatchTorch(SetTorchRequest) returns (stream SetTorchResponse);
+  // WatchAndroidEcho streams Android-owned echo responses without hardware dependencies.
+  rpc WatchAndroidEcho(AndroidEchoRequest) returns (stream AndroidEchoResponse);
 
-  // CollectTorch applies a client stream of torch requests and returns the last state.
-  rpc CollectTorch(stream SetTorchRequest) returns (SetTorchResponse);
+  // CollectAndroidEcho collects Android-owned echo requests without hardware dependencies.
+  rpc CollectAndroidEcho(stream AndroidEchoRequest) returns (AndroidEchoResponse);
 
-  // ChatTorch applies each torch request and streams each resulting state back.
-  rpc ChatTorch(stream SetTorchRequest) returns (stream SetTorchResponse);
+  // ChatAndroidEcho echoes each Android-owned request without hardware dependencies.
+  rpc ChatAndroidEcho(stream AndroidEchoRequest) returns (stream AndroidEchoResponse);
 }

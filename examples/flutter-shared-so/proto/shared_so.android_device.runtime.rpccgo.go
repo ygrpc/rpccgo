@@ -65,49 +65,49 @@ func RegisterAndroidDeviceConnectRemoteServer(client AndroidDeviceClient) error 
 	return nil
 }
 
-func newandroidDeviceWatchTorchConnectDirectMessageStreamSession(ctx context.Context, handler AndroidDeviceHandler, req *SetTorchRequest) (rpcruntime.ServerStreamingClient[*SetTorchResponse], error) {
+func newandroidDeviceWatchAndroidEchoConnectDirectMessageStreamSession(ctx context.Context, handler AndroidDeviceHandler, req *AndroidEchoRequest) (rpcruntime.ServerStreamingClient[*AndroidEchoResponse], error) {
 	if req == nil {
 		return nil, errors.New("rpccgo: message request is nil")
 	}
-	client, stream, streamCtx := rpcruntime.NewServerStreaming[*SetTorchResponse](ctx, rpcruntime.LocalStreamOptions{
+	client, stream, streamCtx := rpcruntime.NewServerStreaming[*AndroidEchoResponse](ctx, rpcruntime.LocalStreamOptions{
 		ResponseBuffer: 1,
 		StreamClosed:   errors.New("rpccgo: message stream is closed"),
 		NilResponse:    errors.New("rpccgo: message response is nil"),
 	})
 	go func() {
 		conn := &rpcruntime.ConnectStreamingHandlerConn{SendFunc: func(message any) error {
-			resp, ok := message.(*SetTorchResponse)
+			resp, ok := message.(*AndroidEchoResponse)
 			if !ok || resp == nil {
 				return errors.New("rpccgo: connect handler stream response type mismatch")
 			}
 			return stream.Send(streamCtx, resp)
 		}}
-		stream.Complete(handler.WatchTorch(streamCtx, req, rpcruntime.NewConnectServerStream[SetTorchResponse](conn)))
+		stream.Complete(handler.WatchAndroidEcho(streamCtx, req, rpcruntime.NewConnectServerStream[AndroidEchoResponse](conn)))
 	}()
 	return client, nil
 }
 
-func newandroidDeviceWatchTorchConnectRemoteMessageStreamSession(ctx context.Context, client interface {
-	WatchTorch(context.Context, *SetTorchRequest) (*connect.ServerStreamForClient[SetTorchResponse], error)
-}, req *SetTorchRequest) (*androidDeviceWatchTorchConnectRemoteMessageStreamSession, error) {
+func newandroidDeviceWatchAndroidEchoConnectRemoteMessageStreamSession(ctx context.Context, client interface {
+	WatchAndroidEcho(context.Context, *AndroidEchoRequest) (*connect.ServerStreamForClient[AndroidEchoResponse], error)
+}, req *AndroidEchoRequest) (*androidDeviceWatchAndroidEchoConnectRemoteMessageStreamSession, error) {
 	if req == nil {
 		return nil, errors.New("rpccgo: message request is nil")
 	}
 	streamCtx, cancel := context.WithCancel(ctx)
-	stream, err := client.WatchTorch(streamCtx, req)
+	stream, err := client.WatchAndroidEcho(streamCtx, req)
 	if err != nil {
 		cancel()
 		return nil, err
 	}
-	return &androidDeviceWatchTorchConnectRemoteMessageStreamSession{stream: stream, cancel: cancel}, nil
+	return &androidDeviceWatchAndroidEchoConnectRemoteMessageStreamSession{stream: stream, cancel: cancel}, nil
 }
 
-type androidDeviceWatchTorchConnectRemoteMessageStreamSession struct {
-	stream *connect.ServerStreamForClient[SetTorchResponse]
+type androidDeviceWatchAndroidEchoConnectRemoteMessageStreamSession struct {
+	stream *connect.ServerStreamForClient[AndroidEchoResponse]
 	cancel context.CancelFunc
 }
 
-func (s *androidDeviceWatchTorchConnectRemoteMessageStreamSession) Recv(ctx context.Context) (*SetTorchResponse, error) {
+func (s *androidDeviceWatchAndroidEchoConnectRemoteMessageStreamSession) Recv(ctx context.Context) (*AndroidEchoResponse, error) {
 	_ = ctx
 	if s == nil {
 		return nil, errors.New("rpccgo: connect remote server stream is nil")
@@ -128,7 +128,7 @@ func (s *androidDeviceWatchTorchConnectRemoteMessageStreamSession) Recv(ctx cont
 	return msg, nil
 }
 
-func (s *androidDeviceWatchTorchConnectRemoteMessageStreamSession) Finish(ctx context.Context) error {
+func (s *androidDeviceWatchAndroidEchoConnectRemoteMessageStreamSession) Finish(ctx context.Context) error {
 	_ = ctx
 	if s == nil || s.stream == nil {
 		return nil
@@ -139,7 +139,7 @@ func (s *androidDeviceWatchTorchConnectRemoteMessageStreamSession) Finish(ctx co
 	return s.stream.Close()
 }
 
-func (s *androidDeviceWatchTorchConnectRemoteMessageStreamSession) Cancel(ctx context.Context) error {
+func (s *androidDeviceWatchAndroidEchoConnectRemoteMessageStreamSession) Cancel(ctx context.Context) error {
 	_ = ctx
 	if s == nil || s.stream == nil {
 		return nil
@@ -150,15 +150,15 @@ func (s *androidDeviceWatchTorchConnectRemoteMessageStreamSession) Cancel(ctx co
 	return nil
 }
 
-func newandroidDeviceCollectTorchConnectDirectMessageStreamSession(ctx context.Context, handler AndroidDeviceHandler) rpcruntime.ClientStreamingClient[*SetTorchRequest, *SetTorchResponse] {
-	client, stream, streamCtx := rpcruntime.NewClientStreaming[*SetTorchRequest, *SetTorchResponse](ctx, rpcruntime.LocalStreamOptions{
+func newandroidDeviceCollectAndroidEchoConnectDirectMessageStreamSession(ctx context.Context, handler AndroidDeviceHandler) rpcruntime.ClientStreamingClient[*AndroidEchoRequest, *AndroidEchoResponse] {
+	client, stream, streamCtx := rpcruntime.NewClientStreaming[*AndroidEchoRequest, *AndroidEchoResponse](ctx, rpcruntime.LocalStreamOptions{
 		RequestBuffer: 16,
 		StreamClosed:  errors.New("rpccgo: message stream is closed"),
 		NilRequest:    errors.New("rpccgo: message request is nil"),
 	})
 	go func() {
 		conn := &rpcruntime.ConnectStreamingHandlerConn{ReceiveFunc: func(message any) error {
-			target, ok := message.(*SetTorchRequest)
+			target, ok := message.(*AndroidEchoRequest)
 			if !ok || target == nil {
 				return errors.New("rpccgo: connect handler stream request type mismatch")
 			}
@@ -169,30 +169,30 @@ func newandroidDeviceCollectTorchConnectDirectMessageStreamSession(ctx context.C
 			*target = *req
 			return nil
 		}}
-		resp, err := handler.CollectTorch(streamCtx, rpcruntime.NewConnectClientStream[SetTorchRequest](conn))
+		resp, err := handler.CollectAndroidEcho(streamCtx, rpcruntime.NewConnectClientStream[AndroidEchoRequest](conn))
 		stream.Complete(resp, err)
 	}()
 	return client
 }
 
-func newandroidDeviceCollectTorchConnectRemoteMessageStreamSession(ctx context.Context, client interface {
-	CollectTorch(context.Context) (*connect.ClientStreamForClientSimple[SetTorchRequest, SetTorchResponse], error)
-}) (*androidDeviceCollectTorchConnectRemoteMessageStreamSession, error) {
+func newandroidDeviceCollectAndroidEchoConnectRemoteMessageStreamSession(ctx context.Context, client interface {
+	CollectAndroidEcho(context.Context) (*connect.ClientStreamForClientSimple[AndroidEchoRequest, AndroidEchoResponse], error)
+}) (*androidDeviceCollectAndroidEchoConnectRemoteMessageStreamSession, error) {
 	streamCtx, cancel := context.WithCancel(ctx)
-	stream, err := client.CollectTorch(streamCtx)
+	stream, err := client.CollectAndroidEcho(streamCtx)
 	if err != nil {
 		cancel()
 		return nil, err
 	}
-	return &androidDeviceCollectTorchConnectRemoteMessageStreamSession{stream: stream, cancel: cancel}, nil
+	return &androidDeviceCollectAndroidEchoConnectRemoteMessageStreamSession{stream: stream, cancel: cancel}, nil
 }
 
-type androidDeviceCollectTorchConnectRemoteMessageStreamSession struct {
-	stream *connect.ClientStreamForClientSimple[SetTorchRequest, SetTorchResponse]
+type androidDeviceCollectAndroidEchoConnectRemoteMessageStreamSession struct {
+	stream *connect.ClientStreamForClientSimple[AndroidEchoRequest, AndroidEchoResponse]
 	cancel context.CancelFunc
 }
 
-func (s *androidDeviceCollectTorchConnectRemoteMessageStreamSession) Send(ctx context.Context, req *SetTorchRequest) error {
+func (s *androidDeviceCollectAndroidEchoConnectRemoteMessageStreamSession) Send(ctx context.Context, req *AndroidEchoRequest) error {
 	_ = ctx
 	if req == nil {
 		return errors.New("rpccgo: message request is nil")
@@ -203,7 +203,7 @@ func (s *androidDeviceCollectTorchConnectRemoteMessageStreamSession) Send(ctx co
 	return s.stream.Send(req)
 }
 
-func (s *androidDeviceCollectTorchConnectRemoteMessageStreamSession) Finish(ctx context.Context) (*SetTorchResponse, error) {
+func (s *androidDeviceCollectAndroidEchoConnectRemoteMessageStreamSession) Finish(ctx context.Context) (*AndroidEchoResponse, error) {
 	_ = ctx
 	if s == nil {
 		return nil, errors.New("rpccgo: connect remote client stream is nil")
@@ -226,7 +226,7 @@ func (s *androidDeviceCollectTorchConnectRemoteMessageStreamSession) Finish(ctx 
 	return resp, nil
 }
 
-func (s *androidDeviceCollectTorchConnectRemoteMessageStreamSession) Cancel(ctx context.Context) error {
+func (s *androidDeviceCollectAndroidEchoConnectRemoteMessageStreamSession) Cancel(ctx context.Context) error {
 	_ = ctx
 	if s != nil && s.stream != nil {
 		closed := make(chan struct{})
@@ -256,8 +256,8 @@ func (s *androidDeviceCollectTorchConnectRemoteMessageStreamSession) Cancel(ctx 
 	return nil
 }
 
-func newandroidDeviceChatTorchConnectDirectMessageStreamSession(ctx context.Context, handler AndroidDeviceHandler) rpcruntime.BidiStreamingClient[*SetTorchRequest, *SetTorchResponse] {
-	client, stream, streamCtx := rpcruntime.NewBidiStreaming[*SetTorchRequest, *SetTorchResponse](ctx, rpcruntime.LocalStreamOptions{
+func newandroidDeviceChatAndroidEchoConnectDirectMessageStreamSession(ctx context.Context, handler AndroidDeviceHandler) rpcruntime.BidiStreamingClient[*AndroidEchoRequest, *AndroidEchoResponse] {
+	client, stream, streamCtx := rpcruntime.NewBidiStreaming[*AndroidEchoRequest, *AndroidEchoResponse](ctx, rpcruntime.LocalStreamOptions{
 		RequestBuffer:  16,
 		ResponseBuffer: 1,
 		StreamClosed:   errors.New("rpccgo: message stream is closed"),
@@ -267,7 +267,7 @@ func newandroidDeviceChatTorchConnectDirectMessageStreamSession(ctx context.Cont
 	go func() {
 		conn := &rpcruntime.ConnectStreamingHandlerConn{
 			ReceiveFunc: func(message any) error {
-				target, ok := message.(*SetTorchRequest)
+				target, ok := message.(*AndroidEchoRequest)
 				if !ok || target == nil {
 					return errors.New("rpccgo: connect handler bidi request type mismatch")
 				}
@@ -279,36 +279,36 @@ func newandroidDeviceChatTorchConnectDirectMessageStreamSession(ctx context.Cont
 				return nil
 			},
 			SendFunc: func(message any) error {
-				resp, ok := message.(*SetTorchResponse)
+				resp, ok := message.(*AndroidEchoResponse)
 				if !ok || resp == nil {
 					return errors.New("rpccgo: connect handler bidi response type mismatch")
 				}
 				return stream.Send(streamCtx, resp)
 			},
 		}
-		stream.Complete(handler.ChatTorch(streamCtx, rpcruntime.NewConnectBidiStream[SetTorchRequest, SetTorchResponse](conn)))
+		stream.Complete(handler.ChatAndroidEcho(streamCtx, rpcruntime.NewConnectBidiStream[AndroidEchoRequest, AndroidEchoResponse](conn)))
 	}()
 	return client
 }
 
-func newandroidDeviceChatTorchConnectRemoteMessageStreamSession(ctx context.Context, client interface {
-	ChatTorch(context.Context) (*connect.BidiStreamForClientSimple[SetTorchRequest, SetTorchResponse], error)
-}) (*androidDeviceChatTorchConnectRemoteMessageStreamSession, error) {
+func newandroidDeviceChatAndroidEchoConnectRemoteMessageStreamSession(ctx context.Context, client interface {
+	ChatAndroidEcho(context.Context) (*connect.BidiStreamForClientSimple[AndroidEchoRequest, AndroidEchoResponse], error)
+}) (*androidDeviceChatAndroidEchoConnectRemoteMessageStreamSession, error) {
 	streamCtx, cancel := context.WithCancel(ctx)
-	stream, err := client.ChatTorch(streamCtx)
+	stream, err := client.ChatAndroidEcho(streamCtx)
 	if err != nil {
 		cancel()
 		return nil, err
 	}
-	return &androidDeviceChatTorchConnectRemoteMessageStreamSession{stream: stream, cancel: cancel}, nil
+	return &androidDeviceChatAndroidEchoConnectRemoteMessageStreamSession{stream: stream, cancel: cancel}, nil
 }
 
-type androidDeviceChatTorchConnectRemoteMessageStreamSession struct {
-	stream *connect.BidiStreamForClientSimple[SetTorchRequest, SetTorchResponse]
+type androidDeviceChatAndroidEchoConnectRemoteMessageStreamSession struct {
+	stream *connect.BidiStreamForClientSimple[AndroidEchoRequest, AndroidEchoResponse]
 	cancel context.CancelFunc
 }
 
-func (s *androidDeviceChatTorchConnectRemoteMessageStreamSession) Send(ctx context.Context, req *SetTorchRequest) error {
+func (s *androidDeviceChatAndroidEchoConnectRemoteMessageStreamSession) Send(ctx context.Context, req *AndroidEchoRequest) error {
 	_ = ctx
 	if req == nil {
 		return errors.New("rpccgo: message request is nil")
@@ -319,7 +319,7 @@ func (s *androidDeviceChatTorchConnectRemoteMessageStreamSession) Send(ctx conte
 	return s.stream.Send(req)
 }
 
-func (s *androidDeviceChatTorchConnectRemoteMessageStreamSession) Recv(ctx context.Context) (*SetTorchResponse, error) {
+func (s *androidDeviceChatAndroidEchoConnectRemoteMessageStreamSession) Recv(ctx context.Context) (*AndroidEchoResponse, error) {
 	_ = ctx
 	if s == nil || s.stream == nil {
 		return nil, errors.New("rpccgo: connect remote bidi stream is nil")
@@ -334,7 +334,7 @@ func (s *androidDeviceChatTorchConnectRemoteMessageStreamSession) Recv(ctx conte
 	return resp, nil
 }
 
-func (s *androidDeviceChatTorchConnectRemoteMessageStreamSession) Finish(ctx context.Context) error {
+func (s *androidDeviceChatAndroidEchoConnectRemoteMessageStreamSession) Finish(ctx context.Context) error {
 	_ = ctx
 	if s == nil || s.stream == nil {
 		return nil
@@ -345,7 +345,7 @@ func (s *androidDeviceChatTorchConnectRemoteMessageStreamSession) Finish(ctx con
 	return s.stream.CloseResponse()
 }
 
-func (s *androidDeviceChatTorchConnectRemoteMessageStreamSession) Cancel(ctx context.Context) error {
+func (s *androidDeviceChatAndroidEchoConnectRemoteMessageStreamSession) Cancel(ctx context.Context) error {
 	_ = ctx
 	if s == nil || s.stream == nil {
 		return nil
@@ -356,7 +356,7 @@ func (s *androidDeviceChatTorchConnectRemoteMessageStreamSession) Cancel(ctx con
 	return nil
 }
 
-func (s *androidDeviceChatTorchConnectRemoteMessageStreamSession) CloseSend(ctx context.Context) error {
+func (s *androidDeviceChatAndroidEchoConnectRemoteMessageStreamSession) CloseSend(ctx context.Context) error {
 	_ = ctx
 	if s == nil || s.stream == nil {
 		return nil
@@ -418,8 +418,8 @@ func InvokeAndroidDeviceMessageSetTorch(ctx context.Context, req *SetTorchReques
 	}
 }
 
-// AndroidDeviceMessageWatchTorchStart starts a message contract stream for WatchTorch on the current registered server.
-func AndroidDeviceMessageWatchTorchStart(ctx context.Context, req *SetTorchRequest) (rpcruntime.StreamHandle, error) {
+// AndroidDeviceMessageWatchAndroidEchoStart starts a message contract stream for WatchAndroidEcho on the current registered server.
+func AndroidDeviceMessageWatchAndroidEchoStart(ctx context.Context, req *AndroidEchoRequest) (rpcruntime.StreamHandle, error) {
 	if req == nil {
 		return 0, errors.New("rpccgo: message request is nil")
 	}
@@ -433,7 +433,7 @@ func AndroidDeviceMessageWatchTorchStart(ctx context.Context, req *SetTorchReque
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: AndroidDevice cgo message registered server has invalid type")
 		}
-		source, err := androidDeviceWatchTorchCGOMessageStart(ctx, server, req)
+		source, err := androidDeviceWatchAndroidEchoCGOMessageStart(ctx, server, req)
 		if err != nil {
 			return 0, err
 		}
@@ -443,7 +443,7 @@ func AndroidDeviceMessageWatchTorchStart(ctx context.Context, req *SetTorchReque
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: AndroidDevice connect handler registered server has invalid type")
 		}
-		source, err := newandroidDeviceWatchTorchConnectDirectMessageStreamSession(ctx, server, req)
+		source, err := newandroidDeviceWatchAndroidEchoConnectDirectMessageStreamSession(ctx, server, req)
 		if err != nil {
 			return 0, err
 		}
@@ -453,7 +453,7 @@ func AndroidDeviceMessageWatchTorchStart(ctx context.Context, req *SetTorchReque
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: AndroidDevice connect remote registered server has invalid type")
 		}
-		source, err := newandroidDeviceWatchTorchConnectRemoteMessageStreamSession(ctx, server, req)
+		source, err := newandroidDeviceWatchAndroidEchoConnectRemoteMessageStreamSession(ctx, server, req)
 		if err != nil {
 			return 0, err
 		}
@@ -463,8 +463,8 @@ func AndroidDeviceMessageWatchTorchStart(ctx context.Context, req *SetTorchReque
 	}
 }
 
-// AndroidDeviceMessageCollectTorchStart starts a message contract stream for CollectTorch on the current registered server.
-func AndroidDeviceMessageCollectTorchStart(ctx context.Context) (rpcruntime.StreamHandle, error) {
+// AndroidDeviceMessageCollectAndroidEchoStart starts a message contract stream for CollectAndroidEcho on the current registered server.
+func AndroidDeviceMessageCollectAndroidEchoStart(ctx context.Context) (rpcruntime.StreamHandle, error) {
 	registered, err := rpcruntime.LoadServer(androidDeviceServiceID)
 	if err != nil {
 		return 0, err
@@ -475,7 +475,7 @@ func AndroidDeviceMessageCollectTorchStart(ctx context.Context) (rpcruntime.Stre
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: AndroidDevice cgo message registered server has invalid type")
 		}
-		source, err := androidDeviceCollectTorchCGOMessageStart(ctx, server)
+		source, err := androidDeviceCollectAndroidEchoCGOMessageStart(ctx, server)
 		if err != nil {
 			return 0, err
 		}
@@ -485,14 +485,14 @@ func AndroidDeviceMessageCollectTorchStart(ctx context.Context) (rpcruntime.Stre
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: AndroidDevice connect handler registered server has invalid type")
 		}
-		source := newandroidDeviceCollectTorchConnectDirectMessageStreamSession(ctx, server)
+		source := newandroidDeviceCollectAndroidEchoConnectDirectMessageStreamSession(ctx, server)
 		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindConnect, source)
 	case rpcruntime.ServerKindConnectRemote:
 		server, ok := registered.Server.(AndroidDeviceClient)
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: AndroidDevice connect remote registered server has invalid type")
 		}
-		source, err := newandroidDeviceCollectTorchConnectRemoteMessageStreamSession(ctx, server)
+		source, err := newandroidDeviceCollectAndroidEchoConnectRemoteMessageStreamSession(ctx, server)
 		if err != nil {
 			return 0, err
 		}
@@ -502,8 +502,8 @@ func AndroidDeviceMessageCollectTorchStart(ctx context.Context) (rpcruntime.Stre
 	}
 }
 
-// AndroidDeviceMessageChatTorchStart starts a message contract stream for ChatTorch on the current registered server.
-func AndroidDeviceMessageChatTorchStart(ctx context.Context) (rpcruntime.StreamHandle, error) {
+// AndroidDeviceMessageChatAndroidEchoStart starts a message contract stream for ChatAndroidEcho on the current registered server.
+func AndroidDeviceMessageChatAndroidEchoStart(ctx context.Context) (rpcruntime.StreamHandle, error) {
 	registered, err := rpcruntime.LoadServer(androidDeviceServiceID)
 	if err != nil {
 		return 0, err
@@ -514,7 +514,7 @@ func AndroidDeviceMessageChatTorchStart(ctx context.Context) (rpcruntime.StreamH
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: AndroidDevice cgo message registered server has invalid type")
 		}
-		source, err := androidDeviceChatTorchCGOMessageStart(ctx, server)
+		source, err := androidDeviceChatAndroidEchoCGOMessageStart(ctx, server)
 		if err != nil {
 			return 0, err
 		}
@@ -524,14 +524,14 @@ func AndroidDeviceMessageChatTorchStart(ctx context.Context) (rpcruntime.StreamH
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: AndroidDevice connect handler registered server has invalid type")
 		}
-		source := newandroidDeviceChatTorchConnectDirectMessageStreamSession(ctx, server)
+		source := newandroidDeviceChatAndroidEchoConnectDirectMessageStreamSession(ctx, server)
 		return rpcruntime.CreateStreamSession(rpcruntime.ServerKindConnect, source)
 	case rpcruntime.ServerKindConnectRemote:
 		server, ok := registered.Server.(AndroidDeviceClient)
 		if !ok {
 			return 0, fmt.Errorf("rpccgo: AndroidDevice connect remote registered server has invalid type")
 		}
-		source, err := newandroidDeviceChatTorchConnectRemoteMessageStreamSession(ctx, server)
+		source, err := newandroidDeviceChatAndroidEchoConnectRemoteMessageStreamSession(ctx, server)
 		if err != nil {
 			return 0, err
 		}

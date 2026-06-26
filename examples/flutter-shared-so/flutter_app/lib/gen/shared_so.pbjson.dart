@@ -122,6 +122,37 @@ final $typed_data.Uint8List setTorchResponseDescriptor = $convert.base64Decode(
     'lkGAIgASgJUghjYW1lcmFJZBIWCgZjYWxsZXIYAyABKAlSBmNhbGxlchIWCgZzdGF0dXMYBCAB'
     'KAlSBnN0YXR1cw==');
 
+@$core.Deprecated('Use androidEchoRequestDescriptor instead')
+const AndroidEchoRequest$json = {
+  '1': 'AndroidEchoRequest',
+  '2': [
+    {'1': 'value', '3': 1, '4': 1, '5': 5, '10': 'value'},
+    {'1': 'caller', '3': 2, '4': 1, '5': 9, '10': 'caller'},
+  ],
+};
+
+/// Descriptor for `AndroidEchoRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List androidEchoRequestDescriptor = $convert.base64Decode(
+    'ChJBbmRyb2lkRWNob1JlcXVlc3QSFAoFdmFsdWUYASABKAVSBXZhbHVlEhYKBmNhbGxlchgCIA'
+    'EoCVIGY2FsbGVy');
+
+@$core.Deprecated('Use androidEchoResponseDescriptor instead')
+const AndroidEchoResponse$json = {
+  '1': 'AndroidEchoResponse',
+  '2': [
+    {'1': 'value', '3': 1, '4': 1, '5': 5, '10': 'value'},
+    {'1': 'sequence', '3': 2, '4': 1, '5': 5, '10': 'sequence'},
+    {'1': 'caller', '3': 3, '4': 1, '5': 9, '10': 'caller'},
+    {'1': 'served_by', '3': 4, '4': 1, '5': 9, '10': 'servedBy'},
+  ],
+};
+
+/// Descriptor for `AndroidEchoResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List androidEchoResponseDescriptor = $convert.base64Decode(
+    'ChNBbmRyb2lkRWNob1Jlc3BvbnNlEhQKBXZhbHVlGAEgASgFUgV2YWx1ZRIaCghzZXF1ZW5jZR'
+    'gCIAEoBVIIc2VxdWVuY2USFgoGY2FsbGVyGAMgASgJUgZjYWxsZXISGwoJc2VydmVkX2J5GAQg'
+    'ASgJUghzZXJ2ZWRCeQ==');
+
 const $core.Map<$core.String, $core.dynamic> SharedSoDemoServiceBase$json = {
   '1': 'SharedSoDemo',
   '2': [
@@ -213,21 +244,21 @@ const $core.Map<$core.String, $core.dynamic> AndroidDeviceServiceBase$json = {
       '3': '.examples.flutter.sharedso.v1.SetTorchResponse'
     },
     {
-      '1': 'WatchTorch',
-      '2': '.examples.flutter.sharedso.v1.SetTorchRequest',
-      '3': '.examples.flutter.sharedso.v1.SetTorchResponse',
+      '1': 'WatchAndroidEcho',
+      '2': '.examples.flutter.sharedso.v1.AndroidEchoRequest',
+      '3': '.examples.flutter.sharedso.v1.AndroidEchoResponse',
       '6': true
     },
     {
-      '1': 'CollectTorch',
-      '2': '.examples.flutter.sharedso.v1.SetTorchRequest',
-      '3': '.examples.flutter.sharedso.v1.SetTorchResponse',
+      '1': 'CollectAndroidEcho',
+      '2': '.examples.flutter.sharedso.v1.AndroidEchoRequest',
+      '3': '.examples.flutter.sharedso.v1.AndroidEchoResponse',
       '5': true
     },
     {
-      '1': 'ChatTorch',
-      '2': '.examples.flutter.sharedso.v1.SetTorchRequest',
-      '3': '.examples.flutter.sharedso.v1.SetTorchResponse',
+      '1': 'ChatAndroidEcho',
+      '2': '.examples.flutter.sharedso.v1.AndroidEchoRequest',
+      '3': '.examples.flutter.sharedso.v1.AndroidEchoResponse',
       '5': true,
       '6': true
     },
@@ -239,16 +270,18 @@ const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>>
     AndroidDeviceServiceBase$messageJson = {
   '.examples.flutter.sharedso.v1.SetTorchRequest': SetTorchRequest$json,
   '.examples.flutter.sharedso.v1.SetTorchResponse': SetTorchResponse$json,
+  '.examples.flutter.sharedso.v1.AndroidEchoRequest': AndroidEchoRequest$json,
+  '.examples.flutter.sharedso.v1.AndroidEchoResponse': AndroidEchoResponse$json,
 };
 
 /// Descriptor for `AndroidDevice`. Decode as a `google.protobuf.ServiceDescriptorProto`.
 final $typed_data.Uint8List androidDeviceServiceDescriptor = $convert.base64Decode(
     'Cg1BbmRyb2lkRGV2aWNlEmkKCFNldFRvcmNoEi0uZXhhbXBsZXMuZmx1dHRlci5zaGFyZWRzby'
     '52MS5TZXRUb3JjaFJlcXVlc3QaLi5leGFtcGxlcy5mbHV0dGVyLnNoYXJlZHNvLnYxLlNldFRv'
-    'cmNoUmVzcG9uc2USbQoKV2F0Y2hUb3JjaBItLmV4YW1wbGVzLmZsdXR0ZXIuc2hhcmVkc28udj'
-    'EuU2V0VG9yY2hSZXF1ZXN0Gi4uZXhhbXBsZXMuZmx1dHRlci5zaGFyZWRzby52MS5TZXRUb3Jj'
-    'aFJlc3BvbnNlMAESbwoMQ29sbGVjdFRvcmNoEi0uZXhhbXBsZXMuZmx1dHRlci5zaGFyZWRzby'
-    '52MS5TZXRUb3JjaFJlcXVlc3QaLi5leGFtcGxlcy5mbHV0dGVyLnNoYXJlZHNvLnYxLlNldFRv'
-    'cmNoUmVzcG9uc2UoARJuCglDaGF0VG9yY2gSLS5leGFtcGxlcy5mbHV0dGVyLnNoYXJlZHNvLn'
-    'YxLlNldFRvcmNoUmVxdWVzdBouLmV4YW1wbGVzLmZsdXR0ZXIuc2hhcmVkc28udjEuU2V0VG9y'
-    'Y2hSZXNwb25zZSgBMAE=');
+    'cmNoUmVzcG9uc2USeQoQV2F0Y2hBbmRyb2lkRWNobxIwLmV4YW1wbGVzLmZsdXR0ZXIuc2hhcm'
+    'Vkc28udjEuQW5kcm9pZEVjaG9SZXF1ZXN0GjEuZXhhbXBsZXMuZmx1dHRlci5zaGFyZWRzby52'
+    'MS5BbmRyb2lkRWNob1Jlc3BvbnNlMAESewoSQ29sbGVjdEFuZHJvaWRFY2hvEjAuZXhhbXBsZX'
+    'MuZmx1dHRlci5zaGFyZWRzby52MS5BbmRyb2lkRWNob1JlcXVlc3QaMS5leGFtcGxlcy5mbHV0'
+    'dGVyLnNoYXJlZHNvLnYxLkFuZHJvaWRFY2hvUmVzcG9uc2UoARJ6Cg9DaGF0QW5kcm9pZEVjaG'
+    '8SMC5leGFtcGxlcy5mbHV0dGVyLnNoYXJlZHNvLnYxLkFuZHJvaWRFY2hvUmVxdWVzdBoxLmV4'
+    'YW1wbGVzLmZsdXR0ZXIuc2hhcmVkc28udjEuQW5kcm9pZEVjaG9SZXNwb25zZSgBMAE=');

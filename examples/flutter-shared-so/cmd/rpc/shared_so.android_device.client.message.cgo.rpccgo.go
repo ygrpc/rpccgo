@@ -58,10 +58,10 @@ func rpccgoMsgFluttersharedv1AndroidDeviceSetTorch(requestPtr C.uintptr_t, reque
 	return 0
 }
 
-// rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchStart starts the message server-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.WatchTorch.
+// rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoStart starts the message server-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.WatchAndroidEcho.
 //
-//export rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchStart
-func rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchStart(requestPtr C.uintptr_t, requestLen C.int32_t, handle *C.int32_t, onRecv C.AndroidDeviceRpccgoMessageOnRecvCallback, onDone C.AndroidDeviceRpccgoMessageOnDoneCallback) C.int32_t {
+//export rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoStart
+func rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoStart(requestPtr C.uintptr_t, requestLen C.int32_t, handle *C.int32_t, onRecv C.AndroidDeviceRpccgoMessageOnRecvCallback, onDone C.AndroidDeviceRpccgoMessageOnDoneCallback) C.int32_t {
 	ctx := context.Background()
 	if handle != nil {
 		*handle = 0
@@ -69,11 +69,11 @@ func rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchStart(requestPtr C.uintptr_t
 	if handle == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client handle pointer is nil")))
 	}
-	req := &proto.SetTorchRequest{}
+	req := &proto.AndroidEchoRequest{}
 	if err := rpcruntime.DecodeMessage(uintptr(requestPtr), int32(requestLen), req); err != nil {
 		return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request decode failed: %w", err)))
 	}
-	handleValue, err := proto.AndroidDeviceMessageWatchTorchStart(ctx, req)
+	handleValue, err := proto.AndroidDeviceMessageWatchAndroidEchoStart(ctx, req)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -81,17 +81,17 @@ func rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchStart(requestPtr C.uintptr_t
 	if onRecv != nil && onDone != nil {
 		entry, err := rpcruntime.LoadStreamSession(rpcruntime.StreamHandle(handleValue))
 		if err != nil {
-			_ = proto.AndroidDeviceMessageWatchTorchCancel(ctx, rpcruntime.StreamHandle(handleValue))
+			_ = proto.AndroidDeviceMessageWatchAndroidEchoCancel(ctx, rpcruntime.StreamHandle(handleValue))
 			return C.int32_t(rpcruntime.StoreError(err))
 		}
-		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*proto.SetTorchResponse])
+		source, ok := entry.Session.(rpcruntime.ServerStreamingClient[*proto.AndroidEchoResponse])
 		if !ok {
-			_ = proto.AndroidDeviceMessageWatchTorchCancel(ctx, rpcruntime.StreamHandle(handleValue))
+			_ = proto.AndroidDeviceMessageWatchAndroidEchoCancel(ctx, rpcruntime.StreamHandle(handleValue))
 			return C.int32_t(rpcruntime.StoreError(rpcruntime.ErrStreamInvalidHandle))
 		}
 		callbackState, err := rpcruntime.EnableStreamCallbackReceive(rpcruntime.StreamHandle(handleValue))
 		if err != nil {
-			_ = proto.AndroidDeviceMessageWatchTorchCancel(ctx, rpcruntime.StreamHandle(handleValue))
+			_ = proto.AndroidDeviceMessageWatchAndroidEchoCancel(ctx, rpcruntime.StreamHandle(handleValue))
 			return C.int32_t(rpcruntime.StoreError(err))
 		}
 		go func() {
@@ -137,10 +137,10 @@ func rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchStart(requestPtr C.uintptr_t
 	return 0
 }
 
-// rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchRecv receives a message response from the server-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.WatchTorch.
+// rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoRecv receives a message response from the server-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.WatchAndroidEcho.
 //
-//export rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchRecv
-func rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchRecv(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
+//export rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoRecv
+func rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoRecv(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
 	ctx := context.Background()
 	if responsePtr != nil {
 		*responsePtr = 0
@@ -155,7 +155,7 @@ func rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchRecv(handle C.int32_t, respo
 	if rpcruntime.StreamCallbackReceiveEnabled(rpcruntime.StreamHandle(handleValue)) {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: stream receive is owned by callback receive mode")))
 	}
-	resp, err := proto.AndroidDeviceMessageWatchTorchRecv(ctx, rpcruntime.StreamHandle(handleValue))
+	resp, err := proto.AndroidDeviceMessageWatchAndroidEchoRecv(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -168,17 +168,17 @@ func rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchRecv(handle C.int32_t, respo
 	return 0
 }
 
-// rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchCancel cancels the message server-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.WatchTorch.
+// rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoCancel cancels the message server-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.WatchAndroidEcho.
 //
-//export rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchCancel
-func rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchCancel(handle C.int32_t) C.int32_t {
+//export rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoCancel
+func rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoCancel(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
 	callbackState, _ := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))
 	if callbackState != nil {
 		callbackState.MarkCanceled()
 	}
-	err := proto.AndroidDeviceMessageWatchTorchCancel(ctx, rpcruntime.StreamHandle(handleValue))
+	err := proto.AndroidDeviceMessageWatchAndroidEchoCancel(ctx, rpcruntime.StreamHandle(handleValue))
 	if callbackState != nil {
 		callbackState.WaitDone()
 	}
@@ -188,10 +188,10 @@ func rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchCancel(handle C.int32_t) C.i
 	return 0
 }
 
-// rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchClose closes callback receive ownership for the message server-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.WatchTorch without delivering further callbacks.
+// rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoClose closes callback receive ownership for the message server-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.WatchAndroidEcho without delivering further callbacks.
 //
-//export rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchClose
-func rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchClose(handle C.int32_t) C.int32_t {
+//export rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoClose
+func rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoClose(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
 	callbackState, err := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))
@@ -199,17 +199,17 @@ func rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchClose(handle C.int32_t) C.in
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
 	callbackState.MarkCallbackReceiveClosed()
-	err = proto.AndroidDeviceMessageWatchTorchCancel(ctx, rpcruntime.StreamHandle(handleValue))
+	err = proto.AndroidDeviceMessageWatchAndroidEchoCancel(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
 	return 0
 }
 
-// rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchStart starts the message client-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.CollectTorch.
+// rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoStart starts the message client-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.CollectAndroidEcho.
 //
-//export rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchStart
-func rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchStart(handle *C.int32_t) C.int32_t {
+//export rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoStart
+func rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoStart(handle *C.int32_t) C.int32_t {
 	ctx := context.Background()
 	if handle != nil {
 		*handle = 0
@@ -217,7 +217,7 @@ func rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchStart(handle *C.int32_t) C
 	if handle == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client handle pointer is nil")))
 	}
-	handleValue, err := proto.AndroidDeviceMessageCollectTorchStart(ctx)
+	handleValue, err := proto.AndroidDeviceMessageCollectAndroidEchoStart(ctx)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -225,26 +225,26 @@ func rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchStart(handle *C.int32_t) C
 	return 0
 }
 
-// rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchSend sends a message request to the client-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.CollectTorch.
+// rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoSend sends a message request to the client-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.CollectAndroidEcho.
 //
-//export rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchSend
-func rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchSend(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {
+//export rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoSend
+func rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoSend(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
-	req := &proto.SetTorchRequest{}
+	req := &proto.AndroidEchoRequest{}
 	if err := rpcruntime.DecodeMessage(uintptr(requestPtr), int32(requestLen), req); err != nil {
 		return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request decode failed: %w", err)))
 	}
-	if err := proto.AndroidDeviceMessageCollectTorchSend(ctx, rpcruntime.StreamHandle(handleValue), req); err != nil {
+	if err := proto.AndroidDeviceMessageCollectAndroidEchoSend(ctx, rpcruntime.StreamHandle(handleValue), req); err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
 	return 0
 }
 
-// rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchFinish finishes the message client-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.CollectTorch.
+// rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoFinish finishes the message client-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.CollectAndroidEcho.
 //
-//export rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchFinish
-func rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchFinish(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
+//export rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoFinish
+func rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoFinish(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
 	ctx := context.Background()
 	if responsePtr != nil {
 		*responsePtr = 0
@@ -256,7 +256,7 @@ func rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchFinish(handle C.int32_t, r
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client output pointer is nil")))
 	}
 	handleValue := int32(handle)
-	resp, err := proto.AndroidDeviceMessageCollectTorchFinish(ctx, rpcruntime.StreamHandle(handleValue))
+	resp, err := proto.AndroidDeviceMessageCollectAndroidEchoFinish(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -269,23 +269,23 @@ func rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchFinish(handle C.int32_t, r
 	return 0
 }
 
-// rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchCancel cancels the message client-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.CollectTorch.
+// rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoCancel cancels the message client-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.CollectAndroidEcho.
 //
-//export rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchCancel
-func rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchCancel(handle C.int32_t) C.int32_t {
+//export rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoCancel
+func rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoCancel(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
-	err := proto.AndroidDeviceMessageCollectTorchCancel(ctx, rpcruntime.StreamHandle(handleValue))
+	err := proto.AndroidDeviceMessageCollectAndroidEchoCancel(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
 	return 0
 }
 
-// rpccgoMsgFluttersharedv1AndroidDeviceChatTorchStart starts the message bidi-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.ChatTorch.
+// rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoStart starts the message bidi-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho.
 //
-//export rpccgoMsgFluttersharedv1AndroidDeviceChatTorchStart
-func rpccgoMsgFluttersharedv1AndroidDeviceChatTorchStart(handle *C.int32_t, onRecv C.AndroidDeviceRpccgoMessageOnRecvCallback, onDone C.AndroidDeviceRpccgoMessageOnDoneCallback) C.int32_t {
+//export rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoStart
+func rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoStart(handle *C.int32_t, onRecv C.AndroidDeviceRpccgoMessageOnRecvCallback, onDone C.AndroidDeviceRpccgoMessageOnDoneCallback) C.int32_t {
 	ctx := context.Background()
 	if handle != nil {
 		*handle = 0
@@ -293,7 +293,7 @@ func rpccgoMsgFluttersharedv1AndroidDeviceChatTorchStart(handle *C.int32_t, onRe
 	if handle == nil {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: message client handle pointer is nil")))
 	}
-	handleValue, err := proto.AndroidDeviceMessageChatTorchStart(ctx)
+	handleValue, err := proto.AndroidDeviceMessageChatAndroidEchoStart(ctx)
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -301,17 +301,17 @@ func rpccgoMsgFluttersharedv1AndroidDeviceChatTorchStart(handle *C.int32_t, onRe
 	if onRecv != nil && onDone != nil {
 		entry, err := rpcruntime.LoadStreamSession(rpcruntime.StreamHandle(handleValue))
 		if err != nil {
-			_ = proto.AndroidDeviceMessageChatTorchCancel(ctx, rpcruntime.StreamHandle(handleValue))
+			_ = proto.AndroidDeviceMessageChatAndroidEchoCancel(ctx, rpcruntime.StreamHandle(handleValue))
 			return C.int32_t(rpcruntime.StoreError(err))
 		}
-		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*proto.SetTorchRequest, *proto.SetTorchResponse])
+		source, ok := entry.Session.(rpcruntime.BidiStreamingClient[*proto.AndroidEchoRequest, *proto.AndroidEchoResponse])
 		if !ok {
-			_ = proto.AndroidDeviceMessageChatTorchCancel(ctx, rpcruntime.StreamHandle(handleValue))
+			_ = proto.AndroidDeviceMessageChatAndroidEchoCancel(ctx, rpcruntime.StreamHandle(handleValue))
 			return C.int32_t(rpcruntime.StoreError(rpcruntime.ErrStreamInvalidHandle))
 		}
 		callbackState, err := rpcruntime.EnableStreamCallbackReceive(rpcruntime.StreamHandle(handleValue))
 		if err != nil {
-			_ = proto.AndroidDeviceMessageChatTorchCancel(ctx, rpcruntime.StreamHandle(handleValue))
+			_ = proto.AndroidDeviceMessageChatAndroidEchoCancel(ctx, rpcruntime.StreamHandle(handleValue))
 			return C.int32_t(rpcruntime.StoreError(err))
 		}
 		go func() {
@@ -357,26 +357,26 @@ func rpccgoMsgFluttersharedv1AndroidDeviceChatTorchStart(handle *C.int32_t, onRe
 	return 0
 }
 
-// rpccgoMsgFluttersharedv1AndroidDeviceChatTorchSend sends a message request to the bidi-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.ChatTorch.
+// rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoSend sends a message request to the bidi-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho.
 //
-//export rpccgoMsgFluttersharedv1AndroidDeviceChatTorchSend
-func rpccgoMsgFluttersharedv1AndroidDeviceChatTorchSend(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {
+//export rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoSend
+func rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoSend(handle C.int32_t, requestPtr C.uintptr_t, requestLen C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
-	req := &proto.SetTorchRequest{}
+	req := &proto.AndroidEchoRequest{}
 	if err := rpcruntime.DecodeMessage(uintptr(requestPtr), int32(requestLen), req); err != nil {
 		return C.int32_t(rpcruntime.StoreError(fmt.Errorf("rpccgo: message request decode failed: %w", err)))
 	}
-	if err := proto.AndroidDeviceMessageChatTorchSend(ctx, rpcruntime.StreamHandle(handleValue), req); err != nil {
+	if err := proto.AndroidDeviceMessageChatAndroidEchoSend(ctx, rpcruntime.StreamHandle(handleValue), req); err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
 	return 0
 }
 
-// rpccgoMsgFluttersharedv1AndroidDeviceChatTorchRecv receives a message response from the bidi-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.ChatTorch.
+// rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoRecv receives a message response from the bidi-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho.
 //
-//export rpccgoMsgFluttersharedv1AndroidDeviceChatTorchRecv
-func rpccgoMsgFluttersharedv1AndroidDeviceChatTorchRecv(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
+//export rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoRecv
+func rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoRecv(handle C.int32_t, responsePtr *C.uintptr_t, responseLen *C.int32_t) C.int32_t {
 	ctx := context.Background()
 	if responsePtr != nil {
 		*responsePtr = 0
@@ -391,7 +391,7 @@ func rpccgoMsgFluttersharedv1AndroidDeviceChatTorchRecv(handle C.int32_t, respon
 	if rpcruntime.StreamCallbackReceiveEnabled(rpcruntime.StreamHandle(handleValue)) {
 		return C.int32_t(rpcruntime.StoreError(errors.New("rpccgo: stream receive is owned by callback receive mode")))
 	}
-	resp, err := proto.AndroidDeviceMessageChatTorchRecv(ctx, rpcruntime.StreamHandle(handleValue))
+	resp, err := proto.AndroidDeviceMessageChatAndroidEchoRecv(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
@@ -404,30 +404,30 @@ func rpccgoMsgFluttersharedv1AndroidDeviceChatTorchRecv(handle C.int32_t, respon
 	return 0
 }
 
-// rpccgoMsgFluttersharedv1AndroidDeviceChatTorchCloseSend closes the message bidi-streaming client send side for examples.flutter.sharedso.v1.AndroidDevice.ChatTorch.
+// rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoCloseSend closes the message bidi-streaming client send side for examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho.
 //
-//export rpccgoMsgFluttersharedv1AndroidDeviceChatTorchCloseSend
-func rpccgoMsgFluttersharedv1AndroidDeviceChatTorchCloseSend(handle C.int32_t) C.int32_t {
+//export rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoCloseSend
+func rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoCloseSend(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
-	err := proto.AndroidDeviceMessageChatTorchCloseSend(ctx, rpcruntime.StreamHandle(handleValue))
+	err := proto.AndroidDeviceMessageChatAndroidEchoCloseSend(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
 	return 0
 }
 
-// rpccgoMsgFluttersharedv1AndroidDeviceChatTorchFinish finishes the message bidi-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.ChatTorch.
+// rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoFinish finishes the message bidi-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho.
 //
-//export rpccgoMsgFluttersharedv1AndroidDeviceChatTorchFinish
-func rpccgoMsgFluttersharedv1AndroidDeviceChatTorchFinish(handle C.int32_t) C.int32_t {
+//export rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoFinish
+func rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoFinish(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
 	callbackState, _ := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))
 	if callbackState != nil {
 		callbackState.MarkCanceled()
 	}
-	err := proto.AndroidDeviceMessageChatTorchFinish(ctx, rpcruntime.StreamHandle(handleValue))
+	err := proto.AndroidDeviceMessageChatAndroidEchoFinish(ctx, rpcruntime.StreamHandle(handleValue))
 	if callbackState != nil {
 		callbackState.WaitDone()
 	}
@@ -437,17 +437,17 @@ func rpccgoMsgFluttersharedv1AndroidDeviceChatTorchFinish(handle C.int32_t) C.in
 	return 0
 }
 
-// rpccgoMsgFluttersharedv1AndroidDeviceChatTorchCancel cancels the message bidi-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.ChatTorch.
+// rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoCancel cancels the message bidi-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho.
 //
-//export rpccgoMsgFluttersharedv1AndroidDeviceChatTorchCancel
-func rpccgoMsgFluttersharedv1AndroidDeviceChatTorchCancel(handle C.int32_t) C.int32_t {
+//export rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoCancel
+func rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoCancel(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
 	callbackState, _ := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))
 	if callbackState != nil {
 		callbackState.MarkCanceled()
 	}
-	err := proto.AndroidDeviceMessageChatTorchCancel(ctx, rpcruntime.StreamHandle(handleValue))
+	err := proto.AndroidDeviceMessageChatAndroidEchoCancel(ctx, rpcruntime.StreamHandle(handleValue))
 	if callbackState != nil {
 		callbackState.WaitDone()
 	}
@@ -457,10 +457,10 @@ func rpccgoMsgFluttersharedv1AndroidDeviceChatTorchCancel(handle C.int32_t) C.in
 	return 0
 }
 
-// rpccgoMsgFluttersharedv1AndroidDeviceChatTorchClose closes callback receive ownership for the message bidi-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.ChatTorch without delivering further callbacks.
+// rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoClose closes callback receive ownership for the message bidi-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho without delivering further callbacks.
 //
-//export rpccgoMsgFluttersharedv1AndroidDeviceChatTorchClose
-func rpccgoMsgFluttersharedv1AndroidDeviceChatTorchClose(handle C.int32_t) C.int32_t {
+//export rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoClose
+func rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoClose(handle C.int32_t) C.int32_t {
 	ctx := context.Background()
 	handleValue := int32(handle)
 	callbackState, err := rpcruntime.StreamCallbackReceiveState(rpcruntime.StreamHandle(handleValue))
@@ -468,7 +468,7 @@ func rpccgoMsgFluttersharedv1AndroidDeviceChatTorchClose(handle C.int32_t) C.int
 		return C.int32_t(rpcruntime.StoreError(err))
 	}
 	callbackState.MarkCallbackReceiveClosed()
-	err = proto.AndroidDeviceMessageChatTorchCancel(ctx, rpcruntime.StreamHandle(handleValue))
+	err = proto.AndroidDeviceMessageChatAndroidEchoCancel(ctx, rpcruntime.StreamHandle(handleValue))
 	if err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
 	}

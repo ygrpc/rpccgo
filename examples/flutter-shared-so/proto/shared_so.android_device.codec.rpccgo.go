@@ -64,155 +64,155 @@ func convertAndroidDeviceSetTorchNativeToMessageResponse(enabled bool, cameraId 
 	return msg, nil
 }
 
-func convertAndroidDeviceWatchTorchMessageToNativeRequest(msg *SetTorchRequest) (bool, *rpcruntime.RpcString, any, error) {
+func convertAndroidDeviceWatchAndroidEchoMessageToNativeRequest(msg *AndroidEchoRequest) (int32, *rpcruntime.RpcString, any, error) {
 	if msg == nil {
-		return false, nil, nil, errors.New("rpccgo: message request is nil")
+		return 0, nil, nil, errors.New("rpccgo: message request is nil")
 	}
 	// Returned native wrappers borrow from msg and reqOwner-owned buffers.
 	// Callers must keep the returned owner alive until the synchronous native call returns.
 	reqOwner := []any{msg}
 	var err error
-	var enabled bool
-	enabled = msg.Enabled
+	var value int32
+	value = msg.Value
 	var caller *rpcruntime.RpcString
 	if msg.Caller != "" {
 		caller, err = rpcruntime.NewRpcStringChecked(unsafe.StringData(msg.Caller), int32(len(msg.Caller)), false)
 		if err != nil {
-			return false, nil, reqOwner, err
+			return 0, nil, reqOwner, err
 		}
 	} else {
 		caller = rpcruntime.EmptyRpcString()
 	}
-	return enabled, caller, reqOwner, nil
+	return value, caller, reqOwner, nil
 }
 
-func convertAndroidDeviceWatchTorchNativeToMessageRequest(enabled bool, caller *rpcruntime.RpcString) (*SetTorchRequest, error) {
-	msg := &SetTorchRequest{}
-	msg.Enabled = enabled
+func convertAndroidDeviceWatchAndroidEchoNativeToMessageRequest(value int32, caller *rpcruntime.RpcString) (*AndroidEchoRequest, error) {
+	msg := &AndroidEchoRequest{}
+	msg.Value = value
 	msg.Caller = caller.UnsafeString()
 	goruntime.KeepAlive(caller)
 	return msg, nil
 }
 
-func convertAndroidDeviceWatchTorchMessageToNativeResponse(msg *SetTorchResponse) (bool, string, string, string, error) {
+func convertAndroidDeviceWatchAndroidEchoMessageToNativeResponse(msg *AndroidEchoResponse) (int32, int32, string, string, error) {
 	if msg == nil {
 		err := errors.New("rpccgo: message response is nil")
-		return false, "", "", "", err
+		return 0, 0, "", "", err
 	}
-	enabled := msg.Enabled
-	cameraId := msg.CameraId
+	value := msg.Value
+	sequence := msg.Sequence
 	caller := msg.Caller
-	status := msg.Status
-	return enabled, cameraId, caller, status, nil
+	servedBy := msg.ServedBy
+	return value, sequence, caller, servedBy, nil
 }
 
-func convertAndroidDeviceWatchTorchNativeToMessageResponse(enabled bool, cameraId string, caller string, status string) (*SetTorchResponse, error) {
-	msg := &SetTorchResponse{}
-	msg.Enabled = enabled
-	msg.CameraId = cameraId
+func convertAndroidDeviceWatchAndroidEchoNativeToMessageResponse(value int32, sequence int32, caller string, servedBy string) (*AndroidEchoResponse, error) {
+	msg := &AndroidEchoResponse{}
+	msg.Value = value
+	msg.Sequence = sequence
 	msg.Caller = caller
-	msg.Status = status
+	msg.ServedBy = servedBy
 	return msg, nil
 }
 
-func convertAndroidDeviceCollectTorchMessageToNativeRequest(msg *SetTorchRequest) (bool, *rpcruntime.RpcString, any, error) {
+func convertAndroidDeviceCollectAndroidEchoMessageToNativeRequest(msg *AndroidEchoRequest) (int32, *rpcruntime.RpcString, any, error) {
 	if msg == nil {
-		return false, nil, nil, errors.New("rpccgo: message request is nil")
+		return 0, nil, nil, errors.New("rpccgo: message request is nil")
 	}
 	// Returned native wrappers borrow from msg and reqOwner-owned buffers.
 	// Callers must keep the returned owner alive until the synchronous native call returns.
 	reqOwner := []any{msg}
 	var err error
-	var enabled bool
-	enabled = msg.Enabled
+	var value int32
+	value = msg.Value
 	var caller *rpcruntime.RpcString
 	if msg.Caller != "" {
 		caller, err = rpcruntime.NewRpcStringChecked(unsafe.StringData(msg.Caller), int32(len(msg.Caller)), false)
 		if err != nil {
-			return false, nil, reqOwner, err
+			return 0, nil, reqOwner, err
 		}
 	} else {
 		caller = rpcruntime.EmptyRpcString()
 	}
-	return enabled, caller, reqOwner, nil
+	return value, caller, reqOwner, nil
 }
 
-func convertAndroidDeviceCollectTorchNativeToMessageRequest(enabled bool, caller *rpcruntime.RpcString) (*SetTorchRequest, error) {
-	msg := &SetTorchRequest{}
-	msg.Enabled = enabled
+func convertAndroidDeviceCollectAndroidEchoNativeToMessageRequest(value int32, caller *rpcruntime.RpcString) (*AndroidEchoRequest, error) {
+	msg := &AndroidEchoRequest{}
+	msg.Value = value
 	msg.Caller = caller.UnsafeString()
 	goruntime.KeepAlive(caller)
 	return msg, nil
 }
 
-func convertAndroidDeviceCollectTorchMessageToNativeResponse(msg *SetTorchResponse) (bool, string, string, string, error) {
+func convertAndroidDeviceCollectAndroidEchoMessageToNativeResponse(msg *AndroidEchoResponse) (int32, int32, string, string, error) {
 	if msg == nil {
 		err := errors.New("rpccgo: message response is nil")
-		return false, "", "", "", err
+		return 0, 0, "", "", err
 	}
-	enabled := msg.Enabled
-	cameraId := msg.CameraId
+	value := msg.Value
+	sequence := msg.Sequence
 	caller := msg.Caller
-	status := msg.Status
-	return enabled, cameraId, caller, status, nil
+	servedBy := msg.ServedBy
+	return value, sequence, caller, servedBy, nil
 }
 
-func convertAndroidDeviceCollectTorchNativeToMessageResponse(enabled bool, cameraId string, caller string, status string) (*SetTorchResponse, error) {
-	msg := &SetTorchResponse{}
-	msg.Enabled = enabled
-	msg.CameraId = cameraId
+func convertAndroidDeviceCollectAndroidEchoNativeToMessageResponse(value int32, sequence int32, caller string, servedBy string) (*AndroidEchoResponse, error) {
+	msg := &AndroidEchoResponse{}
+	msg.Value = value
+	msg.Sequence = sequence
 	msg.Caller = caller
-	msg.Status = status
+	msg.ServedBy = servedBy
 	return msg, nil
 }
 
-func convertAndroidDeviceChatTorchMessageToNativeRequest(msg *SetTorchRequest) (bool, *rpcruntime.RpcString, any, error) {
+func convertAndroidDeviceChatAndroidEchoMessageToNativeRequest(msg *AndroidEchoRequest) (int32, *rpcruntime.RpcString, any, error) {
 	if msg == nil {
-		return false, nil, nil, errors.New("rpccgo: message request is nil")
+		return 0, nil, nil, errors.New("rpccgo: message request is nil")
 	}
 	// Returned native wrappers borrow from msg and reqOwner-owned buffers.
 	// Callers must keep the returned owner alive until the synchronous native call returns.
 	reqOwner := []any{msg}
 	var err error
-	var enabled bool
-	enabled = msg.Enabled
+	var value int32
+	value = msg.Value
 	var caller *rpcruntime.RpcString
 	if msg.Caller != "" {
 		caller, err = rpcruntime.NewRpcStringChecked(unsafe.StringData(msg.Caller), int32(len(msg.Caller)), false)
 		if err != nil {
-			return false, nil, reqOwner, err
+			return 0, nil, reqOwner, err
 		}
 	} else {
 		caller = rpcruntime.EmptyRpcString()
 	}
-	return enabled, caller, reqOwner, nil
+	return value, caller, reqOwner, nil
 }
 
-func convertAndroidDeviceChatTorchNativeToMessageRequest(enabled bool, caller *rpcruntime.RpcString) (*SetTorchRequest, error) {
-	msg := &SetTorchRequest{}
-	msg.Enabled = enabled
+func convertAndroidDeviceChatAndroidEchoNativeToMessageRequest(value int32, caller *rpcruntime.RpcString) (*AndroidEchoRequest, error) {
+	msg := &AndroidEchoRequest{}
+	msg.Value = value
 	msg.Caller = caller.UnsafeString()
 	goruntime.KeepAlive(caller)
 	return msg, nil
 }
 
-func convertAndroidDeviceChatTorchMessageToNativeResponse(msg *SetTorchResponse) (bool, string, string, string, error) {
+func convertAndroidDeviceChatAndroidEchoMessageToNativeResponse(msg *AndroidEchoResponse) (int32, int32, string, string, error) {
 	if msg == nil {
 		err := errors.New("rpccgo: message response is nil")
-		return false, "", "", "", err
+		return 0, 0, "", "", err
 	}
-	enabled := msg.Enabled
-	cameraId := msg.CameraId
+	value := msg.Value
+	sequence := msg.Sequence
 	caller := msg.Caller
-	status := msg.Status
-	return enabled, cameraId, caller, status, nil
+	servedBy := msg.ServedBy
+	return value, sequence, caller, servedBy, nil
 }
 
-func convertAndroidDeviceChatTorchNativeToMessageResponse(enabled bool, cameraId string, caller string, status string) (*SetTorchResponse, error) {
-	msg := &SetTorchResponse{}
-	msg.Enabled = enabled
-	msg.CameraId = cameraId
+func convertAndroidDeviceChatAndroidEchoNativeToMessageResponse(value int32, sequence int32, caller string, servedBy string) (*AndroidEchoResponse, error) {
+	msg := &AndroidEchoResponse{}
+	msg.Value = value
+	msg.Sequence = sequence
 	msg.Caller = caller
-	msg.Status = status
+	msg.ServedBy = servedBy
 	return msg, nil
 }

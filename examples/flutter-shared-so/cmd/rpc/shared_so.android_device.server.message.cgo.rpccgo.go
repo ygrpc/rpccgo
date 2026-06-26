@@ -13,43 +13,43 @@ import (
 
 typedef int32_t (*AndroidDeviceSetTorchCGOMessageUnaryCallback)(uintptr_t request_ptr, int32_t request_len, uintptr_t* response_ptr, int32_t* response_len);
 
-typedef int32_t (*AndroidDeviceWatchTorchCGOMessageServerStreamStartCallback)(uintptr_t request_ptr, int32_t request_len, int32_t* stream);
-typedef int32_t (*AndroidDeviceWatchTorchCGOMessageServerStreamRecvCallback)(int32_t stream, uintptr_t* response_ptr, int32_t* response_len);
-typedef int32_t (*AndroidDeviceWatchTorchCGOMessageServerStreamFinishCallback)(int32_t stream);
-typedef int32_t (*AndroidDeviceWatchTorchCGOMessageServerStreamCancelCallback)(int32_t stream);
+typedef int32_t (*AndroidDeviceWatchAndroidEchoCGOMessageServerStreamStartCallback)(uintptr_t request_ptr, int32_t request_len, int32_t* stream);
+typedef int32_t (*AndroidDeviceWatchAndroidEchoCGOMessageServerStreamRecvCallback)(int32_t stream, uintptr_t* response_ptr, int32_t* response_len);
+typedef int32_t (*AndroidDeviceWatchAndroidEchoCGOMessageServerStreamFinishCallback)(int32_t stream);
+typedef int32_t (*AndroidDeviceWatchAndroidEchoCGOMessageServerStreamCancelCallback)(int32_t stream);
 
-typedef int32_t (*AndroidDeviceCollectTorchCGOMessageClientStreamStartCallback)(int32_t* stream);
-typedef int32_t (*AndroidDeviceCollectTorchCGOMessageClientStreamSendCallback)(int32_t stream, uintptr_t request_ptr, int32_t request_len);
-typedef int32_t (*AndroidDeviceCollectTorchCGOMessageClientStreamFinishCallback)(int32_t stream, uintptr_t* response_ptr, int32_t* response_len);
-typedef int32_t (*AndroidDeviceCollectTorchCGOMessageClientStreamCancelCallback)(int32_t stream);
+typedef int32_t (*AndroidDeviceCollectAndroidEchoCGOMessageClientStreamStartCallback)(int32_t* stream);
+typedef int32_t (*AndroidDeviceCollectAndroidEchoCGOMessageClientStreamSendCallback)(int32_t stream, uintptr_t request_ptr, int32_t request_len);
+typedef int32_t (*AndroidDeviceCollectAndroidEchoCGOMessageClientStreamFinishCallback)(int32_t stream, uintptr_t* response_ptr, int32_t* response_len);
+typedef int32_t (*AndroidDeviceCollectAndroidEchoCGOMessageClientStreamCancelCallback)(int32_t stream);
 
-typedef int32_t (*AndroidDeviceChatTorchCGOMessageBidiStreamStartCallback)(int32_t* stream);
-typedef int32_t (*AndroidDeviceChatTorchCGOMessageBidiStreamSendCallback)(int32_t stream, uintptr_t request_ptr, int32_t request_len);
-typedef int32_t (*AndroidDeviceChatTorchCGOMessageBidiStreamRecvCallback)(int32_t stream, uintptr_t* response_ptr, int32_t* response_len);
-typedef int32_t (*AndroidDeviceChatTorchCGOMessageBidiStreamCloseSendCallback)(int32_t stream);
-typedef int32_t (*AndroidDeviceChatTorchCGOMessageBidiStreamFinishCallback)(int32_t stream);
-typedef int32_t (*AndroidDeviceChatTorchCGOMessageBidiStreamCancelCallback)(int32_t stream);
+typedef int32_t (*AndroidDeviceChatAndroidEchoCGOMessageBidiStreamStartCallback)(int32_t* stream);
+typedef int32_t (*AndroidDeviceChatAndroidEchoCGOMessageBidiStreamSendCallback)(int32_t stream, uintptr_t request_ptr, int32_t request_len);
+typedef int32_t (*AndroidDeviceChatAndroidEchoCGOMessageBidiStreamRecvCallback)(int32_t stream, uintptr_t* response_ptr, int32_t* response_len);
+typedef int32_t (*AndroidDeviceChatAndroidEchoCGOMessageBidiStreamCloseSendCallback)(int32_t stream);
+typedef int32_t (*AndroidDeviceChatAndroidEchoCGOMessageBidiStreamFinishCallback)(int32_t stream);
+typedef int32_t (*AndroidDeviceChatAndroidEchoCGOMessageBidiStreamCancelCallback)(int32_t stream);
 
 static inline int32_t callAndroidDeviceSetTorchCGOMessageUnary(AndroidDeviceSetTorchCGOMessageUnaryCallback callback, uintptr_t request_ptr, int32_t request_len, uintptr_t* response_ptr, int32_t* response_len) {
 	return callback(request_ptr, request_len, response_ptr, response_len);
 }
 
-static inline int32_t callAndroidDeviceWatchTorchCGOMessageServerStreamStart(AndroidDeviceWatchTorchCGOMessageServerStreamStartCallback callback, uintptr_t request_ptr, int32_t request_len, int32_t* stream) { return callback(request_ptr, request_len, stream); }
-static inline int32_t callAndroidDeviceWatchTorchCGOMessageServerStreamRecv(AndroidDeviceWatchTorchCGOMessageServerStreamRecvCallback callback, int32_t stream, uintptr_t* response_ptr, int32_t* response_len) { return callback(stream, response_ptr, response_len); }
-static inline int32_t callAndroidDeviceWatchTorchCGOMessageServerStreamFinish(AndroidDeviceWatchTorchCGOMessageServerStreamFinishCallback callback, int32_t stream) { return callback(stream); }
-static inline int32_t callAndroidDeviceWatchTorchCGOMessageServerStreamCancel(AndroidDeviceWatchTorchCGOMessageServerStreamCancelCallback callback, int32_t stream) { return callback(stream); }
+static inline int32_t callAndroidDeviceWatchAndroidEchoCGOMessageServerStreamStart(AndroidDeviceWatchAndroidEchoCGOMessageServerStreamStartCallback callback, uintptr_t request_ptr, int32_t request_len, int32_t* stream) { return callback(request_ptr, request_len, stream); }
+static inline int32_t callAndroidDeviceWatchAndroidEchoCGOMessageServerStreamRecv(AndroidDeviceWatchAndroidEchoCGOMessageServerStreamRecvCallback callback, int32_t stream, uintptr_t* response_ptr, int32_t* response_len) { return callback(stream, response_ptr, response_len); }
+static inline int32_t callAndroidDeviceWatchAndroidEchoCGOMessageServerStreamFinish(AndroidDeviceWatchAndroidEchoCGOMessageServerStreamFinishCallback callback, int32_t stream) { return callback(stream); }
+static inline int32_t callAndroidDeviceWatchAndroidEchoCGOMessageServerStreamCancel(AndroidDeviceWatchAndroidEchoCGOMessageServerStreamCancelCallback callback, int32_t stream) { return callback(stream); }
 
-static inline int32_t callAndroidDeviceCollectTorchCGOMessageClientStreamStart(AndroidDeviceCollectTorchCGOMessageClientStreamStartCallback callback, int32_t* stream) { return callback(stream); }
-static inline int32_t callAndroidDeviceCollectTorchCGOMessageClientStreamSend(AndroidDeviceCollectTorchCGOMessageClientStreamSendCallback callback, int32_t stream, uintptr_t request_ptr, int32_t request_len) { return callback(stream, request_ptr, request_len); }
-static inline int32_t callAndroidDeviceCollectTorchCGOMessageClientStreamFinish(AndroidDeviceCollectTorchCGOMessageClientStreamFinishCallback callback, int32_t stream, uintptr_t* response_ptr, int32_t* response_len) { return callback(stream, response_ptr, response_len); }
-static inline int32_t callAndroidDeviceCollectTorchCGOMessageClientStreamCancel(AndroidDeviceCollectTorchCGOMessageClientStreamCancelCallback callback, int32_t stream) { return callback(stream); }
+static inline int32_t callAndroidDeviceCollectAndroidEchoCGOMessageClientStreamStart(AndroidDeviceCollectAndroidEchoCGOMessageClientStreamStartCallback callback, int32_t* stream) { return callback(stream); }
+static inline int32_t callAndroidDeviceCollectAndroidEchoCGOMessageClientStreamSend(AndroidDeviceCollectAndroidEchoCGOMessageClientStreamSendCallback callback, int32_t stream, uintptr_t request_ptr, int32_t request_len) { return callback(stream, request_ptr, request_len); }
+static inline int32_t callAndroidDeviceCollectAndroidEchoCGOMessageClientStreamFinish(AndroidDeviceCollectAndroidEchoCGOMessageClientStreamFinishCallback callback, int32_t stream, uintptr_t* response_ptr, int32_t* response_len) { return callback(stream, response_ptr, response_len); }
+static inline int32_t callAndroidDeviceCollectAndroidEchoCGOMessageClientStreamCancel(AndroidDeviceCollectAndroidEchoCGOMessageClientStreamCancelCallback callback, int32_t stream) { return callback(stream); }
 
-static inline int32_t callAndroidDeviceChatTorchCGOMessageBidiStreamStart(AndroidDeviceChatTorchCGOMessageBidiStreamStartCallback callback, int32_t* stream) { return callback(stream); }
-static inline int32_t callAndroidDeviceChatTorchCGOMessageBidiStreamSend(AndroidDeviceChatTorchCGOMessageBidiStreamSendCallback callback, int32_t stream, uintptr_t request_ptr, int32_t request_len) { return callback(stream, request_ptr, request_len); }
-static inline int32_t callAndroidDeviceChatTorchCGOMessageBidiStreamRecv(AndroidDeviceChatTorchCGOMessageBidiStreamRecvCallback callback, int32_t stream, uintptr_t* response_ptr, int32_t* response_len) { return callback(stream, response_ptr, response_len); }
-static inline int32_t callAndroidDeviceChatTorchCGOMessageBidiStreamCloseSend(AndroidDeviceChatTorchCGOMessageBidiStreamCloseSendCallback callback, int32_t stream) { return callback(stream); }
-static inline int32_t callAndroidDeviceChatTorchCGOMessageBidiStreamFinish(AndroidDeviceChatTorchCGOMessageBidiStreamFinishCallback callback, int32_t stream) { return callback(stream); }
-static inline int32_t callAndroidDeviceChatTorchCGOMessageBidiStreamCancel(AndroidDeviceChatTorchCGOMessageBidiStreamCancelCallback callback, int32_t stream) { return callback(stream); }
+static inline int32_t callAndroidDeviceChatAndroidEchoCGOMessageBidiStreamStart(AndroidDeviceChatAndroidEchoCGOMessageBidiStreamStartCallback callback, int32_t* stream) { return callback(stream); }
+static inline int32_t callAndroidDeviceChatAndroidEchoCGOMessageBidiStreamSend(AndroidDeviceChatAndroidEchoCGOMessageBidiStreamSendCallback callback, int32_t stream, uintptr_t request_ptr, int32_t request_len) { return callback(stream, request_ptr, request_len); }
+static inline int32_t callAndroidDeviceChatAndroidEchoCGOMessageBidiStreamRecv(AndroidDeviceChatAndroidEchoCGOMessageBidiStreamRecvCallback callback, int32_t stream, uintptr_t* response_ptr, int32_t* response_len) { return callback(stream, response_ptr, response_len); }
+static inline int32_t callAndroidDeviceChatAndroidEchoCGOMessageBidiStreamCloseSend(AndroidDeviceChatAndroidEchoCGOMessageBidiStreamCloseSendCallback callback, int32_t stream) { return callback(stream); }
+static inline int32_t callAndroidDeviceChatAndroidEchoCGOMessageBidiStreamFinish(AndroidDeviceChatAndroidEchoCGOMessageBidiStreamFinishCallback callback, int32_t stream) { return callback(stream); }
+static inline int32_t callAndroidDeviceChatAndroidEchoCGOMessageBidiStreamCancel(AndroidDeviceChatAndroidEchoCGOMessageBidiStreamCancelCallback callback, int32_t stream) { return callback(stream); }
 
 */
 import "C"
@@ -76,21 +76,21 @@ var (
 )
 
 type androidDeviceCGOMessageAdapter struct {
-	SetTorchCallback   C.AndroidDeviceSetTorchCGOMessageUnaryCallback
-	watchTorchStart    C.AndroidDeviceWatchTorchCGOMessageServerStreamStartCallback
-	watchTorchRecv     C.AndroidDeviceWatchTorchCGOMessageServerStreamRecvCallback
-	watchTorchFinish   C.AndroidDeviceWatchTorchCGOMessageServerStreamFinishCallback
-	watchTorchCancel   C.AndroidDeviceWatchTorchCGOMessageServerStreamCancelCallback
-	collectTorchStart  C.AndroidDeviceCollectTorchCGOMessageClientStreamStartCallback
-	collectTorchSend   C.AndroidDeviceCollectTorchCGOMessageClientStreamSendCallback
-	collectTorchFinish C.AndroidDeviceCollectTorchCGOMessageClientStreamFinishCallback
-	collectTorchCancel C.AndroidDeviceCollectTorchCGOMessageClientStreamCancelCallback
-	chatTorchStart     C.AndroidDeviceChatTorchCGOMessageBidiStreamStartCallback
-	chatTorchSend      C.AndroidDeviceChatTorchCGOMessageBidiStreamSendCallback
-	chatTorchRecv      C.AndroidDeviceChatTorchCGOMessageBidiStreamRecvCallback
-	chatTorchCloseSend C.AndroidDeviceChatTorchCGOMessageBidiStreamCloseSendCallback
-	chatTorchFinish    C.AndroidDeviceChatTorchCGOMessageBidiStreamFinishCallback
-	chatTorchCancel    C.AndroidDeviceChatTorchCGOMessageBidiStreamCancelCallback
+	SetTorchCallback         C.AndroidDeviceSetTorchCGOMessageUnaryCallback
+	watchAndroidEchoStart    C.AndroidDeviceWatchAndroidEchoCGOMessageServerStreamStartCallback
+	watchAndroidEchoRecv     C.AndroidDeviceWatchAndroidEchoCGOMessageServerStreamRecvCallback
+	watchAndroidEchoFinish   C.AndroidDeviceWatchAndroidEchoCGOMessageServerStreamFinishCallback
+	watchAndroidEchoCancel   C.AndroidDeviceWatchAndroidEchoCGOMessageServerStreamCancelCallback
+	collectAndroidEchoStart  C.AndroidDeviceCollectAndroidEchoCGOMessageClientStreamStartCallback
+	collectAndroidEchoSend   C.AndroidDeviceCollectAndroidEchoCGOMessageClientStreamSendCallback
+	collectAndroidEchoFinish C.AndroidDeviceCollectAndroidEchoCGOMessageClientStreamFinishCallback
+	collectAndroidEchoCancel C.AndroidDeviceCollectAndroidEchoCGOMessageClientStreamCancelCallback
+	chatAndroidEchoStart     C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamStartCallback
+	chatAndroidEchoSend      C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamSendCallback
+	chatAndroidEchoRecv      C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamRecvCallback
+	chatAndroidEchoCloseSend C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamCloseSendCallback
+	chatAndroidEchoFinish    C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamFinishCallback
+	chatAndroidEchoCancel    C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamCancelCallback
 }
 
 // androidDeviceCGOMessageRecvResult carries the result of a blocking cgo message Recv callback.
@@ -164,12 +164,12 @@ func (a *androidDeviceCGOMessageAdapter) SetTorch(ctx context.Context, req *prot
 	return resp, nil
 }
 
-func (a *androidDeviceCGOMessageAdapter) WatchTorchStart(ctx context.Context, req *proto.SetTorchRequest) (rpcruntime.ServerStreamingClient[*proto.SetTorchResponse], error) {
+func (a *androidDeviceCGOMessageAdapter) WatchAndroidEchoStart(ctx context.Context, req *proto.AndroidEchoRequest) (rpcruntime.ServerStreamingClient[*proto.AndroidEchoResponse], error) {
 	if a == nil {
 		return nil, androidDeviceCGOMessageServerCallbacksNil
 	}
-	if a.watchTorchStart == nil || a.watchTorchRecv == nil || a.watchTorchFinish == nil || a.watchTorchCancel == nil {
-		return nil, errors.New("rpccgo: AndroidDevice.WatchTorch cgo message server method is not implemented")
+	if a.watchAndroidEchoStart == nil || a.watchAndroidEchoRecv == nil || a.watchAndroidEchoFinish == nil || a.watchAndroidEchoCancel == nil {
+		return nil, errors.New("rpccgo: AndroidDevice.WatchAndroidEcho cgo message server method is not implemented")
 	}
 	if req == nil {
 		err := errors.New("rpccgo: message request is nil")
@@ -189,20 +189,20 @@ func (a *androidDeviceCGOMessageAdapter) WatchTorchStart(ctx context.Context, re
 		return nil, err
 	}
 	var stream C.int32_t
-	errID := int32(C.callAndroidDeviceWatchTorchCGOMessageServerStreamStart(a.watchTorchStart, C.uintptr_t(requestPtr), C.int32_t(requestLen), &stream))
+	errID := int32(C.callAndroidDeviceWatchAndroidEchoCGOMessageServerStreamStart(a.watchAndroidEchoStart, C.uintptr_t(requestPtr), C.int32_t(requestLen), &stream))
 	if errID != 0 {
 		return nil, androidDeviceCGOMessageServerError(errID)
 	}
-	return &androidDeviceWatchTorchCGOMessageServerStreamingClient{recv: a.watchTorchRecv, finish: a.watchTorchFinish, cancel: a.watchTorchCancel, stream: int32(stream)}, nil
+	return &androidDeviceWatchAndroidEchoCGOMessageServerStreamingClient{recv: a.watchAndroidEchoRecv, finish: a.watchAndroidEchoFinish, cancel: a.watchAndroidEchoCancel, stream: int32(stream)}, nil
 }
 
-func (a *androidDeviceCGOMessageAdapter) WatchTorch(ctx context.Context, req *proto.SetTorchRequest, stream rpcruntime.ServerStreamingServer[*proto.SetTorchResponse]) error {
-	session, err := a.WatchTorchStart(ctx, req)
+func (a *androidDeviceCGOMessageAdapter) WatchAndroidEcho(ctx context.Context, req *proto.AndroidEchoRequest, stream rpcruntime.ServerStreamingServer[*proto.AndroidEchoResponse]) error {
+	session, err := a.WatchAndroidEchoStart(ctx, req)
 	if err != nil {
 		return err
 	}
 	for {
-		resp, err, stopped := androidDeviceAwaitCGOMessageRecv(ctx, stream.FinishRequested(), func() (*proto.SetTorchResponse, error) { return session.Recv(ctx) }, func() error { return session.Finish(ctx) }, func() error { return session.Cancel(ctx) })
+		resp, err, stopped := androidDeviceAwaitCGOMessageRecv(ctx, stream.FinishRequested(), func() (*proto.AndroidEchoResponse, error) { return session.Recv(ctx) }, func() error { return session.Finish(ctx) }, func() error { return session.Cancel(ctx) })
 		if stopped {
 			return err
 		}
@@ -223,60 +223,60 @@ func (a *androidDeviceCGOMessageAdapter) WatchTorch(ctx context.Context, req *pr
 	}
 }
 
-type androidDeviceWatchTorchCGOMessageServerStreamingClient struct {
-	recv   C.AndroidDeviceWatchTorchCGOMessageServerStreamRecvCallback
-	finish C.AndroidDeviceWatchTorchCGOMessageServerStreamFinishCallback
-	cancel C.AndroidDeviceWatchTorchCGOMessageServerStreamCancelCallback
+type androidDeviceWatchAndroidEchoCGOMessageServerStreamingClient struct {
+	recv   C.AndroidDeviceWatchAndroidEchoCGOMessageServerStreamRecvCallback
+	finish C.AndroidDeviceWatchAndroidEchoCGOMessageServerStreamFinishCallback
+	cancel C.AndroidDeviceWatchAndroidEchoCGOMessageServerStreamCancelCallback
 	stream int32
 }
 
-func (s *androidDeviceWatchTorchCGOMessageServerStreamingClient) Recv(ctx context.Context) (*proto.SetTorchResponse, error) {
+func (s *androidDeviceWatchAndroidEchoCGOMessageServerStreamingClient) Recv(ctx context.Context) (*proto.AndroidEchoResponse, error) {
 	var responsePtr C.uintptr_t
 	var responseLen C.int32_t
-	errID := int32(C.callAndroidDeviceWatchTorchCGOMessageServerStreamRecv(s.recv, C.int32_t(s.stream), &responsePtr, &responseLen))
+	errID := int32(C.callAndroidDeviceWatchAndroidEchoCGOMessageServerStreamRecv(s.recv, C.int32_t(s.stream), &responsePtr, &responseLen))
 	if errID != 0 {
 		return nil, androidDeviceCGOMessageServerError(errID)
 	}
-	resp := &proto.SetTorchResponse{}
+	resp := &proto.AndroidEchoResponse{}
 	if err := rpcruntime.DecodeMessage(uintptr(responsePtr), int32(responseLen), resp); err != nil {
 		return nil, fmt.Errorf("rpccgo: message server response decode failed: %w", err)
 	}
 	return resp, nil
 }
 
-func (s *androidDeviceWatchTorchCGOMessageServerStreamingClient) Finish(ctx context.Context) error {
-	errID := int32(C.callAndroidDeviceWatchTorchCGOMessageServerStreamFinish(s.finish, C.int32_t(s.stream)))
+func (s *androidDeviceWatchAndroidEchoCGOMessageServerStreamingClient) Finish(ctx context.Context) error {
+	errID := int32(C.callAndroidDeviceWatchAndroidEchoCGOMessageServerStreamFinish(s.finish, C.int32_t(s.stream)))
 	if errID != 0 {
 		return androidDeviceCGOMessageServerError(errID)
 	}
 	return nil
 }
 
-func (s *androidDeviceWatchTorchCGOMessageServerStreamingClient) Cancel(ctx context.Context) error {
-	errID := int32(C.callAndroidDeviceWatchTorchCGOMessageServerStreamCancel(s.cancel, C.int32_t(s.stream)))
+func (s *androidDeviceWatchAndroidEchoCGOMessageServerStreamingClient) Cancel(ctx context.Context) error {
+	errID := int32(C.callAndroidDeviceWatchAndroidEchoCGOMessageServerStreamCancel(s.cancel, C.int32_t(s.stream)))
 	if errID != 0 {
 		return androidDeviceCGOMessageServerError(errID)
 	}
 	return nil
 }
 
-func (a *androidDeviceCGOMessageAdapter) CollectTorchStart(ctx context.Context) (rpcruntime.ClientStreamingClient[*proto.SetTorchRequest, *proto.SetTorchResponse], error) {
+func (a *androidDeviceCGOMessageAdapter) CollectAndroidEchoStart(ctx context.Context) (rpcruntime.ClientStreamingClient[*proto.AndroidEchoRequest, *proto.AndroidEchoResponse], error) {
 	if a == nil {
 		return nil, androidDeviceCGOMessageServerCallbacksNil
 	}
-	if a.collectTorchStart == nil || a.collectTorchSend == nil || a.collectTorchFinish == nil || a.collectTorchCancel == nil {
-		return nil, errors.New("rpccgo: AndroidDevice.CollectTorch cgo message server method is not implemented")
+	if a.collectAndroidEchoStart == nil || a.collectAndroidEchoSend == nil || a.collectAndroidEchoFinish == nil || a.collectAndroidEchoCancel == nil {
+		return nil, errors.New("rpccgo: AndroidDevice.CollectAndroidEcho cgo message server method is not implemented")
 	}
 	var stream C.int32_t
-	errID := int32(C.callAndroidDeviceCollectTorchCGOMessageClientStreamStart(a.collectTorchStart, &stream))
+	errID := int32(C.callAndroidDeviceCollectAndroidEchoCGOMessageClientStreamStart(a.collectAndroidEchoStart, &stream))
 	if errID != 0 {
 		return nil, androidDeviceCGOMessageServerError(errID)
 	}
-	return &androidDeviceCollectTorchCGOMessageClientStreamingClient{send: a.collectTorchSend, finish: a.collectTorchFinish, cancel: a.collectTorchCancel, stream: int32(stream)}, nil
+	return &androidDeviceCollectAndroidEchoCGOMessageClientStreamingClient{send: a.collectAndroidEchoSend, finish: a.collectAndroidEchoFinish, cancel: a.collectAndroidEchoCancel, stream: int32(stream)}, nil
 }
 
-func (a *androidDeviceCGOMessageAdapter) CollectTorch(ctx context.Context, stream rpcruntime.ClientStreamingServer[*proto.SetTorchRequest]) (*proto.SetTorchResponse, error) {
-	session, err := a.CollectTorchStart(ctx)
+func (a *androidDeviceCGOMessageAdapter) CollectAndroidEcho(ctx context.Context, stream rpcruntime.ClientStreamingServer[*proto.AndroidEchoRequest]) (*proto.AndroidEchoResponse, error) {
+	session, err := a.CollectAndroidEchoStart(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -296,14 +296,14 @@ func (a *androidDeviceCGOMessageAdapter) CollectTorch(ctx context.Context, strea
 	}
 }
 
-type androidDeviceCollectTorchCGOMessageClientStreamingClient struct {
-	send   C.AndroidDeviceCollectTorchCGOMessageClientStreamSendCallback
-	finish C.AndroidDeviceCollectTorchCGOMessageClientStreamFinishCallback
-	cancel C.AndroidDeviceCollectTorchCGOMessageClientStreamCancelCallback
+type androidDeviceCollectAndroidEchoCGOMessageClientStreamingClient struct {
+	send   C.AndroidDeviceCollectAndroidEchoCGOMessageClientStreamSendCallback
+	finish C.AndroidDeviceCollectAndroidEchoCGOMessageClientStreamFinishCallback
+	cancel C.AndroidDeviceCollectAndroidEchoCGOMessageClientStreamCancelCallback
 	stream int32
 }
 
-func (s *androidDeviceCollectTorchCGOMessageClientStreamingClient) Send(ctx context.Context, req *proto.SetTorchRequest) error {
+func (s *androidDeviceCollectAndroidEchoCGOMessageClientStreamingClient) Send(ctx context.Context, req *proto.AndroidEchoRequest) error {
 	if req == nil {
 		err := errors.New("rpccgo: message request is nil")
 		return err
@@ -321,52 +321,52 @@ func (s *androidDeviceCollectTorchCGOMessageClientStreamingClient) Send(ctx cont
 	if err != nil {
 		return err
 	}
-	errID := int32(C.callAndroidDeviceCollectTorchCGOMessageClientStreamSend(s.send, C.int32_t(s.stream), C.uintptr_t(requestPtr), C.int32_t(requestLen)))
+	errID := int32(C.callAndroidDeviceCollectAndroidEchoCGOMessageClientStreamSend(s.send, C.int32_t(s.stream), C.uintptr_t(requestPtr), C.int32_t(requestLen)))
 	if errID != 0 {
 		return androidDeviceCGOMessageServerError(errID)
 	}
 	return nil
 }
 
-func (s *androidDeviceCollectTorchCGOMessageClientStreamingClient) Finish(ctx context.Context) (*proto.SetTorchResponse, error) {
+func (s *androidDeviceCollectAndroidEchoCGOMessageClientStreamingClient) Finish(ctx context.Context) (*proto.AndroidEchoResponse, error) {
 	var responsePtr C.uintptr_t
 	var responseLen C.int32_t
-	errID := int32(C.callAndroidDeviceCollectTorchCGOMessageClientStreamFinish(s.finish, C.int32_t(s.stream), &responsePtr, &responseLen))
+	errID := int32(C.callAndroidDeviceCollectAndroidEchoCGOMessageClientStreamFinish(s.finish, C.int32_t(s.stream), &responsePtr, &responseLen))
 	if errID != 0 {
 		return nil, androidDeviceCGOMessageServerError(errID)
 	}
-	resp := &proto.SetTorchResponse{}
+	resp := &proto.AndroidEchoResponse{}
 	if err := rpcruntime.DecodeMessage(uintptr(responsePtr), int32(responseLen), resp); err != nil {
 		return nil, fmt.Errorf("rpccgo: message server response decode failed: %w", err)
 	}
 	return resp, nil
 }
 
-func (s *androidDeviceCollectTorchCGOMessageClientStreamingClient) Cancel(ctx context.Context) error {
-	errID := int32(C.callAndroidDeviceCollectTorchCGOMessageClientStreamCancel(s.cancel, C.int32_t(s.stream)))
+func (s *androidDeviceCollectAndroidEchoCGOMessageClientStreamingClient) Cancel(ctx context.Context) error {
+	errID := int32(C.callAndroidDeviceCollectAndroidEchoCGOMessageClientStreamCancel(s.cancel, C.int32_t(s.stream)))
 	if errID != 0 {
 		return androidDeviceCGOMessageServerError(errID)
 	}
 	return nil
 }
 
-func (a *androidDeviceCGOMessageAdapter) ChatTorchStart(ctx context.Context) (rpcruntime.BidiStreamingClient[*proto.SetTorchRequest, *proto.SetTorchResponse], error) {
+func (a *androidDeviceCGOMessageAdapter) ChatAndroidEchoStart(ctx context.Context) (rpcruntime.BidiStreamingClient[*proto.AndroidEchoRequest, *proto.AndroidEchoResponse], error) {
 	if a == nil {
 		return nil, androidDeviceCGOMessageServerCallbacksNil
 	}
-	if a.chatTorchStart == nil || a.chatTorchSend == nil || a.chatTorchRecv == nil || a.chatTorchCloseSend == nil || a.chatTorchFinish == nil || a.chatTorchCancel == nil {
-		return nil, errors.New("rpccgo: AndroidDevice.ChatTorch cgo message server method is not implemented")
+	if a.chatAndroidEchoStart == nil || a.chatAndroidEchoSend == nil || a.chatAndroidEchoRecv == nil || a.chatAndroidEchoCloseSend == nil || a.chatAndroidEchoFinish == nil || a.chatAndroidEchoCancel == nil {
+		return nil, errors.New("rpccgo: AndroidDevice.ChatAndroidEcho cgo message server method is not implemented")
 	}
 	var stream C.int32_t
-	errID := int32(C.callAndroidDeviceChatTorchCGOMessageBidiStreamStart(a.chatTorchStart, &stream))
+	errID := int32(C.callAndroidDeviceChatAndroidEchoCGOMessageBidiStreamStart(a.chatAndroidEchoStart, &stream))
 	if errID != 0 {
 		return nil, androidDeviceCGOMessageServerError(errID)
 	}
-	return &androidDeviceChatTorchCGOMessageBidiStreamingClient{send: a.chatTorchSend, recv: a.chatTorchRecv, closeSend: a.chatTorchCloseSend, finish: a.chatTorchFinish, cancel: a.chatTorchCancel, stream: int32(stream)}, nil
+	return &androidDeviceChatAndroidEchoCGOMessageBidiStreamingClient{send: a.chatAndroidEchoSend, recv: a.chatAndroidEchoRecv, closeSend: a.chatAndroidEchoCloseSend, finish: a.chatAndroidEchoFinish, cancel: a.chatAndroidEchoCancel, stream: int32(stream)}, nil
 }
 
-func (a *androidDeviceCGOMessageAdapter) ChatTorch(ctx context.Context, stream rpcruntime.BidiStreamingServer[*proto.SetTorchRequest, *proto.SetTorchResponse]) error {
-	session, err := a.ChatTorchStart(ctx)
+func (a *androidDeviceCGOMessageAdapter) ChatAndroidEcho(ctx context.Context, stream rpcruntime.BidiStreamingServer[*proto.AndroidEchoRequest, *proto.AndroidEchoResponse]) error {
+	session, err := a.ChatAndroidEchoStart(ctx)
 	if err != nil {
 		return err
 	}
@@ -393,7 +393,7 @@ func (a *androidDeviceCGOMessageAdapter) ChatTorch(ctx context.Context, stream r
 	}()
 	go func() {
 		for {
-			resp, err, stopped := androidDeviceAwaitCGOMessageRecv(bridgeCtx, stream.FinishRequested(), func() (*proto.SetTorchResponse, error) { return session.Recv(bridgeCtx) }, func() error { return session.Finish(bridgeCtx) }, cancelSession)
+			resp, err, stopped := androidDeviceAwaitCGOMessageRecv(bridgeCtx, stream.FinishRequested(), func() (*proto.AndroidEchoResponse, error) { return session.Recv(bridgeCtx) }, func() error { return session.Finish(bridgeCtx) }, cancelSession)
 			if stopped {
 				errs <- err
 				return
@@ -433,16 +433,16 @@ func (a *androidDeviceCGOMessageAdapter) ChatTorch(ctx context.Context, stream r
 	return resultErr
 }
 
-type androidDeviceChatTorchCGOMessageBidiStreamingClient struct {
-	send      C.AndroidDeviceChatTorchCGOMessageBidiStreamSendCallback
-	recv      C.AndroidDeviceChatTorchCGOMessageBidiStreamRecvCallback
-	closeSend C.AndroidDeviceChatTorchCGOMessageBidiStreamCloseSendCallback
-	finish    C.AndroidDeviceChatTorchCGOMessageBidiStreamFinishCallback
-	cancel    C.AndroidDeviceChatTorchCGOMessageBidiStreamCancelCallback
+type androidDeviceChatAndroidEchoCGOMessageBidiStreamingClient struct {
+	send      C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamSendCallback
+	recv      C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamRecvCallback
+	closeSend C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamCloseSendCallback
+	finish    C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamFinishCallback
+	cancel    C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamCancelCallback
 	stream    int32
 }
 
-func (s *androidDeviceChatTorchCGOMessageBidiStreamingClient) Send(ctx context.Context, req *proto.SetTorchRequest) error {
+func (s *androidDeviceChatAndroidEchoCGOMessageBidiStreamingClient) Send(ctx context.Context, req *proto.AndroidEchoRequest) error {
 	if req == nil {
 		err := errors.New("rpccgo: message request is nil")
 		return err
@@ -460,45 +460,45 @@ func (s *androidDeviceChatTorchCGOMessageBidiStreamingClient) Send(ctx context.C
 	if err != nil {
 		return err
 	}
-	errID := int32(C.callAndroidDeviceChatTorchCGOMessageBidiStreamSend(s.send, C.int32_t(s.stream), C.uintptr_t(requestPtr), C.int32_t(requestLen)))
+	errID := int32(C.callAndroidDeviceChatAndroidEchoCGOMessageBidiStreamSend(s.send, C.int32_t(s.stream), C.uintptr_t(requestPtr), C.int32_t(requestLen)))
 	if errID != 0 {
 		return androidDeviceCGOMessageServerError(errID)
 	}
 	return nil
 }
 
-func (s *androidDeviceChatTorchCGOMessageBidiStreamingClient) Recv(ctx context.Context) (*proto.SetTorchResponse, error) {
+func (s *androidDeviceChatAndroidEchoCGOMessageBidiStreamingClient) Recv(ctx context.Context) (*proto.AndroidEchoResponse, error) {
 	var responsePtr C.uintptr_t
 	var responseLen C.int32_t
-	errID := int32(C.callAndroidDeviceChatTorchCGOMessageBidiStreamRecv(s.recv, C.int32_t(s.stream), &responsePtr, &responseLen))
+	errID := int32(C.callAndroidDeviceChatAndroidEchoCGOMessageBidiStreamRecv(s.recv, C.int32_t(s.stream), &responsePtr, &responseLen))
 	if errID != 0 {
 		return nil, androidDeviceCGOMessageServerError(errID)
 	}
-	resp := &proto.SetTorchResponse{}
+	resp := &proto.AndroidEchoResponse{}
 	if err := rpcruntime.DecodeMessage(uintptr(responsePtr), int32(responseLen), resp); err != nil {
 		return nil, fmt.Errorf("rpccgo: message server response decode failed: %w", err)
 	}
 	return resp, nil
 }
 
-func (s *androidDeviceChatTorchCGOMessageBidiStreamingClient) CloseSend(ctx context.Context) error {
-	errID := int32(C.callAndroidDeviceChatTorchCGOMessageBidiStreamCloseSend(s.closeSend, C.int32_t(s.stream)))
+func (s *androidDeviceChatAndroidEchoCGOMessageBidiStreamingClient) CloseSend(ctx context.Context) error {
+	errID := int32(C.callAndroidDeviceChatAndroidEchoCGOMessageBidiStreamCloseSend(s.closeSend, C.int32_t(s.stream)))
 	if errID != 0 {
 		return androidDeviceCGOMessageServerError(errID)
 	}
 	return nil
 }
 
-func (s *androidDeviceChatTorchCGOMessageBidiStreamingClient) Finish(ctx context.Context) error {
-	errID := int32(C.callAndroidDeviceChatTorchCGOMessageBidiStreamFinish(s.finish, C.int32_t(s.stream)))
+func (s *androidDeviceChatAndroidEchoCGOMessageBidiStreamingClient) Finish(ctx context.Context) error {
+	errID := int32(C.callAndroidDeviceChatAndroidEchoCGOMessageBidiStreamFinish(s.finish, C.int32_t(s.stream)))
 	if errID != 0 {
 		return androidDeviceCGOMessageServerError(errID)
 	}
 	return nil
 }
 
-func (s *androidDeviceChatTorchCGOMessageBidiStreamingClient) Cancel(ctx context.Context) error {
-	errID := int32(C.callAndroidDeviceChatTorchCGOMessageBidiStreamCancel(s.cancel, C.int32_t(s.stream)))
+func (s *androidDeviceChatAndroidEchoCGOMessageBidiStreamingClient) Cancel(ctx context.Context) error {
+	errID := int32(C.callAndroidDeviceChatAndroidEchoCGOMessageBidiStreamCancel(s.cancel, C.int32_t(s.stream)))
 	if errID != 0 {
 		return androidDeviceCGOMessageServerError(errID)
 	}
@@ -508,7 +508,7 @@ func (s *androidDeviceChatTorchCGOMessageBidiStreamingClient) Cancel(ctx context
 // rpccgoMsgFluttersharedv1AndroidDeviceRegister registers cgo message callbacks as the current server for examples.flutter.sharedso.v1.AndroidDevice.
 //
 //export rpccgoMsgFluttersharedv1AndroidDeviceRegister
-func rpccgoMsgFluttersharedv1AndroidDeviceRegister(setTorchCallback C.AndroidDeviceSetTorchCGOMessageUnaryCallback, watchTorchStart C.AndroidDeviceWatchTorchCGOMessageServerStreamStartCallback, watchTorchRecv C.AndroidDeviceWatchTorchCGOMessageServerStreamRecvCallback, watchTorchFinish C.AndroidDeviceWatchTorchCGOMessageServerStreamFinishCallback, watchTorchCancel C.AndroidDeviceWatchTorchCGOMessageServerStreamCancelCallback, collectTorchStart C.AndroidDeviceCollectTorchCGOMessageClientStreamStartCallback, collectTorchSend C.AndroidDeviceCollectTorchCGOMessageClientStreamSendCallback, collectTorchFinish C.AndroidDeviceCollectTorchCGOMessageClientStreamFinishCallback, collectTorchCancel C.AndroidDeviceCollectTorchCGOMessageClientStreamCancelCallback, chatTorchStart C.AndroidDeviceChatTorchCGOMessageBidiStreamStartCallback, chatTorchSend C.AndroidDeviceChatTorchCGOMessageBidiStreamSendCallback, chatTorchRecv C.AndroidDeviceChatTorchCGOMessageBidiStreamRecvCallback, chatTorchCloseSend C.AndroidDeviceChatTorchCGOMessageBidiStreamCloseSendCallback, chatTorchFinish C.AndroidDeviceChatTorchCGOMessageBidiStreamFinishCallback, chatTorchCancel C.AndroidDeviceChatTorchCGOMessageBidiStreamCancelCallback) C.int32_t {
+func rpccgoMsgFluttersharedv1AndroidDeviceRegister(setTorchCallback C.AndroidDeviceSetTorchCGOMessageUnaryCallback, watchAndroidEchoStart C.AndroidDeviceWatchAndroidEchoCGOMessageServerStreamStartCallback, watchAndroidEchoRecv C.AndroidDeviceWatchAndroidEchoCGOMessageServerStreamRecvCallback, watchAndroidEchoFinish C.AndroidDeviceWatchAndroidEchoCGOMessageServerStreamFinishCallback, watchAndroidEchoCancel C.AndroidDeviceWatchAndroidEchoCGOMessageServerStreamCancelCallback, collectAndroidEchoStart C.AndroidDeviceCollectAndroidEchoCGOMessageClientStreamStartCallback, collectAndroidEchoSend C.AndroidDeviceCollectAndroidEchoCGOMessageClientStreamSendCallback, collectAndroidEchoFinish C.AndroidDeviceCollectAndroidEchoCGOMessageClientStreamFinishCallback, collectAndroidEchoCancel C.AndroidDeviceCollectAndroidEchoCGOMessageClientStreamCancelCallback, chatAndroidEchoStart C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamStartCallback, chatAndroidEchoSend C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamSendCallback, chatAndroidEchoRecv C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamRecvCallback, chatAndroidEchoCloseSend C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamCloseSendCallback, chatAndroidEchoFinish C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamFinishCallback, chatAndroidEchoCancel C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamCancelCallback) C.int32_t {
 	androidDeviceCGOMessageServerAdapterMu.Lock()
 	defer androidDeviceCGOMessageServerAdapterMu.Unlock()
 	next := androidDeviceCGOMessageServerAdapterForRegister()
@@ -516,51 +516,51 @@ func rpccgoMsgFluttersharedv1AndroidDeviceRegister(setTorchCallback C.AndroidDev
 	if setTorchCallback != nil {
 		next.SetTorchCallback = setTorchCallback
 	}
-	if watchTorchStart == nil && watchTorchRecv == nil && watchTorchFinish == nil && watchTorchCancel == nil {
+	if watchAndroidEchoStart == nil && watchAndroidEchoRecv == nil && watchAndroidEchoFinish == nil && watchAndroidEchoCancel == nil {
 		// Preserve existing callbacks for methods omitted from a service-level update.
-	} else if watchTorchStart != nil && watchTorchRecv != nil && watchTorchFinish != nil && watchTorchCancel != nil {
-		next.watchTorchStart = watchTorchStart
-		next.watchTorchRecv = watchTorchRecv
-		next.watchTorchFinish = watchTorchFinish
-		next.watchTorchCancel = watchTorchCancel
+	} else if watchAndroidEchoStart != nil && watchAndroidEchoRecv != nil && watchAndroidEchoFinish != nil && watchAndroidEchoCancel != nil {
+		next.watchAndroidEchoStart = watchAndroidEchoStart
+		next.watchAndroidEchoRecv = watchAndroidEchoRecv
+		next.watchAndroidEchoFinish = watchAndroidEchoFinish
+		next.watchAndroidEchoCancel = watchAndroidEchoCancel
 	} else {
-		next.watchTorchStart = nil
-		next.watchTorchRecv = nil
-		next.watchTorchFinish = nil
-		next.watchTorchCancel = nil
-		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", androidDeviceCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.AndroidDevice.WatchTorch"))
+		next.watchAndroidEchoStart = nil
+		next.watchAndroidEchoRecv = nil
+		next.watchAndroidEchoFinish = nil
+		next.watchAndroidEchoCancel = nil
+		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", androidDeviceCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.AndroidDevice.WatchAndroidEcho"))
 	}
-	if collectTorchStart == nil && collectTorchSend == nil && collectTorchFinish == nil && collectTorchCancel == nil {
+	if collectAndroidEchoStart == nil && collectAndroidEchoSend == nil && collectAndroidEchoFinish == nil && collectAndroidEchoCancel == nil {
 		// Preserve existing callbacks for methods omitted from a service-level update.
-	} else if collectTorchStart != nil && collectTorchSend != nil && collectTorchFinish != nil && collectTorchCancel != nil {
-		next.collectTorchStart = collectTorchStart
-		next.collectTorchSend = collectTorchSend
-		next.collectTorchFinish = collectTorchFinish
-		next.collectTorchCancel = collectTorchCancel
+	} else if collectAndroidEchoStart != nil && collectAndroidEchoSend != nil && collectAndroidEchoFinish != nil && collectAndroidEchoCancel != nil {
+		next.collectAndroidEchoStart = collectAndroidEchoStart
+		next.collectAndroidEchoSend = collectAndroidEchoSend
+		next.collectAndroidEchoFinish = collectAndroidEchoFinish
+		next.collectAndroidEchoCancel = collectAndroidEchoCancel
 	} else {
-		next.collectTorchStart = nil
-		next.collectTorchSend = nil
-		next.collectTorchFinish = nil
-		next.collectTorchCancel = nil
-		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", androidDeviceCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.AndroidDevice.CollectTorch"))
+		next.collectAndroidEchoStart = nil
+		next.collectAndroidEchoSend = nil
+		next.collectAndroidEchoFinish = nil
+		next.collectAndroidEchoCancel = nil
+		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", androidDeviceCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.AndroidDevice.CollectAndroidEcho"))
 	}
-	if chatTorchStart == nil && chatTorchSend == nil && chatTorchRecv == nil && chatTorchCloseSend == nil && chatTorchFinish == nil && chatTorchCancel == nil {
+	if chatAndroidEchoStart == nil && chatAndroidEchoSend == nil && chatAndroidEchoRecv == nil && chatAndroidEchoCloseSend == nil && chatAndroidEchoFinish == nil && chatAndroidEchoCancel == nil {
 		// Preserve existing callbacks for methods omitted from a service-level update.
-	} else if chatTorchStart != nil && chatTorchSend != nil && chatTorchRecv != nil && chatTorchCloseSend != nil && chatTorchFinish != nil && chatTorchCancel != nil {
-		next.chatTorchStart = chatTorchStart
-		next.chatTorchSend = chatTorchSend
-		next.chatTorchRecv = chatTorchRecv
-		next.chatTorchCloseSend = chatTorchCloseSend
-		next.chatTorchFinish = chatTorchFinish
-		next.chatTorchCancel = chatTorchCancel
+	} else if chatAndroidEchoStart != nil && chatAndroidEchoSend != nil && chatAndroidEchoRecv != nil && chatAndroidEchoCloseSend != nil && chatAndroidEchoFinish != nil && chatAndroidEchoCancel != nil {
+		next.chatAndroidEchoStart = chatAndroidEchoStart
+		next.chatAndroidEchoSend = chatAndroidEchoSend
+		next.chatAndroidEchoRecv = chatAndroidEchoRecv
+		next.chatAndroidEchoCloseSend = chatAndroidEchoCloseSend
+		next.chatAndroidEchoFinish = chatAndroidEchoFinish
+		next.chatAndroidEchoCancel = chatAndroidEchoCancel
 	} else {
-		next.chatTorchStart = nil
-		next.chatTorchSend = nil
-		next.chatTorchRecv = nil
-		next.chatTorchCloseSend = nil
-		next.chatTorchFinish = nil
-		next.chatTorchCancel = nil
-		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", androidDeviceCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.AndroidDevice.ChatTorch"))
+		next.chatAndroidEchoStart = nil
+		next.chatAndroidEchoSend = nil
+		next.chatAndroidEchoRecv = nil
+		next.chatAndroidEchoCloseSend = nil
+		next.chatAndroidEchoFinish = nil
+		next.chatAndroidEchoCancel = nil
+		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", androidDeviceCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho"))
 	}
 	if err := proto.RegisterAndroidDeviceCGOMessageServer(next); err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
@@ -591,30 +591,30 @@ func rpccgoMsgFluttersharedv1AndroidDeviceRegisterSetTorch(setTorchCallback C.An
 	return 0
 }
 
-// rpccgoMsgFluttersharedv1AndroidDeviceRegisterWatchTorch registers cgo message callbacks for examples.flutter.sharedso.v1.AndroidDevice.WatchTorch.
+// rpccgoMsgFluttersharedv1AndroidDeviceRegisterWatchAndroidEcho registers cgo message callbacks for examples.flutter.sharedso.v1.AndroidDevice.WatchAndroidEcho.
 //
-//export rpccgoMsgFluttersharedv1AndroidDeviceRegisterWatchTorch
-func rpccgoMsgFluttersharedv1AndroidDeviceRegisterWatchTorch(watchTorchStart C.AndroidDeviceWatchTorchCGOMessageServerStreamStartCallback, watchTorchRecv C.AndroidDeviceWatchTorchCGOMessageServerStreamRecvCallback, watchTorchFinish C.AndroidDeviceWatchTorchCGOMessageServerStreamFinishCallback, watchTorchCancel C.AndroidDeviceWatchTorchCGOMessageServerStreamCancelCallback) C.int32_t {
+//export rpccgoMsgFluttersharedv1AndroidDeviceRegisterWatchAndroidEcho
+func rpccgoMsgFluttersharedv1AndroidDeviceRegisterWatchAndroidEcho(watchAndroidEchoStart C.AndroidDeviceWatchAndroidEchoCGOMessageServerStreamStartCallback, watchAndroidEchoRecv C.AndroidDeviceWatchAndroidEchoCGOMessageServerStreamRecvCallback, watchAndroidEchoFinish C.AndroidDeviceWatchAndroidEchoCGOMessageServerStreamFinishCallback, watchAndroidEchoCancel C.AndroidDeviceWatchAndroidEchoCGOMessageServerStreamCancelCallback) C.int32_t {
 	androidDeviceCGOMessageServerAdapterMu.Lock()
 	defer androidDeviceCGOMessageServerAdapterMu.Unlock()
 	next := androidDeviceCGOMessageServerAdapterForRegister()
 	var registerErr error
-	if watchTorchStart == nil && watchTorchRecv == nil && watchTorchFinish == nil && watchTorchCancel == nil {
-		next.watchTorchStart = nil
-		next.watchTorchRecv = nil
-		next.watchTorchFinish = nil
-		next.watchTorchCancel = nil
-	} else if watchTorchStart != nil && watchTorchRecv != nil && watchTorchFinish != nil && watchTorchCancel != nil {
-		next.watchTorchStart = watchTorchStart
-		next.watchTorchRecv = watchTorchRecv
-		next.watchTorchFinish = watchTorchFinish
-		next.watchTorchCancel = watchTorchCancel
+	if watchAndroidEchoStart == nil && watchAndroidEchoRecv == nil && watchAndroidEchoFinish == nil && watchAndroidEchoCancel == nil {
+		next.watchAndroidEchoStart = nil
+		next.watchAndroidEchoRecv = nil
+		next.watchAndroidEchoFinish = nil
+		next.watchAndroidEchoCancel = nil
+	} else if watchAndroidEchoStart != nil && watchAndroidEchoRecv != nil && watchAndroidEchoFinish != nil && watchAndroidEchoCancel != nil {
+		next.watchAndroidEchoStart = watchAndroidEchoStart
+		next.watchAndroidEchoRecv = watchAndroidEchoRecv
+		next.watchAndroidEchoFinish = watchAndroidEchoFinish
+		next.watchAndroidEchoCancel = watchAndroidEchoCancel
 	} else {
-		next.watchTorchStart = nil
-		next.watchTorchRecv = nil
-		next.watchTorchFinish = nil
-		next.watchTorchCancel = nil
-		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", androidDeviceCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.AndroidDevice.WatchTorch"))
+		next.watchAndroidEchoStart = nil
+		next.watchAndroidEchoRecv = nil
+		next.watchAndroidEchoFinish = nil
+		next.watchAndroidEchoCancel = nil
+		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", androidDeviceCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.AndroidDevice.WatchAndroidEcho"))
 	}
 	if err := proto.RegisterAndroidDeviceCGOMessageServer(next); err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
@@ -626,30 +626,30 @@ func rpccgoMsgFluttersharedv1AndroidDeviceRegisterWatchTorch(watchTorchStart C.A
 	return 0
 }
 
-// rpccgoMsgFluttersharedv1AndroidDeviceRegisterCollectTorch registers cgo message callbacks for examples.flutter.sharedso.v1.AndroidDevice.CollectTorch.
+// rpccgoMsgFluttersharedv1AndroidDeviceRegisterCollectAndroidEcho registers cgo message callbacks for examples.flutter.sharedso.v1.AndroidDevice.CollectAndroidEcho.
 //
-//export rpccgoMsgFluttersharedv1AndroidDeviceRegisterCollectTorch
-func rpccgoMsgFluttersharedv1AndroidDeviceRegisterCollectTorch(collectTorchStart C.AndroidDeviceCollectTorchCGOMessageClientStreamStartCallback, collectTorchSend C.AndroidDeviceCollectTorchCGOMessageClientStreamSendCallback, collectTorchFinish C.AndroidDeviceCollectTorchCGOMessageClientStreamFinishCallback, collectTorchCancel C.AndroidDeviceCollectTorchCGOMessageClientStreamCancelCallback) C.int32_t {
+//export rpccgoMsgFluttersharedv1AndroidDeviceRegisterCollectAndroidEcho
+func rpccgoMsgFluttersharedv1AndroidDeviceRegisterCollectAndroidEcho(collectAndroidEchoStart C.AndroidDeviceCollectAndroidEchoCGOMessageClientStreamStartCallback, collectAndroidEchoSend C.AndroidDeviceCollectAndroidEchoCGOMessageClientStreamSendCallback, collectAndroidEchoFinish C.AndroidDeviceCollectAndroidEchoCGOMessageClientStreamFinishCallback, collectAndroidEchoCancel C.AndroidDeviceCollectAndroidEchoCGOMessageClientStreamCancelCallback) C.int32_t {
 	androidDeviceCGOMessageServerAdapterMu.Lock()
 	defer androidDeviceCGOMessageServerAdapterMu.Unlock()
 	next := androidDeviceCGOMessageServerAdapterForRegister()
 	var registerErr error
-	if collectTorchStart == nil && collectTorchSend == nil && collectTorchFinish == nil && collectTorchCancel == nil {
-		next.collectTorchStart = nil
-		next.collectTorchSend = nil
-		next.collectTorchFinish = nil
-		next.collectTorchCancel = nil
-	} else if collectTorchStart != nil && collectTorchSend != nil && collectTorchFinish != nil && collectTorchCancel != nil {
-		next.collectTorchStart = collectTorchStart
-		next.collectTorchSend = collectTorchSend
-		next.collectTorchFinish = collectTorchFinish
-		next.collectTorchCancel = collectTorchCancel
+	if collectAndroidEchoStart == nil && collectAndroidEchoSend == nil && collectAndroidEchoFinish == nil && collectAndroidEchoCancel == nil {
+		next.collectAndroidEchoStart = nil
+		next.collectAndroidEchoSend = nil
+		next.collectAndroidEchoFinish = nil
+		next.collectAndroidEchoCancel = nil
+	} else if collectAndroidEchoStart != nil && collectAndroidEchoSend != nil && collectAndroidEchoFinish != nil && collectAndroidEchoCancel != nil {
+		next.collectAndroidEchoStart = collectAndroidEchoStart
+		next.collectAndroidEchoSend = collectAndroidEchoSend
+		next.collectAndroidEchoFinish = collectAndroidEchoFinish
+		next.collectAndroidEchoCancel = collectAndroidEchoCancel
 	} else {
-		next.collectTorchStart = nil
-		next.collectTorchSend = nil
-		next.collectTorchFinish = nil
-		next.collectTorchCancel = nil
-		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", androidDeviceCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.AndroidDevice.CollectTorch"))
+		next.collectAndroidEchoStart = nil
+		next.collectAndroidEchoSend = nil
+		next.collectAndroidEchoFinish = nil
+		next.collectAndroidEchoCancel = nil
+		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", androidDeviceCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.AndroidDevice.CollectAndroidEcho"))
 	}
 	if err := proto.RegisterAndroidDeviceCGOMessageServer(next); err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))
@@ -661,36 +661,36 @@ func rpccgoMsgFluttersharedv1AndroidDeviceRegisterCollectTorch(collectTorchStart
 	return 0
 }
 
-// rpccgoMsgFluttersharedv1AndroidDeviceRegisterChatTorch registers cgo message callbacks for examples.flutter.sharedso.v1.AndroidDevice.ChatTorch.
+// rpccgoMsgFluttersharedv1AndroidDeviceRegisterChatAndroidEcho registers cgo message callbacks for examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho.
 //
-//export rpccgoMsgFluttersharedv1AndroidDeviceRegisterChatTorch
-func rpccgoMsgFluttersharedv1AndroidDeviceRegisterChatTorch(chatTorchStart C.AndroidDeviceChatTorchCGOMessageBidiStreamStartCallback, chatTorchSend C.AndroidDeviceChatTorchCGOMessageBidiStreamSendCallback, chatTorchRecv C.AndroidDeviceChatTorchCGOMessageBidiStreamRecvCallback, chatTorchCloseSend C.AndroidDeviceChatTorchCGOMessageBidiStreamCloseSendCallback, chatTorchFinish C.AndroidDeviceChatTorchCGOMessageBidiStreamFinishCallback, chatTorchCancel C.AndroidDeviceChatTorchCGOMessageBidiStreamCancelCallback) C.int32_t {
+//export rpccgoMsgFluttersharedv1AndroidDeviceRegisterChatAndroidEcho
+func rpccgoMsgFluttersharedv1AndroidDeviceRegisterChatAndroidEcho(chatAndroidEchoStart C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamStartCallback, chatAndroidEchoSend C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamSendCallback, chatAndroidEchoRecv C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamRecvCallback, chatAndroidEchoCloseSend C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamCloseSendCallback, chatAndroidEchoFinish C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamFinishCallback, chatAndroidEchoCancel C.AndroidDeviceChatAndroidEchoCGOMessageBidiStreamCancelCallback) C.int32_t {
 	androidDeviceCGOMessageServerAdapterMu.Lock()
 	defer androidDeviceCGOMessageServerAdapterMu.Unlock()
 	next := androidDeviceCGOMessageServerAdapterForRegister()
 	var registerErr error
-	if chatTorchStart == nil && chatTorchSend == nil && chatTorchRecv == nil && chatTorchCloseSend == nil && chatTorchFinish == nil && chatTorchCancel == nil {
-		next.chatTorchStart = nil
-		next.chatTorchSend = nil
-		next.chatTorchRecv = nil
-		next.chatTorchCloseSend = nil
-		next.chatTorchFinish = nil
-		next.chatTorchCancel = nil
-	} else if chatTorchStart != nil && chatTorchSend != nil && chatTorchRecv != nil && chatTorchCloseSend != nil && chatTorchFinish != nil && chatTorchCancel != nil {
-		next.chatTorchStart = chatTorchStart
-		next.chatTorchSend = chatTorchSend
-		next.chatTorchRecv = chatTorchRecv
-		next.chatTorchCloseSend = chatTorchCloseSend
-		next.chatTorchFinish = chatTorchFinish
-		next.chatTorchCancel = chatTorchCancel
+	if chatAndroidEchoStart == nil && chatAndroidEchoSend == nil && chatAndroidEchoRecv == nil && chatAndroidEchoCloseSend == nil && chatAndroidEchoFinish == nil && chatAndroidEchoCancel == nil {
+		next.chatAndroidEchoStart = nil
+		next.chatAndroidEchoSend = nil
+		next.chatAndroidEchoRecv = nil
+		next.chatAndroidEchoCloseSend = nil
+		next.chatAndroidEchoFinish = nil
+		next.chatAndroidEchoCancel = nil
+	} else if chatAndroidEchoStart != nil && chatAndroidEchoSend != nil && chatAndroidEchoRecv != nil && chatAndroidEchoCloseSend != nil && chatAndroidEchoFinish != nil && chatAndroidEchoCancel != nil {
+		next.chatAndroidEchoStart = chatAndroidEchoStart
+		next.chatAndroidEchoSend = chatAndroidEchoSend
+		next.chatAndroidEchoRecv = chatAndroidEchoRecv
+		next.chatAndroidEchoCloseSend = chatAndroidEchoCloseSend
+		next.chatAndroidEchoFinish = chatAndroidEchoFinish
+		next.chatAndroidEchoCancel = chatAndroidEchoCancel
 	} else {
-		next.chatTorchStart = nil
-		next.chatTorchSend = nil
-		next.chatTorchRecv = nil
-		next.chatTorchCloseSend = nil
-		next.chatTorchFinish = nil
-		next.chatTorchCancel = nil
-		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", androidDeviceCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.AndroidDevice.ChatTorch"))
+		next.chatAndroidEchoStart = nil
+		next.chatAndroidEchoSend = nil
+		next.chatAndroidEchoRecv = nil
+		next.chatAndroidEchoCloseSend = nil
+		next.chatAndroidEchoFinish = nil
+		next.chatAndroidEchoCancel = nil
+		registerErr = errors.Join(registerErr, fmt.Errorf("%w: %s", androidDeviceCGOMessageServerStreamPartiallyRegistered, "examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho"))
 	}
 	if err := proto.RegisterAndroidDeviceCGOMessageServer(next); err != nil {
 		return C.int32_t(rpcruntime.StoreError(err))

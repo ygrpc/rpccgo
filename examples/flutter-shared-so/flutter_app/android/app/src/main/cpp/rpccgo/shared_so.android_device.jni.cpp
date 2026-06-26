@@ -9,20 +9,20 @@
 std::mutex androidDeviceServerBridgeMu;
 jobject androidDeviceServerBridge = nullptr;
 jmethodID androidDeviceSetTorchServerHandle = nullptr;
-jmethodID androidDeviceWatchTorchServerStart = nullptr;
-jmethodID androidDeviceWatchTorchServerRecv = nullptr;
-jmethodID androidDeviceWatchTorchServerFinish = nullptr;
-jmethodID androidDeviceWatchTorchServerCancel = nullptr;
-jmethodID androidDeviceCollectTorchServerStart = nullptr;
-jmethodID androidDeviceCollectTorchServerSend = nullptr;
-jmethodID androidDeviceCollectTorchServerFinish = nullptr;
-jmethodID androidDeviceCollectTorchServerCancel = nullptr;
-jmethodID androidDeviceChatTorchServerStart = nullptr;
-jmethodID androidDeviceChatTorchServerSend = nullptr;
-jmethodID androidDeviceChatTorchServerRecv = nullptr;
-jmethodID androidDeviceChatTorchServerCloseSend = nullptr;
-jmethodID androidDeviceChatTorchServerFinish = nullptr;
-jmethodID androidDeviceChatTorchServerCancel = nullptr;
+jmethodID androidDeviceWatchAndroidEchoServerStart = nullptr;
+jmethodID androidDeviceWatchAndroidEchoServerRecv = nullptr;
+jmethodID androidDeviceWatchAndroidEchoServerFinish = nullptr;
+jmethodID androidDeviceWatchAndroidEchoServerCancel = nullptr;
+jmethodID androidDeviceCollectAndroidEchoServerStart = nullptr;
+jmethodID androidDeviceCollectAndroidEchoServerSend = nullptr;
+jmethodID androidDeviceCollectAndroidEchoServerFinish = nullptr;
+jmethodID androidDeviceCollectAndroidEchoServerCancel = nullptr;
+jmethodID androidDeviceChatAndroidEchoServerStart = nullptr;
+jmethodID androidDeviceChatAndroidEchoServerSend = nullptr;
+jmethodID androidDeviceChatAndroidEchoServerRecv = nullptr;
+jmethodID androidDeviceChatAndroidEchoServerCloseSend = nullptr;
+jmethodID androidDeviceChatAndroidEchoServerFinish = nullptr;
+jmethodID androidDeviceChatAndroidEchoServerCancel = nullptr;
 
 bool ensureAndroidDeviceServerBridge(JNIEnv* env, jobject thiz) {
     if (env == nullptr || thiz == nullptr) { return false; }
@@ -87,46 +87,46 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersha
     return rpccgoSuccessUnit(env);
 }
 
-std::mutex androidDeviceWatchTorchCallbackMu;
-jobject androidDeviceWatchTorchCallbackListener = nullptr;
-jmethodID androidDeviceWatchTorchCallbackOnRecv = nullptr;
-jmethodID androidDeviceWatchTorchCallbackOnDone = nullptr;
-int32_t androidDeviceWatchTorchCallbackHandle = 0;
+std::mutex androidDeviceWatchAndroidEchoCallbackMu;
+jobject androidDeviceWatchAndroidEchoCallbackListener = nullptr;
+jmethodID androidDeviceWatchAndroidEchoCallbackOnRecv = nullptr;
+jmethodID androidDeviceWatchAndroidEchoCallbackOnDone = nullptr;
+int32_t androidDeviceWatchAndroidEchoCallbackHandle = 0;
 
-void clearAndroidDeviceWatchTorchListenerCallback(JNIEnv* env) {
-    std::lock_guard<std::mutex> lock(androidDeviceWatchTorchCallbackMu);
-    if (env != nullptr && androidDeviceWatchTorchCallbackListener != nullptr) {
-        env->DeleteGlobalRef(androidDeviceWatchTorchCallbackListener);
+void clearAndroidDeviceWatchAndroidEchoListenerCallback(JNIEnv* env) {
+    std::lock_guard<std::mutex> lock(androidDeviceWatchAndroidEchoCallbackMu);
+    if (env != nullptr && androidDeviceWatchAndroidEchoCallbackListener != nullptr) {
+        env->DeleteGlobalRef(androidDeviceWatchAndroidEchoCallbackListener);
     }
-    androidDeviceWatchTorchCallbackListener = nullptr;
-    androidDeviceWatchTorchCallbackOnRecv = nullptr;
-    androidDeviceWatchTorchCallbackOnDone = nullptr;
-    androidDeviceWatchTorchCallbackHandle = 0;
+    androidDeviceWatchAndroidEchoCallbackListener = nullptr;
+    androidDeviceWatchAndroidEchoCallbackOnRecv = nullptr;
+    androidDeviceWatchAndroidEchoCallbackOnDone = nullptr;
+    androidDeviceWatchAndroidEchoCallbackHandle = 0;
 }
 
-bool cancelAndroidDeviceWatchTorchListenerCallback(JNIEnv* env) {
+bool cancelAndroidDeviceWatchAndroidEchoListenerCallback(JNIEnv* env) {
     int32_t handle = 0;
     {
-        std::lock_guard<std::mutex> lock(androidDeviceWatchTorchCallbackMu);
-        handle = androidDeviceWatchTorchCallbackHandle;
+        std::lock_guard<std::mutex> lock(androidDeviceWatchAndroidEchoCallbackMu);
+        handle = androidDeviceWatchAndroidEchoCallbackHandle;
     }
     if (handle == 0) {
-        clearAndroidDeviceWatchTorchListenerCallback(env);
+        clearAndroidDeviceWatchAndroidEchoListenerCallback(env);
         return true;
     }
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchCancel(handle);
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoCancel(handle);
     return errID == 0;
 }
 
-void onAndroidDeviceWatchTorchListenerRecv(int32_t, uintptr_t responsePtr, int32_t responseLen) {
+void onAndroidDeviceWatchAndroidEchoListenerRecv(int32_t, uintptr_t responsePtr, int32_t responseLen) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) {
         if (responsePtr != 0) { rpccgoRelease(responsePtr); }
         return;
     }
-    std::lock_guard<std::mutex> lock(androidDeviceWatchTorchCallbackMu);
-    if (androidDeviceWatchTorchCallbackListener == nullptr || androidDeviceWatchTorchCallbackOnRecv == nullptr) {
+    std::lock_guard<std::mutex> lock(androidDeviceWatchAndroidEchoCallbackMu);
+    if (androidDeviceWatchAndroidEchoCallbackListener == nullptr || androidDeviceWatchAndroidEchoCallbackOnRecv == nullptr) {
         if (responsePtr != 0) { rpccgoRelease(responsePtr); }
         return;
     }
@@ -139,21 +139,21 @@ void onAndroidDeviceWatchTorchListenerRecv(int32_t, uintptr_t responsePtr, int32
         env->SetByteArrayRegion(payload, 0, responseLen, reinterpret_cast<const jbyte*>(responsePtr));
     }
     if (responsePtr != 0) { rpccgoRelease(responsePtr); }
-    env->CallVoidMethod(androidDeviceWatchTorchCallbackListener, androidDeviceWatchTorchCallbackOnRecv, payload);
+    env->CallVoidMethod(androidDeviceWatchAndroidEchoCallbackListener, androidDeviceWatchAndroidEchoCallbackOnRecv, payload);
     env->DeleteLocalRef(payload);
     if (env->ExceptionCheck()) { env->ExceptionClear(); }
 }
 
-void onAndroidDeviceWatchTorchListenerDone(int32_t, int32_t errID) {
+void onAndroidDeviceWatchAndroidEchoListenerDone(int32_t, int32_t errID) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) { return; }
     jobject listener = nullptr;
     jmethodID onDone = nullptr;
     {
-        std::lock_guard<std::mutex> lock(androidDeviceWatchTorchCallbackMu);
-        listener = androidDeviceWatchTorchCallbackListener;
-        onDone = androidDeviceWatchTorchCallbackOnDone;
+        std::lock_guard<std::mutex> lock(androidDeviceWatchAndroidEchoCallbackMu);
+        listener = androidDeviceWatchAndroidEchoCallbackListener;
+        onDone = androidDeviceWatchAndroidEchoCallbackOnDone;
     }
     if (listener != nullptr && onDone != nullptr) {
         jstring error = nullptr;
@@ -165,11 +165,11 @@ void onAndroidDeviceWatchTorchListenerDone(int32_t, int32_t errID) {
         if (error != nullptr) { env->DeleteLocalRef(error); }
         if (env->ExceptionCheck()) { env->ExceptionClear(); }
     }
-    clearAndroidDeviceWatchTorchListenerCallback(env);
+    clearAndroidDeviceWatchAndroidEchoListenerCallback(env);
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchTorchStart invokes examples.flutter.sharedso.v1.AndroidDevice.WatchTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchTorchStart(JNIEnv* env, jobject, jbyteArray request) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchAndroidEchoStart invokes examples.flutter.sharedso.v1.AndroidDevice.WatchAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchAndroidEchoStart(JNIEnv* env, jobject, jbyteArray request) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return nullptr; }
@@ -177,40 +177,40 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersha
     std::vector<uint8_t> requestBytes = rpccgoJNIBytes(env, request, &requestOK);
     if (!requestOK) { return rpccgoErrorResult(env, "rpccgo: JNI request bytes are null or unreadable"); }
     int32_t handle = 0;
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchStart(rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()), &handle, nullptr, nullptr);
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoStart(rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()), &handle, nullptr, nullptr);
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessHandle(env, handle);
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchTorchRecv invokes examples.flutter.sharedso.v1.AndroidDevice.WatchTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchTorchRecv(JNIEnv* env, jobject, jint handle) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchAndroidEchoRecv invokes examples.flutter.sharedso.v1.AndroidDevice.WatchAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchAndroidEchoRecv(JNIEnv* env, jobject, jint handle) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return nullptr; }
     uintptr_t responsePtr = 0;
     int32_t responseLen = 0;
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchRecv(static_cast<int32_t>(handle), &responsePtr, &responseLen);
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoRecv(static_cast<int32_t>(handle), &responsePtr, &responseLen);
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessBytes(env, responsePtr, responseLen);
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchTorchCancel invokes examples.flutter.sharedso.v1.AndroidDevice.WatchTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchTorchCancel(JNIEnv* env, jobject, jint handle) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchAndroidEchoCancel invokes examples.flutter.sharedso.v1.AndroidDevice.WatchAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchAndroidEchoCancel(JNIEnv* env, jobject, jint handle) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return nullptr; }
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchCancel(static_cast<int32_t>(handle));
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoCancel(static_cast<int32_t>(handle));
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessUnit(env);
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchTorchStartCallback invokes examples.flutter.sharedso.v1.AndroidDevice.WatchTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchTorchStartCallback(JNIEnv* env, jobject, jbyteArray request, jobject listener) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchAndroidEchoStartCallback invokes examples.flutter.sharedso.v1.AndroidDevice.WatchAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchAndroidEchoStartCallback(JNIEnv* env, jobject, jbyteArray request, jobject listener) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return JNI_FALSE; }
     if (request == nullptr || listener == nullptr) { return JNI_FALSE; }
-    cancelAndroidDeviceWatchTorchListenerCallback(env);
+    cancelAndroidDeviceWatchAndroidEchoListenerCallback(env);
     jclass listenerClass = env->GetObjectClass(listener);
     jmethodID onRecv = env->GetMethodID(listenerClass, "onRecv", "([B)V");
     jmethodID onDone = env->GetMethodID(listenerClass, "onDone", "(Ljava/lang/String;)V");
@@ -222,42 +222,42 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttershare
     jobject globalListener = env->NewGlobalRef(listener);
     if (globalListener == nullptr) { return JNI_FALSE; }
     {
-        std::lock_guard<std::mutex> lock(androidDeviceWatchTorchCallbackMu);
-        androidDeviceWatchTorchCallbackListener = globalListener;
-        androidDeviceWatchTorchCallbackOnRecv = onRecv;
-        androidDeviceWatchTorchCallbackOnDone = onDone;
+        std::lock_guard<std::mutex> lock(androidDeviceWatchAndroidEchoCallbackMu);
+        androidDeviceWatchAndroidEchoCallbackListener = globalListener;
+        androidDeviceWatchAndroidEchoCallbackOnRecv = onRecv;
+        androidDeviceWatchAndroidEchoCallbackOnDone = onDone;
     }
     int32_t handle = 0;
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchStart(rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()), &handle, onAndroidDeviceWatchTorchListenerRecv, onAndroidDeviceWatchTorchListenerDone);
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoStart(rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()), &handle, onAndroidDeviceWatchAndroidEchoListenerRecv, onAndroidDeviceWatchAndroidEchoListenerDone);
     if (errID != 0) {
-        clearAndroidDeviceWatchTorchListenerCallback(env);
+        clearAndroidDeviceWatchAndroidEchoListenerCallback(env);
         return JNI_FALSE;
     }
     {
-        std::lock_guard<std::mutex> lock(androidDeviceWatchTorchCallbackMu);
-        androidDeviceWatchTorchCallbackHandle = handle;
+        std::lock_guard<std::mutex> lock(androidDeviceWatchAndroidEchoCallbackMu);
+        androidDeviceWatchAndroidEchoCallbackHandle = handle;
     }
     return JNI_TRUE;
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchTorchCancelCallback invokes examples.flutter.sharedso.v1.AndroidDevice.WatchTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchTorchCancelCallback(JNIEnv* env, jobject) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchAndroidEchoCancelCallback invokes examples.flutter.sharedso.v1.AndroidDevice.WatchAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchAndroidEchoCancelCallback(JNIEnv* env, jobject) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return JNI_FALSE; }
-    return cancelAndroidDeviceWatchTorchListenerCallback(env) ? JNI_TRUE : JNI_FALSE;
+    return cancelAndroidDeviceWatchAndroidEchoListenerCallback(env) ? JNI_TRUE : JNI_FALSE;
 }
 
-int32_t onAndroidDeviceWatchTorchServerStart(uintptr_t requestPtr, int32_t requestLen, int32_t* stream) {
+int32_t onAndroidDeviceWatchAndroidEchoServerStart(uintptr_t requestPtr, int32_t requestLen, int32_t* stream) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
     jobject bridge = androidDeviceServerBridgeObject();
-    if (bridge == nullptr || androidDeviceWatchTorchServerStart == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    if (bridge == nullptr || androidDeviceWatchAndroidEchoServerStart == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
     jbyteArray request = nullptr;
     int32_t requestErr = rpccgoRequestByteArray(env, requestPtr, requestLen, &request);
     if (requestErr != 0) { return requestErr; }
-    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceWatchTorchServerStart, request));
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceWatchAndroidEchoServerStart, request));
     env->DeleteLocalRef(request);
     if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream start threw"); }
     int32_t errID = rpccgoKotlinHandleResult(env, result, stream);
@@ -265,137 +265,137 @@ int32_t onAndroidDeviceWatchTorchServerStart(uintptr_t requestPtr, int32_t reque
     return errID;
 }
 
-int32_t onAndroidDeviceWatchTorchServerRecv(int32_t stream, uintptr_t* responsePtr, int32_t* responseLen) {
+int32_t onAndroidDeviceWatchAndroidEchoServerRecv(int32_t stream, uintptr_t* responsePtr, int32_t* responseLen) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
     jobject bridge = androidDeviceServerBridgeObject();
-    if (bridge == nullptr || androidDeviceWatchTorchServerRecv == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
-    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceWatchTorchServerRecv, stream));
+    if (bridge == nullptr || androidDeviceWatchAndroidEchoServerRecv == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceWatchAndroidEchoServerRecv, stream));
     if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream response handler threw"); }
     int32_t errID = rpccgoKotlinBytesResult(env, result, responsePtr, responseLen);
     if (result != nullptr) { env->DeleteLocalRef(result); }
     return errID;
 }
 
-int32_t onAndroidDeviceWatchTorchServerFinish(int32_t stream) {
+int32_t onAndroidDeviceWatchAndroidEchoServerFinish(int32_t stream) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
     jobject bridge = androidDeviceServerBridgeObject();
-    if (bridge == nullptr || androidDeviceWatchTorchServerFinish == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
-    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceWatchTorchServerFinish, stream));
+    if (bridge == nullptr || androidDeviceWatchAndroidEchoServerFinish == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceWatchAndroidEchoServerFinish, stream));
     if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream control handler threw"); }
     int32_t errID = rpccgoKotlinUnitResult(env, result);
     if (result != nullptr) { env->DeleteLocalRef(result); }
     return errID;
 }
 
-int32_t onAndroidDeviceWatchTorchServerCancel(int32_t stream) {
+int32_t onAndroidDeviceWatchAndroidEchoServerCancel(int32_t stream) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
     jobject bridge = androidDeviceServerBridgeObject();
-    if (bridge == nullptr || androidDeviceWatchTorchServerCancel == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
-    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceWatchTorchServerCancel, stream));
+    if (bridge == nullptr || androidDeviceWatchAndroidEchoServerCancel == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceWatchAndroidEchoServerCancel, stream));
     if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream control handler threw"); }
     int32_t errID = rpccgoKotlinUnitResult(env, result);
     if (result != nullptr) { env->DeleteLocalRef(result); }
     return errID;
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchTorchRegister invokes examples.flutter.sharedso.v1.AndroidDevice.WatchTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchTorchRegister(JNIEnv* env, jobject thiz) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchAndroidEchoRegister invokes examples.flutter.sharedso.v1.AndroidDevice.WatchAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceWatchAndroidEchoRegister(JNIEnv* env, jobject thiz) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return nullptr; }
     if (!ensureAndroidDeviceServerBridge(env, thiz)) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge registration failed"); }
     jclass bridgeClass = env->GetObjectClass(thiz);
     if (bridgeClass == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge class lookup failed"); }
-    androidDeviceWatchTorchServerStart = env->GetMethodID(bridgeClass, "androidDeviceWatchTorchServerStart", "([B)[B");
-    androidDeviceWatchTorchServerRecv = env->GetMethodID(bridgeClass, "androidDeviceWatchTorchServerRecv", "(I)[B");
-    androidDeviceWatchTorchServerFinish = env->GetMethodID(bridgeClass, "androidDeviceWatchTorchServerFinish", "(I)[B");
-    androidDeviceWatchTorchServerCancel = env->GetMethodID(bridgeClass, "androidDeviceWatchTorchServerCancel", "(I)[B");
+    androidDeviceWatchAndroidEchoServerStart = env->GetMethodID(bridgeClass, "androidDeviceWatchAndroidEchoServerStart", "([B)[B");
+    androidDeviceWatchAndroidEchoServerRecv = env->GetMethodID(bridgeClass, "androidDeviceWatchAndroidEchoServerRecv", "(I)[B");
+    androidDeviceWatchAndroidEchoServerFinish = env->GetMethodID(bridgeClass, "androidDeviceWatchAndroidEchoServerFinish", "(I)[B");
+    androidDeviceWatchAndroidEchoServerCancel = env->GetMethodID(bridgeClass, "androidDeviceWatchAndroidEchoServerCancel", "(I)[B");
     env->DeleteLocalRef(bridgeClass);
     if (env->ExceptionCheck()) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method lookup failed"); }
-    if (androidDeviceWatchTorchServerStart == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
-    if (androidDeviceWatchTorchServerRecv == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
-    if (androidDeviceWatchTorchServerFinish == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
-    if (androidDeviceWatchTorchServerCancel == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceRegisterWatchTorch(onAndroidDeviceWatchTorchServerStart, onAndroidDeviceWatchTorchServerRecv, onAndroidDeviceWatchTorchServerFinish, onAndroidDeviceWatchTorchServerCancel);
+    if (androidDeviceWatchAndroidEchoServerStart == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (androidDeviceWatchAndroidEchoServerRecv == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (androidDeviceWatchAndroidEchoServerFinish == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (androidDeviceWatchAndroidEchoServerCancel == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceRegisterWatchAndroidEcho(onAndroidDeviceWatchAndroidEchoServerStart, onAndroidDeviceWatchAndroidEchoServerRecv, onAndroidDeviceWatchAndroidEchoServerFinish, onAndroidDeviceWatchAndroidEchoServerCancel);
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessUnit(env);
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectTorchStart invokes examples.flutter.sharedso.v1.AndroidDevice.CollectTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectTorchStart(JNIEnv* env, jobject) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectAndroidEchoStart invokes examples.flutter.sharedso.v1.AndroidDevice.CollectAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectAndroidEchoStart(JNIEnv* env, jobject) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return nullptr; }
     int32_t handle = 0;
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchStart(&handle);
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoStart(&handle);
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessHandle(env, handle);
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectTorchSend invokes examples.flutter.sharedso.v1.AndroidDevice.CollectTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectTorchSend(JNIEnv* env, jobject, jint handle, jbyteArray request) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectAndroidEchoSend invokes examples.flutter.sharedso.v1.AndroidDevice.CollectAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectAndroidEchoSend(JNIEnv* env, jobject, jint handle, jbyteArray request) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return nullptr; }
     bool requestOK = false;
     std::vector<uint8_t> requestBytes = rpccgoJNIBytes(env, request, &requestOK);
     if (!requestOK) { return rpccgoErrorResult(env, "rpccgo: JNI request bytes are null or unreadable"); }
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchSend(static_cast<int32_t>(handle), rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()));
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoSend(static_cast<int32_t>(handle), rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()));
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessUnit(env);
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectTorchFinish invokes examples.flutter.sharedso.v1.AndroidDevice.CollectTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectTorchFinish(JNIEnv* env, jobject, jint handle) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectAndroidEchoFinish invokes examples.flutter.sharedso.v1.AndroidDevice.CollectAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectAndroidEchoFinish(JNIEnv* env, jobject, jint handle) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return nullptr; }
     uintptr_t responsePtr = 0;
     int32_t responseLen = 0;
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchFinish(static_cast<int32_t>(handle), &responsePtr, &responseLen);
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoFinish(static_cast<int32_t>(handle), &responsePtr, &responseLen);
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessBytes(env, responsePtr, responseLen);
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectTorchCancel invokes examples.flutter.sharedso.v1.AndroidDevice.CollectTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectTorchCancel(JNIEnv* env, jobject, jint handle) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectAndroidEchoCancel invokes examples.flutter.sharedso.v1.AndroidDevice.CollectAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectAndroidEchoCancel(JNIEnv* env, jobject, jint handle) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return nullptr; }
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchCancel(static_cast<int32_t>(handle));
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoCancel(static_cast<int32_t>(handle));
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessUnit(env);
 }
 
-int32_t onAndroidDeviceCollectTorchServerStart(int32_t* stream) {
+int32_t onAndroidDeviceCollectAndroidEchoServerStart(int32_t* stream) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
     jobject bridge = androidDeviceServerBridgeObject();
-    if (bridge == nullptr || androidDeviceCollectTorchServerStart == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
-    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceCollectTorchServerStart));
+    if (bridge == nullptr || androidDeviceCollectAndroidEchoServerStart == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceCollectAndroidEchoServerStart));
     if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream start threw"); }
     int32_t errID = rpccgoKotlinHandleResult(env, result, stream);
     if (result != nullptr) { env->DeleteLocalRef(result); }
     return errID;
 }
 
-int32_t onAndroidDeviceCollectTorchServerSend(int32_t stream, uintptr_t requestPtr, int32_t requestLen) {
+int32_t onAndroidDeviceCollectAndroidEchoServerSend(int32_t stream, uintptr_t requestPtr, int32_t requestLen) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
     jobject bridge = androidDeviceServerBridgeObject();
-    if (bridge == nullptr || androidDeviceCollectTorchServerSend == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    if (bridge == nullptr || androidDeviceCollectAndroidEchoServerSend == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
     jbyteArray request = nullptr;
     int32_t requestErr = rpccgoRequestByteArray(env, requestPtr, requestLen, &request);
     if (requestErr != 0) { return requestErr; }
-    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceCollectTorchServerSend, stream, request));
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceCollectAndroidEchoServerSend, stream, request));
     env->DeleteLocalRef(request);
     if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream request handler threw"); }
     int32_t errID = rpccgoKotlinUnitResult(env, result);
@@ -403,95 +403,95 @@ int32_t onAndroidDeviceCollectTorchServerSend(int32_t stream, uintptr_t requestP
     return errID;
 }
 
-int32_t onAndroidDeviceCollectTorchServerFinish(int32_t stream, uintptr_t* responsePtr, int32_t* responseLen) {
+int32_t onAndroidDeviceCollectAndroidEchoServerFinish(int32_t stream, uintptr_t* responsePtr, int32_t* responseLen) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
     jobject bridge = androidDeviceServerBridgeObject();
-    if (bridge == nullptr || androidDeviceCollectTorchServerFinish == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
-    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceCollectTorchServerFinish, stream));
+    if (bridge == nullptr || androidDeviceCollectAndroidEchoServerFinish == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceCollectAndroidEchoServerFinish, stream));
     if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream response handler threw"); }
     int32_t errID = rpccgoKotlinBytesResult(env, result, responsePtr, responseLen);
     if (result != nullptr) { env->DeleteLocalRef(result); }
     return errID;
 }
 
-int32_t onAndroidDeviceCollectTorchServerCancel(int32_t stream) {
+int32_t onAndroidDeviceCollectAndroidEchoServerCancel(int32_t stream) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
     jobject bridge = androidDeviceServerBridgeObject();
-    if (bridge == nullptr || androidDeviceCollectTorchServerCancel == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
-    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceCollectTorchServerCancel, stream));
+    if (bridge == nullptr || androidDeviceCollectAndroidEchoServerCancel == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceCollectAndroidEchoServerCancel, stream));
     if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream control handler threw"); }
     int32_t errID = rpccgoKotlinUnitResult(env, result);
     if (result != nullptr) { env->DeleteLocalRef(result); }
     return errID;
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectTorchRegister invokes examples.flutter.sharedso.v1.AndroidDevice.CollectTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectTorchRegister(JNIEnv* env, jobject thiz) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectAndroidEchoRegister invokes examples.flutter.sharedso.v1.AndroidDevice.CollectAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceCollectAndroidEchoRegister(JNIEnv* env, jobject thiz) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return nullptr; }
     if (!ensureAndroidDeviceServerBridge(env, thiz)) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge registration failed"); }
     jclass bridgeClass = env->GetObjectClass(thiz);
     if (bridgeClass == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge class lookup failed"); }
-    androidDeviceCollectTorchServerStart = env->GetMethodID(bridgeClass, "androidDeviceCollectTorchServerStart", "()[B");
-    androidDeviceCollectTorchServerSend = env->GetMethodID(bridgeClass, "androidDeviceCollectTorchServerSend", "(I[B)[B");
-    androidDeviceCollectTorchServerFinish = env->GetMethodID(bridgeClass, "androidDeviceCollectTorchServerFinish", "(I)[B");
-    androidDeviceCollectTorchServerCancel = env->GetMethodID(bridgeClass, "androidDeviceCollectTorchServerCancel", "(I)[B");
+    androidDeviceCollectAndroidEchoServerStart = env->GetMethodID(bridgeClass, "androidDeviceCollectAndroidEchoServerStart", "()[B");
+    androidDeviceCollectAndroidEchoServerSend = env->GetMethodID(bridgeClass, "androidDeviceCollectAndroidEchoServerSend", "(I[B)[B");
+    androidDeviceCollectAndroidEchoServerFinish = env->GetMethodID(bridgeClass, "androidDeviceCollectAndroidEchoServerFinish", "(I)[B");
+    androidDeviceCollectAndroidEchoServerCancel = env->GetMethodID(bridgeClass, "androidDeviceCollectAndroidEchoServerCancel", "(I)[B");
     env->DeleteLocalRef(bridgeClass);
     if (env->ExceptionCheck()) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method lookup failed"); }
-    if (androidDeviceCollectTorchServerStart == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
-    if (androidDeviceCollectTorchServerSend == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
-    if (androidDeviceCollectTorchServerFinish == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
-    if (androidDeviceCollectTorchServerCancel == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceRegisterCollectTorch(onAndroidDeviceCollectTorchServerStart, onAndroidDeviceCollectTorchServerSend, onAndroidDeviceCollectTorchServerFinish, onAndroidDeviceCollectTorchServerCancel);
+    if (androidDeviceCollectAndroidEchoServerStart == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (androidDeviceCollectAndroidEchoServerSend == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (androidDeviceCollectAndroidEchoServerFinish == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (androidDeviceCollectAndroidEchoServerCancel == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceRegisterCollectAndroidEcho(onAndroidDeviceCollectAndroidEchoServerStart, onAndroidDeviceCollectAndroidEchoServerSend, onAndroidDeviceCollectAndroidEchoServerFinish, onAndroidDeviceCollectAndroidEchoServerCancel);
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessUnit(env);
 }
 
-std::mutex androidDeviceChatTorchCallbackMu;
-jobject androidDeviceChatTorchCallbackListener = nullptr;
-jmethodID androidDeviceChatTorchCallbackOnRecv = nullptr;
-jmethodID androidDeviceChatTorchCallbackOnDone = nullptr;
-int32_t androidDeviceChatTorchCallbackHandle = 0;
+std::mutex androidDeviceChatAndroidEchoCallbackMu;
+jobject androidDeviceChatAndroidEchoCallbackListener = nullptr;
+jmethodID androidDeviceChatAndroidEchoCallbackOnRecv = nullptr;
+jmethodID androidDeviceChatAndroidEchoCallbackOnDone = nullptr;
+int32_t androidDeviceChatAndroidEchoCallbackHandle = 0;
 
-void clearAndroidDeviceChatTorchListenerCallback(JNIEnv* env) {
-    std::lock_guard<std::mutex> lock(androidDeviceChatTorchCallbackMu);
-    if (env != nullptr && androidDeviceChatTorchCallbackListener != nullptr) {
-        env->DeleteGlobalRef(androidDeviceChatTorchCallbackListener);
+void clearAndroidDeviceChatAndroidEchoListenerCallback(JNIEnv* env) {
+    std::lock_guard<std::mutex> lock(androidDeviceChatAndroidEchoCallbackMu);
+    if (env != nullptr && androidDeviceChatAndroidEchoCallbackListener != nullptr) {
+        env->DeleteGlobalRef(androidDeviceChatAndroidEchoCallbackListener);
     }
-    androidDeviceChatTorchCallbackListener = nullptr;
-    androidDeviceChatTorchCallbackOnRecv = nullptr;
-    androidDeviceChatTorchCallbackOnDone = nullptr;
-    androidDeviceChatTorchCallbackHandle = 0;
+    androidDeviceChatAndroidEchoCallbackListener = nullptr;
+    androidDeviceChatAndroidEchoCallbackOnRecv = nullptr;
+    androidDeviceChatAndroidEchoCallbackOnDone = nullptr;
+    androidDeviceChatAndroidEchoCallbackHandle = 0;
 }
 
-bool cancelAndroidDeviceChatTorchListenerCallback(JNIEnv* env) {
+bool cancelAndroidDeviceChatAndroidEchoListenerCallback(JNIEnv* env) {
     int32_t handle = 0;
     {
-        std::lock_guard<std::mutex> lock(androidDeviceChatTorchCallbackMu);
-        handle = androidDeviceChatTorchCallbackHandle;
+        std::lock_guard<std::mutex> lock(androidDeviceChatAndroidEchoCallbackMu);
+        handle = androidDeviceChatAndroidEchoCallbackHandle;
     }
     if (handle == 0) {
-        clearAndroidDeviceChatTorchListenerCallback(env);
+        clearAndroidDeviceChatAndroidEchoListenerCallback(env);
         return true;
     }
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceChatTorchCancel(handle);
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoCancel(handle);
     return errID == 0;
 }
 
-void onAndroidDeviceChatTorchListenerRecv(int32_t, uintptr_t responsePtr, int32_t responseLen) {
+void onAndroidDeviceChatAndroidEchoListenerRecv(int32_t, uintptr_t responsePtr, int32_t responseLen) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) {
         if (responsePtr != 0) { rpccgoRelease(responsePtr); }
         return;
     }
-    std::lock_guard<std::mutex> lock(androidDeviceChatTorchCallbackMu);
-    if (androidDeviceChatTorchCallbackListener == nullptr || androidDeviceChatTorchCallbackOnRecv == nullptr) {
+    std::lock_guard<std::mutex> lock(androidDeviceChatAndroidEchoCallbackMu);
+    if (androidDeviceChatAndroidEchoCallbackListener == nullptr || androidDeviceChatAndroidEchoCallbackOnRecv == nullptr) {
         if (responsePtr != 0) { rpccgoRelease(responsePtr); }
         return;
     }
@@ -504,21 +504,21 @@ void onAndroidDeviceChatTorchListenerRecv(int32_t, uintptr_t responsePtr, int32_
         env->SetByteArrayRegion(payload, 0, responseLen, reinterpret_cast<const jbyte*>(responsePtr));
     }
     if (responsePtr != 0) { rpccgoRelease(responsePtr); }
-    env->CallVoidMethod(androidDeviceChatTorchCallbackListener, androidDeviceChatTorchCallbackOnRecv, payload);
+    env->CallVoidMethod(androidDeviceChatAndroidEchoCallbackListener, androidDeviceChatAndroidEchoCallbackOnRecv, payload);
     env->DeleteLocalRef(payload);
     if (env->ExceptionCheck()) { env->ExceptionClear(); }
 }
 
-void onAndroidDeviceChatTorchListenerDone(int32_t, int32_t errID) {
+void onAndroidDeviceChatAndroidEchoListenerDone(int32_t, int32_t errID) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) { return; }
     jobject listener = nullptr;
     jmethodID onDone = nullptr;
     {
-        std::lock_guard<std::mutex> lock(androidDeviceChatTorchCallbackMu);
-        listener = androidDeviceChatTorchCallbackListener;
-        onDone = androidDeviceChatTorchCallbackOnDone;
+        std::lock_guard<std::mutex> lock(androidDeviceChatAndroidEchoCallbackMu);
+        listener = androidDeviceChatAndroidEchoCallbackListener;
+        onDone = androidDeviceChatAndroidEchoCallbackOnDone;
     }
     if (listener != nullptr && onDone != nullptr) {
         jstring error = nullptr;
@@ -530,82 +530,82 @@ void onAndroidDeviceChatTorchListenerDone(int32_t, int32_t errID) {
         if (error != nullptr) { env->DeleteLocalRef(error); }
         if (env->ExceptionCheck()) { env->ExceptionClear(); }
     }
-    clearAndroidDeviceChatTorchListenerCallback(env);
+    clearAndroidDeviceChatAndroidEchoListenerCallback(env);
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatTorchStart invokes examples.flutter.sharedso.v1.AndroidDevice.ChatTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatTorchStart(JNIEnv* env, jobject) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatAndroidEchoStart invokes examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatAndroidEchoStart(JNIEnv* env, jobject) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return nullptr; }
     int32_t handle = 0;
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceChatTorchStart(&handle, nullptr, nullptr);
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoStart(&handle, nullptr, nullptr);
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessHandle(env, handle);
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatTorchSend invokes examples.flutter.sharedso.v1.AndroidDevice.ChatTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatTorchSend(JNIEnv* env, jobject, jint handle, jbyteArray request) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatAndroidEchoSend invokes examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatAndroidEchoSend(JNIEnv* env, jobject, jint handle, jbyteArray request) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return nullptr; }
     bool requestOK = false;
     std::vector<uint8_t> requestBytes = rpccgoJNIBytes(env, request, &requestOK);
     if (!requestOK) { return rpccgoErrorResult(env, "rpccgo: JNI request bytes are null or unreadable"); }
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceChatTorchSend(static_cast<int32_t>(handle), rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()));
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoSend(static_cast<int32_t>(handle), rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()));
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessUnit(env);
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatTorchRecv invokes examples.flutter.sharedso.v1.AndroidDevice.ChatTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatTorchRecv(JNIEnv* env, jobject, jint handle) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatAndroidEchoRecv invokes examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatAndroidEchoRecv(JNIEnv* env, jobject, jint handle) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return nullptr; }
     uintptr_t responsePtr = 0;
     int32_t responseLen = 0;
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceChatTorchRecv(static_cast<int32_t>(handle), &responsePtr, &responseLen);
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoRecv(static_cast<int32_t>(handle), &responsePtr, &responseLen);
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessBytes(env, responsePtr, responseLen);
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatTorchCloseSend invokes examples.flutter.sharedso.v1.AndroidDevice.ChatTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatTorchCloseSend(JNIEnv* env, jobject, jint handle) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatAndroidEchoCloseSend invokes examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatAndroidEchoCloseSend(JNIEnv* env, jobject, jint handle) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return nullptr; }
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceChatTorchCloseSend(static_cast<int32_t>(handle));
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoCloseSend(static_cast<int32_t>(handle));
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessUnit(env);
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatTorchFinish invokes examples.flutter.sharedso.v1.AndroidDevice.ChatTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatTorchFinish(JNIEnv* env, jobject, jint handle) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatAndroidEchoFinish invokes examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatAndroidEchoFinish(JNIEnv* env, jobject, jint handle) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return nullptr; }
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceChatTorchFinish(static_cast<int32_t>(handle));
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoFinish(static_cast<int32_t>(handle));
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessUnit(env);
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatTorchCancel invokes examples.flutter.sharedso.v1.AndroidDevice.ChatTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatTorchCancel(JNIEnv* env, jobject, jint handle) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatAndroidEchoCancel invokes examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatAndroidEchoCancel(JNIEnv* env, jobject, jint handle) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return nullptr; }
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceChatTorchCancel(static_cast<int32_t>(handle));
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoCancel(static_cast<int32_t>(handle));
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessUnit(env);
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatTorchStartCallback invokes examples.flutter.sharedso.v1.AndroidDevice.ChatTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatTorchStartCallback(JNIEnv* env, jobject, jobject listener) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatAndroidEchoStartCallback invokes examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatAndroidEchoStartCallback(JNIEnv* env, jobject, jobject listener) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return JNI_FALSE; }
     if (listener == nullptr) { return JNI_FALSE; }
-    cancelAndroidDeviceChatTorchListenerCallback(env);
+    cancelAndroidDeviceChatAndroidEchoListenerCallback(env);
     jclass listenerClass = env->GetObjectClass(listener);
     jmethodID onRecv = env->GetMethodID(listenerClass, "onRecv", "([B)V");
     jmethodID onDone = env->GetMethodID(listenerClass, "onDone", "(Ljava/lang/String;)V");
@@ -614,55 +614,55 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttershare
     jobject globalListener = env->NewGlobalRef(listener);
     if (globalListener == nullptr) { return JNI_FALSE; }
     {
-        std::lock_guard<std::mutex> lock(androidDeviceChatTorchCallbackMu);
-        androidDeviceChatTorchCallbackListener = globalListener;
-        androidDeviceChatTorchCallbackOnRecv = onRecv;
-        androidDeviceChatTorchCallbackOnDone = onDone;
+        std::lock_guard<std::mutex> lock(androidDeviceChatAndroidEchoCallbackMu);
+        androidDeviceChatAndroidEchoCallbackListener = globalListener;
+        androidDeviceChatAndroidEchoCallbackOnRecv = onRecv;
+        androidDeviceChatAndroidEchoCallbackOnDone = onDone;
     }
     int32_t handle = 0;
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceChatTorchStart(&handle, onAndroidDeviceChatTorchListenerRecv, onAndroidDeviceChatTorchListenerDone);
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoStart(&handle, onAndroidDeviceChatAndroidEchoListenerRecv, onAndroidDeviceChatAndroidEchoListenerDone);
     if (errID != 0) {
-        clearAndroidDeviceChatTorchListenerCallback(env);
+        clearAndroidDeviceChatAndroidEchoListenerCallback(env);
         return JNI_FALSE;
     }
     {
-        std::lock_guard<std::mutex> lock(androidDeviceChatTorchCallbackMu);
-        androidDeviceChatTorchCallbackHandle = handle;
+        std::lock_guard<std::mutex> lock(androidDeviceChatAndroidEchoCallbackMu);
+        androidDeviceChatAndroidEchoCallbackHandle = handle;
     }
     return JNI_TRUE;
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatTorchCancelCallback invokes examples.flutter.sharedso.v1.AndroidDevice.ChatTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatTorchCancelCallback(JNIEnv* env, jobject) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatAndroidEchoCancelCallback invokes examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatAndroidEchoCancelCallback(JNIEnv* env, jobject) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return JNI_FALSE; }
-    return cancelAndroidDeviceChatTorchListenerCallback(env) ? JNI_TRUE : JNI_FALSE;
+    return cancelAndroidDeviceChatAndroidEchoListenerCallback(env) ? JNI_TRUE : JNI_FALSE;
 }
 
-int32_t onAndroidDeviceChatTorchServerStart(int32_t* stream) {
+int32_t onAndroidDeviceChatAndroidEchoServerStart(int32_t* stream) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
     jobject bridge = androidDeviceServerBridgeObject();
-    if (bridge == nullptr || androidDeviceChatTorchServerStart == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
-    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceChatTorchServerStart));
+    if (bridge == nullptr || androidDeviceChatAndroidEchoServerStart == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceChatAndroidEchoServerStart));
     if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream start threw"); }
     int32_t errID = rpccgoKotlinHandleResult(env, result, stream);
     if (result != nullptr) { env->DeleteLocalRef(result); }
     return errID;
 }
 
-int32_t onAndroidDeviceChatTorchServerSend(int32_t stream, uintptr_t requestPtr, int32_t requestLen) {
+int32_t onAndroidDeviceChatAndroidEchoServerSend(int32_t stream, uintptr_t requestPtr, int32_t requestLen) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
     jobject bridge = androidDeviceServerBridgeObject();
-    if (bridge == nullptr || androidDeviceChatTorchServerSend == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    if (bridge == nullptr || androidDeviceChatAndroidEchoServerSend == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
     jbyteArray request = nullptr;
     int32_t requestErr = rpccgoRequestByteArray(env, requestPtr, requestLen, &request);
     if (requestErr != 0) { return requestErr; }
-    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceChatTorchServerSend, stream, request));
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceChatAndroidEchoServerSend, stream, request));
     env->DeleteLocalRef(request);
     if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream request handler threw"); }
     int32_t errID = rpccgoKotlinUnitResult(env, result);
@@ -670,81 +670,81 @@ int32_t onAndroidDeviceChatTorchServerSend(int32_t stream, uintptr_t requestPtr,
     return errID;
 }
 
-int32_t onAndroidDeviceChatTorchServerRecv(int32_t stream, uintptr_t* responsePtr, int32_t* responseLen) {
+int32_t onAndroidDeviceChatAndroidEchoServerRecv(int32_t stream, uintptr_t* responsePtr, int32_t* responseLen) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
     jobject bridge = androidDeviceServerBridgeObject();
-    if (bridge == nullptr || androidDeviceChatTorchServerRecv == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
-    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceChatTorchServerRecv, stream));
+    if (bridge == nullptr || androidDeviceChatAndroidEchoServerRecv == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceChatAndroidEchoServerRecv, stream));
     if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream response handler threw"); }
     int32_t errID = rpccgoKotlinBytesResult(env, result, responsePtr, responseLen);
     if (result != nullptr) { env->DeleteLocalRef(result); }
     return errID;
 }
 
-int32_t onAndroidDeviceChatTorchServerCloseSend(int32_t stream) {
+int32_t onAndroidDeviceChatAndroidEchoServerCloseSend(int32_t stream) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
     jobject bridge = androidDeviceServerBridgeObject();
-    if (bridge == nullptr || androidDeviceChatTorchServerCloseSend == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
-    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceChatTorchServerCloseSend, stream));
+    if (bridge == nullptr || androidDeviceChatAndroidEchoServerCloseSend == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceChatAndroidEchoServerCloseSend, stream));
     if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream control handler threw"); }
     int32_t errID = rpccgoKotlinUnitResult(env, result);
     if (result != nullptr) { env->DeleteLocalRef(result); }
     return errID;
 }
 
-int32_t onAndroidDeviceChatTorchServerFinish(int32_t stream) {
+int32_t onAndroidDeviceChatAndroidEchoServerFinish(int32_t stream) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
     jobject bridge = androidDeviceServerBridgeObject();
-    if (bridge == nullptr || androidDeviceChatTorchServerFinish == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
-    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceChatTorchServerFinish, stream));
+    if (bridge == nullptr || androidDeviceChatAndroidEchoServerFinish == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceChatAndroidEchoServerFinish, stream));
     if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream control handler threw"); }
     int32_t errID = rpccgoKotlinUnitResult(env, result);
     if (result != nullptr) { env->DeleteLocalRef(result); }
     return errID;
 }
 
-int32_t onAndroidDeviceChatTorchServerCancel(int32_t stream) {
+int32_t onAndroidDeviceChatAndroidEchoServerCancel(int32_t stream) {
     rpccgoJNIEnvScope envScope(nullptr);
     JNIEnv* env = envScope.env;
     if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
     jobject bridge = androidDeviceServerBridgeObject();
-    if (bridge == nullptr || androidDeviceChatTorchServerCancel == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
-    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceChatTorchServerCancel, stream));
+    if (bridge == nullptr || androidDeviceChatAndroidEchoServerCancel == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, androidDeviceChatAndroidEchoServerCancel, stream));
     if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream control handler threw"); }
     int32_t errID = rpccgoKotlinUnitResult(env, result);
     if (result != nullptr) { env->DeleteLocalRef(result); }
     return errID;
 }
 
-// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatTorchRegister invokes examples.flutter.sharedso.v1.AndroidDevice.ChatTorch through the Android C++ JNI adapter.
-extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatTorchRegister(JNIEnv* env, jobject thiz) {
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatAndroidEchoRegister invokes examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_androidDeviceChatAndroidEchoRegister(JNIEnv* env, jobject thiz) {
     rpccgoJNIEnvScope envScope(env);
     env = envScope.env;
     if (env == nullptr) { return nullptr; }
     if (!ensureAndroidDeviceServerBridge(env, thiz)) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge registration failed"); }
     jclass bridgeClass = env->GetObjectClass(thiz);
     if (bridgeClass == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge class lookup failed"); }
-    androidDeviceChatTorchServerStart = env->GetMethodID(bridgeClass, "androidDeviceChatTorchServerStart", "()[B");
-    androidDeviceChatTorchServerSend = env->GetMethodID(bridgeClass, "androidDeviceChatTorchServerSend", "(I[B)[B");
-    androidDeviceChatTorchServerRecv = env->GetMethodID(bridgeClass, "androidDeviceChatTorchServerRecv", "(I)[B");
-    androidDeviceChatTorchServerCloseSend = env->GetMethodID(bridgeClass, "androidDeviceChatTorchServerCloseSend", "(I)[B");
-    androidDeviceChatTorchServerFinish = env->GetMethodID(bridgeClass, "androidDeviceChatTorchServerFinish", "(I)[B");
-    androidDeviceChatTorchServerCancel = env->GetMethodID(bridgeClass, "androidDeviceChatTorchServerCancel", "(I)[B");
+    androidDeviceChatAndroidEchoServerStart = env->GetMethodID(bridgeClass, "androidDeviceChatAndroidEchoServerStart", "()[B");
+    androidDeviceChatAndroidEchoServerSend = env->GetMethodID(bridgeClass, "androidDeviceChatAndroidEchoServerSend", "(I[B)[B");
+    androidDeviceChatAndroidEchoServerRecv = env->GetMethodID(bridgeClass, "androidDeviceChatAndroidEchoServerRecv", "(I)[B");
+    androidDeviceChatAndroidEchoServerCloseSend = env->GetMethodID(bridgeClass, "androidDeviceChatAndroidEchoServerCloseSend", "(I)[B");
+    androidDeviceChatAndroidEchoServerFinish = env->GetMethodID(bridgeClass, "androidDeviceChatAndroidEchoServerFinish", "(I)[B");
+    androidDeviceChatAndroidEchoServerCancel = env->GetMethodID(bridgeClass, "androidDeviceChatAndroidEchoServerCancel", "(I)[B");
     env->DeleteLocalRef(bridgeClass);
     if (env->ExceptionCheck()) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method lookup failed"); }
-    if (androidDeviceChatTorchServerStart == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
-    if (androidDeviceChatTorchServerSend == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
-    if (androidDeviceChatTorchServerRecv == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
-    if (androidDeviceChatTorchServerCloseSend == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
-    if (androidDeviceChatTorchServerFinish == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
-    if (androidDeviceChatTorchServerCancel == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
-    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceRegisterChatTorch(onAndroidDeviceChatTorchServerStart, onAndroidDeviceChatTorchServerSend, onAndroidDeviceChatTorchServerRecv, onAndroidDeviceChatTorchServerCloseSend, onAndroidDeviceChatTorchServerFinish, onAndroidDeviceChatTorchServerCancel);
+    if (androidDeviceChatAndroidEchoServerStart == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (androidDeviceChatAndroidEchoServerSend == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (androidDeviceChatAndroidEchoServerRecv == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (androidDeviceChatAndroidEchoServerCloseSend == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (androidDeviceChatAndroidEchoServerFinish == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (androidDeviceChatAndroidEchoServerCancel == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    int32_t errID = rpccgoMsgFluttersharedv1AndroidDeviceRegisterChatAndroidEcho(onAndroidDeviceChatAndroidEchoServerStart, onAndroidDeviceChatAndroidEchoServerSend, onAndroidDeviceChatAndroidEchoServerRecv, onAndroidDeviceChatAndroidEchoServerCloseSend, onAndroidDeviceChatAndroidEchoServerFinish, onAndroidDeviceChatAndroidEchoServerCancel);
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessUnit(env);
 }

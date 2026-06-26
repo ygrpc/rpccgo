@@ -41,50 +41,50 @@ external int _rpccgoTakeErrorTextRaw(int errID, ffi.Pointer<ffi.UintPtr> textPtr
 @ffi.Native<_RpccgoMessageUnaryCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceSetTorch')
 external int _setTorchRaw(int requestPtr, int requestLen, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
 
-@ffi.Native<_RpccgoServerStreamStartCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchStart')
-external int _watchTorchStartRaw(int requestPtr, int requestLen, ffi.Pointer<ffi.Int32> handle, ffi.Pointer<ffi.Void> onRecv, ffi.Pointer<ffi.Void> onDone);
+@ffi.Native<_RpccgoServerStreamStartCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoStart')
+external int _watchAndroidEchoStartRaw(int requestPtr, int requestLen, ffi.Pointer<ffi.Int32> handle, ffi.Pointer<ffi.Void> onRecv, ffi.Pointer<ffi.Void> onDone);
 
-@ffi.Native<_RpccgoStreamRecvCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchRecv')
-external int _watchTorchRecvRaw(int handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
+@ffi.Native<_RpccgoStreamRecvCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoRecv')
+external int _watchAndroidEchoRecvRaw(int handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
 
-@ffi.Native<_RpccgoStreamCancelCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchCancel')
-external int _watchTorchCancelRaw(int handle);
+@ffi.Native<_RpccgoStreamCancelCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoCancel')
+external int _watchAndroidEchoCancelRaw(int handle);
 
-@ffi.Native<_RpccgoStreamCancelCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchClose')
-external int _watchTorchCloseRaw(int handle);
+@ffi.Native<_RpccgoStreamCancelCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceWatchAndroidEchoClose')
+external int _watchAndroidEchoCloseRaw(int handle);
 
-@ffi.Native<_RpccgoStreamStartCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchStart')
-external int _collectTorchStartRaw(ffi.Pointer<ffi.Int32> handle);
+@ffi.Native<_RpccgoStreamStartCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoStart')
+external int _collectAndroidEchoStartRaw(ffi.Pointer<ffi.Int32> handle);
 
-@ffi.Native<_RpccgoStreamSendCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchSend')
-external int _collectTorchSendRaw(int handle, int requestPtr, int requestLen);
+@ffi.Native<_RpccgoStreamSendCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoSend')
+external int _collectAndroidEchoSendRaw(int handle, int requestPtr, int requestLen);
 
-@ffi.Native<_RpccgoStreamFinishCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchFinish')
-external int _collectTorchFinishRaw(int handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
+@ffi.Native<_RpccgoStreamFinishCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoFinish')
+external int _collectAndroidEchoFinishRaw(int handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
 
-@ffi.Native<_RpccgoStreamCancelCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchCancel')
-external int _collectTorchCancelRaw(int handle);
+@ffi.Native<_RpccgoStreamCancelCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceCollectAndroidEchoCancel')
+external int _collectAndroidEchoCancelRaw(int handle);
 
-@ffi.Native<_RpccgoCallbackStreamStartCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceChatTorchStart')
-external int _chatTorchStartRaw(ffi.Pointer<ffi.Int32> handle, ffi.Pointer<ffi.Void> onRecv, ffi.Pointer<ffi.Void> onDone);
+@ffi.Native<_RpccgoCallbackStreamStartCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoStart')
+external int _chatAndroidEchoStartRaw(ffi.Pointer<ffi.Int32> handle, ffi.Pointer<ffi.Void> onRecv, ffi.Pointer<ffi.Void> onDone);
 
-@ffi.Native<_RpccgoStreamSendCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceChatTorchSend')
-external int _chatTorchSendRaw(int handle, int requestPtr, int requestLen);
+@ffi.Native<_RpccgoStreamSendCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoSend')
+external int _chatAndroidEchoSendRaw(int handle, int requestPtr, int requestLen);
 
-@ffi.Native<_RpccgoStreamRecvCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceChatTorchRecv')
-external int _chatTorchRecvRaw(int handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
+@ffi.Native<_RpccgoStreamRecvCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoRecv')
+external int _chatAndroidEchoRecvRaw(int handle, ffi.Pointer<ffi.UintPtr> responsePtr, ffi.Pointer<ffi.Int32> responseLen);
 
-@ffi.Native<_RpccgoStreamFinishVoidCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceChatTorchCloseSend')
-external int _chatTorchCloseSendRaw(int handle);
+@ffi.Native<_RpccgoStreamFinishVoidCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoCloseSend')
+external int _chatAndroidEchoCloseSendRaw(int handle);
 
-@ffi.Native<_RpccgoStreamFinishVoidCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceChatTorchFinish')
-external int _chatTorchFinishRaw(int handle);
+@ffi.Native<_RpccgoStreamFinishVoidCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoFinish')
+external int _chatAndroidEchoFinishRaw(int handle);
 
-@ffi.Native<_RpccgoStreamCancelCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceChatTorchCancel')
-external int _chatTorchCancelRaw(int handle);
+@ffi.Native<_RpccgoStreamCancelCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoCancel')
+external int _chatAndroidEchoCancelRaw(int handle);
 
-@ffi.Native<_RpccgoStreamCancelCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceChatTorchClose')
-external int _chatTorchCloseRaw(int handle);
+@ffi.Native<_RpccgoStreamCancelCAbi>(symbol: 'rpccgoMsgFluttersharedv1AndroidDeviceChatAndroidEchoClose')
+external int _chatAndroidEchoCloseRaw(int handle);
 
 class AndroidDeviceRpccgoClient {
   const AndroidDeviceRpccgoClient();
@@ -111,24 +111,24 @@ class AndroidDeviceRpccgoClient {
     }
   }
 
-  ({AndroidDeviceWatchTorchStream? value, String? error}) WatchTorchStart(pb.SetTorchRequest request) {
+  ({AndroidDeviceWatchAndroidEchoStream? value, String? error}) WatchAndroidEchoStart(pb.AndroidEchoRequest request) {
     final handlePtr = pkg_ffi.calloc<ffi.Int32>();
     final requestBytes = request.writeToBuffer();
     final requestPtr = _allocateBytes(requestBytes);
     try {
-      final errID = _watchTorchStartRaw(requestPtr.address, requestBytes.length, handlePtr, ffi.nullptr, ffi.nullptr);
+      final errID = _watchAndroidEchoStartRaw(requestPtr.address, requestBytes.length, handlePtr, ffi.nullptr, ffi.nullptr);
       final error = _takeErrorResult(errID);
       if (error != null) {
         return (value: null, error: error);
       }
-      return (value: AndroidDeviceWatchTorchStream._(this, handlePtr.value), error: null);
+      return (value: AndroidDeviceWatchAndroidEchoStream._(this, handlePtr.value), error: null);
     } finally {
       pkg_ffi.calloc.free(requestPtr);
       pkg_ffi.calloc.free(handlePtr);
     }
   }
 
-  ({AndroidDeviceWatchTorchStream? value, String? error}) WatchTorchStartCallback(pb.SetTorchRequest request, {required void Function(pb.SetTorchResponse value) onRecv, required void Function(String? error) onDone}) {
+  ({AndroidDeviceWatchAndroidEchoStream? value, String? error}) WatchAndroidEchoStartCallback(pb.AndroidEchoRequest request, {required void Function(pb.AndroidEchoResponse value) onRecv, required void Function(String? error) onDone}) {
     final handlePtr = pkg_ffi.calloc<ffi.Int32>();
     final requestBytes = request.writeToBuffer();
     final requestPtr = _allocateBytes(requestBytes);
@@ -148,7 +148,7 @@ class AndroidDeviceRpccgoClient {
     void cancelFromCallback(int stream, String error) {
       localError ??= error;
       if (stream != 0) {
-        _takeErrorResult(_watchTorchCancelRaw(stream));
+        _takeErrorResult(_watchAndroidEchoCancelRaw(stream));
       }
     }
     onRecvNative = ffi.NativeCallable<_RpccgoMessageOnRecvCAbi>.listener((int stream, int responsePtr, int responseLen) {
@@ -158,7 +158,7 @@ class AndroidDeviceRpccgoClient {
         return;
       }
       try {
-        onRecv(pb.SetTorchResponse.fromBuffer(responseBytes.value!));
+        onRecv(pb.AndroidEchoResponse.fromBuffer(responseBytes.value!));
       } catch (err) {
         cancelFromCallback(stream, err.toString());
       }
@@ -171,13 +171,13 @@ class AndroidDeviceRpccgoClient {
       });
     });
     try {
-      final errID = _watchTorchStartRaw(requestPtr.address, requestBytes.length, handlePtr, onRecvNative.nativeFunction.cast<ffi.Void>(), onDoneNative.nativeFunction.cast<ffi.Void>());
+      final errID = _watchAndroidEchoStartRaw(requestPtr.address, requestBytes.length, handlePtr, onRecvNative.nativeFunction.cast<ffi.Void>(), onDoneNative.nativeFunction.cast<ffi.Void>());
       final error = _takeErrorResult(errID);
       if (error != null) {
         closeCallbacks();
         return (value: null, error: error);
       }
-      final stream = AndroidDeviceWatchTorchStream._(this, handlePtr.value, true, closeCallbacks);
+      final stream = AndroidDeviceWatchAndroidEchoStream._(this, handlePtr.value, true, closeCallbacks);
       unregisterStream = stream._unregisterCallbackReceive;
       stream._registerCallbackReceive();
       return (value: stream, error: null);
@@ -187,35 +187,35 @@ class AndroidDeviceRpccgoClient {
     }
   }
 
-  ({AndroidDeviceCollectTorchStream? value, String? error}) CollectTorchStart() {
+  ({AndroidDeviceCollectAndroidEchoStream? value, String? error}) CollectAndroidEchoStart() {
     final handlePtr = pkg_ffi.calloc<ffi.Int32>();
     try {
-      final errID = _collectTorchStartRaw(handlePtr);
+      final errID = _collectAndroidEchoStartRaw(handlePtr);
       final error = _takeErrorResult(errID);
       if (error != null) {
         return (value: null, error: error);
       }
-      return (value: AndroidDeviceCollectTorchStream._(this, handlePtr.value), error: null);
+      return (value: AndroidDeviceCollectAndroidEchoStream._(this, handlePtr.value), error: null);
     } finally {
       pkg_ffi.calloc.free(handlePtr);
     }
   }
 
-  ({AndroidDeviceChatTorchStream? value, String? error}) ChatTorchStart() {
+  ({AndroidDeviceChatAndroidEchoStream? value, String? error}) ChatAndroidEchoStart() {
     final handlePtr = pkg_ffi.calloc<ffi.Int32>();
     try {
-      final errID = _chatTorchStartRaw(handlePtr, ffi.nullptr, ffi.nullptr);
+      final errID = _chatAndroidEchoStartRaw(handlePtr, ffi.nullptr, ffi.nullptr);
       final error = _takeErrorResult(errID);
       if (error != null) {
         return (value: null, error: error);
       }
-      return (value: AndroidDeviceChatTorchStream._(this, handlePtr.value), error: null);
+      return (value: AndroidDeviceChatAndroidEchoStream._(this, handlePtr.value), error: null);
     } finally {
       pkg_ffi.calloc.free(handlePtr);
     }
   }
 
-  ({AndroidDeviceChatTorchStream? value, String? error}) ChatTorchStartCallback({required void Function(pb.SetTorchResponse value) onRecv, required void Function(String? error) onDone}) {
+  ({AndroidDeviceChatAndroidEchoStream? value, String? error}) ChatAndroidEchoStartCallback({required void Function(pb.AndroidEchoResponse value) onRecv, required void Function(String? error) onDone}) {
     final handlePtr = pkg_ffi.calloc<ffi.Int32>();
     late final ffi.NativeCallable<_RpccgoMessageOnRecvCAbi> onRecvNative;
     late final ffi.NativeCallable<_RpccgoMessageOnDoneCAbi> onDoneNative;
@@ -233,7 +233,7 @@ class AndroidDeviceRpccgoClient {
     void cancelFromCallback(int stream, String error) {
       localError ??= error;
       if (stream != 0) {
-        _takeErrorResult(_chatTorchCancelRaw(stream));
+        _takeErrorResult(_chatAndroidEchoCancelRaw(stream));
       }
     }
     onRecvNative = ffi.NativeCallable<_RpccgoMessageOnRecvCAbi>.listener((int stream, int responsePtr, int responseLen) {
@@ -243,7 +243,7 @@ class AndroidDeviceRpccgoClient {
         return;
       }
       try {
-        onRecv(pb.SetTorchResponse.fromBuffer(responseBytes.value!));
+        onRecv(pb.AndroidEchoResponse.fromBuffer(responseBytes.value!));
       } catch (err) {
         cancelFromCallback(stream, err.toString());
       }
@@ -256,13 +256,13 @@ class AndroidDeviceRpccgoClient {
       });
     });
     try {
-      final errID = _chatTorchStartRaw(handlePtr, onRecvNative.nativeFunction.cast<ffi.Void>(), onDoneNative.nativeFunction.cast<ffi.Void>());
+      final errID = _chatAndroidEchoStartRaw(handlePtr, onRecvNative.nativeFunction.cast<ffi.Void>(), onDoneNative.nativeFunction.cast<ffi.Void>());
       final error = _takeErrorResult(errID);
       if (error != null) {
         closeCallbacks();
         return (value: null, error: error);
       }
-      final stream = AndroidDeviceChatTorchStream._(this, handlePtr.value, true, closeCallbacks);
+      final stream = AndroidDeviceChatAndroidEchoStream._(this, handlePtr.value, true, closeCallbacks);
       unregisterStream = stream._unregisterCallbackReceive;
       stream._registerCallbackReceive();
       return (value: stream, error: null);
@@ -322,22 +322,22 @@ class AndroidDeviceRpccgoClient {
   }
 }
 
-class AndroidDeviceWatchTorchStream implements rpccgo.RpccgoDisposableStream {
-  AndroidDeviceWatchTorchStream._(this._client, this._handle, [this._callbackReceive = false, this._closeCallbacks]);
+class AndroidDeviceWatchAndroidEchoStream implements rpccgo.RpccgoDisposableStream {
+  AndroidDeviceWatchAndroidEchoStream._(this._client, this._handle, [this._callbackReceive = false, this._closeCallbacks]);
   final AndroidDeviceRpccgoClient _client;
   final int _handle;
   final bool _callbackReceive;
   final void Function()? _closeCallbacks;
   var _callbacksClosed = false;
   var _registeredCallbackReceive = false;
-  ({pb.SetTorchResponse? value, String? error}) Recv() {
+  ({pb.AndroidEchoResponse? value, String? error}) Recv() {
     if (_callbackReceive) {
       return (value: null, error: 'rpccgo: stream receive is owned by callback receive mode');
     }
     final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
     final responseLen = pkg_ffi.calloc<ffi.Int32>();
     try {
-      final errID = _watchTorchRecvRaw(_handle, responsePtr, responseLen);
+      final errID = _watchAndroidEchoRecvRaw(_handle, responsePtr, responseLen);
       final error = _client._takeErrorResult(errID);
       if (error != null) {
         return (value: null, error: error);
@@ -346,7 +346,7 @@ class AndroidDeviceWatchTorchStream implements rpccgo.RpccgoDisposableStream {
       if (responseBytes.error != null) {
         return (value: null, error: responseBytes.error);
       }
-      return (value: pb.SetTorchResponse.fromBuffer(responseBytes.value!), error: null);
+      return (value: pb.AndroidEchoResponse.fromBuffer(responseBytes.value!), error: null);
     } finally {
       pkg_ffi.calloc.free(responsePtr);
       pkg_ffi.calloc.free(responseLen);
@@ -356,7 +356,7 @@ class AndroidDeviceWatchTorchStream implements rpccgo.RpccgoDisposableStream {
   ///
   /// Cancel may deliver onDone. Use Close when the callback owner is going away.
   String? Cancel() {
-    final errID = _watchTorchCancelRaw(_handle);
+    final errID = _watchAndroidEchoCancelRaw(_handle);
     final error = _client._takeErrorResult(errID);
     _closeCallbackReceive();
     return error;
@@ -387,7 +387,7 @@ class AndroidDeviceWatchTorchStream implements rpccgo.RpccgoDisposableStream {
     if (!_callbackReceive) {
       return 'rpccgo: stream close is only available in callback receive mode';
     }
-    final errID = _watchTorchCloseRaw(_handle);
+    final errID = _watchAndroidEchoCloseRaw(_handle);
     final error = _client._takeErrorResult(errID);
     _closeCallbackReceive();
     return error;
@@ -402,25 +402,25 @@ class AndroidDeviceWatchTorchStream implements rpccgo.RpccgoDisposableStream {
   }
 }
 
-class AndroidDeviceCollectTorchStream {
-  AndroidDeviceCollectTorchStream._(this._client, this._handle);
+class AndroidDeviceCollectAndroidEchoStream {
+  AndroidDeviceCollectAndroidEchoStream._(this._client, this._handle);
   final AndroidDeviceRpccgoClient _client;
   final int _handle;
-  String? Send(pb.SetTorchRequest request) {
+  String? Send(pb.AndroidEchoRequest request) {
     final requestBytes = request.writeToBuffer();
     final requestPtr = _client._allocateBytes(requestBytes);
     try {
-      final errID = _collectTorchSendRaw(_handle, requestPtr.address, requestBytes.length);
+      final errID = _collectAndroidEchoSendRaw(_handle, requestPtr.address, requestBytes.length);
       return _client._takeErrorResult(errID);
     } finally {
       pkg_ffi.calloc.free(requestPtr);
     }
   }
-  ({pb.SetTorchResponse? value, String? error}) Finish() {
+  ({pb.AndroidEchoResponse? value, String? error}) Finish() {
     final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
     final responseLen = pkg_ffi.calloc<ffi.Int32>();
     try {
-      final errID = _collectTorchFinishRaw(_handle, responsePtr, responseLen);
+      final errID = _collectAndroidEchoFinishRaw(_handle, responsePtr, responseLen);
       final error = _client._takeErrorResult(errID);
       if (error != null) {
         return (value: null, error: error);
@@ -429,45 +429,45 @@ class AndroidDeviceCollectTorchStream {
       if (responseBytes.error != null) {
         return (value: null, error: responseBytes.error);
       }
-      return (value: pb.SetTorchResponse.fromBuffer(responseBytes.value!), error: null);
+      return (value: pb.AndroidEchoResponse.fromBuffer(responseBytes.value!), error: null);
     } finally {
       pkg_ffi.calloc.free(responsePtr);
       pkg_ffi.calloc.free(responseLen);
     }
   }
   String? Cancel() {
-    final errID = _collectTorchCancelRaw(_handle);
+    final errID = _collectAndroidEchoCancelRaw(_handle);
     final error = _client._takeErrorResult(errID);
     return error;
   }
 }
 
-class AndroidDeviceChatTorchStream implements rpccgo.RpccgoDisposableStream {
-  AndroidDeviceChatTorchStream._(this._client, this._handle, [this._callbackReceive = false, this._closeCallbacks]);
+class AndroidDeviceChatAndroidEchoStream implements rpccgo.RpccgoDisposableStream {
+  AndroidDeviceChatAndroidEchoStream._(this._client, this._handle, [this._callbackReceive = false, this._closeCallbacks]);
   final AndroidDeviceRpccgoClient _client;
   final int _handle;
   final bool _callbackReceive;
   final void Function()? _closeCallbacks;
   var _callbacksClosed = false;
   var _registeredCallbackReceive = false;
-  String? Send(pb.SetTorchRequest request) {
+  String? Send(pb.AndroidEchoRequest request) {
     final requestBytes = request.writeToBuffer();
     final requestPtr = _client._allocateBytes(requestBytes);
     try {
-      final errID = _chatTorchSendRaw(_handle, requestPtr.address, requestBytes.length);
+      final errID = _chatAndroidEchoSendRaw(_handle, requestPtr.address, requestBytes.length);
       return _client._takeErrorResult(errID);
     } finally {
       pkg_ffi.calloc.free(requestPtr);
     }
   }
-  ({pb.SetTorchResponse? value, String? error}) Recv() {
+  ({pb.AndroidEchoResponse? value, String? error}) Recv() {
     if (_callbackReceive) {
       return (value: null, error: 'rpccgo: stream receive is owned by callback receive mode');
     }
     final responsePtr = pkg_ffi.calloc<ffi.UintPtr>();
     final responseLen = pkg_ffi.calloc<ffi.Int32>();
     try {
-      final errID = _chatTorchRecvRaw(_handle, responsePtr, responseLen);
+      final errID = _chatAndroidEchoRecvRaw(_handle, responsePtr, responseLen);
       final error = _client._takeErrorResult(errID);
       if (error != null) {
         return (value: null, error: error);
@@ -476,18 +476,18 @@ class AndroidDeviceChatTorchStream implements rpccgo.RpccgoDisposableStream {
       if (responseBytes.error != null) {
         return (value: null, error: responseBytes.error);
       }
-      return (value: pb.SetTorchResponse.fromBuffer(responseBytes.value!), error: null);
+      return (value: pb.AndroidEchoResponse.fromBuffer(responseBytes.value!), error: null);
     } finally {
       pkg_ffi.calloc.free(responsePtr);
       pkg_ffi.calloc.free(responseLen);
     }
   }
   String? CloseSend() {
-    final errID = _chatTorchCloseSendRaw(_handle);
+    final errID = _chatAndroidEchoCloseSendRaw(_handle);
     return _client._takeErrorResult(errID);
   }
   String? Finish() {
-    final errID = _chatTorchFinishRaw(_handle);
+    final errID = _chatAndroidEchoFinishRaw(_handle);
     final error = _client._takeErrorResult(errID);
     _closeCallbackReceive();
     return error;
@@ -496,7 +496,7 @@ class AndroidDeviceChatTorchStream implements rpccgo.RpccgoDisposableStream {
   ///
   /// Cancel may deliver onDone. Use Close when the callback owner is going away.
   String? Cancel() {
-    final errID = _chatTorchCancelRaw(_handle);
+    final errID = _chatAndroidEchoCancelRaw(_handle);
     final error = _client._takeErrorResult(errID);
     _closeCallbackReceive();
     return error;
@@ -527,7 +527,7 @@ class AndroidDeviceChatTorchStream implements rpccgo.RpccgoDisposableStream {
     if (!_callbackReceive) {
       return 'rpccgo: stream close is only available in callback receive mode';
     }
-    final errID = _chatTorchCloseRaw(_handle);
+    final errID = _chatAndroidEchoCloseRaw(_handle);
     final error = _client._takeErrorResult(errID);
     _closeCallbackReceive();
     return error;

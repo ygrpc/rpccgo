@@ -9,6 +9,8 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import examples.flutter.sharedso.v1.AndroidEchoRequest
+import examples.flutter.sharedso.v1.AndroidEchoResponse
 import examples.flutter.sharedso.v1.ReadRuntimeStateRequest
 import examples.flutter.sharedso.v1.RuntimeStateResponse
 import io.flutter.embedding.android.FlutterActivity
@@ -19,6 +21,7 @@ import io.flutter.plugin.common.MethodChannel
 class MainActivity : FlutterActivity() {
     private var events: EventChannel.EventSink? = null
     private var kotlinStream: SharedSoDemoJni.RpccgoCallbackStream? = null
+    private var androidStream: SharedSoDemoJni.RpccgoCallbackStream? = null
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action != SharedSoRuntimeService.ACTION_STATE) return
@@ -31,6 +34,17 @@ class MainActivity : FlutterActivity() {
         requestNotificationPermission()
         requestCameraPermission()
         startRuntimeService()
+    }
+
+    override fun onDestroy() {
+        val hadKotlinStream = kotlinStream != null
+        val hadAndroidStream = androidStream != null
+        stopKotlinStream()
+        stopAndroidStream()
+        if (hadKotlinStream) Log.i(TAG, "kotlin stream cancelled on activity destroy")
+        if (hadAndroidStream) Log.i(TAG, "android stream cancelled on activity destroy")
+        events = null
+        super.onDestroy()
     }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
@@ -47,6 +61,8 @@ class MainActivity : FlutterActivity() {
                 }
                 "kotlinStartStream" -> result.success(startKotlinStream())
                 "kotlinStopStream" -> result.success(stopKotlinStream())
+                "androidStartStream" -> result.success(startAndroidStream())
+                "androidStopStream" -> result.success(stopAndroidStream())
                 else -> result.notImplemented()
             }
         }
@@ -122,6 +138,46 @@ class MainActivity : FlutterActivity() {
         return stream?.cancel() ?: true
     }
 
+    private fun startAndroidStream(): Boolean {
+        if (androidStream != null) return true
+        val listener = object : SharedSoDemoJni.AndroidDeviceWatchAndroidEchoListener {
+            override fun onRecv(responseBytes: ByteArray) {
+                val line = try {
+                    formatAndroidEcho("android stream", AndroidEchoResponse.parseFrom(responseBytes))
+                } catch (error: Exception) {
+                    "android stream decode error=${error.message ?: error::class.java.name}"
+                }
+                sendEvent(line)
+            }
+
+            override fun onDone(error: String?) {
+                sendEvent("android stream done error=${error ?: "none"}")
+                androidStream = null
+            }
+        }
+        val result = SharedSoDemoJni.WatchAndroidEchoStartCallback(
+            this,
+            AndroidEchoRequest.newBuilder()
+                .setValue(100)
+                .setCaller("android-activity-echo-stream")
+                .build(),
+            listener,
+        )
+        val stream = result.value
+        if (!result.ok || stream == null) {
+            sendEvent("android stream start error=${result.error ?: "missing stream"}")
+            return false
+        }
+        androidStream = stream
+        return true
+    }
+
+    private fun stopAndroidStream(): Boolean {
+        val stream = androidStream
+        androidStream = null
+        return stream?.cancel() ?: true
+    }
+
     private fun sendEvent(line: String) {
         Log.i(TAG, line)
         runOnUiThread {
@@ -131,6 +187,9 @@ class MainActivity : FlutterActivity() {
 
     private fun formatState(label: String, value: RuntimeStateResponse): String =
         "$label value=${value.value} rev=${value.revision} pid=${value.pid} instance=${value.instanceAddress}"
+
+    private fun formatAndroidEcho(label: String, value: AndroidEchoResponse): String =
+        "$label value=${value.value} seq=${value.sequence} caller=${value.caller} served_by=${value.servedBy}"
 
     private fun registerReceiverCompat() {
         val filter = IntentFilter(SharedSoRuntimeService.ACTION_STATE)

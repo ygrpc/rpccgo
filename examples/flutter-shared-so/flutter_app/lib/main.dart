@@ -17,10 +17,7 @@ class SharedSoApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'rpccgo Shared .so',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF006C67)),
-      ),
+      theme: ThemeData(useMaterial3: true, colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF006C67))),
       home: const SharedSoHomePage(),
     );
   }
@@ -45,6 +42,7 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
   SharedSoDemoWatchRuntimeStateStream? _countStream;
   StreamSubscription<dynamic>? _serviceEvents;
   bool _kotlinStreamRunning = false;
+  bool _androidStreamRunning = false;
   bool _torchOn = false;
   bool _busy = false;
 
@@ -58,6 +56,9 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
         _kotlinLine = line;
         if (line.startsWith('kotlin stream done')) {
           _kotlinStreamRunning = false;
+        }
+        if (line.startsWith('android stream done')) {
+          _androidStreamRunning = false;
         }
       });
       _append(line);
@@ -81,9 +82,7 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
 
   Future<void> _dartRead() async {
     await _run('dart read', () async {
-      final result = _client.ReadRuntimeState(
-        ReadRuntimeStateRequest(caller: 'dart-ffi-read'),
-      );
+      final result = _client.ReadRuntimeState(ReadRuntimeStateRequest(caller: 'dart-ffi-read'));
       final value = result.value;
       if (result.error != null || value == null) {
         _append('dart read error=${result.error ?? "missing response"}');
@@ -168,93 +167,37 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
     });
   }
 
+  Future<void> _startAndroidStream() async {
+    await _run('android start stream', () async {
+      final started = await _command.invokeMethod<bool>('androidStartStream');
+      if (started != true) {
+        _append('android stream start failed');
+        return;
+      }
+      setState(() => _androidStreamRunning = true);
+      _append('android stream started');
+    });
+  }
+
+  Future<void> _stopAndroidStream() async {
+    await _run('Android Stop Stream', () async {
+      final stopped = await _command.invokeMethod<bool>('androidStopStream');
+      setState(() => _androidStreamRunning = false);
+      _append('android stream stop result=${stopped == true}');
+    });
+  }
+
   Future<void> _toggleTorch() async {
     await _run('torch toggle', () async {
       final next = !_torchOn;
-      final result = _android.SetTorch(
-        SetTorchRequest(enabled: next, caller: 'dart-ffi-go-kotlin'),
-      );
+      final result = _android.SetTorch(SetTorchRequest(enabled: next, caller: 'dart-ffi-go-kotlin'));
       final value = result.value;
       if (result.error != null || value == null) {
         _append('torch error=${result.error ?? "missing response"}');
         return;
       }
       setState(() => _torchOn = value.enabled);
-      _append(
-        'torch ${value.status} camera=${value.cameraId} caller=${value.caller}',
-      );
-    });
-  }
-
-  Future<void> _probeTorchStreams() async {
-    await _run('torch stream', () async {
-      final watch = _android.WatchTorchStart(
-        SetTorchRequest(enabled: false, caller: 'dart-watch-torch'),
-      );
-      final watchStream = watch.value;
-      if (watch.error != null || watchStream == null) {
-        _append('torch watch start error=${watch.error ?? "missing stream"}');
-        return;
-      }
-      final watched = watchStream.Recv();
-      final watchCancel = watchStream.Cancel();
-      if (watched.error != null || watched.value == null) {
-        _append(
-          'torch watch recv error=${watched.error ?? "missing response"}',
-        );
-        return;
-      }
-      _append(
-        'torch watch ${watched.value!.status} cancel=${watchCancel ?? "none"}',
-      );
-
-      final collect = _android.CollectTorchStart();
-      final collectStream = collect.value;
-      if (collect.error != null || collectStream == null) {
-        _append(
-          'torch collect start error=${collect.error ?? "missing stream"}',
-        );
-        return;
-      }
-      final collectSend = collectStream.Send(
-        SetTorchRequest(enabled: false, caller: 'dart-collect-torch'),
-      );
-      if (collectSend != null) {
-        _append('torch collect send error=$collectSend');
-        return;
-      }
-      final collected = collectStream.Finish();
-      if (collected.error != null || collected.value == null) {
-        _append(
-          'torch collect finish error=${collected.error ?? "missing response"}',
-        );
-        return;
-      }
-      _append('torch collect ${collected.value!.status}');
-
-      final chat = _android.ChatTorchStart();
-      final chatStream = chat.value;
-      if (chat.error != null || chatStream == null) {
-        _append('torch chat start error=${chat.error ?? "missing stream"}');
-        return;
-      }
-      final chatSend = chatStream.Send(
-        SetTorchRequest(enabled: false, caller: 'dart-chat-torch'),
-      );
-      if (chatSend != null) {
-        _append('torch chat send error=$chatSend');
-        return;
-      }
-      final chatted = chatStream.Recv();
-      final closeSend = chatStream.CloseSend();
-      final finish = chatStream.Finish();
-      if (chatted.error != null || chatted.value == null) {
-        _append('torch chat recv error=${chatted.error ?? "missing response"}');
-        return;
-      }
-      _append(
-        'torch chat ${chatted.value!.status} close=${closeSend ?? "none"} finish=${finish ?? "none"}',
-      );
+      _append('torch ${value.status} camera=${value.cameraId} caller=${value.caller}');
     });
   }
 
@@ -277,10 +220,7 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
   void _append(String line) {
     if (!mounted) return;
     setState(() {
-      _logs.insert(
-        0,
-        '${DateTime.now().toIso8601String().substring(11, 19)}  $line',
-      );
+      _logs.insert(0, '${DateTime.now().toIso8601String().substring(11, 19)}  $line');
       if (_logs.length > 80) _logs.removeLast();
     });
   }
@@ -293,14 +233,14 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: ListView(
             children: [
               _StatePanel(
                 kotlinLine: _kotlinLine,
                 dartState: _dartState,
                 dartStreamRunning: _countStream != null,
                 kotlinStreamRunning: _kotlinStreamRunning,
+                androidStreamRunning: _androidStreamRunning,
                 torchOn: _torchOn,
               ),
               const SizedBox(height: 12),
@@ -314,9 +254,7 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
                     label: const Text('Kotlin Read'),
                   ),
                   FilledButton.icon(
-                    onPressed: _busy
-                        ? null
-                        : () => _callKotlin('kotlinIncrement'),
+                    onPressed: _busy ? null : () => _callKotlin('kotlinIncrement'),
                     icon: const Icon(Icons.add_circle_outline),
                     label: const Text('Kotlin Increment'),
                   ),
@@ -350,17 +288,20 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
                     icon: const Icon(Icons.stop_circle_outlined),
                     label: const Text('Kotlin Stop Stream'),
                   ),
-                  FilledButton.icon(
-                    onPressed: _busy ? null : _toggleTorch,
-                    icon: Icon(
-                      _torchOn ? Icons.flashlight_off : Icons.flashlight_on,
-                    ),
-                    label: Text(_torchOn ? 'Torch Off' : 'Torch On'),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _startAndroidStream,
+                    icon: const Icon(Icons.play_circle),
+                    label: const Text('Android Server Start Stream'),
                   ),
                   OutlinedButton.icon(
-                    onPressed: _busy ? null : _probeTorchStreams,
-                    icon: const Icon(Icons.stream),
-                    label: const Text('Torch Stream'),
+                    onPressed: _busy ? null : _stopAndroidStream,
+                    icon: const Icon(Icons.stop_circle),
+                    label: const Text('Android Server Stop Stream'),
+                  ),
+                  FilledButton.icon(
+                    onPressed: _busy ? null : _toggleTorch,
+                    icon: Icon(_torchOn ? Icons.flashlight_off : Icons.flashlight_on),
+                    label: Text(_torchOn ? 'Torch Off' : 'Torch On'),
                   ),
                   OutlinedButton.icon(
                     onPressed: _busy ? null : SystemNavigator.pop,
@@ -372,47 +313,21 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
               const SizedBox(height: 12),
               Text('Log', style: theme.textTheme.titleMedium),
               const SizedBox(height: 8),
-              Expanded(
-                child: DraggableScrollableSheet(
-                  initialChildSize: 0.38,
-                  minChildSize: 0.18,
-                  maxChildSize: 0.85,
-                  builder: (context, scrollController) => DecoratedBox(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: theme.dividerColor),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const SizedBox(height: 8),
-                        Center(
-                          child: Container(
-                            width: 48,
-                            height: 4,
-                            decoration: BoxDecoration(
-                              color: theme.dividerColor,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Expanded(
-                          child: ListView.separated(
-                            controller: scrollController,
-                            reverse: true,
-                            padding: const EdgeInsets.all(12),
-                            itemCount: _logs.length,
-                            separatorBuilder: (_, _) => const Divider(height: 12),
-                            itemBuilder: (_, index) => SelectableText(
-                              _logs[index],
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontFamily: 'monospace',
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+              SizedBox(
+                height: 240,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: theme.dividerColor),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: ListView.separated(
+                    reverse: true,
+                    padding: const EdgeInsets.all(12),
+                    itemCount: _logs.length,
+                    separatorBuilder: (_, _) => const Divider(height: 12),
+                    itemBuilder: (_, index) => SelectableText(
+                      _logs[index],
+                      style: theme.textTheme.bodyMedium?.copyWith(fontFamily: 'monospace'),
                     ),
                   ),
                 ),
@@ -431,6 +346,7 @@ class _StatePanel extends StatelessWidget {
     required this.dartState,
     required this.dartStreamRunning,
     required this.kotlinStreamRunning,
+    required this.androidStreamRunning,
     required this.torchOn,
   });
 
@@ -438,6 +354,7 @@ class _StatePanel extends StatelessWidget {
   final RuntimeStateResponse? dartState;
   final bool dartStreamRunning;
   final bool kotlinStreamRunning;
+  final bool androidStreamRunning;
   final bool torchOn;
 
   @override
@@ -455,15 +372,12 @@ class _StatePanel extends StatelessWidget {
           children: [
             Text('Service: ${kotlinLine == null ? "waiting" : "running"}'),
             Text('Dart stream: ${dartStreamRunning ? "running" : "stopped"}'),
-            Text(
-              'Kotlin stream: ${kotlinStreamRunning ? "running" : "stopped"}',
-            ),
+            Text('Kotlin stream: ${kotlinStreamRunning ? "running" : "stopped"}'),
+            Text('Android stream: ${androidStreamRunning ? "running" : "stopped"}'),
             Text('Torch: ${torchOn ? "on" : "off"}'),
             const SizedBox(height: 8),
             SelectableText('Kotlin/JNI: ${kotlinLine ?? "no state yet"}'),
-            SelectableText(
-              'Dart/FFI: ${dartState == null ? "no state yet" : _dartSummary(dartState!)}',
-            ),
+            SelectableText('Dart/FFI: ${dartState == null ? "no state yet" : _dartSummary(dartState!)}'),
           ],
         ),
       ),

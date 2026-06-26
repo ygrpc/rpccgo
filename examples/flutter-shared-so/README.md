@@ -65,7 +65,7 @@ val stream = SharedSoDemoJni.WatchRuntimeStateStartCallback(
 stream.value?.cancel()
 ```
 
-如果 Activity 被关闭但用户没有手动 stop，generated wrapper 会在 owner Activity destroyed 时自动 cancel native callback stream，并屏蔽 cancel 后可能到达的 terminal callback，避免继续回调已销毁的 Activity owner。后台业务 stream 应归属 Android `Service`；这类非 Activity owner 需要在 owner 的结束逻辑中保存并 cancel 返回的 `RpccgoCallbackStream`。
+如果 Activity 被关闭但用户没有手动 stop，Activity 的 `onDestroy` 会 cancel 当前持有的 callback stream；generated wrapper 也会在 owner Activity destroyed 时兜底 cancel native callback stream，并屏蔽 cancel 后可能到达的 terminal callback，避免继续回调已销毁的 Activity owner。后台业务 stream 应归属 Android `Service`；这类非 Activity owner 需要在 owner 的结束逻辑中保存并 cancel 返回的 `RpccgoCallbackStream`。
 
 ## Kotlin message server
 
@@ -75,9 +75,9 @@ stream.value?.cancel()
 SharedSoDemoJni.RegisterSetTorch { req ->
     // CameraManager.setTorchMode(...)
 }
-SharedSoDemoJni.RegisterWatchTorch { req -> /* returns AndroidDeviceWatchTorchServerHandler */ }
-SharedSoDemoJni.RegisterCollectTorch { /* returns AndroidDeviceCollectTorchServerHandler */ }
-SharedSoDemoJni.RegisterChatTorch { /* returns AndroidDeviceChatTorchServerHandler */ }
+SharedSoDemoJni.RegisterWatchAndroidEcho { req -> /* returns AndroidDeviceWatchAndroidEchoServerHandler */ }
+SharedSoDemoJni.RegisterCollectAndroidEcho { /* returns AndroidDeviceCollectAndroidEchoServerHandler */ }
+SharedSoDemoJni.RegisterChatAndroidEcho { /* returns AndroidDeviceChatAndroidEchoServerHandler */ }
 ```
 
 Flutter UI 不通过 `MethodChannel` 直接开灯或跑 stream；它调用 generated Dart FFI client，进入 Go shared runtime 后再路由到 Kotlin registered server：
@@ -86,12 +86,12 @@ Flutter UI 不通过 `MethodChannel` 直接开灯或跑 stream；它调用 gener
 const AndroidDeviceRpccgoClient().SetTorch(
   SetTorchRequest(enabled: true, caller: 'dart-ffi-go-kotlin'),
 );
-const AndroidDeviceRpccgoClient().WatchTorchStart(
-  SetTorchRequest(enabled: false, caller: 'dart-watch-torch'),
+const AndroidDeviceRpccgoClient().WatchAndroidEchoStart(
+  AndroidEchoRequest(value: 7, caller: 'dart-watch-android'),
 );
 ```
 
-这条路径验证的是 `Dart -> Go shared .so -> Kotlin message server -> Android framework`，并覆盖 Android-owned service 的 unary、client-streaming、server-streaming、bidi-streaming 四种 RPC shape。
+`SetTorch` 验证的是 `Dart -> Go shared .so -> Kotlin message server -> Android framework`；`WatchAndroidEcho`、`CollectAndroidEcho` 和 `ChatAndroidEcho` 不依赖硬件，用来单独覆盖 Android-owned service 的 server-streaming、client-streaming、bidi-streaming RPC shape。
 
 ## 运行
 
@@ -128,10 +128,11 @@ adb shell am start -n com.ygrpc.examples.rpccgofluttersharedso/.MainActivity
 - `Kotlin Start Stream`：Activity 通过 Kotlin/JNI 启动 callback server stream，每秒把 count/state 回传给 Flutter UI。
 - `Kotlin Stop Stream`：Activity 通过 Kotlin/JNI cancel callback server stream。
 - `Torch On/Off`：Flutter 通过 Dart FFI 调 `AndroidDevice.SetTorch`，Go runtime 路由到 Kotlin message server，再调用 Android `CameraManager`。
-- `Torch Stream`：Flutter 通过 Dart FFI 依次验证 `AndroidDevice.WatchTorch`、`CollectTorch`、`ChatTorch`，Go runtime 路由到 Kotlin stream server。
+- `Android Server Start Stream`：Activity 通过 Kotlin/JNI 启动 `AndroidDevice.WatchAndroidEcho` callback server stream，用来验证 Android-owned server stream 在 Activity 关闭时的 cleanup。
+- `Android Server Stop Stream`：Activity 通过 Kotlin/JNI cancel Android-owned callback server stream。
 - `Close Activity`：关闭 Activity。按钮本身不调用 stream stop；Dart stream 由 `RpccgoLifecycleScope` cleanup，Kotlin Activity-owned stream 由 generated owner-aware JNI wrapper cleanup。
 
-`Kotlin Start Stream` 故意让 callback listener 归属 Activity，用来验证 generated Kotlin/JNI Activity-owned callback stream 会在 Activity 销毁时自动 cancel，不继续回调已销毁的 UI owner。后台业务 stream 应该归属 Service，而不是 Activity。
+`Kotlin Start Stream` 和 `Android Server Start Stream` 故意让 callback listener 归属 Activity，用来验证 generated Kotlin/JNI Activity-owned callback stream 会在 Activity 销毁时自动 cancel，不继续回调已销毁的 UI owner。后台业务 stream 应该归属 Service，而不是 Activity。
 
 两边结果中的 `pid` 和 `instance_address` 一致，且 `value` / `revision` 连续变化，即表示 Kotlin/JNI 和 Dart FFI 进入了同一个 Go runtime/service 实例。
 
@@ -147,14 +148,21 @@ adb shell am start -n com.ygrpc.examples.rpccgofluttersharedso/.MainActivity
 1. 点击 `Kotlin Start Stream`，确认 `Kotlin stream: running` 且日志出现 `kotlin stream value=...`。
 2. 点击 `Close Activity`，不要点击 `Kotlin Stop Stream`。
 3. 等待几秒后检查 logcat。
-4. 预期进程和 foreground service 仍在，关闭 Activity 后不再持续出现新的 `kotlin stream value=...`，也不应出现 `FlutterJNI was detached from native C++`、`FATAL EXCEPTION`、`JNI DETECTED ERROR` 或 `SIGABRT`。
+4. 预期进程和 foreground service 仍在，logcat 出现 `kotlin stream cancelled on activity destroy`，关闭 Activity 后不再持续出现新的 `kotlin stream value=...`，也不应出现 `FlutterJNI was detached from native C++`、`FATAL EXCEPTION`、`JNI DETECTED ERROR` 或 `SIGABRT`。
+
+### 验证 AndroidDevice stream cleanup
+
+1. 点击 `Android Server Start Stream`，确认 `Android stream: running` 且日志持续出现 `android stream value=... seq=...`。
+2. 点击 `Close Activity`，不要点击 `Android Server Stop Stream`。
+3. 等待几秒后检查 logcat。
+4. 预期进程和 foreground service 仍在，logcat 出现 `android stream cancelled on activity destroy`，关闭 Activity 后不再持续出现新的 `android stream value=...`，也不应出现 `FlutterJNI was detached from native C++`、`FATAL EXCEPTION`、`JNI DETECTED ERROR` 或 `SIGABRT`。
 
 可用的 adb 检查命令：
 
 ```bash
 adb shell pidof com.ygrpc.examples.rpccgofluttersharedso
 adb shell dumpsys activity services com.ygrpc.examples.rpccgofluttersharedso
-adb logcat -d | rg 'Callback invoked|FfiCallback|FlutterJNI was detached|FATAL EXCEPTION|JNI DETECTED ERROR|SIGABRT|data_app_native_crash|kotlin stream'
+adb logcat -d | rg 'Callback invoked|FfiCallback|FlutterJNI was detached|FATAL EXCEPTION|JNI DETECTED ERROR|SIGABRT|data_app_native_crash|kotlin stream|android stream'
 ```
 
 ### 验证 AndroidDevice torch
@@ -162,5 +170,4 @@ adb logcat -d | rg 'Callback invoked|FfiCallback|FlutterJNI was detached|FATAL E
 1. 允许 app 的 Camera 权限。
 2. 点击 `Torch On`，预期手电筒点亮，日志出现 `torch torch-on camera=... caller=dart-ffi-go-kotlin`。
 3. 点击 `Torch Off`，预期手电筒关闭。
-4. 点击 `Torch Stream`，预期日志依次出现 `torch watch ...`、`torch collect ...`、`torch chat ...`，表示 Go 已调用 Kotlin-owned stream server；这条路径用于验证 stream contract，不要求实际切换手电筒状态。
-5. 拒绝 Camera 权限或使用无闪光灯设备时，UI 应显示明确错误，例如 `camera permission is not granted` 或 `no flash camera available`，进程不应崩溃。
+4. 拒绝 Camera 权限或使用无闪光灯设备时，UI 应显示明确错误，例如 `camera permission is not granted` 或 `no flash camera available`，进程不应崩溃。

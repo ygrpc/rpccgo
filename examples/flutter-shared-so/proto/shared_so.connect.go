@@ -57,14 +57,15 @@ const (
 	SharedSoDemoChatRuntimeStateProcedure = "/examples.flutter.sharedso.v1.SharedSoDemo/ChatRuntimeState"
 	// AndroidDeviceSetTorchProcedure is the fully-qualified name of the AndroidDevice's SetTorch RPC.
 	AndroidDeviceSetTorchProcedure = "/examples.flutter.sharedso.v1.AndroidDevice/SetTorch"
-	// AndroidDeviceWatchTorchProcedure is the fully-qualified name of the AndroidDevice's WatchTorch
-	// RPC.
-	AndroidDeviceWatchTorchProcedure = "/examples.flutter.sharedso.v1.AndroidDevice/WatchTorch"
-	// AndroidDeviceCollectTorchProcedure is the fully-qualified name of the AndroidDevice's
-	// CollectTorch RPC.
-	AndroidDeviceCollectTorchProcedure = "/examples.flutter.sharedso.v1.AndroidDevice/CollectTorch"
-	// AndroidDeviceChatTorchProcedure is the fully-qualified name of the AndroidDevice's ChatTorch RPC.
-	AndroidDeviceChatTorchProcedure = "/examples.flutter.sharedso.v1.AndroidDevice/ChatTorch"
+	// AndroidDeviceWatchAndroidEchoProcedure is the fully-qualified name of the AndroidDevice's
+	// WatchAndroidEcho RPC.
+	AndroidDeviceWatchAndroidEchoProcedure = "/examples.flutter.sharedso.v1.AndroidDevice/WatchAndroidEcho"
+	// AndroidDeviceCollectAndroidEchoProcedure is the fully-qualified name of the AndroidDevice's
+	// CollectAndroidEcho RPC.
+	AndroidDeviceCollectAndroidEchoProcedure = "/examples.flutter.sharedso.v1.AndroidDevice/CollectAndroidEcho"
+	// AndroidDeviceChatAndroidEchoProcedure is the fully-qualified name of the AndroidDevice's
+	// ChatAndroidEcho RPC.
+	AndroidDeviceChatAndroidEchoProcedure = "/examples.flutter.sharedso.v1.AndroidDevice/ChatAndroidEcho"
 )
 
 // SharedSoDemoClient is a client for the examples.flutter.sharedso.v1.SharedSoDemo service.
@@ -324,12 +325,12 @@ func (UnimplementedSharedSoDemoHandler) ChatRuntimeState(context.Context, *conne
 type AndroidDeviceClient interface {
 	// SetTorch enables or disables the Android camera torch.
 	SetTorch(context.Context, *SetTorchRequest) (*SetTorchResponse, error)
-	// WatchTorch streams Android-owned torch state observations.
-	WatchTorch(context.Context, *SetTorchRequest) (*connect.ServerStreamForClient[SetTorchResponse], error)
-	// CollectTorch applies a client stream of torch requests and returns the last state.
-	CollectTorch(context.Context) (*connect.ClientStreamForClientSimple[SetTorchRequest, SetTorchResponse], error)
-	// ChatTorch applies each torch request and streams each resulting state back.
-	ChatTorch(context.Context) (*connect.BidiStreamForClientSimple[SetTorchRequest, SetTorchResponse], error)
+	// WatchAndroidEcho streams Android-owned echo responses without hardware dependencies.
+	WatchAndroidEcho(context.Context, *AndroidEchoRequest) (*connect.ServerStreamForClient[AndroidEchoResponse], error)
+	// CollectAndroidEcho collects Android-owned echo requests without hardware dependencies.
+	CollectAndroidEcho(context.Context) (*connect.ClientStreamForClientSimple[AndroidEchoRequest, AndroidEchoResponse], error)
+	// ChatAndroidEcho echoes each Android-owned request without hardware dependencies.
+	ChatAndroidEcho(context.Context) (*connect.BidiStreamForClientSimple[AndroidEchoRequest, AndroidEchoResponse], error)
 }
 
 // NewAndroidDeviceClient constructs a client for the examples.flutter.sharedso.v1.AndroidDevice
@@ -349,22 +350,22 @@ func NewAndroidDeviceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(androidDeviceMethods.ByName("SetTorch")),
 			connect.WithClientOptions(opts...),
 		),
-		watchTorch: connect.NewClient[SetTorchRequest, SetTorchResponse](
+		watchAndroidEcho: connect.NewClient[AndroidEchoRequest, AndroidEchoResponse](
 			httpClient,
-			baseURL+AndroidDeviceWatchTorchProcedure,
-			connect.WithSchema(androidDeviceMethods.ByName("WatchTorch")),
+			baseURL+AndroidDeviceWatchAndroidEchoProcedure,
+			connect.WithSchema(androidDeviceMethods.ByName("WatchAndroidEcho")),
 			connect.WithClientOptions(opts...),
 		),
-		collectTorch: connect.NewClient[SetTorchRequest, SetTorchResponse](
+		collectAndroidEcho: connect.NewClient[AndroidEchoRequest, AndroidEchoResponse](
 			httpClient,
-			baseURL+AndroidDeviceCollectTorchProcedure,
-			connect.WithSchema(androidDeviceMethods.ByName("CollectTorch")),
+			baseURL+AndroidDeviceCollectAndroidEchoProcedure,
+			connect.WithSchema(androidDeviceMethods.ByName("CollectAndroidEcho")),
 			connect.WithClientOptions(opts...),
 		),
-		chatTorch: connect.NewClient[SetTorchRequest, SetTorchResponse](
+		chatAndroidEcho: connect.NewClient[AndroidEchoRequest, AndroidEchoResponse](
 			httpClient,
-			baseURL+AndroidDeviceChatTorchProcedure,
-			connect.WithSchema(androidDeviceMethods.ByName("ChatTorch")),
+			baseURL+AndroidDeviceChatAndroidEchoProcedure,
+			connect.WithSchema(androidDeviceMethods.ByName("ChatAndroidEcho")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -372,10 +373,10 @@ func NewAndroidDeviceClient(httpClient connect.HTTPClient, baseURL string, opts 
 
 // androidDeviceClient implements AndroidDeviceClient.
 type androidDeviceClient struct {
-	setTorch     *connect.Client[SetTorchRequest, SetTorchResponse]
-	watchTorch   *connect.Client[SetTorchRequest, SetTorchResponse]
-	collectTorch *connect.Client[SetTorchRequest, SetTorchResponse]
-	chatTorch    *connect.Client[SetTorchRequest, SetTorchResponse]
+	setTorch           *connect.Client[SetTorchRequest, SetTorchResponse]
+	watchAndroidEcho   *connect.Client[AndroidEchoRequest, AndroidEchoResponse]
+	collectAndroidEcho *connect.Client[AndroidEchoRequest, AndroidEchoResponse]
+	chatAndroidEcho    *connect.Client[AndroidEchoRequest, AndroidEchoResponse]
 }
 
 // SetTorch calls examples.flutter.sharedso.v1.AndroidDevice.SetTorch.
@@ -387,19 +388,19 @@ func (c *androidDeviceClient) SetTorch(ctx context.Context, req *SetTorchRequest
 	return nil, err
 }
 
-// WatchTorch calls examples.flutter.sharedso.v1.AndroidDevice.WatchTorch.
-func (c *androidDeviceClient) WatchTorch(ctx context.Context, req *SetTorchRequest) (*connect.ServerStreamForClient[SetTorchResponse], error) {
-	return c.watchTorch.CallServerStream(ctx, connect.NewRequest(req))
+// WatchAndroidEcho calls examples.flutter.sharedso.v1.AndroidDevice.WatchAndroidEcho.
+func (c *androidDeviceClient) WatchAndroidEcho(ctx context.Context, req *AndroidEchoRequest) (*connect.ServerStreamForClient[AndroidEchoResponse], error) {
+	return c.watchAndroidEcho.CallServerStream(ctx, connect.NewRequest(req))
 }
 
-// CollectTorch calls examples.flutter.sharedso.v1.AndroidDevice.CollectTorch.
-func (c *androidDeviceClient) CollectTorch(ctx context.Context) (*connect.ClientStreamForClientSimple[SetTorchRequest, SetTorchResponse], error) {
-	return c.collectTorch.CallClientStreamSimple(ctx)
+// CollectAndroidEcho calls examples.flutter.sharedso.v1.AndroidDevice.CollectAndroidEcho.
+func (c *androidDeviceClient) CollectAndroidEcho(ctx context.Context) (*connect.ClientStreamForClientSimple[AndroidEchoRequest, AndroidEchoResponse], error) {
+	return c.collectAndroidEcho.CallClientStreamSimple(ctx)
 }
 
-// ChatTorch calls examples.flutter.sharedso.v1.AndroidDevice.ChatTorch.
-func (c *androidDeviceClient) ChatTorch(ctx context.Context) (*connect.BidiStreamForClientSimple[SetTorchRequest, SetTorchResponse], error) {
-	return c.chatTorch.CallBidiStreamSimple(ctx)
+// ChatAndroidEcho calls examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho.
+func (c *androidDeviceClient) ChatAndroidEcho(ctx context.Context) (*connect.BidiStreamForClientSimple[AndroidEchoRequest, AndroidEchoResponse], error) {
+	return c.chatAndroidEcho.CallBidiStreamSimple(ctx)
 }
 
 // AndroidDeviceHandler is an implementation of the examples.flutter.sharedso.v1.AndroidDevice
@@ -407,12 +408,12 @@ func (c *androidDeviceClient) ChatTorch(ctx context.Context) (*connect.BidiStrea
 type AndroidDeviceHandler interface {
 	// SetTorch enables or disables the Android camera torch.
 	SetTorch(context.Context, *SetTorchRequest) (*SetTorchResponse, error)
-	// WatchTorch streams Android-owned torch state observations.
-	WatchTorch(context.Context, *SetTorchRequest, *connect.ServerStream[SetTorchResponse]) error
-	// CollectTorch applies a client stream of torch requests and returns the last state.
-	CollectTorch(context.Context, *connect.ClientStream[SetTorchRequest]) (*SetTorchResponse, error)
-	// ChatTorch applies each torch request and streams each resulting state back.
-	ChatTorch(context.Context, *connect.BidiStream[SetTorchRequest, SetTorchResponse]) error
+	// WatchAndroidEcho streams Android-owned echo responses without hardware dependencies.
+	WatchAndroidEcho(context.Context, *AndroidEchoRequest, *connect.ServerStream[AndroidEchoResponse]) error
+	// CollectAndroidEcho collects Android-owned echo requests without hardware dependencies.
+	CollectAndroidEcho(context.Context, *connect.ClientStream[AndroidEchoRequest]) (*AndroidEchoResponse, error)
+	// ChatAndroidEcho echoes each Android-owned request without hardware dependencies.
+	ChatAndroidEcho(context.Context, *connect.BidiStream[AndroidEchoRequest, AndroidEchoResponse]) error
 }
 
 // NewAndroidDeviceHandler builds an HTTP handler from the service implementation. It returns the
@@ -428,34 +429,34 @@ func NewAndroidDeviceHandler(svc AndroidDeviceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(androidDeviceMethods.ByName("SetTorch")),
 		connect.WithHandlerOptions(opts...),
 	)
-	androidDeviceWatchTorchHandler := connect.NewServerStreamHandlerSimple(
-		AndroidDeviceWatchTorchProcedure,
-		svc.WatchTorch,
-		connect.WithSchema(androidDeviceMethods.ByName("WatchTorch")),
+	androidDeviceWatchAndroidEchoHandler := connect.NewServerStreamHandlerSimple(
+		AndroidDeviceWatchAndroidEchoProcedure,
+		svc.WatchAndroidEcho,
+		connect.WithSchema(androidDeviceMethods.ByName("WatchAndroidEcho")),
 		connect.WithHandlerOptions(opts...),
 	)
-	androidDeviceCollectTorchHandler := connect.NewClientStreamHandlerSimple(
-		AndroidDeviceCollectTorchProcedure,
-		svc.CollectTorch,
-		connect.WithSchema(androidDeviceMethods.ByName("CollectTorch")),
+	androidDeviceCollectAndroidEchoHandler := connect.NewClientStreamHandlerSimple(
+		AndroidDeviceCollectAndroidEchoProcedure,
+		svc.CollectAndroidEcho,
+		connect.WithSchema(androidDeviceMethods.ByName("CollectAndroidEcho")),
 		connect.WithHandlerOptions(opts...),
 	)
-	androidDeviceChatTorchHandler := connect.NewBidiStreamHandler(
-		AndroidDeviceChatTorchProcedure,
-		svc.ChatTorch,
-		connect.WithSchema(androidDeviceMethods.ByName("ChatTorch")),
+	androidDeviceChatAndroidEchoHandler := connect.NewBidiStreamHandler(
+		AndroidDeviceChatAndroidEchoProcedure,
+		svc.ChatAndroidEcho,
+		connect.WithSchema(androidDeviceMethods.ByName("ChatAndroidEcho")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/examples.flutter.sharedso.v1.AndroidDevice/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case AndroidDeviceSetTorchProcedure:
 			androidDeviceSetTorchHandler.ServeHTTP(w, r)
-		case AndroidDeviceWatchTorchProcedure:
-			androidDeviceWatchTorchHandler.ServeHTTP(w, r)
-		case AndroidDeviceCollectTorchProcedure:
-			androidDeviceCollectTorchHandler.ServeHTTP(w, r)
-		case AndroidDeviceChatTorchProcedure:
-			androidDeviceChatTorchHandler.ServeHTTP(w, r)
+		case AndroidDeviceWatchAndroidEchoProcedure:
+			androidDeviceWatchAndroidEchoHandler.ServeHTTP(w, r)
+		case AndroidDeviceCollectAndroidEchoProcedure:
+			androidDeviceCollectAndroidEchoHandler.ServeHTTP(w, r)
+		case AndroidDeviceChatAndroidEchoProcedure:
+			androidDeviceChatAndroidEchoHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -469,14 +470,14 @@ func (UnimplementedAndroidDeviceHandler) SetTorch(context.Context, *SetTorchRequ
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("examples.flutter.sharedso.v1.AndroidDevice.SetTorch is not implemented"))
 }
 
-func (UnimplementedAndroidDeviceHandler) WatchTorch(context.Context, *SetTorchRequest, *connect.ServerStream[SetTorchResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("examples.flutter.sharedso.v1.AndroidDevice.WatchTorch is not implemented"))
+func (UnimplementedAndroidDeviceHandler) WatchAndroidEcho(context.Context, *AndroidEchoRequest, *connect.ServerStream[AndroidEchoResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("examples.flutter.sharedso.v1.AndroidDevice.WatchAndroidEcho is not implemented"))
 }
 
-func (UnimplementedAndroidDeviceHandler) CollectTorch(context.Context, *connect.ClientStream[SetTorchRequest]) (*SetTorchResponse, error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("examples.flutter.sharedso.v1.AndroidDevice.CollectTorch is not implemented"))
+func (UnimplementedAndroidDeviceHandler) CollectAndroidEcho(context.Context, *connect.ClientStream[AndroidEchoRequest]) (*AndroidEchoResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("examples.flutter.sharedso.v1.AndroidDevice.CollectAndroidEcho is not implemented"))
 }
 
-func (UnimplementedAndroidDeviceHandler) ChatTorch(context.Context, *connect.BidiStream[SetTorchRequest, SetTorchResponse]) error {
-	return connect.NewError(connect.CodeUnimplemented, errors.New("examples.flutter.sharedso.v1.AndroidDevice.ChatTorch is not implemented"))
+func (UnimplementedAndroidDeviceHandler) ChatAndroidEcho(context.Context, *connect.BidiStream[AndroidEchoRequest, AndroidEchoResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho is not implemented"))
 }
