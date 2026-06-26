@@ -14,6 +14,7 @@ import (
 
 	backend "example.com/rpccgo-flutter-shared-so/internal/backend"
 	fluttersharedv1 "example.com/rpccgo-flutter-shared-so/proto"
+	"github.com/ygrpc/rpccgo/rpcruntime"
 )
 
 func TestSharedSoDemoInvokeMessageContract(t *testing.T) {
@@ -197,35 +198,153 @@ func TestSharedSoDemoMessageStreamContract(t *testing.T) {
 	}
 }
 
+func TestAndroidDeviceMessageStreamContract(t *testing.T) {
+	server := androidDeviceTestServer{}
+	if err := fluttersharedv1.RegisterAndroidDeviceCGOMessageServer(server); err != nil {
+		t.Fatalf("register android device server: %v", err)
+	}
+	defer func() {
+		if err := fluttersharedv1.ClearAndroidDeviceServer(); err != nil {
+			t.Fatalf("clear android device server: %v", err)
+		}
+	}()
+
+	watch, err := fluttersharedv1.AndroidDeviceMessageWatchTorchStart(context.Background(), &fluttersharedv1.SetTorchRequest{
+		Enabled: false,
+		Caller:  "watch-test",
+	})
+	if err != nil {
+		t.Fatalf("start watch torch: %v", err)
+	}
+	for i := 1; i <= 2; i++ {
+		resp, err := fluttersharedv1.AndroidDeviceMessageWatchTorchRecv(context.Background(), watch)
+		if err != nil {
+			t.Fatalf("recv watch torch %d: %v", i, err)
+		}
+		if got, want := resp.GetStatus(), "watch-test"; got != want {
+			t.Fatalf("watch torch status = %q, want %q", got, want)
+		}
+	}
+	if err := fluttersharedv1.AndroidDeviceMessageWatchTorchCancel(context.Background(), watch); err != nil {
+		t.Fatalf("cancel watch torch: %v", err)
+	}
+
+	collect, err := fluttersharedv1.AndroidDeviceMessageCollectTorchStart(context.Background())
+	if err != nil {
+		t.Fatalf("start collect torch: %v", err)
+	}
+	for _, req := range []*fluttersharedv1.SetTorchRequest{
+		{Enabled: true, Caller: "collect-a"},
+		{Enabled: false, Caller: "collect-b"},
+	} {
+		if err := fluttersharedv1.AndroidDeviceMessageCollectTorchSend(context.Background(), collect, req); err != nil {
+			t.Fatalf("send collect torch: %v", err)
+		}
+	}
+	collected, err := fluttersharedv1.AndroidDeviceMessageCollectTorchFinish(context.Background(), collect)
+	if err != nil {
+		t.Fatalf("finish collect torch: %v", err)
+	}
+	if got, want := collected.GetCaller(), "collect-b"; got != want {
+		t.Fatalf("collect torch caller = %q, want %q", got, want)
+	}
+	if got, want := collected.GetStatus(), "collect"; got != want {
+		t.Fatalf("collect torch status = %q, want %q", got, want)
+	}
+
+	chat, err := fluttersharedv1.AndroidDeviceMessageChatTorchStart(context.Background())
+	if err != nil {
+		t.Fatalf("start chat torch: %v", err)
+	}
+	for i, req := range []*fluttersharedv1.SetTorchRequest{
+		{Enabled: true, Caller: "chat-a"},
+		{Enabled: false, Caller: "chat-b"},
+	} {
+		if err := fluttersharedv1.AndroidDeviceMessageChatTorchSend(context.Background(), chat, req); err != nil {
+			t.Fatalf("send chat torch %d: %v", i, err)
+		}
+		resp, err := fluttersharedv1.AndroidDeviceMessageChatTorchRecv(context.Background(), chat)
+		if err != nil {
+			t.Fatalf("recv chat torch %d: %v", i, err)
+		}
+		if got, want := resp.GetCaller(), req.GetCaller(); got != want {
+			t.Fatalf("chat torch caller = %q, want %q", got, want)
+		}
+		if got, want := resp.GetStatus(), "chat"; got != want {
+			t.Fatalf("chat torch status = %q, want %q", got, want)
+		}
+	}
+	if err := fluttersharedv1.AndroidDeviceMessageChatTorchCloseSend(context.Background(), chat); err != nil {
+		t.Fatalf("close send chat torch: %v", err)
+	}
+	if err := fluttersharedv1.AndroidDeviceMessageChatTorchFinish(context.Background(), chat); err != nil {
+		t.Fatalf("finish chat torch: %v", err)
+	}
+}
+
 func TestSharedSoDemoFlutterProjectContracts(t *testing.T) {
 	assertFileContains(t, "flutter_app/hook/build.dart", "DynamicLoadingSystem(")
 	assertFileContains(t, "flutter_app/hook/build.dart", "Uri.file('librpccgo_flutter_shared.so')")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "requestNotificationPermission")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "requestCameraPermission")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "startRuntimeService")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "MethodChannel")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/MainActivity.kt", "EventChannel")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoRuntimeService.kt", "SharedSoDemoJni.ReadRuntimeState")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoRuntimeService.kt", "SharedSoDemoJni.IncrementRuntimeState")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoRuntimeService.kt", "SharedSoDemoJni.RegisterSetTorch")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoRuntimeService.kt", "SharedSoDemoJni.RegisterWatchTorch")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoRuntimeService.kt", "SharedSoDemoJni.RegisterCollectTorch")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoRuntimeService.kt", "SharedSoDemoJni.RegisterChatTorch")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoRuntimeService.kt", "torch-watch-enabled")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoRuntimeService.kt", "torch-collect-enabled")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoRuntimeService.kt", "torch-chat")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoRuntimeService.kt", "LinkedBlockingQueue<SetTorchResponse>")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoRuntimeService.kt", "TimeUnit.MILLISECONDS")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoRuntimeService.kt", "CameraManager")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoRuntimeService.kt", "setTorchMode")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoRuntimeService.kt", "START_STICKY")
 	assertFileContains(t, "flutter_app/android/app/src/main/AndroidManifest.xml", "android:stopWithTask=\"false\"")
+	assertFileContains(t, "flutter_app/android/app/src/main/AndroidManifest.xml", "android.permission.CAMERA")
+	assertFileContains(t, "flutter_app/android/app/src/main/AndroidManifest.xml", "android.hardware.camera.flash")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun WatchRuntimeStateStart")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun CollectRuntimeStateStart")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun StreamRuntimeStateStart")
 	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun ChatRuntimeStateStart")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun RegisterSetTorch")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun RegisterWatchTorch")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun RegisterCollectTorch")
+	assertFileContains(t, "flutter_app/android/app/src/main/kotlin/com/ygrpc/examples/rpccgofluttersharedso/SharedSoDemoJni.kt", "fun RegisterChatTorch")
 	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart")
 	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "rpccgoMsgFluttersharedv1SharedSoDemoCollectRuntimeStateFinish")
 	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateCloseSend")
-	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "JNIEXPORT jint JNICALL JNI_OnLoad")
-	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "AttachCurrentThread")
-	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "void* rawEnv = nullptr;")
-	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "env = static_cast<JNIEnv*>(rawEnv);")
-	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.shared_so_demo.jni.cpp", "JNIEnv* attachedEnv = nullptr;")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.android_device.jni.cpp", "rpccgoMsgFluttersharedv1AndroidDeviceRegisterSetTorch")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.android_device.jni.cpp", "rpccgoMsgFluttersharedv1AndroidDeviceRegisterWatchTorch")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.android_device.jni.cpp", "rpccgoMsgFluttersharedv1AndroidDeviceRegisterCollectTorch")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/shared_so.android_device.jni.cpp", "rpccgoMsgFluttersharedv1AndroidDeviceRegisterChatTorch")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/rpccgo.jni.cpp", "JNIEXPORT jint JNICALL JNI_OnLoad")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/rpccgo.jni.cpp", "AttachCurrentThread")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/rpccgo.jni.cpp", "void* rawEnv = nullptr;")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/rpccgo.jni.cpp", "env = static_cast<JNIEnv*>(rawEnv);")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/rpccgo/rpccgo.jni.cpp", "JNIEnv* attachedEnv = nullptr;")
 	assertFileContains(t, "flutter_app/android/app/src/main/cpp/CMakeLists.txt", "rpccgo_flutter_shared_jni")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/CMakeLists.txt", "rpccgo/rpccgo.jni.cpp")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/CMakeLists.txt", "rpccgo/shared_so.shared_so_demo.jni.cpp")
+	assertFileContains(t, "flutter_app/android/app/src/main/cpp/CMakeLists.txt", "rpccgo/shared_so.android_device.jni.cpp")
 	assertFileContains(t, "flutter_app/android/app/src/main/cpp/CMakeLists.txt", "-l:librpccgo_flutter_shared.so")
 	assertFileContains(t, "flutter_app/lib/main.dart", "SharedSoDemoRpccgoClient")
+	assertFileContains(t, "flutter_app/lib/main.dart", "AndroidDeviceRpccgoClient")
 	assertFileContains(t, "flutter_app/lib/main.dart", "WatchRuntimeStateStartCallback")
+	assertFileContains(t, "flutter_app/lib/main.dart", "WatchTorchStart")
+	assertFileContains(t, "flutter_app/lib/main.dart", "CollectTorchStart")
+	assertFileContains(t, "flutter_app/lib/main.dart", "ChatTorchStart")
 	assertFileContains(t, "flutter_app/lib/main.dart", "_countStream?.Close()")
 	assertFileContains(t, "flutter_app/lib/main.dart", "ReadRuntimeState")
+	assertFileContains(t, "flutter_app/lib/main.dart", "SetTorchRequest")
+	assertFileContains(t, "flutter_app/lib/main.dart", "Torch On")
+	assertFileContains(t, "flutter_app/lib/main.dart", "Torch Stream")
+	assertFileContains(t, "flutter_app/lib/main.dart", "DraggableScrollableSheet")
+	assertFileContains(t, "flutter_app/lib/main.dart", "initialChildSize: 0.38")
 	assertFileContains(t, "flutter_app/lib/main.dart", "Dart Start Stream")
 	assertFileContains(t, "flutter_app/lib/main.dart", "Dart Stop Stream")
 	assertFileContains(t, "flutter_app/lib/main.dart", "Kotlin Start Stream")
@@ -247,8 +366,70 @@ func TestSharedSoDemoFlutterProjectContracts(t *testing.T) {
 	assertFileContains(t, "flutter_app/android/app/proguard-rules.pro", "GeneratedMessageLite")
 	assertFileContains(t, "flutter_app/android/app/proguard-rules.pro", "<fields>")
 	assertFileContains(t, "flutter_app/lib/gen/shared_so.shared_so_demo.rpccgo.dart", "@ffi.DefaultAsset('package:rpccgofluttersharedso/gen/rpccgo.dart')")
+	assertFileContains(t, "flutter_app/lib/gen/shared_so.android_device.rpccgo.dart", "class AndroidDeviceRpccgoClient")
+	assertFileContains(t, "flutter_app/lib/gen/shared_so.android_device.rpccgo.dart", "rpccgoMsgFluttersharedv1AndroidDeviceSetTorch")
+	assertFileContains(t, "flutter_app/lib/gen/shared_so.android_device.rpccgo.dart", "rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchStart")
+	assertFileContains(t, "flutter_app/lib/gen/shared_so.android_device.rpccgo.dart", "rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchFinish")
+	assertFileContains(t, "flutter_app/lib/gen/shared_so.android_device.rpccgo.dart", "rpccgoMsgFluttersharedv1AndroidDeviceChatTorchCloseSend")
 	assertFileContains(t, "flutter_app/lib/gen/shared_so.shared_so_demo.rpccgo.dart", "String? Close()")
 	assertFileContains(t, "flutter_app/lib/gen/shared_so.shared_so_demo.rpccgo.dart", "rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateClose")
+}
+
+type androidDeviceTestServer struct{}
+
+func (androidDeviceTestServer) SetTorch(ctx context.Context, req *fluttersharedv1.SetTorchRequest) (*fluttersharedv1.SetTorchResponse, error) {
+	return androidDeviceTestResponse(req, "set"), nil
+}
+
+func (androidDeviceTestServer) WatchTorch(ctx context.Context, req *fluttersharedv1.SetTorchRequest, stream rpcruntime.ServerStreamingServer[*fluttersharedv1.SetTorchResponse]) error {
+	for i := 0; i < 2; i++ {
+		if err := stream.Send(ctx, androidDeviceTestResponse(req, req.GetCaller())); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (androidDeviceTestServer) CollectTorch(ctx context.Context, stream rpcruntime.ClientStreamingServer[*fluttersharedv1.SetTorchRequest]) (*fluttersharedv1.SetTorchResponse, error) {
+	var last *fluttersharedv1.SetTorchRequest
+	for {
+		req, err := stream.Recv(ctx)
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		last = req
+	}
+	return androidDeviceTestResponse(last, "collect"), nil
+}
+
+func (androidDeviceTestServer) ChatTorch(ctx context.Context, stream rpcruntime.BidiStreamingServer[*fluttersharedv1.SetTorchRequest, *fluttersharedv1.SetTorchResponse]) error {
+	for {
+		req, err := stream.Recv(ctx)
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if err := stream.Send(ctx, androidDeviceTestResponse(req, "chat")); err != nil {
+			return err
+		}
+	}
+}
+
+func androidDeviceTestResponse(req *fluttersharedv1.SetTorchRequest, status string) *fluttersharedv1.SetTorchResponse {
+	if req == nil {
+		req = &fluttersharedv1.SetTorchRequest{}
+	}
+	return &fluttersharedv1.SetTorchResponse{
+		Enabled:  req.GetEnabled(),
+		CameraId: "test-camera",
+		Caller:   req.GetCaller(),
+		Status:   status,
+	}
 }
 
 func TestSharedSoDemoCSharedBuild(t *testing.T) {
@@ -273,6 +454,14 @@ func TestSharedSoDemoCSharedBuild(t *testing.T) {
 		"rpccgoMsgFluttersharedv1SharedSoDemoCollectRuntimeStateStart",
 		"rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateRecv",
 		"rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateCloseSend",
+		"rpccgoMsgFluttersharedv1AndroidDeviceSetTorch",
+		"rpccgoMsgFluttersharedv1AndroidDeviceRegisterSetTorch",
+		"rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchStart",
+		"rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchFinish",
+		"rpccgoMsgFluttersharedv1AndroidDeviceChatTorchCloseSend",
+		"rpccgoMsgFluttersharedv1AndroidDeviceRegisterWatchTorch",
+		"rpccgoMsgFluttersharedv1AndroidDeviceRegisterCollectTorch",
+		"rpccgoMsgFluttersharedv1AndroidDeviceRegisterChatTorch",
 		"rpccgoTakeErrorText",
 		"rpccgoRelease",
 	} {

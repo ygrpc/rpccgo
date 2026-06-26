@@ -4,6 +4,7 @@
 
 - Flutter 通过生成的 Dart FFI client 直接调用 Go `c-shared` runtime。
 - Android `Service` 通过 Kotlin/JNI 调用同一个 Go `c-shared` runtime。
+- Flutter 通过 Dart FFI 进入 Go `c-shared` runtime，再路由到 Kotlin message server 调用 Android 本机能力。
 
 App 启动时会自动启动 `SharedSoRuntimeService`。UI 里的 Dart/Kotlin stream 按钮分别验证 Dart FFI callback stream 和 Activity-owned Kotlin/JNI callback stream 在关闭 Activity、重新打开后的行为。
 
@@ -19,6 +20,7 @@ App 启动时会自动启动 `SharedSoRuntimeService`。UI 里的 Dart/Kotlin st
 ```text
 Dart UI -> generated Dart FFI client -> librpccgo_flutter_shared.so -> Go service
 Android Service -> generated Kotlin shim -> C++ JNI shim -> librpccgo_flutter_shared.so -> Go service
+Dart UI -> generated Dart FFI client -> librpccgo_flutter_shared.so -> generated Kotlin message server -> Android CameraManager
 ```
 
 Flutter 侧通过 `flutter_app/hook/build.dart` 注册：
@@ -65,6 +67,32 @@ stream.value?.cancel()
 
 如果 Activity 被关闭但用户没有手动 stop，generated wrapper 会在 owner Activity destroyed 时自动 cancel native callback stream，并屏蔽 cancel 后可能到达的 terminal callback，避免继续回调已销毁的 Activity owner。后台业务 stream 应归属 Android `Service`；这类非 Activity owner 需要在 owner 的结束逻辑中保存并 cancel 返回的 `RpccgoCallbackStream`。
 
+## Kotlin message server
+
+`AndroidDevice` 是 Android-owned capability service。`SharedSoRuntimeService` 启动时用 generated Kotlin API 注册 unary、server-streaming、client-streaming 和 bidi-streaming message server：
+
+```kotlin
+SharedSoDemoJni.RegisterSetTorch { req ->
+    // CameraManager.setTorchMode(...)
+}
+SharedSoDemoJni.RegisterWatchTorch { req -> /* returns AndroidDeviceWatchTorchServerHandler */ }
+SharedSoDemoJni.RegisterCollectTorch { /* returns AndroidDeviceCollectTorchServerHandler */ }
+SharedSoDemoJni.RegisterChatTorch { /* returns AndroidDeviceChatTorchServerHandler */ }
+```
+
+Flutter UI 不通过 `MethodChannel` 直接开灯或跑 stream；它调用 generated Dart FFI client，进入 Go shared runtime 后再路由到 Kotlin registered server：
+
+```dart
+const AndroidDeviceRpccgoClient().SetTorch(
+  SetTorchRequest(enabled: true, caller: 'dart-ffi-go-kotlin'),
+);
+const AndroidDeviceRpccgoClient().WatchTorchStart(
+  SetTorchRequest(enabled: false, caller: 'dart-watch-torch'),
+);
+```
+
+这条路径验证的是 `Dart -> Go shared .so -> Kotlin message server -> Android framework`，并覆盖 Android-owned service 的 unary、client-streaming、server-streaming、bidi-streaming 四种 RPC shape。
+
 ## 运行
 
 ```bash
@@ -99,6 +127,8 @@ adb shell am start -n com.ygrpc.examples.rpccgofluttersharedso/.MainActivity
 - `Dart Stop Stream`：Flutter 通过 Dart FFI cancel stream。
 - `Kotlin Start Stream`：Activity 通过 Kotlin/JNI 启动 callback server stream，每秒把 count/state 回传给 Flutter UI。
 - `Kotlin Stop Stream`：Activity 通过 Kotlin/JNI cancel callback server stream。
+- `Torch On/Off`：Flutter 通过 Dart FFI 调 `AndroidDevice.SetTorch`，Go runtime 路由到 Kotlin message server，再调用 Android `CameraManager`。
+- `Torch Stream`：Flutter 通过 Dart FFI 依次验证 `AndroidDevice.WatchTorch`、`CollectTorch`、`ChatTorch`，Go runtime 路由到 Kotlin stream server。
 - `Close Activity`：关闭 Activity。按钮本身不调用 stream stop；Dart stream 由 `RpccgoLifecycleScope` cleanup，Kotlin Activity-owned stream 由 generated owner-aware JNI wrapper cleanup。
 
 `Kotlin Start Stream` 故意让 callback listener 归属 Activity，用来验证 generated Kotlin/JNI Activity-owned callback stream 会在 Activity 销毁时自动 cancel，不继续回调已销毁的 UI owner。后台业务 stream 应该归属 Service，而不是 Activity。
@@ -126,3 +156,11 @@ adb shell pidof com.ygrpc.examples.rpccgofluttersharedso
 adb shell dumpsys activity services com.ygrpc.examples.rpccgofluttersharedso
 adb logcat -d | rg 'Callback invoked|FfiCallback|FlutterJNI was detached|FATAL EXCEPTION|JNI DETECTED ERROR|SIGABRT|data_app_native_crash|kotlin stream'
 ```
+
+### 验证 AndroidDevice torch
+
+1. 允许 app 的 Camera 权限。
+2. 点击 `Torch On`，预期手电筒点亮，日志出现 `torch torch-on camera=... caller=dart-ffi-go-kotlin`。
+3. 点击 `Torch Off`，预期手电筒关闭。
+4. 点击 `Torch Stream`，预期日志依次出现 `torch watch ...`、`torch collect ...`、`torch chat ...`，表示 Go 已调用 Kotlin-owned stream server；这条路径用于验证 stream contract，不要求实际切换手电筒状态。
+5. 拒绝 Camera 权限或使用无闪光灯设备时，UI 应显示明确错误，例如 `camera permission is not granted` 或 `no flash camera available`，进程不应崩溃。

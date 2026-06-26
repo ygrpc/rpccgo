@@ -5,7 +5,9 @@ project(rpccgo_flutter_shared_jni LANGUAGES CXX)
 set(RPCCGO_SHARED_LIB_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../jniLibs/${ANDROID_ABI}")
 
 add_library(rpccgo_flutter_shared_jni SHARED
+    rpccgo/rpccgo.jni.cpp
     rpccgo/shared_so.shared_so_demo.jni.cpp
+    rpccgo/shared_so.android_device.jni.cpp
 )
 
 target_compile_features(rpccgo_flutter_shared_jni PRIVATE cxx_std_17)

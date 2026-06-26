@@ -12,10 +12,10 @@ func renderMessageClientCGOFile(plugin *protogen.Plugin, plan FilePlan, service 
 	g.P("/*")
 	g.P("#include <stdint.h>")
 	if serviceHasRecvStreamingMethod(service) {
-		g.P("typedef void (*RpccgoMessageOnRecvCallback)(int32_t stream, uintptr_t response_ptr, int32_t response_len);")
-		g.P("typedef void (*RpccgoMessageOnDoneCallback)(int32_t stream, int32_t err_id);")
-		g.P("static inline void callRpccgoMessageOnRecvCallback(RpccgoMessageOnRecvCallback callback, int32_t stream, uintptr_t response_ptr, int32_t response_len) { callback(stream, response_ptr, response_len); }")
-		g.P("static inline void callRpccgoMessageOnDoneCallback(RpccgoMessageOnDoneCallback callback, int32_t stream, int32_t err_id) { callback(stream, err_id); }")
+		g.P("typedef void (*", messageOnRecvCallbackName(service), ")(int32_t stream, uintptr_t response_ptr, int32_t response_len);")
+		g.P("typedef void (*", messageOnDoneCallbackName(service), ")(int32_t stream, int32_t err_id);")
+		g.P("static inline void ", messageOnRecvCallbackCallName(service), "(", messageOnRecvCallbackName(service), " callback, int32_t stream, uintptr_t response_ptr, int32_t response_len) { callback(stream, response_ptr, response_len); }")
+		g.P("static inline void ", messageOnDoneCallbackCallName(service), "(", messageOnDoneCallbackName(service), " callback, int32_t stream, int32_t err_id) { callback(stream, err_id); }")
 	}
 	g.P("*/")
 	g.P(`import "C"`)
@@ -180,7 +180,7 @@ func renderMessageServerStreamingCExportWrappers(g *protogen.GeneratedFile, plan
 	startName := messageCExportFuncName(plan, service, method, "start")
 	renderCGOExportDoc(g, startName, "starts the message server-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", startName)
-	g.P("func ", startName, "(requestPtr C.uintptr_t, requestLen C.int32_t, handle *C.int32_t, onRecv C.RpccgoMessageOnRecvCallback, onDone C.RpccgoMessageOnDoneCallback) C.int32_t {")
+	g.P("func ", startName, "(requestPtr C.uintptr_t, requestLen C.int32_t, handle *C.int32_t, onRecv C.", messageOnRecvCallbackName(service), ", onDone C.", messageOnDoneCallbackName(service), ") C.int32_t {")
 	g.P("ctx := context.Background()")
 	renderMessageCExportHandleValidation(g)
 	g.P("req := &", g.QualifiedGoIdent(protogen.GoIdent{GoName: method.Request.GoName, GoImportPath: protogen.GoImportPath(method.Request.GoImportPath)}), "{}")
@@ -252,7 +252,7 @@ func renderMessageBidiStreamingCExportWrappers(g *protogen.GeneratedFile, plan F
 	startName := messageCExportFuncName(plan, service, method, "start")
 	renderCGOExportDoc(g, startName, "starts the message bidi-streaming client entrypoint for "+method.FullName+".")
 	g.P("//export ", startName)
-	g.P("func ", startName, "(handle *C.int32_t, onRecv C.RpccgoMessageOnRecvCallback, onDone C.RpccgoMessageOnDoneCallback) C.int32_t {")
+	g.P("func ", startName, "(handle *C.int32_t, onRecv C.", messageOnRecvCallbackName(service), ", onDone C.", messageOnDoneCallbackName(service), ") C.int32_t {")
 	g.P("ctx := context.Background()")
 	renderMessageCExportHandleValidation(g)
 	g.P("handleValue, err := ", servicePackage, runtimeMessageStreamOperationCallName(service, method, "Start"), "(ctx)")
@@ -420,37 +420,53 @@ func renderMessageCallbackReceiveStart(g *protogen.GeneratedFile, service Servic
 	g.P("resp, err := source.Recv(context.Background())")
 	g.P("if err != nil {")
 	g.P("if errors.Is(err, io.EOF) {")
-	renderMessageCallbackReceiveFinish(g, handleValue, onDone, "0")
+	renderMessageCallbackReceiveFinish(g, service, handleValue, onDone, "0")
 	g.P("} else {")
-	renderMessageCallbackReceiveFinish(g, handleValue, onDone, "int32(rpcruntime.StoreError(err))")
+	renderMessageCallbackReceiveFinish(g, service, handleValue, onDone, "int32(rpcruntime.StoreError(err))")
 	g.P("}")
 	g.P("return")
 	g.P("}")
 	g.P("ptr, length, err := rpcruntime.EncodeMessage(resp)")
 	g.P("if err != nil {")
-	renderMessageCallbackReceiveFinish(g, handleValue, onDone, `int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))`)
+	renderMessageCallbackReceiveFinish(g, service, handleValue, onDone, `int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))`)
 	g.P("return")
 	g.P("}")
 	g.P("if !callbackState.BeginCallback() {")
 	g.P("if ptr != 0 { rpcruntime.Release(ptr) }")
-	renderMessageCallbackReceiveFinish(g, handleValue, onDone, `int32(rpcruntime.StoreError(errors.New("rpccgo: stream callback receive canceled")))`)
+	renderMessageCallbackReceiveFinish(g, service, handleValue, onDone, `int32(rpcruntime.StoreError(errors.New("rpccgo: stream callback receive canceled")))`)
 	g.P("return")
 	g.P("}")
-	g.P("C.callRpccgoMessageOnRecvCallback(", onRecv, ", C.int32_t(int32(", handleValue, ")), C.uintptr_t(ptr), C.int32_t(length))")
+	g.P("C.", messageOnRecvCallbackCallName(service), "(", onRecv, ", C.int32_t(int32(", handleValue, ")), C.uintptr_t(ptr), C.int32_t(length))")
 	g.P("callbackState.EndCallback()")
 	g.P("}")
 	g.P("}()")
 }
 
-func renderMessageCallbackReceiveFinish(g *protogen.GeneratedFile, handleValue, onDone, errID string) {
+func renderMessageCallbackReceiveFinish(g *protogen.GeneratedFile, service ServicePlan, handleValue, onDone, errID string) {
 	g.P("if callbackState.BeginDoneCallback() {")
-	g.P("C.callRpccgoMessageOnDoneCallback(", onDone, ", C.int32_t(int32(", handleValue, ")), C.int32_t(", errID, "))")
+	g.P("C.", messageOnDoneCallbackCallName(service), "(", onDone, ", C.int32_t(int32(", handleValue, ")), C.int32_t(", errID, "))")
 	g.P("callbackState.EndDoneCallback()")
 	g.P("}")
 }
 
 func messageCExportFuncName(plan FilePlan, service ServicePlan, method MethodPlan, operation string) string {
 	return cgoServiceExportName("msg", plan, service, method.GoName, operation)
+}
+
+func messageOnRecvCallbackName(service ServicePlan) string {
+	return service.GoName + "RpccgoMessageOnRecvCallback"
+}
+
+func messageOnDoneCallbackName(service ServicePlan) string {
+	return service.GoName + "RpccgoMessageOnDoneCallback"
+}
+
+func messageOnRecvCallbackCallName(service ServicePlan) string {
+	return "call" + service.GoName + "RpccgoMessageOnRecvCallback"
+}
+
+func messageOnDoneCallbackCallName(service ServicePlan) string {
+	return "call" + service.GoName + "RpccgoMessageOnDoneCallback"
 }
 
 func runtimeMessageStreamOperationCallName(service ServicePlan, method MethodPlan, operation string) string {

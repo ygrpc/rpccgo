@@ -115,7 +115,7 @@ _Avoid_: active server
 - Package-level shared cgo artifacts 按 cgo Go package 只生成一次：`rpccgo.exports.cgo.rpccgo.go` 和 `main.go`。
 - Dart service client file 使用 `<proto-prefix>.<service>.rpccgo.dart`；Dart shared entry file 使用 `rpccgo.dart`。
 - Dart native asset ID 使用 `package:<dart_package>/gen/rpccgo.dart`。
-- JNI C++ file 使用 `<proto-base>.<service>.jni.cpp` 并输出到 `cpp_dir`；Kotlin file 使用 `<JniClass>.kt` 并输出到 `kotlin_dir/<jni_class package>/`。
+- JNI C++ service file 使用 `<proto-base>.<service>.jni.cpp` 并输出到 `cpp_dir`；JNI shared support 使用 `rpccgo.jni.h` 和 `rpccgo.jni.cpp`；Kotlin file 使用 `<JniClass>.kt` 并输出到 `kotlin_dir/<jni_class package>/`。
 - 不生成独立 `remote.connect.rpccgo.go` 或 `remote.grpc.rpccgo.go` adapter 文件；remote registered server glue 属于 service runtime。
 
 ### Dart and JNI/Kotlin APIs

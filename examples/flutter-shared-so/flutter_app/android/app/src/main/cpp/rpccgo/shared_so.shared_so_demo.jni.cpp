@@ -2,147 +2,47 @@
 //
 // Source: shared_so.proto
 
-#include <jni.h>
-#include <stdint.h>
-#include <stdlib.h>
-
 #include <mutex>
-#include <string>
-#include <vector>
 
-#include "librpccgo_flutter_shared.h"
+#include "rpccgo.jni.h"
 
-JavaVM* javaVM = nullptr;
+std::mutex sharedSoDemoServerBridgeMu;
+jobject sharedSoDemoServerBridge = nullptr;
+jmethodID sharedSoDemoComposeGreetingServerHandle = nullptr;
+jmethodID sharedSoDemoIncrementRuntimeStateServerHandle = nullptr;
+jmethodID sharedSoDemoReadRuntimeStateServerHandle = nullptr;
+jmethodID sharedSoDemoWatchRuntimeStateServerStart = nullptr;
+jmethodID sharedSoDemoWatchRuntimeStateServerRecv = nullptr;
+jmethodID sharedSoDemoWatchRuntimeStateServerFinish = nullptr;
+jmethodID sharedSoDemoWatchRuntimeStateServerCancel = nullptr;
+jmethodID sharedSoDemoCollectRuntimeStateServerStart = nullptr;
+jmethodID sharedSoDemoCollectRuntimeStateServerSend = nullptr;
+jmethodID sharedSoDemoCollectRuntimeStateServerFinish = nullptr;
+jmethodID sharedSoDemoCollectRuntimeStateServerCancel = nullptr;
+jmethodID sharedSoDemoStreamRuntimeStateServerStart = nullptr;
+jmethodID sharedSoDemoStreamRuntimeStateServerRecv = nullptr;
+jmethodID sharedSoDemoStreamRuntimeStateServerFinish = nullptr;
+jmethodID sharedSoDemoStreamRuntimeStateServerCancel = nullptr;
+jmethodID sharedSoDemoChatRuntimeStateServerStart = nullptr;
+jmethodID sharedSoDemoChatRuntimeStateServerSend = nullptr;
+jmethodID sharedSoDemoChatRuntimeStateServerRecv = nullptr;
+jmethodID sharedSoDemoChatRuntimeStateServerCloseSend = nullptr;
+jmethodID sharedSoDemoChatRuntimeStateServerFinish = nullptr;
+jmethodID sharedSoDemoChatRuntimeStateServerCancel = nullptr;
 
-JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) {
-    javaVM = vm;
-    // Android supports JNI 1.6; the JavaVM is also used to resolve JNIEnv on stream operation threads.
-    return JNI_VERSION_1_6;
-}
-
-JNIEXPORT void JNICALL JNI_OnUnload(JavaVM*, void*) {
-    javaVM = nullptr;
-}
-
-namespace {
-
-class rpccgoJNIEnvScope {
-public:
-    explicit rpccgoJNIEnvScope(JNIEnv* current) : env(current), attached(false) {
-        if (env != nullptr || javaVM == nullptr) { return; }
-        void* rawEnv = nullptr;
-        jint status = javaVM->GetEnv(&rawEnv, JNI_VERSION_1_6);
-        if (status == JNI_OK) {
-            env = static_cast<JNIEnv*>(rawEnv);
-            return;
-        }
-        JNIEnv* attachedEnv = nullptr;
-        if (status == JNI_EDETACHED && javaVM->AttachCurrentThread(&attachedEnv, nullptr) == JNI_OK) {
-            env = attachedEnv;
-            attached = true;
-        }
+bool ensureSharedSoDemoServerBridge(JNIEnv* env, jobject thiz) {
+    if (env == nullptr || thiz == nullptr) { return false; }
+    std::lock_guard<std::mutex> lock(sharedSoDemoServerBridgeMu);
+    if (sharedSoDemoServerBridge == nullptr) {
+        sharedSoDemoServerBridge = env->NewGlobalRef(thiz);
     }
-    ~rpccgoJNIEnvScope() {
-        if (attached && javaVM != nullptr) { javaVM->DetachCurrentThread(); }
-    }
-    JNIEnv* env;
-
-private:
-    bool attached;
-};
-
-jbyteArray rpccgoJNIByteArray(JNIEnv* env, const std::vector<uint8_t>& data) {
-    if (env == nullptr) { return nullptr; }
-    jbyteArray array = env->NewByteArray(static_cast<jsize>(data.size()));
-    if (array == nullptr) { return nullptr; }
-    if (!data.empty()) {
-        env->SetByteArrayRegion(array, 0, static_cast<jsize>(data.size()), reinterpret_cast<const jbyte*>(data.data()));
-    }
-    return array;
+    return sharedSoDemoServerBridge != nullptr;
 }
 
-std::vector<uint8_t> rpccgoJNIBytes(JNIEnv* env, jbyteArray value, bool* ok) {
-    if (ok != nullptr) { *ok = false; }
-    if (env == nullptr || value == nullptr) { return {}; }
-    jsize length = env->GetArrayLength(value);
-    if (length < 0) { return {}; }
-    std::vector<uint8_t> data(static_cast<size_t>(length));
-    if (length != 0) {
-        env->GetByteArrayRegion(value, 0, length, reinterpret_cast<jbyte*>(data.data()));
-    }
-    if (ok != nullptr) { *ok = !env->ExceptionCheck(); }
-    return data;
+jobject sharedSoDemoServerBridgeObject() {
+    std::lock_guard<std::mutex> lock(sharedSoDemoServerBridgeMu);
+    return sharedSoDemoServerBridge;
 }
-
-void rpccgoWriteInt32(std::vector<uint8_t>* out, int32_t value) {
-    out->push_back(static_cast<uint8_t>((value >> 24) & 0xff));
-    out->push_back(static_cast<uint8_t>((value >> 16) & 0xff));
-    out->push_back(static_cast<uint8_t>((value >> 8) & 0xff));
-    out->push_back(static_cast<uint8_t>(value & 0xff));
-}
-
-jbyteArray rpccgoResult(JNIEnv* env, bool ok, const std::vector<uint8_t>& payload) {
-    std::vector<uint8_t> out;
-    out.reserve(payload.size() + 5);
-    out.push_back(ok ? 1 : 0);
-    rpccgoWriteInt32(&out, static_cast<int32_t>(payload.size()));
-    out.insert(out.end(), payload.begin(), payload.end());
-    return rpccgoJNIByteArray(env, out);
-}
-
-std::vector<uint8_t> rpccgoErrorText(int32_t errID) {
-    uintptr_t textPtr = 0;
-    int32_t textLen = 0;
-    int32_t status = rpccgoTakeErrorText(errID, &textPtr, &textLen);
-    if (status != 0 || textLen < 0 || textPtr == 0) {
-        std::string fallback = "rpccgo: unknown error id " + std::to_string(errID);
-        return std::vector<uint8_t>(fallback.begin(), fallback.end());
-    }
-    const uint8_t* data = reinterpret_cast<const uint8_t*>(textPtr);
-    std::vector<uint8_t> text(data, data + textLen);
-    rpccgoRelease(textPtr);
-    return text;
-}
-
-jbyteArray rpccgoErrorResult(JNIEnv* env, const std::string& message) {
-    return rpccgoResult(env, false, std::vector<uint8_t>(message.begin(), message.end()));
-}
-
-jbyteArray rpccgoErrorIDResult(JNIEnv* env, int32_t errID) {
-    return rpccgoResult(env, false, rpccgoErrorText(errID));
-}
-
-jbyteArray rpccgoSuccessBytes(JNIEnv* env, uintptr_t responsePtr, int32_t responseLen) {
-    if (responseLen < 0) { return rpccgoErrorResult(env, "rpccgo: response length is negative"); }
-    if (responsePtr == 0 && responseLen != 0) { return rpccgoErrorResult(env, "rpccgo: response pointer is null"); }
-    const uint8_t* data = reinterpret_cast<const uint8_t*>(responsePtr);
-    std::vector<uint8_t> payload;
-    if (responseLen != 0) { payload.assign(data, data + responseLen); }
-    if (responsePtr != 0) { rpccgoRelease(responsePtr); }
-    return rpccgoResult(env, true, payload);
-}
-
-jbyteArray rpccgoSuccessHandle(JNIEnv* env, int32_t handle) {
-    std::vector<uint8_t> payload;
-    rpccgoWriteInt32(&payload, handle);
-    return rpccgoResult(env, true, payload);
-}
-
-jbyteArray rpccgoSuccessUnit(JNIEnv* env) {
-    return rpccgoResult(env, true, {});
-}
-
-uintptr_t rpccgoVectorPtr(const std::vector<uint8_t>& data) {
-    if (data.empty()) { return 0; }
-    return reinterpret_cast<uintptr_t>(data.data());
-}
-
-std::string rpccgoErrorString(int32_t errID) {
-    std::vector<uint8_t> text = rpccgoErrorText(errID);
-    return std::string(text.begin(), text.end());
-}
-
-}  // namespace
 
 // Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoComposeGreeting invokes examples.flutter.sharedso.v1.SharedSoDemo.ComposeGreeting through the Android C++ JNI adapter.
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoComposeGreeting(JNIEnv* env, jobject, jbyteArray request) {
@@ -157,6 +57,40 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersha
     int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoComposeGreeting(rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()), &responsePtr, &responseLen);
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessBytes(env, responsePtr, responseLen);
+}
+
+int32_t onSharedSoDemoComposeGreetingServerHandle(uintptr_t requestPtr, int32_t requestLen, uintptr_t* responsePtr, int32_t* responseLen) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoComposeGreetingServerHandle == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray request = nullptr;
+    int32_t requestErr = rpccgoRequestByteArray(env, requestPtr, requestLen, &request);
+    if (requestErr != 0) { return requestErr; }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoComposeGreetingServerHandle, request));
+    env->DeleteLocalRef(request);
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server unary handler threw"); }
+    int32_t errID = rpccgoKotlinBytesResult(env, result, responsePtr, responseLen);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoComposeGreetingRegister invokes examples.flutter.sharedso.v1.SharedSoDemo.ComposeGreeting through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoComposeGreetingRegister(JNIEnv* env, jobject thiz) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    if (!ensureSharedSoDemoServerBridge(env, thiz)) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge registration failed"); }
+    jclass bridgeClass = env->GetObjectClass(thiz);
+    if (bridgeClass == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge class lookup failed"); }
+    sharedSoDemoComposeGreetingServerHandle = env->GetMethodID(bridgeClass, "sharedSoDemoComposeGreetingHandle", "([B)[B");
+    env->DeleteLocalRef(bridgeClass);
+    if (env->ExceptionCheck()) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method lookup failed"); }
+    if (sharedSoDemoComposeGreetingServerHandle == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoRegisterComposeGreeting(onSharedSoDemoComposeGreetingServerHandle);
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessUnit(env);
 }
 
 // Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoIncrementRuntimeState invokes examples.flutter.sharedso.v1.SharedSoDemo.IncrementRuntimeState through the Android C++ JNI adapter.
@@ -174,6 +108,40 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersha
     return rpccgoSuccessBytes(env, responsePtr, responseLen);
 }
 
+int32_t onSharedSoDemoIncrementRuntimeStateServerHandle(uintptr_t requestPtr, int32_t requestLen, uintptr_t* responsePtr, int32_t* responseLen) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoIncrementRuntimeStateServerHandle == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray request = nullptr;
+    int32_t requestErr = rpccgoRequestByteArray(env, requestPtr, requestLen, &request);
+    if (requestErr != 0) { return requestErr; }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoIncrementRuntimeStateServerHandle, request));
+    env->DeleteLocalRef(request);
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server unary handler threw"); }
+    int32_t errID = rpccgoKotlinBytesResult(env, result, responsePtr, responseLen);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoIncrementRuntimeStateRegister invokes examples.flutter.sharedso.v1.SharedSoDemo.IncrementRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoIncrementRuntimeStateRegister(JNIEnv* env, jobject thiz) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    if (!ensureSharedSoDemoServerBridge(env, thiz)) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge registration failed"); }
+    jclass bridgeClass = env->GetObjectClass(thiz);
+    if (bridgeClass == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge class lookup failed"); }
+    sharedSoDemoIncrementRuntimeStateServerHandle = env->GetMethodID(bridgeClass, "sharedSoDemoIncrementRuntimeStateHandle", "([B)[B");
+    env->DeleteLocalRef(bridgeClass);
+    if (env->ExceptionCheck()) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method lookup failed"); }
+    if (sharedSoDemoIncrementRuntimeStateServerHandle == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoRegisterIncrementRuntimeState(onSharedSoDemoIncrementRuntimeStateServerHandle);
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessUnit(env);
+}
+
 // Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoReadRuntimeState invokes examples.flutter.sharedso.v1.SharedSoDemo.ReadRuntimeState through the Android C++ JNI adapter.
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoReadRuntimeState(JNIEnv* env, jobject, jbyteArray request) {
     rpccgoJNIEnvScope envScope(env);
@@ -187,6 +155,40 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersha
     int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoReadRuntimeState(rpccgoVectorPtr(requestBytes), static_cast<int32_t>(requestBytes.size()), &responsePtr, &responseLen);
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessBytes(env, responsePtr, responseLen);
+}
+
+int32_t onSharedSoDemoReadRuntimeStateServerHandle(uintptr_t requestPtr, int32_t requestLen, uintptr_t* responsePtr, int32_t* responseLen) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoReadRuntimeStateServerHandle == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray request = nullptr;
+    int32_t requestErr = rpccgoRequestByteArray(env, requestPtr, requestLen, &request);
+    if (requestErr != 0) { return requestErr; }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoReadRuntimeStateServerHandle, request));
+    env->DeleteLocalRef(request);
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server unary handler threw"); }
+    int32_t errID = rpccgoKotlinBytesResult(env, result, responsePtr, responseLen);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoReadRuntimeStateRegister invokes examples.flutter.sharedso.v1.SharedSoDemo.ReadRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoReadRuntimeStateRegister(JNIEnv* env, jobject thiz) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    if (!ensureSharedSoDemoServerBridge(env, thiz)) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge registration failed"); }
+    jclass bridgeClass = env->GetObjectClass(thiz);
+    if (bridgeClass == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge class lookup failed"); }
+    sharedSoDemoReadRuntimeStateServerHandle = env->GetMethodID(bridgeClass, "sharedSoDemoReadRuntimeStateHandle", "([B)[B");
+    env->DeleteLocalRef(bridgeClass);
+    if (env->ExceptionCheck()) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method lookup failed"); }
+    if (sharedSoDemoReadRuntimeStateServerHandle == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoRegisterReadRuntimeState(onSharedSoDemoReadRuntimeStateServerHandle);
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessUnit(env);
 }
 
 std::mutex sharedSoDemoWatchRuntimeStateCallbackMu;
@@ -350,6 +352,85 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttershare
     return cancelSharedSoDemoWatchRuntimeStateListenerCallback(env) ? JNI_TRUE : JNI_FALSE;
 }
 
+int32_t onSharedSoDemoWatchRuntimeStateServerStart(uintptr_t requestPtr, int32_t requestLen, int32_t* stream) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoWatchRuntimeStateServerStart == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray request = nullptr;
+    int32_t requestErr = rpccgoRequestByteArray(env, requestPtr, requestLen, &request);
+    if (requestErr != 0) { return requestErr; }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoWatchRuntimeStateServerStart, request));
+    env->DeleteLocalRef(request);
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream start threw"); }
+    int32_t errID = rpccgoKotlinHandleResult(env, result, stream);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+int32_t onSharedSoDemoWatchRuntimeStateServerRecv(int32_t stream, uintptr_t* responsePtr, int32_t* responseLen) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoWatchRuntimeStateServerRecv == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoWatchRuntimeStateServerRecv, stream));
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream response handler threw"); }
+    int32_t errID = rpccgoKotlinBytesResult(env, result, responsePtr, responseLen);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+int32_t onSharedSoDemoWatchRuntimeStateServerFinish(int32_t stream) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoWatchRuntimeStateServerFinish == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoWatchRuntimeStateServerFinish, stream));
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream control handler threw"); }
+    int32_t errID = rpccgoKotlinUnitResult(env, result);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+int32_t onSharedSoDemoWatchRuntimeStateServerCancel(int32_t stream) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoWatchRuntimeStateServerCancel == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoWatchRuntimeStateServerCancel, stream));
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream control handler threw"); }
+    int32_t errID = rpccgoKotlinUnitResult(env, result);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoWatchRuntimeStateRegister invokes examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoWatchRuntimeStateRegister(JNIEnv* env, jobject thiz) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    if (!ensureSharedSoDemoServerBridge(env, thiz)) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge registration failed"); }
+    jclass bridgeClass = env->GetObjectClass(thiz);
+    if (bridgeClass == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge class lookup failed"); }
+    sharedSoDemoWatchRuntimeStateServerStart = env->GetMethodID(bridgeClass, "sharedSoDemoWatchRuntimeStateServerStart", "([B)[B");
+    sharedSoDemoWatchRuntimeStateServerRecv = env->GetMethodID(bridgeClass, "sharedSoDemoWatchRuntimeStateServerRecv", "(I)[B");
+    sharedSoDemoWatchRuntimeStateServerFinish = env->GetMethodID(bridgeClass, "sharedSoDemoWatchRuntimeStateServerFinish", "(I)[B");
+    sharedSoDemoWatchRuntimeStateServerCancel = env->GetMethodID(bridgeClass, "sharedSoDemoWatchRuntimeStateServerCancel", "(I)[B");
+    env->DeleteLocalRef(bridgeClass);
+    if (env->ExceptionCheck()) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method lookup failed"); }
+    if (sharedSoDemoWatchRuntimeStateServerStart == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (sharedSoDemoWatchRuntimeStateServerRecv == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (sharedSoDemoWatchRuntimeStateServerFinish == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (sharedSoDemoWatchRuntimeStateServerCancel == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoRegisterWatchRuntimeState(onSharedSoDemoWatchRuntimeStateServerStart, onSharedSoDemoWatchRuntimeStateServerRecv, onSharedSoDemoWatchRuntimeStateServerFinish, onSharedSoDemoWatchRuntimeStateServerCancel);
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessUnit(env);
+}
+
 // Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoCollectRuntimeStateStart invokes examples.flutter.sharedso.v1.SharedSoDemo.CollectRuntimeState through the Android C++ JNI adapter.
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoCollectRuntimeStateStart(JNIEnv* env, jobject) {
     rpccgoJNIEnvScope envScope(env);
@@ -392,6 +473,85 @@ extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersha
     env = envScope.env;
     if (env == nullptr) { return nullptr; }
     int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoCollectRuntimeStateCancel(static_cast<int32_t>(handle));
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessUnit(env);
+}
+
+int32_t onSharedSoDemoCollectRuntimeStateServerStart(int32_t* stream) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoCollectRuntimeStateServerStart == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoCollectRuntimeStateServerStart));
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream start threw"); }
+    int32_t errID = rpccgoKotlinHandleResult(env, result, stream);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+int32_t onSharedSoDemoCollectRuntimeStateServerSend(int32_t stream, uintptr_t requestPtr, int32_t requestLen) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoCollectRuntimeStateServerSend == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray request = nullptr;
+    int32_t requestErr = rpccgoRequestByteArray(env, requestPtr, requestLen, &request);
+    if (requestErr != 0) { return requestErr; }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoCollectRuntimeStateServerSend, stream, request));
+    env->DeleteLocalRef(request);
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream request handler threw"); }
+    int32_t errID = rpccgoKotlinUnitResult(env, result);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+int32_t onSharedSoDemoCollectRuntimeStateServerFinish(int32_t stream, uintptr_t* responsePtr, int32_t* responseLen) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoCollectRuntimeStateServerFinish == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoCollectRuntimeStateServerFinish, stream));
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream response handler threw"); }
+    int32_t errID = rpccgoKotlinBytesResult(env, result, responsePtr, responseLen);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+int32_t onSharedSoDemoCollectRuntimeStateServerCancel(int32_t stream) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoCollectRuntimeStateServerCancel == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoCollectRuntimeStateServerCancel, stream));
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream control handler threw"); }
+    int32_t errID = rpccgoKotlinUnitResult(env, result);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoCollectRuntimeStateRegister invokes examples.flutter.sharedso.v1.SharedSoDemo.CollectRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoCollectRuntimeStateRegister(JNIEnv* env, jobject thiz) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    if (!ensureSharedSoDemoServerBridge(env, thiz)) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge registration failed"); }
+    jclass bridgeClass = env->GetObjectClass(thiz);
+    if (bridgeClass == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge class lookup failed"); }
+    sharedSoDemoCollectRuntimeStateServerStart = env->GetMethodID(bridgeClass, "sharedSoDemoCollectRuntimeStateServerStart", "()[B");
+    sharedSoDemoCollectRuntimeStateServerSend = env->GetMethodID(bridgeClass, "sharedSoDemoCollectRuntimeStateServerSend", "(I[B)[B");
+    sharedSoDemoCollectRuntimeStateServerFinish = env->GetMethodID(bridgeClass, "sharedSoDemoCollectRuntimeStateServerFinish", "(I)[B");
+    sharedSoDemoCollectRuntimeStateServerCancel = env->GetMethodID(bridgeClass, "sharedSoDemoCollectRuntimeStateServerCancel", "(I)[B");
+    env->DeleteLocalRef(bridgeClass);
+    if (env->ExceptionCheck()) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method lookup failed"); }
+    if (sharedSoDemoCollectRuntimeStateServerStart == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (sharedSoDemoCollectRuntimeStateServerSend == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (sharedSoDemoCollectRuntimeStateServerFinish == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (sharedSoDemoCollectRuntimeStateServerCancel == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoRegisterCollectRuntimeState(onSharedSoDemoCollectRuntimeStateServerStart, onSharedSoDemoCollectRuntimeStateServerSend, onSharedSoDemoCollectRuntimeStateServerFinish, onSharedSoDemoCollectRuntimeStateServerCancel);
     if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
     return rpccgoSuccessUnit(env);
 }
@@ -555,6 +715,85 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttershare
     env = envScope.env;
     if (env == nullptr) { return JNI_FALSE; }
     return cancelSharedSoDemoStreamRuntimeStateListenerCallback(env) ? JNI_TRUE : JNI_FALSE;
+}
+
+int32_t onSharedSoDemoStreamRuntimeStateServerStart(uintptr_t requestPtr, int32_t requestLen, int32_t* stream) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoStreamRuntimeStateServerStart == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray request = nullptr;
+    int32_t requestErr = rpccgoRequestByteArray(env, requestPtr, requestLen, &request);
+    if (requestErr != 0) { return requestErr; }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoStreamRuntimeStateServerStart, request));
+    env->DeleteLocalRef(request);
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream start threw"); }
+    int32_t errID = rpccgoKotlinHandleResult(env, result, stream);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+int32_t onSharedSoDemoStreamRuntimeStateServerRecv(int32_t stream, uintptr_t* responsePtr, int32_t* responseLen) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoStreamRuntimeStateServerRecv == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoStreamRuntimeStateServerRecv, stream));
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream response handler threw"); }
+    int32_t errID = rpccgoKotlinBytesResult(env, result, responsePtr, responseLen);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+int32_t onSharedSoDemoStreamRuntimeStateServerFinish(int32_t stream) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoStreamRuntimeStateServerFinish == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoStreamRuntimeStateServerFinish, stream));
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream control handler threw"); }
+    int32_t errID = rpccgoKotlinUnitResult(env, result);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+int32_t onSharedSoDemoStreamRuntimeStateServerCancel(int32_t stream) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoStreamRuntimeStateServerCancel == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoStreamRuntimeStateServerCancel, stream));
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream control handler threw"); }
+    int32_t errID = rpccgoKotlinUnitResult(env, result);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoStreamRuntimeStateRegister invokes examples.flutter.sharedso.v1.SharedSoDemo.StreamRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoStreamRuntimeStateRegister(JNIEnv* env, jobject thiz) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    if (!ensureSharedSoDemoServerBridge(env, thiz)) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge registration failed"); }
+    jclass bridgeClass = env->GetObjectClass(thiz);
+    if (bridgeClass == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge class lookup failed"); }
+    sharedSoDemoStreamRuntimeStateServerStart = env->GetMethodID(bridgeClass, "sharedSoDemoStreamRuntimeStateServerStart", "([B)[B");
+    sharedSoDemoStreamRuntimeStateServerRecv = env->GetMethodID(bridgeClass, "sharedSoDemoStreamRuntimeStateServerRecv", "(I)[B");
+    sharedSoDemoStreamRuntimeStateServerFinish = env->GetMethodID(bridgeClass, "sharedSoDemoStreamRuntimeStateServerFinish", "(I)[B");
+    sharedSoDemoStreamRuntimeStateServerCancel = env->GetMethodID(bridgeClass, "sharedSoDemoStreamRuntimeStateServerCancel", "(I)[B");
+    env->DeleteLocalRef(bridgeClass);
+    if (env->ExceptionCheck()) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method lookup failed"); }
+    if (sharedSoDemoStreamRuntimeStateServerStart == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (sharedSoDemoStreamRuntimeStateServerRecv == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (sharedSoDemoStreamRuntimeStateServerFinish == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (sharedSoDemoStreamRuntimeStateServerCancel == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoRegisterStreamRuntimeState(onSharedSoDemoStreamRuntimeStateServerStart, onSharedSoDemoStreamRuntimeStateServerRecv, onSharedSoDemoStreamRuntimeStateServerFinish, onSharedSoDemoStreamRuntimeStateServerCancel);
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessUnit(env);
 }
 
 std::mutex sharedSoDemoChatRuntimeStateCallbackMu;
@@ -743,4 +982,113 @@ extern "C" JNIEXPORT jboolean JNICALL Java_com_ygrpc_examples_rpccgofluttershare
     env = envScope.env;
     if (env == nullptr) { return JNI_FALSE; }
     return cancelSharedSoDemoChatRuntimeStateListenerCallback(env) ? JNI_TRUE : JNI_FALSE;
+}
+
+int32_t onSharedSoDemoChatRuntimeStateServerStart(int32_t* stream) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoChatRuntimeStateServerStart == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoChatRuntimeStateServerStart));
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream start threw"); }
+    int32_t errID = rpccgoKotlinHandleResult(env, result, stream);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+int32_t onSharedSoDemoChatRuntimeStateServerSend(int32_t stream, uintptr_t requestPtr, int32_t requestLen) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoChatRuntimeStateServerSend == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray request = nullptr;
+    int32_t requestErr = rpccgoRequestByteArray(env, requestPtr, requestLen, &request);
+    if (requestErr != 0) { return requestErr; }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoChatRuntimeStateServerSend, stream, request));
+    env->DeleteLocalRef(request);
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream request handler threw"); }
+    int32_t errID = rpccgoKotlinUnitResult(env, result);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+int32_t onSharedSoDemoChatRuntimeStateServerRecv(int32_t stream, uintptr_t* responsePtr, int32_t* responseLen) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoChatRuntimeStateServerRecv == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoChatRuntimeStateServerRecv, stream));
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream response handler threw"); }
+    int32_t errID = rpccgoKotlinBytesResult(env, result, responsePtr, responseLen);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+int32_t onSharedSoDemoChatRuntimeStateServerCloseSend(int32_t stream) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoChatRuntimeStateServerCloseSend == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoChatRuntimeStateServerCloseSend, stream));
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream control handler threw"); }
+    int32_t errID = rpccgoKotlinUnitResult(env, result);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+int32_t onSharedSoDemoChatRuntimeStateServerFinish(int32_t stream) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoChatRuntimeStateServerFinish == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoChatRuntimeStateServerFinish, stream));
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream control handler threw"); }
+    int32_t errID = rpccgoKotlinUnitResult(env, result);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+int32_t onSharedSoDemoChatRuntimeStateServerCancel(int32_t stream) {
+    rpccgoJNIEnvScope envScope(nullptr);
+    JNIEnv* env = envScope.env;
+    if (env == nullptr) { return rpccgoStoreErrorString("rpccgo: JNI environment is unavailable"); }
+    jobject bridge = sharedSoDemoServerBridgeObject();
+    if (bridge == nullptr || sharedSoDemoChatRuntimeStateServerCancel == nullptr) { return rpccgoStoreErrorString("rpccgo: Kotlin server bridge is not registered"); }
+    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, sharedSoDemoChatRuntimeStateServerCancel, stream));
+    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, "rpccgo: Kotlin server stream control handler threw"); }
+    int32_t errID = rpccgoKotlinUnitResult(env, result);
+    if (result != nullptr) { env->DeleteLocalRef(result); }
+    return errID;
+}
+
+// Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoChatRuntimeStateRegister invokes examples.flutter.sharedso.v1.SharedSoDemo.ChatRuntimeState through the Android C++ JNI adapter.
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_ygrpc_examples_rpccgofluttersharedso_SharedSoDemoJni_sharedSoDemoChatRuntimeStateRegister(JNIEnv* env, jobject thiz) {
+    rpccgoJNIEnvScope envScope(env);
+    env = envScope.env;
+    if (env == nullptr) { return nullptr; }
+    if (!ensureSharedSoDemoServerBridge(env, thiz)) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge registration failed"); }
+    jclass bridgeClass = env->GetObjectClass(thiz);
+    if (bridgeClass == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge class lookup failed"); }
+    sharedSoDemoChatRuntimeStateServerStart = env->GetMethodID(bridgeClass, "sharedSoDemoChatRuntimeStateServerStart", "()[B");
+    sharedSoDemoChatRuntimeStateServerSend = env->GetMethodID(bridgeClass, "sharedSoDemoChatRuntimeStateServerSend", "(I[B)[B");
+    sharedSoDemoChatRuntimeStateServerRecv = env->GetMethodID(bridgeClass, "sharedSoDemoChatRuntimeStateServerRecv", "(I)[B");
+    sharedSoDemoChatRuntimeStateServerCloseSend = env->GetMethodID(bridgeClass, "sharedSoDemoChatRuntimeStateServerCloseSend", "(I)[B");
+    sharedSoDemoChatRuntimeStateServerFinish = env->GetMethodID(bridgeClass, "sharedSoDemoChatRuntimeStateServerFinish", "(I)[B");
+    sharedSoDemoChatRuntimeStateServerCancel = env->GetMethodID(bridgeClass, "sharedSoDemoChatRuntimeStateServerCancel", "(I)[B");
+    env->DeleteLocalRef(bridgeClass);
+    if (env->ExceptionCheck()) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method lookup failed"); }
+    if (sharedSoDemoChatRuntimeStateServerStart == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (sharedSoDemoChatRuntimeStateServerSend == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (sharedSoDemoChatRuntimeStateServerRecv == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (sharedSoDemoChatRuntimeStateServerCloseSend == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (sharedSoDemoChatRuntimeStateServerFinish == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    if (sharedSoDemoChatRuntimeStateServerCancel == nullptr) { return rpccgoErrorResult(env, "rpccgo: JNI server bridge method is missing"); }
+    int32_t errID = rpccgoMsgFluttersharedv1SharedSoDemoRegisterChatRuntimeState(onSharedSoDemoChatRuntimeStateServerStart, onSharedSoDemoChatRuntimeStateServerSend, onSharedSoDemoChatRuntimeStateServerRecv, onSharedSoDemoChatRuntimeStateServerCloseSend, onSharedSoDemoChatRuntimeStateServerFinish, onSharedSoDemoChatRuntimeStateServerCancel);
+    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }
+    return rpccgoSuccessUnit(env);
 }

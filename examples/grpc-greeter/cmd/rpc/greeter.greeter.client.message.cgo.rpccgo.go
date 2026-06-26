@@ -10,10 +10,10 @@ import (
 
 /*
 #include <stdint.h>
-typedef void (*RpccgoMessageOnRecvCallback)(int32_t stream, uintptr_t response_ptr, int32_t response_len);
-typedef void (*RpccgoMessageOnDoneCallback)(int32_t stream, int32_t err_id);
-static inline void callRpccgoMessageOnRecvCallback(RpccgoMessageOnRecvCallback callback, int32_t stream, uintptr_t response_ptr, int32_t response_len) { callback(stream, response_ptr, response_len); }
-static inline void callRpccgoMessageOnDoneCallback(RpccgoMessageOnDoneCallback callback, int32_t stream, int32_t err_id) { callback(stream, err_id); }
+typedef void (*GreeterRpccgoMessageOnRecvCallback)(int32_t stream, uintptr_t response_ptr, int32_t response_len);
+typedef void (*GreeterRpccgoMessageOnDoneCallback)(int32_t stream, int32_t err_id);
+static inline void callGreeterRpccgoMessageOnRecvCallback(GreeterRpccgoMessageOnRecvCallback callback, int32_t stream, uintptr_t response_ptr, int32_t response_len) { callback(stream, response_ptr, response_len); }
+static inline void callGreeterRpccgoMessageOnDoneCallback(GreeterRpccgoMessageOnDoneCallback callback, int32_t stream, int32_t err_id) { callback(stream, err_id); }
 */
 import "C"
 
@@ -137,7 +137,7 @@ func rpccgoMsgGreeterv1GreeterCollectCancel(handle C.int32_t) C.int32_t {
 // rpccgoMsgGreeterv1GreeterBroadcastStart starts the message server-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Broadcast.
 //
 //export rpccgoMsgGreeterv1GreeterBroadcastStart
-func rpccgoMsgGreeterv1GreeterBroadcastStart(requestPtr C.uintptr_t, requestLen C.int32_t, handle *C.int32_t, onRecv C.RpccgoMessageOnRecvCallback, onDone C.RpccgoMessageOnDoneCallback) C.int32_t {
+func rpccgoMsgGreeterv1GreeterBroadcastStart(requestPtr C.uintptr_t, requestLen C.int32_t, handle *C.int32_t, onRecv C.GreeterRpccgoMessageOnRecvCallback, onDone C.GreeterRpccgoMessageOnDoneCallback) C.int32_t {
 	ctx := context.Background()
 	if handle != nil {
 		*handle = 0
@@ -176,12 +176,12 @@ func rpccgoMsgGreeterv1GreeterBroadcastStart(requestPtr C.uintptr_t, requestLen 
 				if err != nil {
 					if errors.Is(err, io.EOF) {
 						if callbackState.BeginDoneCallback() {
-							C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(0))
+							C.callGreeterRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(0))
 							callbackState.EndDoneCallback()
 						}
 					} else {
 						if callbackState.BeginDoneCallback() {
-							C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(err))))
+							C.callGreeterRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(err))))
 							callbackState.EndDoneCallback()
 						}
 					}
@@ -190,7 +190,7 @@ func rpccgoMsgGreeterv1GreeterBroadcastStart(requestPtr C.uintptr_t, requestLen 
 				ptr, length, err := rpcruntime.EncodeMessage(resp)
 				if err != nil {
 					if callbackState.BeginDoneCallback() {
-						C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))))
+						C.callGreeterRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))))
 						callbackState.EndDoneCallback()
 					}
 					return
@@ -200,12 +200,12 @@ func rpccgoMsgGreeterv1GreeterBroadcastStart(requestPtr C.uintptr_t, requestLen 
 						rpcruntime.Release(ptr)
 					}
 					if callbackState.BeginDoneCallback() {
-						C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(errors.New("rpccgo: stream callback receive canceled")))))
+						C.callGreeterRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(errors.New("rpccgo: stream callback receive canceled")))))
 						callbackState.EndDoneCallback()
 					}
 					return
 				}
-				C.callRpccgoMessageOnRecvCallback(onRecv, C.int32_t(int32(handleValue)), C.uintptr_t(ptr), C.int32_t(length))
+				C.callGreeterRpccgoMessageOnRecvCallback(onRecv, C.int32_t(int32(handleValue)), C.uintptr_t(ptr), C.int32_t(length))
 				callbackState.EndCallback()
 			}
 		}()
@@ -285,7 +285,7 @@ func rpccgoMsgGreeterv1GreeterBroadcastClose(handle C.int32_t) C.int32_t {
 // rpccgoMsgGreeterv1GreeterChatStart starts the message bidi-streaming client entrypoint for examples.grpc.greeter.v1.Greeter.Chat.
 //
 //export rpccgoMsgGreeterv1GreeterChatStart
-func rpccgoMsgGreeterv1GreeterChatStart(handle *C.int32_t, onRecv C.RpccgoMessageOnRecvCallback, onDone C.RpccgoMessageOnDoneCallback) C.int32_t {
+func rpccgoMsgGreeterv1GreeterChatStart(handle *C.int32_t, onRecv C.GreeterRpccgoMessageOnRecvCallback, onDone C.GreeterRpccgoMessageOnDoneCallback) C.int32_t {
 	ctx := context.Background()
 	if handle != nil {
 		*handle = 0
@@ -320,12 +320,12 @@ func rpccgoMsgGreeterv1GreeterChatStart(handle *C.int32_t, onRecv C.RpccgoMessag
 				if err != nil {
 					if errors.Is(err, io.EOF) {
 						if callbackState.BeginDoneCallback() {
-							C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(0))
+							C.callGreeterRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(0))
 							callbackState.EndDoneCallback()
 						}
 					} else {
 						if callbackState.BeginDoneCallback() {
-							C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(err))))
+							C.callGreeterRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(err))))
 							callbackState.EndDoneCallback()
 						}
 					}
@@ -334,7 +334,7 @@ func rpccgoMsgGreeterv1GreeterChatStart(handle *C.int32_t, onRecv C.RpccgoMessag
 				ptr, length, err := rpcruntime.EncodeMessage(resp)
 				if err != nil {
 					if callbackState.BeginDoneCallback() {
-						C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))))
+						C.callGreeterRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))))
 						callbackState.EndDoneCallback()
 					}
 					return
@@ -344,12 +344,12 @@ func rpccgoMsgGreeterv1GreeterChatStart(handle *C.int32_t, onRecv C.RpccgoMessag
 						rpcruntime.Release(ptr)
 					}
 					if callbackState.BeginDoneCallback() {
-						C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(errors.New("rpccgo: stream callback receive canceled")))))
+						C.callGreeterRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(errors.New("rpccgo: stream callback receive canceled")))))
 						callbackState.EndDoneCallback()
 					}
 					return
 				}
-				C.callRpccgoMessageOnRecvCallback(onRecv, C.int32_t(int32(handleValue)), C.uintptr_t(ptr), C.int32_t(length))
+				C.callGreeterRpccgoMessageOnRecvCallback(onRecv, C.int32_t(int32(handleValue)), C.uintptr_t(ptr), C.int32_t(length))
 				callbackState.EndCallback()
 			}
 		}()

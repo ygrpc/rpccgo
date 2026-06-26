@@ -12,18 +12,35 @@ func renderJNIGeneratedFiles(plugin *protogen.Plugin, plan GenerationPlan, confi
 	if plugin == nil {
 		return fmt.Errorf("jni generator plugin is nil")
 	}
+	var renderedCommon bool
 	for _, pkg := range plan.Packages {
 		for _, file := range pkg.Files {
+			if len(file.Services) == 0 {
+				continue
+			}
+			if !renderedCommon {
+				renderJNICPPCommonHeaderFile(plugin, config)
+				renderJNICPPCommonFile(plugin, config)
+				renderedCommon = true
+			}
 			for _, service := range file.Services {
 				renderJNICPPFile(plugin, file, service, config)
-				renderJNIKotlinFile(plugin, file, service, config)
 			}
+			renderJNIKotlinFile(plugin, file, file.Services, config)
 		}
 	}
 	return nil
 }
 
-func jniCPPFilename(file FilePlan, service ServicePlan, config JNIGeneratorConfig) string {
+func jniCPPCommonHeaderFilename(config JNIGeneratorConfig) string {
+	return path.Join(config.CPPDir, "rpccgo.jni.h")
+}
+
+func jniCPPCommonFilename(config JNIGeneratorConfig) string {
+	return path.Join(config.CPPDir, "rpccgo.jni.cpp")
+}
+
+func jniCPPServiceFilename(file FilePlan, service ServicePlan, config JNIGeneratorConfig) string {
 	return path.Join(config.CPPDir, fmt.Sprintf("%s.%s.jni.cpp", path.Base(file.GeneratedFilenamePrefix), lowerSnakeCase(service.GoName)))
 }
 

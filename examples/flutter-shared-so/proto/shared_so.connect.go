@@ -22,6 +22,8 @@ const _ = connect.IsAtLeastVersion1_13_0
 const (
 	// SharedSoDemoName is the fully-qualified name of the SharedSoDemo service.
 	SharedSoDemoName = "examples.flutter.sharedso.v1.SharedSoDemo"
+	// AndroidDeviceName is the fully-qualified name of the AndroidDevice service.
+	AndroidDeviceName = "examples.flutter.sharedso.v1.AndroidDevice"
 )
 
 // These constants are the fully-qualified names of the RPCs defined in this package. They're
@@ -53,6 +55,16 @@ const (
 	// SharedSoDemoChatRuntimeStateProcedure is the fully-qualified name of the SharedSoDemo's
 	// ChatRuntimeState RPC.
 	SharedSoDemoChatRuntimeStateProcedure = "/examples.flutter.sharedso.v1.SharedSoDemo/ChatRuntimeState"
+	// AndroidDeviceSetTorchProcedure is the fully-qualified name of the AndroidDevice's SetTorch RPC.
+	AndroidDeviceSetTorchProcedure = "/examples.flutter.sharedso.v1.AndroidDevice/SetTorch"
+	// AndroidDeviceWatchTorchProcedure is the fully-qualified name of the AndroidDevice's WatchTorch
+	// RPC.
+	AndroidDeviceWatchTorchProcedure = "/examples.flutter.sharedso.v1.AndroidDevice/WatchTorch"
+	// AndroidDeviceCollectTorchProcedure is the fully-qualified name of the AndroidDevice's
+	// CollectTorch RPC.
+	AndroidDeviceCollectTorchProcedure = "/examples.flutter.sharedso.v1.AndroidDevice/CollectTorch"
+	// AndroidDeviceChatTorchProcedure is the fully-qualified name of the AndroidDevice's ChatTorch RPC.
+	AndroidDeviceChatTorchProcedure = "/examples.flutter.sharedso.v1.AndroidDevice/ChatTorch"
 )
 
 // SharedSoDemoClient is a client for the examples.flutter.sharedso.v1.SharedSoDemo service.
@@ -306,4 +318,165 @@ func (UnimplementedSharedSoDemoHandler) StreamRuntimeState(context.Context, *Rea
 
 func (UnimplementedSharedSoDemoHandler) ChatRuntimeState(context.Context, *connect.BidiStream[IncrementRuntimeStateRequest, RuntimeStateResponse]) error {
 	return connect.NewError(connect.CodeUnimplemented, errors.New("examples.flutter.sharedso.v1.SharedSoDemo.ChatRuntimeState is not implemented"))
+}
+
+// AndroidDeviceClient is a client for the examples.flutter.sharedso.v1.AndroidDevice service.
+type AndroidDeviceClient interface {
+	// SetTorch enables or disables the Android camera torch.
+	SetTorch(context.Context, *SetTorchRequest) (*SetTorchResponse, error)
+	// WatchTorch streams Android-owned torch state observations.
+	WatchTorch(context.Context, *SetTorchRequest) (*connect.ServerStreamForClient[SetTorchResponse], error)
+	// CollectTorch applies a client stream of torch requests and returns the last state.
+	CollectTorch(context.Context) (*connect.ClientStreamForClientSimple[SetTorchRequest, SetTorchResponse], error)
+	// ChatTorch applies each torch request and streams each resulting state back.
+	ChatTorch(context.Context) (*connect.BidiStreamForClientSimple[SetTorchRequest, SetTorchResponse], error)
+}
+
+// NewAndroidDeviceClient constructs a client for the examples.flutter.sharedso.v1.AndroidDevice
+// service. By default, it uses the Connect protocol with the binary Protobuf Codec, asks for
+// gzipped responses, and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply
+// the connect.WithGRPC() or connect.WithGRPCWeb() options.
+//
+// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
+// http://api.acme.com or https://acme.com/grpc).
+func NewAndroidDeviceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) AndroidDeviceClient {
+	baseURL = strings.TrimRight(baseURL, "/")
+	androidDeviceMethods := File_shared_so_proto.Services().ByName("AndroidDevice").Methods()
+	return &androidDeviceClient{
+		setTorch: connect.NewClient[SetTorchRequest, SetTorchResponse](
+			httpClient,
+			baseURL+AndroidDeviceSetTorchProcedure,
+			connect.WithSchema(androidDeviceMethods.ByName("SetTorch")),
+			connect.WithClientOptions(opts...),
+		),
+		watchTorch: connect.NewClient[SetTorchRequest, SetTorchResponse](
+			httpClient,
+			baseURL+AndroidDeviceWatchTorchProcedure,
+			connect.WithSchema(androidDeviceMethods.ByName("WatchTorch")),
+			connect.WithClientOptions(opts...),
+		),
+		collectTorch: connect.NewClient[SetTorchRequest, SetTorchResponse](
+			httpClient,
+			baseURL+AndroidDeviceCollectTorchProcedure,
+			connect.WithSchema(androidDeviceMethods.ByName("CollectTorch")),
+			connect.WithClientOptions(opts...),
+		),
+		chatTorch: connect.NewClient[SetTorchRequest, SetTorchResponse](
+			httpClient,
+			baseURL+AndroidDeviceChatTorchProcedure,
+			connect.WithSchema(androidDeviceMethods.ByName("ChatTorch")),
+			connect.WithClientOptions(opts...),
+		),
+	}
+}
+
+// androidDeviceClient implements AndroidDeviceClient.
+type androidDeviceClient struct {
+	setTorch     *connect.Client[SetTorchRequest, SetTorchResponse]
+	watchTorch   *connect.Client[SetTorchRequest, SetTorchResponse]
+	collectTorch *connect.Client[SetTorchRequest, SetTorchResponse]
+	chatTorch    *connect.Client[SetTorchRequest, SetTorchResponse]
+}
+
+// SetTorch calls examples.flutter.sharedso.v1.AndroidDevice.SetTorch.
+func (c *androidDeviceClient) SetTorch(ctx context.Context, req *SetTorchRequest) (*SetTorchResponse, error) {
+	response, err := c.setTorch.CallUnary(ctx, connect.NewRequest(req))
+	if response != nil {
+		return response.Msg, err
+	}
+	return nil, err
+}
+
+// WatchTorch calls examples.flutter.sharedso.v1.AndroidDevice.WatchTorch.
+func (c *androidDeviceClient) WatchTorch(ctx context.Context, req *SetTorchRequest) (*connect.ServerStreamForClient[SetTorchResponse], error) {
+	return c.watchTorch.CallServerStream(ctx, connect.NewRequest(req))
+}
+
+// CollectTorch calls examples.flutter.sharedso.v1.AndroidDevice.CollectTorch.
+func (c *androidDeviceClient) CollectTorch(ctx context.Context) (*connect.ClientStreamForClientSimple[SetTorchRequest, SetTorchResponse], error) {
+	return c.collectTorch.CallClientStreamSimple(ctx)
+}
+
+// ChatTorch calls examples.flutter.sharedso.v1.AndroidDevice.ChatTorch.
+func (c *androidDeviceClient) ChatTorch(ctx context.Context) (*connect.BidiStreamForClientSimple[SetTorchRequest, SetTorchResponse], error) {
+	return c.chatTorch.CallBidiStreamSimple(ctx)
+}
+
+// AndroidDeviceHandler is an implementation of the examples.flutter.sharedso.v1.AndroidDevice
+// service.
+type AndroidDeviceHandler interface {
+	// SetTorch enables or disables the Android camera torch.
+	SetTorch(context.Context, *SetTorchRequest) (*SetTorchResponse, error)
+	// WatchTorch streams Android-owned torch state observations.
+	WatchTorch(context.Context, *SetTorchRequest, *connect.ServerStream[SetTorchResponse]) error
+	// CollectTorch applies a client stream of torch requests and returns the last state.
+	CollectTorch(context.Context, *connect.ClientStream[SetTorchRequest]) (*SetTorchResponse, error)
+	// ChatTorch applies each torch request and streams each resulting state back.
+	ChatTorch(context.Context, *connect.BidiStream[SetTorchRequest, SetTorchResponse]) error
+}
+
+// NewAndroidDeviceHandler builds an HTTP handler from the service implementation. It returns the
+// path on which to mount the handler and the handler itself.
+//
+// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
+// and JSON codecs. They also support gzip compression.
+func NewAndroidDeviceHandler(svc AndroidDeviceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	androidDeviceMethods := File_shared_so_proto.Services().ByName("AndroidDevice").Methods()
+	androidDeviceSetTorchHandler := connect.NewUnaryHandlerSimple(
+		AndroidDeviceSetTorchProcedure,
+		svc.SetTorch,
+		connect.WithSchema(androidDeviceMethods.ByName("SetTorch")),
+		connect.WithHandlerOptions(opts...),
+	)
+	androidDeviceWatchTorchHandler := connect.NewServerStreamHandlerSimple(
+		AndroidDeviceWatchTorchProcedure,
+		svc.WatchTorch,
+		connect.WithSchema(androidDeviceMethods.ByName("WatchTorch")),
+		connect.WithHandlerOptions(opts...),
+	)
+	androidDeviceCollectTorchHandler := connect.NewClientStreamHandlerSimple(
+		AndroidDeviceCollectTorchProcedure,
+		svc.CollectTorch,
+		connect.WithSchema(androidDeviceMethods.ByName("CollectTorch")),
+		connect.WithHandlerOptions(opts...),
+	)
+	androidDeviceChatTorchHandler := connect.NewBidiStreamHandler(
+		AndroidDeviceChatTorchProcedure,
+		svc.ChatTorch,
+		connect.WithSchema(androidDeviceMethods.ByName("ChatTorch")),
+		connect.WithHandlerOptions(opts...),
+	)
+	return "/examples.flutter.sharedso.v1.AndroidDevice/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case AndroidDeviceSetTorchProcedure:
+			androidDeviceSetTorchHandler.ServeHTTP(w, r)
+		case AndroidDeviceWatchTorchProcedure:
+			androidDeviceWatchTorchHandler.ServeHTTP(w, r)
+		case AndroidDeviceCollectTorchProcedure:
+			androidDeviceCollectTorchHandler.ServeHTTP(w, r)
+		case AndroidDeviceChatTorchProcedure:
+			androidDeviceChatTorchHandler.ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// UnimplementedAndroidDeviceHandler returns CodeUnimplemented from all methods.
+type UnimplementedAndroidDeviceHandler struct{}
+
+func (UnimplementedAndroidDeviceHandler) SetTorch(context.Context, *SetTorchRequest) (*SetTorchResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("examples.flutter.sharedso.v1.AndroidDevice.SetTorch is not implemented"))
+}
+
+func (UnimplementedAndroidDeviceHandler) WatchTorch(context.Context, *SetTorchRequest, *connect.ServerStream[SetTorchResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("examples.flutter.sharedso.v1.AndroidDevice.WatchTorch is not implemented"))
+}
+
+func (UnimplementedAndroidDeviceHandler) CollectTorch(context.Context, *connect.ClientStream[SetTorchRequest]) (*SetTorchResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("examples.flutter.sharedso.v1.AndroidDevice.CollectTorch is not implemented"))
+}
+
+func (UnimplementedAndroidDeviceHandler) ChatTorch(context.Context, *connect.BidiStream[SetTorchRequest, SetTorchResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("examples.flutter.sharedso.v1.AndroidDevice.ChatTorch is not implemented"))
 }

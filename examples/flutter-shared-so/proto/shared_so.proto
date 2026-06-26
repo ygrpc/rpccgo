@@ -39,6 +39,20 @@ message RuntimeStateResponse {
   int32 pid = 5;
 }
 
+// SetTorchRequest asks Android to enable or disable the device torch.
+message SetTorchRequest {
+  bool enabled = 1;
+  string caller = 2;
+}
+
+// SetTorchResponse reports the Android torch operation result.
+message SetTorchResponse {
+  bool enabled = 1;
+  string camera_id = 2;
+  string caller = 3;
+  string status = 4;
+}
+
 // SharedSoDemo exposes one unary RPC for the shared-library validation example.
 // @rpccgo: msg-connect
 service SharedSoDemo {
@@ -62,4 +76,20 @@ service SharedSoDemo {
 
   // ChatRuntimeState verifies bidi streaming through both Flutter FFI and Kotlin/JNI.
   rpc ChatRuntimeState(stream IncrementRuntimeStateRequest) returns (stream RuntimeStateResponse);
+}
+
+// AndroidDevice exposes Android-owned capabilities through a Kotlin message server.
+// @rpccgo: msg-connect
+service AndroidDevice {
+  // SetTorch enables or disables the Android camera torch.
+  rpc SetTorch(SetTorchRequest) returns (SetTorchResponse);
+
+  // WatchTorch streams Android-owned torch state observations.
+  rpc WatchTorch(SetTorchRequest) returns (stream SetTorchResponse);
+
+  // CollectTorch applies a client stream of torch requests and returns the last state.
+  rpc CollectTorch(stream SetTorchRequest) returns (SetTorchResponse);
+
+  // ChatTorch applies each torch request and streams each resulting state back.
+  rpc ChatTorch(stream SetTorchRequest) returns (stream SetTorchResponse);
 }

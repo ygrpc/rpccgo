@@ -400,6 +400,166 @@ class RuntimeStateResponse extends $pb.GeneratedMessage {
   void clearPid() => $_clearField(5);
 }
 
+/// SetTorchRequest asks Android to enable or disable the device torch.
+class SetTorchRequest extends $pb.GeneratedMessage {
+  factory SetTorchRequest({
+    $core.bool? enabled,
+    $core.String? caller,
+  }) {
+    final result = create();
+    if (enabled != null) result.enabled = enabled;
+    if (caller != null) result.caller = caller;
+    return result;
+  }
+
+  SetTorchRequest._();
+
+  factory SetTorchRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SetTorchRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetTorchRequest',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'examples.flutter.sharedso.v1'),
+      createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'enabled')
+    ..aOS(2, _omitFieldNames ? '' : 'caller')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetTorchRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetTorchRequest copyWith(void Function(SetTorchRequest) updates) =>
+      super.copyWith((message) => updates(message as SetTorchRequest))
+          as SetTorchRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SetTorchRequest create() => SetTorchRequest._();
+  @$core.override
+  SetTorchRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SetTorchRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SetTorchRequest>(create);
+  static SetTorchRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get enabled => $_getBF(0);
+  @$pb.TagNumber(1)
+  set enabled($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasEnabled() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearEnabled() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get caller => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set caller($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCaller() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCaller() => $_clearField(2);
+}
+
+/// SetTorchResponse reports the Android torch operation result.
+class SetTorchResponse extends $pb.GeneratedMessage {
+  factory SetTorchResponse({
+    $core.bool? enabled,
+    $core.String? cameraId,
+    $core.String? caller,
+    $core.String? status,
+  }) {
+    final result = create();
+    if (enabled != null) result.enabled = enabled;
+    if (cameraId != null) result.cameraId = cameraId;
+    if (caller != null) result.caller = caller;
+    if (status != null) result.status = status;
+    return result;
+  }
+
+  SetTorchResponse._();
+
+  factory SetTorchResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SetTorchResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SetTorchResponse',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'examples.flutter.sharedso.v1'),
+      createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'enabled')
+    ..aOS(2, _omitFieldNames ? '' : 'cameraId')
+    ..aOS(3, _omitFieldNames ? '' : 'caller')
+    ..aOS(4, _omitFieldNames ? '' : 'status')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetTorchResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SetTorchResponse copyWith(void Function(SetTorchResponse) updates) =>
+      super.copyWith((message) => updates(message as SetTorchResponse))
+          as SetTorchResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SetTorchResponse create() => SetTorchResponse._();
+  @$core.override
+  SetTorchResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SetTorchResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SetTorchResponse>(create);
+  static SetTorchResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get enabled => $_getBF(0);
+  @$pb.TagNumber(1)
+  set enabled($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasEnabled() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearEnabled() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get cameraId => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set cameraId($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCameraId() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCameraId() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get caller => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set caller($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasCaller() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearCaller() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get status => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set status($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasStatus() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearStatus() => $_clearField(4);
+}
+
 /// SharedSoDemo exposes one unary RPC for the shared-library validation example.
 /// @rpccgo: msg-connect
 class SharedSoDemoApi {
@@ -448,6 +608,38 @@ class SharedSoDemoApi {
           $pb.ClientContext? ctx, IncrementRuntimeStateRequest request) =>
       _client.invoke<RuntimeStateResponse>(ctx, 'SharedSoDemo',
           'ChatRuntimeState', request, RuntimeStateResponse());
+}
+
+/// AndroidDevice exposes Android-owned capabilities through a Kotlin message server.
+/// @rpccgo: msg-connect
+class AndroidDeviceApi {
+  final $pb.RpcClient _client;
+
+  AndroidDeviceApi(this._client);
+
+  /// SetTorch enables or disables the Android camera torch.
+  $async.Future<SetTorchResponse> setTorch(
+          $pb.ClientContext? ctx, SetTorchRequest request) =>
+      _client.invoke<SetTorchResponse>(
+          ctx, 'AndroidDevice', 'SetTorch', request, SetTorchResponse());
+
+  /// WatchTorch streams Android-owned torch state observations.
+  $async.Future<SetTorchResponse> watchTorch(
+          $pb.ClientContext? ctx, SetTorchRequest request) =>
+      _client.invoke<SetTorchResponse>(
+          ctx, 'AndroidDevice', 'WatchTorch', request, SetTorchResponse());
+
+  /// CollectTorch applies a client stream of torch requests and returns the last state.
+  $async.Future<SetTorchResponse> collectTorch(
+          $pb.ClientContext? ctx, SetTorchRequest request) =>
+      _client.invoke<SetTorchResponse>(
+          ctx, 'AndroidDevice', 'CollectTorch', request, SetTorchResponse());
+
+  /// ChatTorch applies each torch request and streams each resulting state back.
+  $async.Future<SetTorchResponse> chatTorch(
+          $pb.ClientContext? ctx, SetTorchRequest request) =>
+      _client.invoke<SetTorchResponse>(
+          ctx, 'AndroidDevice', 'ChatTorch', request, SetTorchResponse());
 }
 
 const $core.bool _omitFieldNames =

@@ -10,10 +10,10 @@ import (
 
 /*
 #include <stdint.h>
-typedef void (*RpccgoMessageOnRecvCallback)(int32_t stream, uintptr_t response_ptr, int32_t response_len);
-typedef void (*RpccgoMessageOnDoneCallback)(int32_t stream, int32_t err_id);
-static inline void callRpccgoMessageOnRecvCallback(RpccgoMessageOnRecvCallback callback, int32_t stream, uintptr_t response_ptr, int32_t response_len) { callback(stream, response_ptr, response_len); }
-static inline void callRpccgoMessageOnDoneCallback(RpccgoMessageOnDoneCallback callback, int32_t stream, int32_t err_id) { callback(stream, err_id); }
+typedef void (*SharedSoDemoRpccgoMessageOnRecvCallback)(int32_t stream, uintptr_t response_ptr, int32_t response_len);
+typedef void (*SharedSoDemoRpccgoMessageOnDoneCallback)(int32_t stream, int32_t err_id);
+static inline void callSharedSoDemoRpccgoMessageOnRecvCallback(SharedSoDemoRpccgoMessageOnRecvCallback callback, int32_t stream, uintptr_t response_ptr, int32_t response_len) { callback(stream, response_ptr, response_len); }
+static inline void callSharedSoDemoRpccgoMessageOnDoneCallback(SharedSoDemoRpccgoMessageOnDoneCallback callback, int32_t stream, int32_t err_id) { callback(stream, err_id); }
 */
 import "C"
 
@@ -123,7 +123,7 @@ func rpccgoMsgFluttersharedv1SharedSoDemoReadRuntimeState(requestPtr C.uintptr_t
 // rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart starts the message server-streaming client entrypoint for examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState.
 //
 //export rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart
-func rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart(requestPtr C.uintptr_t, requestLen C.int32_t, handle *C.int32_t, onRecv C.RpccgoMessageOnRecvCallback, onDone C.RpccgoMessageOnDoneCallback) C.int32_t {
+func rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart(requestPtr C.uintptr_t, requestLen C.int32_t, handle *C.int32_t, onRecv C.SharedSoDemoRpccgoMessageOnRecvCallback, onDone C.SharedSoDemoRpccgoMessageOnDoneCallback) C.int32_t {
 	ctx := context.Background()
 	if handle != nil {
 		*handle = 0
@@ -162,12 +162,12 @@ func rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart(requestPtr C.uin
 				if err != nil {
 					if errors.Is(err, io.EOF) {
 						if callbackState.BeginDoneCallback() {
-							C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(0))
+							C.callSharedSoDemoRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(0))
 							callbackState.EndDoneCallback()
 						}
 					} else {
 						if callbackState.BeginDoneCallback() {
-							C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(err))))
+							C.callSharedSoDemoRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(err))))
 							callbackState.EndDoneCallback()
 						}
 					}
@@ -176,7 +176,7 @@ func rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart(requestPtr C.uin
 				ptr, length, err := rpcruntime.EncodeMessage(resp)
 				if err != nil {
 					if callbackState.BeginDoneCallback() {
-						C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))))
+						C.callSharedSoDemoRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))))
 						callbackState.EndDoneCallback()
 					}
 					return
@@ -186,12 +186,12 @@ func rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart(requestPtr C.uin
 						rpcruntime.Release(ptr)
 					}
 					if callbackState.BeginDoneCallback() {
-						C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(errors.New("rpccgo: stream callback receive canceled")))))
+						C.callSharedSoDemoRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(errors.New("rpccgo: stream callback receive canceled")))))
 						callbackState.EndDoneCallback()
 					}
 					return
 				}
-				C.callRpccgoMessageOnRecvCallback(onRecv, C.int32_t(int32(handleValue)), C.uintptr_t(ptr), C.int32_t(length))
+				C.callSharedSoDemoRpccgoMessageOnRecvCallback(onRecv, C.int32_t(int32(handleValue)), C.uintptr_t(ptr), C.int32_t(length))
 				callbackState.EndCallback()
 			}
 		}()
@@ -347,7 +347,7 @@ func rpccgoMsgFluttersharedv1SharedSoDemoCollectRuntimeStateCancel(handle C.int3
 // rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateStart starts the message server-streaming client entrypoint for examples.flutter.sharedso.v1.SharedSoDemo.StreamRuntimeState.
 //
 //export rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateStart
-func rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateStart(requestPtr C.uintptr_t, requestLen C.int32_t, handle *C.int32_t, onRecv C.RpccgoMessageOnRecvCallback, onDone C.RpccgoMessageOnDoneCallback) C.int32_t {
+func rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateStart(requestPtr C.uintptr_t, requestLen C.int32_t, handle *C.int32_t, onRecv C.SharedSoDemoRpccgoMessageOnRecvCallback, onDone C.SharedSoDemoRpccgoMessageOnDoneCallback) C.int32_t {
 	ctx := context.Background()
 	if handle != nil {
 		*handle = 0
@@ -386,12 +386,12 @@ func rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateStart(requestPtr C.ui
 				if err != nil {
 					if errors.Is(err, io.EOF) {
 						if callbackState.BeginDoneCallback() {
-							C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(0))
+							C.callSharedSoDemoRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(0))
 							callbackState.EndDoneCallback()
 						}
 					} else {
 						if callbackState.BeginDoneCallback() {
-							C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(err))))
+							C.callSharedSoDemoRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(err))))
 							callbackState.EndDoneCallback()
 						}
 					}
@@ -400,7 +400,7 @@ func rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateStart(requestPtr C.ui
 				ptr, length, err := rpcruntime.EncodeMessage(resp)
 				if err != nil {
 					if callbackState.BeginDoneCallback() {
-						C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))))
+						C.callSharedSoDemoRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))))
 						callbackState.EndDoneCallback()
 					}
 					return
@@ -410,12 +410,12 @@ func rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateStart(requestPtr C.ui
 						rpcruntime.Release(ptr)
 					}
 					if callbackState.BeginDoneCallback() {
-						C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(errors.New("rpccgo: stream callback receive canceled")))))
+						C.callSharedSoDemoRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(errors.New("rpccgo: stream callback receive canceled")))))
 						callbackState.EndDoneCallback()
 					}
 					return
 				}
-				C.callRpccgoMessageOnRecvCallback(onRecv, C.int32_t(int32(handleValue)), C.uintptr_t(ptr), C.int32_t(length))
+				C.callSharedSoDemoRpccgoMessageOnRecvCallback(onRecv, C.int32_t(int32(handleValue)), C.uintptr_t(ptr), C.int32_t(length))
 				callbackState.EndCallback()
 			}
 		}()
@@ -495,7 +495,7 @@ func rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateClose(handle C.int32_
 // rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateStart starts the message bidi-streaming client entrypoint for examples.flutter.sharedso.v1.SharedSoDemo.ChatRuntimeState.
 //
 //export rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateStart
-func rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateStart(handle *C.int32_t, onRecv C.RpccgoMessageOnRecvCallback, onDone C.RpccgoMessageOnDoneCallback) C.int32_t {
+func rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateStart(handle *C.int32_t, onRecv C.SharedSoDemoRpccgoMessageOnRecvCallback, onDone C.SharedSoDemoRpccgoMessageOnDoneCallback) C.int32_t {
 	ctx := context.Background()
 	if handle != nil {
 		*handle = 0
@@ -530,12 +530,12 @@ func rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateStart(handle *C.int32_t
 				if err != nil {
 					if errors.Is(err, io.EOF) {
 						if callbackState.BeginDoneCallback() {
-							C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(0))
+							C.callSharedSoDemoRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(0))
 							callbackState.EndDoneCallback()
 						}
 					} else {
 						if callbackState.BeginDoneCallback() {
-							C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(err))))
+							C.callSharedSoDemoRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(err))))
 							callbackState.EndDoneCallback()
 						}
 					}
@@ -544,7 +544,7 @@ func rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateStart(handle *C.int32_t
 				ptr, length, err := rpcruntime.EncodeMessage(resp)
 				if err != nil {
 					if callbackState.BeginDoneCallback() {
-						C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))))
+						C.callSharedSoDemoRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(fmt.Errorf("rpccgo: message response encode failed: %w", err)))))
 						callbackState.EndDoneCallback()
 					}
 					return
@@ -554,12 +554,12 @@ func rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateStart(handle *C.int32_t
 						rpcruntime.Release(ptr)
 					}
 					if callbackState.BeginDoneCallback() {
-						C.callRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(errors.New("rpccgo: stream callback receive canceled")))))
+						C.callSharedSoDemoRpccgoMessageOnDoneCallback(onDone, C.int32_t(int32(handleValue)), C.int32_t(int32(rpcruntime.StoreError(errors.New("rpccgo: stream callback receive canceled")))))
 						callbackState.EndDoneCallback()
 					}
 					return
 				}
-				C.callRpccgoMessageOnRecvCallback(onRecv, C.int32_t(int32(handleValue)), C.uintptr_t(ptr), C.int32_t(length))
+				C.callSharedSoDemoRpccgoMessageOnRecvCallback(onRecv, C.int32_t(int32(handleValue)), C.uintptr_t(ptr), C.int32_t(length))
 				callbackState.EndCallback()
 			}
 		}()

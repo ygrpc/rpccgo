@@ -87,3 +87,50 @@ abstract class SharedSoDemoServiceBase extends $pb.GeneratedService {
   $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>>
       get $messageJson => SharedSoDemoServiceBase$messageJson;
 }
+
+abstract class AndroidDeviceServiceBase extends $pb.GeneratedService {
+  $async.Future<$0.SetTorchResponse> setTorch(
+      $pb.ServerContext ctx, $0.SetTorchRequest request);
+  $async.Future<$0.SetTorchResponse> watchTorch(
+      $pb.ServerContext ctx, $0.SetTorchRequest request);
+  $async.Future<$0.SetTorchResponse> collectTorch(
+      $pb.ServerContext ctx, $0.SetTorchRequest request);
+  $async.Future<$0.SetTorchResponse> chatTorch(
+      $pb.ServerContext ctx, $0.SetTorchRequest request);
+
+  $pb.GeneratedMessage createRequest($core.String methodName) {
+    switch (methodName) {
+      case 'SetTorch':
+        return $0.SetTorchRequest();
+      case 'WatchTorch':
+        return $0.SetTorchRequest();
+      case 'CollectTorch':
+        return $0.SetTorchRequest();
+      case 'ChatTorch':
+        return $0.SetTorchRequest();
+      default:
+        throw $core.ArgumentError('Unknown method: $methodName');
+    }
+  }
+
+  $async.Future<$pb.GeneratedMessage> handleCall($pb.ServerContext ctx,
+      $core.String methodName, $pb.GeneratedMessage request) {
+    switch (methodName) {
+      case 'SetTorch':
+        return setTorch(ctx, request as $0.SetTorchRequest);
+      case 'WatchTorch':
+        return watchTorch(ctx, request as $0.SetTorchRequest);
+      case 'CollectTorch':
+        return collectTorch(ctx, request as $0.SetTorchRequest);
+      case 'ChatTorch':
+        return chatTorch(ctx, request as $0.SetTorchRequest);
+      default:
+        throw $core.ArgumentError('Unknown method: $methodName');
+    }
+  }
+
+  $core.Map<$core.String, $core.dynamic> get $json =>
+      AndroidDeviceServiceBase$json;
+  $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>>
+      get $messageJson => AndroidDeviceServiceBase$messageJson;
+}

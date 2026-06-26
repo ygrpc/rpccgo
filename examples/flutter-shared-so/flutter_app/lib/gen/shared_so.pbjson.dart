@@ -91,6 +91,37 @@ final $typed_data.Uint8List runtimeStateResponseDescriptor = $convert.base64Deco
     '4YAiABKANSCHJldmlzaW9uEikKEGluc3RhbmNlX2FkZHJlc3MYAyABKAlSD2luc3RhbmNlQWRk'
     'cmVzcxIWCgZjYWxsZXIYBCABKAlSBmNhbGxlchIQCgNwaWQYBSABKAVSA3BpZA==');
 
+@$core.Deprecated('Use setTorchRequestDescriptor instead')
+const SetTorchRequest$json = {
+  '1': 'SetTorchRequest',
+  '2': [
+    {'1': 'enabled', '3': 1, '4': 1, '5': 8, '10': 'enabled'},
+    {'1': 'caller', '3': 2, '4': 1, '5': 9, '10': 'caller'},
+  ],
+};
+
+/// Descriptor for `SetTorchRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setTorchRequestDescriptor = $convert.base64Decode(
+    'Cg9TZXRUb3JjaFJlcXVlc3QSGAoHZW5hYmxlZBgBIAEoCFIHZW5hYmxlZBIWCgZjYWxsZXIYAi'
+    'ABKAlSBmNhbGxlcg==');
+
+@$core.Deprecated('Use setTorchResponseDescriptor instead')
+const SetTorchResponse$json = {
+  '1': 'SetTorchResponse',
+  '2': [
+    {'1': 'enabled', '3': 1, '4': 1, '5': 8, '10': 'enabled'},
+    {'1': 'camera_id', '3': 2, '4': 1, '5': 9, '10': 'cameraId'},
+    {'1': 'caller', '3': 3, '4': 1, '5': 9, '10': 'caller'},
+    {'1': 'status', '3': 4, '4': 1, '5': 9, '10': 'status'},
+  ],
+};
+
+/// Descriptor for `SetTorchResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List setTorchResponseDescriptor = $convert.base64Decode(
+    'ChBTZXRUb3JjaFJlc3BvbnNlEhgKB2VuYWJsZWQYASABKAhSB2VuYWJsZWQSGwoJY2FtZXJhX2'
+    'lkGAIgASgJUghjYW1lcmFJZBIWCgZjYWxsZXIYAyABKAlSBmNhbGxlchIWCgZzdGF0dXMYBCAB'
+    'KAlSBnN0YXR1cw==');
+
 const $core.Map<$core.String, $core.dynamic> SharedSoDemoServiceBase$json = {
   '1': 'SharedSoDemo',
   '2': [
@@ -172,3 +203,52 @@ final $typed_data.Uint8List sharedSoDemoServiceDescriptor = $convert.base64Decod
     'V4YW1wbGVzLmZsdXR0ZXIuc2hhcmVkc28udjEuSW5jcmVtZW50UnVudGltZVN0YXRlUmVxdWVz'
     'dBoyLmV4YW1wbGVzLmZsdXR0ZXIuc2hhcmVkc28udjEuUnVudGltZVN0YXRlUmVzcG9uc2UoAT'
     'AB');
+
+const $core.Map<$core.String, $core.dynamic> AndroidDeviceServiceBase$json = {
+  '1': 'AndroidDevice',
+  '2': [
+    {
+      '1': 'SetTorch',
+      '2': '.examples.flutter.sharedso.v1.SetTorchRequest',
+      '3': '.examples.flutter.sharedso.v1.SetTorchResponse'
+    },
+    {
+      '1': 'WatchTorch',
+      '2': '.examples.flutter.sharedso.v1.SetTorchRequest',
+      '3': '.examples.flutter.sharedso.v1.SetTorchResponse',
+      '6': true
+    },
+    {
+      '1': 'CollectTorch',
+      '2': '.examples.flutter.sharedso.v1.SetTorchRequest',
+      '3': '.examples.flutter.sharedso.v1.SetTorchResponse',
+      '5': true
+    },
+    {
+      '1': 'ChatTorch',
+      '2': '.examples.flutter.sharedso.v1.SetTorchRequest',
+      '3': '.examples.flutter.sharedso.v1.SetTorchResponse',
+      '5': true,
+      '6': true
+    },
+  ],
+};
+
+@$core.Deprecated('Use androidDeviceServiceDescriptor instead')
+const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>>
+    AndroidDeviceServiceBase$messageJson = {
+  '.examples.flutter.sharedso.v1.SetTorchRequest': SetTorchRequest$json,
+  '.examples.flutter.sharedso.v1.SetTorchResponse': SetTorchResponse$json,
+};
+
+/// Descriptor for `AndroidDevice`. Decode as a `google.protobuf.ServiceDescriptorProto`.
+final $typed_data.Uint8List androidDeviceServiceDescriptor = $convert.base64Decode(
+    'Cg1BbmRyb2lkRGV2aWNlEmkKCFNldFRvcmNoEi0uZXhhbXBsZXMuZmx1dHRlci5zaGFyZWRzby'
+    '52MS5TZXRUb3JjaFJlcXVlc3QaLi5leGFtcGxlcy5mbHV0dGVyLnNoYXJlZHNvLnYxLlNldFRv'
+    'cmNoUmVzcG9uc2USbQoKV2F0Y2hUb3JjaBItLmV4YW1wbGVzLmZsdXR0ZXIuc2hhcmVkc28udj'
+    'EuU2V0VG9yY2hSZXF1ZXN0Gi4uZXhhbXBsZXMuZmx1dHRlci5zaGFyZWRzby52MS5TZXRUb3Jj'
+    'aFJlc3BvbnNlMAESbwoMQ29sbGVjdFRvcmNoEi0uZXhhbXBsZXMuZmx1dHRlci5zaGFyZWRzby'
+    '52MS5TZXRUb3JjaFJlcXVlc3QaLi5leGFtcGxlcy5mbHV0dGVyLnNoYXJlZHNvLnYxLlNldFRv'
+    'cmNoUmVzcG9uc2UoARJuCglDaGF0VG9yY2gSLS5leGFtcGxlcy5mbHV0dGVyLnNoYXJlZHNvLn'
+    'YxLlNldFRvcmNoUmVxdWVzdBouLmV4YW1wbGVzLmZsdXR0ZXIuc2hhcmVkc28udjEuU2V0VG9y'
+    'Y2hSZXNwb25zZSgBMAE=');

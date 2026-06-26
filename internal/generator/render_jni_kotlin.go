@@ -2,7 +2,7 @@ package generator
 
 import "google.golang.org/protobuf/compiler/protogen"
 
-func renderJNIKotlinFile(plugin *protogen.Plugin, plan FilePlan, service ServicePlan, config JNIGeneratorConfig) {
+func renderJNIKotlinFile(plugin *protogen.Plugin, plan FilePlan, services []ServicePlan, config JNIGeneratorConfig) {
 	g := plugin.NewGeneratedFile(jniKotlinFilename(config), "")
 	renderGeneratedHeaderForTool(g, "protoc-gen-rpc-cgo-jni")
 	g.P("// Source: ", plan.ProtoPath)
@@ -10,12 +10,17 @@ func renderJNIKotlinFile(plugin *protogen.Plugin, plan FilePlan, service Service
 	pkg, className := jniClassPackageAndSimpleName(config.JNIClass)
 	g.P("package ", pkg)
 	g.P()
-	if serviceHasRecvStreamingMethod(service) {
+	if jniServicesHaveRecvStreamingMethod(services) {
 		g.P("import androidx.annotation.Keep")
 	}
+	g.P("import com.google.protobuf.MessageLite")
 	g.P("import java.nio.ByteBuffer")
 	g.P("import java.nio.ByteOrder")
-	if serviceHasRecvStreamingMethod(service) {
+	if jniServicesHaveStreamingMethod(services) {
+		g.P("import java.util.concurrent.ConcurrentHashMap")
+		g.P("import java.util.concurrent.atomic.AtomicInteger")
+	}
+	if jniServicesHaveRecvStreamingMethod(services) {
 		g.P("import java.util.concurrent.atomic.AtomicBoolean")
 	}
 	g.P()
@@ -28,24 +33,35 @@ func renderJNIKotlinFile(plugin *protogen.Plugin, plan FilePlan, service Service
 	g.P("}")
 	g.P()
 	g.P("object ", className, " {")
-	if serviceHasRecvStreamingMethod(service) {
+	if jniServicesHaveStreamingMethod(services) {
+		g.P("    private val rpccgoServerStreamIDs = AtomicInteger(1)")
+		g.P()
+	}
+	if jniServicesHaveRecvStreamingMethod(services) {
 		renderKotlinCallbackStreamSupport(g)
 	}
-	for _, method := range service.Methods {
-		renderKotlinCallbackListener(g, service, method)
-		renderKotlinNativeDeclarations(g, service, method)
+	for _, service := range services {
+		for _, method := range service.Methods {
+			renderKotlinCallbackListener(g, service, method)
+			renderKotlinServerTypes(g, service, method)
+			renderKotlinNativeDeclarations(g, service, method)
+			renderKotlinServerNativeDeclarations(g, service, method)
+		}
 	}
 	g.P()
-	for _, method := range service.Methods {
-		switch method.Streaming {
-		case StreamingKindUnary:
-			renderKotlinUnaryMethod(g, service, method)
-		case StreamingKindClientStreaming:
-			renderKotlinClientStreamingMethod(g, service, method, className)
-		case StreamingKindServerStreaming:
-			renderKotlinServerStreamingMethod(g, service, method, className)
-		case StreamingKindBidiStreaming:
-			renderKotlinBidiStreamingMethod(g, service, method, className)
+	for _, service := range services {
+		for _, method := range service.Methods {
+			switch method.Streaming {
+			case StreamingKindUnary:
+				renderKotlinUnaryMethod(g, service, method)
+			case StreamingKindClientStreaming:
+				renderKotlinClientStreamingMethod(g, service, method, className)
+			case StreamingKindServerStreaming:
+				renderKotlinServerStreamingMethod(g, service, method, className)
+			case StreamingKindBidiStreaming:
+				renderKotlinBidiStreamingMethod(g, service, method, className)
+			}
+			renderKotlinServerMethod(g, service, method)
 		}
 	}
 	g.P("    private fun decodeResultPayload(bytes: ByteArray?): RpccgoResult<ByteArray> {")
@@ -79,6 +95,41 @@ func renderJNIKotlinFile(plugin *protogen.Plugin, plan FilePlan, service Service
 	g.P(`        if (value.size != 4) return RpccgoResult.failure("rpccgo: JNI returned invalid stream handle")`)
 	g.P("        return RpccgoResult.success(ByteBuffer.wrap(value).order(ByteOrder.BIG_ENDIAN).int)")
 	g.P("    }")
+	g.P()
+	g.P("    private fun encodeResultPayload(ok: Boolean, payload: ByteArray): ByteArray {")
+	g.P("        val out = ByteArray(payload.size + 5)")
+	g.P("        out[0] = if (ok) 1 else 0")
+	g.P("        ByteBuffer.wrap(out, 1, 4).order(ByteOrder.BIG_ENDIAN).putInt(payload.size)")
+	g.P("        payload.copyInto(out, 5)")
+	g.P("        return out")
+	g.P("    }")
+	g.P()
+	g.P("    private fun encodeErrorResult(error: String): ByteArray =")
+	g.P("        encodeResultPayload(false, error.toByteArray(Charsets.UTF_8))")
+	g.P()
+	g.P("    private fun encodeUnitResult(result: RpccgoResult<Unit>): ByteArray {")
+	g.P(`        if (!result.ok) return encodeErrorResult(result.error ?: "rpccgo: Kotlin server returned failure")`)
+	g.P("        return encodeResultPayload(true, ByteArray(0))")
+	g.P("    }")
+	g.P()
+	g.P("    private fun encodeMessageResult(result: RpccgoResult<out MessageLite>): ByteArray {")
+	g.P(`        if (!result.ok) return encodeErrorResult(result.error ?: "rpccgo: Kotlin server returned failure")`)
+	g.P(`        val value = result.value ?: return encodeErrorResult("rpccgo: Kotlin server returned null response")`)
+	g.P("        return encodeResultPayload(true, value.toByteArray())")
+	g.P("    }")
+	if jniServicesHaveStreamingMethod(services) {
+		g.P()
+		g.P("    private fun encodeHandleResult(handle: Int): ByteArray {")
+		g.P("        val payload = ByteArray(4)")
+		g.P("        ByteBuffer.wrap(payload).order(ByteOrder.BIG_ENDIAN).putInt(handle)")
+		g.P("        return encodeResultPayload(true, payload)")
+		g.P("    }")
+		g.P()
+		g.P("    private fun nextServerStreamHandle(): Int {")
+		g.P("        val next = rpccgoServerStreamIDs.getAndIncrement()")
+		g.P("        return if (next == 0) rpccgoServerStreamIDs.getAndIncrement() else next")
+		g.P("    }")
+	}
 	g.P("}")
 	g.P()
 }
@@ -153,6 +204,11 @@ func renderKotlinNativeDeclarations(g *protogen.GeneratedFile, service ServicePl
 		g.P("    private external fun ", prefix, "StartCallback(listener: ", jniKotlinListenerType(service, method), "): Boolean")
 		g.P("    private external fun ", prefix, "CancelCallback(): Boolean")
 	}
+}
+
+func renderKotlinServerNativeDeclarations(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
+	prefix := lowerInitial(service.GoName) + method.GoName
+	g.P("    private external fun ", prefix, "Register(): ByteArray?")
 }
 
 func renderKotlinCallbackListener(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
@@ -276,6 +332,229 @@ func renderKotlinBidiStreamingMethod(g *protogen.GeneratedFile, service ServiceP
 	g.P()
 }
 
+func renderKotlinServerTypes(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
+	switch method.Streaming {
+	case StreamingKindUnary:
+		return
+	case StreamingKindClientStreaming:
+		g.P("    interface ", jniKotlinServerHandlerType(service, method), " {")
+		g.P("        fun Send(req: ", rpccgoKotlinMessageType(method.Request), "): RpccgoResult<Unit>")
+		g.P("        fun Finish(): RpccgoResult<", rpccgoKotlinMessageType(method.Response), ">")
+		g.P("        fun Cancel(): RpccgoResult<Unit>")
+		g.P("    }")
+		g.P()
+	case StreamingKindServerStreaming:
+		g.P("    interface ", jniKotlinServerHandlerType(service, method), " {")
+		g.P("        fun Recv(): RpccgoResult<", rpccgoKotlinMessageType(method.Response), ">")
+		g.P("        fun Finish(): RpccgoResult<Unit>")
+		g.P("        fun Cancel(): RpccgoResult<Unit>")
+		g.P("    }")
+		g.P()
+	case StreamingKindBidiStreaming:
+		g.P("    interface ", jniKotlinServerHandlerType(service, method), " {")
+		g.P("        fun Send(req: ", rpccgoKotlinMessageType(method.Request), "): RpccgoResult<Unit>")
+		g.P("        fun Recv(): RpccgoResult<", rpccgoKotlinMessageType(method.Response), ">")
+		g.P("        fun CloseSend(): RpccgoResult<Unit>")
+		g.P("        fun Finish(): RpccgoResult<Unit>")
+		g.P("        fun Cancel(): RpccgoResult<Unit>")
+		g.P("    }")
+		g.P()
+	}
+}
+
+func renderKotlinServerMethod(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
+	switch method.Streaming {
+	case StreamingKindUnary:
+		renderKotlinUnaryServerMethod(g, service, method)
+	case StreamingKindClientStreaming:
+		renderKotlinClientStreamingServerMethod(g, service, method)
+	case StreamingKindServerStreaming:
+		renderKotlinServerStreamingServerMethod(g, service, method)
+	case StreamingKindBidiStreaming:
+		renderKotlinBidiStreamingServerMethod(g, service, method)
+	}
+}
+
+func renderKotlinUnaryServerMethod(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
+	reqType := rpccgoKotlinMessageType(method.Request)
+	respType := rpccgoKotlinMessageType(method.Response)
+	prefix := lowerInitial(service.GoName) + method.GoName
+	g.P("    private var ", prefix, "ServerHandler: ((", reqType, ") -> RpccgoResult<", respType, ">)? = null")
+	g.P()
+	g.P("    fun Register", method.GoName, "(handler: (", reqType, ") -> RpccgoResult<", respType, ">): RpccgoResult<Unit> {")
+	g.P("        ", prefix, "ServerHandler = handler")
+	g.P("        val result = decodeUnitResult(", prefix, "Register())")
+	g.P("        if (!result.ok) ", prefix, "ServerHandler = null")
+	g.P("        return result")
+	g.P("    }")
+	g.P()
+	g.P("    @Keep")
+	g.P("    private fun ", prefix, "Handle(requestBytes: ByteArray): ByteArray = try {")
+	g.P(`        val handler = `, prefix, `ServerHandler ?: return encodeErrorResult("rpccgo: Kotlin server handler is not registered")`)
+	g.P("        encodeMessageResult(handler(", reqType, ".parseFrom(requestBytes)))")
+	g.P("    } catch (e: Exception) {")
+	g.P(`        encodeErrorResult("rpccgo: Kotlin server handler failed: ${e.message ?: e::class.java.name}")`)
+	g.P("    }")
+	g.P()
+}
+
+func renderKotlinClientStreamingServerMethod(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
+	respType := rpccgoKotlinMessageType(method.Response)
+	prefix := lowerInitial(service.GoName) + method.GoName
+	handlerType := jniKotlinServerHandlerType(service, method)
+	g.P("    private var ", prefix, "ServerStart: (() -> RpccgoResult<", handlerType, ">)? = null")
+	g.P("    private val ", prefix, "ServerStreams = ConcurrentHashMap<Int, ", handlerType, ">()")
+	g.P()
+	g.P("    fun Register", method.GoName, "(start: () -> RpccgoResult<", handlerType, ">): RpccgoResult<Unit> {")
+	g.P("        ", prefix, "ServerStart = start")
+	g.P("        val result = decodeUnitResult(", prefix, "Register())")
+	g.P("        if (!result.ok) ", prefix, "ServerStart = null")
+	g.P("        return result")
+	g.P("    }")
+	g.P()
+	renderKotlinServerStartNoRequest(g, prefix)
+	renderKotlinServerSend(g, method, prefix)
+	g.P("    @Keep")
+	g.P("    private fun ", prefix, "ServerFinish(handle: Int): ByteArray = try {")
+	g.P(`        val stream = `, prefix, `ServerStreams.remove(handle) ?: return encodeErrorResult("rpccgo: Kotlin server stream handle is invalid")`)
+	g.P("        encodeMessageResult(stream.Finish())")
+	g.P("    } catch (e: Exception) {")
+	g.P(`        encodeErrorResult("rpccgo: Kotlin server stream finish failed: ${e.message ?: e::class.java.name}")`)
+	g.P("    }")
+	g.P()
+	renderKotlinServerCancel(g, prefix, false, respType)
+}
+
+func renderKotlinServerStreamingServerMethod(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
+	prefix := lowerInitial(service.GoName) + method.GoName
+	handlerType := jniKotlinServerHandlerType(service, method)
+	reqType := rpccgoKotlinMessageType(method.Request)
+	g.P("    private var ", prefix, "ServerStart: ((", reqType, ") -> RpccgoResult<", handlerType, ">)? = null")
+	g.P("    private val ", prefix, "ServerStreams = ConcurrentHashMap<Int, ", handlerType, ">()")
+	g.P()
+	g.P("    fun Register", method.GoName, "(start: (", reqType, ") -> RpccgoResult<", handlerType, ">): RpccgoResult<Unit> {")
+	g.P("        ", prefix, "ServerStart = start")
+	g.P("        val result = decodeUnitResult(", prefix, "Register())")
+	g.P("        if (!result.ok) ", prefix, "ServerStart = null")
+	g.P("        return result")
+	g.P("    }")
+	g.P()
+	renderKotlinServerStartWithRequest(g, method, prefix)
+	renderKotlinServerRecv(g, prefix)
+	renderKotlinServerFinish(g, prefix)
+	renderKotlinServerCancel(g, prefix, true, "")
+}
+
+func renderKotlinBidiStreamingServerMethod(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
+	prefix := lowerInitial(service.GoName) + method.GoName
+	handlerType := jniKotlinServerHandlerType(service, method)
+	g.P("    private var ", prefix, "ServerStart: (() -> RpccgoResult<", handlerType, ">)? = null")
+	g.P("    private val ", prefix, "ServerStreams = ConcurrentHashMap<Int, ", handlerType, ">()")
+	g.P()
+	g.P("    fun Register", method.GoName, "(start: () -> RpccgoResult<", handlerType, ">): RpccgoResult<Unit> {")
+	g.P("        ", prefix, "ServerStart = start")
+	g.P("        val result = decodeUnitResult(", prefix, "Register())")
+	g.P("        if (!result.ok) ", prefix, "ServerStart = null")
+	g.P("        return result")
+	g.P("    }")
+	g.P()
+	renderKotlinServerStartNoRequest(g, prefix)
+	renderKotlinServerSend(g, method, prefix)
+	renderKotlinServerRecv(g, prefix)
+	g.P("    @Keep")
+	g.P("    private fun ", prefix, "ServerCloseSend(handle: Int): ByteArray = try {")
+	g.P(`        val stream = `, prefix, `ServerStreams[handle] ?: return encodeErrorResult("rpccgo: Kotlin server stream handle is invalid")`)
+	g.P("        encodeUnitResult(stream.CloseSend())")
+	g.P("    } catch (e: Exception) {")
+	g.P(`        encodeErrorResult("rpccgo: Kotlin server stream close-send failed: ${e.message ?: e::class.java.name}")`)
+	g.P("    }")
+	g.P()
+	renderKotlinServerFinish(g, prefix)
+	renderKotlinServerCancel(g, prefix, true, "")
+}
+
+func renderKotlinServerStartNoRequest(g *protogen.GeneratedFile, prefix string) {
+	g.P("    @Keep")
+	g.P("    private fun ", prefix, "ServerStart(): ByteArray = try {")
+	g.P(`        val start = `, prefix, `ServerStart ?: return encodeErrorResult("rpccgo: Kotlin server handler is not registered")`)
+	g.P("        val result = start()")
+	g.P(`        if (!result.ok) return encodeErrorResult(result.error ?: "rpccgo: Kotlin server stream start failed")`)
+	g.P(`        val stream = result.value ?: return encodeErrorResult("rpccgo: Kotlin server stream start returned null")`)
+	g.P("        val handle = nextServerStreamHandle()")
+	g.P("        ", prefix, "ServerStreams[handle] = stream")
+	g.P("        encodeHandleResult(handle)")
+	g.P("    } catch (e: Exception) {")
+	g.P(`        encodeErrorResult("rpccgo: Kotlin server stream start failed: ${e.message ?: e::class.java.name}")`)
+	g.P("    }")
+	g.P()
+}
+
+func renderKotlinServerStartWithRequest(g *protogen.GeneratedFile, method MethodPlan, prefix string) {
+	reqType := rpccgoKotlinMessageType(method.Request)
+	g.P("    @Keep")
+	g.P("    private fun ", prefix, "ServerStart(requestBytes: ByteArray): ByteArray = try {")
+	g.P(`        val start = `, prefix, `ServerStart ?: return encodeErrorResult("rpccgo: Kotlin server handler is not registered")`)
+	g.P("        val result = start(", reqType, ".parseFrom(requestBytes))")
+	g.P(`        if (!result.ok) return encodeErrorResult(result.error ?: "rpccgo: Kotlin server stream start failed")`)
+	g.P(`        val stream = result.value ?: return encodeErrorResult("rpccgo: Kotlin server stream start returned null")`)
+	g.P("        val handle = nextServerStreamHandle()")
+	g.P("        ", prefix, "ServerStreams[handle] = stream")
+	g.P("        encodeHandleResult(handle)")
+	g.P("    } catch (e: Exception) {")
+	g.P(`        encodeErrorResult("rpccgo: Kotlin server stream start failed: ${e.message ?: e::class.java.name}")`)
+	g.P("    }")
+	g.P()
+}
+
+func renderKotlinServerSend(g *protogen.GeneratedFile, method MethodPlan, prefix string) {
+	reqType := rpccgoKotlinMessageType(method.Request)
+	g.P("    @Keep")
+	g.P("    private fun ", prefix, "ServerSend(handle: Int, requestBytes: ByteArray): ByteArray = try {")
+	g.P(`        val stream = `, prefix, `ServerStreams[handle] ?: return encodeErrorResult("rpccgo: Kotlin server stream handle is invalid")`)
+	g.P("        encodeUnitResult(stream.Send(", reqType, ".parseFrom(requestBytes)))")
+	g.P("    } catch (e: Exception) {")
+	g.P(`        encodeErrorResult("rpccgo: Kotlin server stream send failed: ${e.message ?: e::class.java.name}")`)
+	g.P("    }")
+	g.P()
+}
+
+func renderKotlinServerRecv(g *protogen.GeneratedFile, prefix string) {
+	g.P("    @Keep")
+	g.P("    private fun ", prefix, "ServerRecv(handle: Int): ByteArray = try {")
+	g.P(`        val stream = `, prefix, `ServerStreams[handle] ?: return encodeErrorResult("rpccgo: Kotlin server stream handle is invalid")`)
+	g.P("        encodeMessageResult(stream.Recv())")
+	g.P("    } catch (e: Exception) {")
+	g.P(`        encodeErrorResult("rpccgo: Kotlin server stream recv failed: ${e.message ?: e::class.java.name}")`)
+	g.P("    }")
+	g.P()
+}
+
+func renderKotlinServerFinish(g *protogen.GeneratedFile, prefix string) {
+	g.P("    @Keep")
+	g.P("    private fun ", prefix, "ServerFinish(handle: Int): ByteArray = try {")
+	g.P(`        val stream = `, prefix, `ServerStreams.remove(handle) ?: return encodeErrorResult("rpccgo: Kotlin server stream handle is invalid")`)
+	g.P("        encodeUnitResult(stream.Finish())")
+	g.P("    } catch (e: Exception) {")
+	g.P(`        encodeErrorResult("rpccgo: Kotlin server stream finish failed: ${e.message ?: e::class.java.name}")`)
+	g.P("    }")
+	g.P()
+}
+
+func renderKotlinServerCancel(g *protogen.GeneratedFile, prefix string, remove bool, _ string) {
+	lookup := prefix + "ServerStreams[handle]"
+	if remove {
+		lookup = prefix + "ServerStreams.remove(handle)"
+	}
+	g.P("    @Keep")
+	g.P("    private fun ", prefix, "ServerCancel(handle: Int): ByteArray = try {")
+	g.P(`        val stream = `, lookup, ` ?: return encodeErrorResult("rpccgo: Kotlin server stream handle is invalid")`)
+	g.P("        encodeUnitResult(stream.Cancel())")
+	g.P("    } catch (e: Exception) {")
+	g.P(`        encodeErrorResult("rpccgo: Kotlin server stream cancel failed: ${e.message ?: e::class.java.name}")`)
+	g.P("    }")
+	g.P()
+}
+
 func renderKotlinOwnerCallbackStartMethod(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, params, startCall string) {
 	listenerType := jniKotlinListenerType(service, method)
 	g.P("    fun ", method.GoName, "StartCallback(owner: android.app.Activity, ", params, "listener: ", listenerType, "): RpccgoResult<RpccgoCallbackStream> {")
@@ -315,6 +594,24 @@ func serviceHasRecvStreamingMethod(service ServicePlan) bool {
 	return false
 }
 
+func jniServicesHaveRecvStreamingMethod(services []ServicePlan) bool {
+	for _, service := range services {
+		if serviceHasRecvStreamingMethod(service) {
+			return true
+		}
+	}
+	return false
+}
+
+func jniServicesHaveStreamingMethod(services []ServicePlan) bool {
+	for _, service := range services {
+		if serviceHasStreamingMethod(service) {
+			return true
+		}
+	}
+	return false
+}
+
 func renderKotlinReceiveEachMethod(g *protogen.GeneratedFile, respType string) {
 	g.P("        /** Starts a background Recv loop. Do not mix with manual Recv calls on this stream. */")
 	g.P("        fun RecvEach(onRecv: (", respType, ") -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread> {")
@@ -342,4 +639,8 @@ func renderKotlinReceiveEachMethod(g *protogen.GeneratedFile, respType string) {
 
 func jniKotlinListenerType(service ServicePlan, method MethodPlan) string {
 	return service.GoName + method.GoName + "Listener"
+}
+
+func jniKotlinServerHandlerType(service ServicePlan, method MethodPlan) string {
+	return service.GoName + method.GoName + "ServerHandler"
 }

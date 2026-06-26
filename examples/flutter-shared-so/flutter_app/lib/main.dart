@@ -38,12 +38,14 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
   static const _events = EventChannel('rpccgo.shared.so/events');
 
   final _client = const SharedSoDemoRpccgoClient();
+  final _android = const AndroidDeviceRpccgoClient();
   final _logs = <String>['app opened'];
   RuntimeStateResponse? _dartState;
   String? _kotlinLine;
   SharedSoDemoWatchRuntimeStateStream? _countStream;
   StreamSubscription<dynamic>? _serviceEvents;
   bool _kotlinStreamRunning = false;
+  bool _torchOn = false;
   bool _busy = false;
 
   @override
@@ -166,6 +168,96 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
     });
   }
 
+  Future<void> _toggleTorch() async {
+    await _run('torch toggle', () async {
+      final next = !_torchOn;
+      final result = _android.SetTorch(
+        SetTorchRequest(enabled: next, caller: 'dart-ffi-go-kotlin'),
+      );
+      final value = result.value;
+      if (result.error != null || value == null) {
+        _append('torch error=${result.error ?? "missing response"}');
+        return;
+      }
+      setState(() => _torchOn = value.enabled);
+      _append(
+        'torch ${value.status} camera=${value.cameraId} caller=${value.caller}',
+      );
+    });
+  }
+
+  Future<void> _probeTorchStreams() async {
+    await _run('torch stream', () async {
+      final watch = _android.WatchTorchStart(
+        SetTorchRequest(enabled: false, caller: 'dart-watch-torch'),
+      );
+      final watchStream = watch.value;
+      if (watch.error != null || watchStream == null) {
+        _append('torch watch start error=${watch.error ?? "missing stream"}');
+        return;
+      }
+      final watched = watchStream.Recv();
+      final watchCancel = watchStream.Cancel();
+      if (watched.error != null || watched.value == null) {
+        _append(
+          'torch watch recv error=${watched.error ?? "missing response"}',
+        );
+        return;
+      }
+      _append(
+        'torch watch ${watched.value!.status} cancel=${watchCancel ?? "none"}',
+      );
+
+      final collect = _android.CollectTorchStart();
+      final collectStream = collect.value;
+      if (collect.error != null || collectStream == null) {
+        _append(
+          'torch collect start error=${collect.error ?? "missing stream"}',
+        );
+        return;
+      }
+      final collectSend = collectStream.Send(
+        SetTorchRequest(enabled: false, caller: 'dart-collect-torch'),
+      );
+      if (collectSend != null) {
+        _append('torch collect send error=$collectSend');
+        return;
+      }
+      final collected = collectStream.Finish();
+      if (collected.error != null || collected.value == null) {
+        _append(
+          'torch collect finish error=${collected.error ?? "missing response"}',
+        );
+        return;
+      }
+      _append('torch collect ${collected.value!.status}');
+
+      final chat = _android.ChatTorchStart();
+      final chatStream = chat.value;
+      if (chat.error != null || chatStream == null) {
+        _append('torch chat start error=${chat.error ?? "missing stream"}');
+        return;
+      }
+      final chatSend = chatStream.Send(
+        SetTorchRequest(enabled: false, caller: 'dart-chat-torch'),
+      );
+      if (chatSend != null) {
+        _append('torch chat send error=$chatSend');
+        return;
+      }
+      final chatted = chatStream.Recv();
+      final closeSend = chatStream.CloseSend();
+      final finish = chatStream.Finish();
+      if (chatted.error != null || chatted.value == null) {
+        _append('torch chat recv error=${chatted.error ?? "missing response"}');
+        return;
+      }
+      _append(
+        'torch chat ${chatted.value!.status} close=${closeSend ?? "none"} finish=${finish ?? "none"}',
+      );
+    });
+  }
+
   Future<void> _run(String label, Future<void> Function() action) async {
     if (_busy) return;
     setState(() => _busy = true);
@@ -209,6 +301,7 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
                 dartState: _dartState,
                 dartStreamRunning: _countStream != null,
                 kotlinStreamRunning: _kotlinStreamRunning,
+                torchOn: _torchOn,
               ),
               const SizedBox(height: 12),
               Wrap(
@@ -257,6 +350,18 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
                     icon: const Icon(Icons.stop_circle_outlined),
                     label: const Text('Kotlin Stop Stream'),
                   ),
+                  FilledButton.icon(
+                    onPressed: _busy ? null : _toggleTorch,
+                    icon: Icon(
+                      _torchOn ? Icons.flashlight_off : Icons.flashlight_on,
+                    ),
+                    label: Text(_torchOn ? 'Torch Off' : 'Torch On'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _probeTorchStreams,
+                    icon: const Icon(Icons.stream),
+                    label: const Text('Torch Stream'),
+                  ),
                   OutlinedButton.icon(
                     onPressed: _busy ? null : SystemNavigator.pop,
                     icon: const Icon(Icons.close_fullscreen),
@@ -268,21 +373,46 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
               Text('Log', style: theme.textTheme.titleMedium),
               const SizedBox(height: 8),
               Expanded(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: theme.dividerColor),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: ListView.separated(
-                    reverse: true,
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _logs.length,
-                    separatorBuilder: (_, _) => const Divider(height: 12),
-                    itemBuilder: (_, index) => SelectableText(
-                      _logs[index],
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontFamily: 'monospace',
-                      ),
+                child: DraggableScrollableSheet(
+                  initialChildSize: 0.38,
+                  minChildSize: 0.18,
+                  maxChildSize: 0.85,
+                  builder: (context, scrollController) => DecoratedBox(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: theme.dividerColor),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(height: 8),
+                        Center(
+                          child: Container(
+                            width: 48,
+                            height: 4,
+                            decoration: BoxDecoration(
+                              color: theme.dividerColor,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: ListView.separated(
+                            controller: scrollController,
+                            reverse: true,
+                            padding: const EdgeInsets.all(12),
+                            itemCount: _logs.length,
+                            separatorBuilder: (_, _) => const Divider(height: 12),
+                            itemBuilder: (_, index) => SelectableText(
+                              _logs[index],
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -301,12 +431,14 @@ class _StatePanel extends StatelessWidget {
     required this.dartState,
     required this.dartStreamRunning,
     required this.kotlinStreamRunning,
+    required this.torchOn,
   });
 
   final String? kotlinLine;
   final RuntimeStateResponse? dartState;
   final bool dartStreamRunning;
   final bool kotlinStreamRunning;
+  final bool torchOn;
 
   @override
   Widget build(BuildContext context) {
@@ -326,6 +458,7 @@ class _StatePanel extends StatelessWidget {
             Text(
               'Kotlin stream: ${kotlinStreamRunning ? "running" : "stopped"}',
             ),
+            Text('Torch: ${torchOn ? "on" : "off"}'),
             const SizedBox(height: 8),
             SelectableText('Kotlin/JNI: ${kotlinLine ?? "no state yet"}'),
             SelectableText(

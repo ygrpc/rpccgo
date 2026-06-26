@@ -31,13 +31,70 @@ callback(ptr);
 
 #line 1 "cgo-generated-wrapper"
 
+#line 11 "shared_so.android_device.client.message.cgo.rpccgo.go"
+
+#include <stdint.h>
+typedef void (*AndroidDeviceRpccgoMessageOnRecvCallback)(int32_t stream, uintptr_t response_ptr, int32_t response_len);
+typedef void (*AndroidDeviceRpccgoMessageOnDoneCallback)(int32_t stream, int32_t err_id);
+static inline void callAndroidDeviceRpccgoMessageOnRecvCallback(AndroidDeviceRpccgoMessageOnRecvCallback callback, int32_t stream, uintptr_t response_ptr, int32_t response_len) { callback(stream, response_ptr, response_len); }
+static inline void callAndroidDeviceRpccgoMessageOnDoneCallback(AndroidDeviceRpccgoMessageOnDoneCallback callback, int32_t stream, int32_t err_id) { callback(stream, err_id); }
+
+#line 1 "cgo-generated-wrapper"
+
+#line 11 "shared_so.android_device.server.message.cgo.rpccgo.go"
+
+#include <stdint.h>
+
+typedef int32_t (*AndroidDeviceSetTorchCGOMessageUnaryCallback)(uintptr_t request_ptr, int32_t request_len, uintptr_t* response_ptr, int32_t* response_len);
+
+typedef int32_t (*AndroidDeviceWatchTorchCGOMessageServerStreamStartCallback)(uintptr_t request_ptr, int32_t request_len, int32_t* stream);
+typedef int32_t (*AndroidDeviceWatchTorchCGOMessageServerStreamRecvCallback)(int32_t stream, uintptr_t* response_ptr, int32_t* response_len);
+typedef int32_t (*AndroidDeviceWatchTorchCGOMessageServerStreamFinishCallback)(int32_t stream);
+typedef int32_t (*AndroidDeviceWatchTorchCGOMessageServerStreamCancelCallback)(int32_t stream);
+
+typedef int32_t (*AndroidDeviceCollectTorchCGOMessageClientStreamStartCallback)(int32_t* stream);
+typedef int32_t (*AndroidDeviceCollectTorchCGOMessageClientStreamSendCallback)(int32_t stream, uintptr_t request_ptr, int32_t request_len);
+typedef int32_t (*AndroidDeviceCollectTorchCGOMessageClientStreamFinishCallback)(int32_t stream, uintptr_t* response_ptr, int32_t* response_len);
+typedef int32_t (*AndroidDeviceCollectTorchCGOMessageClientStreamCancelCallback)(int32_t stream);
+
+typedef int32_t (*AndroidDeviceChatTorchCGOMessageBidiStreamStartCallback)(int32_t* stream);
+typedef int32_t (*AndroidDeviceChatTorchCGOMessageBidiStreamSendCallback)(int32_t stream, uintptr_t request_ptr, int32_t request_len);
+typedef int32_t (*AndroidDeviceChatTorchCGOMessageBidiStreamRecvCallback)(int32_t stream, uintptr_t* response_ptr, int32_t* response_len);
+typedef int32_t (*AndroidDeviceChatTorchCGOMessageBidiStreamCloseSendCallback)(int32_t stream);
+typedef int32_t (*AndroidDeviceChatTorchCGOMessageBidiStreamFinishCallback)(int32_t stream);
+typedef int32_t (*AndroidDeviceChatTorchCGOMessageBidiStreamCancelCallback)(int32_t stream);
+
+static inline int32_t callAndroidDeviceSetTorchCGOMessageUnary(AndroidDeviceSetTorchCGOMessageUnaryCallback callback, uintptr_t request_ptr, int32_t request_len, uintptr_t* response_ptr, int32_t* response_len) {
+	return callback(request_ptr, request_len, response_ptr, response_len);
+}
+
+static inline int32_t callAndroidDeviceWatchTorchCGOMessageServerStreamStart(AndroidDeviceWatchTorchCGOMessageServerStreamStartCallback callback, uintptr_t request_ptr, int32_t request_len, int32_t* stream) { return callback(request_ptr, request_len, stream); }
+static inline int32_t callAndroidDeviceWatchTorchCGOMessageServerStreamRecv(AndroidDeviceWatchTorchCGOMessageServerStreamRecvCallback callback, int32_t stream, uintptr_t* response_ptr, int32_t* response_len) { return callback(stream, response_ptr, response_len); }
+static inline int32_t callAndroidDeviceWatchTorchCGOMessageServerStreamFinish(AndroidDeviceWatchTorchCGOMessageServerStreamFinishCallback callback, int32_t stream) { return callback(stream); }
+static inline int32_t callAndroidDeviceWatchTorchCGOMessageServerStreamCancel(AndroidDeviceWatchTorchCGOMessageServerStreamCancelCallback callback, int32_t stream) { return callback(stream); }
+
+static inline int32_t callAndroidDeviceCollectTorchCGOMessageClientStreamStart(AndroidDeviceCollectTorchCGOMessageClientStreamStartCallback callback, int32_t* stream) { return callback(stream); }
+static inline int32_t callAndroidDeviceCollectTorchCGOMessageClientStreamSend(AndroidDeviceCollectTorchCGOMessageClientStreamSendCallback callback, int32_t stream, uintptr_t request_ptr, int32_t request_len) { return callback(stream, request_ptr, request_len); }
+static inline int32_t callAndroidDeviceCollectTorchCGOMessageClientStreamFinish(AndroidDeviceCollectTorchCGOMessageClientStreamFinishCallback callback, int32_t stream, uintptr_t* response_ptr, int32_t* response_len) { return callback(stream, response_ptr, response_len); }
+static inline int32_t callAndroidDeviceCollectTorchCGOMessageClientStreamCancel(AndroidDeviceCollectTorchCGOMessageClientStreamCancelCallback callback, int32_t stream) { return callback(stream); }
+
+static inline int32_t callAndroidDeviceChatTorchCGOMessageBidiStreamStart(AndroidDeviceChatTorchCGOMessageBidiStreamStartCallback callback, int32_t* stream) { return callback(stream); }
+static inline int32_t callAndroidDeviceChatTorchCGOMessageBidiStreamSend(AndroidDeviceChatTorchCGOMessageBidiStreamSendCallback callback, int32_t stream, uintptr_t request_ptr, int32_t request_len) { return callback(stream, request_ptr, request_len); }
+static inline int32_t callAndroidDeviceChatTorchCGOMessageBidiStreamRecv(AndroidDeviceChatTorchCGOMessageBidiStreamRecvCallback callback, int32_t stream, uintptr_t* response_ptr, int32_t* response_len) { return callback(stream, response_ptr, response_len); }
+static inline int32_t callAndroidDeviceChatTorchCGOMessageBidiStreamCloseSend(AndroidDeviceChatTorchCGOMessageBidiStreamCloseSendCallback callback, int32_t stream) { return callback(stream); }
+static inline int32_t callAndroidDeviceChatTorchCGOMessageBidiStreamFinish(AndroidDeviceChatTorchCGOMessageBidiStreamFinishCallback callback, int32_t stream) { return callback(stream); }
+static inline int32_t callAndroidDeviceChatTorchCGOMessageBidiStreamCancel(AndroidDeviceChatTorchCGOMessageBidiStreamCancelCallback callback, int32_t stream) { return callback(stream); }
+
+
+#line 1 "cgo-generated-wrapper"
+
 #line 11 "shared_so.shared_so_demo.client.message.cgo.rpccgo.go"
 
 #include <stdint.h>
-typedef void (*RpccgoMessageOnRecvCallback)(int32_t stream, uintptr_t response_ptr, int32_t response_len);
-typedef void (*RpccgoMessageOnDoneCallback)(int32_t stream, int32_t err_id);
-static inline void callRpccgoMessageOnRecvCallback(RpccgoMessageOnRecvCallback callback, int32_t stream, uintptr_t response_ptr, int32_t response_len) { callback(stream, response_ptr, response_len); }
-static inline void callRpccgoMessageOnDoneCallback(RpccgoMessageOnDoneCallback callback, int32_t stream, int32_t err_id) { callback(stream, err_id); }
+typedef void (*SharedSoDemoRpccgoMessageOnRecvCallback)(int32_t stream, uintptr_t response_ptr, int32_t response_len);
+typedef void (*SharedSoDemoRpccgoMessageOnDoneCallback)(int32_t stream, int32_t err_id);
+static inline void callSharedSoDemoRpccgoMessageOnRecvCallback(SharedSoDemoRpccgoMessageOnRecvCallback callback, int32_t stream, uintptr_t response_ptr, int32_t response_len) { callback(stream, response_ptr, response_len); }
+static inline void callSharedSoDemoRpccgoMessageOnDoneCallback(SharedSoDemoRpccgoMessageOnDoneCallback callback, int32_t stream, int32_t err_id) { callback(stream, err_id); }
 
 #line 1 "cgo-generated-wrapper"
 
@@ -181,6 +238,90 @@ extern int32_t rpccgoTakeErrorText(int32_t errID, uintptr_t* textPtr, int32_t* t
 //
 extern int32_t rpccgoRelease(uintptr_t ptr);
 
+// rpccgoMsgFluttersharedv1AndroidDeviceSetTorch invokes the message unary client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.SetTorch.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceSetTorch(uintptr_t requestPtr, int32_t requestLen, uintptr_t* responsePtr, int32_t* responseLen);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchStart starts the message server-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.WatchTorch.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchStart(uintptr_t requestPtr, int32_t requestLen, int32_t* handle, AndroidDeviceRpccgoMessageOnRecvCallback onRecv, AndroidDeviceRpccgoMessageOnDoneCallback onDone);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchRecv receives a message response from the server-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.WatchTorch.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchRecv(int32_t handle, uintptr_t* responsePtr, int32_t* responseLen);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchCancel cancels the message server-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.WatchTorch.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchCancel(int32_t handle);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchClose closes callback receive ownership for the message server-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.WatchTorch without delivering further callbacks.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceWatchTorchClose(int32_t handle);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchStart starts the message client-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.CollectTorch.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchStart(int32_t* handle);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchSend sends a message request to the client-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.CollectTorch.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchSend(int32_t handle, uintptr_t requestPtr, int32_t requestLen);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchFinish finishes the message client-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.CollectTorch.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchFinish(int32_t handle, uintptr_t* responsePtr, int32_t* responseLen);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchCancel cancels the message client-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.CollectTorch.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceCollectTorchCancel(int32_t handle);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceChatTorchStart starts the message bidi-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.ChatTorch.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceChatTorchStart(int32_t* handle, AndroidDeviceRpccgoMessageOnRecvCallback onRecv, AndroidDeviceRpccgoMessageOnDoneCallback onDone);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceChatTorchSend sends a message request to the bidi-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.ChatTorch.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceChatTorchSend(int32_t handle, uintptr_t requestPtr, int32_t requestLen);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceChatTorchRecv receives a message response from the bidi-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.ChatTorch.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceChatTorchRecv(int32_t handle, uintptr_t* responsePtr, int32_t* responseLen);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceChatTorchCloseSend closes the message bidi-streaming client send side for examples.flutter.sharedso.v1.AndroidDevice.ChatTorch.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceChatTorchCloseSend(int32_t handle);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceChatTorchFinish finishes the message bidi-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.ChatTorch.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceChatTorchFinish(int32_t handle);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceChatTorchCancel cancels the message bidi-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.ChatTorch.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceChatTorchCancel(int32_t handle);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceChatTorchClose closes callback receive ownership for the message bidi-streaming client entrypoint for examples.flutter.sharedso.v1.AndroidDevice.ChatTorch without delivering further callbacks.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceChatTorchClose(int32_t handle);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceRegister registers cgo message callbacks as the current server for examples.flutter.sharedso.v1.AndroidDevice.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceRegister(AndroidDeviceSetTorchCGOMessageUnaryCallback setTorchCallback, AndroidDeviceWatchTorchCGOMessageServerStreamStartCallback watchTorchStart, AndroidDeviceWatchTorchCGOMessageServerStreamRecvCallback watchTorchRecv, AndroidDeviceWatchTorchCGOMessageServerStreamFinishCallback watchTorchFinish, AndroidDeviceWatchTorchCGOMessageServerStreamCancelCallback watchTorchCancel, AndroidDeviceCollectTorchCGOMessageClientStreamStartCallback collectTorchStart, AndroidDeviceCollectTorchCGOMessageClientStreamSendCallback collectTorchSend, AndroidDeviceCollectTorchCGOMessageClientStreamFinishCallback collectTorchFinish, AndroidDeviceCollectTorchCGOMessageClientStreamCancelCallback collectTorchCancel, AndroidDeviceChatTorchCGOMessageBidiStreamStartCallback chatTorchStart, AndroidDeviceChatTorchCGOMessageBidiStreamSendCallback chatTorchSend, AndroidDeviceChatTorchCGOMessageBidiStreamRecvCallback chatTorchRecv, AndroidDeviceChatTorchCGOMessageBidiStreamCloseSendCallback chatTorchCloseSend, AndroidDeviceChatTorchCGOMessageBidiStreamFinishCallback chatTorchFinish, AndroidDeviceChatTorchCGOMessageBidiStreamCancelCallback chatTorchCancel);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceRegisterSetTorch registers cgo message callbacks for examples.flutter.sharedso.v1.AndroidDevice.SetTorch.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceRegisterSetTorch(AndroidDeviceSetTorchCGOMessageUnaryCallback setTorchCallback);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceRegisterWatchTorch registers cgo message callbacks for examples.flutter.sharedso.v1.AndroidDevice.WatchTorch.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceRegisterWatchTorch(AndroidDeviceWatchTorchCGOMessageServerStreamStartCallback watchTorchStart, AndroidDeviceWatchTorchCGOMessageServerStreamRecvCallback watchTorchRecv, AndroidDeviceWatchTorchCGOMessageServerStreamFinishCallback watchTorchFinish, AndroidDeviceWatchTorchCGOMessageServerStreamCancelCallback watchTorchCancel);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceRegisterCollectTorch registers cgo message callbacks for examples.flutter.sharedso.v1.AndroidDevice.CollectTorch.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceRegisterCollectTorch(AndroidDeviceCollectTorchCGOMessageClientStreamStartCallback collectTorchStart, AndroidDeviceCollectTorchCGOMessageClientStreamSendCallback collectTorchSend, AndroidDeviceCollectTorchCGOMessageClientStreamFinishCallback collectTorchFinish, AndroidDeviceCollectTorchCGOMessageClientStreamCancelCallback collectTorchCancel);
+
+// rpccgoMsgFluttersharedv1AndroidDeviceRegisterChatTorch registers cgo message callbacks for examples.flutter.sharedso.v1.AndroidDevice.ChatTorch.
+//
+extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceRegisterChatTorch(AndroidDeviceChatTorchCGOMessageBidiStreamStartCallback chatTorchStart, AndroidDeviceChatTorchCGOMessageBidiStreamSendCallback chatTorchSend, AndroidDeviceChatTorchCGOMessageBidiStreamRecvCallback chatTorchRecv, AndroidDeviceChatTorchCGOMessageBidiStreamCloseSendCallback chatTorchCloseSend, AndroidDeviceChatTorchCGOMessageBidiStreamFinishCallback chatTorchFinish, AndroidDeviceChatTorchCGOMessageBidiStreamCancelCallback chatTorchCancel);
+
 // rpccgoMsgFluttersharedv1SharedSoDemoComposeGreeting invokes the message unary client entrypoint for examples.flutter.sharedso.v1.SharedSoDemo.ComposeGreeting.
 //
 extern int32_t rpccgoMsgFluttersharedv1SharedSoDemoComposeGreeting(uintptr_t requestPtr, int32_t requestLen, uintptr_t* responsePtr, int32_t* responseLen);
@@ -195,7 +336,7 @@ extern int32_t rpccgoMsgFluttersharedv1SharedSoDemoReadRuntimeState(uintptr_t re
 
 // rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart starts the message server-streaming client entrypoint for examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState.
 //
-extern int32_t rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart(uintptr_t requestPtr, int32_t requestLen, int32_t* handle, RpccgoMessageOnRecvCallback onRecv, RpccgoMessageOnDoneCallback onDone);
+extern int32_t rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateStart(uintptr_t requestPtr, int32_t requestLen, int32_t* handle, SharedSoDemoRpccgoMessageOnRecvCallback onRecv, SharedSoDemoRpccgoMessageOnDoneCallback onDone);
 
 // rpccgoMsgFluttersharedv1SharedSoDemoWatchRuntimeStateRecv receives a message response from the server-streaming client entrypoint for examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState.
 //
@@ -227,7 +368,7 @@ extern int32_t rpccgoMsgFluttersharedv1SharedSoDemoCollectRuntimeStateCancel(int
 
 // rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateStart starts the message server-streaming client entrypoint for examples.flutter.sharedso.v1.SharedSoDemo.StreamRuntimeState.
 //
-extern int32_t rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateStart(uintptr_t requestPtr, int32_t requestLen, int32_t* handle, RpccgoMessageOnRecvCallback onRecv, RpccgoMessageOnDoneCallback onDone);
+extern int32_t rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateStart(uintptr_t requestPtr, int32_t requestLen, int32_t* handle, SharedSoDemoRpccgoMessageOnRecvCallback onRecv, SharedSoDemoRpccgoMessageOnDoneCallback onDone);
 
 // rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateRecv receives a message response from the server-streaming client entrypoint for examples.flutter.sharedso.v1.SharedSoDemo.StreamRuntimeState.
 //
@@ -243,7 +384,7 @@ extern int32_t rpccgoMsgFluttersharedv1SharedSoDemoStreamRuntimeStateClose(int32
 
 // rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateStart starts the message bidi-streaming client entrypoint for examples.flutter.sharedso.v1.SharedSoDemo.ChatRuntimeState.
 //
-extern int32_t rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateStart(int32_t* handle, RpccgoMessageOnRecvCallback onRecv, RpccgoMessageOnDoneCallback onDone);
+extern int32_t rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateStart(int32_t* handle, SharedSoDemoRpccgoMessageOnRecvCallback onRecv, SharedSoDemoRpccgoMessageOnDoneCallback onDone);
 
 // rpccgoMsgFluttersharedv1SharedSoDemoChatRuntimeStateSend sends a message request to the bidi-streaming client entrypoint for examples.flutter.sharedso.v1.SharedSoDemo.ChatRuntimeState.
 //

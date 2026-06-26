@@ -1,25 +1,64 @@
 package generator
 
 import (
+	"path"
 	"strings"
 
 	"google.golang.org/protobuf/compiler/protogen"
 )
 
-func renderJNICPPFile(plugin *protogen.Plugin, file FilePlan, service ServicePlan, config JNIGeneratorConfig) {
-	g := plugin.NewGeneratedFile(jniCPPFilename(file, service, config), "")
+func renderJNICPPCommonHeaderFile(plugin *protogen.Plugin, config JNIGeneratorConfig) {
+	g := plugin.NewGeneratedFile(jniCPPCommonHeaderFilename(config), "")
 	renderGeneratedHeaderForTool(g, "protoc-gen-rpc-cgo-jni")
-	g.P("// Source: ", file.ProtoPath)
+	g.P()
+	g.P("#pragma once")
 	g.P()
 	g.P("#include <jni.h>")
 	g.P("#include <stdint.h>")
-	g.P("#include <stdlib.h>")
 	g.P()
-	g.P("#include <mutex>")
 	g.P("#include <string>")
 	g.P("#include <vector>")
 	g.P()
 	g.P(`#include "`, config.RPCCGOHeader, `"`)
+	g.P()
+	g.P("extern JavaVM* javaVM;")
+	g.P()
+	g.P("class rpccgoJNIEnvScope {")
+	g.P("public:")
+	g.P("    explicit rpccgoJNIEnvScope(JNIEnv* current);")
+	g.P("    ~rpccgoJNIEnvScope();")
+	g.P()
+	g.P("    JNIEnv* env;")
+	g.P()
+	g.P("private:")
+	g.P("    bool attached;")
+	g.P("};")
+	g.P()
+	g.P("jbyteArray rpccgoJNIByteArray(JNIEnv* env, const std::vector<uint8_t>& data);")
+	g.P("std::vector<uint8_t> rpccgoJNIBytes(JNIEnv* env, jbyteArray value, bool* ok);")
+	g.P("jbyteArray rpccgoResult(JNIEnv* env, bool ok, const std::vector<uint8_t>& payload);")
+	g.P("jbyteArray rpccgoErrorResult(JNIEnv* env, const std::string& message);")
+	g.P("jbyteArray rpccgoErrorIDResult(JNIEnv* env, int32_t errID);")
+	g.P("jbyteArray rpccgoSuccessBytes(JNIEnv* env, uintptr_t responsePtr, int32_t responseLen);")
+	g.P("jbyteArray rpccgoSuccessHandle(JNIEnv* env, int32_t handle);")
+	g.P("jbyteArray rpccgoSuccessUnit(JNIEnv* env);")
+	g.P("uintptr_t rpccgoVectorPtr(const std::vector<uint8_t>& data);")
+	g.P("std::string rpccgoErrorString(int32_t errID);")
+	g.P("int32_t rpccgoStoreErrorString(const std::string& message);")
+	g.P("int32_t rpccgoExceptionError(JNIEnv* env, const std::string& message);")
+	g.P("int32_t rpccgoRequestByteArray(JNIEnv* env, uintptr_t requestPtr, int32_t requestLen, jbyteArray* out);")
+	g.P("int32_t rpccgoKotlinUnitResult(JNIEnv* env, jbyteArray result);")
+	g.P("int32_t rpccgoKotlinBytesResult(JNIEnv* env, jbyteArray result, uintptr_t* responsePtr, int32_t* responseLen);")
+	g.P("int32_t rpccgoKotlinHandleResult(JNIEnv* env, jbyteArray result, int32_t* stream);")
+}
+
+func renderJNICPPCommonFile(plugin *protogen.Plugin, config JNIGeneratorConfig) {
+	g := plugin.NewGeneratedFile(jniCPPCommonFilename(config), "")
+	renderGeneratedHeaderForTool(g, "protoc-gen-rpc-cgo-jni")
+	g.P()
+	g.P(`#include "`, path.Base(jniCPPCommonHeaderFilename(config)), `"`)
+	g.P()
+	g.P("#include <utility>")
 	g.P()
 	g.P("JavaVM* javaVM = nullptr;")
 	g.P()
@@ -34,6 +73,18 @@ func renderJNICPPFile(plugin *protogen.Plugin, file FilePlan, service ServicePla
 	g.P("}")
 	g.P()
 	renderJNICPPHelpers(g)
+}
+
+func renderJNICPPFile(plugin *protogen.Plugin, file FilePlan, service ServicePlan, config JNIGeneratorConfig) {
+	g := plugin.NewGeneratedFile(jniCPPServiceFilename(file, service, config), "")
+	renderGeneratedHeaderForTool(g, "protoc-gen-rpc-cgo-jni")
+	g.P("// Source: ", file.ProtoPath)
+	g.P()
+	g.P("#include <mutex>")
+	g.P()
+	g.P(`#include "`, path.Base(jniCPPCommonHeaderFilename(config)), `"`)
+	g.P()
+	renderJNICPPServerBridgeState(g, service)
 	for i, method := range service.Methods {
 		if i > 0 {
 			g.P()
@@ -48,15 +99,13 @@ func renderJNICPPFile(plugin *protogen.Plugin, file FilePlan, service ServicePla
 		case StreamingKindBidiStreaming:
 			renderJNICPPBidiStreaming(g, file, service, method, config)
 		}
+		g.P()
+		renderJNICPPServerRegistration(g, file, service, method, config)
 	}
 }
 
 func renderJNICPPHelpers(g *protogen.GeneratedFile) {
-	g.P("namespace {")
-	g.P()
-	g.P("class rpccgoJNIEnvScope {")
-	g.P("public:")
-	g.P("    explicit rpccgoJNIEnvScope(JNIEnv* current) : env(current), attached(false) {")
+	g.P("rpccgoJNIEnvScope::rpccgoJNIEnvScope(JNIEnv* current) : env(current), attached(false) {")
 	g.P("        if (env != nullptr || javaVM == nullptr) { return; }")
 	g.P("        void* rawEnv = nullptr;")
 	g.P("        jint status = javaVM->GetEnv(&rawEnv, JNI_VERSION_1_6);")
@@ -69,15 +118,11 @@ func renderJNICPPHelpers(g *protogen.GeneratedFile) {
 	g.P("            env = attachedEnv;")
 	g.P("            attached = true;")
 	g.P("        }")
-	g.P("    }")
-	g.P("    ~rpccgoJNIEnvScope() {")
-	g.P("        if (attached && javaVM != nullptr) { javaVM->DetachCurrentThread(); }")
-	g.P("    }")
-	g.P("    JNIEnv* env;")
+	g.P("}")
 	g.P()
-	g.P("private:")
-	g.P("    bool attached;")
-	g.P("};")
+	g.P("rpccgoJNIEnvScope::~rpccgoJNIEnvScope() {")
+	g.P("        if (attached && javaVM != nullptr) { javaVM->DetachCurrentThread(); }")
+	g.P("}")
 	g.P()
 	g.P("jbyteArray rpccgoJNIByteArray(JNIEnv* env, const std::vector<uint8_t>& data) {")
 	g.P("    if (env == nullptr) { return nullptr; }")
@@ -170,7 +215,107 @@ func renderJNICPPHelpers(g *protogen.GeneratedFile) {
 	g.P("    return std::string(text.begin(), text.end());")
 	g.P("}")
 	g.P()
-	g.P("}  // namespace")
+	g.P("int32_t rpccgoStoreErrorString(const std::string& message) {")
+	g.P("    return rpccgoStoreErrorText(const_cast<char*>(message.data()), static_cast<int32_t>(message.size()));")
+	g.P("}")
+	g.P()
+	g.P("int32_t rpccgoExceptionError(JNIEnv* env, const std::string& message) {")
+	g.P("    if (env != nullptr && env->ExceptionCheck()) { env->ExceptionClear(); }")
+	g.P("    return rpccgoStoreErrorString(message);")
+	g.P("}")
+	g.P()
+	g.P("int32_t rpccgoRequestByteArray(JNIEnv* env, uintptr_t requestPtr, int32_t requestLen, jbyteArray* out) {")
+	g.P("    if (out == nullptr) { return rpccgoStoreErrorString(\"rpccgo: JNI request output is nil\"); }")
+	g.P("    *out = nullptr;")
+	g.P("    if (requestLen < 0) { return rpccgoStoreErrorString(\"rpccgo: JNI request length is negative\"); }")
+	g.P("    if (requestPtr == 0 && requestLen != 0) { return rpccgoStoreErrorString(\"rpccgo: JNI request pointer is null\"); }")
+	g.P("    jbyteArray request = env->NewByteArray(requestLen);")
+	g.P("    if (request == nullptr) { return rpccgoExceptionError(env, \"rpccgo: JNI request allocation failed\"); }")
+	g.P("    if (requestLen > 0) {")
+	g.P("        env->SetByteArrayRegion(request, 0, requestLen, reinterpret_cast<const jbyte*>(requestPtr));")
+	g.P("        if (env->ExceptionCheck()) {")
+	g.P("            env->DeleteLocalRef(request);")
+	g.P("            return rpccgoExceptionError(env, \"rpccgo: JNI request copy failed\");")
+	g.P("        }")
+	g.P("    }")
+	g.P("    *out = request;")
+	g.P("    return 0;")
+	g.P("}")
+	g.P()
+	g.P("int32_t rpccgoReadResultPayload(JNIEnv* env, jbyteArray result, bool* ok, std::vector<uint8_t>* payload) {")
+	g.P("    if (ok == nullptr || payload == nullptr) { return rpccgoStoreErrorString(\"rpccgo: JNI result output is nil\"); }")
+	g.P("    bool resultOK = false;")
+	g.P("    std::vector<uint8_t> data = rpccgoJNIBytes(env, result, &resultOK);")
+	g.P("    if (!resultOK) { return rpccgoExceptionError(env, \"rpccgo: Kotlin server returned unreadable result\"); }")
+	g.P("    if (data.size() < 5) { return rpccgoStoreErrorString(\"rpccgo: Kotlin server returned malformed result\"); }")
+	g.P("    *ok = data[0] != 0;")
+	g.P("    int32_t length = (static_cast<int32_t>(data[1]) << 24) | (static_cast<int32_t>(data[2]) << 16) | (static_cast<int32_t>(data[3]) << 8) | static_cast<int32_t>(data[4]);")
+	g.P("    if (length < 0 || static_cast<size_t>(length) != data.size() - 5) { return rpccgoStoreErrorString(\"rpccgo: Kotlin server returned invalid result length\"); }")
+	g.P("    payload->assign(data.begin() + 5, data.end());")
+	g.P("    return 0;")
+	g.P("}")
+	g.P()
+	g.P("thread_local std::vector<uint8_t> rpccgoServerResponse;")
+	g.P()
+	g.P("int32_t rpccgoKotlinUnitResult(JNIEnv* env, jbyteArray result) {")
+	g.P("    bool ok = false;")
+	g.P("    std::vector<uint8_t> payload;")
+	g.P("    int32_t errID = rpccgoReadResultPayload(env, result, &ok, &payload);")
+	g.P("    if (errID != 0) { return errID; }")
+	g.P("    if (!ok) { return rpccgoStoreErrorString(std::string(payload.begin(), payload.end())); }")
+	g.P("    return 0;")
+	g.P("}")
+	g.P()
+	g.P("int32_t rpccgoKotlinBytesResult(JNIEnv* env, jbyteArray result, uintptr_t* responsePtr, int32_t* responseLen) {")
+	g.P("    if (responsePtr == nullptr || responseLen == nullptr) { return rpccgoStoreErrorString(\"rpccgo: JNI response output is nil\"); }")
+	g.P("    bool ok = false;")
+	g.P("    std::vector<uint8_t> payload;")
+	g.P("    int32_t errID = rpccgoReadResultPayload(env, result, &ok, &payload);")
+	g.P("    if (errID != 0) { return errID; }")
+	g.P("    if (!ok) { return rpccgoStoreErrorString(std::string(payload.begin(), payload.end())); }")
+	g.P("    rpccgoServerResponse = std::move(payload);")
+	g.P("    *responseLen = static_cast<int32_t>(rpccgoServerResponse.size());")
+	g.P("    *responsePtr = rpccgoServerResponse.empty() ? 0 : reinterpret_cast<uintptr_t>(rpccgoServerResponse.data());")
+	g.P("    return 0;")
+	g.P("}")
+	g.P()
+	g.P("int32_t rpccgoKotlinHandleResult(JNIEnv* env, jbyteArray result, int32_t* stream) {")
+	g.P("    if (stream == nullptr) { return rpccgoStoreErrorString(\"rpccgo: JNI stream output is nil\"); }")
+	g.P("    bool ok = false;")
+	g.P("    std::vector<uint8_t> payload;")
+	g.P("    int32_t errID = rpccgoReadResultPayload(env, result, &ok, &payload);")
+	g.P("    if (errID != 0) { return errID; }")
+	g.P("    if (!ok) { return rpccgoStoreErrorString(std::string(payload.begin(), payload.end())); }")
+	g.P("    if (payload.size() != 4) { return rpccgoStoreErrorString(\"rpccgo: Kotlin server returned invalid stream handle\"); }")
+	g.P("    *stream = (static_cast<int32_t>(payload[0]) << 24) | (static_cast<int32_t>(payload[1]) << 16) | (static_cast<int32_t>(payload[2]) << 8) | static_cast<int32_t>(payload[3]);")
+	g.P("    return 0;")
+	g.P("}")
+	g.P()
+}
+
+func renderJNICPPServerBridgeState(g *protogen.GeneratedFile, service ServicePlan) {
+	prefix := lowerInitial(service.GoName)
+	g.P("std::mutex ", prefix, "ServerBridgeMu;")
+	g.P("jobject ", prefix, "ServerBridge = nullptr;")
+	for _, method := range service.Methods {
+		for _, op := range jniServerBridgeOperations(method) {
+			g.P("jmethodID ", jniServerBridgeMethodID(service, method, op), " = nullptr;")
+		}
+	}
+	g.P()
+	g.P("bool ensure", service.GoName, "ServerBridge(JNIEnv* env, jobject thiz) {")
+	g.P("    if (env == nullptr || thiz == nullptr) { return false; }")
+	g.P("    std::lock_guard<std::mutex> lock(", prefix, "ServerBridgeMu);")
+	g.P("    if (", prefix, "ServerBridge == nullptr) {")
+	g.P("        ", prefix, "ServerBridge = env->NewGlobalRef(thiz);")
+	g.P("    }")
+	g.P("    return ", prefix, "ServerBridge != nullptr;")
+	g.P("}")
+	g.P()
+	g.P("jobject ", prefix, "ServerBridgeObject() {")
+	g.P("    std::lock_guard<std::mutex> lock(", prefix, "ServerBridgeMu);")
+	g.P("    return ", prefix, "ServerBridge;")
+	g.P("}")
 	g.P()
 }
 
@@ -474,6 +619,132 @@ func renderJNICALLCancelCallback(g *protogen.GeneratedFile, file FilePlan, servi
 	g.P("}")
 }
 
+func renderJNICPPServerRegistration(g *protogen.GeneratedFile, file FilePlan, service ServicePlan, method MethodPlan, config JNIGeneratorConfig) {
+	for _, op := range jniServerBridgeOperations(method) {
+		renderJNICPPServerCallback(g, service, method, op)
+		g.P()
+	}
+	name := jniExportName(config.JNIClass, jniKotlinNativePrefix(service, method)+"Register")
+	registerName := messageCServiceMethodRegisterExportFuncName(file, service, method)
+	renderJNICPPExportComment(g, name, method)
+	g.P("extern \"C\" JNIEXPORT jbyteArray JNICALL ", name, "(JNIEnv* env, jobject thiz) {")
+	renderJNICPPEnvScope(g, "nullptr")
+	g.P("    if (!ensure", service.GoName, "ServerBridge(env, thiz)) { return rpccgoErrorResult(env, \"rpccgo: JNI server bridge registration failed\"); }")
+	g.P("    jclass bridgeClass = env->GetObjectClass(thiz);")
+	g.P("    if (bridgeClass == nullptr) { return rpccgoErrorResult(env, \"rpccgo: JNI server bridge class lookup failed\"); }")
+	for _, op := range jniServerBridgeOperations(method) {
+		g.P("    ", jniServerBridgeMethodID(service, method, op), " = env->GetMethodID(bridgeClass, \"", jniServerKotlinBridgeMethod(service, method, op), "\", \"", jniServerKotlinBridgeSignature(method, op), "\");")
+	}
+	g.P("    env->DeleteLocalRef(bridgeClass);")
+	g.P("    if (env->ExceptionCheck()) { return rpccgoErrorResult(env, \"rpccgo: JNI server bridge method lookup failed\"); }")
+	for _, op := range jniServerBridgeOperations(method) {
+		g.P("    if (", jniServerBridgeMethodID(service, method, op), " == nullptr) { return rpccgoErrorResult(env, \"rpccgo: JNI server bridge method is missing\"); }")
+	}
+	g.P("    int32_t errID = ", registerName, "(", strings.Join(jniServerCallbackArgs(service, method), ", "), ");")
+	g.P("    if (errID != 0) { return rpccgoErrorIDResult(env, errID); }")
+	g.P("    return rpccgoSuccessUnit(env);")
+	g.P("}")
+}
+
+func renderJNICPPServerCallback(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, op string) {
+	switch op {
+	case "Handle":
+		g.P("int32_t ", jniServerCallbackName(service, method, op), "(uintptr_t requestPtr, int32_t requestLen, uintptr_t* responsePtr, int32_t* responseLen) {")
+		renderJNICPPServerCallbackPreamble(g, service, method, op)
+		g.P("    jbyteArray request = nullptr;")
+		g.P("    int32_t requestErr = rpccgoRequestByteArray(env, requestPtr, requestLen, &request);")
+		g.P("    if (requestErr != 0) { return requestErr; }")
+		g.P("    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, ", jniServerBridgeMethodID(service, method, op), ", request));")
+		g.P("    env->DeleteLocalRef(request);")
+		g.P("    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, \"rpccgo: Kotlin server unary handler threw\"); }")
+		g.P("    int32_t errID = rpccgoKotlinBytesResult(env, result, responsePtr, responseLen);")
+		g.P("    if (result != nullptr) { env->DeleteLocalRef(result); }")
+		g.P("    return errID;")
+		g.P("}")
+	case "Start":
+		renderJNICPPServerStartCallback(g, service, method)
+	case "Send":
+		renderJNICPPServerRequestUnitCallback(g, service, method, op)
+	case "Recv":
+		renderJNICPPServerResponseCallback(g, service, method, op)
+	case "Finish":
+		if method.Streaming == StreamingKindClientStreaming {
+			renderJNICPPServerResponseCallback(g, service, method, op)
+		} else {
+			renderJNICPPServerUnitCallback(g, service, method, op)
+		}
+	case "CloseSend", "Cancel":
+		renderJNICPPServerUnitCallback(g, service, method, op)
+	}
+}
+
+func renderJNICPPServerStartCallback(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan) {
+	op := "Start"
+	if method.Streaming == StreamingKindServerStreaming {
+		g.P("int32_t ", jniServerCallbackName(service, method, op), "(uintptr_t requestPtr, int32_t requestLen, int32_t* stream) {")
+		renderJNICPPServerCallbackPreamble(g, service, method, op)
+		g.P("    jbyteArray request = nullptr;")
+		g.P("    int32_t requestErr = rpccgoRequestByteArray(env, requestPtr, requestLen, &request);")
+		g.P("    if (requestErr != 0) { return requestErr; }")
+		g.P("    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, ", jniServerBridgeMethodID(service, method, op), ", request));")
+		g.P("    env->DeleteLocalRef(request);")
+	} else {
+		g.P("int32_t ", jniServerCallbackName(service, method, op), "(int32_t* stream) {")
+		renderJNICPPServerCallbackPreamble(g, service, method, op)
+		g.P("    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, ", jniServerBridgeMethodID(service, method, op), "));")
+	}
+	g.P("    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, \"rpccgo: Kotlin server stream start threw\"); }")
+	g.P("    int32_t errID = rpccgoKotlinHandleResult(env, result, stream);")
+	g.P("    if (result != nullptr) { env->DeleteLocalRef(result); }")
+	g.P("    return errID;")
+	g.P("}")
+}
+
+func renderJNICPPServerRequestUnitCallback(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, op string) {
+	g.P("int32_t ", jniServerCallbackName(service, method, op), "(int32_t stream, uintptr_t requestPtr, int32_t requestLen) {")
+	renderJNICPPServerCallbackPreamble(g, service, method, op)
+	g.P("    jbyteArray request = nullptr;")
+	g.P("    int32_t requestErr = rpccgoRequestByteArray(env, requestPtr, requestLen, &request);")
+	g.P("    if (requestErr != 0) { return requestErr; }")
+	g.P("    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, ", jniServerBridgeMethodID(service, method, op), ", stream, request));")
+	g.P("    env->DeleteLocalRef(request);")
+	g.P("    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, \"rpccgo: Kotlin server stream request handler threw\"); }")
+	g.P("    int32_t errID = rpccgoKotlinUnitResult(env, result);")
+	g.P("    if (result != nullptr) { env->DeleteLocalRef(result); }")
+	g.P("    return errID;")
+	g.P("}")
+}
+
+func renderJNICPPServerResponseCallback(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, op string) {
+	g.P("int32_t ", jniServerCallbackName(service, method, op), "(int32_t stream, uintptr_t* responsePtr, int32_t* responseLen) {")
+	renderJNICPPServerCallbackPreamble(g, service, method, op)
+	g.P("    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, ", jniServerBridgeMethodID(service, method, op), ", stream));")
+	g.P("    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, \"rpccgo: Kotlin server stream response handler threw\"); }")
+	g.P("    int32_t errID = rpccgoKotlinBytesResult(env, result, responsePtr, responseLen);")
+	g.P("    if (result != nullptr) { env->DeleteLocalRef(result); }")
+	g.P("    return errID;")
+	g.P("}")
+}
+
+func renderJNICPPServerUnitCallback(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, op string) {
+	g.P("int32_t ", jniServerCallbackName(service, method, op), "(int32_t stream) {")
+	renderJNICPPServerCallbackPreamble(g, service, method, op)
+	g.P("    jbyteArray result = static_cast<jbyteArray>(env->CallObjectMethod(bridge, ", jniServerBridgeMethodID(service, method, op), ", stream));")
+	g.P("    if (env->ExceptionCheck()) { return rpccgoExceptionError(env, \"rpccgo: Kotlin server stream control handler threw\"); }")
+	g.P("    int32_t errID = rpccgoKotlinUnitResult(env, result);")
+	g.P("    if (result != nullptr) { env->DeleteLocalRef(result); }")
+	g.P("    return errID;")
+	g.P("}")
+}
+
+func renderJNICPPServerCallbackPreamble(g *protogen.GeneratedFile, service ServicePlan, method MethodPlan, op string) {
+	g.P("    rpccgoJNIEnvScope envScope(nullptr);")
+	g.P("    JNIEnv* env = envScope.env;")
+	g.P("    if (env == nullptr) { return rpccgoStoreErrorString(\"rpccgo: JNI environment is unavailable\"); }")
+	g.P("    jobject bridge = ", lowerInitial(service.GoName), "ServerBridgeObject();")
+	g.P("    if (bridge == nullptr || ", jniServerBridgeMethodID(service, method, op), " == nullptr) { return rpccgoStoreErrorString(\"rpccgo: Kotlin server bridge is not registered\"); }")
+}
+
 func renderJNICPPEnvScope(g *protogen.GeneratedFile, failReturn string) {
 	g.P("    rpccgoJNIEnvScope envScope(env);")
 	g.P("    env = envScope.env;")
@@ -500,4 +771,59 @@ func jniKotlinNativePrefix(service ServicePlan, method MethodPlan) string {
 
 func jniCPPCallbackPrefix(service ServicePlan, method MethodPlan) string {
 	return lowerInitial(service.GoName) + method.GoName + "Callback"
+}
+
+func jniServerBridgeOperations(method MethodPlan) []string {
+	switch method.Streaming {
+	case StreamingKindUnary:
+		return []string{"Handle"}
+	case StreamingKindClientStreaming:
+		return []string{"Start", "Send", "Finish", "Cancel"}
+	case StreamingKindServerStreaming:
+		return []string{"Start", "Recv", "Finish", "Cancel"}
+	case StreamingKindBidiStreaming:
+		return []string{"Start", "Send", "Recv", "CloseSend", "Finish", "Cancel"}
+	default:
+		return nil
+	}
+}
+
+func jniServerBridgeMethodID(service ServicePlan, method MethodPlan, op string) string {
+	return lowerInitial(service.GoName) + method.GoName + "Server" + op
+}
+
+func jniServerKotlinBridgeMethod(service ServicePlan, method MethodPlan, op string) string {
+	if op == "Handle" {
+		return jniKotlinNativePrefix(service, method) + "Handle"
+	}
+	return jniKotlinNativePrefix(service, method) + "Server" + op
+}
+
+func jniServerKotlinBridgeSignature(method MethodPlan, op string) string {
+	switch op {
+	case "Handle":
+		return "([B)[B"
+	case "Start":
+		if method.Streaming == StreamingKindServerStreaming {
+			return "([B)[B"
+		}
+		return "()[B"
+	case "Send":
+		return "(I[B)[B"
+	default:
+		return "(I)[B"
+	}
+}
+
+func jniServerCallbackName(service ServicePlan, method MethodPlan, op string) string {
+	return "on" + service.GoName + method.GoName + "Server" + op
+}
+
+func jniServerCallbackArgs(service ServicePlan, method MethodPlan) []string {
+	ops := jniServerBridgeOperations(method)
+	args := make([]string, 0, len(ops))
+	for _, op := range ops {
+		args = append(args, jniServerCallbackName(service, method, op))
+	}
+	return args
 }
