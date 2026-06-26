@@ -8,6 +8,7 @@ add_library(rpccgo_flutter_shared_jni SHARED
     rpccgo/rpccgo.jni.cpp
     rpccgo/shared_so.shared_so_demo.jni.cpp
     rpccgo/shared_so.android_device.jni.cpp
+    rpccgo/shared_so.flutter_device.jni.cpp
 )
 
 target_compile_features(rpccgo_flutter_shared_jni PRIVATE cxx_std_17)

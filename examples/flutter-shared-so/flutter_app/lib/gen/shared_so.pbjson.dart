@@ -153,6 +153,34 @@ final $typed_data.Uint8List androidEchoResponseDescriptor = $convert.base64Decod
     'gCIAEoBVIIc2VxdWVuY2USFgoGY2FsbGVyGAMgASgJUgZjYWxsZXISGwoJc2VydmVkX2J5GAQg'
     'ASgJUghzZXJ2ZWRCeQ==');
 
+@$core.Deprecated('Use flutterEchoRequestDescriptor instead')
+const FlutterEchoRequest$json = {
+  '1': 'FlutterEchoRequest',
+  '2': [
+    {'1': 'caller', '3': 1, '4': 1, '5': 9, '10': 'caller'},
+  ],
+};
+
+/// Descriptor for `FlutterEchoRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List flutterEchoRequestDescriptor =
+    $convert.base64Decode(
+        'ChJGbHV0dGVyRWNob1JlcXVlc3QSFgoGY2FsbGVyGAEgASgJUgZjYWxsZXI=');
+
+@$core.Deprecated('Use flutterEchoResponseDescriptor instead')
+const FlutterEchoResponse$json = {
+  '1': 'FlutterEchoResponse',
+  '2': [
+    {'1': 'message', '3': 1, '4': 1, '5': 9, '10': 'message'},
+    {'1': 'caller', '3': 2, '4': 1, '5': 9, '10': 'caller'},
+    {'1': 'served_by', '3': 3, '4': 1, '5': 9, '10': 'servedBy'},
+  ],
+};
+
+/// Descriptor for `FlutterEchoResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List flutterEchoResponseDescriptor = $convert.base64Decode(
+    'ChNGbHV0dGVyRWNob1Jlc3BvbnNlEhgKB21lc3NhZ2UYASABKAlSB21lc3NhZ2USFgoGY2FsbG'
+    'VyGAIgASgJUgZjYWxsZXISGwoJc2VydmVkX2J5GAMgASgJUghzZXJ2ZWRCeQ==');
+
 const $core.Map<$core.String, $core.dynamic> SharedSoDemoServiceBase$json = {
   '1': 'SharedSoDemo',
   '2': [
@@ -285,3 +313,35 @@ final $typed_data.Uint8List androidDeviceServiceDescriptor = $convert.base64Deco
     'dGVyLnNoYXJlZHNvLnYxLkFuZHJvaWRFY2hvUmVzcG9uc2UoARJ6Cg9DaGF0QW5kcm9pZEVjaG'
     '8SMC5leGFtcGxlcy5mbHV0dGVyLnNoYXJlZHNvLnYxLkFuZHJvaWRFY2hvUmVxdWVzdBoxLmV4'
     'YW1wbGVzLmZsdXR0ZXIuc2hhcmVkc28udjEuQW5kcm9pZEVjaG9SZXNwb25zZSgBMAE=');
+
+const $core.Map<$core.String, $core.dynamic> FlutterDeviceServiceBase$json = {
+  '1': 'FlutterDevice',
+  '2': [
+    {
+      '1': 'DescribeFlutter',
+      '2': '.examples.flutter.sharedso.v1.FlutterEchoRequest',
+      '3': '.examples.flutter.sharedso.v1.FlutterEchoResponse'
+    },
+    {
+      '1': 'WatchFlutterEcho',
+      '2': '.examples.flutter.sharedso.v1.FlutterEchoRequest',
+      '3': '.examples.flutter.sharedso.v1.FlutterEchoResponse',
+      '6': true
+    },
+  ],
+};
+
+@$core.Deprecated('Use flutterDeviceServiceDescriptor instead')
+const $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>>
+    FlutterDeviceServiceBase$messageJson = {
+  '.examples.flutter.sharedso.v1.FlutterEchoRequest': FlutterEchoRequest$json,
+  '.examples.flutter.sharedso.v1.FlutterEchoResponse': FlutterEchoResponse$json,
+};
+
+/// Descriptor for `FlutterDevice`. Decode as a `google.protobuf.ServiceDescriptorProto`.
+final $typed_data.Uint8List flutterDeviceServiceDescriptor = $convert.base64Decode(
+    'Cg1GbHV0dGVyRGV2aWNlEnYKD0Rlc2NyaWJlRmx1dHRlchIwLmV4YW1wbGVzLmZsdXR0ZXIuc2'
+    'hhcmVkc28udjEuRmx1dHRlckVjaG9SZXF1ZXN0GjEuZXhhbXBsZXMuZmx1dHRlci5zaGFyZWRz'
+    'by52MS5GbHV0dGVyRWNob1Jlc3BvbnNlEnkKEFdhdGNoRmx1dHRlckVjaG8SMC5leGFtcGxlcy'
+    '5mbHV0dGVyLnNoYXJlZHNvLnYxLkZsdXR0ZXJFY2hvUmVxdWVzdBoxLmV4YW1wbGVzLmZsdXR0'
+    'ZXIuc2hhcmVkc28udjEuRmx1dHRlckVjaG9SZXNwb25zZTAB');

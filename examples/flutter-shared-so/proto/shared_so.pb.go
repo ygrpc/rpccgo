@@ -554,6 +554,112 @@ func (x *AndroidEchoResponse) GetServedBy() string {
 	return ""
 }
 
+// FlutterEchoRequest carries a caller label for the Flutter-owned server.
+type FlutterEchoRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Caller        string                 `protobuf:"bytes,1,opt,name=caller,proto3" json:"caller,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FlutterEchoRequest) Reset() {
+	*x = FlutterEchoRequest{}
+	mi := &file_shared_so_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FlutterEchoRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FlutterEchoRequest) ProtoMessage() {}
+
+func (x *FlutterEchoRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_so_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FlutterEchoRequest.ProtoReflect.Descriptor instead.
+func (*FlutterEchoRequest) Descriptor() ([]byte, []int) {
+	return file_shared_so_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *FlutterEchoRequest) GetCaller() string {
+	if x != nil {
+		return x.Caller
+	}
+	return ""
+}
+
+// FlutterEchoResponse proves that a call reached the Dart message server.
+type FlutterEchoResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Message       string                 `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
+	Caller        string                 `protobuf:"bytes,2,opt,name=caller,proto3" json:"caller,omitempty"`
+	ServedBy      string                 `protobuf:"bytes,3,opt,name=served_by,json=servedBy,proto3" json:"served_by,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FlutterEchoResponse) Reset() {
+	*x = FlutterEchoResponse{}
+	mi := &file_shared_so_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FlutterEchoResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FlutterEchoResponse) ProtoMessage() {}
+
+func (x *FlutterEchoResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_shared_so_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FlutterEchoResponse.ProtoReflect.Descriptor instead.
+func (*FlutterEchoResponse) Descriptor() ([]byte, []int) {
+	return file_shared_so_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *FlutterEchoResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *FlutterEchoResponse) GetCaller() string {
+	if x != nil {
+		return x.Caller
+	}
+	return ""
+}
+
+func (x *FlutterEchoResponse) GetServedBy() string {
+	if x != nil {
+		return x.ServedBy
+	}
+	return ""
+}
+
 var File_shared_so_proto protoreflect.FileDescriptor
 
 const file_shared_so_proto_rawDesc = "" +
@@ -592,7 +698,13 @@ const file_shared_so_proto_rawDesc = "" +
 	"\x05value\x18\x01 \x01(\x05R\x05value\x12\x1a\n" +
 	"\bsequence\x18\x02 \x01(\x05R\bsequence\x12\x16\n" +
 	"\x06caller\x18\x03 \x01(\tR\x06caller\x12\x1b\n" +
-	"\tserved_by\x18\x04 \x01(\tR\bservedBy2\xb1\a\n" +
+	"\tserved_by\x18\x04 \x01(\tR\bservedBy\",\n" +
+	"\x12FlutterEchoRequest\x12\x16\n" +
+	"\x06caller\x18\x01 \x01(\tR\x06caller\"d\n" +
+	"\x13FlutterEchoResponse\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\x12\x16\n" +
+	"\x06caller\x18\x02 \x01(\tR\x06caller\x12\x1b\n" +
+	"\tserved_by\x18\x03 \x01(\tR\bservedBy2\xb1\a\n" +
 	"\fSharedSoDemo\x12~\n" +
 	"\x0fComposeGreeting\x124.examples.flutter.sharedso.v1.ComposeGreetingRequest\x1a5.examples.flutter.sharedso.v1.ComposeGreetingResponse\x12\x87\x01\n" +
 	"\x15IncrementRuntimeState\x12:.examples.flutter.sharedso.v1.IncrementRuntimeStateRequest\x1a2.examples.flutter.sharedso.v1.RuntimeStateResponse\x12}\n" +
@@ -605,7 +717,10 @@ const file_shared_so_proto_rawDesc = "" +
 	"\bSetTorch\x12-.examples.flutter.sharedso.v1.SetTorchRequest\x1a..examples.flutter.sharedso.v1.SetTorchResponse\x12y\n" +
 	"\x10WatchAndroidEcho\x120.examples.flutter.sharedso.v1.AndroidEchoRequest\x1a1.examples.flutter.sharedso.v1.AndroidEchoResponse0\x01\x12{\n" +
 	"\x12CollectAndroidEcho\x120.examples.flutter.sharedso.v1.AndroidEchoRequest\x1a1.examples.flutter.sharedso.v1.AndroidEchoResponse(\x01\x12z\n" +
-	"\x0fChatAndroidEcho\x120.examples.flutter.sharedso.v1.AndroidEchoRequest\x1a1.examples.flutter.sharedso.v1.AndroidEchoResponse(\x010\x01B\\\n" +
+	"\x0fChatAndroidEcho\x120.examples.flutter.sharedso.v1.AndroidEchoRequest\x1a1.examples.flutter.sharedso.v1.AndroidEchoResponse(\x010\x012\x82\x02\n" +
+	"\rFlutterDevice\x12v\n" +
+	"\x0fDescribeFlutter\x120.examples.flutter.sharedso.v1.FlutterEchoRequest\x1a1.examples.flutter.sharedso.v1.FlutterEchoResponse\x12y\n" +
+	"\x10WatchFlutterEcho\x120.examples.flutter.sharedso.v1.FlutterEchoRequest\x1a1.examples.flutter.sharedso.v1.FlutterEchoResponse0\x01B\\\n" +
 	"\x1cexamples.flutter.sharedso.v1P\x01Z:example.com/rpccgo-flutter-shared-so/proto;fluttersharedv1b\x06proto3"
 
 var (
@@ -620,7 +735,7 @@ func file_shared_so_proto_rawDescGZIP() []byte {
 	return file_shared_so_proto_rawDescData
 }
 
-var file_shared_so_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_shared_so_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_shared_so_proto_goTypes = []any{
 	(*ComposeGreetingRequest)(nil),       // 0: examples.flutter.sharedso.v1.ComposeGreetingRequest
 	(*ComposeGreetingResponse)(nil),      // 1: examples.flutter.sharedso.v1.ComposeGreetingResponse
@@ -631,6 +746,8 @@ var file_shared_so_proto_goTypes = []any{
 	(*SetTorchResponse)(nil),             // 6: examples.flutter.sharedso.v1.SetTorchResponse
 	(*AndroidEchoRequest)(nil),           // 7: examples.flutter.sharedso.v1.AndroidEchoRequest
 	(*AndroidEchoResponse)(nil),          // 8: examples.flutter.sharedso.v1.AndroidEchoResponse
+	(*FlutterEchoRequest)(nil),           // 9: examples.flutter.sharedso.v1.FlutterEchoRequest
+	(*FlutterEchoResponse)(nil),          // 10: examples.flutter.sharedso.v1.FlutterEchoResponse
 }
 var file_shared_so_proto_depIdxs = []int32{
 	0,  // 0: examples.flutter.sharedso.v1.SharedSoDemo.ComposeGreeting:input_type -> examples.flutter.sharedso.v1.ComposeGreetingRequest
@@ -644,19 +761,23 @@ var file_shared_so_proto_depIdxs = []int32{
 	7,  // 8: examples.flutter.sharedso.v1.AndroidDevice.WatchAndroidEcho:input_type -> examples.flutter.sharedso.v1.AndroidEchoRequest
 	7,  // 9: examples.flutter.sharedso.v1.AndroidDevice.CollectAndroidEcho:input_type -> examples.flutter.sharedso.v1.AndroidEchoRequest
 	7,  // 10: examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho:input_type -> examples.flutter.sharedso.v1.AndroidEchoRequest
-	1,  // 11: examples.flutter.sharedso.v1.SharedSoDemo.ComposeGreeting:output_type -> examples.flutter.sharedso.v1.ComposeGreetingResponse
-	4,  // 12: examples.flutter.sharedso.v1.SharedSoDemo.IncrementRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
-	4,  // 13: examples.flutter.sharedso.v1.SharedSoDemo.ReadRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
-	4,  // 14: examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
-	4,  // 15: examples.flutter.sharedso.v1.SharedSoDemo.CollectRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
-	4,  // 16: examples.flutter.sharedso.v1.SharedSoDemo.StreamRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
-	4,  // 17: examples.flutter.sharedso.v1.SharedSoDemo.ChatRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
-	6,  // 18: examples.flutter.sharedso.v1.AndroidDevice.SetTorch:output_type -> examples.flutter.sharedso.v1.SetTorchResponse
-	8,  // 19: examples.flutter.sharedso.v1.AndroidDevice.WatchAndroidEcho:output_type -> examples.flutter.sharedso.v1.AndroidEchoResponse
-	8,  // 20: examples.flutter.sharedso.v1.AndroidDevice.CollectAndroidEcho:output_type -> examples.flutter.sharedso.v1.AndroidEchoResponse
-	8,  // 21: examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho:output_type -> examples.flutter.sharedso.v1.AndroidEchoResponse
-	11, // [11:22] is the sub-list for method output_type
-	0,  // [0:11] is the sub-list for method input_type
+	9,  // 11: examples.flutter.sharedso.v1.FlutterDevice.DescribeFlutter:input_type -> examples.flutter.sharedso.v1.FlutterEchoRequest
+	9,  // 12: examples.flutter.sharedso.v1.FlutterDevice.WatchFlutterEcho:input_type -> examples.flutter.sharedso.v1.FlutterEchoRequest
+	1,  // 13: examples.flutter.sharedso.v1.SharedSoDemo.ComposeGreeting:output_type -> examples.flutter.sharedso.v1.ComposeGreetingResponse
+	4,  // 14: examples.flutter.sharedso.v1.SharedSoDemo.IncrementRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
+	4,  // 15: examples.flutter.sharedso.v1.SharedSoDemo.ReadRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
+	4,  // 16: examples.flutter.sharedso.v1.SharedSoDemo.WatchRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
+	4,  // 17: examples.flutter.sharedso.v1.SharedSoDemo.CollectRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
+	4,  // 18: examples.flutter.sharedso.v1.SharedSoDemo.StreamRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
+	4,  // 19: examples.flutter.sharedso.v1.SharedSoDemo.ChatRuntimeState:output_type -> examples.flutter.sharedso.v1.RuntimeStateResponse
+	6,  // 20: examples.flutter.sharedso.v1.AndroidDevice.SetTorch:output_type -> examples.flutter.sharedso.v1.SetTorchResponse
+	8,  // 21: examples.flutter.sharedso.v1.AndroidDevice.WatchAndroidEcho:output_type -> examples.flutter.sharedso.v1.AndroidEchoResponse
+	8,  // 22: examples.flutter.sharedso.v1.AndroidDevice.CollectAndroidEcho:output_type -> examples.flutter.sharedso.v1.AndroidEchoResponse
+	8,  // 23: examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho:output_type -> examples.flutter.sharedso.v1.AndroidEchoResponse
+	10, // 24: examples.flutter.sharedso.v1.FlutterDevice.DescribeFlutter:output_type -> examples.flutter.sharedso.v1.FlutterEchoResponse
+	10, // 25: examples.flutter.sharedso.v1.FlutterDevice.WatchFlutterEcho:output_type -> examples.flutter.sharedso.v1.FlutterEchoResponse
+	13, // [13:26] is the sub-list for method output_type
+	0,  // [0:13] is the sub-list for method input_type
 	0,  // [0:0] is the sub-list for extension type_name
 	0,  // [0:0] is the sub-list for extension extendee
 	0,  // [0:0] is the sub-list for field type_name
@@ -673,9 +794,9 @@ func file_shared_so_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_shared_so_proto_rawDesc), len(file_shared_so_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   11,
 			NumExtensions: 0,
-			NumServices:   2,
+			NumServices:   3,
 		},
 		GoTypes:           file_shared_so_proto_goTypes,
 		DependencyIndexes: file_shared_so_proto_depIdxs,

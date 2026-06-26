@@ -661,6 +661,11 @@ func sharedSoDemoWatchRuntimeStateCGOMessageStart(ctx context.Context, server Sh
 	if req == nil {
 		return nil, errors.New("rpccgo: message request is nil")
 	}
+	if direct, ok := server.(interface {
+		WatchRuntimeStateStart(context.Context, *ReadRuntimeStateRequest) (rpcruntime.ServerStreamingClient[*RuntimeStateResponse], error)
+	}); ok {
+		return direct.WatchRuntimeStateStart(ctx, req)
+	}
 	client, stream, streamCtx := rpcruntime.NewServerStreaming[*RuntimeStateResponse](ctx, rpcruntime.LocalStreamOptions{
 		ResponseBuffer: 1,
 		StreamClosed:   errors.New("rpccgo: message stream is closed"),
@@ -689,6 +694,11 @@ func sharedSoDemoCollectRuntimeStateCGOMessageStart(ctx context.Context, server 
 func sharedSoDemoStreamRuntimeStateCGOMessageStart(ctx context.Context, server SharedSoDemoCGOMessageServer, req *ReadRuntimeStateRequest) (rpcruntime.ServerStreamingClient[*RuntimeStateResponse], error) {
 	if req == nil {
 		return nil, errors.New("rpccgo: message request is nil")
+	}
+	if direct, ok := server.(interface {
+		StreamRuntimeStateStart(context.Context, *ReadRuntimeStateRequest) (rpcruntime.ServerStreamingClient[*RuntimeStateResponse], error)
+	}); ok {
+		return direct.StreamRuntimeStateStart(ctx, req)
 	}
 	client, stream, streamCtx := rpcruntime.NewServerStreaming[*RuntimeStateResponse](ctx, rpcruntime.LocalStreamOptions{
 		ResponseBuffer: 1,

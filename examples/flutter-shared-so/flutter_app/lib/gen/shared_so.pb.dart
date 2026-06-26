@@ -720,6 +720,142 @@ class AndroidEchoResponse extends $pb.GeneratedMessage {
   void clearServedBy() => $_clearField(4);
 }
 
+/// FlutterEchoRequest carries a caller label for the Flutter-owned server.
+class FlutterEchoRequest extends $pb.GeneratedMessage {
+  factory FlutterEchoRequest({
+    $core.String? caller,
+  }) {
+    final result = create();
+    if (caller != null) result.caller = caller;
+    return result;
+  }
+
+  FlutterEchoRequest._();
+
+  factory FlutterEchoRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory FlutterEchoRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'FlutterEchoRequest',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'examples.flutter.sharedso.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'caller')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FlutterEchoRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FlutterEchoRequest copyWith(void Function(FlutterEchoRequest) updates) =>
+      super.copyWith((message) => updates(message as FlutterEchoRequest))
+          as FlutterEchoRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static FlutterEchoRequest create() => FlutterEchoRequest._();
+  @$core.override
+  FlutterEchoRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static FlutterEchoRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<FlutterEchoRequest>(create);
+  static FlutterEchoRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get caller => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set caller($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasCaller() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearCaller() => $_clearField(1);
+}
+
+/// FlutterEchoResponse proves that a call reached the Dart message server.
+class FlutterEchoResponse extends $pb.GeneratedMessage {
+  factory FlutterEchoResponse({
+    $core.String? message,
+    $core.String? caller,
+    $core.String? servedBy,
+  }) {
+    final result = create();
+    if (message != null) result.message = message;
+    if (caller != null) result.caller = caller;
+    if (servedBy != null) result.servedBy = servedBy;
+    return result;
+  }
+
+  FlutterEchoResponse._();
+
+  factory FlutterEchoResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory FlutterEchoResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'FlutterEchoResponse',
+      package: const $pb.PackageName(
+          _omitMessageNames ? '' : 'examples.flutter.sharedso.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'message')
+    ..aOS(2, _omitFieldNames ? '' : 'caller')
+    ..aOS(3, _omitFieldNames ? '' : 'servedBy')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FlutterEchoResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FlutterEchoResponse copyWith(void Function(FlutterEchoResponse) updates) =>
+      super.copyWith((message) => updates(message as FlutterEchoResponse))
+          as FlutterEchoResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static FlutterEchoResponse create() => FlutterEchoResponse._();
+  @$core.override
+  FlutterEchoResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static FlutterEchoResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<FlutterEchoResponse>(create);
+  static FlutterEchoResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get message => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set message($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasMessage() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearMessage() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get caller => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set caller($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCaller() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCaller() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get servedBy => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set servedBy($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasServedBy() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearServedBy() => $_clearField(3);
+}
+
 /// SharedSoDemo exposes one unary RPC for the shared-library validation example.
 /// @rpccgo: msg-connect
 class SharedSoDemoApi {
@@ -800,6 +936,26 @@ class AndroidDeviceApi {
           $pb.ClientContext? ctx, AndroidEchoRequest request) =>
       _client.invoke<AndroidEchoResponse>(ctx, 'AndroidDevice',
           'ChatAndroidEcho', request, AndroidEchoResponse());
+}
+
+/// FlutterDevice exposes Flutter-owned capabilities through a Dart message server.
+/// @rpccgo: msg-connect
+class FlutterDeviceApi {
+  final $pb.RpcClient _client;
+
+  FlutterDeviceApi(this._client);
+
+  /// DescribeFlutter returns a response produced by the registered Dart handler.
+  $async.Future<FlutterEchoResponse> describeFlutter(
+          $pb.ClientContext? ctx, FlutterEchoRequest request) =>
+      _client.invoke<FlutterEchoResponse>(ctx, 'FlutterDevice',
+          'DescribeFlutter', request, FlutterEchoResponse());
+
+  /// WatchFlutterEcho streams Flutter-owned echo responses from the Dart handler.
+  $async.Future<FlutterEchoResponse> watchFlutterEcho(
+          $pb.ClientContext? ctx, FlutterEchoRequest request) =>
+      _client.invoke<FlutterEchoResponse>(ctx, 'FlutterDevice',
+          'WatchFlutterEcho', request, FlutterEchoResponse());
 }
 
 const $core.bool _omitFieldNames =

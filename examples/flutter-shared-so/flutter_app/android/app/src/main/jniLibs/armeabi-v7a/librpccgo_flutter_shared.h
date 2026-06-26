@@ -88,6 +88,39 @@ static inline int32_t callAndroidDeviceChatAndroidEchoCGOMessageBidiStreamCancel
 
 #line 1 "cgo-generated-wrapper"
 
+#line 11 "shared_so.flutter_device.client.message.cgo.rpccgo.go"
+
+#include <stdint.h>
+typedef void (*FlutterDeviceRpccgoMessageOnRecvCallback)(int32_t stream, uintptr_t response_ptr, int32_t response_len);
+typedef void (*FlutterDeviceRpccgoMessageOnDoneCallback)(int32_t stream, int32_t err_id);
+static inline void callFlutterDeviceRpccgoMessageOnRecvCallback(FlutterDeviceRpccgoMessageOnRecvCallback callback, int32_t stream, uintptr_t response_ptr, int32_t response_len) { callback(stream, response_ptr, response_len); }
+static inline void callFlutterDeviceRpccgoMessageOnDoneCallback(FlutterDeviceRpccgoMessageOnDoneCallback callback, int32_t stream, int32_t err_id) { callback(stream, err_id); }
+
+#line 1 "cgo-generated-wrapper"
+
+#line 11 "shared_so.flutter_device.server.message.cgo.rpccgo.go"
+
+#include <stdint.h>
+
+typedef int32_t (*FlutterDeviceDescribeFlutterCGOMessageUnaryCallback)(uintptr_t request_ptr, int32_t request_len, uintptr_t* response_ptr, int32_t* response_len);
+
+typedef int32_t (*FlutterDeviceWatchFlutterEchoCGOMessageServerStreamStartCallback)(uintptr_t request_ptr, int32_t request_len, int32_t* stream);
+typedef int32_t (*FlutterDeviceWatchFlutterEchoCGOMessageServerStreamRecvCallback)(int32_t stream, uintptr_t* response_ptr, int32_t* response_len);
+typedef int32_t (*FlutterDeviceWatchFlutterEchoCGOMessageServerStreamFinishCallback)(int32_t stream);
+typedef int32_t (*FlutterDeviceWatchFlutterEchoCGOMessageServerStreamCancelCallback)(int32_t stream);
+
+static inline int32_t callFlutterDeviceDescribeFlutterCGOMessageUnary(FlutterDeviceDescribeFlutterCGOMessageUnaryCallback callback, uintptr_t request_ptr, int32_t request_len, uintptr_t* response_ptr, int32_t* response_len) {
+	return callback(request_ptr, request_len, response_ptr, response_len);
+}
+
+static inline int32_t callFlutterDeviceWatchFlutterEchoCGOMessageServerStreamStart(FlutterDeviceWatchFlutterEchoCGOMessageServerStreamStartCallback callback, uintptr_t request_ptr, int32_t request_len, int32_t* stream) { return callback(request_ptr, request_len, stream); }
+static inline int32_t callFlutterDeviceWatchFlutterEchoCGOMessageServerStreamRecv(FlutterDeviceWatchFlutterEchoCGOMessageServerStreamRecvCallback callback, int32_t stream, uintptr_t* response_ptr, int32_t* response_len) { return callback(stream, response_ptr, response_len); }
+static inline int32_t callFlutterDeviceWatchFlutterEchoCGOMessageServerStreamFinish(FlutterDeviceWatchFlutterEchoCGOMessageServerStreamFinishCallback callback, int32_t stream) { return callback(stream); }
+static inline int32_t callFlutterDeviceWatchFlutterEchoCGOMessageServerStreamCancel(FlutterDeviceWatchFlutterEchoCGOMessageServerStreamCancelCallback callback, int32_t stream) { return callback(stream); }
+
+
+#line 1 "cgo-generated-wrapper"
+
 #line 11 "shared_so.shared_so_demo.client.message.cgo.rpccgo.go"
 
 #include <stdint.h>
@@ -321,6 +354,38 @@ extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceRegisterCollectAndroidEcho(A
 // rpccgoMsgFluttersharedv1AndroidDeviceRegisterChatAndroidEcho registers cgo message callbacks for examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho.
 //
 extern int32_t rpccgoMsgFluttersharedv1AndroidDeviceRegisterChatAndroidEcho(AndroidDeviceChatAndroidEchoCGOMessageBidiStreamStartCallback chatAndroidEchoStart, AndroidDeviceChatAndroidEchoCGOMessageBidiStreamSendCallback chatAndroidEchoSend, AndroidDeviceChatAndroidEchoCGOMessageBidiStreamRecvCallback chatAndroidEchoRecv, AndroidDeviceChatAndroidEchoCGOMessageBidiStreamCloseSendCallback chatAndroidEchoCloseSend, AndroidDeviceChatAndroidEchoCGOMessageBidiStreamFinishCallback chatAndroidEchoFinish, AndroidDeviceChatAndroidEchoCGOMessageBidiStreamCancelCallback chatAndroidEchoCancel);
+
+// rpccgoMsgFluttersharedv1FlutterDeviceDescribeFlutter invokes the message unary client entrypoint for examples.flutter.sharedso.v1.FlutterDevice.DescribeFlutter.
+//
+extern int32_t rpccgoMsgFluttersharedv1FlutterDeviceDescribeFlutter(uintptr_t requestPtr, int32_t requestLen, uintptr_t* responsePtr, int32_t* responseLen);
+
+// rpccgoMsgFluttersharedv1FlutterDeviceWatchFlutterEchoStart starts the message server-streaming client entrypoint for examples.flutter.sharedso.v1.FlutterDevice.WatchFlutterEcho.
+//
+extern int32_t rpccgoMsgFluttersharedv1FlutterDeviceWatchFlutterEchoStart(uintptr_t requestPtr, int32_t requestLen, int32_t* handle, FlutterDeviceRpccgoMessageOnRecvCallback onRecv, FlutterDeviceRpccgoMessageOnDoneCallback onDone);
+
+// rpccgoMsgFluttersharedv1FlutterDeviceWatchFlutterEchoRecv receives a message response from the server-streaming client entrypoint for examples.flutter.sharedso.v1.FlutterDevice.WatchFlutterEcho.
+//
+extern int32_t rpccgoMsgFluttersharedv1FlutterDeviceWatchFlutterEchoRecv(int32_t handle, uintptr_t* responsePtr, int32_t* responseLen);
+
+// rpccgoMsgFluttersharedv1FlutterDeviceWatchFlutterEchoCancel cancels the message server-streaming client entrypoint for examples.flutter.sharedso.v1.FlutterDevice.WatchFlutterEcho.
+//
+extern int32_t rpccgoMsgFluttersharedv1FlutterDeviceWatchFlutterEchoCancel(int32_t handle);
+
+// rpccgoMsgFluttersharedv1FlutterDeviceWatchFlutterEchoClose closes callback receive ownership for the message server-streaming client entrypoint for examples.flutter.sharedso.v1.FlutterDevice.WatchFlutterEcho without delivering further callbacks.
+//
+extern int32_t rpccgoMsgFluttersharedv1FlutterDeviceWatchFlutterEchoClose(int32_t handle);
+
+// rpccgoMsgFluttersharedv1FlutterDeviceRegister registers cgo message callbacks as the current server for examples.flutter.sharedso.v1.FlutterDevice.
+//
+extern int32_t rpccgoMsgFluttersharedv1FlutterDeviceRegister(FlutterDeviceDescribeFlutterCGOMessageUnaryCallback describeFlutterCallback, FlutterDeviceWatchFlutterEchoCGOMessageServerStreamStartCallback watchFlutterEchoStart, FlutterDeviceWatchFlutterEchoCGOMessageServerStreamRecvCallback watchFlutterEchoRecv, FlutterDeviceWatchFlutterEchoCGOMessageServerStreamFinishCallback watchFlutterEchoFinish, FlutterDeviceWatchFlutterEchoCGOMessageServerStreamCancelCallback watchFlutterEchoCancel);
+
+// rpccgoMsgFluttersharedv1FlutterDeviceRegisterDescribeFlutter registers cgo message callbacks for examples.flutter.sharedso.v1.FlutterDevice.DescribeFlutter.
+//
+extern int32_t rpccgoMsgFluttersharedv1FlutterDeviceRegisterDescribeFlutter(FlutterDeviceDescribeFlutterCGOMessageUnaryCallback describeFlutterCallback);
+
+// rpccgoMsgFluttersharedv1FlutterDeviceRegisterWatchFlutterEcho registers cgo message callbacks for examples.flutter.sharedso.v1.FlutterDevice.WatchFlutterEcho.
+//
+extern int32_t rpccgoMsgFluttersharedv1FlutterDeviceRegisterWatchFlutterEcho(FlutterDeviceWatchFlutterEchoCGOMessageServerStreamStartCallback watchFlutterEchoStart, FlutterDeviceWatchFlutterEchoCGOMessageServerStreamRecvCallback watchFlutterEchoRecv, FlutterDeviceWatchFlutterEchoCGOMessageServerStreamFinishCallback watchFlutterEchoFinish, FlutterDeviceWatchFlutterEchoCGOMessageServerStreamCancelCallback watchFlutterEchoCancel);
 
 // rpccgoMsgFluttersharedv1SharedSoDemoComposeGreeting invokes the message unary client entrypoint for examples.flutter.sharedso.v1.SharedSoDemo.ComposeGreeting.
 //

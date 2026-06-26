@@ -17,7 +17,10 @@ class SharedSoApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'rpccgo Shared .so',
-      theme: ThemeData(useMaterial3: true, colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF006C67))),
+      theme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF006C67)),
+      ),
       home: const SharedSoHomePage(),
     );
   }
@@ -36,19 +39,25 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
 
   final _client = const SharedSoDemoRpccgoClient();
   final _android = const AndroidDeviceRpccgoClient();
+  final _flutterDevice = const FlutterDeviceRpccgoClient();
+  final _flutterDeviceServer = FlutterDeviceRpccgoMessageServer();
   final _logs = <String>['app opened'];
   RuntimeStateResponse? _dartState;
   String? _kotlinLine;
   SharedSoDemoWatchRuntimeStateStream? _countStream;
+  FlutterDeviceWatchFlutterEchoStream? _dartServerStream;
   StreamSubscription<dynamic>? _serviceEvents;
+  Timer? _dartServerTimer;
   bool _kotlinStreamRunning = false;
   bool _androidStreamRunning = false;
+  bool _dartServerStreamRunning = false;
   bool _torchOn = false;
   bool _busy = false;
 
   @override
   void initState() {
     super.initState();
+    _registerFlutterDeviceServer();
     _serviceEvents = _events.receiveBroadcastStream().listen((value) {
       final line = value?.toString() ?? '';
       if (line.isEmpty) return;
@@ -60,6 +69,9 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
         if (line.startsWith('android stream done')) {
           _androidStreamRunning = false;
         }
+        if (line.startsWith('dart server stream done')) {
+          _dartServerStreamRunning = false;
+        }
       });
       _append(line);
     }, onError: (error) => _append('service event error=$error'));
@@ -69,6 +81,10 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
   void dispose() {
     _countStream?.Close();
     _countStream = null;
+    _dartServerTimer?.cancel();
+    _dartServerTimer = null;
+    _dartServerStream?.Cancel();
+    _dartServerStream = null;
     _serviceEvents?.cancel();
     super.dispose();
   }
@@ -82,7 +98,9 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
 
   Future<void> _dartRead() async {
     await _run('dart read', () async {
-      final result = _client.ReadRuntimeState(ReadRuntimeStateRequest(caller: 'dart-ffi-read'));
+      final result = _client.ReadRuntimeState(
+        ReadRuntimeStateRequest(caller: 'dart-ffi-read'),
+      );
       final value = result.value;
       if (result.error != null || value == null) {
         _append('dart read error=${result.error ?? "missing response"}');
@@ -190,14 +208,112 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
   Future<void> _toggleTorch() async {
     await _run('torch toggle', () async {
       final next = !_torchOn;
-      final result = _android.SetTorch(SetTorchRequest(enabled: next, caller: 'dart-ffi-go-kotlin'));
+      final result = _android.SetTorch(
+        SetTorchRequest(enabled: next, caller: 'dart-ffi-go-kotlin'),
+      );
       final value = result.value;
       if (result.error != null || value == null) {
         _append('torch error=${result.error ?? "missing response"}');
         return;
       }
       setState(() => _torchOn = value.enabled);
-      _append('torch ${value.status} camera=${value.cameraId} caller=${value.caller}');
+      _append(
+        'torch ${value.status} camera=${value.cameraId} caller=${value.caller}',
+      );
+    });
+  }
+
+  void _registerFlutterDeviceServer() {
+    final errors = [
+      _flutterDeviceServer.RegisterDescribeFlutter((request) {
+        return (
+          value: FlutterEchoResponse(
+            message: 'hello from Flutter Dart message server',
+            caller: request.caller,
+            servedBy: 'dart-message-server',
+          ),
+          error: null,
+        );
+      }),
+      _flutterDeviceServer.RegisterWatchFlutterEcho((request) {
+        return (value: _FlutterEchoStream(request.caller), error: null);
+      }),
+    ].whereType<String>().join('; ');
+    _append(
+      'dart message server register error=${errors.isEmpty ? "none" : errors}',
+    );
+  }
+
+  Future<void> _callFlutterDeviceServer() async {
+    await _run('flutter device describe', () async {
+      final response = _flutterDevice.DescribeFlutter(
+        FlutterEchoRequest(caller: 'dart-ffi-to-dart-server'),
+      );
+      final value = response.value;
+      if (response.error != null || value == null) {
+        _append(
+          'flutter device response error=${response.error ?? "missing response"}',
+        );
+        return;
+      }
+      _append(
+        'flutter device response=message=${value.message} caller=${value.caller} served_by=${value.servedBy}',
+      );
+    });
+  }
+
+  Future<void> _startDartServerStream() async {
+    await _run('dart server start stream', () async {
+      if (_dartServerStream != null) {
+        setState(() => _dartServerStreamRunning = true);
+        return;
+      }
+      final started = _flutterDevice.WatchFlutterEchoStart(
+        FlutterEchoRequest(caller: 'dart-ffi-to-dart-server-stream'),
+      );
+      final stream = started.value;
+      if (started.error != null || stream == null) {
+        _append(
+          'dart server stream start error=${started.error ?? "missing stream"}',
+        );
+        return;
+      }
+      _dartServerStream = stream;
+      setState(() => _dartServerStreamRunning = true);
+      _append('dart server stream started');
+      _dartServerTimer?.cancel();
+      _dartServerTimer = Timer.periodic(const Duration(milliseconds: 700), (_) {
+        final active = _dartServerStream;
+        if (active == null) return;
+        final next = active.Recv();
+        final value = next.value;
+        if (next.error != null || value == null) {
+          _append(
+            'dart server stream done error=${next.error ?? "missing response"}',
+          );
+          _dartServerTimer?.cancel();
+          _dartServerTimer = null;
+          _dartServerStream?.Cancel();
+          _dartServerStream = null;
+          if (mounted) setState(() => _dartServerStreamRunning = false);
+          return;
+        }
+        _append(
+          'dart server stream message=${value.message} caller=${value.caller} served_by=${value.servedBy}',
+        );
+      });
+    });
+  }
+
+  Future<void> _stopDartServerStream() async {
+    await _run('dart server stop stream', () async {
+      _dartServerTimer?.cancel();
+      _dartServerTimer = null;
+      final stream = _dartServerStream;
+      _dartServerStream = null;
+      final stopped = stream?.Cancel();
+      setState(() => _dartServerStreamRunning = false);
+      _append('dart server stream stop result=${stopped == null}');
     });
   }
 
@@ -220,7 +336,10 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
   void _append(String line) {
     if (!mounted) return;
     setState(() {
-      _logs.insert(0, '${DateTime.now().toIso8601String().substring(11, 19)}  $line');
+      _logs.insert(
+        0,
+        '${DateTime.now().toIso8601String().substring(11, 19)}  $line',
+      );
       if (_logs.length > 80) _logs.removeLast();
     });
   }
@@ -241,6 +360,7 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
                 dartStreamRunning: _countStream != null,
                 kotlinStreamRunning: _kotlinStreamRunning,
                 androidStreamRunning: _androidStreamRunning,
+                dartServerStreamRunning: _dartServerStreamRunning,
                 torchOn: _torchOn,
               ),
               const SizedBox(height: 12),
@@ -254,7 +374,9 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
                     label: const Text('Kotlin Read'),
                   ),
                   FilledButton.icon(
-                    onPressed: _busy ? null : () => _callKotlin('kotlinIncrement'),
+                    onPressed: _busy
+                        ? null
+                        : () => _callKotlin('kotlinIncrement'),
                     icon: const Icon(Icons.add_circle_outline),
                     label: const Text('Kotlin Increment'),
                   ),
@@ -298,10 +420,27 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
                     icon: const Icon(Icons.stop_circle),
                     label: const Text('Android Server Stop Stream'),
                   ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _startDartServerStream,
+                    icon: const Icon(Icons.play_arrow_outlined),
+                    label: const Text('Dart Server Start Stream'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _stopDartServerStream,
+                    icon: const Icon(Icons.stop_outlined),
+                    label: const Text('Dart Server Stop Stream'),
+                  ),
                   FilledButton.icon(
                     onPressed: _busy ? null : _toggleTorch,
-                    icon: Icon(_torchOn ? Icons.flashlight_off : Icons.flashlight_on),
+                    icon: Icon(
+                      _torchOn ? Icons.flashlight_off : Icons.flashlight_on,
+                    ),
                     label: Text(_torchOn ? 'Torch Off' : 'Torch On'),
+                  ),
+                  FilledButton.tonalIcon(
+                    onPressed: _busy ? null : _callFlutterDeviceServer,
+                    icon: const Icon(Icons.flutter_dash),
+                    label: const Text('Dart Server Ping'),
                   ),
                   OutlinedButton.icon(
                     onPressed: _busy ? null : SystemNavigator.pop,
@@ -327,7 +466,9 @@ class _SharedSoHomePageState extends State<SharedSoHomePage> {
                     separatorBuilder: (_, _) => const Divider(height: 12),
                     itemBuilder: (_, index) => SelectableText(
                       _logs[index],
-                      style: theme.textTheme.bodyMedium?.copyWith(fontFamily: 'monospace'),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        fontFamily: 'monospace',
+                      ),
                     ),
                   ),
                 ),
@@ -347,6 +488,7 @@ class _StatePanel extends StatelessWidget {
     required this.dartStreamRunning,
     required this.kotlinStreamRunning,
     required this.androidStreamRunning,
+    required this.dartServerStreamRunning,
     required this.torchOn,
   });
 
@@ -355,6 +497,7 @@ class _StatePanel extends StatelessWidget {
   final bool dartStreamRunning;
   final bool kotlinStreamRunning;
   final bool androidStreamRunning;
+  final bool dartServerStreamRunning;
   final bool torchOn;
 
   @override
@@ -372,12 +515,21 @@ class _StatePanel extends StatelessWidget {
           children: [
             Text('Service: ${kotlinLine == null ? "waiting" : "running"}'),
             Text('Dart stream: ${dartStreamRunning ? "running" : "stopped"}'),
-            Text('Kotlin stream: ${kotlinStreamRunning ? "running" : "stopped"}'),
-            Text('Android stream: ${androidStreamRunning ? "running" : "stopped"}'),
+            Text(
+              'Kotlin stream: ${kotlinStreamRunning ? "running" : "stopped"}',
+            ),
+            Text(
+              'Android stream: ${androidStreamRunning ? "running" : "stopped"}',
+            ),
+            Text(
+              'Dart server stream: ${dartServerStreamRunning ? "running" : "stopped"}',
+            ),
             Text('Torch: ${torchOn ? "on" : "off"}'),
             const SizedBox(height: 8),
             SelectableText('Kotlin/JNI: ${kotlinLine ?? "no state yet"}'),
-            SelectableText('Dart/FFI: ${dartState == null ? "no state yet" : _dartSummary(dartState!)}'),
+            SelectableText(
+              'Dart/FFI: ${dartState == null ? "no state yet" : _dartSummary(dartState!)}',
+            ),
           ],
         ),
       ),
@@ -386,5 +538,46 @@ class _StatePanel extends StatelessWidget {
 
   String _dartSummary(RuntimeStateResponse value) {
     return 'value=${value.value} rev=${value.revision} pid=${value.pid} instance=${value.instanceAddress}';
+  }
+}
+
+// ignore: non_constant_identifier_names
+class _FlutterEchoStream
+    implements FlutterDeviceWatchFlutterEchoMessageServerHandler {
+  _FlutterEchoStream(this._caller);
+
+  final String _caller;
+  var _sequence = 0;
+  var _closed = false;
+
+  @override
+  // ignore: non_constant_identifier_names
+  ({FlutterEchoResponse? value, String? error}) Recv() {
+    if (_closed) {
+      return (value: null, error: 'EOF');
+    }
+    _sequence++;
+    return (
+      value: FlutterEchoResponse(
+        message: 'dart server stream value=$_sequence',
+        caller: _caller,
+        servedBy: 'dart-message-server',
+      ),
+      error: null,
+    );
+  }
+
+  @override
+  // ignore: non_constant_identifier_names
+  String? Finish() {
+    _closed = true;
+    return null;
+  }
+
+  @override
+  // ignore: non_constant_identifier_names
+  String? Cancel() {
+    _closed = true;
+    return null;
   }
 }

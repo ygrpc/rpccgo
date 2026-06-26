@@ -526,6 +526,11 @@ func androidDeviceWatchAndroidEchoCGOMessageStart(ctx context.Context, server An
 	if req == nil {
 		return nil, errors.New("rpccgo: message request is nil")
 	}
+	if direct, ok := server.(interface {
+		WatchAndroidEchoStart(context.Context, *AndroidEchoRequest) (rpcruntime.ServerStreamingClient[*AndroidEchoResponse], error)
+	}); ok {
+		return direct.WatchAndroidEchoStart(ctx, req)
+	}
 	client, stream, streamCtx := rpcruntime.NewServerStreaming[*AndroidEchoResponse](ctx, rpcruntime.LocalStreamOptions{
 		ResponseBuffer: 1,
 		StreamClosed:   errors.New("rpccgo: message stream is closed"),

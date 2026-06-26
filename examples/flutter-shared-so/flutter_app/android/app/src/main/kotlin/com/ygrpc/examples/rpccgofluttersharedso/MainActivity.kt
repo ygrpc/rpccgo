@@ -8,9 +8,13 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import examples.flutter.sharedso.v1.AndroidEchoRequest
 import examples.flutter.sharedso.v1.AndroidEchoResponse
+import examples.flutter.sharedso.v1.FlutterEchoRequest
+import examples.flutter.sharedso.v1.FlutterEchoResponse
 import examples.flutter.sharedso.v1.ReadRuntimeStateRequest
 import examples.flutter.sharedso.v1.RuntimeStateResponse
 import io.flutter.embedding.android.FlutterActivity
@@ -22,6 +26,9 @@ class MainActivity : FlutterActivity() {
     private var events: EventChannel.EventSink? = null
     private var kotlinStream: SharedSoDemoJni.RpccgoCallbackStream? = null
     private var androidStream: SharedSoDemoJni.RpccgoCallbackStream? = null
+    private var dartServerStream: SharedSoDemoJni.FlutterDeviceWatchFlutterEchoServerStream? = null
+    private val dartServerStreamHandler = Handler(Looper.getMainLooper())
+    private var dartServerStreamPoll: Runnable? = null
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action != SharedSoRuntimeService.ACTION_STATE) return
@@ -39,10 +46,13 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         val hadKotlinStream = kotlinStream != null
         val hadAndroidStream = androidStream != null
+        val hadDartServerStream = dartServerStream != null
         stopKotlinStream()
         stopAndroidStream()
+        stopDartServerStream()
         if (hadKotlinStream) Log.i(TAG, "kotlin stream cancelled on activity destroy")
         if (hadAndroidStream) Log.i(TAG, "android stream cancelled on activity destroy")
+        if (hadDartServerStream) Log.i(TAG, "dart server stream cancelled on activity destroy")
         events = null
         super.onDestroy()
     }
@@ -63,6 +73,15 @@ class MainActivity : FlutterActivity() {
                 "kotlinStopStream" -> result.success(stopKotlinStream())
                 "androidStartStream" -> result.success(startAndroidStream())
                 "androidStopStream" -> result.success(stopAndroidStream())
+                "flutterDeviceDescribe" -> result.success(describeFlutterDevice())
+                "dartServerStartStream" -> {
+                    dartServerStreamHandler.post { startDartServerStream() }
+                    result.success(true)
+                }
+                "dartServerStopStream" -> {
+                    dartServerStreamHandler.post { stopDartServerStream() }
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -178,6 +197,65 @@ class MainActivity : FlutterActivity() {
         return stream?.cancel() ?: true
     }
 
+    private fun startDartServerStream(): Boolean {
+        if (dartServerStream != null) return true
+        val result = SharedSoDemoJni.WatchFlutterEchoStart(
+            FlutterEchoRequest.newBuilder()
+                .setCaller("kotlin-activity-to-dart-server-stream")
+                .build(),
+        )
+        val stream = result.value
+        if (!result.ok || stream == null) {
+            sendEvent("dart server stream start error=${result.error ?: "missing stream"}")
+            return false
+        }
+        dartServerStream = stream
+        scheduleDartServerStreamRecv()
+        return true
+    }
+
+    private fun stopDartServerStream(): Boolean {
+        val stream = dartServerStream
+        dartServerStreamPoll?.let { dartServerStreamHandler.removeCallbacks(it) }
+        dartServerStreamPoll = null
+        dartServerStream = null
+        val result = stream?.Cancel() ?: return true
+        if (!result.ok) sendEvent("dart server stream stop error=${result.error ?: "cancel failed"}")
+        return result.ok
+    }
+
+    private fun scheduleDartServerStreamRecv() {
+        val poll = object : Runnable {
+            override fun run() {
+                val stream = dartServerStream ?: return
+                val result = stream.Recv()
+                val value = result.value
+                if (!result.ok || value == null) {
+                    sendEvent("dart server stream done error=${result.error ?: "missing response"}")
+                    stopDartServerStream()
+                    return
+                }
+                sendEvent(formatFlutterEcho("dart server stream", value))
+                dartServerStreamHandler.postDelayed(this, 700)
+            }
+        }
+        dartServerStreamPoll = poll
+        dartServerStreamHandler.postDelayed(poll, 100)
+    }
+
+    private fun describeFlutterDevice(): String {
+        val result = SharedSoDemoJni.DescribeFlutter(
+            FlutterEchoRequest.newBuilder()
+                .setCaller("kotlin-activity-to-dart-server")
+                .build(),
+        )
+        val value = result.value
+        if (!result.ok || value == null) {
+            return "error=${result.error ?: "missing response"}"
+        }
+        return "message=${value.message} caller=${value.caller} served_by=${value.servedBy}"
+    }
+
     private fun sendEvent(line: String) {
         Log.i(TAG, line)
         runOnUiThread {
@@ -190,6 +268,9 @@ class MainActivity : FlutterActivity() {
 
     private fun formatAndroidEcho(label: String, value: AndroidEchoResponse): String =
         "$label value=${value.value} seq=${value.sequence} caller=${value.caller} served_by=${value.servedBy}"
+
+    private fun formatFlutterEcho(label: String, value: FlutterEchoResponse): String =
+        "$label message=${value.message} caller=${value.caller} served_by=${value.servedBy}"
 
     private fun registerReceiverCompat() {
         val filter = IntentFilter(SharedSoRuntimeService.ACTION_STATE)

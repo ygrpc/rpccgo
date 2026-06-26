@@ -67,6 +67,18 @@ message AndroidEchoResponse {
   string served_by = 4;
 }
 
+// FlutterEchoRequest carries a caller label for the Flutter-owned server.
+message FlutterEchoRequest {
+  string caller = 1;
+}
+
+// FlutterEchoResponse proves that a call reached the Dart message server.
+message FlutterEchoResponse {
+  string message = 1;
+  string caller = 2;
+  string served_by = 3;
+}
+
 // SharedSoDemo exposes one unary RPC for the shared-library validation example.
 // @rpccgo: msg-connect
 service SharedSoDemo {
@@ -106,4 +118,14 @@ service AndroidDevice {
 
   // ChatAndroidEcho echoes each Android-owned request without hardware dependencies.
   rpc ChatAndroidEcho(stream AndroidEchoRequest) returns (stream AndroidEchoResponse);
+}
+
+// FlutterDevice exposes Flutter-owned capabilities through a Dart message server.
+// @rpccgo: msg-connect
+service FlutterDevice {
+  // DescribeFlutter returns a response produced by the registered Dart handler.
+  rpc DescribeFlutter(FlutterEchoRequest) returns (FlutterEchoResponse);
+
+  // WatchFlutterEcho streams Flutter-owned echo responses from the Dart handler.
+  rpc WatchFlutterEcho(FlutterEchoRequest) returns (stream FlutterEchoResponse);
 }

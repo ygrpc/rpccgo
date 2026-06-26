@@ -134,3 +134,38 @@ abstract class AndroidDeviceServiceBase extends $pb.GeneratedService {
   $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>>
       get $messageJson => AndroidDeviceServiceBase$messageJson;
 }
+
+abstract class FlutterDeviceServiceBase extends $pb.GeneratedService {
+  $async.Future<$0.FlutterEchoResponse> describeFlutter(
+      $pb.ServerContext ctx, $0.FlutterEchoRequest request);
+  $async.Future<$0.FlutterEchoResponse> watchFlutterEcho(
+      $pb.ServerContext ctx, $0.FlutterEchoRequest request);
+
+  $pb.GeneratedMessage createRequest($core.String methodName) {
+    switch (methodName) {
+      case 'DescribeFlutter':
+        return $0.FlutterEchoRequest();
+      case 'WatchFlutterEcho':
+        return $0.FlutterEchoRequest();
+      default:
+        throw $core.ArgumentError('Unknown method: $methodName');
+    }
+  }
+
+  $async.Future<$pb.GeneratedMessage> handleCall($pb.ServerContext ctx,
+      $core.String methodName, $pb.GeneratedMessage request) {
+    switch (methodName) {
+      case 'DescribeFlutter':
+        return describeFlutter(ctx, request as $0.FlutterEchoRequest);
+      case 'WatchFlutterEcho':
+        return watchFlutterEcho(ctx, request as $0.FlutterEchoRequest);
+      default:
+        throw $core.ArgumentError('Unknown method: $methodName');
+    }
+  }
+
+  $core.Map<$core.String, $core.dynamic> get $json =>
+      FlutterDeviceServiceBase$json;
+  $core.Map<$core.String, $core.Map<$core.String, $core.dynamic>>
+      get $messageJson => FlutterDeviceServiceBase$messageJson;
+}

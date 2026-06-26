@@ -5,6 +5,7 @@ library;
 import 'package:flutter/widgets.dart' as widgets;
 
 export 'shared_so.android_device.rpccgo.dart';
+export 'shared_so.flutter_device.rpccgo.dart';
 export 'shared_so.pb.dart';
 export 'shared_so.shared_so_demo.rpccgo.dart';
 

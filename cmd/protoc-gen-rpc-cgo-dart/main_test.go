@@ -36,8 +36,13 @@ func TestRunEmitsDartFFIClient(t *testing.T) {
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "symbol: 'rpccgoMsgTestv1GreeterListClose'")
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "symbol: 'rpccgoMsgTestv1GreeterChatClose'")
 	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "symbol: 'rpccgoMsgTestv1GreeterSayHello'")
-	assertDartMainGeneratedContentDoesNotContain(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "isolateGroupBound")
-	assertDartMainGeneratedContentDoesNotContain(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "exceptionalReturn")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "class GreeterRpccgoMessageServer {")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "String? RegisterSayHello(({pb.HelloReply? value, String? error}) Function(pb.HelloRequest request) handler) {")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "String? RegisterList(({GreeterListMessageServerHandler? value, String? error}) Function(pb.HelloRequest request) start) {")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "String? RegisterChat(({GreeterChatMessageServerHandler? value, String? error}) Function() start) {")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "symbol: 'rpccgoMsgTestv1GreeterRegisterSayHello'")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "ffi.NativeCallable<_RpccgoMessageServerUnaryCAbi>.isolateLocal")
+	assertDartMainGeneratedContentContains(t, plugin, "test/v1/greeter.greeter.rpccgo.dart", "exceptionalReturn: -1")
 }
 
 func newDartMainTestPlugin(t *testing.T, parameter string, files ...*descriptorpb.FileDescriptorProto) *protogen.Plugin {

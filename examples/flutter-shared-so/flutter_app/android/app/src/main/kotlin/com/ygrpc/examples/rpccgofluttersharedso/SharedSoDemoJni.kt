@@ -204,6 +204,28 @@ object SharedSoDemoJni {
     private external fun androidDeviceChatAndroidEchoStartCallback(listener: AndroidDeviceChatAndroidEchoListener): Boolean
     private external fun androidDeviceChatAndroidEchoCancelCallback(): Boolean
     private external fun androidDeviceChatAndroidEchoRegister(): ByteArray?
+    private external fun flutterDeviceDescribeFlutter(request: ByteArray): ByteArray?
+    private external fun flutterDeviceDescribeFlutterRegister(): ByteArray?
+    @Keep
+    interface FlutterDeviceWatchFlutterEchoListener {
+        @Keep
+        fun onRecv(responseBytes: ByteArray)
+        @Keep
+        fun onDone(error: String?)
+    }
+
+    interface FlutterDeviceWatchFlutterEchoServerHandler {
+        fun Recv(): RpccgoResult<examples.flutter.sharedso.v1.FlutterEchoResponse>
+        fun Finish(): RpccgoResult<Unit>
+        fun Cancel(): RpccgoResult<Unit>
+    }
+
+    private external fun flutterDeviceWatchFlutterEchoStart(request: ByteArray): ByteArray?
+    private external fun flutterDeviceWatchFlutterEchoRecv(handle: Int): ByteArray?
+    private external fun flutterDeviceWatchFlutterEchoCancel(handle: Int): ByteArray?
+    private external fun flutterDeviceWatchFlutterEchoStartCallback(request: ByteArray, listener: FlutterDeviceWatchFlutterEchoListener): Boolean
+    private external fun flutterDeviceWatchFlutterEchoCancelCallback(): Boolean
+    private external fun flutterDeviceWatchFlutterEchoRegister(): ByteArray?
 
     fun ComposeGreeting(req: examples.flutter.sharedso.v1.ComposeGreetingRequest): RpccgoResult<examples.flutter.sharedso.v1.ComposeGreetingResponse> =
         decodeResult(sharedSoDemoComposeGreeting(req.toByteArray())) { examples.flutter.sharedso.v1.ComposeGreetingResponse.parseFrom(it) }
@@ -1053,6 +1075,147 @@ object SharedSoDemoJni {
     @Keep
     private fun androidDeviceChatAndroidEchoServerCancel(handle: Int): ByteArray = try {
         val stream = androidDeviceChatAndroidEchoServerStreams.remove(handle) ?: return encodeErrorResult("rpccgo: Kotlin server stream handle is invalid")
+        encodeUnitResult(stream.Cancel())
+    } catch (e: Exception) {
+        encodeErrorResult("rpccgo: Kotlin server stream cancel failed: ${e.message ?: e::class.java.name}")
+    }
+
+    fun DescribeFlutter(req: examples.flutter.sharedso.v1.FlutterEchoRequest): RpccgoResult<examples.flutter.sharedso.v1.FlutterEchoResponse> =
+        decodeResult(flutterDeviceDescribeFlutter(req.toByteArray())) { examples.flutter.sharedso.v1.FlutterEchoResponse.parseFrom(it) }
+
+    private var flutterDeviceDescribeFlutterServerHandler: ((examples.flutter.sharedso.v1.FlutterEchoRequest) -> RpccgoResult<examples.flutter.sharedso.v1.FlutterEchoResponse>)? = null
+
+    fun RegisterDescribeFlutter(handler: (examples.flutter.sharedso.v1.FlutterEchoRequest) -> RpccgoResult<examples.flutter.sharedso.v1.FlutterEchoResponse>): RpccgoResult<Unit> {
+        flutterDeviceDescribeFlutterServerHandler = handler
+        val result = decodeUnitResult(flutterDeviceDescribeFlutterRegister())
+        if (!result.ok) flutterDeviceDescribeFlutterServerHandler = null
+        return result
+    }
+
+    @Keep
+    private fun flutterDeviceDescribeFlutterHandle(requestBytes: ByteArray): ByteArray = try {
+        val handler = flutterDeviceDescribeFlutterServerHandler ?: return encodeErrorResult("rpccgo: Kotlin server handler is not registered")
+        encodeMessageResult(handler(examples.flutter.sharedso.v1.FlutterEchoRequest.parseFrom(requestBytes)))
+    } catch (e: Exception) {
+        encodeErrorResult("rpccgo: Kotlin server handler failed: ${e.message ?: e::class.java.name}")
+    }
+
+    fun WatchFlutterEchoStart(req: examples.flutter.sharedso.v1.FlutterEchoRequest): RpccgoResult<FlutterDeviceWatchFlutterEchoServerStream> {
+        val handle = decodeHandleResult(flutterDeviceWatchFlutterEchoStart(req.toByteArray()))
+        if (!handle.ok) return RpccgoResult.failure(handle.error ?: "rpccgo: stream start failed")
+        return RpccgoResult.success(FlutterDeviceWatchFlutterEchoServerStream(handle.value ?: 0))
+    }
+    fun WatchFlutterEchoStartCallback(req: examples.flutter.sharedso.v1.FlutterEchoRequest, listener: FlutterDeviceWatchFlutterEchoListener): Boolean =
+        flutterDeviceWatchFlutterEchoStartCallback(req.toByteArray(), listener)
+    fun WatchFlutterEchoStartCallback(owner: android.app.Activity, req: examples.flutter.sharedso.v1.FlutterEchoRequest, listener: FlutterDeviceWatchFlutterEchoListener): RpccgoResult<RpccgoCallbackStream> {
+        if (owner.isDestroyed) return RpccgoResult.failure("rpccgo: callback stream owner is destroyed")
+        val callbackOpen = AtomicBoolean(true)
+        var stream: RpccgoCallbackStream? = null
+        val ownerListener = object : FlutterDeviceWatchFlutterEchoListener {
+            override fun onRecv(responseBytes: ByteArray) {
+                if (callbackOpen.get()) listener.onRecv(responseBytes)
+            }
+
+            override fun onDone(error: String?) {
+                if (!callbackOpen.compareAndSet(true, false)) return
+                stream?.complete()
+                listener.onDone(error)
+            }
+        }
+        stream = activityOwnedCallbackStream(owner) {
+            callbackOpen.set(false)
+            WatchFlutterEchoCancelCallback()
+        }
+        val activeStream = stream ?: return RpccgoResult.failure("rpccgo: callback stream owner registration failed")
+        if (!WatchFlutterEchoStartCallback(req, ownerListener)) {
+            activeStream.cancel()
+            return RpccgoResult.failure("rpccgo: callback stream start failed")
+        }
+        return RpccgoResult.success(activeStream)
+    }
+    fun WatchFlutterEchoCancelCallback(): Boolean = flutterDeviceWatchFlutterEchoCancelCallback()
+
+    class FlutterDeviceWatchFlutterEchoServerStream internal constructor(private val handle: Int) {
+        private val receiving = AtomicBoolean(false)
+        private fun recvUnchecked(): RpccgoResult<examples.flutter.sharedso.v1.FlutterEchoResponse> =
+            decodeResult(SharedSoDemoJni.flutterDeviceWatchFlutterEchoRecv(handle)) { examples.flutter.sharedso.v1.FlutterEchoResponse.parseFrom(it) }
+        /** Receives one response. Do not call while RecvEach is running on this stream. */
+        fun Recv(): RpccgoResult<examples.flutter.sharedso.v1.FlutterEchoResponse> {
+            if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure("rpccgo: stream already has an active receiver")
+            return try {
+                recvUnchecked()
+            } finally {
+                receiving.set(false)
+            }
+        }
+        fun Cancel(): RpccgoResult<Unit> =
+            decodeUnitResult(SharedSoDemoJni.flutterDeviceWatchFlutterEchoCancel(handle))
+        /** Starts a background Recv loop. Do not mix with manual Recv calls on this stream. */
+        fun RecvEach(onRecv: (examples.flutter.sharedso.v1.FlutterEchoResponse) -> Unit, onError: (String) -> Unit = {}): RpccgoResult<Thread> {
+            if (!receiving.compareAndSet(false, true)) return RpccgoResult.failure("rpccgo: stream already has an active receiver")
+            val worker = Thread {
+                try {
+                    while (true) {
+                        val next = recvUnchecked()
+                        if (!next.ok) {
+                            onError(next.error ?: "rpccgo: stream recv failed")
+                            return@Thread
+                        }
+                        val value = next.value ?: return@Thread
+                        onRecv(value)
+                    }
+                } finally {
+                    receiving.set(false)
+                    Cancel()
+                }
+            }
+            worker.start()
+            return RpccgoResult.success(worker)
+        }
+    }
+
+    private var flutterDeviceWatchFlutterEchoServerStart: ((examples.flutter.sharedso.v1.FlutterEchoRequest) -> RpccgoResult<FlutterDeviceWatchFlutterEchoServerHandler>)? = null
+    private val flutterDeviceWatchFlutterEchoServerStreams = ConcurrentHashMap<Int, FlutterDeviceWatchFlutterEchoServerHandler>()
+
+    fun RegisterWatchFlutterEcho(start: (examples.flutter.sharedso.v1.FlutterEchoRequest) -> RpccgoResult<FlutterDeviceWatchFlutterEchoServerHandler>): RpccgoResult<Unit> {
+        flutterDeviceWatchFlutterEchoServerStart = start
+        val result = decodeUnitResult(flutterDeviceWatchFlutterEchoRegister())
+        if (!result.ok) flutterDeviceWatchFlutterEchoServerStart = null
+        return result
+    }
+
+    @Keep
+    private fun flutterDeviceWatchFlutterEchoServerStart(requestBytes: ByteArray): ByteArray = try {
+        val start = flutterDeviceWatchFlutterEchoServerStart ?: return encodeErrorResult("rpccgo: Kotlin server handler is not registered")
+        val result = start(examples.flutter.sharedso.v1.FlutterEchoRequest.parseFrom(requestBytes))
+        if (!result.ok) return encodeErrorResult(result.error ?: "rpccgo: Kotlin server stream start failed")
+        val stream = result.value ?: return encodeErrorResult("rpccgo: Kotlin server stream start returned null")
+        val handle = nextServerStreamHandle()
+        flutterDeviceWatchFlutterEchoServerStreams[handle] = stream
+        encodeHandleResult(handle)
+    } catch (e: Exception) {
+        encodeErrorResult("rpccgo: Kotlin server stream start failed: ${e.message ?: e::class.java.name}")
+    }
+
+    @Keep
+    private fun flutterDeviceWatchFlutterEchoServerRecv(handle: Int): ByteArray = try {
+        val stream = flutterDeviceWatchFlutterEchoServerStreams[handle] ?: return encodeErrorResult("rpccgo: Kotlin server stream handle is invalid")
+        encodeMessageResult(stream.Recv())
+    } catch (e: Exception) {
+        encodeErrorResult("rpccgo: Kotlin server stream recv failed: ${e.message ?: e::class.java.name}")
+    }
+
+    @Keep
+    private fun flutterDeviceWatchFlutterEchoServerFinish(handle: Int): ByteArray = try {
+        val stream = flutterDeviceWatchFlutterEchoServerStreams.remove(handle) ?: return encodeErrorResult("rpccgo: Kotlin server stream handle is invalid")
+        encodeUnitResult(stream.Finish())
+    } catch (e: Exception) {
+        encodeErrorResult("rpccgo: Kotlin server stream finish failed: ${e.message ?: e::class.java.name}")
+    }
+
+    @Keep
+    private fun flutterDeviceWatchFlutterEchoServerCancel(handle: Int): ByteArray = try {
+        val stream = flutterDeviceWatchFlutterEchoServerStreams.remove(handle) ?: return encodeErrorResult("rpccgo: Kotlin server stream handle is invalid")
         encodeUnitResult(stream.Cancel())
     } catch (e: Exception) {
         encodeErrorResult("rpccgo: Kotlin server stream cancel failed: ${e.message ?: e::class.java.name}")

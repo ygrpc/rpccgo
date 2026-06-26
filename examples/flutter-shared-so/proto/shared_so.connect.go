@@ -24,6 +24,8 @@ const (
 	SharedSoDemoName = "examples.flutter.sharedso.v1.SharedSoDemo"
 	// AndroidDeviceName is the fully-qualified name of the AndroidDevice service.
 	AndroidDeviceName = "examples.flutter.sharedso.v1.AndroidDevice"
+	// FlutterDeviceName is the fully-qualified name of the FlutterDevice service.
+	FlutterDeviceName = "examples.flutter.sharedso.v1.FlutterDevice"
 )
 
 // These constants are the fully-qualified names of the RPCs defined in this package. They're
@@ -66,6 +68,12 @@ const (
 	// AndroidDeviceChatAndroidEchoProcedure is the fully-qualified name of the AndroidDevice's
 	// ChatAndroidEcho RPC.
 	AndroidDeviceChatAndroidEchoProcedure = "/examples.flutter.sharedso.v1.AndroidDevice/ChatAndroidEcho"
+	// FlutterDeviceDescribeFlutterProcedure is the fully-qualified name of the FlutterDevice's
+	// DescribeFlutter RPC.
+	FlutterDeviceDescribeFlutterProcedure = "/examples.flutter.sharedso.v1.FlutterDevice/DescribeFlutter"
+	// FlutterDeviceWatchFlutterEchoProcedure is the fully-qualified name of the FlutterDevice's
+	// WatchFlutterEcho RPC.
+	FlutterDeviceWatchFlutterEchoProcedure = "/examples.flutter.sharedso.v1.FlutterDevice/WatchFlutterEcho"
 )
 
 // SharedSoDemoClient is a client for the examples.flutter.sharedso.v1.SharedSoDemo service.
@@ -480,4 +488,109 @@ func (UnimplementedAndroidDeviceHandler) CollectAndroidEcho(context.Context, *co
 
 func (UnimplementedAndroidDeviceHandler) ChatAndroidEcho(context.Context, *connect.BidiStream[AndroidEchoRequest, AndroidEchoResponse]) error {
 	return connect.NewError(connect.CodeUnimplemented, errors.New("examples.flutter.sharedso.v1.AndroidDevice.ChatAndroidEcho is not implemented"))
+}
+
+// FlutterDeviceClient is a client for the examples.flutter.sharedso.v1.FlutterDevice service.
+type FlutterDeviceClient interface {
+	// DescribeFlutter returns a response produced by the registered Dart handler.
+	DescribeFlutter(context.Context, *FlutterEchoRequest) (*FlutterEchoResponse, error)
+	// WatchFlutterEcho streams Flutter-owned echo responses from the Dart handler.
+	WatchFlutterEcho(context.Context, *FlutterEchoRequest) (*connect.ServerStreamForClient[FlutterEchoResponse], error)
+}
+
+// NewFlutterDeviceClient constructs a client for the examples.flutter.sharedso.v1.FlutterDevice
+// service. By default, it uses the Connect protocol with the binary Protobuf Codec, asks for
+// gzipped responses, and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply
+// the connect.WithGRPC() or connect.WithGRPCWeb() options.
+//
+// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
+// http://api.acme.com or https://acme.com/grpc).
+func NewFlutterDeviceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) FlutterDeviceClient {
+	baseURL = strings.TrimRight(baseURL, "/")
+	flutterDeviceMethods := File_shared_so_proto.Services().ByName("FlutterDevice").Methods()
+	return &flutterDeviceClient{
+		describeFlutter: connect.NewClient[FlutterEchoRequest, FlutterEchoResponse](
+			httpClient,
+			baseURL+FlutterDeviceDescribeFlutterProcedure,
+			connect.WithSchema(flutterDeviceMethods.ByName("DescribeFlutter")),
+			connect.WithClientOptions(opts...),
+		),
+		watchFlutterEcho: connect.NewClient[FlutterEchoRequest, FlutterEchoResponse](
+			httpClient,
+			baseURL+FlutterDeviceWatchFlutterEchoProcedure,
+			connect.WithSchema(flutterDeviceMethods.ByName("WatchFlutterEcho")),
+			connect.WithClientOptions(opts...),
+		),
+	}
+}
+
+// flutterDeviceClient implements FlutterDeviceClient.
+type flutterDeviceClient struct {
+	describeFlutter  *connect.Client[FlutterEchoRequest, FlutterEchoResponse]
+	watchFlutterEcho *connect.Client[FlutterEchoRequest, FlutterEchoResponse]
+}
+
+// DescribeFlutter calls examples.flutter.sharedso.v1.FlutterDevice.DescribeFlutter.
+func (c *flutterDeviceClient) DescribeFlutter(ctx context.Context, req *FlutterEchoRequest) (*FlutterEchoResponse, error) {
+	response, err := c.describeFlutter.CallUnary(ctx, connect.NewRequest(req))
+	if response != nil {
+		return response.Msg, err
+	}
+	return nil, err
+}
+
+// WatchFlutterEcho calls examples.flutter.sharedso.v1.FlutterDevice.WatchFlutterEcho.
+func (c *flutterDeviceClient) WatchFlutterEcho(ctx context.Context, req *FlutterEchoRequest) (*connect.ServerStreamForClient[FlutterEchoResponse], error) {
+	return c.watchFlutterEcho.CallServerStream(ctx, connect.NewRequest(req))
+}
+
+// FlutterDeviceHandler is an implementation of the examples.flutter.sharedso.v1.FlutterDevice
+// service.
+type FlutterDeviceHandler interface {
+	// DescribeFlutter returns a response produced by the registered Dart handler.
+	DescribeFlutter(context.Context, *FlutterEchoRequest) (*FlutterEchoResponse, error)
+	// WatchFlutterEcho streams Flutter-owned echo responses from the Dart handler.
+	WatchFlutterEcho(context.Context, *FlutterEchoRequest, *connect.ServerStream[FlutterEchoResponse]) error
+}
+
+// NewFlutterDeviceHandler builds an HTTP handler from the service implementation. It returns the
+// path on which to mount the handler and the handler itself.
+//
+// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
+// and JSON codecs. They also support gzip compression.
+func NewFlutterDeviceHandler(svc FlutterDeviceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	flutterDeviceMethods := File_shared_so_proto.Services().ByName("FlutterDevice").Methods()
+	flutterDeviceDescribeFlutterHandler := connect.NewUnaryHandlerSimple(
+		FlutterDeviceDescribeFlutterProcedure,
+		svc.DescribeFlutter,
+		connect.WithSchema(flutterDeviceMethods.ByName("DescribeFlutter")),
+		connect.WithHandlerOptions(opts...),
+	)
+	flutterDeviceWatchFlutterEchoHandler := connect.NewServerStreamHandlerSimple(
+		FlutterDeviceWatchFlutterEchoProcedure,
+		svc.WatchFlutterEcho,
+		connect.WithSchema(flutterDeviceMethods.ByName("WatchFlutterEcho")),
+		connect.WithHandlerOptions(opts...),
+	)
+	return "/examples.flutter.sharedso.v1.FlutterDevice/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case FlutterDeviceDescribeFlutterProcedure:
+			flutterDeviceDescribeFlutterHandler.ServeHTTP(w, r)
+		case FlutterDeviceWatchFlutterEchoProcedure:
+			flutterDeviceWatchFlutterEchoHandler.ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// UnimplementedFlutterDeviceHandler returns CodeUnimplemented from all methods.
+type UnimplementedFlutterDeviceHandler struct{}
+
+func (UnimplementedFlutterDeviceHandler) DescribeFlutter(context.Context, *FlutterEchoRequest) (*FlutterEchoResponse, error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("examples.flutter.sharedso.v1.FlutterDevice.DescribeFlutter is not implemented"))
+}
+
+func (UnimplementedFlutterDeviceHandler) WatchFlutterEcho(context.Context, *FlutterEchoRequest, *connect.ServerStream[FlutterEchoResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("examples.flutter.sharedso.v1.FlutterDevice.WatchFlutterEcho is not implemented"))
 }
