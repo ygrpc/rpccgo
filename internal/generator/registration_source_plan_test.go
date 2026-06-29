@@ -9,12 +9,12 @@ func TestRegistrationSourcesForConnectNativeService(t *testing.T) {
 	service := registrationSourceTestService("Greeter", ServiceGenerationSelection{MessageTransport: MessageTransportConnect, NativeEnabled: true})
 
 	got := registrationSourcesForService(service)
-	want := []RegistrationSourcePlan{
-		registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractNative, RegistrationTransportNone, RegistrationModeLocal),
-		registrationSourceTestPlan(RegistrationOriginCGO, RegistrationContractNative, RegistrationTransportNone, RegistrationModeLocal),
-		registrationSourceTestPlan(RegistrationOriginCGO, RegistrationContractMessage, RegistrationTransportNone, RegistrationModeLocal),
-		registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportConnect, RegistrationModeLocal),
-		registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportConnect, RegistrationModeRemote),
+	want := []RegistrationSourceKind{
+		RegistrationSourceGoNative,
+		RegistrationSourceCGONative,
+		RegistrationSourceCGOMessage,
+		RegistrationSourceConnectHandler,
+		RegistrationSourceConnectRemote,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("registrationSourcesForService() = %#v, want %#v", got, want)
@@ -25,12 +25,12 @@ func TestRegistrationSourcesForGRPCNativeService(t *testing.T) {
 	service := registrationSourceTestService("Greeter", ServiceGenerationSelection{MessageTransport: MessageTransportGRPC, NativeEnabled: true})
 
 	got := registrationSourcesForService(service)
-	want := []RegistrationSourcePlan{
-		registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractNative, RegistrationTransportNone, RegistrationModeLocal),
-		registrationSourceTestPlan(RegistrationOriginCGO, RegistrationContractNative, RegistrationTransportNone, RegistrationModeLocal),
-		registrationSourceTestPlan(RegistrationOriginCGO, RegistrationContractMessage, RegistrationTransportNone, RegistrationModeLocal),
-		registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportGRPC, RegistrationModeLocal),
-		registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportGRPC, RegistrationModeRemote),
+	want := []RegistrationSourceKind{
+		RegistrationSourceGoNative,
+		RegistrationSourceCGONative,
+		RegistrationSourceCGOMessage,
+		RegistrationSourceGRPCServer,
+		RegistrationSourceGRPCRemote,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("registrationSourcesForService() = %#v, want %#v", got, want)
@@ -41,10 +41,10 @@ func TestRegistrationSourcesForMessageOnlyService(t *testing.T) {
 	service := registrationSourceTestService("Greeter", ServiceGenerationSelection{MessageTransport: MessageTransportConnect})
 
 	got := registrationSourcesForService(service)
-	want := []RegistrationSourcePlan{
-		registrationSourceTestPlan(RegistrationOriginCGO, RegistrationContractMessage, RegistrationTransportNone, RegistrationModeLocal),
-		registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportConnect, RegistrationModeLocal),
-		registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportConnect, RegistrationModeRemote),
+	want := []RegistrationSourceKind{
+		RegistrationSourceCGOMessage,
+		RegistrationSourceConnectHandler,
+		RegistrationSourceConnectRemote,
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("registrationSourcesForService() = %#v, want %#v", got, want)
@@ -62,32 +62,34 @@ func TestRegistrationSourcesForNativeDirectiveIncludesDefaultConnectSources(t *t
 	if len(got) != 5 {
 		t.Fatalf("registrationSourcesForService() source count = %d, want 5", len(got))
 	}
-	if got[3].Contract != RegistrationContractMessage || got[3].Transport != RegistrationTransportConnect || got[3].Mode != RegistrationModeLocal {
-		t.Fatalf("default local message transport source = %#v, want connect message local", got[3])
+	if got[3] != RegistrationSourceConnectHandler {
+		t.Fatalf("default local message transport source = %#v, want connect handler", got[3])
 	}
-	if got[4].Contract != RegistrationContractMessage || got[4].Transport != RegistrationTransportConnect || got[4].Mode != RegistrationModeRemote {
-		t.Fatalf("default remote message transport source = %#v, want connect message remote", got[4])
-	}
-}
-
-func TestRegistrationTransportNoneIsExplicit(t *testing.T) {
-	if RegistrationTransportNone == "" {
-		t.Fatalf("RegistrationTransportNone must be explicit, got empty string")
-	}
-	if string(RegistrationTransportNone) != "none" {
-		t.Fatalf("RegistrationTransportNone = %q, want none", RegistrationTransportNone)
+	if got[4] != RegistrationSourceConnectRemote {
+		t.Fatalf("default remote message transport source = %#v, want connect remote", got[4])
 	}
 }
 
-func TestRegistrationSourceValidationRejectsArbitraryAxisCombination(t *testing.T) {
-	source := RegistrationSourcePlan{
-		Origin:    RegistrationOriginCGO,
-		Contract:  RegistrationContractNative,
-		Transport: RegistrationTransportConnect,
-		Mode:      RegistrationModeRemote,
+func TestRegistrationSourceKindsAreExplicit(t *testing.T) {
+	for _, source := range []RegistrationSourceKind{
+		RegistrationSourceGoNative,
+		RegistrationSourceCGONative,
+		RegistrationSourceCGOMessage,
+		RegistrationSourceConnectHandler,
+		RegistrationSourceConnectRemote,
+		RegistrationSourceGRPCServer,
+		RegistrationSourceGRPCRemote,
+	} {
+		if source == "" {
+			t.Fatalf("registration source kind must be explicit")
+		}
 	}
-	if err := ValidateRegistrationSourcePlan(source); err == nil {
-		t.Fatalf("ValidateRegistrationSourcePlan(%#v) error = nil, want error", source)
+}
+
+func TestRegistrationSourceValidationRejectsUnknownKind(t *testing.T) {
+	source := RegistrationSourceKind("bogus")
+	if err := validateRegistrationSourceKind(source); err == nil {
+		t.Fatalf("validateRegistrationSourceKind(%#v) error = nil, want error", source)
 	}
 }
 
@@ -95,14 +97,5 @@ func registrationSourceTestService(name string, selection ServiceGenerationSelec
 	return ServicePlan{
 		GoName:     name,
 		Generation: selection,
-	}
-}
-
-func registrationSourceTestPlan(origin RegistrationOrigin, contract RegistrationContract, transport RegistrationTransport, mode RegistrationMode) RegistrationSourcePlan {
-	return RegistrationSourcePlan{
-		Origin:    origin,
-		Contract:  contract,
-		Transport: transport,
-		Mode:      mode,
 	}
 }

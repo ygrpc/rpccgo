@@ -760,6 +760,11 @@ func greeterBroadcastCGOMessageStart(ctx context.Context, server GreeterCGOMessa
 	if req == nil {
 		return nil, errors.New("rpccgo: message request is nil")
 	}
+	if direct, ok := server.(interface {
+		BroadcastStart(context.Context, *SayHelloRequest) (rpcruntime.ServerStreamingClient[*SayHelloResponse], error)
+	}); ok {
+		return direct.BroadcastStart(ctx, req)
+	}
 	client, stream, streamCtx := rpcruntime.NewServerStreaming[*SayHelloResponse](ctx, rpcruntime.LocalStreamOptions{
 		ResponseBuffer: 1,
 		StreamClosed:   errors.New("rpccgo: message stream is closed"),

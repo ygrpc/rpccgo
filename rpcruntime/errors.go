@@ -29,7 +29,6 @@ var (
 	errorTTL = 3 * time.Second
 
 	errorRecords                    = newErrorStore()
-	errorCleanupScheduler           = newCleanupScheduler(100*time.Millisecond, 256)
 	pinErrorText                    = PinString
 	errorTextLengthToInt32ForExport = LengthToInt32
 )
@@ -47,7 +46,7 @@ func StoreError(err error) ErrorID {
 		expiresAt: time.Now().Add(errorTTL),
 	}
 	store.store(id, record)
-	errorCleanupScheduler.schedule(int32(id), errorTTL, func() {
+	time.AfterFunc(errorTTL, func() {
 		store.delete(id)
 	})
 	return id
@@ -119,7 +118,6 @@ func (s *errorStore) store(id ErrorID, record errorRecord) {
 
 func (s *errorStore) takePrepared(id ErrorID, prepare func(errorRecord) (preparedErrorText, error)) (preparedErrorText, bool) {
 	s.mu.Lock()
-	cancelCleanup := false
 
 	record, ok := s.records[id]
 	if !ok {
@@ -128,11 +126,7 @@ func (s *errorStore) takePrepared(id ErrorID, prepare func(errorRecord) (prepare
 	}
 	if s.expired(record, time.Now()) {
 		delete(s.records, id)
-		cancelCleanup = true
 		s.mu.Unlock()
-		if cancelCleanup {
-			errorCleanupScheduler.cancel(int32(id))
-		}
 		return preparedErrorText{}, false
 	}
 
@@ -143,17 +137,12 @@ func (s *errorStore) takePrepared(id ErrorID, prepare func(errorRecord) (prepare
 	}
 
 	delete(s.records, id)
-	cancelCleanup = true
 	s.mu.Unlock()
-	if cancelCleanup {
-		errorCleanupScheduler.cancel(int32(id))
-	}
 	return prepared, true
 }
 
 func (s *errorStore) has(id ErrorID) bool {
 	s.mu.Lock()
-	cancelCleanup := false
 	record, ok := s.records[id]
 	if !ok {
 		s.mu.Unlock()
@@ -161,11 +150,7 @@ func (s *errorStore) has(id ErrorID) bool {
 	}
 	if s.expired(record, time.Now()) {
 		delete(s.records, id)
-		cancelCleanup = true
 		s.mu.Unlock()
-		if cancelCleanup {
-			errorCleanupScheduler.cancel(int32(id))
-		}
 		return false
 	}
 	s.mu.Unlock()

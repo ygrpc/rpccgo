@@ -2,7 +2,7 @@ package generator
 
 import "testing"
 
-func TestProjectStreamCapability(t *testing.T) {
+func TestValidateStreamCapabilitiesAcceptsValidCapabilities(t *testing.T) {
 	tests := []struct {
 		name       string
 		capability StreamCapabilityContractPlan
@@ -31,25 +31,14 @@ func TestProjectStreamCapability(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ProjectStreamCapability(tt.capability)
-			if err != nil {
-				t.Fatalf("ProjectStreamCapability() error = %v", err)
-			}
-			want := StreamCapabilityProjectionPlan{
-				Streaming:             !tt.capability.IsZero(),
-				CanSend:               tt.capability.CanSend,
-				CanRecv:               tt.capability.CanRecv,
-				CanCloseSend:          tt.capability.CanCloseSend,
-				FinishReturnsResponse: tt.capability.FinishReturnsResponse,
-			}
-			if got != want {
-				t.Fatalf("ProjectStreamCapability() = %+v, want %+v", got, want)
+			if err := validateStreamCapabilities(tt.capability); err != nil {
+				t.Fatalf("validateStreamCapabilities() error = %v", err)
 			}
 		})
 	}
 }
 
-func TestProjectStreamCapabilityRejectsInvalidCapabilities(t *testing.T) {
+func TestValidateStreamCapabilitiesRejectsInvalidCapabilities(t *testing.T) {
 	tests := []struct {
 		name       string
 		capability StreamCapabilityContractPlan
@@ -75,8 +64,8 @@ func TestProjectStreamCapabilityRejectsInvalidCapabilities(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, err := ProjectStreamCapability(tt.capability); err == nil {
-				t.Fatal("ProjectStreamCapability() error = nil, want invalid capabilities error")
+			if err := validateStreamCapabilities(tt.capability); err == nil {
+				t.Fatal("validateStreamCapabilities() error = nil, want invalid capabilities error")
 			}
 		})
 	}

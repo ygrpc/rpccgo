@@ -35,14 +35,14 @@ type registrationSourceProjection struct {
 }
 
 // ProjectRegistrationSource derives renderer names, input types, and server kind for a registration source.
-func ProjectRegistrationSource(service ServicePlan, source RegistrationSourcePlan) (registrationSourceProjection, error) {
-	if err := ValidateRegistrationSourcePlan(source); err != nil {
+func ProjectRegistrationSource(service ServicePlan, source RegistrationSourceKind) (registrationSourceProjection, error) {
+	if err := validateRegistrationSourceKind(source); err != nil {
 		return registrationSourceProjection{}, err
 	}
 
 	serviceName := service.GoName
 	switch source {
-	case RegistrationSourcePlan{Origin: RegistrationOriginGo, Contract: RegistrationContractNative, Transport: RegistrationTransportNone, Mode: RegistrationModeLocal}:
+	case RegistrationSourceGoNative:
 		return registrationSourceProjection{
 			registrationKind: runtimeRegistrationKindNative,
 			registerName:     "register" + serviceName + "GoNativeServer",
@@ -53,7 +53,7 @@ func ProjectRegistrationSource(service ServicePlan, source RegistrationSourcePla
 			serverKind:       runtimeServerKindGoNative,
 			label:            "go native",
 		}, nil
-	case RegistrationSourcePlan{Origin: RegistrationOriginCGO, Contract: RegistrationContractNative, Transport: RegistrationTransportNone, Mode: RegistrationModeLocal}:
+	case RegistrationSourceCGONative:
 		return registrationSourceProjection{
 			registrationKind: runtimeRegistrationKindCGONativeForward,
 			registerName:     "Register" + serviceName + "CGONativeServer",
@@ -64,7 +64,7 @@ func ProjectRegistrationSource(service ServicePlan, source RegistrationSourcePla
 			serverKind:       runtimeServerKindCGONative,
 			label:            "cgo native",
 		}, nil
-	case RegistrationSourcePlan{Origin: RegistrationOriginCGO, Contract: RegistrationContractMessage, Transport: RegistrationTransportNone, Mode: RegistrationModeLocal}:
+	case RegistrationSourceCGOMessage:
 		return registrationSourceProjection{
 			registrationKind: runtimeRegistrationKindMessage,
 			registerName:     "register" + serviceName + "CGOMessageServer",
@@ -75,7 +75,7 @@ func ProjectRegistrationSource(service ServicePlan, source RegistrationSourcePla
 			serverKind:       runtimeServerKindCGOMessage,
 			label:            "cgo message",
 		}, nil
-	case RegistrationSourcePlan{Origin: RegistrationOriginGo, Contract: RegistrationContractMessage, Transport: RegistrationTransportConnect, Mode: RegistrationModeLocal}:
+	case RegistrationSourceConnectHandler:
 		return registrationSourceProjection{
 			registrationKind: runtimeRegistrationKindTransportMessage,
 			registerName:     "Register" + serviceName + "ConnectHandler",
@@ -86,7 +86,7 @@ func ProjectRegistrationSource(service ServicePlan, source RegistrationSourcePla
 			serverKind:       runtimeServerKindConnect,
 			label:            "connect handler",
 		}, nil
-	case RegistrationSourcePlan{Origin: RegistrationOriginGo, Contract: RegistrationContractMessage, Transport: RegistrationTransportConnect, Mode: RegistrationModeRemote}:
+	case RegistrationSourceConnectRemote:
 		return registrationSourceProjection{
 			registrationKind: runtimeRegistrationKindTransportMessage,
 			registerName:     "Register" + serviceName + "ConnectRemoteServer",
@@ -97,7 +97,7 @@ func ProjectRegistrationSource(service ServicePlan, source RegistrationSourcePla
 			serverKind:       runtimeServerKindConnectRemote,
 			label:            "connect remote",
 		}, nil
-	case RegistrationSourcePlan{Origin: RegistrationOriginGo, Contract: RegistrationContractMessage, Transport: RegistrationTransportGRPC, Mode: RegistrationModeLocal}:
+	case RegistrationSourceGRPCServer:
 		return registrationSourceProjection{
 			registrationKind: runtimeRegistrationKindTransportMessage,
 			registerName:     "Register" + serviceName + "GRPCServer",
@@ -108,7 +108,7 @@ func ProjectRegistrationSource(service ServicePlan, source RegistrationSourcePla
 			serverKind:       runtimeServerKindGRPC,
 			label:            "grpc server",
 		}, nil
-	case RegistrationSourcePlan{Origin: RegistrationOriginGo, Contract: RegistrationContractMessage, Transport: RegistrationTransportGRPC, Mode: RegistrationModeRemote}:
+	case RegistrationSourceGRPCRemote:
 		return registrationSourceProjection{
 			registrationKind: runtimeRegistrationKindTransportMessage,
 			registerName:     "Register" + serviceName + "GRPCRemoteServer",
@@ -120,7 +120,7 @@ func ProjectRegistrationSource(service ServicePlan, source RegistrationSourcePla
 			label:            "grpc remote",
 		}, nil
 	default:
-		return registrationSourceProjection{}, fmt.Errorf("unknown registration source projection origin=%q contract=%q transport=%q mode=%q", source.Origin, source.Contract, source.Transport, source.Mode)
+		return registrationSourceProjection{}, fmt.Errorf("unknown registration source projection %q", source)
 	}
 }
 

@@ -91,13 +91,7 @@ func messageServerNeedsGoRuntime(service ServicePlan) bool {
 }
 
 func renderCGOMessageServerRuntimeRegistration(g *protogen.GeneratedFile, service ServicePlan) error {
-	source := RegistrationSourcePlan{
-		Origin:    RegistrationOriginCGO,
-		Contract:  RegistrationContractMessage,
-		Transport: RegistrationTransportNone,
-		Mode:      RegistrationModeLocal,
-	}
-	projection, err := ProjectRegistrationSource(service, source)
+	projection, err := ProjectRegistrationSource(service, RegistrationSourceCGOMessage)
 	if err != nil {
 		return err
 	}

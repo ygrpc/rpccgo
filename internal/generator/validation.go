@@ -98,11 +98,6 @@ func ValidateServicePlan(service ServicePlan) error {
 	if err := validateArtifacts(service.Artifacts, false); err != nil {
 		return err
 	}
-	for _, source := range registrationSourcesForService(service) {
-		if err := ValidateRegistrationSourcePlan(source); err != nil {
-			return err
-		}
-	}
 	for mi, method := range service.Methods {
 		if !method.HasIdentity() {
 			return fmt.Errorf("method[%d] identity is incomplete", mi)

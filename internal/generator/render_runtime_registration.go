@@ -25,7 +25,7 @@ type runtimeRegistrationRenderContext struct {
 	serviceIDName string
 }
 
-func renderRuntimeRegistrationForSource(g *protogen.GeneratedFile, ctx runtimeRegistrationRenderContext, source RegistrationSourcePlan) error {
+func renderRuntimeRegistrationForSource(g *protogen.GeneratedFile, ctx runtimeRegistrationRenderContext, source RegistrationSourceKind) error {
 	projection, err := ProjectRegistrationSource(ctx.service, source)
 	if err != nil {
 		return err

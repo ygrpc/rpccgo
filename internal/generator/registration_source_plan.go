@@ -2,111 +2,34 @@ package generator
 
 import "fmt"
 
-// RegistrationOrigin identifies whether a registered server source comes from Go or cgo.
-type RegistrationOrigin string
+// RegistrationSourceKind identifies one supported registered server source.
+type RegistrationSourceKind string
 
-// Registration origins supported by generated server registration helpers.
+// Registration source kinds supported by generated server registration helpers.
 const (
-	RegistrationOriginGo  RegistrationOrigin = "go"
-	RegistrationOriginCGO RegistrationOrigin = "cgo"
+	RegistrationSourceGoNative       RegistrationSourceKind = "go_native"
+	RegistrationSourceCGONative      RegistrationSourceKind = "cgo_native"
+	RegistrationSourceCGOMessage     RegistrationSourceKind = "cgo_message"
+	RegistrationSourceConnectHandler RegistrationSourceKind = "connect_handler"
+	RegistrationSourceConnectRemote  RegistrationSourceKind = "connect_remote"
+	RegistrationSourceGRPCServer     RegistrationSourceKind = "grpc_server"
+	RegistrationSourceGRPCRemote     RegistrationSourceKind = "grpc_remote"
 )
 
-// RegistrationContract identifies whether a source provides the native or message contract.
-type RegistrationContract string
-
-// Registration contracts accepted by generated registration helpers.
-const (
-	RegistrationContractNative  RegistrationContract = "native"
-	RegistrationContractMessage RegistrationContract = "message"
-)
-
-// RegistrationTransport identifies the transport attached to a registration source.
-type RegistrationTransport string
-
-// Registration transports supported by registration source planning.
-const (
-	RegistrationTransportNone    RegistrationTransport = "none"
-	RegistrationTransportConnect RegistrationTransport = "connect"
-	RegistrationTransportGRPC    RegistrationTransport = "grpc"
-)
-
-// RegistrationMode identifies whether a registration source is local or remote.
-type RegistrationMode string
-
-// Registration modes supported by generated registration helpers.
-const (
-	RegistrationModeLocal  RegistrationMode = "local"
-	RegistrationModeRemote RegistrationMode = "remote"
-)
-
-// RegistrationSourcePlan records the four-axis identity of one supported server source.
-type RegistrationSourcePlan struct {
-	Origin    RegistrationOrigin
-	Contract  RegistrationContract
-	Transport RegistrationTransport
-	Mode      RegistrationMode
-}
-
-func registrationSourcesForService(service ServicePlan) []RegistrationSourcePlan {
+func registrationSourcesForService(service ServicePlan) []RegistrationSourceKind {
 	selection := registrationSourceSelectionForService(service)
 
-	sources := []RegistrationSourcePlan{
-		{
-			Origin:    RegistrationOriginCGO,
-			Contract:  RegistrationContractMessage,
-			Transport: RegistrationTransportNone,
-			Mode:      RegistrationModeLocal,
-		},
-	}
+	sources := []RegistrationSourceKind{RegistrationSourceCGOMessage}
 
 	if selection.NativeEnabled {
-		sources = append([]RegistrationSourcePlan{
-			{
-				Origin:    RegistrationOriginGo,
-				Contract:  RegistrationContractNative,
-				Transport: RegistrationTransportNone,
-				Mode:      RegistrationModeLocal,
-			},
-			{
-				Origin:    RegistrationOriginCGO,
-				Contract:  RegistrationContractNative,
-				Transport: RegistrationTransportNone,
-				Mode:      RegistrationModeLocal,
-			},
-		}, sources...)
+		sources = append([]RegistrationSourceKind{RegistrationSourceGoNative, RegistrationSourceCGONative}, sources...)
 	}
 
 	switch selection.MessageTransport {
 	case MessageTransportConnect:
-		sources = append(sources,
-			RegistrationSourcePlan{
-				Origin:    RegistrationOriginGo,
-				Contract:  RegistrationContractMessage,
-				Transport: RegistrationTransportConnect,
-				Mode:      RegistrationModeLocal,
-			},
-			RegistrationSourcePlan{
-				Origin:    RegistrationOriginGo,
-				Contract:  RegistrationContractMessage,
-				Transport: RegistrationTransportConnect,
-				Mode:      RegistrationModeRemote,
-			},
-		)
+		sources = append(sources, RegistrationSourceConnectHandler, RegistrationSourceConnectRemote)
 	case MessageTransportGRPC:
-		sources = append(sources,
-			RegistrationSourcePlan{
-				Origin:    RegistrationOriginGo,
-				Contract:  RegistrationContractMessage,
-				Transport: RegistrationTransportGRPC,
-				Mode:      RegistrationModeLocal,
-			},
-			RegistrationSourcePlan{
-				Origin:    RegistrationOriginGo,
-				Contract:  RegistrationContractMessage,
-				Transport: RegistrationTransportGRPC,
-				Mode:      RegistrationModeRemote,
-			},
-		)
+		sources = append(sources, RegistrationSourceGRPCServer, RegistrationSourceGRPCRemote)
 	}
 
 	return sources
@@ -119,22 +42,17 @@ func registrationSourceSelectionForService(service ServicePlan) ServiceGeneratio
 	return ServiceGenerationSelection{MessageTransport: MessageTransportConnect}
 }
 
-// ValidateRegistrationSourcePlan rejects registration source axis combinations without generation semantics.
-func ValidateRegistrationSourcePlan(source RegistrationSourcePlan) error {
-	for _, allowed := range validRegistrationSourcePlans {
-		if source == allowed {
-			return nil
-		}
+func validateRegistrationSourceKind(source RegistrationSourceKind) error {
+	switch source {
+	case RegistrationSourceGoNative,
+		RegistrationSourceCGONative,
+		RegistrationSourceCGOMessage,
+		RegistrationSourceConnectHandler,
+		RegistrationSourceConnectRemote,
+		RegistrationSourceGRPCServer,
+		RegistrationSourceGRPCRemote:
+		return nil
+	default:
+		return fmt.Errorf("unknown registration source %q", source)
 	}
-	return fmt.Errorf("unknown registration source origin=%q contract=%q transport=%q mode=%q", source.Origin, source.Contract, source.Transport, source.Mode)
-}
-
-var validRegistrationSourcePlans = []RegistrationSourcePlan{
-	{Origin: RegistrationOriginGo, Contract: RegistrationContractNative, Transport: RegistrationTransportNone, Mode: RegistrationModeLocal},
-	{Origin: RegistrationOriginCGO, Contract: RegistrationContractNative, Transport: RegistrationTransportNone, Mode: RegistrationModeLocal},
-	{Origin: RegistrationOriginCGO, Contract: RegistrationContractMessage, Transport: RegistrationTransportNone, Mode: RegistrationModeLocal},
-	{Origin: RegistrationOriginGo, Contract: RegistrationContractMessage, Transport: RegistrationTransportConnect, Mode: RegistrationModeLocal},
-	{Origin: RegistrationOriginGo, Contract: RegistrationContractMessage, Transport: RegistrationTransportConnect, Mode: RegistrationModeRemote},
-	{Origin: RegistrationOriginGo, Contract: RegistrationContractMessage, Transport: RegistrationTransportGRPC, Mode: RegistrationModeLocal},
-	{Origin: RegistrationOriginGo, Contract: RegistrationContractMessage, Transport: RegistrationTransportGRPC, Mode: RegistrationModeRemote},
 }

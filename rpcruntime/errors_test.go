@@ -98,7 +98,6 @@ func TestStoredErrorExpiresAndGetsRemoved(t *testing.T) {
 
 func TestErrorStoreBackgroundCleanupRemovesExpiredRecordWithoutAccess(t *testing.T) {
 	resetErrorRuntimeStateForTesting(t)
-	resetErrorCleanupSchedulerForTesting(t, 5*time.Millisecond, 16)
 
 	oldTTL := errorTTL
 	errorTTL = 20 * time.Millisecond
@@ -117,117 +116,6 @@ func TestErrorStoreBackgroundCleanupRemovesExpiredRecordWithoutAccess(t *testing
 		_, ok := errorRecords.records[id]
 		return !ok
 	}, "expected background cleanup to remove expired error without any subsequent access")
-}
-
-func TestErrorStoreCancelScheduledCleanupOnTake(t *testing.T) {
-	resetErrorRuntimeStateForTesting(t)
-	resetErrorCleanupSchedulerForTesting(t, 5*time.Millisecond, 16)
-
-	oldTTL := errorTTL
-	errorTTL = 40 * time.Millisecond
-	t.Cleanup(func() {
-		errorTTL = oldTTL
-	})
-
-	id := StoreError(errors.New("take-cancels-cleanup"))
-	if id == 0 {
-		t.Fatal("expected non-zero error id")
-	}
-	if got := countScheduledErrorCleanupsForTesting(); got != 1 {
-		t.Fatalf("expected exactly one scheduled cleanup, got %d", got)
-	}
-
-	_, ptr, ok := TakeErrorText(id)
-	if !ok {
-		t.Fatal("expected stored error to be found")
-	}
-	if !Release(ptr) {
-		t.Fatal("expected pinned error text pointer to be releasable")
-	}
-
-	waitForCondition(t, 500*time.Millisecond, func() bool {
-		return countScheduledErrorCleanupsForTesting() == 0
-	}, "expected take to cancel scheduled cleanup")
-}
-
-func TestErrorStoreExpiredTakeDoesNotCancelWhileHoldingStoreLock(t *testing.T) {
-	resetErrorRuntimeStateForTesting(t)
-	resetErrorCleanupSchedulerForTesting(t, time.Millisecond, 8)
-
-	store := newErrorStore()
-	id := ErrorID(1)
-	store.store(id, errorRecord{
-		text:      "expired",
-		expiresAt: time.Now().Add(-time.Second),
-	})
-
-	callbackStarted := make(chan struct{})
-	releaseCallback := make(chan struct{})
-	errorCleanupScheduler.schedule(int32(id), time.Millisecond, func() {
-		close(callbackStarted)
-		<-releaseCallback
-		store.delete(id)
-	})
-
-	select {
-	case <-callbackStarted:
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("expected cleanup callback to start")
-	}
-
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		prepared, ok := store.takePrepared(id, func(errorRecord) (preparedErrorText, error) {
-			t.Fatal("expired record should not be prepared")
-			return preparedErrorText{}, nil
-		})
-		if ok || len(prepared.data) != 0 || prepared.ptr != 0 || prepared.length != 0 {
-			t.Fatalf("expected expired take to return empty result, got %#v ok=%v", prepared, ok)
-		}
-	}()
-
-	assertStaysBlocked(t, done, 20*time.Millisecond, "expired take should wait for in-flight cleanup before cancel completes")
-	close(releaseCallback)
-	assertCompletes(t, done, 500*time.Millisecond, "expired take should complete after cleanup callback releases store lock")
-}
-
-func TestErrorStoreExpiredHasDoesNotCancelWhileHoldingStoreLock(t *testing.T) {
-	resetErrorRuntimeStateForTesting(t)
-	resetErrorCleanupSchedulerForTesting(t, time.Millisecond, 8)
-
-	store := newErrorStore()
-	id := ErrorID(1)
-	store.store(id, errorRecord{
-		text:      "expired",
-		expiresAt: time.Now().Add(-time.Second),
-	})
-
-	callbackStarted := make(chan struct{})
-	releaseCallback := make(chan struct{})
-	errorCleanupScheduler.schedule(int32(id), time.Millisecond, func() {
-		close(callbackStarted)
-		<-releaseCallback
-		store.delete(id)
-	})
-
-	select {
-	case <-callbackStarted:
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("expected cleanup callback to start")
-	}
-
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		if store.has(id) {
-			t.Fatal("expected expired record lookup to fail")
-		}
-	}()
-
-	assertStaysBlocked(t, done, 20*time.Millisecond, "expired has should wait for in-flight cleanup before cancel completes")
-	close(releaseCallback)
-	assertCompletes(t, done, 500*time.Millisecond, "expired has should complete after cleanup callback releases store lock")
 }
 
 func TestTakeErrorTextKeepsRecordWhenPinFails(t *testing.T) {
@@ -309,39 +197,20 @@ func resetErrorRuntimeStateForTesting(t *testing.T) {
 	t.Helper()
 
 	originalStore := errorRecords
-	originalScheduler := errorCleanupScheduler
 	originalPin := pinErrorText
 	originalLength := errorTextLengthToInt32ForExport
 
 	errorRecords = newErrorStore()
-	errorCleanupScheduler = newCleanupSchedulerForTesting(100*time.Millisecond, 256)
 	pinErrorText = PinString
 	errorTextLengthToInt32ForExport = LengthToInt32
 	releaseAllPinnedForTesting()
 
 	t.Cleanup(func() {
 		errorRecords = originalStore
-		errorCleanupScheduler.stop()
-		errorCleanupScheduler = originalScheduler
 		pinErrorText = originalPin
 		errorTextLengthToInt32ForExport = originalLength
 		releaseAllPinnedForTesting()
 	})
-}
-
-func resetErrorCleanupSchedulerForTesting(t *testing.T, tick time.Duration, wheelLen int) {
-	t.Helper()
-
-	originalScheduler := errorCleanupScheduler
-	errorCleanupScheduler = newCleanupSchedulerForTesting(tick, wheelLen)
-	t.Cleanup(func() {
-		errorCleanupScheduler.stop()
-		errorCleanupScheduler = originalScheduler
-	})
-}
-
-func countScheduledErrorCleanupsForTesting() int {
-	return errorCleanupScheduler.pendingCount()
 }
 
 func releaseAllPinnedForTesting() {
@@ -362,24 +231,4 @@ func waitForCondition(t *testing.T, timeout time.Duration, fn func() bool, messa
 		time.Sleep(5 * time.Millisecond)
 	}
 	t.Fatal(message)
-}
-
-func assertStaysBlocked(t *testing.T, done <-chan struct{}, duration time.Duration, message string) {
-	t.Helper()
-
-	select {
-	case <-done:
-		t.Fatal(message)
-	case <-time.After(duration):
-	}
-}
-
-func assertCompletes(t *testing.T, done <-chan struct{}, timeout time.Duration, message string) {
-	t.Helper()
-
-	select {
-	case <-done:
-	case <-time.After(timeout):
-		t.Fatal(message)
-	}
 }

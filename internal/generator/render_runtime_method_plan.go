@@ -277,7 +277,7 @@ const (
 func projectRuntimeStream(method MethodPlan) (runtimeStreamProjection, error) {
 	capability := method.RenderPlan.Stream
 	projected := runtimeStreamProjection{
-		Streaming:             capability.Streaming,
+		Streaming:             !capability.IsZero(),
 		CanSend:               capability.CanSend,
 		CanRecv:               capability.CanRecv,
 		CanCloseSend:          capability.CanCloseSend,

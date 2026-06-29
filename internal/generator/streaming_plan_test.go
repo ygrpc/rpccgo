@@ -96,15 +96,8 @@ func assertStreamCapabilities(t *testing.T, method MethodPlan, want StreamCapabi
 	if method.Contract.Stream != want {
 		t.Fatalf("%s capability = %+v, want %+v", method.Name, method.Contract.Stream, want)
 	}
-	wantProjection := StreamCapabilityProjectionPlan{
-		Streaming:             !want.IsZero(),
-		CanSend:               want.CanSend,
-		CanRecv:               want.CanRecv,
-		CanCloseSend:          want.CanCloseSend,
-		FinishReturnsResponse: want.FinishReturnsResponse,
-	}
-	if method.RenderPlan.Stream != wantProjection {
-		t.Fatalf("%s render capability = %+v, want %+v", method.Name, method.RenderPlan.Stream, wantProjection)
+	if method.RenderPlan.Stream != want {
+		t.Fatalf("%s render capability = %+v, want %+v", method.Name, method.RenderPlan.Stream, want)
 	}
 	if err := ValidateMethodRenderPlan(method); err != nil {
 		t.Fatalf("%s ValidateMethodRenderPlan() error = %v", method.Name, err)

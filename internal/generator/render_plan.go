@@ -4,7 +4,7 @@ import "fmt"
 
 // MethodRenderPlan records renderer-facing stream operations and symbols for one method.
 type MethodRenderPlan struct {
-	Stream  StreamCapabilityProjectionPlan
+	Stream  StreamCapabilityContractPlan
 	Symbols RenderSymbolsPlan
 }
 
@@ -18,8 +18,8 @@ type RenderSymbolsPlan struct {
 
 // BuildMethodRenderPlan projects a method contract plan into renderer-facing stream operations and symbols.
 func BuildMethodRenderPlan(method MethodPlan, serviceName string) (MethodRenderPlan, error) {
-	capability, err := ProjectStreamCapability(method.Contract.Stream)
-	if err != nil {
+	capability := method.Contract.Stream
+	if err := validateStreamCapabilities(capability); err != nil {
 		return MethodRenderPlan{}, err
 	}
 
@@ -30,7 +30,7 @@ func BuildMethodRenderPlan(method MethodPlan, serviceName string) (MethodRenderP
 	messageEntryMethod := nativeEntryMethod
 	nativeStreamRequestType := ""
 	nativeStreamResponseType := ""
-	if capability.Streaming {
+	if !capability.IsZero() {
 		nativeStreamRequestType = serviceName + method.GoName + "NativeStreamRequest"
 		nativeStreamResponseType = serviceName + method.GoName + "NativeStreamResponse"
 	}
@@ -79,19 +79,18 @@ func ValidateMethodRenderPlan(method MethodPlan) error {
 
 func validateMethodRenderPlan(method MethodPlan) error {
 	shape := method.RenderPlan
-	expectedStreamCapability, err := ProjectStreamCapability(method.Contract.Stream)
-	if err != nil {
+	if err := validateStreamCapabilities(method.Contract.Stream); err != nil {
 		return fmt.Errorf("method %s render capability is invalid: %w", methodPlanName(method), err)
 	}
-	if shape.Stream != expectedStreamCapability {
+	if shape.Stream != method.Contract.Stream {
 		return fmt.Errorf("method %s render capability does not match contract capabilities", methodPlanName(method))
 	}
 	if method.Streaming == StreamingKindUnary {
-		if shape.Stream.Streaming {
+		if !shape.Stream.IsZero() {
 			return fmt.Errorf("method %s unary render capability must not stream", methodPlanName(method))
 		}
 	} else {
-		if !shape.Stream.Streaming {
+		if shape.Stream.IsZero() {
 			return fmt.Errorf("method %s streaming render capability is missing", methodPlanName(method))
 		}
 	}

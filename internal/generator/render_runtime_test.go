@@ -508,16 +508,16 @@ func runtimeTestMethod(name string, streaming StreamingKind, nativeEntryMethod s
 	return method
 }
 
-func runtimeTestStreamCapabilityProjection(streamShape runtimeStreamShape) StreamCapabilityProjectionPlan {
+func runtimeTestStreamCapabilityProjection(streamShape runtimeStreamShape) StreamCapabilityContractPlan {
 	switch streamShape {
 	case runtimeStreamClient:
-		return StreamCapabilityProjectionPlan{Streaming: true, CanSend: true, FinishReturnsResponse: true}
+		return StreamCapabilityContractPlan{CanSend: true, FinishReturnsResponse: true}
 	case runtimeStreamServer:
-		return StreamCapabilityProjectionPlan{Streaming: true, CanRecv: true}
+		return StreamCapabilityContractPlan{CanRecv: true}
 	case runtimeStreamBidi:
-		return StreamCapabilityProjectionPlan{Streaming: true, CanSend: true, CanRecv: true, CanCloseSend: true}
+		return StreamCapabilityContractPlan{CanSend: true, CanRecv: true, CanCloseSend: true}
 	default:
-		return StreamCapabilityProjectionPlan{}
+		return StreamCapabilityContractPlan{}
 	}
 }
 

@@ -7,7 +7,7 @@ func TestProjectRegistrationSourceCoversValidSources(t *testing.T) {
 
 	tests := []struct {
 		name                 string
-		source               RegistrationSourcePlan
+		source               RegistrationSourceKind
 		wantRegistrationKind runtimeRegistrationKind
 		wantRegisterName     string
 		wantInputName        string
@@ -18,7 +18,7 @@ func TestProjectRegistrationSourceCoversValidSources(t *testing.T) {
 	}{
 		{
 			name:                 "go native",
-			source:               registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractNative, RegistrationTransportNone, RegistrationModeLocal),
+			source:               RegistrationSourceGoNative,
 			wantRegistrationKind: runtimeRegistrationKindNative,
 			wantRegisterName:     "registerGreeterGoNativeServer",
 			wantInputName:        "server",
@@ -29,7 +29,7 @@ func TestProjectRegistrationSourceCoversValidSources(t *testing.T) {
 		},
 		{
 			name:                 "cgo native",
-			source:               registrationSourceTestPlan(RegistrationOriginCGO, RegistrationContractNative, RegistrationTransportNone, RegistrationModeLocal),
+			source:               RegistrationSourceCGONative,
 			wantRegistrationKind: runtimeRegistrationKindCGONativeForward,
 			wantRegisterName:     "RegisterGreeterCGONativeServer",
 			wantInputName:        "server",
@@ -40,7 +40,7 @@ func TestProjectRegistrationSourceCoversValidSources(t *testing.T) {
 		},
 		{
 			name:                 "cgo message",
-			source:               registrationSourceTestPlan(RegistrationOriginCGO, RegistrationContractMessage, RegistrationTransportNone, RegistrationModeLocal),
+			source:               RegistrationSourceCGOMessage,
 			wantRegistrationKind: runtimeRegistrationKindMessage,
 			wantRegisterName:     "registerGreeterCGOMessageServer",
 			wantInputName:        "server",
@@ -51,7 +51,7 @@ func TestProjectRegistrationSourceCoversValidSources(t *testing.T) {
 		},
 		{
 			name:                 "connect local",
-			source:               registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportConnect, RegistrationModeLocal),
+			source:               RegistrationSourceConnectHandler,
 			wantRegistrationKind: runtimeRegistrationKindTransportMessage,
 			wantRegisterName:     "RegisterGreeterConnectHandler",
 			wantInputName:        "handler",
@@ -62,7 +62,7 @@ func TestProjectRegistrationSourceCoversValidSources(t *testing.T) {
 		},
 		{
 			name:                 "connect remote",
-			source:               registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportConnect, RegistrationModeRemote),
+			source:               RegistrationSourceConnectRemote,
 			wantRegistrationKind: runtimeRegistrationKindTransportMessage,
 			wantRegisterName:     "RegisterGreeterConnectRemoteServer",
 			wantInputName:        "client",
@@ -73,7 +73,7 @@ func TestProjectRegistrationSourceCoversValidSources(t *testing.T) {
 		},
 		{
 			name:                 "grpc local",
-			source:               registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportGRPC, RegistrationModeLocal),
+			source:               RegistrationSourceGRPCServer,
 			wantRegistrationKind: runtimeRegistrationKindTransportMessage,
 			wantRegisterName:     "RegisterGreeterGRPCServer",
 			wantInputName:        "server",
@@ -84,7 +84,7 @@ func TestProjectRegistrationSourceCoversValidSources(t *testing.T) {
 		},
 		{
 			name:                 "grpc remote",
-			source:               registrationSourceTestPlan(RegistrationOriginGo, RegistrationContractMessage, RegistrationTransportGRPC, RegistrationModeRemote),
+			source:               RegistrationSourceGRPCRemote,
 			wantRegistrationKind: runtimeRegistrationKindTransportMessage,
 			wantRegisterName:     "RegisterGreeterGRPCRemoteServer",
 			wantInputName:        "client",
@@ -128,7 +128,7 @@ func TestProjectRegistrationSourceCoversValidSources(t *testing.T) {
 
 func TestProjectRegistrationSourceRejectsInvalidSource(t *testing.T) {
 	service := registrationSourceTestService("Greeter", ServiceGenerationSelection{MessageTransport: MessageTransportConnect, NativeEnabled: true})
-	source := registrationSourceTestPlan(RegistrationOriginCGO, RegistrationContractNative, RegistrationTransportConnect, RegistrationModeRemote)
+	source := RegistrationSourceKind("bogus")
 
 	if _, err := ProjectRegistrationSource(service, source); err == nil {
 		t.Fatalf("ProjectRegistrationSource(%#v) error = nil, want error", source)

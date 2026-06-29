@@ -522,20 +522,7 @@ func renderGoNativeRegistration(g *protogen.GeneratedFile, service ServicePlan, 
 
 func renderGoNativeServerRegistrations(g *protogen.GeneratedFile, service ServicePlan) error {
 	serviceIDName := lowerInitial(service.GoName) + "ServiceID"
-	for _, source := range []RegistrationSourcePlan{
-		{
-			Origin:    RegistrationOriginGo,
-			Contract:  RegistrationContractNative,
-			Transport: RegistrationTransportNone,
-			Mode:      RegistrationModeLocal,
-		},
-		{
-			Origin:    RegistrationOriginCGO,
-			Contract:  RegistrationContractNative,
-			Transport: RegistrationTransportNone,
-			Mode:      RegistrationModeLocal,
-		},
-	} {
+	for _, source := range []RegistrationSourceKind{RegistrationSourceGoNative, RegistrationSourceCGONative} {
 		projection, err := ProjectRegistrationSource(service, source)
 		if err != nil {
 			return err
