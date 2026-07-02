@@ -201,21 +201,28 @@ func (a *androidDeviceCGOMessageAdapter) WatchAndroidEcho(ctx context.Context, r
 	if err != nil {
 		return err
 	}
+	finishSession := func() error {
+		finisher, ok := any(session).(interface{ Finish(context.Context) error })
+		if !ok {
+			return nil
+		}
+		return finisher.Finish(ctx)
+	}
 	for {
-		resp, err, stopped := androidDeviceAwaitCGOMessageRecv(ctx, stream.FinishRequested(), func() (*proto.AndroidEchoResponse, error) { return session.Recv(ctx) }, func() error { return session.Finish(ctx) }, func() error { return session.Cancel(ctx) })
+		resp, err, stopped := androidDeviceAwaitCGOMessageRecv(ctx, stream.FinishRequested(), func() (*proto.AndroidEchoResponse, error) { return session.Recv(ctx) }, finishSession, func() error { return session.Cancel(ctx) })
 		if stopped {
 			return err
 		}
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				return session.Finish(ctx)
+				return finishSession()
 			}
 			_ = session.Cancel(ctx)
 			return err
 		}
 		if err := stream.Send(ctx, resp); err != nil {
 			if errors.Is(err, io.EOF) {
-				return session.Finish(ctx)
+				return finishSession()
 			}
 			_ = session.Cancel(ctx)
 			return err

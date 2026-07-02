@@ -78,7 +78,9 @@ func renderRuntimeNativeStreamRecv(g *protogen.GeneratedFile, serviceName string
 			}
 			if method.Stream.Shape == runtimeStreamServer {
 				g.P("if errors.Is(err, io.EOF) {")
-				g.P("if finishErr := source.Finish(ctx); finishErr != nil { _, _ = rpcruntime.RemoveStreamSession(handle); return ", method.Native.ErrZero, " }")
+				g.P("if finisher, ok := any(source).(interface{ Finish(context.Context) error }); ok {")
+				g.P("if finishErr := finisher.Finish(ctx); finishErr != nil { _, _ = rpcruntime.RemoveStreamSession(handle); return ", method.Native.ErrZero, " }")
+				g.P("}")
 				g.P("_, _ = rpcruntime.RemoveStreamSession(handle)")
 				g.P("}")
 			}
@@ -90,7 +92,9 @@ func renderRuntimeNativeStreamRecv(g *protogen.GeneratedFile, serviceName string
 		g.P("messageResp, err := source.Recv(ctx)")
 		if method.Stream.Shape == runtimeStreamServer {
 			g.P("if errors.Is(err, io.EOF) {")
-			g.P("if finishErr := source.Finish(ctx); finishErr != nil { _, _ = rpcruntime.RemoveStreamSession(handle); return ", method.Native.ErrZero, " }")
+			g.P("if finisher, ok := any(source).(interface{ Finish(context.Context) error }); ok {")
+			g.P("if finishErr := finisher.Finish(ctx); finishErr != nil { _, _ = rpcruntime.RemoveStreamSession(handle); return ", method.Native.ErrZero, " }")
+			g.P("}")
 			g.P("_, _ = rpcruntime.RemoveStreamSession(handle)")
 			g.P("}")
 		}
@@ -257,7 +261,9 @@ func renderRuntimeMessageStreamRecv(g *protogen.GeneratedFile, serviceName strin
 			}
 			if method.Stream.Shape == runtimeStreamServer {
 				g.P("if errors.Is(err, io.EOF) {")
-				g.P("if finishErr := source.Finish(ctx); finishErr != nil { _, _ = rpcruntime.RemoveStreamSession(handle); return nil, finishErr }")
+				g.P("if finisher, ok := any(source).(interface{ Finish(context.Context) error }); ok {")
+				g.P("if finishErr := finisher.Finish(ctx); finishErr != nil { _, _ = rpcruntime.RemoveStreamSession(handle); return nil, finishErr }")
+				g.P("}")
 				g.P("_, _ = rpcruntime.RemoveStreamSession(handle)")
 				g.P("}")
 			}
@@ -269,7 +275,9 @@ func renderRuntimeMessageStreamRecv(g *protogen.GeneratedFile, serviceName strin
 		g.P("resp, err := source.Recv(ctx)")
 		if method.Stream.Shape == runtimeStreamServer {
 			g.P("if errors.Is(err, io.EOF) {")
-			g.P("if finishErr := source.Finish(ctx); finishErr != nil { _, _ = rpcruntime.RemoveStreamSession(handle); return nil, finishErr }")
+			g.P("if finisher, ok := any(source).(interface{ Finish(context.Context) error }); ok {")
+			g.P("if finishErr := finisher.Finish(ctx); finishErr != nil { _, _ = rpcruntime.RemoveStreamSession(handle); return nil, finishErr }")
+			g.P("}")
 			g.P("_, _ = rpcruntime.RemoveStreamSession(handle)")
 			g.P("}")
 		}

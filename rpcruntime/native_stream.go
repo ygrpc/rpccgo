@@ -17,7 +17,6 @@ type ClientStreamingServer[Req any] interface {
 // ServerStreamingClient is the client-side operation surface for a server-streaming RPC.
 type ServerStreamingClient[Resp any] interface {
 	Recv(context.Context) (Resp, error)
-	Finish(context.Context) error
 	Cancel(context.Context) error
 }
 

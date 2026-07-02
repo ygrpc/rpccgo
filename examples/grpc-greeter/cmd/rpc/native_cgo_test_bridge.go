@@ -52,10 +52,6 @@ func greeterNativeBroadcastRecv(stream int32, outMessagePtr *uintptr, outMessage
 	return int32(errID)
 }
 
-func greeterNativeBroadcastFinish(stream int32) int32 {
-	return 0
-}
-
 func greeterNativeChatStart() (int32, int32) {
 	var stream C.int32_t
 	errID := rpccgoNativeGreeterv1GreeterChatStart(&stream, nil, nil)
@@ -125,10 +121,6 @@ func greeterMessageBroadcastRecv(stream int32, outMessagePtr *uintptr, outMessag
 	*outMessagePtr = uintptr(messagePtr)
 	*outMessageLen = int32(messageLen)
 	return int32(errID)
-}
-
-func greeterMessageBroadcastFinish(stream int32) int32 {
-	return 0
 }
 
 func greeterMessageChatStart() (int32, int32) {

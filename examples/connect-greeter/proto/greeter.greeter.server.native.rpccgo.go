@@ -321,9 +321,11 @@ func GreeterNativeBroadcastRecv(ctx context.Context, handle rpcruntime.StreamHan
 		}
 		resp, err := source.Recv(ctx)
 		if errors.Is(err, io.EOF) {
-			if finishErr := source.Finish(ctx); finishErr != nil {
-				_, _ = rpcruntime.RemoveStreamSession(handle)
-				return "", err
+			if finisher, ok := any(source).(interface{ Finish(context.Context) error }); ok {
+				if finishErr := finisher.Finish(ctx); finishErr != nil {
+					_, _ = rpcruntime.RemoveStreamSession(handle)
+					return "", err
+				}
 			}
 			_, _ = rpcruntime.RemoveStreamSession(handle)
 		}
@@ -338,9 +340,11 @@ func GreeterNativeBroadcastRecv(ctx context.Context, handle rpcruntime.StreamHan
 		}
 		resp, err := source.Recv(ctx)
 		if errors.Is(err, io.EOF) {
-			if finishErr := source.Finish(ctx); finishErr != nil {
-				_, _ = rpcruntime.RemoveStreamSession(handle)
-				return "", err
+			if finisher, ok := any(source).(interface{ Finish(context.Context) error }); ok {
+				if finishErr := finisher.Finish(ctx); finishErr != nil {
+					_, _ = rpcruntime.RemoveStreamSession(handle)
+					return "", err
+				}
 			}
 			_, _ = rpcruntime.RemoveStreamSession(handle)
 		}
@@ -355,9 +359,11 @@ func GreeterNativeBroadcastRecv(ctx context.Context, handle rpcruntime.StreamHan
 		}
 		messageResp, err := source.Recv(ctx)
 		if errors.Is(err, io.EOF) {
-			if finishErr := source.Finish(ctx); finishErr != nil {
-				_, _ = rpcruntime.RemoveStreamSession(handle)
-				return "", err
+			if finisher, ok := any(source).(interface{ Finish(context.Context) error }); ok {
+				if finishErr := finisher.Finish(ctx); finishErr != nil {
+					_, _ = rpcruntime.RemoveStreamSession(handle)
+					return "", err
+				}
 			}
 			_, _ = rpcruntime.RemoveStreamSession(handle)
 		}
@@ -372,9 +378,11 @@ func GreeterNativeBroadcastRecv(ctx context.Context, handle rpcruntime.StreamHan
 		}
 		messageResp, err := source.Recv(ctx)
 		if errors.Is(err, io.EOF) {
-			if finishErr := source.Finish(ctx); finishErr != nil {
-				_, _ = rpcruntime.RemoveStreamSession(handle)
-				return "", err
+			if finisher, ok := any(source).(interface{ Finish(context.Context) error }); ok {
+				if finishErr := finisher.Finish(ctx); finishErr != nil {
+					_, _ = rpcruntime.RemoveStreamSession(handle)
+					return "", err
+				}
 			}
 			_, _ = rpcruntime.RemoveStreamSession(handle)
 		}
@@ -389,9 +397,11 @@ func GreeterNativeBroadcastRecv(ctx context.Context, handle rpcruntime.StreamHan
 		}
 		messageResp, err := source.Recv(ctx)
 		if errors.Is(err, io.EOF) {
-			if finishErr := source.Finish(ctx); finishErr != nil {
-				_, _ = rpcruntime.RemoveStreamSession(handle)
-				return "", err
+			if finisher, ok := any(source).(interface{ Finish(context.Context) error }); ok {
+				if finishErr := finisher.Finish(ctx); finishErr != nil {
+					_, _ = rpcruntime.RemoveStreamSession(handle)
+					return "", err
+				}
 			}
 			_, _ = rpcruntime.RemoveStreamSession(handle)
 		}

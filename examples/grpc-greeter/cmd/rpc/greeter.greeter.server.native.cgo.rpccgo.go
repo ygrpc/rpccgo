@@ -462,21 +462,28 @@ func (a *greeterCGONativeAdapter) Broadcast(ctx context.Context, name *rpcruntim
 	if err != nil {
 		return err
 	}
+	finishSession := func() error {
+		finisher, ok := any(session).(interface{ Finish(context.Context) error })
+		if !ok {
+			return nil
+		}
+		return finisher.Finish(ctx)
+	}
 	for {
-		resp, err, stopped := greeterAwaitCGONativeRecv(ctx, stream.FinishRequested(), func() (v1.GreeterBroadcastNativeStreamResponse, error) { return session.Recv(ctx) }, func() error { return session.Finish(ctx) }, func() error { return session.Cancel(ctx) })
+		resp, err, stopped := greeterAwaitCGONativeRecv(ctx, stream.FinishRequested(), func() (v1.GreeterBroadcastNativeStreamResponse, error) { return session.Recv(ctx) }, finishSession, func() error { return session.Cancel(ctx) })
 		if stopped {
 			return err
 		}
 		if err != nil {
 			if errors.Is(err, io.EOF) {
-				return session.Finish(ctx)
+				return finishSession()
 			}
 			_ = session.Cancel(ctx)
 			return err
 		}
 		if err := stream.Send(ctx, resp.Message); err != nil {
 			if errors.Is(err, io.EOF) {
-				return session.Finish(ctx)
+				return finishSession()
 			}
 			_ = session.Cancel(ctx)
 			return err

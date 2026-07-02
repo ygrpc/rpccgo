@@ -264,22 +264,6 @@ func (c *ServerStreamForClient[Resp]) Cancel(ctx context.Context) error {
 	}
 }
 
-// Finish asks the server endpoint to stop producing responses and waits for completion.
-func (c *ServerStreamForClient[Resp]) Finish(ctx context.Context) error {
-	s := c.state
-	s.finishCancel()
-	defer s.cancel()
-	select {
-	case <-ctx.Done():
-		s.cancel()
-		return ctx.Err()
-	case <-s.ctx.Done():
-		return s.ctx.Err()
-	case <-s.done:
-		return nil
-	}
-}
-
 // Send sends a response to the client endpoint.
 func (s *ServerStreamForServer[Resp]) Send(ctx context.Context, resp Resp) error {
 	if s.state.nilResponse != nil && isNilStreamValue(resp) {

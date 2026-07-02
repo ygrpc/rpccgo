@@ -36,9 +36,11 @@ func FlutterDeviceMessageWatchFlutterEchoRecv(ctx context.Context, handle rpcrun
 		}
 		resp, err := source.Recv(ctx)
 		if errors.Is(err, io.EOF) {
-			if finishErr := source.Finish(ctx); finishErr != nil {
-				_, _ = rpcruntime.RemoveStreamSession(handle)
-				return nil, finishErr
+			if finisher, ok := any(source).(interface{ Finish(context.Context) error }); ok {
+				if finishErr := finisher.Finish(ctx); finishErr != nil {
+					_, _ = rpcruntime.RemoveStreamSession(handle)
+					return nil, finishErr
+				}
 			}
 			_, _ = rpcruntime.RemoveStreamSession(handle)
 		}
@@ -56,9 +58,11 @@ func FlutterDeviceMessageWatchFlutterEchoRecv(ctx context.Context, handle rpcrun
 		}
 		resp, err := source.Recv(ctx)
 		if errors.Is(err, io.EOF) {
-			if finishErr := source.Finish(ctx); finishErr != nil {
-				_, _ = rpcruntime.RemoveStreamSession(handle)
-				return nil, finishErr
+			if finisher, ok := any(source).(interface{ Finish(context.Context) error }); ok {
+				if finishErr := finisher.Finish(ctx); finishErr != nil {
+					_, _ = rpcruntime.RemoveStreamSession(handle)
+					return nil, finishErr
+				}
 			}
 			_, _ = rpcruntime.RemoveStreamSession(handle)
 		}
@@ -76,9 +80,11 @@ func FlutterDeviceMessageWatchFlutterEchoRecv(ctx context.Context, handle rpcrun
 		}
 		resp, err := source.Recv(ctx)
 		if errors.Is(err, io.EOF) {
-			if finishErr := source.Finish(ctx); finishErr != nil {
-				_, _ = rpcruntime.RemoveStreamSession(handle)
-				return nil, finishErr
+			if finisher, ok := any(source).(interface{ Finish(context.Context) error }); ok {
+				if finishErr := finisher.Finish(ctx); finishErr != nil {
+					_, _ = rpcruntime.RemoveStreamSession(handle)
+					return nil, finishErr
+				}
 			}
 			_, _ = rpcruntime.RemoveStreamSession(handle)
 		}

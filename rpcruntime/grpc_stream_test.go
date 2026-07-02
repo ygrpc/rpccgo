@@ -60,7 +60,7 @@ func TestGRPCClientStreamingServerRequiresSendAndClose(t *testing.T) {
 	}
 }
 
-func TestGRPCServerStreamingServerFinishIsGraceful(t *testing.T) {
+func TestGRPCServerStreamingServerCancelStopsSend(t *testing.T) {
 	client, server, streamCtx := NewServerStreaming[*grpcStreamTestResponse](context.Background(), LocalStreamOptions{
 		StreamClosed: errors.New("stream closed"),
 		NilResponse:  errors.New("nil response"),
@@ -85,8 +85,8 @@ func TestGRPCServerStreamingServerFinishIsGraceful(t *testing.T) {
 	if _, err := client.Recv(context.Background()); err != nil {
 		t.Fatalf("Recv() error = %v", err)
 	}
-	if err := client.Finish(context.Background()); err != nil {
-		t.Fatalf("Finish() error = %v", err)
+	if err := client.Cancel(context.Background()); err != nil {
+		t.Fatalf("Cancel() error = %v", err)
 	}
 	<-done
 }

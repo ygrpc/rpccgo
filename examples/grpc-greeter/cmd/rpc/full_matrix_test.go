@@ -242,9 +242,6 @@ func assertNativeBroadcast(t *testing.T, ctx context.Context, name string, wants
 		}
 		assertNativeOutput(t, messagePtr, messageLen, want)
 	}
-	if errID := greeterNativeBroadcastFinish(handle); errID != 0 {
-		t.Fatalf("greeterNativeBroadcastFinish() error id = %d", errID)
-	}
 }
 
 func assertNativeChat(t *testing.T, ctx context.Context, name, want string) {
@@ -362,9 +359,6 @@ func assertMessageBroadcast(t *testing.T, ctx context.Context, name string, want
 			t.Fatalf("greeterMessageBroadcastRecv() error id = %d", errID)
 		}
 		assertMessageOutput(t, messagePtr, messageLen, want)
-	}
-	if errID := greeterMessageBroadcastFinish(handle); errID != 0 {
-		t.Fatalf("greeterMessageBroadcastFinish() error id = %d", errID)
 	}
 }
 

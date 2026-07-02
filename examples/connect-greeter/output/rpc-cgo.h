@@ -12,6 +12,8 @@
 
 #ifndef GO_CGO_GOSTRING_TYPEDEF
 typedef struct { const char *p; ptrdiff_t n; } _GoString_;
+extern size_t _GoStringLen(_GoString_ s);
+extern const char *_GoStringPtr(_GoString_ s);
 #endif
 
 #endif
@@ -22,12 +24,26 @@ typedef struct { const char *p; ptrdiff_t n; } _GoString_;
 #line 11 "greeter.greeter.client.message.cgo.rpccgo.go"
 
 #include <stdint.h>
+typedef void (*GreeterRpccgoMessageOnRecvCallback)(int32_t stream, uintptr_t response_ptr, int32_t response_len);
+typedef void (*GreeterRpccgoMessageOnDoneCallback)(int32_t stream, int32_t err_id);
+static inline void callGreeterRpccgoMessageOnRecvCallback(GreeterRpccgoMessageOnRecvCallback callback, int32_t stream, uintptr_t response_ptr, int32_t response_len) { callback(stream, response_ptr, response_len); }
+static inline void callGreeterRpccgoMessageOnDoneCallback(GreeterRpccgoMessageOnDoneCallback callback, int32_t stream, int32_t err_id) { callback(stream, err_id); }
 
 #line 1 "cgo-generated-wrapper"
 
 #line 11 "greeter.greeter.client.native.cgo.rpccgo.go"
 
 #include <stdint.h>
+typedef void (*RpccgoNativeOnDoneCallback)(int32_t stream, int32_t err_id);
+static inline void callRpccgoNativeOnDoneCallback(RpccgoNativeOnDoneCallback callback, int32_t stream, int32_t err_id) { callback(stream, err_id); }
+typedef void (*GreeterBroadcastCGONativeOnRecvCallback)(int32_t stream, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership);
+static inline void callGreeterBroadcastCGONativeOnRecvCallback(GreeterBroadcastCGONativeOnRecvCallback callback, int32_t stream, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership) {
+callback(stream, outMessagePtr, outMessageLen, outMessageOwnership);
+}
+typedef void (*GreeterChatCGONativeOnRecvCallback)(int32_t stream, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership);
+static inline void callGreeterChatCGONativeOnRecvCallback(GreeterChatCGONativeOnRecvCallback callback, int32_t stream, uintptr_t *outMessagePtr, int32_t *outMessageLen, int32_t *outMessageOwnership) {
+callback(stream, outMessagePtr, outMessageLen, outMessageOwnership);
+}
 
 #line 1 "cgo-generated-wrapper"
 
@@ -200,9 +216,15 @@ typedef size_t GoUintptr;
 typedef float GoFloat32;
 typedef double GoFloat64;
 #ifdef _MSC_VER
+#if !defined(__cplusplus) || _MSVC_LANG <= 201402L
 #include <complex.h>
 typedef _Fcomplex GoComplex64;
 typedef _Dcomplex GoComplex128;
+#else
+#include <complex>
+typedef std::complex<float> GoComplex64;
+typedef std::complex<double> GoComplex128;
+#endif
 #else
 typedef float _Complex GoComplex64;
 typedef double _Complex GoComplex128;
@@ -253,23 +275,23 @@ extern int32_t rpccgoMsgGreeterv1GreeterCollectCancel(int32_t handle);
 
 // rpccgoMsgGreeterv1GreeterBroadcastStart starts the message server-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Broadcast.
 //
-extern int32_t rpccgoMsgGreeterv1GreeterBroadcastStart(uintptr_t requestPtr, int32_t requestLen, int32_t* handle);
+extern int32_t rpccgoMsgGreeterv1GreeterBroadcastStart(uintptr_t requestPtr, int32_t requestLen, int32_t* handle, GreeterRpccgoMessageOnRecvCallback onRecv, GreeterRpccgoMessageOnDoneCallback onDone);
 
 // rpccgoMsgGreeterv1GreeterBroadcastRecv receives a message response from the server-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Broadcast.
 //
 extern int32_t rpccgoMsgGreeterv1GreeterBroadcastRecv(int32_t handle, uintptr_t* responsePtr, int32_t* responseLen);
 
-// rpccgoMsgGreeterv1GreeterBroadcastFinish finishes the message server-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Broadcast.
-//
-extern int32_t rpccgoMsgGreeterv1GreeterBroadcastFinish(int32_t handle);
-
 // rpccgoMsgGreeterv1GreeterBroadcastCancel cancels the message server-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Broadcast.
 //
 extern int32_t rpccgoMsgGreeterv1GreeterBroadcastCancel(int32_t handle);
 
+// rpccgoMsgGreeterv1GreeterBroadcastClose closes callback receive ownership for the message server-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Broadcast without delivering further callbacks.
+//
+extern int32_t rpccgoMsgGreeterv1GreeterBroadcastClose(int32_t handle);
+
 // rpccgoMsgGreeterv1GreeterChatStart starts the message bidi-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Chat.
 //
-extern int32_t rpccgoMsgGreeterv1GreeterChatStart(int32_t* handle);
+extern int32_t rpccgoMsgGreeterv1GreeterChatStart(int32_t* handle, GreeterRpccgoMessageOnRecvCallback onRecv, GreeterRpccgoMessageOnDoneCallback onDone);
 
 // rpccgoMsgGreeterv1GreeterChatSend sends a message request to the bidi-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Chat.
 //
@@ -290,6 +312,10 @@ extern int32_t rpccgoMsgGreeterv1GreeterChatFinish(int32_t handle);
 // rpccgoMsgGreeterv1GreeterChatCancel cancels the message bidi-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Chat.
 //
 extern int32_t rpccgoMsgGreeterv1GreeterChatCancel(int32_t handle);
+
+// rpccgoMsgGreeterv1GreeterChatClose closes callback receive ownership for the message bidi-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Chat without delivering further callbacks.
+//
+extern int32_t rpccgoMsgGreeterv1GreeterChatClose(int32_t handle);
 
 // rpccgoNativeGreeterv1GreeterSayHello invokes the native unary client entrypoint for examples.connect.greeter.v1.Greeter.SayHello.
 //
@@ -313,23 +339,23 @@ extern int32_t rpccgoNativeGreeterv1GreeterCollectCancel(int32_t stream);
 
 // rpccgoNativeGreeterv1GreeterBroadcastStart starts the native server-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Broadcast.
 //
-extern int32_t rpccgoNativeGreeterv1GreeterBroadcastStart(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t CityPtr, int32_t CityLen, int32_t CityOwnership, int32_t* stream);
+extern int32_t rpccgoNativeGreeterv1GreeterBroadcastStart(uintptr_t NamePtr, int32_t NameLen, int32_t NameOwnership, uintptr_t CityPtr, int32_t CityLen, int32_t CityOwnership, int32_t* stream, GreeterBroadcastCGONativeOnRecvCallback onRecv, RpccgoNativeOnDoneCallback onDone);
 
 // rpccgoNativeGreeterv1GreeterBroadcastRecv receives native response values from the server-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Broadcast.
 //
 extern int32_t rpccgoNativeGreeterv1GreeterBroadcastRecv(int32_t stream, uintptr_t* outMessagePtr, int32_t* outMessageLen, int32_t* outMessageOwnership);
 
-// rpccgoNativeGreeterv1GreeterBroadcastFinish finishes the native server-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Broadcast.
-//
-extern int32_t rpccgoNativeGreeterv1GreeterBroadcastFinish(int32_t stream);
-
 // rpccgoNativeGreeterv1GreeterBroadcastCancel cancels the native server-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Broadcast.
 //
 extern int32_t rpccgoNativeGreeterv1GreeterBroadcastCancel(int32_t stream);
 
+// rpccgoNativeGreeterv1GreeterBroadcastClose closes callback receive ownership for the native server-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Broadcast without delivering further callbacks.
+//
+extern int32_t rpccgoNativeGreeterv1GreeterBroadcastClose(int32_t stream);
+
 // rpccgoNativeGreeterv1GreeterChatStart starts the native bidi-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Chat.
 //
-extern int32_t rpccgoNativeGreeterv1GreeterChatStart(int32_t* stream);
+extern int32_t rpccgoNativeGreeterv1GreeterChatStart(int32_t* stream, GreeterChatCGONativeOnRecvCallback onRecv, RpccgoNativeOnDoneCallback onDone);
 
 // rpccgoNativeGreeterv1GreeterChatSend sends native request values to the bidi-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Chat.
 //
@@ -350,6 +376,10 @@ extern int32_t rpccgoNativeGreeterv1GreeterChatFinish(int32_t stream);
 // rpccgoNativeGreeterv1GreeterChatCancel cancels the native bidi-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Chat.
 //
 extern int32_t rpccgoNativeGreeterv1GreeterChatCancel(int32_t stream);
+
+// rpccgoNativeGreeterv1GreeterChatClose closes callback receive ownership for the native bidi-streaming client entrypoint for examples.connect.greeter.v1.Greeter.Chat without delivering further callbacks.
+//
+extern int32_t rpccgoNativeGreeterv1GreeterChatClose(int32_t stream);
 
 // rpccgoMsgGreeterv1GreeterRegister registers cgo message callbacks as the current server for examples.connect.greeter.v1.Greeter.
 //

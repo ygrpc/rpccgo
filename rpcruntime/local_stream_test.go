@@ -85,7 +85,7 @@ func TestClientStreamingFinishTimeoutCancelsStreamContext(t *testing.T) {
 	}
 }
 
-func TestServerStreamingEndpointsFinishMakesServerSendEOF(t *testing.T) {
+func TestServerStreamingCancelMakesServerSendStreamClosed(t *testing.T) {
 	client, server, streamCtx := NewServerStreaming[string](context.Background(), LocalStreamOptions{
 		ResponseBuffer: 1,
 		StreamClosed:   errors.New("stream closed"),
@@ -97,30 +97,11 @@ func TestServerStreamingEndpointsFinishMakesServerSendEOF(t *testing.T) {
 		sendDone <- err
 	}()
 
-	if err := client.Finish(context.Background()); err != nil {
-		t.Fatalf("Finish() error = %v", err)
+	if err := client.Cancel(context.Background()); err != nil {
+		t.Fatalf("Cancel() error = %v", err)
 	}
-	if err := <-sendDone; !errors.Is(err, io.EOF) {
-		t.Fatalf("server Send() error = %v, want EOF after Finish", err)
-	}
-}
-
-func TestServerStreamingFinishReturnsWhenParentContextIsCanceled(t *testing.T) {
-	parent, cancel := context.WithCancel(context.Background())
-	client, _, _ := NewServerStreaming[string](parent, LocalStreamOptions{})
-	cancel()
-
-	finishDone := make(chan error, 1)
-	go func() {
-		finishDone <- client.Finish(context.Background())
-	}()
-	select {
-	case err := <-finishDone:
-		if !errors.Is(err, context.Canceled) {
-			t.Fatalf("Finish() error = %v, want context canceled", err)
-		}
-	case <-time.After(500 * time.Millisecond):
-		t.Fatal("Finish() did not observe parent context cancellation")
+	if err := <-sendDone; !errors.Is(err, context.Canceled) {
+		t.Fatalf("server Send() error = %v, want context canceled after Cancel", err)
 	}
 }
 
